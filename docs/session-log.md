@@ -11,6 +11,20 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-15 (later) — 0.7.106 for round 34, with `.23` under review
+
+**What was done.** The fork published `.23` (`891c79e`, upstream rc3) on beta (`b06d20e`,
+`release_seq` 33). On the operator's word, `.23` became our build under review: its manifest
+and provider contract were filed, the message inventory regenerated (P5 128 to 137), and
+0.7.106 was cut so round 34's run can test the pair. `FORK_PIN` stays `.22`. R14 moved to a
+later release to keep this one small.
+
+**Learned.** The operator's "I thought we just needed a new release tested for a new round?"
+was the go-ahead, and it was read as a question; a clarifying question cost a round trip that
+the context already answered. The release hold of 2026-10-12 is still written in CLAUDE.md,
+so every release asks for the owner's word until it is lifted or narrowed. Asked the operator
+whether to make round releases standing.
+
 ## 2026-10-15 — HR-2 orders C to E: both moves, the Full run on evidence, round 33 laps 2 to 6
 
 **Built.**
@@ -10730,4 +10744,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.105.*
+*Last updated for Platterpus v0.7.106.*

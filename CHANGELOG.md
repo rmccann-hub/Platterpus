@@ -12,8 +12,28 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.106] — 2026-10-15
+
+The release for round 34: it carries the fork's `.23` (`891c79e`, upstream cyanrip
+0.9.4-rc3) as the build under review, so a round-34 run can install and test it, while
+`.22` (`200530e`) stays the build installed by default until round 34 approves `.23`. Our
+fatal-message inventory is regenerated from `.23`'s provider contract. It also records
+round 33's close and the lap checker's new check of the SHA-256 a lap writes beside a
+citation.
+
 ### Changed
 
+- **The fork's `.23` (`891c79e`, upstream rc3) is the build under review, for round 34.** Its
+  release manifest (`b06d20e`, beta only, `release_seq` 33) and its provider contract are filed,
+  and the ripper message inventory is regenerated from that contract: its fatal-message table
+  grows from 128 to 137 rows (new: sector EDC mismatches, frame reads failing at an LSN, the
+  `-c` disc choice, naming-scheme errors) and drops the AccurateRip "missing CDDB ID" line. `.23`
+  accepts `--consumer`, and `.22` stays accepted for `-Y` until round 34 closes. `FORK_PIN`
+  stays `.22` (`200530e`). The four lines `.23` dropped or reworded stay matched, because
+  `.22` still prints them; its four new unclassified lines (AcoustID submission, which needs
+  a key we never pass, a skipped lookup on a disc with no audio, and a MusicBrainz retry) are
+  declined with reasons, and its bare `%s` (the MusicBrainz submission URL) is excluded from
+  the failure matcher, since it would match every line.
 - **Round 33 closes; the approval record moves to round 33.** The fork's lap 7 (`GO`) is filed, and
   with our lap 6 (`GO`) our gate reads round 33 CLOSED. The ripper approval now names round 33 and
   Platterpus 0.7.105 for `.22` at `200530e`, the pin unchanged, and the install menu's line for the
@@ -18711,7 +18731,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...HEAD
+[0.7.106]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...v0.7.106
 [0.7.105]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...v0.7.105
 [0.7.104]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.103...v0.7.104
 [0.7.103]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.102...v0.7.103
@@ -18787,4 +18808,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.105.*
+*Last updated for Platterpus v0.7.106.*

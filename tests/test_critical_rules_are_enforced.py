@@ -1501,7 +1501,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # production menu sentence, rewritten for round 32, is one line shorter.
     # 2714 -> 2716 (2026-10-14): round 33 opens, reviewing `.22` again; the pin under
     # review's round moves to 33 with its history line, as every round before it.
-    "deps/fork_source.py": 2716,
+    # 2716 -> 2741 (2026-10-15): `.23` (`891c79e`) becomes the build under review
+    # for round 34: its release sequence, the pin under review's history line, the
+    # pairing, its consumer-flag entry, and `.22` named in the verify-log set ahead
+    # of FORK_PIN's roll.
+    "deps/fork_source.py": 2741,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2016,7 +2020,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1184 -> 1202** (2026-10-12): `.22`'s contract adds one P5a row, the third
     # repeat-limit wording (`last read %08X, not kept`), retained with its reason
     # beside its two siblings, as `RETAINED_BEYOND_P5`'s invariant requires.
-    "ripper_message_inventory.py": 1202,
+    # **1202 -> 1256** (2026-10-15): regenerated from `.23`'s contract (P5 128 ->
+    # 137, P5a 8 -> 12: upstream rc3's sector EDC and frame-read lines, the `-c`
+    # disc choice and naming-scheme errors).
+    # Then 1256 -> 1332: the decisions `.23`'s contract asks for, four strings it
+    # dropped retained for `.22` (still `FORK_PIN`), four new P5a rows declined, and
+    # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
+    "ripper_message_inventory.py": 1332,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own

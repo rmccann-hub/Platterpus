@@ -73,6 +73,11 @@ _FILED_MANIFESTS: Final[dict[str, str]] = {
     "fork_release_manifest_ca27b95.json": (
         "2b16256dd3bcbd0810b4229cff063a911725c6d0c5eddae092eb80a1d5e9fe85"
     ),
+    # `.23` on beta only (`release_seq` 33, `handshake_round` 34,
+    # `round_closed: false`), 2026-10-15: round 34's subject.
+    "fork_release_manifest_b06d20e.json": (
+        "cbf2fc91cc0bb86158ee0b4f9b9c63de6128cff8e54bafbe044986710ab65a8b"
+    ),
 }
 
 #: ``HANDSHAKE-PIN: <commit>`` at column 0 of a round file's wire header. Anchored
