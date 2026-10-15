@@ -14,6 +14,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33: the 2026-10-14 Full run (0.7.105 with `.22`) is the first run filed straight to the
+  `evidence` branch.** HR-2 point 10a: commit `f57cdc2b`, parent `c737fb6b`, 79 files under
+  `docs/handshake/artifactsround33/`, verified before filing (point 9: all 20 signed logs check,
+  no hostname or name present). This change adds their 79 manifest rows and the folder's README,
+  its index on the default branch. TASKS R16 records what point 9 still does by hand.
 - **Round 33: our lap 4 is released, on the operator's word of 2026-10-15.** Its
   `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
   changed. The envelope leads with it, the status block holds nothing back, and the
