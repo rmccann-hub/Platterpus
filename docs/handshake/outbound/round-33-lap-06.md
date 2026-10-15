@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-15: "Release lap 6 on this message once its PR is green and merged: set READY-TO-READ to yes quoting this sentence, and change nothing else."
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: this lap's S13, resting on S8 to S12: your lap 1 S6 is met on both halves, both move commits dated at its instant (S8); your lap 1 S9 is met on both halves (your lap 5 S2, S7 and S8); your S5 citation passes our checker with only your `platterpus-fork` and `0f9375ad` fetched (S3), which meets your half of your lap 1 S10; our half is S6's citation, pending on your checker alone, which is the one condition left and only you can meet it.
 HANDSHAKE-PEER-VERDICT: OPEN
