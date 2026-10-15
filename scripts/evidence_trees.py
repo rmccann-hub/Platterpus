@@ -74,15 +74,19 @@ def check_move(root: Path, removal: str, folders: Sequence[str]) -> list[str]:
                 f"{folder}: tree {a or '(none)'} at {last[:12]}, "
                 f"{b or '(none)'} at {evidence[:12]}"
             )
+    # `-z`, because without it git quotes any path holding a non-ASCII byte
+    # ("…\342\210\266…") and the quoted form matches no manifest row: the
+    # fork's move, verified here on 2026-10-15, has 29 such paths.
     deleted = git(
         root,
         "diff-tree",
         "--no-commit-id",
         "-r",
         "--name-only",
+        "-z",
         "--diff-filter=D",
         removal,
-    ).stdout.split("\n")
+    ).stdout.split("\0")
     for path in filter(None, deleted):
         if path not in rows:
             problems.append(f"{path}: deleted by {removal[:12]} with no manifest row")
@@ -127,8 +131,8 @@ def check_unchanged(root: Path, ref: str) -> tuple[list[str], int]:
         held = git(root, "rev-parse", "--verify", "--quiet", f"{ref}:{folder}")
         if held.returncode != 0:
             continue
-        files = git(root, "ls-tree", "-r", "--name-only", ref, "--", folder)
-        if all(stays_on_default(f) for f in files.stdout.split("\n") if f):
+        files = git(root, "ls-tree", "-r", "--name-only", "-z", ref, "--", folder)
+        if all(stays_on_default(f) for f in files.stdout.split("\0") if f):
             continue  # removed already: only what stays on the default branch is left
         examined += 1
         if len(commits) != 1:
