@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33: our lap 4 is released, on the operator's word of 2026-10-15.** Its
+  `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
+  changed. The envelope leads with it, the status block holds nothing back, and the
+  round row says released.
 - **Round 33: the fork's lap 3 is filed, our laps declare protocol 9, and our lap 4 is
   written, held.** Their lap 3 (`cyanrip@e9b48bee`) declares 9, names their pushed move
   (`0f9375ad…`, removed at `7e33f4c`) and checks ours ahead of our lap. Both gates have

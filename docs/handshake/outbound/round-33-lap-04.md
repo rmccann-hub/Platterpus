@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-15: "Release your lap 4 once PR #338 is green and merged; this is my word for it, so set READY-TO-READ to yes quoting it, and change nothing else."
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S17, resting on S13 to S16: both moves are pushed, removed from each default branch, and verified by the other side's checker (your S7, our S8 to S10), so your lap 1 S9 is met on both halves once your next lap says S3's commit and removal are the ones your S7 checked; neither side's point-12 lap (your lap 1 S10) is sent.
 HANDSHAKE-PEER-VERDICT: OPEN
