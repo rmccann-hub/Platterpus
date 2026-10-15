@@ -11,6 +11,23 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-15 — HR-2 orders C to E: both moves, the Full run on evidence, round 33 laps 2 to 6
+
+**Built.**
+- **Order C and lap 2.** Our gate at 9 (`bc3f7162`); the fork's lap 1 filed; our lap 2 (PR #333, `ac9cf53f`) named our move `c737fb6b` built from `25db8bd5` and rebuilt theirs to `0f9375ad`; released by PR #335.
+- **Order D, our move.** `c737fb6b` pushed to `evidence` (756 files, 425,738,049 bytes, 58 s); the removal, PR #336, merged as `f82392bb` after HR-2.1 b's check. Checkout 479.1 MB to 73.4 MB.
+- **The fork's move verified** by our checker after `7981b961` taught our tree checks `-z` (29 non-ASCII paths); lap 4 (PR #338) said so, released by PR #339 (`b9ea27f4`).
+- **The 2026-10-14 Full run filed straight to `evidence`** (HR-2 point 10): `f57cdc2b`, 79 files, under `docs/handshake/artifactsround33/`, after point 9's checks (all 20 signed logs verified; no hostname or name present); its rows by PR #340 (`37ed04b9`).
+- **Lap 6**, `GO`: the fork's lap 5 filed; its S5 citation passes our checker with only their `platterpus-fork` and `0f9375ad` fetched; our point-12 citation of `round33fullwholedisc.log` on `f57cdc2b`; the round summary.
+- **The lap checker reads the SHA-256 a lap writes beside a citation** (`7ac8b5fc`), found by tampering with lap 5.
+
+**Learned.**
+- **A check's green is not evidence until it has failed once.** Graduated to `docs/testing.md` §5.ad.
+- **Run every test that names a file before pushing an edit to it.** Our lap 4 release wrote "nothing held" in the status block, and the test that holds that line was not in the subset run locally (`8c200ed2`).
+- **HR-2 point 9 needs a filing tool**, not a session's scratch scripts (TASKS R16).
+
+**Next.** The fork's lap 7 checks our citation; when our gate reads round 33 CLOSED, our approval record moves to round 33 for `.22` with 0.7.105 (lap 6 S14). Then R14 for 0.7.106, and round 34 with `.23`.
+
 ## 2026-10-14 (night) — HR-2 order B: protocol v9 in both trees, HR-2.1 a and b
 
 **Built.** PR #330, merged as `37826a5f`:

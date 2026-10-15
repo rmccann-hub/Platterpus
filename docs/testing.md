@@ -1186,6 +1186,22 @@ that filler counts.** It now pads with each section's own subject.
 
 **Can it be satisfied by the *wrong* thing?** The companion question, and the one never asked of the gate that guards the cyanrip handshake until round 6 found it twice in one file. `handshake.py --check` keyed required sections on a single letter at the start of a line, so §I ("Provider contract") was satisfied by the sentence *"I wrote, of your continuation-line sweep:"* — the contract really was in the file, so the verdict was right and the reason was not; it would have passed with the contract deleted. And §G ("Revert-proof") was satisfied by a section they had lettered `## G. Asks back`, while the word "revert" appeared **zero** times in the document. It reported one problem; there were three. **A check that passes for the wrong reason is worse than one that fails**, because a failure gets investigated and a pass gets cited. Where a check matches on a *label*, make it also require the *subject* — the label answers "did they name it", the content answers "did they write it", and only the pair is a check.
 
+#### A value a citation states that the checker never reads (2026-10-15)
+
+*Round 33 lap 6, checking the fork's lap 5 S5, HR-2's first evidence citation.*
+HR-2 §6a cites evidence as `<repo>@<commit>:<path>` **with its SHA-256**. Our lap
+checker compared the cited file with its manifest ROW, and checked the commit was on
+the `evidence` branch, but never read the hash the lap itself wrote. Its green on
+the fork's citation took two seconds and said nothing about that hash: a copy with
+the last hex digit changed passed too. **The rule: a checker checks every value a
+citation states, not only the ones it can look up elsewhere** — an unread quoted
+value is decoration, and a lap that writes one is trusted for a check nobody made.
+**And the way it was found is the habit: before believing a new check, make it fail
+once** on an input changed by one byte. Fixed in `7ac8b5fc`
+(`scripts/laplang/check.py`, `_quoted_hash`), held by three tests in
+`tests/test_lap_evidence_citations.py`, revert-probed. The fork's checker already
+read it (`cyanrip@9e11478:tools/lap-statements.py:608`).
+
 ### §5.ae — A gate that reads presence instead of decision
 
 *Handshake round 7, 2026-08-03. The same file as §5.ad, one round later, and the

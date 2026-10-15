@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33: the fork's lap 5 is filed and our lap 6 is written, held, declaring `GO`.** Their point-12
+  citation passes our checker with only their default branch and the cited commit fetched; ours cites the
+  2026-10-14 whole-disc rip log on our `evidence` branch (`f57cdc2b`); the lap carries our round summary.
+  Round 33 closes when their lap 7 declares `GO`.
 - **The lap checker now checks the SHA-256 a lap writes beside a citation.** HR-2 §6a cites
   evidence as `<repo>@<commit>:<path>` with its SHA-256; until now `lap_language.py check`
   compared the cited file with its manifest row and never read the hash the lap wrote, so a

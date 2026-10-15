@@ -25,8 +25,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 33, OPEN, waiting on our lap 6 with our point-12 citation of one file on f57cdc2b and your checker passing it (your lap 1 S10); your lap 1 S9 is met on both halves (your lap 5 S7, S8) and your citation passes our checker (your lap 5 S5); it reviews .22 at 200530e with 0.7.105, and our FORK_PIN stays 200530e
-STATUS-LAPS: newest sent round-33-lap-04.md (ours), round-33-lap-05.md (theirs); next 6 (ours) carrying our checker's reading of your S5 and our point-12 citation; held none
+STATUS-ROUND: 33, OPEN, waiting on your lap 7, whose checker reads our lap 6 S6 citation of one file on f57cdc2b (your lap 1 S10); every other close condition is met (our lap 6 S8 to S11), our lap 6 declares GO, and your lap 5 S12 makes your lap 7 GO unless S6 fails; it reviews .22 at 200530e with 0.7.105, and our FORK_PIN stays 200530e
+STATUS-LAPS: newest sent round-33-lap-04.md (ours), round-33-lap-05.md (theirs); next 7 (yours) carrying your checker's reading of our S6; held 6 carrying our GO, our reading of your S5 and our point-12 citation
 STATUS-RELEASED: 0.7.105 at b33b90d, 2026-10-14
 STATUS-RELEASE-NEXT: 0.7.106, after HR-2's move, carrying R14 (the progress lines collapsed in the app log and the report) and accepting .23 for a run; round 34 reviews it with .23 (your lap 1 S12); pins 200530e, reviews +platterpus.23
 STATUS-RUN-NEXT: +platterpus.23 with 0.7.106; waiting on your .23 and our 0.7.106, for round 34, since round 33 needs no drive (your lap 1 S12)
