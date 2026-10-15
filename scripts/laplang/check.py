@@ -17,16 +17,38 @@ Three more rules are stated elsewhere in the spec and have their own ids:
 table) and `LSL.value` (a value outside the shape the table gives it, such as an
 `owner:` that is not us, them or operator). `LSL.header` covers the three wire
 headers the body's references depend on: who wrote the lap, its round, its lap.
+
+**A hash written beside a citation is checked, not decoration.** HR-2 §6a cites
+evidence as `<repo>@<commit>:<path>` "with its SHA-256", on one line. Until
+2026-10-15 this checker compared the cited file with its manifest ROW and never
+read the SHA-256 the lap itself wrote, so a lap quoting a wrong hash passed:
+found by changing one hex digit of the fork's round 33 lap 5 S5 and watching the
+check stay green. Now `sha256 <hex>` straight after an artifact reference must be
+the SHA-256 of the file that reference resolves to (`LSL.4`).
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Final
 
 from .context import Context
+from .gitio import run_git_bytes
 from .model import Side, Statement
-from .refs import first_token, is_run, parse_artifact, parse_statement, tokens
+from .refs import (
+    ArtifactRef,
+    Resolution,
+    first_token,
+    is_run,
+    parse_artifact,
+    parse_statement,
+    tokens,
+)
+
+#: `sha256 <value>` straight after an artifact reference (HR-2 §6a's one line).
+_QUOTED_SHA256: Final[re.Pattern[str]] = re.compile(r"\Asha256\s+(\S+)")
+_SHA256_HEX: Final[re.Pattern[str]] = re.compile(r"\A[0-9a-f]{64}\Z")
 
 DATE_RE: Final[re.Pattern[str]] = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 VERDICTS: Final[frozenset[str]] = frozenset({"GO", "HOLD", "OPEN"})
@@ -188,7 +210,11 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
             )
             continue
         artifacts.append(ref.side)
-        ctx.report(fld.line, "LSL.4", ctx.trees.artifact(ref, ctx.lap.author))
+        resolved = ctx.trees.artifact(ref, ctx.lap.author)
+        ctx.report(fld.line, "LSL.4", resolved)
+        quoted = _QUOTED_SHA256.match(fld.value.strip()[len(token) :].strip())
+        if quoted is not None and resolved.outcome in ("ok", "offrecord"):
+            ctx.report(fld.line, "LSL.4", _quoted_hash(ctx, ref, quoted.group(1)))
     if not stmt.values("evidence"):
         return
     if stmt.kind == "FACT" and stmt.grade == "measured":
@@ -200,6 +226,34 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
             )
     if stmt.kind == "FACT" and stmt.grade == "read" and not artifacts:
         ctx.refuse(stmt.line, "LSL.2", f"{stmt.tag}: read needs an artifact reference")
+
+
+def _quoted_hash(ctx: Context, ref: ArtifactRef, quoted: str) -> Resolution:
+    """Does the file `ref` resolves to hash to the SHA-256 the lap wrote?"""
+    label = f"{ref.side}@{ref.sha}:{ref.path}"
+    if not _SHA256_HEX.fullmatch(quoted):
+        return Resolution("refused", f"{label}: {quoted!r} is not a SHA-256")
+    data = ctx.trees.evidence_bytes(ref)
+    if data is None:
+        root = ctx.trees.roots.get(ref.side)
+        shown = (
+            None
+            if root is None
+            else run_git_bytes(root, "show", f"{ref.sha}:{ref.path}")
+        )
+        if shown is None or shown.returncode != 0:
+            return Resolution(
+                "unchecked",
+                f"UNCHECKED {label}: could not read it to check its SHA-256",
+            )
+        data = shown.stdout
+    got = hashlib.sha256(data).hexdigest()
+    if got != quoted:
+        return Resolution(
+            "refused",
+            f"{label}: the file hashes {got}, the lap quotes {quoted} (HR-2 §6a)",
+        )
+    return Resolution("ok")
 
 
 def _check_verdict(ctx: Context, stmt: Statement) -> None:
