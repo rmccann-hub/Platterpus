@@ -1151,6 +1151,51 @@ RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
         "and a string leaves the matcher only as a decision with a reason; "
         "over-matching a line `-N` never lets print costs nothing.",
     ),
+    (
+        RipperMessage(
+            site="accurip.c:218",
+            text="Unable to get AccuRIP DB data: missing CDDB ID!",
+            evidence="wording + goto end (round 32 P5)",
+            reaches_logfile=True,
+        ),
+        "REMOVED from P5 at round 34 (`.23`, `891c79e`), and retained because `.22` "
+        "(`200530e`) prints it: `.22` is `FORK_PIN`, the build installed by default "
+        "until round 34 closes, so dropping the row would give its users a bare Rip "
+        "failed. Retiring it is a decision for a later round, with a reason.",
+    ),
+    (
+        RipperMessage(
+            site="genopt.h:292",
+            text='Error parsing %lli for argument "%s": not in [%lli:%lli] range!',
+            evidence="genopt (round 32 P5)",
+            reaches_logfile=True,
+        ),
+        "`.23` now prints the rejected argument as text (`Error parsing %s for argument "
+        "...`, in MESSAGES); `.22`, `FORK_PIN` until round 34 closes, prints this "
+        "form, so it is retained for its users.",
+    ),
+    (
+        RipperMessage(
+            site="genopt.h:312",
+            text='Error parsing %llu for argument "%s": not in [%llu:%llu] range!',
+            evidence="genopt (round 32 P5)",
+            reaches_logfile=True,
+        ),
+        "the unsigned twin of the row above, reworded in `.23` the same way and "
+        "retained for `.22` for the same reason.",
+    ),
+    (
+        RipperMessage(
+            site="musicbrainz.c:355",
+            text="Release ID %s not found in release list for DiscID %s!",
+            evidence="control flow (round 32 P5)",
+            reaches_logfile=True,
+        ),
+        "`.23` rewords it to `Release ID %s not found on MusicBrainz!` (in MESSAGES). We "
+        "pass `-N`, so no build reaches it under our argv, but a hand-run `.22` can, "
+        "and a retained row costs nothing: retained for `.22`, `FORK_PIN` until "
+        "round 34 closes.",
+    ),
 )
 
 #: The subset safe to treat as a hard failure. See the module docstring.
@@ -1204,6 +1249,28 @@ CONTROL_FLOW_PROVEN: Final[tuple[RipperMessage, ...]] = tuple(
 #: cannot, and every P5a row must appear in exactly one of the two lists.
 P5A_NOT_RETAINED: Final[tuple[tuple[str, str], ...]] = (
     (
+        "Disc has no audio tracks, skipping AccuRIP DB!",
+        "round 34 (`.23`): a skipped AccurateRip lookup on a disc with no audio, "
+        "not a failed rip. Surfacing it as a fatal would mark a rip failed for a "
+        "skip; a disc with no audio fails on its own, louder, sentence.",
+    ),
+    (
+        "AcoustID submission failed: %s",
+        "round 34 (`.23`): AcoustID submission needs `--acoustid-key`, which we "
+        "never pass, so no rip of ours reaches it. If we ever pass a key, this row "
+        "is decided again.",
+    ),
+    (
+        "AcoustID: submitted %i fingerprint%s, pending import",
+        "round 34 (`.23`): the SUCCESS line of an AcoustID submission, which needs "
+        "`--acoustid-key`; we never pass one, and a success is not an error.",
+    ),
+    (
+        "Release ID %s not found in release list for DiscID %s, looking it up",
+        "round 34 (`.23`): a MusicBrainz fallback that is about to try again, so "
+        "not a failure, and unreachable under our argv: every rip passes `-N`.",
+    ),
+    (
         "Done; (%i out of %i matches for current checksum %08X)",
         "the -Z convergence SUCCESS message. Its home is SURFACING_EXCLUDED, which "
         "already says do-not-surface with the reason; retaining it as well would "
@@ -1243,6 +1310,15 @@ SURFACING_EXCLUDED: Final[tuple[tuple[str, str], ...]] = (
     (
         'Couldn\'t open path "%s" for writing: %s!Invalid folder name? Try -D <folder>.',
         _FUSED_BY_A_GENERATOR_DEFECT,
+    ),
+    (
+        "%s",
+        "round 34 (`.23`): P5 lists a bare `%s` at `musicbrainz.c:491`, which "
+        "prints the MusicBrainz submission URL after a forced release lookup "
+        "SUCCEEDS (`cyanrip@891c79e:src/musicbrainz.c:489-491`), so it is not a "
+        "failure, and we pass `-N`, so no rip of ours reaches it. A pattern built "
+        "from it would match every line of output and report every progress "
+        "redraw as a fatal.",
     ),
 )
 

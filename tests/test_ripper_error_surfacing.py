@@ -489,7 +489,10 @@ def test_the_convergence_success_message_is_never_a_failure_hint() -> None:
     # previously-published string may stop being matched only as a decision with a
     # written reason. Every entry still has to carry one, which is asserted below
     # for all of them rather than only for the first.
-    assert len(SURFACING_EXCLUDED) == 4, (
+    # 4 -> 5 on 2026-10-15: `.23`'s P5 lists a bare `%s` at `musicbrainz.c:491`, the
+    # MusicBrainz submission URL printed after a SUCCESSFUL forced lookup; it cannot
+    # be patterned and is not a failure, as its entry's reason says.
+    assert len(SURFACING_EXCLUDED) == 5, (
         f"the surfacing exclusion list changed to {SURFACING_EXCLUDED} — each entry "
         f"is a message the user will never be shown, so a new one is a decision"
     )
@@ -533,7 +536,7 @@ def test_every_other_inventory_row_still_reaches_the_user() -> None:
         f"surfacing exclusions: {sorted(set(ALL_FORMATS) ^ expected)}"
     )
     assert len(ALL_FORMATS) == len(set(ALL_FORMATS)), "ALL_FORMATS carries a duplicate"
-    assert len(SURFACING_EXCLUDED) == 4
+    assert len(SURFACING_EXCLUDED) == 5  # the bare `%s` from `.23`, 2026-10-15
     assert len(ALL_FORMATS) >= 125, (
         f"surfacing coverage collapsed to {len(ALL_FORMATS)}"
     )

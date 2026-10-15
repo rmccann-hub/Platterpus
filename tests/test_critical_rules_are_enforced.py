@@ -2023,7 +2023,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1202 -> 1256** (2026-10-15): regenerated from `.23`'s contract (P5 128 ->
     # 137, P5a 8 -> 12: upstream rc3's sector EDC and frame-read lines, the `-c`
     # disc choice and naming-scheme errors).
-    "ripper_message_inventory.py": 1256,
+    # Then 1256 -> 1332: the decisions `.23`'s contract asks for, four strings it
+    # dropped retained for `.22` (still `FORK_PIN`), four new P5a rows declined, and
+    # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
+    "ripper_message_inventory.py": 1332,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
