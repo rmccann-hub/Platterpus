@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33: the fork's lap 3 is filed, our laps declare protocol 9, and our lap 4 is
+  written, held.** Their lap 3 (`cyanrip@e9b48bee`) declares 9, names their pushed move
+  (`0f9375ad…`, removed at `7e33f4c`) and checks ours ahead of our lap. Both gates have
+  said they implement 9, so `DECLARED_PROTOCOL` is 9. Our lap 4 names our move
+  (`c737fb6b…`, 756 files, 425,738,049 bytes, removed at `f82392bb`) and says our checker
+  passes theirs by HR-2 5d's checks, fetching by hash.
 - **The move check reads a non-ASCII path the way the manifest writes it.** Verifying the
   fork's move by HR-2 5d's checks, `evidence_manifest.py move` reported 29 deleted paths
   with no manifest row. Every one held non-ASCII bytes, which git prints quoted unless asked

@@ -2813,7 +2813,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # the other wire-header rows they join.
     # **4544 -> 4548** (2026-10-14, HR-2 order C): `PROTOCOL_VERSION` moves to 9,
     # with its dated reason beside the constant, as 6, 7 and 8 were.
-    "scripts/handshake.py": 4548,
+    # **4548 -> 4552** (2026-10-15): `DECLARED_PROTOCOL` moves to 9, the same way.
+    "scripts/handshake.py": 4552,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.
