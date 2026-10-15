@@ -1576,7 +1576,11 @@ PROTOCOL_VERSION: int = 9
 #: input to `--emit`, and our gate did not implement C29 at all. Their round 32 lap 5
 #: S7 found it. Both halves are fixed: :func:`protocol_to_declare` never emits less
 #: than the round's record holds, and :func:`c29_problem` refuses the file.
-DECLARED_PROTOCOL: int = 8
+#:
+#: **9 since 2026-10-15**, by v9 §17's condition: both gates implement 9 and both
+#: have said so in a lap (their round 33 lap 1 S1, our round 33 lap 2 S6). Their lap
+#: 3 declares 9, so our lap 4 does, and under C29 it could not declare less.
+DECLARED_PROTOCOL: int = 9
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".
