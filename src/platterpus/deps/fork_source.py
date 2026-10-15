@@ -1848,17 +1848,17 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 32 approved, GO on both sides: the round's declared pin, "
-        "held fixed by rule R4 for the whole round, and published by the fork to "
+        "the build round 33 approved, GO on both sides, as round 32 had: the declared "
+        "pin, held fixed by rule R4 for the whole round, and published by the fork to "
         f"both channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 32, read "
         "from their release-manifest.json, and the version cross-checked against "
         "meson.build at the pin itself rather than taken from the lap). Over "
         "+platterpus.21 it labels the one-frame tally 'Tracks matched on one frame "
         "only', names a last read the repeat limit did not keep, and lists a "
-        "pregap whose search failed as unknown. Round 32's evidence on it is the "
-        "Full run on a drive, installed through Platterpus 0.7.104: 424 steps "
-        "passed, none failed, and the one step left is one this drive cannot "
-        "reach. See docs/handshake/inbound/round-32-lap-09.md"
+        "pregap whose search failed as unknown. Round 33's evidence on it is the "
+        "Full run on a drive, installed through Platterpus 0.7.105: 425 steps "
+        "passed, none failed, one could not run (the cover-art server erred), and "
+        "one this drive cannot reach. See docs/handshake/inbound/round-33-lap-07.md"
     ),
 )
 

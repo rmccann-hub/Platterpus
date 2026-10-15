@@ -26,7 +26,9 @@ Chronological record of what each Claude Code session built, decided, and learne
 - **Run every test that names a file before pushing an edit to it.** Our lap 4 release wrote "nothing held" in the status block, and the test that holds that line was not in the subset run locally (`8c200ed2`).
 - **HR-2 point 9 needs a filing tool**, not a session's scratch scripts (TASKS R16).
 
-**Next.** The fork's lap 7 checks our citation; when our gate reads round 33 CLOSED, our approval record moves to round 33 for `.22` with 0.7.105 (lap 6 S14). Then R14 for 0.7.106, and round 34 with `.23`.
+**Closed.** The fork's lap 7 (`GO`, `cyanrip@9aee54a`) passed our citation; our gate reads round 33 CLOSED, and the approval record moved to round 33 for `.22` with 0.7.105 (lap 6 S14), the install menu's production line with it.
+
+**Next (round 34, on the operator's word only).** TASKS R14 (progress lines, for 0.7.106), R16 (a filing tool for HR-2 point 9), R17 (the 2026-10-14 run's ledger row), R18 (the doc-test race with Hypothesis); round 34 reviews `.23` with 0.7.106.
 
 ## 2026-10-14 (night) — HR-2 order B: protocol v9 in both trees, HR-2.1 a and b
 

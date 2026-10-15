@@ -152,8 +152,8 @@ Details for `cyanrip`:
 - `banner`: cyanrip 0.9.4-rc2+platterpus.22 (platterpus-fork-g200530e)
 - `branch`: platterpus-fork
 - `release-seq`: 32
-- `approved-by-round`: 32
-- `approved-for-platterpus`: 0.7.104
+- `approved-by-round`: 33
+- `approved-for-platterpus`: 0.7.105
 - `checked-minimum`: 0.9.0
 - `installed-at`: /usr/local/bin/cyanrip inside the ripping container
 - `host-export`: ~/.local/bin/cyanrip

@@ -1731,7 +1731,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **769 -> 770 (2026-10-07, the 0.6.66 Full run)**: the under-review sentence delegates to `fork_source.pin_under_review_role` instead of carrying its own copy, which said an OPEN round proposed the build.
     # **770 -> 758 (2026-10-07)**: the note-token list moved to `handshake_note`.
     # 758 -> 770 (2026-10-11): round 31's approval, read from their closing lap.
-    "handshake_approval.py": 783,  # 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves.
+    "handshake_approval.py": 795,  # 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
