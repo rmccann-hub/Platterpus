@@ -287,6 +287,11 @@ FORK_PIN: Final[str] = "200530e"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 34's subject, on BETA only: `release_seq` 33, `handshake_round` 34,
+    # `round_closed: false`, version `0.9.4-rc3+platterpus.23`. Read off their
+    # `release-manifest.json` at `b06d20e` (the merge that published it), 2026-10-15,
+    # and filed byte-exact as `tests/fixtures/fork_release_manifest_b06d20e.json`.
+    "891c79e": 33,
     # Round 32's subject, on BOTH channels: `release_seq` 32, `handshake_round` 32,
     # `round_closed: false` (published under protocol v8 §6b while round 32 was
     # being opened), version `0.9.4-rc2+platterpus.22`. Read off their
@@ -810,7 +815,15 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: **Round 32 closed on 2026-10-14** and `FORK_PIN` rolled to `200530e`, so the two
 #: pins coincide again and `a_round_is_reviewing_a_build()` answers False until
 #: round 33 opens and names its build.
-PIN_UNDER_REVIEW: Final[str] = "200530e"
+#: **Moved `200530e` -> `891c79e` on 2026-10-15, on the operator's word, for round
+#: 34** on `+platterpus.23` (upstream rc3), `release_seq` 33, beta only: their
+#: manifest at `b06d20e` names it (`tests/fixtures/fork_release_manifest_b06d20e.json`)
+#: and `meson.build` at `891c79e` declares the version. Its `PROVIDER-CONTRACT.md`
+#: (built at `g3f71347`, whose `src/` and `meson.build` equal `891c79e`'s) is filed
+#: as `round-34-lap-01-provider-contract-g3f71347.md`; P1 keeps `--consumer` and
+#: `-Y`, and drops the short `-u`, which we never send. **`FORK_PIN` stays
+#: `200530e` until round 34 closes.**
+PIN_UNDER_REVIEW: Final[str] = "891c79e"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -838,7 +851,9 @@ PIN_UNDER_REVIEW: Final[str] = "200530e"
 #: 32's subject, and their round 32 lap 1 names it.
 #: **33 from 2026-10-14**: round 33 reviews `.22` again (its main task is HR-2), as
 #: their round 33 lap 1 names it, so the pin under review is unchanged.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 33
+#: **34 from 2026-10-15**: `.23`, published on beta after round 33 closed, is round
+#: 34's subject; 0.7.106 ships with it under review before their lap 1 opens it.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 34
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -1295,6 +1310,10 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # `200530e`'s) carries `-u`/`--consumer` in P1 at line 58, unchanged; `.22`'s
         # change to `src/` adds three log lines and touches no option parsing.
         "platterpus-fork-g200530e",
+        # Round 34's subject, `+platterpus.23`. Its `PROVIDER-CONTRACT.md` at
+        # `891c79e` (built at `g3f71347`, same `src/` and `meson.build`) carries
+        # `--consumer` in P1 at line 58 with no short form; we send the long one.
+        "platterpus-fork-g891c79e",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1434,6 +1453,10 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # when round 32 closes: the same defect as `.19` and `.20` above, one build
         # along. Its `PROVIDER-CONTRACT.md` at `ca3f3ea` carries `-Y` in P1.
         f"{FORK_BRANCH}-gca3f3ea",
+        # `.22`, `FORK_PIN` since round 32 closed. Listed by name because round 34
+        # moved the pin under review to `.23`, and `FORK_PIN` follows only when
+        # round 34 closes. Its `PROVIDER-CONTRACT.md` at `200530e` carries `-Y`.
+        f"{FORK_BRANCH}-g200530e",
     }
 )
 
@@ -1979,7 +2002,9 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # **Round 32's pairing, from their lap-1 wire header line 14:**
     # `cyanrip 0.9.4-rc2+platterpus.22 (platterpus-fork-g200530e)`, and their
     # manifest at `ca27b95` pairs the same two on both channels.
-    version="0.9.4-rc2+platterpus.22",
+    # **Round 34's subject, from their manifest's beta entry at `b06d20e`**: `commit`
+    # `891c79e`, `version` `0.9.4-rc3+platterpus.23`, as `meson.build` there declares.
+    version="0.9.4-rc3+platterpus.23",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

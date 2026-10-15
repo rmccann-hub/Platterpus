@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The fork's `.23` (`891c79e`, upstream rc3) is the build under review, for round 34.** Its
+  release manifest (`b06d20e`, beta only, `release_seq` 33) and its provider contract are filed,
+  and the ripper message inventory is regenerated from that contract: its fatal-message table
+  grows from 128 to 137 rows (new: sector EDC mismatches, frame reads failing at an LSN, the
+  `-c` disc choice, naming-scheme errors) and drops the AccurateRip "missing CDDB ID" line. `.23`
+  accepts `--consumer`, and `.22` stays accepted for `-Y` until round 34 closes. `FORK_PIN`
+  stays `.22` (`200530e`).
 - **Round 33 closes; the approval record moves to round 33.** The fork's lap 7 (`GO`) is filed, and
   with our lap 6 (`GO`) our gate reads round 33 CLOSED. The ripper approval now names round 33 and
   Platterpus 0.7.105 for `.22` at `200530e`, the pin unchanged, and the install menu's line for the
