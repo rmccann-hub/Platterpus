@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33: our lap 6 is released, on the operator's word of 2026-10-15.** Its
+  `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
+  changed. The envelope leads with it, the status block holds nothing back, and the round
+  row says released.
 - **Round 33: the fork's lap 5 is filed and our lap 6 is written, held, declaring `GO`.** Their point-12
   citation passes our checker with only their default branch and the cited commit fetched; ours cites the
   2026-10-14 whole-disc rip log on our `evidence` branch (`f57cdc2b`); the lap carries our round summary.
