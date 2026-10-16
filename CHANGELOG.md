@@ -14,6 +14,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 34's Full run is filed on our `evidence` branch.** 0.7.106 with the fork's `.23`
+  (`891c79e`), session 2026-10-16 00:20 UTC: 426 pass, 0 fail, 1 unreachable (E2). Its 80
+  files are on `evidence` at `fe13de0c` (parent `f57cdc2b`), with their rows in
+  `docs/evidence-manifest.tsv` (835 to 915) and the folder's README on the default branch.
+  All 20 signed logs verify; no hostname or name appears.
 - **0.7.106 is published, and round 34's run can start.** The status block names it released
   (`dd200af`, 2026-10-16) and the next run as `.23` (`891c79e`) with 0.7.106, ready.
 
