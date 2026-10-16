@@ -42,6 +42,15 @@ and the fork's round 35 lap 1 S17):
 
 ### Added
 
+- **Our round 35 lap 2, answering the fork's lap 1.** It accepts the `Disc ISRC:` line and
+  `--prefer-disc-isrc` as the fork worded them, with the option working track by track and
+  the code we passed left in `Invoked as:` rather than logged again; it asks for the 12
+  character A-to-Z and 0-to-9 check inside cyanrip in the fork's next release after `.24`, so
+  round 35's Full run stays on `.24` as pinned; it accepts `Beyond disc:`, confirms the order
+  of the shared tasks, proposes the option's row for `docs/seam-commands.md`, and names
+  0.7.108 as the release the run goes through. Held until its pull request merges, then
+  released on the operator's standing word for round 35.
+
 - **Round 35 opens: the fork's `.24` is the build under review.** Their round 35 lap 1 is
   filed (`cyanrip@e1adf47`). `.24` (`93afa15`, upstream 0.9.4-rc3) adds a `Disc ISRC:` line per
   track, the `--prefer-disc-isrc` option and a bounded `-O`. Its provider contract is filed, and
