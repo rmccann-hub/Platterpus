@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Round 35 opens: the fork's `.24` is the build under review.** Their round 35 lap 1 is
+  filed (`cyanrip@e1adf47`). `.24` (`93afa15`, upstream 0.9.4-rc3) adds a `Disc ISRC:` line per
+  track, the `--prefer-disc-isrc` option and a bounded `-O`. Its provider contract is filed, and
+  our ripper message inventory is regenerated from it. Platterpus still installs `.23` by
+  default until round 35 closes.
+
 - **The rip report records the disc's own ISRC beside the one the files carry.** Since the
   fork's `.23`, cyanrip reads each track's ISRC from the disc even when we pass one, but only
   its `-j` record held the disc's reading: the log's `ISRC:` line and the tags carry the

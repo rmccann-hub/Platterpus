@@ -1507,7 +1507,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of FORK_PIN's roll.
     # 2741 -> 2751 (2026-10-16): round 34's close rolls FORK_PIN and
     # FORK_EXPECTED_VERSION to `.23`, each roll recorded beside its constant.
-    "deps/fork_source.py": 2751,
+    # **2751 -> 2773** (2026-10-16, round 35 opens): `.24` becomes the build under review (`PIN_UNDER_REVIEW` `93afa15`, its release sequence 35, its consumer-flag row, its version), each with the source it was read from, as every round open adds.
+    "deps/fork_source.py": 2773,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

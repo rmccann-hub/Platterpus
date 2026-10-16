@@ -1,0 +1,29 @@
+{
+  "channels": {
+    "beta": {
+      "build": "meson setup build -Ddeclare_released=true && ninja -C build",
+      "commit": "93afa15",
+      "handshake_round": 35,
+      "install": "https://github.com/rmccann-hub/cyanrip/archive/93afa15.tar.gz",
+      "release_seq": 35,
+      "round_closed": false,
+      "version": "0.9.4-rc3+platterpus.24"
+    },
+    "stable": {
+      "build": "meson setup build -Ddeclare_released=true && ninja -C build",
+      "commit": "891c79e",
+      "handshake_round": 34,
+      "install": "https://github.com/rmccann-hub/cyanrip/archive/891c79e.tar.gz",
+      "release_seq": 34,
+      "round_closed": true,
+      "version": "0.9.4-rc3+platterpus.23"
+    }
+  },
+  "default_channel": "stable",
+  "latest_seq": 35,
+  "manifest_url": "https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json",
+  "note": "Machine-readable. Order by release_seq -- the version string cannot be ordered, because the part that advances is SemVer build metadata, which is ignored for precedence.",
+  "project": "cyanrip-fork",
+  "repo": "https://github.com/rmccann-hub/cyanrip",
+  "schema": 2
+}
