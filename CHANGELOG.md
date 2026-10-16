@@ -14,6 +14,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 34 opens: the fork's lap 1 is filed and our lap 2 is written, held, declaring `GO`.**
+  Their lap 1 (`cyanrip@fa8e7e4`) passes both our checkers; our gate now counts round 34.
+  Our lap 2 reads the 2026-10-16 Full run on `.23` through 0.7.106, cites its whole-disc log
+  on our `evidence` branch, and finds no defect in `.23`. Round 34 closes when their next
+  lap declares `GO`.
 - **Round 34's Full run is filed on our `evidence` branch.** 0.7.106 with the fork's `.23`
   (`891c79e`), session 2026-10-16 00:20 UTC: 426 pass, 0 fail, 1 unreachable (E2). Its 80
   files are on `evidence` at `fe13de0c` (parent `f57cdc2b`), with their rows in
