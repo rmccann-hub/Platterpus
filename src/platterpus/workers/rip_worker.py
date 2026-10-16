@@ -51,6 +51,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
+from platterpus.isrc_provenance import IsrcReading, read_isrcs
 from platterpus.ladder_trigger import judge_step_down
 from platterpus.parsers import cyanrip_log
 from platterpus.parsers.rip_log import RereadAgreement
@@ -62,7 +63,7 @@ from platterpus.read_speed_ladder import (
     recovery_secure_rerip_ceiling,
     unstable_tracks,
 )
-from platterpus.redraw_run import RedrawRun
+from platterpus.redraw_run import LoggedRun, RedrawRun
 from platterpus.rip_addendum import (
     SupersededTrack,
     read_log_with_addendum,
@@ -1006,6 +1007,10 @@ class RipWorker(QObject):
         # written, thinned, when any other line is retained, and shown by
         # `captured_stdout` while still open, so no exit path can lose it.
         self._redraw_run: RedrawRun = RedrawRun()
+        # The same runs as the app log (and so the report's `debug.lines`) writes
+        # them: first, a checkpoint every 10 s, last, and a counted marker for the
+        # rest (`redraw_run.LoggedRun`, TASKS R14).
+        self._logged_run: LoggedRun = LoggedRun()
         # What screening changed in the ripper's output (Critical rule #12, the
         # inbound half — `inbound_text`). Reported at the end of `captured_stdout`
         # so a reader knows an escape was ours, not the ripper's.
@@ -1043,6 +1048,9 @@ class RipWorker(QObject):
         # ended (`ripper_ending`, W6). None until read, at the end of the rip.
         self._album_record: Path | None = None
         self._ripper_ending: RipperEnding | None = None
+        # What the same record says about each track's ISRC: the one the files
+        # carry and the disc's own (`isrc_provenance`, TASKS R20).
+        self._isrc_reading: IsrcReading | None = None
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert pre-cyanrip seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -1952,6 +1960,7 @@ class RipWorker(QObject):
             if outcome is None:
                 # A hard start/stream error already emitted `error`; stop here.
                 self._ripper_ending = read_ending(self._album_record)
+                self._isrc_reading = read_isrcs(self._album_record)
                 self.finished.emit(False, "")
                 return
             success, log_path_str = outcome
@@ -2124,6 +2133,7 @@ class RipWorker(QObject):
         # On a cancel the in-container ripper may write it later still; then it
         # reads "absent", which is "not determined", never "not interrupted".
         self._ripper_ending = read_ending(self._album_record)
+        self._isrc_reading = read_isrcs(self._album_record)
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
@@ -2462,23 +2472,25 @@ class RipWorker(QObject):
                 # smoothly even when the log pane updates only ~10×/second.
                 now = time.monotonic()
                 if is_redraw:
+                    # Strip cyanrip's own trailing "ETA - …" so the log pane
+                    # never shows an ETA that contradicts our smoothed album
+                    # ETA in the status line (real-user report). Detection
+                    # below still uses the raw `line`.
+                    forwarded = _CYANRIP_ETA_CLAUSE.sub("", shown)
                     if now - self._last_progress_emit >= _PROGRESS_MIN_INTERVAL_S:
                         self._last_progress_emit = now
-                        # Strip cyanrip's own trailing "ETA - …" so the log pane
-                        # never shows an ETA that contradicts our smoothed album
-                        # ETA in the status line (real-user report). Detection
-                        # below still uses the raw `line`.
-                        forwarded = _CYANRIP_ETA_CLAUSE.sub("", shown)
                         self.log_line.emit(forwarded)
-                        # Persist the forwarded stream to log.txt in real time
-                        # (DEBUG-gated, so it only lands when Debug logging is on
-                        # — the bug-report setting). The in-window log pane is
-                        # ephemeral; this survives a freeze/force-kill on disk, so
-                        # a bug report shows exactly where the drive stopped. Only
-                        # the throttled set is logged (not every redraw), keeping
-                        # the volume bounded.
-                        log.debug("cyanrip │ %s", forwarded)
+                    # Persist the run to log.txt as it happens (DEBUG-gated: the
+                    # bug-report setting), so a freeze or force-kill still leaves
+                    # where the drive stopped on disk. Collapsed, and counted:
+                    # first line, a checkpoint every 10 s, last line (R14). As the
+                    # ripper wrote it, not as the pane shows it: the ETA strip also
+                    # takes the redraw's error count, which the ripper's own log
+                    # does not carry and a run's last line is where it matters.
+                    for kept in self._logged_run.note(shown, now):
+                        log.debug("cyanrip │ %s", kept)
                 else:
+                    self._flush_logged_run()
                     self.log_line.emit(shown)
                     log.debug("cyanrip │ %s", shown)
                 # Watch for the "no online metadata" abort so the GUI can heal
@@ -2649,6 +2661,10 @@ class RipWorker(QObject):
             self._signal_stop("stdout stream error")
             self.error.emit(f"{said_by}rip stream error: {exc}")
             return None
+        finally:
+            # However the stream ended, the log gets the open run's last line and
+            # its count, so the log never stops on a run's middle.
+            self._flush_logged_run()
 
         exit_code = self._reap_ripper()
         # ONE FIELD PER PASS. `_ripper_exit_code` is the album pass's (the last
@@ -2816,6 +2832,11 @@ class RipWorker(QObject):
             return True
         self._retain_stdout_line(shown)
         return False
+
+    def _flush_logged_run(self) -> None:
+        """Write the open run's marker and last line to the app log, and end it."""
+        for kept in self._logged_run.close():
+            log.debug("cyanrip │ %s", kept)
 
     def _flush_redraw_run(self) -> None:
         """Write the open run of redraws into the capture, thinned, and end it."""
@@ -3679,6 +3700,14 @@ class RipWorker(QObject):
         for every field (`ripper_ending`). Read on this thread before `finished`.
         """
         return self._ripper_ending
+
+    @property
+    def isrc_reading(self) -> IsrcReading | None:
+        """Each track's two ISRCs from the album pass's record, or ``None`` if unread.
+
+        Read beside :attr:`ripper_ending`, from the same file, on this thread.
+        """
+        return self._isrc_reading
 
     @property
     def securing_pass_started(self) -> bool:

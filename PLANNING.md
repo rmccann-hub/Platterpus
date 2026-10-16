@@ -266,6 +266,9 @@ Platterpus/
         ├── ladder_trigger.py            # whether a finished pass steps the ladder down, whatever cyanrip's exit code (pure)
         ├── securing_pass.py             # whether the securing pass runs after the album pass, over which tracks (pure)
         ├── rip_pass_exit.py             # which pass of a rip an exit status describes, phrased once (pure)
+        ├── export_identity.py           # hostnames and the owner's name in evidence: found, replaced with host / the owner, counted (R16)
+        ├── fun512.py                    # verify a cyanrip log's Log FUN512: signature without cyanrip (R16)
+        ├── isrc_provenance.py           # each track's ISRC as the files carry it beside the disc's own, from the -j record (R20)
         ├── ripper_ending.py             # how cyanrip's own -j record says the album pass ended, tri-state (W6)
         ├── rip_report.py                # machine-readable `.platterpus.json` rip report (pure, never-raises)
         ├── rip_plan.py                  # what a rip is ABOUT to do, in words, before anything spawns (pure)
@@ -512,6 +515,9 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`ladder_trigger.py`** — the one predicate for whether a pass steps the ladder down (`judge_step_down`), and the sentence saying which condition refused. cyanrip exits 1 whenever the drive failed a read, so the old gate on exit 0 ended the ladder on the one pass it exists for (the fork's round 30 lap 9 S27). A pass now steps when Platterpus did not stop it, cyanrip exited 0 or 1, the log is the pass's own, no encode failed, it finished every requested track (`why_pass_incomplete`: the `Rip completed:` footer, then our own track blocks, with stock cyanrip's finish report as the fallback), and the drive failed a read, with `.20`'s paranoia skips taken out (`RipLog.drive_read_errors`). Pure, never raises; `tests/test_ladder_trigger.py` and the ladder tests in `tests/test_rip_worker.py`, which start from the filed 2026-10-04 log.
 - **`securing_pass.py`** — whether the securing pass (the targeted `-Z` re-read of the tracks AccurateRip did not confirm, or of a ladder's unstable tracks) runs after the album pass, over which tracks, and why not. `why_no_securing_pass` is the gate: a clean exit 0 that Platterpus did not stop passes on cyanrip's word, as it always did; every other case, exit 1 included, is `ladder_trigger.why_pass_unfinished`'s to answer, so an exit-1 pass is secured only when its log shows it finished (ruling C1, KDD-41). `plan_securing_pass` turns that answer into the tracks, the trigger and the `-Z`, and records a refusal as `skipped_reason: album_pass_unfinished`. Pure, never raises; the worker runs the plan.
 - **`rip_pass_exit.py`** — which pass of a rip an exit status describes, said the same way by every reader. Since schema v31 the report's `ripper_exit_code` is the album pass's and `securing_pass_started` / `securing_pass_exit_code` carry the securing pass's; `PassExits.phrase()` is the one sentence (`album pass exit 1; securing pass exit 0`) the status line, the audit, the rig check and the script runner quote, and an older report with no per-pass record keeps its plain `ripper exit N`. Pure, never raises.
+- **`export_identity.py`** — hostnames and the owner's real name in exported or filed evidence, by the cyanrip fork's rules so both projects replace the same strings (`cyanrip@957184d:tools/redact.py`): a hostname read from the material (a `uname` line, a `host:` field) or this machine becomes `host`; the owner's names, only from a list kept outside the repository (`$PLATTERPUS_REDACT_NAMES`, else `~/.config/platterpus/redact-names`), become `the owner`, and with no list the record says *not checked*. `export_redaction.redact_all` applies it beside the home-folder replacement, each counted. HR-2 point 9; TASKS R16.
+- **`fun512.py`** — a port of cyanrip's log signature check (`cyanrip@5c564042:src/fun512.c`), so a signed log is verified before filing in a session without cyanrip; pinned to the signed logs in `tests/fixtures`. Pure, never raises. TASKS R16.
+- **`isrc_provenance.py`** — each track's ISRC as the files carry it beside the disc's own sub-channel reading, from cyanrip's `-j` record (`rip.track_state[].isrc_written` / `isrc_disc` / `isrc_disc_reason` / `audio_ripped`, the fork's `.23`). States both, whether the disc's is a well-formed ISO 3901 code, and how they compare (`agree` / `differ` / `disc_only` / `written_only` / `neither` / `not_ripped` / `not_determined`); the report carries it as `disc.isrc_provenance` (schema v35) with the `isrc_disc_differs` and `isrc_disc_malformed` info issues. Tri-state like `ripper_ending.py`, whose record constants it shares: a record without the fields reads `not_determined`, never `neither`. `read_isrcs` is the only I/O, on the rip worker's thread; it never raises. TASKS R20, the half that needs nothing from the fork.
 - **`ripper_ending.py`** — how cyanrip's own `-j` record says the album pass ended: `exit_code`, `rip.interrupted` and `rip.interrupted_by`, as the fork's provider contract publishes them (§P8b). Recognised by the `cyanrip-diagnostics/` schema prefix, never its number (§P8a). Tri-state throughout: an absent, unreadable or unrecognised record, a missing field and a field of the wrong type are all "not determined", never false or 0. `disagreements` compares the record with our own reading (the rip's status and the exit code we reaped) and returns a sentence naming both answers wherever they differ, so neither is quietly preferred; the report carries them as `outcome.ripper_record` (schema v32) and the `ripper_record_disagrees` issue, and the status line says them. `read_ending` is the only I/O, on the rip worker's thread; it never raises. The handshake register's W6.
 - **`rip_plan.py`** — renders, in plain words, what a rip is **about to** do, emitted to the log and the on-screen live log before anything spawns. The app builds the ripper's argv, so which flags a rip carries is our decision — and until this existed the only way to learn it was the finished artifact (`Invoked as:` in cyanrip's log, `ripper_argv` in the JSON), which is the wrong end of a 70-minute rip. The case that prompted it: `-Z` is on by default at 2 *and* runs in **dynamic** mode by default, so pass 1 carries no `-Z` at all and only AccurateRip misses are re-read — correct for a healthy disc, wrong for a session whose purpose is to exercise the secure-re-read path, and nowhere stated beforehand. Deliberately **not** a second argv builder: it describes the *inputs* to the one builder and the one decision the worker makes above it, naming the flag each becomes so the plan can be diffed against the artifact afterwards.
 - **`flac_metadata.py`** — reads a FLAC's Vorbis comments and embedded pictures from its own metadata blocks, in pure Python, and **never raises** (a killed rip leaves 0-byte files). Not `metaflac`: that is the program our tagging pass WRITES with, and reading back through the writer is not a check; it would also be a subprocess on the GUI thread. Keys compare case- and underscore-insensitively, because writers disagree (`ALBUM_ARTIST` / `ALBUMARTIST`; the fork capitalises from `.19`).
@@ -1418,15 +1424,18 @@ is the decision log failing at the one thing it is for. All three were live in
   0.8.1 up and nothing is easier to reach. `tests/test_no_stale_version_claims.py`
   gates at 0.8.1.
 
-**Status, 2026-10-13:** the ledger carries nineteen rows, and three are `full-green`:
+**Status, 2026-10-16:** the ledger carries twenty-one rows, and four are `full-green`:
 the 2026-10-07 Full run on app 0.6.66 and the 2026-10-12 Full run on app 0.7.103, both
-against `ca3f3ea` (`.21`), and the 2026-10-13 Full run on app 0.7.104 against `200530e`
-(`.22`), round 32's test, each with no failure and with E2 N/A on this drive (the
+against `ca3f3ea` (`.21`), the 2026-10-13 Full run on app 0.7.104 against `200530e`
+(`.22`), round 32's test, and the 2026-10-16 Full run on app 0.7.106 against `891c79e`
+(`.23`), round 34's test, each with no failure and with E2 N/A on this drive (the
 maintainer's rulings, with E2 recorded as not covered). The first met `0.7.100`'s gate.
-Every other row is `partial`, and each one's reason is in `docs/testing.md` §5B. All
-nineteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's
-floor of two `full-green` rows on two machines and two distros is still one machine and
-one distro short.
+The 2026-10-14 run on 0.7.105 is `partial` for one ARCHIVAL step that could not run (K2's
+cover-art check, blocked by the Cover Art Archive's HTTP 500). Every other row is
+`partial`, and each one's reason is in `docs/testing.md` §5B. All twenty-one rows are
+**one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's floor of two
+`full-green` rows on two machines and two distros is still one machine and one distro
+short.
 
 **Why.** The implicit gate was "the tests pass", and the maintainer corrected it:
 *"we have only tested on my rig, my hardware. we need more people, more hardware,
@@ -2081,4 +2090,4 @@ Its map matched the rehearsal's, sha256 `d576bdc6…`.
 
 ---
 
-*Last updated for Platterpus v0.7.105.*
+*Last updated for Platterpus v0.7.107.*

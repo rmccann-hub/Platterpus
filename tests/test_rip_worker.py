@@ -11,6 +11,7 @@ cyanrip binary.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import subprocess
@@ -1524,6 +1525,74 @@ def test_a_rip_that_named_no_record_reads_as_not_requested(
     assert worker.ripper_ending is not None
     assert worker.ripper_ending.state == STATE_NOT_REQUESTED
     assert worker.ripper_ending.interrupted is None
+
+
+def test_the_worker_reads_each_tracks_isrcs_from_the_album_pass_record(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """R20: the same record says which ISRC the files carry and what the disc
+    itself says. The worker reads it from the ALBUM pass's record, beside the
+    ending; the securing pass's record names a different code, so reading the
+    wrong file cannot pass."""
+    from platterpus.isrc_provenance import WRITTEN_ONLY
+
+    handle = _ArgvHandle(lines=["ripping"], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    write_logs = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
+    names: list[str] = []
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        name = f"cyanrip-diagnostics-2026101600000{len(names)}Z.json"
+        handle.argv = ("cyanrip", "-N", "--diagnostics", name)
+        code = "USABC1234567" if names else "GBAAM0201086"
+        record = {
+            "schema": "cyanrip-diagnostics/9",
+            "rip": {
+                "track_state": [
+                    {
+                        "number": 1,
+                        "audio_ripped": True,
+                        "isrc_written": code,
+                        "isrc_disc": None,
+                        "isrc_disc_reason": "libcdio returned none",
+                    }
+                ]
+            },
+        }
+        names.append(name)
+        (call["output_dir"] / name).write_text(json.dumps(record), encoding="utf-8")
+
+    backend.rip_side_effect = rip_side_effect
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    worker.start_rip()
+
+    assert len(names) == 2  # floor: the securing pass wrote a record of its own
+    reading = worker.isrc_reading
+    assert reading is not None
+    assert [(t.number, t.written) for t in reading.tracks] == [(1, "GBAAM0201086")]
+    from platterpus.isrc_provenance import agreement
+
+    assert agreement(reading.tracks[0]) == WRITTEN_ONLY
+
+
+def test_a_rip_that_named_no_record_has_no_isrc_reading_to_claim(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Tri-state: no `-j` in the argv is "not requested", never "no ISRCs"."""
+    from platterpus.ripper_ending import STATE_NOT_REQUESTED
+
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0)),
+        _params(tmp_path),
+    )
+    worker.start_rip()
+
+    assert worker.isrc_reading is not None
+    assert worker.isrc_reading.state == STATE_NOT_REQUESTED
 
 
 def _rerip_ok_log(*, ar_v1: str = "AAAA0001", ar_v2: str = "BBBB0002") -> str:
@@ -5374,6 +5443,73 @@ def test_outcome_lines_reach_the_pane_and_app_log_while_redraws_stay_throttled(
     for outcome in ("Track 3 read successfully!", "Track 4 read with errors."):
         assert outcome in pane, pane
         assert any(r.getMessage() == f"cyanrip │ {outcome}" for r in caplog.records)
+
+
+def test_the_app_log_collapses_a_run_of_redraws_and_counts_the_rest(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """R14: a run's first and last redraw reach the app log as the ripper wrote them,
+    with a marker counting the redraws between; and each run is written before the
+    line that ends it, so the log keeps the stream's order."""
+    import logging
+
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", lambda: 1_000.0)
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    logged = [
+        r.getMessage().split("cyanrip │ ", 1)[1]
+        for r in caplog.records
+        if r.getMessage().startswith("cyanrip │ ")
+    ]
+    assert logged[: logged.index("Summary:") + 1] == [
+        "Disc tracks:    4",
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        "[platterpus] … 2 progress redraws elided here …",
+        "Ripping and encoding track 3, progress - 100.00%, ETA - 0s, errors - 0",
+        "Flushing encoders...",
+        "Track 3 read successfully!",
+        "Summary:",
+    ], logged
+
+
+def test_a_stream_that_ends_mid_read_still_logs_the_runs_last_line(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """R14: when the ripper's output stops inside a run (a crash, a kill), the log
+    must still say how far the read got, not stop on the run's first line."""
+    import logging
+
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", lambda: 1_000.0)
+    lines = (
+        "Disc tracks:    4",
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 3, progress - 12.00%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 3, progress - 37.50%, ETA - 2m, errors - 1",
+    )
+    handle = _FakeHandle(lines=lines, exit_code=1)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    logged = [
+        r.getMessage().split("cyanrip │ ", 1)[1]
+        for r in caplog.records
+        if r.getMessage().startswith("cyanrip │ ")
+    ]
+    assert logged[-3:] == [
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        "[platterpus] … 1 progress redraws elided here …",
+        "Ripping and encoding track 3, progress - 37.50%, ETA - 2m, errors - 1",
+    ], logged
 
 
 def test_outcome_lines_still_drive_the_live_display(

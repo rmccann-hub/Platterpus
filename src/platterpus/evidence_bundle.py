@@ -61,10 +61,11 @@ from typing import Final
 
 from platterpus.build_info import build_fingerprint
 from platterpus.bundle_integrity import home_folders_section, sha256_section
+from platterpus.export_identity import local_names, this_machines_hostnames
 from platterpus.export_redaction import (
     Redaction,
+    redact_all,
     redact_member,
-    redact_text,
     this_machines_homes,
 )
 
@@ -152,6 +153,10 @@ class BundleEntry:
     home_paths_left: int = 0
     #: ``HANDSHAKE-`` wire lines copied unchanged although they named a home.
     wire_lines_kept: int = 0
+    #: Hostnames replaced with ``host``, and the owner's names with ``the owner``,
+    #: as this member was written (R16). In a member kept as written: left in it.
+    hostnames_replaced: int = 0
+    names_replaced: int = 0
 
 
 @dataclass
@@ -707,6 +712,7 @@ def _render_manifest(
     missing_album_dirs: Sequence[Path] = (),
     entries: Sequence[BundleEntry],
     manifest_replacements: int = 0,
+    names_checked: bool = False,
 ) -> str:
     """The human-readable index, and the honest one.
 
@@ -789,7 +795,11 @@ def _render_manifest(
     else:
         lines.append("  (nothing was excluded)")
     lines += sha256_section(included)
-    lines += home_folders_section(included, manifest_replacements=manifest_replacements)
+    lines += home_folders_section(
+        included,
+        manifest_replacements=manifest_replacements,
+        names_checked=names_checked,
+    )
     # **Derived, not typed out.** The first version listed the extensions as prose
     # and was wrong within the hour: it named the strict set while the archive also
     # carried this program's own screenshots under the widened one, so the manifest
@@ -839,6 +849,8 @@ def build_bundle(
     extra_text: Mapping[str, str] | None = None,
     files: Mapping[str, Path] | None = None,
     homes: Sequence[str] | None = None,
+    hosts: Sequence[str] | None = None,
+    names_list: Path | None = None,
 ) -> BundleResult:
     """Write one `.tar.gz` of every text artifact worth sending. Never raises.
 
@@ -875,13 +887,20 @@ def build_bundle(
     facts = dict(facts or {})
     extra_text = dict(extra_text or {})
     known_homes: list[str] = list(this_machines_homes() if homes is None else homes)
+    # Hostnames and the owner's names (R16, `export_identity`): this machine's
+    # hostname unless a test passes its own, and names only from the list kept
+    # outside the repository; with no list the manifest says "not checked".
+    known_hosts: list[str] = list(this_machines_hostnames() if hosts is None else hosts)
+    known_names: list[str] | None = local_names(names_list)
 
     def _redacted(name: str, data: bytes) -> Redaction:
         # Text only: a screenshot's bytes are not text, and "replacing a path"
         # inside a PNG would corrupt an image, not hide a folder.
         if not _is_text_member(name):
             return Redaction(data=data)
-        return redact_member(data, homes=known_homes)
+        return redact_member(
+            data, homes=known_homes, hosts=known_hosts, names=known_names
+        )
 
     def _entry(
         name: str, source: str, note: str, original: bytes, done: Redaction
@@ -898,7 +917,7 @@ def build_bundle(
             hashlib.sha256(done.data).hexdigest(),
             home_paths_replaced=done.replaced,
             sha256_before_replacement=(
-                hashlib.sha256(original).hexdigest() if done.replaced else ""
+                hashlib.sha256(original).hexdigest() if done.data != original else ""
             ),
             # Listed when it matters: a signed member that names no home folder
             # needed no exception, but one never examined is always named.
@@ -907,6 +926,8 @@ def build_bundle(
             ),
             home_paths_left=done.left_in_place,
             wire_lines_kept=done.wire_lines_kept,
+            hostnames_replaced=done.hosts_replaced,
+            names_replaced=done.names_replaced,
         )
 
     # One list from here down, so nothing below has to ask which spelling the
@@ -1059,10 +1080,17 @@ def build_bundle(
                     missing_album_dirs=plan.missing_album_dirs,
                     entries=entries,
                     manifest_replacements=own,
+                    names_checked=known_names is not None,
                 )
 
-            own = redact_text(_manifest(0), homes=known_homes)[1]
-            manifest, own_again, _ = redact_text(_manifest(own), homes=known_homes)
+            def _own(text: str) -> tuple[str, int]:
+                done = redact_all(
+                    text, homes=known_homes, hosts=known_hosts, names=known_names
+                )
+                return done.text, done.homes + done.hosts + done.names
+
+            own = _own(_manifest(0))[1]
+            manifest, own_again = _own(_manifest(own))
             if own_again != own:
                 # Unreachable by the argument above; logged rather than asserted,
                 # because a bundle must still be written.

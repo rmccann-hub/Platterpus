@@ -6245,6 +6245,15 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "tag_control_characters_replaced": [],
         # v29 (D16): filled in when the EAC-layout log is written.
         "eac_log_signature_lines_defused": [],
+        # v35 (R20): this fixture's worker read no -j record, and the block says
+        # so rather than listing no tracks as if there were none to compare.
+        "isrc_provenance": {
+            "describes": "album pass",
+            "state": "not_read",
+            "detail": None,
+            "tracks": [],
+            "rows_not_read": 0,
+        },
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {

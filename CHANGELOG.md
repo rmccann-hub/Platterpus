@@ -12,6 +12,57 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The rip report records the disc's own ISRC beside the one the files carry.** Since the
+  fork's `.23`, cyanrip reads each track's ISRC from the disc even when we pass one, but only
+  its `-j` record held the disc's reading: the log's `ISRC:` line and the tags carry the
+  MusicBrainz code we pass. The report's new `disc.isrc_provenance` block (schema 35) states
+  both per track, whether the disc's is a well-formed ISO 3901 code, and how they compare
+  (`agree`, `differ`, `disc_only`, `written_only`, `neither`, `not_ripped`, or
+  `not_determined` for a record from before the fields existed). A disc code that differs or
+  is malformed is an `info` issue that names both values, never a failed rip (TASKS R20, the
+  half that needs nothing from the fork).
+
+### Changed
+
+- **The app log no longer records cyanrip's progress line ten times a second.** With debug
+  logging on, each rip's progress went into the app log, and from there into every rip's
+  `.platterpus.json`, at ten lines a second: 85% of all our filed app logs. The redraws
+  between those ten were dropped without a count. Now each run of progress lines is written as
+  its first line, one checkpoint every 10 seconds (so a freeze still shows where the drive
+  stopped), and its last line with its error count, and a marker counts every progress line
+  not written. Replaying the newest app log of the 2026-10-16 run gives about 0.3 MB
+  instead of 5.9 MB. The window's live log pane is unchanged (TASKS R14).
+- **The evidence ledger grades the 2026-10-14 and 2026-10-16 Full runs.** 2026-10-16 (0.7.106
+  with `.23`, round 34's test) is the fourth `full-green` row, on the maintainer's standing
+  reading of E2's N/A. 2026-10-14 (0.7.105 with `.22`) is `partial`: K2's cover-art check, in
+  an ARCHIVAL section, was blocked by the Cover Art Archive's HTTP 500, so it never ran.
+  Neither moves a version gate (same machine, distro and person). TASKS R17.
+
+### Added
+
+- **Exported and filed evidence no longer carries the hostname or the owner's name.** The
+  diagnostics bundle replaced home folders only and said so. It now also replaces this
+  machine's hostname, and any hostname the material names about itself, with `host`, and
+  the owner's names with `the owner`. The names come from a list kept outside every
+  repository (`~/.config/platterpus/redact-names`); without that list the MANIFEST says the
+  names were not checked. Each replacement is counted per file. These are the cyanrip fork's
+  rules and spellings, so both projects replace the same strings. A new filing tool,
+  `scripts/evidence_file.py`, does the same when a run is filed as evidence. It checks each
+  signed cyanrip log's `Log FUN512:` signature first (a Python port of cyanrip's check),
+  keeps those logs byte for byte, records every count and both hashes, and builds the
+  evidence commit and its manifest rows. It never pushes (TASKS R16, HR-2 point 9).
+
+### Fixed
+
+- **A repository-wide test walk no longer fails when a tool's cache directory vanishes under
+  it.** Every Markdown sweep shares one walker (`tests/conftest.py`), which used `Path.rglob`
+  and raised `FileNotFoundError` when a parallel worker deleted `.hypothesis/tmp` mid-walk
+  (one local run, 2026-10-15). It now walks with `os.walk`, skipping a directory that is gone
+  by the time it descends (any other error still raises), and leaves out the tool caches. A
+  test removes a directory during the walk (TASKS R18).
+
 ### Changed
 
 - **0.7.107 is published: Platterpus now installs the fork's `.23` by default.** The status

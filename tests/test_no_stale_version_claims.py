@@ -743,9 +743,33 @@ _NUMBER_WORDS: dict[str, int] = {
     word: n
     for n, word in enumerate(
         "zero one two three four five six seven eight nine ten eleven twelve "
-        "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split()
+        "thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
     )
 }
+_TENS_WORDS: dict[str, int] = {
+    word: 10 * n
+    for n, word in enumerate(
+        "twenty thirty forty fifty sixty seventy eighty ninety".split(), start=2
+    )
+}
+
+
+def _number_from_words(token: str) -> int | None:
+    """``"nineteen"`` -> 19, ``"twenty-one"`` -> 21; ``None`` if not a number.
+
+    The ledger passed twenty rows on 2026-10-16. Until then this read only up to
+    ``"twenty"``, and the caller skipped any word it could not read, so a count
+    written ``"twenty-one"`` would have been passed over rather than checked.
+    """
+    if token in _NUMBER_WORDS:
+        return _NUMBER_WORDS[token]
+    tens, _, unit = token.partition("-")
+    if tens not in _TENS_WORDS:
+        return None
+    if not unit:
+        return _TENS_WORDS[tens]
+    ones = _NUMBER_WORDS.get(unit)
+    return _TENS_WORDS[tens] + ones if ones is not None and 0 < ones < 10 else None
 
 
 def _ledger_status_text() -> dict[str, str]:
@@ -772,15 +796,18 @@ def test_a_doc_that_COUNTS_the_ledger_rows_counts_them_correctly() -> None:
     wrong: list[str] = []
     for doc, text in corpus.items():
         for match in re.finditer(
-            r"ledger (?:carries|holds|has) \**(?P<n>\d+|[a-z]+)\** rows", text, re.I
+            r"ledger (?:carries|holds|has) \**(?P<n>\d+|[a-z]+(?:-[a-z]+)?)\** rows",
+            text,
+            re.I,
         ):
             token = match.group("n").lower()
-            claimed = int(token) if token.isdigit() else _NUMBER_WORDS.get(token)
-            if claimed is None:
-                continue
+            claimed = int(token) if token.isdigit() else _number_from_words(token)
+            line = text.count("\n", 0, match.start()) + 1
             claims += 1
-            if claimed != len(rows):
-                line = text.count("\n", 0, match.start()) + 1
+            if claimed is None:
+                # A count this cannot read is not a count it checked.
+                wrong.append(f"{doc}:{line} says {token!r}, which this cannot read")
+            elif claimed != len(rows):
                 wrong.append(f"{doc}:{line} says {claimed}, the ledger has {len(rows)}")
     assert claims >= 1, (
         "no ledger row-count claim found in README/SECURITY/PLANNING — if the "
@@ -1073,3 +1100,12 @@ def test_the_banner_and_open_round_patterns_catch_the_text_that_actually_shipped
         assert not _OPEN_ROUND_CLAIM.search(correct), (
             f"the open-round pattern FALSELY flags a correct phrasing: {correct!r}"
         )
+
+
+def test_the_ledger_count_reader_reads_compound_numbers() -> None:
+    assert _number_from_words("nineteen") == 19
+    assert _number_from_words("twenty") == 20
+    assert _number_from_words("twenty-one") == 21
+    assert _number_from_words("ninety-nine") == 99
+    assert _number_from_words("twenty-zero") is None
+    assert _number_from_words("several") is None

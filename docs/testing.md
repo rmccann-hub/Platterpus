@@ -4067,6 +4067,8 @@ that is what the section costs, not what its title implies.
 | 2026-10-07 | 0.6.66 | maintainer | bdr209d | bazzite | full-green |
 | 2026-10-12 | 0.7.103 | maintainer | bdr209d | bazzite | full-green |
 | 2026-10-13 | 0.7.104 | maintainer | bdr209d | bazzite | full-green |
+| 2026-10-14 | 0.7.105 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-16 | 0.7.106 | maintainer | bdr209d | bazzite | full-green |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4258,6 +4260,36 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 `pick-release` called an unidentified disc identified; and the 42 s quit grace was
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
+
+**The 2026-10-16 0.7.106 row is the fourth `full-green` row: round 34's test, the Full run
+on `.23` (`891c79e`) through 0.7.106** (graded 2026-10-16, TASKS R17). 426 of 427 steps
+passed, none failed, errored or was blocked, and E2 was `unreachable` on this listed drive
+(`platterpus@fe13de0c8b6dccf5279c98abbe4fb081cc91768a:docs/handshake/artifactsround34/round34fullscriptreport.json
+sha256 423ad7ed6e29a39aa0401f0962cdde55489fb15a3b9d4588871be30221734617`, its `counts`).
+**The grade applies the maintainer's standing reading** of the three rows before it (E2's
+N/A on a listed drive is not a failure, and is recorded as not covered); it is not a new
+ruling. The witnesses were checked as on 2026-10-13: K1 to K3 found their derived output,
+all 20 signed logs verified, and 13 `-j` records were filed, both securing passes'
+included (the folder's README, lines 49 and 98). **It moves no version gate**: same machine,
+distro and person (`docs/handshake/artifactsround34/README.md`).
+
+**The 2026-10-14 0.7.105 row is `partial`, and the reason is one step that could not run**
+(graded 2026-10-16, TASKS R17). 425 passed, none failed or errored, E2 was `unreachable`
+as on every Full run, and **one step was `blocked`: K2's `expect-cover-art` at script line
+1071**, because the Cover Art Archive answered HTTP 500
+(`platterpus@f57cdc2b1391eeb95ad38ba84bd05f4a4fe218b4:docs/handshake/artifactsround33/round33fullscriptreport.json
+sha256 7985b809caf4b480cd3dc4f90918bd34c2f3b839f3bc73f9a3d3e1133fb16389`, the step with
+`outcome: blocked`). K2 is `ARCHIVAL`. A blocked step is neither a pass nor a failure: the
+check never reached its subject, so the run cannot say the `file` cover-art mode worked
+that day, and `full-green` means every test green in one run. **Why not the E2 reading**,
+which accepts an `unreachable` ARCHIVAL step: E2 cannot be reached on this rig on any day,
+and a run that waits for it would never come; this step was reachable, and passed on the
+runs either side of it (2026-10-13 and 2026-10-16). Counting it would make a version
+easier to reach on a check that was not made, which is the direction this section says to
+distrust. The rip itself was unaffected, and nothing in the run is ours to fix: the 500 was
+the server's own (`docs/handshake/artifactsround33/README.md`). **It moves no version gate
+either way**: same machine, distro and person. The maintainer may rule otherwise, and the
+`result` cell is where that ruling would go.
 
 **The 2026-10-13 0.7.104 row is the third `full-green` row: round 32's test, the Full run
 on `.22` (`200530e`) through 0.7.104.** 424 of 425 steps passed, none failed or errored,
@@ -4547,4 +4579,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.7.106.*
+*Last updated for Platterpus v0.7.107.*
