@@ -1509,9 +1509,16 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # `value: false`; `release-manifest.json` at `aa45b97` builds with
     # `-Ddeclare_released=true` on both channels, the release path.
     #
+    # **THIRTEENTH TIME, ON THE ROLL TO `891c79e` (round 34 close, 2026-10-16), AND
+    # THE ANSWER AGAIN DID NOT CHANGE.** Re-derived in the fork's tree: `git diff
+    # 200530e 891c79e -- meson_options.txt` empty, the file hashes as before (sha256
+    # `0a32b1f7ac8efbde…`), 973 bytes. `.23`'s new `libchromaprint` and
+    # `libqrencode` are optional dependencies (`src/meson.build:141,151`), not
+    # options, so there is still nothing to pass.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "200530e", (
+    assert fork_source.PRODUCTION_TARGET.pin == "891c79e", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

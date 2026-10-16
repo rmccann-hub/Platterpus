@@ -260,7 +260,14 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: `release-manifest.json` at `aa45b97` carries `.22` on both channels with
 #: `round_closed: true`, so its logs say *released build*. Our first release after
 #: this commit installs it by default.
-FORK_PIN: Final[str] = "200530e"
+#: **Rolled to `891c79e` (`+platterpus.23`, upstream rc3) on round 34's close
+#: (2026-10-16)**: our lap 2 `GO` against their lap 3 `GO`
+#: (`docs/handshake/inbound/round-34-lap-03.md`, sha256 `776e8bbe…`, released at
+#: `cyanrip@68f56fa`); both gates read the round CLOSED. Its evidence is the
+#: 2026-10-16 Full run on 0.7.106, 426 pass and none failed, filed on our `evidence`
+#: branch at `fe13de0c`. Their manifest at `68f56fa` carries `.23` on beta with
+#: `round_closed: true`; stable moves to it on the operator's word of 2026-10-16.
+FORK_PIN: Final[str] = "891c79e"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -568,7 +575,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: round 32 lap 9's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc2+platterpus.22
 #: (platterpus-fork-g200530e)`, and cross-checked against `meson.build` at `200530e`
 #: in their tree, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.22"
+#: **Rolled to `0.9.4-rc3+platterpus.23` on 2026-10-16, with `FORK_PIN`**, read off
+#: round 34 lap 3's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc3+platterpus.23
+#: (platterpus-fork-g891c79e)`, and cross-checked against `meson.build` at `891c79e`.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.23"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -1871,17 +1881,17 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 33 approved, GO on both sides, as round 32 had: the declared "
-        "pin, held fixed by rule R4 for the whole round, and published by the fork to "
-        f"both channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 32, read "
-        "from their release-manifest.json, and the version cross-checked against "
-        "meson.build at the pin itself rather than taken from the lap). Over "
-        "+platterpus.21 it labels the one-frame tally 'Tracks matched on one frame "
-        "only', names a last read the repeat limit did not keep, and lists a "
-        "pregap whose search failed as unknown. Round 33's evidence on it is the "
-        "Full run on a drive, installed through Platterpus 0.7.105: 425 steps "
-        "passed, none failed, one could not run (the cover-art server erred), and "
-        "one this drive cannot reach. See docs/handshake/inbound/round-33-lap-07.md"
+        "the build round 34 approved, GO on both sides: the round's declared pin, "
+        "held fixed by rule R4 for the whole round, and published by the fork "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 33, read from their "
+        "release-manifest.json, and the version cross-checked against meson.build "
+        "at the pin itself rather than taken from the lap). It is upstream cyanrip "
+        "0.9.4-rc3 with the fork's changes: it reads each track's ISRC from the "
+        "disc into its diagnostics record, prints the AccurateRip and AcoustID "
+        "lines, and counts track 1's pregap from the start of the disc. Round 34's "
+        "evidence on it is the Full run on a drive, installed through Platterpus "
+        "0.7.106: 426 steps passed, none failed, and the one step left is one this "
+        "drive cannot reach. See docs/handshake/inbound/round-34-lap-03.md"
     ),
 )
 

@@ -1505,7 +1505,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # for round 34: its release sequence, the pin under review's history line, the
     # pairing, its consumer-flag entry, and `.22` named in the verify-log set ahead
     # of FORK_PIN's roll.
-    "deps/fork_source.py": 2741,
+    # 2741 -> 2751 (2026-10-16): round 34's close rolls FORK_PIN and
+    # FORK_EXPECTED_VERSION to `.23`, each roll recorded beside its constant.
+    "deps/fork_source.py": 2751,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1736,7 +1738,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **770 -> 758 (2026-10-07)**: the note-token list moved to `handshake_note`.
     # 758 -> 770 (2026-10-11): round 31's approval, read from their closing lap.
     # 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves.
-    "handshake_approval.py": 795,  # 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # 795 -> 804 (2026-10-16): round 34's close moves the approval record to round
+    # 34 for `.23` with 0.7.106, recorded beside both constants.
+    "handshake_approval.py": 804,  # 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);

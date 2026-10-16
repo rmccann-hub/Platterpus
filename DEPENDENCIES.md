@@ -100,13 +100,13 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 <!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
 
-**91 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+**90 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
 
 | Category | Entries |
 |---|---|
 | Languages, runtimes and platforms | 4 |
 | Python packages the application imports | 5 |
-| The ripper (cyanrip) and its related projects | 3 |
+| The ripper (cyanrip) and its related projects | 2 |
 | The ripping container | 2 |
 | What the cyanrip fork is built from, inside the container | 13 |
 | External programs Platterpus runs or offers | 29 |
@@ -138,23 +138,22 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | `sigstore` | `>=4.5.0,<4.6` | required | Verifies each release's build-provenance attestation before an update installs. | src/platterpus/update_attestation.py | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt |
 | `tomli-w` | `>=1.0,<2` | required | Writes config.toml (the standard library reads TOML but cannot write it). | src/platterpus/config.py | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt |
 
-### The ripper (cyanrip) and its related projects (3)
+### The ripper (cyanrip) and its related projects (2)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
-| `cyanrip` | `0.9.4-rc2+platterpus.22` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
-| `cyanrip (build under review)` | `0.9.4-rc3+platterpus.23` | optional | The build handshake round 34 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
+| `cyanrip` | `0.9.4-rc3+platterpus.23` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
 | `cyanrip (upstream)` | `>=0.9.0` | optional | Stock cyanrip. The wizard installs it first from the COPR so a failed fork build still leaves a working ripper; the fork is then exported over it. Also the project the fork tracks. | src/platterpus/deps/host_setup.py (the cyanrip step) | src/platterpus/deps/registry.py (min_version) |
 
 Details for `cyanrip`:
 
-- `pin`: 200530e
-- `build-tag`: platterpus-fork-g200530e
-- `banner`: cyanrip 0.9.4-rc2+platterpus.22 (platterpus-fork-g200530e)
+- `pin`: 891c79e
+- `build-tag`: platterpus-fork-g891c79e
+- `banner`: cyanrip 0.9.4-rc3+platterpus.23 (platterpus-fork-g891c79e)
 - `branch`: platterpus-fork
-- `release-seq`: 32
-- `approved-by-round`: 33
-- `approved-for-platterpus`: 0.7.105
+- `release-seq`: 33
+- `approved-by-round`: 34
+- `approved-for-platterpus`: 0.7.106
 - `checked-minimum`: 0.9.0
 - `installed-at`: /usr/local/bin/cyanrip inside the ripping container
 - `host-export`: ~/.local/bin/cyanrip
@@ -162,12 +161,6 @@ Details for `cyanrip`:
 - `pin-under-review`: 891c79e (0.9.4-rc3+platterpus.23, round 34, published: yes)
 - `test-pin`: 3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)
 - `handshake`: bidirectional release handshake: docs/cyanrip-handshake.md
-
-Details for `cyanrip (build under review)`:
-
-- `pin`: 891c79e
-- `round`: 34
-- `published`: yes
 
 ### The ripping container (2)
 
@@ -326,12 +319,11 @@ absent from the left column has dependencies Platterpus does not record.
 - `container:fedora-toolbox` → `svc:fedora-registry`
 - `container:ripping` → `container:fedora-toolbox`, `svc:fedora-repositories`, `tool-host:distrobox-export`, `tool-host:sudo`
 - `data:accuraterip-drive-offsets` → `svc:accuraterip`
-- `platterpus` → `data:accuraterip-drive-offsets`, `desktop:org.freedesktop.ScreenSaver`, `pypi:cryptography`, `pypi:musicbrainzngs`, `pypi:pyside6`, `pypi:sigstore`, `pypi:tomli-w`, `ripper:cyanrip-fork`, `ripper:cyanrip-fork-under-review`, `ripper:cyanrip-upstream`, `runtime:linux`, `runtime:python`, `runtime:python-appimage-bundled`, `svc:cover-art-archive`, `svc:ctdb`, `svc:fork-release-manifest`, `svc:github-release-downloads`, `svc:github-releases-api`, `tool-host:apt-get`, `tool-host:bash`, `tool-host:curl`, `tool-host:distrobox`, `tool-host:distrobox-enter`, `tool-host:dnf`, `tool-host:eject`, `tool-host:flatpak`, `tool-host:fuser`, `tool-host:gio`, `tool-host:kbuildsycoca5`, `tool-host:kbuildsycoca6`, `tool-host:pacman`, `tool-host:pgrep`, `tool-host:pkexec`, `tool-host:pkill`, `tool-host:sh`, `tool-host:systemd-inhibit`, `tool-host:update-desktop-database`, `tool-host:zypper`, `tool:cdparanoia`, `tool:ffmpeg`, `tool:flac`, `tool:metaflac`, `tool:picard`
+- `platterpus` → `data:accuraterip-drive-offsets`, `desktop:org.freedesktop.ScreenSaver`, `pypi:cryptography`, `pypi:musicbrainzngs`, `pypi:pyside6`, `pypi:sigstore`, `pypi:tomli-w`, `ripper:cyanrip-fork`, `ripper:cyanrip-upstream`, `runtime:linux`, `runtime:python`, `runtime:python-appimage-bundled`, `svc:cover-art-archive`, `svc:ctdb`, `svc:fork-release-manifest`, `svc:github-release-downloads`, `svc:github-releases-api`, `tool-host:apt-get`, `tool-host:bash`, `tool-host:curl`, `tool-host:distrobox`, `tool-host:distrobox-enter`, `tool-host:dnf`, `tool-host:eject`, `tool-host:flatpak`, `tool-host:fuser`, `tool-host:gio`, `tool-host:kbuildsycoca5`, `tool-host:kbuildsycoca6`, `tool-host:pacman`, `tool-host:pgrep`, `tool-host:pkexec`, `tool-host:pkill`, `tool-host:sh`, `tool-host:systemd-inhibit`, `tool-host:update-desktop-database`, `tool-host:zypper`, `tool:cdparanoia`, `tool:ffmpeg`, `tool:flac`, `tool:metaflac`, `tool:picard`
 - `pypi:musicbrainzngs` → `svc:musicbrainz`
 - `pypi:pyside6` → `runtime:qt`
 - `pypi:sigstore` → `svc:sigstore`
 - `ripper:cyanrip-fork` → `container:ripping`, `lib:libavcodec`, `lib:libavfilter`, `lib:libavformat`, `lib:libavutil`, `lib:libcdio`, `lib:libcdio_paranoia`, `lib:libcurl`, `lib:libmusicbrainz5`, `lib:libswresample`, `svc:fork-source`
-- `ripper:cyanrip-fork-under-review` → `container:ripping`, `lib:libavcodec`, `lib:libavfilter`, `lib:libavformat`, `lib:libavutil`, `lib:libcdio`, `lib:libcdio_paranoia`, `lib:libcurl`, `lib:libmusicbrainz5`, `lib:libswresample`
 - `ripper:cyanrip-upstream` → `container:ripping`, `svc:copr-barsnick-non-fed`
 - `tool-host:distrobox` → `svc:distrobox-installer`, `tool-host:docker`, `tool-host:podman`
 - `tool:picard` → `svc:flathub`, `tool-host:flatpak`

@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 34 closes, and `.23` becomes the build Platterpus installs.** The fork's lap 3
+  (`GO`) is filed, and with our lap 2 (`GO`) our gate reads round 34 CLOSED. `FORK_PIN` rolls
+  from `.22` (`200530e`) to `.23` (`891c79e`, upstream cyanrip 0.9.4-rc3), and the approval
+  record moves to round 34 for `.23` with Platterpus 0.7.106, on the 2026-10-16 Full run.
 - **Planned for round 35: the disc's own ISRC preferred over MusicBrainz's.** The fork adds a
   log line for each track's disc ISRC read and an option we set to prefer it; until then every
   tag carries the MusicBrainz value we pass (TASKS R20).
