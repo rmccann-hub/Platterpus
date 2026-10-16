@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 34: our lap 2 is released, on the operator's word of 2026-10-16.** Its
+  `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
+  changed. The envelope leads with it, the status block holds nothing back, and the round
+  row says released.
 - **Round 34 opens: the fork's lap 1 is filed and our lap 2 is written, held, declaring `GO`.**
   Their lap 1 (`cyanrip@fa8e7e4`) passes both our checkers; our gate now counts round 34.
   Our lap 2 reads the 2026-10-16 Full run on `.23` through 0.7.106, cites its whole-disc log
