@@ -19,6 +19,10 @@ and provider contract were filed, the message inventory regenerated (P5 128 to 1
 0.7.106 was cut so round 34's run can test the pair. `FORK_PIN` stays `.22`. R14 moved to a
 later release to keep this one small.
 
+**Released.** PR #344 merged as `dd200af`; `main`'s own CI passed on it; `release.yml`
+(run 38827149970) published v0.7.106 at 2026-10-16T00:04:54Z as an immutable pre-release
+with all six assets.
+
 **Learned.** The operator's "I thought we just needed a new release tested for a new round?"
 was the go-ahead, and it was read as a question; a clarifying question cost a round trip that
 the context already answered. The release hold of 2026-10-12 is still written in CLAUDE.md,
