@@ -11,6 +11,22 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-16 — round 34's Full run filed; the fork's lap 1 filed; our lap 2, GO, held
+
+**What was done.** The operator's Full run on 0.7.106 with `.23` (426 pass, 0 fail, 1
+unreachable) was analysed and filed: evidence commit `fe13de0c` (parent `f57cdc2b`, 80
+files), manifest rows in PR #346 (`97b1d7ab`). The fork's round 34 lap 1 (`cyanrip@fa8e7e4`)
+was filed byte for byte and passes both our checkers; our gate counts round 34. Our lap 2
+reads the run, cites its whole-disc and secure re-read logs on `evidence`, and declares `GO`.
+
+**Learned.** (1) `docs/evidence-manifest.tsv` is sorted as a whole: new rows are merged into
+place in byte order, not appended, and a locale sort puts `README.md` in the wrong place; the
+`format` check caught both. (2) A tamper probe must change a byte the check covers: the first
+probe searched for a word the EAC-style log does not contain and so flipped the file's last
+byte, and the check passed it. Flipping a byte in the middle was refused. (3) Track 3 of the
+reference disc never converges and matches AccurateRip on one frame only on `.22` and `.23`
+alike, so it is the disc.
+
 ## 2026-10-15 (later) — 0.7.106 for round 34, with `.23` under review
 
 **What was done.** The fork published `.23` (`891c79e`, upstream rc3) on beta (`b06d20e`,
