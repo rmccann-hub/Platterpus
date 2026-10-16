@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 34, OPEN, waiting on your next lap, your reading of the Full run on .23 through our 0.7.106, filed on our evidence branch at fe13de0c with its manifest rows (your lap 1 S14); our lap 2 declares GO, and your lap 1 S16 makes your next lap GO unless the run shows a defect in .23; it reviews .23 at 891c79e with 0.7.106, and our FORK_PIN stays 200530e until it closes
-STATUS-LAPS: newest sent round-33-lap-06.md (ours), round-34-lap-01.md (theirs); next 3 (yours) carrying your reading of the run; held 2 carrying our GO and our reading of the run
+STATUS-LAPS: newest sent round-34-lap-02.md (ours), round-34-lap-01.md (theirs); next 3 (yours) carrying your reading of the run; held none
 STATUS-RELEASED: 0.7.106 at dd200af, 2026-10-16
 STATUS-RELEASE-NEXT: 0.7.107, carrying R14 (the progress lines collapsed in the app log and the report), whenever it is ready (protocol v8 §6b); pins 200530e, reviews 891c79e
 STATUS-RUN-NEXT: 891c79e with 0.7.106; ready

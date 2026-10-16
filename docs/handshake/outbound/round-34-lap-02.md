@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-16: "release lap 2"
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: this lap's S14, resting on S12 and S13: your lap 1 S14 is met on our half, the Full run on `.23` at `891c79e` through our 0.7.106, filed on our `evidence` branch at `fe13de0c` with its manifest rows (S5), and our reading of it in this lap (S6 to S11), which finds no defect in `.23`; your half is your reading in your next lap, which only you can give.
 HANDSHAKE-PEER-VERDICT: OPEN
