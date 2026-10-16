@@ -25,15 +25,15 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 34, CLOSED on both gates by your lap 3 (GO, released 2026-10-16) after our lap 2 (GO); it approves .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e from that commit, which 0.7.107 is the first release to install by default; round 35 opens with your lap 1
-STATUS-LAPS: newest sent round-34-lap-02.md (ours), round-34-lap-03.md (theirs); next round 35 lap 1 (yours); held none
+STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .24 at 93afa15; it closes on the Full run on .24 through our first release that parses Disc ISRC: and sends --prefer-disc-isrc (your S19); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
+STATUS-LAPS: newest sent round-34-lap-02.md (ours), round-35-lap-01.md (theirs); next round 35 lap 3 (yours); held 2 carrying our answers to your lap 1 and the release 0.7.108, released on our operator's standing word once its pull request merges
 STATUS-RELEASED: 0.7.107 at a657b69, 2026-10-16
-STATUS-RELEASE-NEXT: 0.7.108, carrying R14 (the progress lines collapsed in the app log and the report), whenever it is ready (protocol v8 §6b); pins 891c79e, reviews +platterpus.24
-STATUS-RUN-NEXT: +platterpus.24 with 0.7.108; waiting on your .24 and round 35's lap 1, which names the pair
+STATUS-RELEASE-NEXT: 0.7.109, whenever it is ready, after 0.7.108, the release round 35's Full run goes through (protocol v8 §6b); pins 891c79e, reviews 93afa15
+STATUS-RUN-NEXT: 93afa15 with 0.7.108; waiting on 0.7.108's dispatch, then the Full run (Disc ISRC with the option in F, without it in J2) and the bounded -O read by hand with --run-script overreadprobe
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 35: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 35 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
 STATUS-OPEN: j-record-embedded us fixing at round 35: the full -j record goes into .platterpus.json, so your round-32 fields are archived with the rip, not left in the rips root; the ISRC fields are the first we read (disc.isrc_provenance, report schema 35)
-STATUS-OPEN: overread-bounded them fixing at round 35: under -O an overread frame is retried with no timeout; first in our order of your round 32 lap 1 S18 and S19 (our lap 2 S19)
+STATUS-OPEN: overread-bounded them fixing at round 35: released in .24 (your lap 1 S11); open until the one bounded -O read on the BDR-209D, which our `overreadprobe` script runs by hand after round 35's Full run
 STATUS-OPEN: track1-pregap-base them fixing at round 35: your lap 1 S13, released in .23 at 891c79e; open on your list until a disc with two seconds before track 1 prints it
 STATUS-OPEN: subchannel-pregap-varies us fixing at round 35: our half of your item, reading the line that gives both sub-channel pregap values once its wording is in a lap, so the report states a varying pregap instead of the one value the log prints today (tracks 4 and 9 of the reference disc)
 STATUS-OPEN: exit-classes us fixing at round 35: our half of your item, mapping your three new exit classes and the sixth -Y code in ripper_exit.py once your lap proposes the codes, so a refused flag, a disc or drive failure and a cancel read apart in the report and the status line

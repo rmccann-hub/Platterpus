@@ -1177,7 +1177,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1845 -> 1852** (2026-10-07, the maintainer's -W ruling): every rip passes `-W`, with the six-line why (cyanrip's default de-emphasis, the cue's FLAGS PRE, stock accepts it).
     # **1852 -> 1857** (2026-10-13, the fork's round 32 lap 5 S11): the record flag is `DIAGNOSTICS_FLAG` from `diagnostics_record`, the one home of its spelling, now `--diagnostics` because the fork's `.23` refuses `-j`; four lines say why, beside the flag.
     # **1857 -> 1877** (2026-10-14, the fork's round 32 lap 9 S9): `consumer_args_for_build` and `diagnostics_args`, the argv words every rip sends, so a script's `(consumer)` / `(diagnostics)` and the rip argv builder send the same words under the same gate instead of each spelling the flag. They live beside `consumer_tag_for_build` and `diagnostics_record_name`, which they wrap.
-    "adapters/cyanrip_backend.py": 1877,
+    # **1877 -> 1908** (2026-10-16, TASKS R20 part 2, round 35): `--prefer-disc-isrc` through the argv chokepoint, gated on the build tag beside `--consumer`'s gate.
+    "adapters/cyanrip_backend.py": 1908,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1195,7 +1196,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **664 -> 680** (2026-10-05, the fork's round 30 lap 9 S28): `RipHandle.pid`, and `terminate()` returns the process group it signalled, so the worker can record what its one SIGTERM reached; the handle is the only thing that knows which group `_kill_group` actually hit.
     # **680 -> 705** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `RipHandle.kill`, SIGKILL alone with a bounded wait, for a ripper that already had our one SIGTERM, where `cancel()` would have sent it a second. Beside `cancel()`, whose bounded-wait shape it shares.
     # **705 -> 698** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `produces_max_compression_flac()` capability went with the re-compress, its only reader; a two-line note says so.
-    "adapters/rip_backend.py": 698,
+    # **698 -> 701** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` keyword on the ABC, where every ripper's options are declared.
+    "adapters/rip_backend.py": 701,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1258,7 +1260,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **851 -> 853** (2026-09-28, the `-Z` wording): the `max_retries` and `secure_rerip_matches` comments say `-r` is also the whole-track read ceiling and `-Z N` is N+1 identical reads, not "the CEILING of effort" the 2026-09-21 correction missed here.
     # **853 -> 854** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): `test_script_allow_unsafe` left the dataclass and joined `RETIRED_CONFIG_KEYS` with the reason, so an old config loads without a warning; the entry's comment is one line longer than the field was.
     # **854 -> 851** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `recompress_flac_after_rip` left the dataclass and joined `RETIRED_CONFIG_KEYS` with its reason, shorter than the field's own comment was.
-    "config.py": 851,
+    # **851 -> 860** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` setting and its reason.
+    "config.py": 860,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -1507,7 +1510,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # of FORK_PIN's roll.
     # 2741 -> 2751 (2026-10-16): round 34's close rolls FORK_PIN and
     # FORK_EXPECTED_VERSION to `.23`, each roll recorded beside its constant.
-    "deps/fork_source.py": 2751,
+    # **2751 -> 2773** (2026-10-16, round 35 opens): `.24` becomes the build under review (`PIN_UNDER_REVIEW` `93afa15`, its release sequence 35, its consumer-flag row, its version), each with the source it was read from, as every round open adds.
+    # **2773 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): `BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC` and its reader, beside the other per-build capability sets.
+    "deps/fork_source.py": 2796,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1776,7 +1781,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **644 -> 643** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the Guide's note on the disabled box became one sentence saying there is no compression setting.
     # **643 -> 645** (2026-10-14, the fork's round 32 lap 9 S8): the Guide's acceptance section says the archive's MANIFEST.txt gives every file's SHA-256, so an operator knows the receiver can check each file.
     # **645 -> 646** (2026-10-14, the fork's round 32 lap 9 S10): the Guide says home-folder paths are written as ~, except in signed rip logs.
-    "help_content.py": 646,
+    # NEW (2026-10-16, TASKS R20 part 2): the two ISRC readings and how they
+    # compare, one job: `passed` beside the disc and the files, and whether the
+    # option went. Splitting the findings off would separate a sentence from the
+    # rows it reads.
+    "isrc_provenance.py": 324,
+    # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
+    "help_content.py": 651,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1848,7 +1859,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # constants and the rule tables are what the generated consumer contract
     # publishes. Most of the growth is the citations into `cyanrip@aa45b975` that
     # derive each shape, and why a data track's CRC is not an audio CRC.
-    "parsers/cyanrip_log.py": 3822,
+    # **3822 -> 3854** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC:` line's pattern and handler, beside the other per-track lines.
+    "parsers/cyanrip_log.py": 3854,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1867,7 +1879,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **987 -> 1015** (2026-10-14, the fork's `.23`): `TrackResult.data_crc32` and
     # `data_sector_edc`, a data track's own facts, kept out of `copy_crc` on
     # purpose, and `RipLog.accuraterip_disc_id`, each beside the dataclass it fills.
-    "parsers/rip_log.py": 1015,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1015 -> 1022** (2026-10-16, TASKS R20 part 2, round 35): three `TrackResult` fields for the `Disc ISRC:` line.
+    "parsers/rip_log.py": 1022,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1904,7 +1917,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **761 -> 768** (2026-10-14, TASKS R9): `OutcomeBlock.securing_pass_record`, schema v34, with the comment saying what each state means; its block type lives in `record_fate.py`.
     # **-> 775** (2026-10-14, integration): the two v34 changes above combined in one unreleased version.
     # **775 -> 782** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
-    "report_types.py": 782,
+    # **782 -> 788** (2026-10-16, TASKS R20 part 2, round 35): the three per-track `disc_isrc` keys.
+    "report_types.py": 788,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -1994,7 +2008,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 2721** (2026-10-14, integration): both v34 changes above landed in one unreleased schema version; the combined module is the sum of the two, with one v34 note.
     # **2721 -> 2764** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **2764 -> 2783** (2026-10-16, TASKS R20): schema v35 — the history note and the loop raising `isrc_disc_differs` / `isrc_disc_malformed` from `disc.isrc_provenance`. Reading the record, comparing and wording live in `isrc_provenance.py`; this is the one place that assembles `issues`.
-    "rip_report.py": 2783,
+    # **2783 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): the schema note and the three per-track keys.
+    "rip_report.py": 2796,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2049,7 +2064,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1209 -> 1233** (2026-09-30): the unsafe-verbs opt-in is refused while no unsafe verb is built, in the one module every value passes through (config file, a script's `set`).
     # **1233 -> 1208** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe-opt-in refusal went with the setting.
     # **1208 -> 1207** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the re-compress bool in `_BOOL_FIELDS`.
-    "settings_validation.py": 1207,
+    # **1207 -> 1208** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` among the booleans.
+    "settings_validation.py": 1208,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2368,7 +2384,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4932 -> 4941** (2026-10-14, TASKS R9): the worker's `securing_pass_record` handed to `build_outcome`, and the rip bundle's `securing pass -j record` fact.
     # **4958 -> 4967** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **4967 -> 4974** (2026-10-16, TASKS R20): `_last_disc` carries `isrc_provenance`, built by `isrc_provenance.report_block` from the worker's reading while the worker still exists, like the record's ending.
-    "ui/main_window_rip.py": 4974,
+    # **4974 -> 4987** (2026-10-16, TASKS R20 part 2, round 35): what we passed and the argv, handed to the ISRC block.
+    "ui/main_window_rip.py": 4987,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2449,7 +2466,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1381 -> 1382** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the secure re-read row's comment names both wordings.
     # **1382 -> 1388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the validation banner (it quotes what was typed) and the filename preview (it renders the user's template) state PlainText.
     # **1388 -> 1373** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the greyed-out Re-compress FLACs row, its save and its preset wiring.
-    "ui/settings_dialog.py": 1373,
+    # **1373 -> 1390** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC` checkbox, its tooltip and save key.
+    "ui/settings_dialog.py": 1390,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
@@ -2591,14 +2609,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4734 -> 4757** (2026-10-06, KDD-42 W3): two more verb mixins in the class list, and `screenshot` drawing the walkthrough's `callout` marks (and failing a picture that misses one); the verbs themselves live in `walkthrough_verbs.py` and `burst_verbs.py`.
     # **4757 -> 4759** (2026-10-14, TASKS R10): one more verb mixin in the class list and its import; the handler lives in `pregap_verbs.py`.
     # **4765 -> 4767** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
-    "uiscript/runner.py": 4767,
+    # **4767 -> 4792** (2026-10-16, round 35, `overreadprobe`): the `(lasttrack)` expansion in the `cyanrip` verb and its reader, beside `(offset)`'s.
+    "uiscript/runner.py": 4792,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
     # **348 -> 332** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `Step.unsafe` and `uses_unsafe` went.
     # **332 -> 387** (2026-10-14, the fork's round 32 lap 9 S9): `(consumer)` and `(diagnostics)` beside `(offset)`, with the one preflight view of all three; the docstring records why a script cannot type the version.
-    "uiscript/script.py": 387,
+    # **387 -> 401** (2026-10-16, round 35, `overreadprobe`): `LAST_TRACK_PLACEHOLDER` and its expander, beside the offset's.
+    "uiscript/script.py": 401,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
@@ -2629,7 +2649,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **983 -> 984** (2026-10-07, KDD-42 W6): `open getting-started`, so the walkthrough script can reach the guide like any other dialog.
     # **984 -> 995** (2026-10-14, TASKS R10): the `expect-pregaps-agree` declaration, the one grader that reads a whole run rather than one rip. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **995 -> 997** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
-    "uiscript/verbs.py": 997,
+    # **997 -> 998** (2026-10-16, round 35, `overreadprobe`): the `cyanrip` verb's help names `(lasttrack)`.
+    "uiscript/verbs.py": 998,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
@@ -2696,7 +2717,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4197 -> 4203** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **4203 -> 4217** (2026-10-16, TASKS R20): the worker reads each track's two ISRCs from the album pass's `-j` record beside `ripper_ending`, at the same two moments, and exposes `isrc_reading`. The parsing is `isrc_provenance.py`; only the worker knows which record is the album pass's and when it is safe to read.
     # **4217 -> 4232** (2026-10-16, TASKS R14): the app log's copy of a run of progress redraws goes through `redraw_run.LoggedRun` (first, a checkpoint every 10 s, last, and a counted marker) instead of one `log.debug` per throttled tick, and the run is flushed when any other line arrives and when the stream ends. The collapsing is `redraw_run.py`; the worker is the one place the stream is read.
-    "workers/rip_worker.py": 4232,
+    # **4232 -> 4238** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` on the rip parameters and both calls.
+    "workers/rip_worker.py": 4238,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

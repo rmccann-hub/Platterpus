@@ -1868,7 +1868,20 @@ class RipMixin(MainWindowShared):
             # cyanrip's -j record (v35, TASKS R20). Read off the worker while it
             # still exists, like the record's ending above.
             "isrc_provenance": isrc_report_block(
-                getattr(self._rip_worker, "isrc_reading", None)
+                getattr(self._rip_worker, "isrc_reading", None),
+                # What we sent with -t, so the disc's code is compared with
+                # MusicBrainz's even when --prefer-disc-isrc put the disc's in
+                # the files (round 35). None with no metadata: not known.
+                passed=(
+                    {t.number: t.isrc for t in _meta.tracks if t.isrc}
+                    if _meta is not None
+                    else None
+                ),
+                argv=tuple(
+                    getattr(self._rip_worker, "ripper_argv_first_pass", ())
+                    or getattr(self._rip_worker, "ripper_argv", ())
+                    or ()
+                ),
             ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the

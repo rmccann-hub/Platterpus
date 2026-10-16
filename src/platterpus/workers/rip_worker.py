@@ -124,6 +124,10 @@ class RipParameters:
     # zero-padding the offset-shifted edge samples. Opt-in and
     # drive-dependent (upstream: "may freeze if unsupported by drive").
     force_overread: bool = False
+    # cyanrip's `--prefer-disc-isrc`, sent only to a build that lists it
+    # (`fork_source.accepts_prefer_disc_isrc`). Both passes send it, so a securing
+    # pass cannot tag a track differently from the album pass.
+    prefer_disc_isrc: bool = True
     # Dynamic secure-rerip (0.4.9): when True (and secure_rerip_matches > 0),
     # DON'T apply `-Z` to every track. Rip once fast (no `-Z`), then secure-re-rip
     # only the tracks that didn't match AccurateRip (a DB match on the first read
@@ -1882,6 +1886,7 @@ class RipWorker(QObject):
             read_speed_mode=self._params.read_speed_mode,
             read_speed=self._params.read_speed,
             force_overread=self._params.force_overread,
+            prefer_disc_isrc=self._params.prefer_disc_isrc,
             read_offset_override=self._params.read_offset_override,
             only_tracks=self._params.only_tracks,
             disc_track_total=self._params.disc_track_total,
@@ -2330,6 +2335,7 @@ class RipWorker(QObject):
                 max_retries=self._params.max_retries,
                 secure_rerip_matches=secure_rerip_matches,
                 force_overread=self._params.force_overread,
+                prefer_disc_isrc=self._params.prefer_disc_isrc,
                 read_offset_override=self._params.read_offset_override,
                 metadata=self._params.metadata,
                 disc_track_total=self._params.disc_track_total,

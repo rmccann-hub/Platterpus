@@ -294,6 +294,13 @@ FORK_PIN: Final[str] = "891c79e"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 35's subject, on BETA only: `release_seq` 35, `handshake_round` 35,
+    # `round_closed: false`, version `0.9.4-rc3+platterpus.24`. Read off their
+    # `release-manifest.json` at `40d319c` (the commit that published it), 2026-10-16,
+    # and filed byte-exact as `tests/fixtures/fork_release_manifest_40d319c.json`.
+    # Stable is `.23` there with `release_seq` 34: their stable move of `.23` on
+    # 2026-10-16 took a new sequence number, so `.23`'s 33 below is its beta one.
+    "93afa15": 35,
     # Round 34's subject, on BETA only: `release_seq` 33, `handshake_round` 34,
     # `round_closed: false`, version `0.9.4-rc3+platterpus.23`. Read off their
     # `release-manifest.json` at `b06d20e` (the merge that published it), 2026-10-15,
@@ -833,7 +840,15 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: as `round-34-lap-01-provider-contract-g3f71347.md`; P1 keeps `--consumer` and
 #: `-Y`, and drops the short `-u`, which we never send. **`FORK_PIN` stays
 #: `200530e` until round 34 closes.**
-PIN_UNDER_REVIEW: Final[str] = "891c79e"
+#: **Round 34 closed on 2026-10-16** and `FORK_PIN` rolled to `891c79e`.
+#: **Moved `891c79e` -> `93afa15` on 2026-10-16 for round 35**, which their lap 1
+#: opens on `+platterpus.24` (`release_seq` 35, beta only): their manifest at
+#: `40d319c` names it (`tests/fixtures/fork_release_manifest_40d319c.json`) and
+#: `meson.build` at `93afa15` declares the version. Its `PROVIDER-CONTRACT.md` (built
+#: at `g16b9469`, whose `src/` and `meson.build` equal `93afa15`'s) is filed as
+#: `round-35-lap-01-provider-contract-g16b9469.md`; P1 adds `--prefer-disc-isrc` and
+#: keeps `--consumer` and `-Y`. **`FORK_PIN` stays `891c79e` until round 35 closes.**
+PIN_UNDER_REVIEW: Final[str] = "93afa15"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -863,7 +878,8 @@ PIN_UNDER_REVIEW: Final[str] = "891c79e"
 #: their round 33 lap 1 names it, so the pin under review is unchanged.
 #: **34 from 2026-10-15**: `.23`, published on beta after round 33 closed, is round
 #: 34's subject; 0.7.106 ships with it under review before their lap 1 opens it.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 34
+#: **35 from 2026-10-16**: `.24` is round 35's subject, as their lap 1 names it.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 35
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -1324,6 +1340,10 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # `891c79e` (built at `g3f71347`, same `src/` and `meson.build`) carries
         # `--consumer` in P1 at line 58 with no short form; we send the long one.
         "platterpus-fork-g891c79e",
+        # Round 35's subject, `+platterpus.24`. Its `PROVIDER-CONTRACT.md` at
+        # `93afa15` (built at `g16b9469`, same `src/` and `meson.build`) carries
+        # `--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-g93afa15",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1511,6 +1531,29 @@ def accepts_consumer_flag(build_tag: str) -> bool:
     if tag.endswith("-dirty"):
         tag = tag[: -len("-dirty")]
     return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_CONSUMER_FLAG}
+
+
+#: Builds whose provider contract lists ``--prefer-disc-isrc`` in P1. **Enumerated,
+#: never inferred from a version**, for the reason ``--consumer``'s set gives.
+#: ``.24`` is the first (its ``PROVIDER-CONTRACT.md`` at ``93afa15``, built at
+#: ``g16b9469``, line 60; round 35, TASKS R20). A later build joins when its own
+#: contract is filed and still lists the option.
+BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
+    {"platterpus-fork-g93afa15"}
+)
+
+
+def accepts_prefer_disc_isrc(build_tag: str) -> bool:
+    """Whether a build identified by ``build_tag`` accepts ``--prefer-disc-isrc``.
+
+    Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
+    as :func:`accepts_consumer_flag`: cyanrip refuses an unknown option, and a
+    refused rip reads as a missing ripper.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC}
 
 
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
@@ -2014,7 +2057,9 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # manifest at `ca27b95` pairs the same two on both channels.
     # **Round 34's subject, from their manifest's beta entry at `b06d20e`**: `commit`
     # `891c79e`, `version` `0.9.4-rc3+platterpus.23`, as `meson.build` there declares.
-    version="0.9.4-rc3+platterpus.23",
+    # **Round 35's subject, from their manifest's beta entry at `40d319c`**: `commit`
+    # `93afa15`, `version` `0.9.4-rc3+platterpus.24`, as `meson.build` there declares.
+    version="0.9.4-rc3+platterpus.24",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

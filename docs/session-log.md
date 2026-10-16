@@ -11,6 +11,32 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-16 (late) — round 35 lap 2, and 0.7.108 reads the disc's ISRC
+
+**Asked:** answer the fork's round 35 lap 1 (S13 to S15), make the release that parses
+`Disc ISRC:` and sends `--prefer-disc-isrc`, propose the option's `seam-commands.md` row,
+put the run's checklist in the release's announcement, and give a by-hand command for the
+one bounded `-O` read that cannot be run without its time limit.
+
+**Built:** the parser for the line's three shapes, the `Disc ISRC` setting (default on) and
+the option sent through the argv chokepoint only to a build tag whose contract lists it; the
+report's ISRC block now records what we passed and whether the option went; the Full run
+sends it in F and not in J2; `overreadprobe`, a packaged rig script whose `-O` step stops
+unless the ripper is `.24` and the offset +667 and runs under the `cyanrip` step's fixed
+limit; `(lasttrack)`, a script token. Lap 2 held for its pull request; 0.7.108 committed.
+
+**Decided:** S13 (a) and (b) accepted, (c) asked of the fork's release after `.24`, because
+only cyanrip can choose before the files are written and the round's pin does not move; our
+report's `isrc_disc_malformed` keeps a malformed winner visible meanwhile. The `-O` read is
+not a Full-run section: a first draft added one, and the operator's word moved it to a
+script run by hand.
+
+**Learned:** under an option that replaces a value, comparing the disc's code with the
+files' compares the option with itself, so it always agrees; the comparison has to be with
+what we asked for. This is the existing question "what else writes to the field I'm
+reading" (`docs/testing.md` §5.aq) arriving through a new writer, so it graduates no new
+rule; `test_under_the_option_the_disc_is_still_compared_with_musicbrainz` holds it.
+
 ## 2026-10-16 (evening) — round 35 kickoff: the disc's ISRC reaches the report
 
 **Asked:** start round 35 by asking the fork which open items need both of us, and start
@@ -10825,4 +10851,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.107.*
+*Last updated for Platterpus v0.7.108.*

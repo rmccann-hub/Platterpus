@@ -24,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.7.107` — the build that
+- **Platterpus:** `0.7.108` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc3+platterpus.23 (platterpus-fork-g891c79e)` — the build a
@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (68)
+## 1. Log lines we parse (69)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -108,6 +108,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_pregap_length` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<frames>\\d{1,9})\\s+frames?\\b` |
 | `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,62}\\S)?)\\s*$` |
 | `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
 | `track_data_crc32` | indented | `^\\s+CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})\\s*$` |
 | `track_data_sector_edc` | indented | `^\\s+Sector EDC:\\s+(?P<value>\\S(?:.{0,198}\\S)?)\\s*$` |

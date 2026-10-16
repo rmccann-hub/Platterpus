@@ -67,6 +67,7 @@ def test_the_whole_disc_pass_of_the_2026_10_16_run_reads_as_written_only() -> No
         {
             "number": 1,
             "audio_ripped": True,
+            "passed": None,
             "written": "GBAAM0201086",
             "disc": None,
             "disc_reason": "libcdio returned none",
@@ -76,6 +77,7 @@ def test_the_whole_disc_pass_of_the_2026_10_16_run_reads_as_written_only() -> No
         {
             "number": 2,
             "audio_ripped": True,
+            "passed": None,
             "written": "GBAAM0201089",
             "disc": None,
             "disc_reason": "libcdio returned none",
@@ -126,8 +128,10 @@ def test_a_disc_code_that_differs_is_information_naming_both_values() -> None:
         {
             "severity": "info",
             "code": "isrc_disc_differs",
+            # No `passed` given, so MusicBrainz's value is not named: from the
+            # files alone it would be an inference (round 35, R20 part 2).
             "message": "track 4: the disc's own ISRC is USABC1234567, the files "
-            "carry GBAAM0201086 (from MusicBrainz)",
+            "carry GBAAM0201086",
         }
     ]
 

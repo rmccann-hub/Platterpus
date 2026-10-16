@@ -856,7 +856,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         "FOLDER (the output directory; an acceptance session's own rips folder), "
         "so a relative -D lands beside the app's rips; capture its exit code, "
         "exact argv, that folder and complete output. (offset) expands to the "
-        "drive's read offset; (consumer) and (diagnostics) to the --consumer and "
+        "drive's read offset, (lasttrack) to the loaded disc's last track number; "
+        "(consumer) and (diagnostics) to the --consumer and "
         "--diagnostics words an app rip sends",
         takes_paths=True,
     ),

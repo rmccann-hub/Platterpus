@@ -618,6 +618,7 @@ def test_restore_defaults_resets_every_control_this_dialog_owns(
         save_additional_art=not shipped.save_additional_art,
         max_retries=9,
         force_overread=not shipped.force_overread,
+        prefer_disc_isrc=not shipped.prefer_disc_isrc,
         secure_rerip_matches=4,
         rerip_offset_variant=not shipped.rerip_offset_variant,
         secure_rerip_dynamic=not shipped.secure_rerip_dynamic,

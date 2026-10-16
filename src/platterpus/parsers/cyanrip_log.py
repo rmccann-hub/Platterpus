@@ -698,6 +698,16 @@ _READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S(?:.*\S)?)\s*$")
 _READ_STALLS_COUNT = re.compile(r"^(?P<count>\d{1,6})\s+reads?\s+exceeded\b")
 _READ_STALLS_NONE = re.compile(r"^none\b")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
+# The disc's own ISRC for a track, `.24`+ (`cyanrip@dd60143:src/cyanrip_log.c:530-545`,
+# P2 rows `Disc ISRC:     %s` and `Disc ISRC:     %s (%s)`, round 35 lap 1 S4): the
+# code the disc returned, or `none (<reason>)` where libcdio answered with no usable
+# ISRC, or `unknown (<reason>)` where the read was not made or did not finish. The
+# reason is the `-j` record's `isrc_disc_reason`, word for word. Bounded: a code is
+# twelve characters, and the fork's longest reason is under fifty.
+_DISC_ISRC = re.compile(
+    r"^\s+Disc ISRC:\s+(?:(?P<state>none|unknown) \((?P<reason>[^()\n]{1,120})\)"
+    r"|(?P<code>[^\s()]{1,40}))\s*$"
+)
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
 # bit-for-bit — verified against a real EAC log of the same disc). The
@@ -1781,6 +1791,11 @@ class _TrackAcc:
     data_copy_evidence: bool = False
     data_crc32: str = ""
     data_sector_edc: str = ""
+    # `Disc ISRC:` (`.24`+): the code, or "" with the state `none`/`unknown` and
+    # the ripper's reason. All "" when the build prints no such line.
+    disc_isrc: str = ""
+    disc_isrc_state: str = ""
+    disc_isrc_reason: str = ""
 
 
 # A handler takes the accumulator and the successful match, records the fact, and
@@ -2614,6 +2629,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_pregap_length", _PREGAP_LENGTH),
     ("track_pregap_source", _PREGAP_SOURCE),
     ("track_preemphasis", _PREEMPHASIS),
+    # `+platterpus.24`: the disc's own ISRC, beside the metadata's (R20).
+    ("track_disc_isrc", _DISC_ISRC),
     ("track_eac_crc", _EAC_CRC),
     # `+platterpus.23`: a data track's CRC32 and sector EDC rows, read only inside
     # a data track's block.
@@ -3191,6 +3208,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 appended_silence_frames=current.appended_silence_frames,
                 data_crc32=current.data_crc32,
                 data_sector_edc=current.data_sector_edc,
+                disc_isrc=current.disc_isrc,
+                disc_isrc_state=current.disc_isrc_state,
+                disc_isrc_reason=current.disc_isrc_reason,
             )
         )
         current = None
@@ -3612,6 +3632,18 @@ def parse_cyanrip_log(text: str) -> RipLog:
             match = _PREEMPHASIS.match(line)
             if match:
                 current.pre_emphasis = not match.group("text").startswith("none")
+                continue
+
+            match = _DISC_ISRC.match(line)
+            if match:
+                # `code` when the disc gave one; otherwise the ripper's own word
+                # (`none`/`unknown`) and reason, kept apart, never guessed between.
+                if match.group("code"):
+                    current.disc_isrc = match.group("code")
+                    current.disc_isrc_state = "code"
+                else:
+                    current.disc_isrc_state = match.group("state")
+                    current.disc_isrc_reason = match.group("reason")
                 continue
 
             match = _EAC_CRC.match(line)

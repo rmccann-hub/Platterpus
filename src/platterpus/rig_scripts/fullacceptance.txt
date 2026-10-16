@@ -218,6 +218,7 @@ set cover_art embed
 set save_additional_art on
 set max_retries 5
 set force_overread off
+set prefer_disc_isrc on
 set secure_rerip_matches 2
 set secure_rerip_dynamic on
 set rerip_offset_variant on
@@ -397,6 +398,8 @@ set output_format flac
 expect output_format flac
 set force_overread off
 expect force_overread off
+set prefer_disc_isrc on
+expect prefer_disc_isrc on
 # THREE SETTINGS NO RIP HERE CAN USE, so each is only round-tripped through the
 # validator and goes straight back (TASKS "Permutations the acceptance test
 # still does not run"). That proves the value is accepted and stored, and
@@ -693,6 +696,11 @@ expect-rip-complete
 # nothing read it. This step waits for the checks and grades what they left, so
 # the section can fail over its own title.
 expect-verification
+# THE DISC'S OWN ISRC (TASKS R20, round 35). `prefer_disc_isrc` is on from the
+# baseline, so a build whose contract lists `--prefer-disc-isrc` gets it on this
+# rip; J2 turns it off. Whether the disc carries ISRCs is a fact about the disc:
+# the report records the disc's value and MusicBrainz's either way.
+expect-rip-argv with --prefer-disc-isrc
 # GRADE WHAT THE RIP LEFT, not only that it finished and its checks left A
 # result (2026-09-30). Until these steps no line of this file opened a report's
 # verdicts, its self-audit, the cue, the EAC-style log or a FLAC: a run could go
@@ -946,6 +954,8 @@ expect max_retries 0
 set read_speed_mode fixed
 expect read_speed_mode fixed
 expect read_speed 0
+set prefer_disc_isrc off
+expect prefer_disc_isrc off
 set-library-scratch
 expect-contains library_dir libraryscratch
 select-tracks 1
@@ -958,6 +968,7 @@ expect-verification
 expect-rip-argv without -r
 expect-rip-argv without -Z
 expect-rip-argv without -S
+expect-rip-argv without --prefer-disc-isrc
 expect-album-audit argv_agreement
 # AND EVERY ONE GOES BACK, the library first: K1's rip must not be filed.
 set library_dir ""
@@ -970,6 +981,8 @@ set secure_rerip_matches 2
 expect secure_rerip_matches 2
 set secure_rerip_dynamic on
 expect secure_rerip_dynamic on
+set prefer_disc_isrc on
+expect prefer_disc_isrc on
 
 # --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
 # **Nothing has ever tested this on hardware.** FLAC is the archival master and

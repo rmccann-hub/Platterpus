@@ -207,6 +207,7 @@ class _TwoPassBackend(RipBackend):
         disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
+        prefer_disc_isrc: bool = False,
     ) -> RipHandle:
         self.calls.append(
             {

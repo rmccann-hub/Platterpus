@@ -500,6 +500,22 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Overread:", self._force_overread_check)
 
+        # --prefer-disc-isrc (round 35, TASKS R20). Effect-first wording, as above.
+        self._prefer_disc_isrc_check: QCheckBox = QCheckBox(
+            "Tag each track with the ISRC its disc carries, when it carries one", self
+        )
+        self._prefer_disc_isrc_check.setChecked(config.prefer_disc_isrc)
+        self._prefer_disc_isrc_check.setToolTip(
+            "An ISRC identifies a recording. MusicBrainz lists one per recording, "
+            "and a recording can have several; a disc can carry its own in its "
+            "sub-channel, which says which one this pressing has. On (default): a "
+            "track whose disc carries an ISRC is tagged with it, and any other track "
+            "keeps MusicBrainz's. Off: every track is tagged with MusicBrainz's. "
+            "Either way the rip report records both. Needs a ripper build that "
+            "supports it; an older one ignores this setting."
+        )
+        form.addRow("Disc ISRC:", self._prefer_disc_isrc_check)
+
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
         # Secure re-rip effort: how many EXTRA reads must match before a track that
         # did not match AccurateRip is trusted. Ripping is always "dynamic" — a
@@ -967,6 +983,7 @@ class SettingsDialog(CenteredDialog):
             "cover_art": self._cover_art_combo.currentData(),
             "max_retries": self._max_retries_spin.value(),
             "force_overread": self._force_overread_check.isChecked(),
+            "prefer_disc_isrc": self._prefer_disc_isrc_check.isChecked(),
             "secure_rerip_matches": self._secure_rerip_spin.value(),
             # Checked = verify every track (whole-disc Test & Copy) = dynamic OFF.
             "secure_rerip_dynamic": not self._verify_every_track_check.isChecked(),

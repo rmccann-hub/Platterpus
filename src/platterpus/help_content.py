@@ -239,6 +239,11 @@ and the startup test script in the script console.
   EAC parity baseline was ripped, and only some drives can overread; an
   unsupported drive may freeze on it, so turn it on only if you know your
   drive supports overreading.
+- **Disc ISRC** — tag each track with the ISRC (the recording's international
+  code) read from the disc itself, where the disc carries one and your cyanrip
+  build can read it; otherwise the track keeps MusicBrainz's. **On by
+  default.** Either way the rip report records both values, and says when the
+  disc and MusicBrainz disagree.
 - **Extra matching reads to trust a track** — Platterpus rips the disc once at
   full speed, then re-reads *only* the tracks that didn't match AccurateRip until
   this many further reads match one read — so at 2, **three identical reads** in

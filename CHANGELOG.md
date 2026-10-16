@@ -12,7 +12,50 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.108] — 2026-10-16
+
+The first release that reads the fork's `Disc ISRC:` line and sends `--prefer-disc-isrc`, and
+the release round 35's Full run goes through, on the fork's `.24` (`93afa15`). It still
+installs `.23` (`891c79e`) by default: `.24` is the build under review until round 35
+closes. The option goes only to a build whose provider contract lists it, so on `.23` a rip
+is unchanged.
+
+**What the acceptance run must cover on our side** (the operator's round 35 message, point 1,
+and the fork's round 35 lap 1 S17):
+
+1. **A disc whose sub-channel carries ISRCs, with the option and without.** The Full run
+   does both: section F rips with `Disc ISRC` on, and its `expect-rip-argv with
+   --prefer-disc-isrc` checks the flag was sent; section J2 turns it off and checks it was
+   not. In each rip's `.platterpus.json`, `tracks[].disc_isrc` / `disc_isrc_state` is the
+   log's line, and `disc.isrc_provenance` gives per track what we `passed`, what the files
+   carry (`written`) and the disc's code (`disc`), with `prefer_disc_isrc_sent` true in F and
+   false in J2. Where the disc's code and MusicBrainz's differ, the report carries the
+   `isrc_disc_differs` line naming both; with the option on, the files carry the disc's.
+2. **A disc that carries none.** The same Full run on the reference disc, whose drive read
+   returned none on `.23`: every track's line reads `none (` reason `)` or `unknown (` reason
+   `)`, `agreement` is `written_only`, and no mismatch line appears.
+3. **One bounded `-O` read, run by hand after the Full run**:
+   `./platterpus-x86_64.AppImage --run-script overreadprobe`. It stops before reading unless
+   the ripper is `.24` and the offset is +667, then rips the last track only with `-O`, killed
+   at the step's fixed 300-second limit, and the transcript records the exit code and the
+   `Beyond disc:` line.
+
 ### Added
+
+- **Our round 35 lap 2, answering the fork's lap 1.** It accepts the `Disc ISRC:` line and
+  `--prefer-disc-isrc` as the fork worded them, with the option working track by track and
+  the code we passed left in `Invoked as:` rather than logged again; it asks for the 12
+  character A-to-Z and 0-to-9 check inside cyanrip in the fork's next release after `.24`, so
+  round 35's Full run stays on `.24` as pinned; it accepts `Beyond disc:`, confirms the order
+  of the shared tasks, proposes the option's row for `docs/seam-commands.md`, and names
+  0.7.108 as the release the run goes through. Held until its pull request merges, then
+  released on the operator's standing word for round 35.
+
+- **Round 35 opens: the fork's `.24` is the build under review.** Their round 35 lap 1 is
+  filed (`cyanrip@e1adf47`). `.24` (`93afa15`, upstream 0.9.4-rc3) adds a `Disc ISRC:` line per
+  track, the `--prefer-disc-isrc` option and a bounded `-O`. Its provider contract is filed, and
+  our ripper message inventory is regenerated from it. Platterpus still installs `.23` by
+  default until round 35 closes.
 
 - **The rip report records the disc's own ISRC beside the one the files carry.** Since the
   fork's `.23`, cyanrip reads each track's ISRC from the disc even when we pass one, but only
@@ -23,6 +66,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `not_determined` for a record from before the fields existed). A disc code that differs or
   is malformed is an `info` issue that names both values, never a failed rip (TASKS R20, the
   half that needs nothing from the fork).
+
+- **Tracks can carry the ISRC their disc holds (`Disc ISRC` in Settings, on by default).**
+  With the fork's `.24`, cyanrip writes a `Disc ISRC:` line per track (the disc's code, or
+  `none`/`unknown` with its reason) and accepts `--prefer-disc-isrc`, which tags a track with
+  the disc's code where the disc carries one. Platterpus reads the line into the report and
+  sends the option only to a build whose provider contract lists it, so `.23` and any build it
+  does not recognise rip as before. The report records what we passed beside the disc's
+  value and the files', compares the disc with MusicBrainz's code even when the files carry the
+  disc's, and says whether the option was sent, read from the argv as spawned. The Full
+  acceptance run sends it in section F and leaves it out in J2 (TASKS R20, round 35).
+
+- **A rig script for the one bounded `-O` read the fork asked for (`overreadprobe`).** The
+  fork's `.24` reads a frame outside the disc once, writes a refused one as silence and says
+  so per track (`Beyond disc:`); before it, `-O` hung a read on the rig's drive for about 23
+  minutes, so every other script keeps `Overread` off. `--run-script overreadprobe` rips only
+  the disc's last track at +667 with `-O`, and stops before reading unless the ripper is `.24`
+  and the offset is +667. The read runs under the `cyanrip` step's fixed 300-second limit,
+  which no script can raise or remove, and the transcript keeps its exit code, argv and the
+  `Beyond disc:` line. A new script token, `(lasttrack)`, names the loaded disc's last track.
 
 ### Changed
 
@@ -18820,7 +18882,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...HEAD
+[0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
 [0.7.106]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...v0.7.106
 [0.7.105]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...v0.7.105
@@ -18898,4 +18961,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.107.*
+*Last updated for Platterpus v0.7.108.*

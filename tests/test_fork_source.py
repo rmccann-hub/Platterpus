@@ -1928,7 +1928,10 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
     # Re-derived 2026-10-15 when the pin under review moved to `.23` (`891c79e`):
     # `git diff --shortstat 3952c03 891c79e -- src meson.build` in a clone of the
     # fork is 29 files, 3399 insertions, 633 deletions. Different programs, so False.
-    DECLARED_FOR: tuple[str, str, bool] = ("891c79e", "3952c03", False)
+    # Re-derived 2026-10-16 when the pin under review moved to `.24` (`93afa15`):
+    # `git diff --shortstat 3952c03 93afa15 -- src meson.build` in a clone of the
+    # fork is 29 files, 3514 insertions, 633 deletions. Different programs, so False.
+    DECLARED_FOR: tuple[str, str, bool] = ("93afa15", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (

@@ -39,7 +39,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -70,7 +70,10 @@ MAX_TRACKS: Final[int] = 99
 #: A longer value is cut and the cut counted (an ISRC is 12, a reason under 50).
 MAX_VALUE_CHARS: Final[int] = 64
 
-#: How the two values compare, per track.
+#: cyanrip's option, as P1 of `.24`'s contract spells it (line 60).
+PREFER_FLAG: Final[str] = "--prefer-disc-isrc"
+
+#: How the disc's value compares with ours, per track.
 AGREE: Final[str] = "agree"
 DIFFER: Final[str] = "differ"
 DISC_ONLY: Final[str] = "disc_only"
@@ -119,24 +122,26 @@ def well_formed(code: str | None) -> bool | None:
     return ISRC_PATTERN.fullmatch(normalise(code)) is not None
 
 
-def agreement(track: TrackIsrc) -> str:
-    """How the files' ISRC compares with the disc's. Pure.
+def agreement(track: TrackIsrc, ours: str | None = None, *, known: bool = False) -> str:
+    """How the disc's ISRC compares with ours (MusicBrainz's). Pure.
 
-    Compared after :func:`normalise`, so ``GB-AAA-99-00001`` and
-    ``GBAAA9900001`` agree. A malformed disc value still compares: whether it
-    is well formed is said beside it, not folded into this answer.
+    ``ours`` is the code we passed with ``-t`` when ``known``; otherwise the code
+    the files carry stands for it, which was ours until ``--prefer-disc-isrc``
+    (round 35) let the disc's replace it in the files. Compared after
+    :func:`normalise`; a malformed disc value still compares, its form said beside.
     """
     if not track.complete:
         return NOT_DETERMINED
     if track.ripped is False:
         return NOT_RIPPED
-    if track.written is None and track.disc is None:
+    reference = ours if known else track.written
+    if reference is None and track.disc is None:
         return NEITHER
-    if track.written is None:
+    if reference is None:
         return DISC_ONLY
     if track.disc is None:
         return WRITTEN_ONLY
-    return AGREE if normalise(track.written) == normalise(track.disc) else DIFFER
+    return AGREE if normalise(reference) == normalise(track.disc) else DIFFER
 
 
 def parse_isrcs(text: str) -> IsrcReading:
@@ -202,18 +207,32 @@ def read_isrcs(path: Path | None) -> IsrcReading:
     return reading
 
 
-def report_block(reading: IsrcReading | None) -> dict[str, object]:
-    """The report's ``disc.isrc_provenance`` block (schema v35). Pure."""
+def report_block(
+    reading: IsrcReading | None,
+    *,
+    passed: Mapping[int, str] | None = None,
+    argv: Sequence[str] = (),
+) -> dict[str, object]:
+    """The report's ``disc.isrc_provenance`` block (schema v35). Pure.
+
+    ``passed`` is each track's ISRC we sent with ``-t`` (MusicBrainz's), or
+    ``None`` when not known; ``argv`` the album pass's, which says whether
+    ``--prefer-disc-isrc`` went (``None`` with no argv: not determined).
+    """
     found = reading if reading is not None else IsrcReading(STATE_NOT_READ)
+    known = passed is not None
     rows: list[dict[str, object]] = [
         {
             "number": track.number,
             "audio_ripped": track.ripped,
+            "passed": (passed or {}).get(track.number),
             "written": track.written,
             "disc": track.disc,
             "disc_reason": track.disc_reason,
             "disc_well_formed": well_formed(track.disc),
-            "agreement": agreement(track),
+            "agreement": agreement(
+                track, (passed or {}).get(track.number), known=known
+            ),
         }
         for track in found.tracks
     ]
@@ -221,6 +240,7 @@ def report_block(reading: IsrcReading | None) -> dict[str, object]:
         "describes": DESCRIBES,
         "state": found.state,
         "detail": found.detail or None,
+        "prefer_disc_isrc_sent": (PREFER_FLAG in argv) if argv else None,
         "tracks": rows,
         "rows_not_read": found.dropped,
     }
@@ -243,11 +263,16 @@ def findings(block: object) -> list[tuple[str, str]]:
         number = row.get("number")
         disc = row.get("disc")
         if row.get("agreement") == DIFFER:
+            # MusicBrainz's value is named only when we know what we passed: from
+            # the files alone it is an inference, and under --prefer-disc-isrc a
+            # wrong one.
+            passed = row.get("passed")
+            theirs = f", MusicBrainz's is {passed};" if passed else ","
             found.append(
                 (
                     "isrc_disc_differs",
-                    f"track {number}: the disc's own ISRC is {disc}, the files "
-                    f"carry {row.get('written')} (from MusicBrainz)",
+                    f"track {number}: the disc's own ISRC is {disc}{theirs} the "
+                    f"files carry {row.get('written')}",
                 )
             )
         if isinstance(disc, str) and row.get("disc_well_formed") is False:
