@@ -1653,7 +1653,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1020 -> 1051** (2026-09-27, TASKS the `-j` rows): `files`, a single-file channel under the STRICT set, for cyanrip's `-j` record, which stays in the rips root where no album-folder walk can reach it; a named file that is not there is a manifest row. It belongs beside the other channels because `_collect`'s order is the byte budget.
     # **1051 -> 1078** (2026-10-14, the fork's round 32 lap 9 S8): each included member's SHA-256, computed where its bytes are written (a `BundleEntry` field and the two constructions that fill it). The manifest block that renders the hashes went to `bundle_integrity.py` instead; the hash itself has to be taken from the bytes `_write` was handed, so it lives beside `_write`.
     # **1078 -> 1161** (2026-10-14, the fork's round 32 lap 9 S10): home-folder paths replaced at export. The replacement and its manifest block live in `export_redaction.py` and `bundle_integrity.py`; what stays here is what must sit where a member is written: the five `BundleEntry` fields that record what changed, the one constructor both routes share, the replacement placed before the budget, the write and the hash, and the manifest rendered twice so it can count its own paths.
-    "evidence_bundle.py": 1161,
+    # **1161 -> 1189** (2026-10-16, TASKS R16): the bundle passes this machine's hostname and the owner's names (from the list outside the repository) to the export's redaction, records the hostname and name counts per member, and redacts its own manifest for all three. Finding and replacing them is `export_identity.py`; this is where the bundle's members are written.
+    "evidence_bundle.py": 1189,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that

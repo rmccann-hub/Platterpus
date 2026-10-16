@@ -40,6 +40,20 @@ halves of the fork's `subchannel-pregap-varies` and `exit-classes` added, and
 `Disc ISRC:` and `--prefer-disc-isrc`), which the operator's round 35 message pointed to.
 That message also put R18, R17, R14 and R16 into round 35, in that order.
 
+**Then all four landed, in the operator's order** (each with revert probes, all detected):
+R18 the doc-sweep walker survives a directory vanishing mid-walk (`os.walk`, caches pruned);
+R17 the ledger grades 2026-10-16 `full-green` and 2026-10-14 `partial` (K2's cover-art
+check blocked by the Cover Art Archive's HTTP 500 is an ARCHIVAL step that never ran,
+unlike E2, which this rig can never reach), and the ledger-count check now reads
+"twenty-one" instead of skipping it; R14 the app log collapses each run of progress
+redraws to first, a 10 s checkpoint and last, with every other redraw counted (the
+newest 2026-10-16 app log replays from 5.9 MB to about 0.3 MB); R16 the filing tool and
+the export replace hostnames and names by the fork's rules, counted, with a FUN512 port.
+**Learned:** a probe found two tests that could not fail (the final flush of a run, and
+FUN512's index, which every signed log in the tree has at 0), each fixed with a test that
+reaches it. And the ETA strip on progress lines also removed their error count, which is
+why the app log now keeps redraws as the ripper wrote them.
+
 ## 2026-10-16 (later) — round 34 closes; `FORK_PIN` to `.23`; 0.7.107
 
 **What was done.** Our lap 2 was released on the operator's word ("release lap 2"), after the

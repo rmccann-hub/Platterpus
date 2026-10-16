@@ -921,6 +921,11 @@ _UNTIMED_CALLS: dict[str, tuple[int, str]] = {
         "the pattern is a parameter; its callers pass module-level patterns "
         "the sweep times where they are compiled",
     ),
+    "src/platterpus/export_identity.py": (
+        2,
+        "a hostname or one of the owner's names, escaped, between fixed "
+        "lookarounds or word boundaries; no quantifier (R16, the fork's rule)",
+    ),
     "src/platterpus/export_redaction.py": (
         1,
         "a home folder's path, escaped, between a fixed lookbehind and a fixed "

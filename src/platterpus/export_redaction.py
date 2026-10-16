@@ -1,13 +1,9 @@
 """Home-folder paths become ``~`` when evidence is exported — counted, never silent.
 
-**Why this exists.** The cyanrip fork's round 32 lap 9 S10 (their data register's
-X9): when they filed our 2026-10-13 acceptance bundle they had to replace home
-paths (``/var/home/<name>/…``) in nine of its files, because the repository
-owner's rule of 2026-10-12 keeps personal details out of anything newly
-committed, and names *export* tools as well as filing ones. A bundle is an
-artifact that leaves this machine and gets posted publicly, so the export is the
-right place for the replacement: once, by the program that wrote the files,
-rather than by every receiver by hand.
+**Why this exists.** The fork's round 32 lap 9 S10: filing our 2026-10-13 bundle,
+they replaced home paths in nine files by hand, because the owner's rule of
+2026-10-12 keeps personal details out of anything newly committed. The export is
+the right place: once, by the program that wrote the files.
 
 **What is replaced, and how it is known rather than guessed.** A home folder is
 recognised by its SHAPE, with the same pattern the fork's own helper uses
@@ -38,19 +34,17 @@ machine's own home is replaced exactly, which catches a home that is not under
   protocol, which the owner's rule leaves alone unless both sides agree. Copied
   unchanged and counted, the fork's rule word for word
   (``cyanrip@aa45b975:tools/redact.py:40-43``).
-* **Hostnames and the owner's name**, which the fork's helper also replaces.
-  S10 asked for home paths; a hostname is not recognisable by its shape, and
-  inventing a detector for one is a different change. The manifest says so, so
-  "not replaced" cannot read as "not present".
 
-**It never raises and never decodes lossily.** Bytes are decoded with
-``surrogateescape``, which round-trips ANY byte sequence exactly, so a member that
-is not valid UTF-8 (a log cut mid-character by the size cap, say) still has its
-ASCII paths replaced and every other byte returned untouched. The fork's helper
-returns non-UTF-8 input unchanged with a zero count, which reports *no paths* for
-a file it did not look at; reading the bytes we can read is the honest version.
+**Hostnames and the owner's name** are replaced too since 2026-10-16 (TASKS R16),
+by the fork's rules, in :mod:`platterpus.export_identity`: a hostname becomes
+``host`` and a name ``the owner``, each counted apart from the home paths, and a
+name is checked only against a list kept outside the repository, so a record
+without one says *not checked* rather than *none*.
 
-Pure and Qt-free: no disk access, so every case is a unit test.
+**It never raises and never decodes lossily**: ``surrogateescape`` round-trips any
+bytes, so a member that is not valid UTF-8 still has its ASCII text replaced and
+every other byte kept (the fork's helper skips such a member with a zero count,
+which reports *none* for a file it did not read). Pure and Qt-free.
 """
 
 from __future__ import annotations
@@ -61,6 +55,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final
+
+from platterpus.export_identity import (
+    host_patterns,
+    hostnames_in,
+    name_patterns,
+    replace_identity,
+)
 
 log = logging.getLogger(__name__)
 
@@ -117,6 +118,10 @@ class Redaction:
     #: False only when the member could not be examined at all, so its zero
     #: counts mean "not looked at", never "none found".
     examined: bool = True
+    #: Hostnames replaced with ``host``, and the owner's names with ``the owner``
+    #: (R16). In a member kept as written, the ones left in place.
+    hosts_replaced: int = 0
+    names_replaced: int = 0
 
 
 def this_machines_homes() -> list[str]:
@@ -164,35 +169,71 @@ def _exact_home_patterns(homes: Sequence[str]) -> list[re.Pattern[str]]:
     ]
 
 
+@dataclass(frozen=True)
+class Redacted:
+    """What :func:`redact_all` did to one text."""
+
+    text: str
+    homes: int = 0
+    hosts: int = 0
+    names: int = 0
+    wire_kept: int = 0
+
+
+def redact_all(
+    text: str,
+    *,
+    homes: Sequence[str] = (),
+    hosts: Sequence[str] = (),
+    names: Sequence[str] | None = None,
+) -> Redacted:
+    """Replace home folders, hostnames and the owner's names, each counted.
+
+    ``hosts`` adds hostnames to the ones the text names about itself
+    (:func:`~platterpus.export_identity.hostnames_in`).
+    """
+    return _redact(
+        text,
+        _exact_home_patterns(homes),
+        host_patterns({*hosts, *hostnames_in(text)}),
+        name_patterns(names),
+    )
+
+
 def redact_text(text: str, *, homes: Sequence[str] = ()) -> tuple[str, int, int]:
     """``(text with home folders replaced, replacements, wire lines kept)``.
 
-    Line by line, so a ``HANDSHAKE-`` line can be copied unchanged. ``keepends``
-    makes the join reproduce every original line ending, so a member whose only
-    change is a path differs from its source only at that path.
+    Home folders only, as before R16; :func:`redact_all` does all three.
     """
-    exact = _exact_home_patterns(homes)
-    replaced = 0
-    wire_kept = 0
+    done = _redact(text, _exact_home_patterns(homes), [], [])
+    return done.text, done.homes, done.wire_kept
+
+
+def _redact(
+    text: str,
+    exact: Sequence[re.Pattern[str]],
+    host_res: Sequence[re.Pattern[str]],
+    name_res: Sequence[re.Pattern[str]],
+) -> Redacted:
+    """Line by line, so a ``HANDSHAKE-`` line can be copied unchanged. ``keepends``
+    makes the join reproduce every original line ending, so a member whose only
+    change is a path differs from its source only at that path."""
+    homes = hosts = names = wire = 0
     out: list[str] = []
     for line in text.splitlines(keepends=True):
         if WIRE_LINE.match(line):
-            if HOME_PATH.search(line) or any(p.search(line) for p in exact):
-                wire_kept += 1
+            patterns = (HOME_PATH, *exact, *host_res, *name_res)
+            wire += int(any(p.search(line) for p in patterns))
             out.append(line)
             continue
-        for pattern in exact:
-            line, count = pattern.subn(PLACEHOLDER, line)
-            replaced += count
-        line, count = HOME_PATH.subn(PLACEHOLDER, line)
-        replaced += count
+        for pattern in (*exact, HOME_PATH):
+            line, n = pattern.subn(PLACEHOLDER, line)
+            homes += n
+        line, n_hosts, n_names = replace_identity(line, host_res, name_res)
+        hosts += n_hosts
+        names += n_names
         out.append(line)
-    return "".join(out), replaced, wire_kept
-
-
-def count_home_paths(text: str, *, homes: Sequence[str] = ()) -> int:
-    """How many home paths :func:`redact_text` WOULD replace in ``text``."""
-    return redact_text(text, homes=homes)[1]
+    return Redacted("".join(out), homes, hosts, names, wire)
 
 
 def signed_reason(text: str) -> str:
@@ -212,28 +253,38 @@ def signed_reason(text: str) -> str:
     return ""
 
 
-def redact_member(data: bytes, *, homes: Sequence[str] = ()) -> Redaction:
-    """Replace home folders in one text member's bytes. Never raises.
+def redact_member(
+    data: bytes,
+    *,
+    homes: Sequence[str] = (),
+    hosts: Sequence[str] = (),
+    names: Sequence[str] | None = None,
+) -> Redaction:
+    """Replace home folders, hostnames and names in one text member's bytes.
 
-    ``surrogateescape`` both ways, so bytes that are not UTF-8 come back exactly
-    as they went in and only the ASCII paths around them change.
+    Never raises. ``surrogateescape`` both ways, so bytes that are not UTF-8 come
+    back exactly as they went in and only the ASCII text around them changes.
     """
     try:
         text = data.decode("utf-8", errors="surrogateescape")
+        done = redact_all(text, homes=homes, hosts=hosts, names=names)
         reason = signed_reason(text)
         if reason:
             return Redaction(
                 data=data,
                 kept_reason=reason,
-                left_in_place=count_home_paths(text, homes=homes),
+                left_in_place=done.homes,
+                hosts_replaced=done.hosts,
+                names_replaced=done.names,
             )
-        new, replaced, wire_kept = redact_text(text, homes=homes)
-        if not replaced:
-            return Redaction(data=data, wire_lines_kept=wire_kept)
+        if not (done.homes or done.hosts or done.names):
+            return Redaction(data=data, wire_lines_kept=done.wire_kept)
         return Redaction(
-            data=new.encode("utf-8", errors="surrogateescape"),
-            replaced=replaced,
-            wire_lines_kept=wire_kept,
+            data=done.text.encode("utf-8", errors="surrogateescape"),
+            replaced=done.homes,
+            wire_lines_kept=done.wire_kept,
+            hosts_replaced=done.hosts,
+            names_replaced=done.names,
         )
     except Exception:  # noqa: BLE001 — an export must still write the member
         # Unreachable by construction (surrogateescape round-trips every byte),

@@ -40,6 +40,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   an ARCHIVAL section, was blocked by the Cover Art Archive's HTTP 500, so it never ran.
   Neither moves a version gate (same machine, distro and person). TASKS R17.
 
+### Added
+
+- **Exported and filed evidence no longer carries the hostname or the owner's name.** The
+  diagnostics bundle replaced home folders only and said so. It now also replaces this
+  machine's hostname, and any hostname the material names about itself, with `host`, and
+  the owner's names with `the owner`. The names come from a list kept outside every
+  repository (`~/.config/platterpus/redact-names`); without that list the MANIFEST says the
+  names were not checked. Each replacement is counted per file. These are the cyanrip fork's
+  rules and spellings, so both projects replace the same strings. A new filing tool,
+  `scripts/evidence_file.py`, does the same when a run is filed as evidence. It checks each
+  signed cyanrip log's `Log FUN512:` signature first (a Python port of cyanrip's check),
+  keeps those logs byte for byte, records every count and both hashes, and builds the
+  evidence commit and its manifest rows. It never pushes (TASKS R16, HR-2 point 9).
+
 ### Fixed
 
 - **A repository-wide test walk no longer fails when a tool's cache directory vanishes under

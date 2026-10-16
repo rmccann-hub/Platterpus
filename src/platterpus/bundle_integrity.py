@@ -106,7 +106,10 @@ HOME_FOLDERS_HEADING: Final[str] = "HOME FOLDERS REPLACED WITH ~"
 
 
 def home_folders_section(
-    included: Sequence[BundleEntry], *, manifest_replacements: int
+    included: Sequence[BundleEntry],
+    *,
+    manifest_replacements: int,
+    names_checked: bool = False,
 ) -> list[str]:
     """The manifest's record of every home path replaced, and every one kept.
 
@@ -119,10 +122,16 @@ def home_folders_section(
     NOT changed although it names a home folder is named with the reason. Zero is
     printed as zero, so "nothing replaced" is a statement, not a missing block.
     """
-    changed = [e for e in included if e.home_paths_replaced]
+    changed = [
+        e
+        for e in included
+        if e.home_paths_replaced or e.hostnames_replaced or e.names_replaced
+    ]
     kept = [e for e in included if e.kept_as_written]
     wire = sum(e.wire_lines_kept for e in included)
     total = sum(e.home_paths_replaced for e in changed)
+    hosts = sum(e.hostnames_replaced for e in changed)
+    names = sum(e.names_replaced for e in changed)
     lines = [
         "",
         HOME_FOLDERS_HEADING,
@@ -130,12 +139,17 @@ def home_folders_section(
         "  Home-folder paths (/home/<name>, /var/home/<name>, /Users/<name>,",
         "  C:\\Users\\<name>, and this machine's own home) in every text member",
         "  were replaced with ~ as it was written, so the hashes above are of the",
-        "  replaced bytes. Hostnames and names are NOT replaced.",
-        f"  replaced: {total} in {len(changed)} member(s), and "
-        f"{manifest_replacements} in this manifest's own text",
+        "  replaced bytes. Hostnames (this machine's, and any a uname line or a",
+        "  host: field names) became `host`; the owner's names, from a list kept",
+        "  outside the repository, became `the owner` (TASKS R16).",
+        f"  replaced: {total} home path(s), {hosts} hostname(s), "
+        + (f"{names} name(s)" if names_checked else "names not checked (no list)")
+        + f" in {len(changed)} member(s), and {manifest_replacements} in this"
+        " manifest's own text",
     ]
     lines += [
-        f"  {e.name:<52} {e.home_paths_replaced} replaced; sha256 before "
+        f"  {e.name:<52} {e.home_paths_replaced} replaced, "
+        f"{e.hostnames_replaced} hostname(s), {e.names_replaced} name(s); sha256 before "
         f"replacement {e.sha256_before_replacement}"
         for e in changed
     ]
