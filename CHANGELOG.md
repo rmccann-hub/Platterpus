@@ -12,6 +12,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.107] — 2026-10-16
+
+The first release that installs the fork's `.23` (`891c79e`, upstream cyanrip 0.9.4-rc3) by
+default: round 34 approved it with 0.7.106 on 2026-10-16, after a Full run on that pair with
+426 steps passed and none failed. Our message inventory already reads `.23`'s, and `.22`'s
+messages stay matched for anyone still on it.
+
 ### Changed
 
 - **Round 34 closes, and `.23` becomes the build Platterpus installs.** The fork's lap 3
@@ -18757,7 +18764,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...HEAD
+[0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
 [0.7.106]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...v0.7.106
 [0.7.105]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...v0.7.105
 [0.7.104]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.103...v0.7.104
@@ -18834,4 +18842,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.106.*
+*Last updated for Platterpus v0.7.107.*
