@@ -20,6 +20,10 @@ fork's own checker read it well formed against a clone of our `main` alone. Thei
 releases 0.7.107, the first that installs `.23` by default, while the fork moves `.23` to its
 stable channel. The disc-ISRC preference is planned for round 35 (TASKS R20).
 
+**Released.** PR #350 merged as `a657b698`; `main`'s own CI passed on it; `release.yml`
+(run 38943509534) published v0.7.107 at 2026-10-16T17:59:10Z as an immutable pre-release with
+all six assets.
+
 **Learned.** Their lap 3 corrected our lap 2 twice, and both corrections held against the
 filed logs: the log's `ISRC:` lines are what our app passed, and track 5 needed 3 reads. Both
 were readings of a log line's meaning that the line itself does not state; a line that does
