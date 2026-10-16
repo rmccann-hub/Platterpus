@@ -5445,6 +5445,73 @@ def test_outcome_lines_reach_the_pane_and_app_log_while_redraws_stay_throttled(
         assert any(r.getMessage() == f"cyanrip │ {outcome}" for r in caplog.records)
 
 
+def test_the_app_log_collapses_a_run_of_redraws_and_counts_the_rest(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """R14: a run's first and last redraw reach the app log as the ripper wrote them,
+    with a marker counting the redraws between; and each run is written before the
+    line that ends it, so the log keeps the stream's order."""
+    import logging
+
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", lambda: 1_000.0)
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    logged = [
+        r.getMessage().split("cyanrip │ ", 1)[1]
+        for r in caplog.records
+        if r.getMessage().startswith("cyanrip │ ")
+    ]
+    assert logged[: logged.index("Summary:") + 1] == [
+        "Disc tracks:    4",
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        "[platterpus] … 2 progress redraws elided here …",
+        "Ripping and encoding track 3, progress - 100.00%, ETA - 0s, errors - 0",
+        "Flushing encoders...",
+        "Track 3 read successfully!",
+        "Summary:",
+    ], logged
+
+
+def test_a_stream_that_ends_mid_read_still_logs_the_runs_last_line(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """R14: when the ripper's output stops inside a run (a crash, a kill), the log
+    must still say how far the read got, not stop on the run's first line."""
+    import logging
+
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", lambda: 1_000.0)
+    lines = (
+        "Disc tracks:    4",
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 3, progress - 12.00%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 3, progress - 37.50%, ETA - 2m, errors - 1",
+    )
+    handle = _FakeHandle(lines=lines, exit_code=1)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    logged = [
+        r.getMessage().split("cyanrip │ ", 1)[1]
+        for r in caplog.records
+        if r.getMessage().startswith("cyanrip │ ")
+    ]
+    assert logged[-3:] == [
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        "[platterpus] … 1 progress redraws elided here …",
+        "Ripping and encoding track 3, progress - 37.50%, ETA - 2m, errors - 1",
+    ], logged
+
+
 def test_outcome_lines_still_drive_the_live_display(
     qapp: QApplication, tmp_path: Path
 ) -> None:

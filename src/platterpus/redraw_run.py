@@ -74,3 +74,62 @@ class RedrawRun:
         shown = self.lines()
         self.count = 0
         return shown
+
+
+#: How often a long run still writes a line to the app log. A freeze or a
+#: force-kill then leaves the log saying where the read had got to, which is why
+#: the log carried redraws at all ("a bug report shows exactly where the drive
+#: stopped"), at a hundredth of the ten a second it used to write.
+CHECKPOINT_SECONDS: float = 10.0
+
+
+@dataclass
+class LoggedRun:
+    """A run of redraws as the app log writes it (TASKS R14).
+
+    The app log and the report's ``debug.lines`` carried a redraw ten times a
+    second, which was 85% of every filed app log (231 MB of 240 MB, measured
+    2026-10-14), and the redraws between those ten were dropped without a count.
+    Now a run writes its **first** line when it opens, one **checkpoint** line at
+    most every :data:`CHECKPOINT_SECONDS`, and its **last** line when it closes,
+    with a :data:`REDRAW_ELISION` marker before each written line counting the
+    redraws not written since the one before. Every redraw is written or counted,
+    exactly once.
+
+    ``now`` is passed in rather than read, so this stays pure and a test can
+    drive the clock.
+    """
+
+    last: str = ""
+    count: int = 0
+    skipped: int = 0
+    written_at: float = 0.0
+
+    def note(self, line: str, now: float) -> list[str]:
+        """Add one redraw; return the lines to write now, in order."""
+        if self.count == 0:
+            self.count, self.skipped, self.last, self.written_at = 1, 0, line, now
+            return [line]
+        self.count += 1
+        self.last = line
+        if now - self.written_at < CHECKPOINT_SECONDS:
+            self.skipped += 1
+            return []
+        shown = self._marker() + [line]
+        self.skipped, self.written_at = 0, now
+        return shown
+
+    def close(self) -> list[str]:
+        """End the run; return its marker and last line if they are unwritten."""
+        if self.count == 0:
+            return []
+        shown: list[str] = []
+        if self.skipped:
+            # The last redraw is among the skipped; it is written, not counted.
+            self.skipped -= 1
+            shown = [*self._marker(), self.last]
+        self.count = self.skipped = 0
+        return shown
+
+    def _marker(self) -> list[str]:
+        return [REDRAW_ELISION.format(count=self.skipped)] if self.skipped else []

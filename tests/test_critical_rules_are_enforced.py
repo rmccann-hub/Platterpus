@@ -2694,7 +2694,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4134 -> 4197** (2026-10-14, TASKS R9): the securing pass's record is remembered where the pass is spawned and kept before its temp folder is deleted. The copy and every reason live in `record_fate.py`; what stays is the call in the `finally` that owns the folder, the two attributes and the property the report reads.
     # **4197 -> 4203** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **4203 -> 4217** (2026-10-16, TASKS R20): the worker reads each track's two ISRCs from the album pass's `-j` record beside `ripper_ending`, at the same two moments, and exposes `isrc_reading`. The parsing is `isrc_provenance.py`; only the worker knows which record is the album pass's and when it is safe to read.
-    "workers/rip_worker.py": 4217,
+    # **4217 -> 4232** (2026-10-16, TASKS R14): the app log's copy of a run of progress redraws goes through `redraw_run.LoggedRun` (first, a checkpoint every 10 s, last, and a counted marker) instead of one `log.debug` per throttled tick, and the run is flushed when any other line arrives and when the stream ends. The collapsing is `redraw_run.py`; the worker is the one place the stream is read.
+    "workers/rip_worker.py": 4232,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

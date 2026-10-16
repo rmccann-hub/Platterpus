@@ -26,6 +26,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The app log no longer records cyanrip's progress line ten times a second.** With debug
+  logging on, each rip's progress went into the app log, and from there into every rip's
+  `.platterpus.json`, at ten lines a second: 85% of all our filed app logs. The redraws
+  between those ten were dropped without a count. Now each run of progress lines is written as
+  its first line, one checkpoint every 10 seconds (so a freeze still shows where the drive
+  stopped), and its last line with its error count, and a marker counts every progress line
+  not written. Replaying the newest app log of the 2026-10-16 run gives about 0.3 MB
+  instead of 5.9 MB. The window's live log pane is unchanged (TASKS R14).
 - **The evidence ledger grades the 2026-10-14 and 2026-10-16 Full runs.** 2026-10-16 (0.7.106
   with `.23`, round 34's test) is the fourth `full-green` row, on the maintainer's standing
   reading of E2's N/A. 2026-10-14 (0.7.105 with `.22`) is `partial`: K2's cover-art check, in
