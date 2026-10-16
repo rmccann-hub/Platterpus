@@ -12,6 +12,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Round 35: our lap 2 is released, on the operator's standing word for round 35.** Its
+  `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
+  changed. The status block holds nothing back, the round row says released, and the sent
+  lap is pinned by its sha256.
+
 ## [0.7.108] — 2026-10-16
 
 The first release that reads the fork's `Disc ISRC:` line and sends `--prefer-disc-isrc`, and
