@@ -289,6 +289,15 @@ class Config:
     # cyanrip 0.9.3.1 and master, 2026-07-21 — it is `-O`; the `-x` some
     # older project notes named does not exist in cyanrip.)
     force_overread: bool = False
+    # cyanrip's `--prefer-disc-isrc` (the fork's `.24`, round 35, TASKS R20): tag
+    # each track with the ISRC its disc carries, where it carries one, over the
+    # MusicBrainz code we pass with `-t`. On by default, the route the operator
+    # chose on 2026-10-16: a disc ISRC is a measurement of this pressing, a
+    # MusicBrainz ISRC names a recording, which can carry several. Sent only to a
+    # build whose contract lists the option; both values land in the report either
+    # way. A setting rather than a constant so the acceptance run can rip with it
+    # off as well as on.
+    prefer_disc_isrc: bool = True
 
     # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
     # cyanrip's `-Z <int>`: "rip tracks until checksums match N times" — N reads

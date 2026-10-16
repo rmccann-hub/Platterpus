@@ -368,6 +368,7 @@ def _validate_library_dir(value: object) -> list[ValidationIssue]:
 _BOOL_FIELDS: tuple[str, ...] = (
     "override_read_offset",
     "force_overread",
+    "prefer_disc_isrc",
     "auto_launch_picard",
     "auto_eject_after_rip",
     "notify_on_completion",

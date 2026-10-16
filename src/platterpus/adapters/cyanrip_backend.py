@@ -191,6 +191,7 @@ class CyanripImpl(RipBackend):
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
         disc_track_total: int | None = None,
+        prefer_disc_isrc: bool = False,
         # The build tag of the ripper we are about to run, when known. Empty means
         # "unknown", and an unknown build gets NO capability-gated flags — see
         # `consumer_tag_for_build`. Defaulting to empty is what makes the safe
@@ -324,6 +325,14 @@ class CyanripImpl(RipBackend):
         # BUILD TAG rather than the version string — the fork's version is
         # deliberately upstream's plus build metadata, so it cannot be ordered.
         argv += consumer_args_for_build(ripper_build_tag)
+        # `--prefer-disc-isrc` (`.24`, round 35, TASKS R20): the disc's own ISRC,
+        # where it has one, over the MusicBrainz code `-t` passes below. Under the
+        # SAME gate as `--consumer` and for the same reason: cyanrip refuses an
+        # option it does not know, so a build that lacks it would read as a
+        # ripper that is missing. Sent only when the setting asks for it AND the
+        # build's contract lists it; withheld for an unknown build.
+        if prefer_disc_isrc:
+            argv += prefer_disc_isrc_args_for_build(ripper_build_tag)
         # Checked once: `-c` and the %N/%M template tokens below read the same
         # position, so a folder name cannot disagree with the disc tags.
         position = _disc_position(metadata)
@@ -454,6 +463,7 @@ class CyanripImpl(RipBackend):
         disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
+        prefer_disc_isrc: bool = False,
     ) -> RipHandle:
         # disc_template is unused: cyanrip puts the log/cue in the -D folder
         # already (derived from track_template, which carries the same
@@ -474,6 +484,7 @@ class CyanripImpl(RipBackend):
             read_speed=read_speed,
             only_tracks=only_tracks,
             disc_track_total=disc_track_total,
+            prefer_disc_isrc=prefer_disc_isrc,
             # WITHOUT THIS, `--consumer` IS NEVER SENT — ON ANY BUILD.
             #
             # `_build_rip_argv` gates the flag on `consumer_tag_for_build(ripper_build_tag)`
@@ -1585,6 +1596,26 @@ def consumer_tag_for_build(build_tag: str) -> str:
     from platterpus.deps import fork_source  # noqa: PLC0415
 
     return consumer_tag() if fork_source.accepts_consumer_flag(build_tag) else ""
+
+
+#: cyanrip's long-only option, as P1 of `.24`'s provider contract spells it
+#: (`round-35-lap-01-provider-contract-g16b9469.md:60`).
+PREFER_DISC_ISRC_FLAG: str = "--prefer-disc-isrc"
+
+
+def prefer_disc_isrc_args_for_build(build_tag: str) -> list[str]:
+    """``["--prefer-disc-isrc"]`` for a build that lists it, else ``[]``.
+
+    The argv words and their gate in one place, as for ``--consumer``, so no route
+    to the ripper spells the flag or re-decides when it is safe.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    return (
+        [PREFER_DISC_ISRC_FLAG]
+        if fork_source.accepts_prefer_disc_isrc(build_tag)
+        else []
+    )
 
 
 def consumer_args_for_build(build_tag: str) -> list[str]:

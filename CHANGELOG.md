@@ -30,6 +30,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   is malformed is an `info` issue that names both values, never a failed rip (TASKS R20, the
   half that needs nothing from the fork).
 
+- **Tracks can carry the ISRC their disc holds (`Disc ISRC` in Settings, on by default).**
+  With the fork's `.24`, cyanrip writes a `Disc ISRC:` line per track (the disc's code, or
+  `none`/`unknown` with its reason) and accepts `--prefer-disc-isrc`, which tags a track with
+  the disc's code where the disc carries one. Platterpus reads the line into the report and
+  sends the option only to a build whose provider contract lists it, so `.23` and any build it
+  does not recognise rip as before. The report records what we passed beside the disc's
+  value and the files', compares the disc with MusicBrainz's code even when the files carry the
+  disc's, and says whether the option was sent, read from the argv as spawned. The Full
+  acceptance run sends it in section F and leaves it out in J2 (TASKS R20, round 35).
+
 ### Changed
 
 - **The app log no longer records cyanrip's progress line ten times a second.** With debug

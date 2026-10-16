@@ -1533,6 +1533,29 @@ def accepts_consumer_flag(build_tag: str) -> bool:
     return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_CONSUMER_FLAG}
 
 
+#: Builds whose provider contract lists ``--prefer-disc-isrc`` in P1. **Enumerated,
+#: never inferred from a version**, for the reason ``--consumer``'s set gives.
+#: ``.24`` is the first (its ``PROVIDER-CONTRACT.md`` at ``93afa15``, built at
+#: ``g16b9469``, line 60; round 35, TASKS R20). A later build joins when its own
+#: contract is filed and still lists the option.
+BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
+    {"platterpus-fork-g93afa15"}
+)
+
+
+def accepts_prefer_disc_isrc(build_tag: str) -> bool:
+    """Whether a build identified by ``build_tag`` accepts ``--prefer-disc-isrc``.
+
+    Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
+    as :func:`accepts_consumer_flag`: cyanrip refuses an unknown option, and a
+    refused rip reads as a missing ripper.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC}
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- Which build the wizard actually installs -------------------------------

@@ -79,6 +79,7 @@ def describe_rip_plan(
     read_speed_mode: str = "fixed",
     read_speed: int = 0,
     force_overread: bool = False,
+    prefer_disc_isrc: bool = False,
     read_offset_override: int | None = None,
     only_tracks: tuple[int, ...] = (),
     disc_track_total: int | None = None,
@@ -181,6 +182,16 @@ def describe_rip_plan(
     lines.append(
         f"{PLAN_PREFIX}   Overread into lead-in/lead-out (-O): "
         + ("ON" if force_overread else "off")
+    )
+    # Asked for, not promised: the argv builder sends it only to a build whose
+    # contract lists it, and the rip's own `Invoked as:` line says whether it went.
+    lines.append(
+        f"{PLAN_PREFIX}   Prefer the disc's own ISRC (--prefer-disc-isrc): "
+        + (
+            "ON, where the ripper build supports it"
+            if prefer_disc_isrc
+            else "off — tracks carry MusicBrainz's ISRC"
+        )
     )
     # `-r` is two limits, and the second is the one that decides whether the
     # secure re-read above can succeed: it caps the whole-track reads a `-Z`

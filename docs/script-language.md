@@ -199,6 +199,7 @@ than the UI it stands in for.
 | `save_additional_art` | boolean (on/off) |
 | `max_retries` | integer |
 | `force_overread` | boolean (on/off) |
+| `prefer_disc_isrc` | boolean (on/off) |
 | `secure_rerip_matches` | integer |
 | `secure_rerip_dynamic` | boolean (on/off) |
 | `rerip_offset_variant` | boolean (on/off) |
@@ -1029,6 +1030,10 @@ found nothing wrong*.
     },
     {
       "field": "force_overread",
+      "type": "boolean (on/off)"
+    },
+    {
+      "field": "prefer_disc_isrc",
       "type": "boolean (on/off)"
     },
     {

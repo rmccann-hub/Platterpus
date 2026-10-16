@@ -6253,6 +6253,7 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
             "detail": None,
             "tracks": [],
             "rows_not_read": 0,
+            "prefer_disc_isrc_sent": None,
         },
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}

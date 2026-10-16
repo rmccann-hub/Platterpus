@@ -176,6 +176,7 @@ class _FakeBackend(RipBackend):
         disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
+        prefer_disc_isrc: bool = False,
     ) -> RipHandle:
         self.rip_calls.append(
             {
@@ -191,6 +192,7 @@ class _FakeBackend(RipBackend):
                 "metadata": metadata,
                 "read_speed": read_speed,
                 "only_tracks": tuple(only_tracks),
+                "prefer_disc_isrc": prefer_disc_isrc,
             }
         )
         if self._raise_on_rip:

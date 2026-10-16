@@ -509,6 +509,7 @@ class RipBackend(ABC):
         disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
+        prefer_disc_isrc: bool = False,
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
@@ -521,7 +522,9 @@ class RipBackend(ABC):
         until N+1 reads are identical) for marginal discs. `force_overread`,
         when True, asks the drive to read into the lead-in/lead-out (cyanrip's
         `-O`) instead of zero-padding the offset-shifted edge samples — opt-in,
-        drive-dependent. `read_speed`, when
+        drive-dependent. `prefer_disc_isrc` asks a ripper that supports it to tag
+        each track with the ISRC its disc carries over the one in `metadata`
+        (cyanrip's `--prefer-disc-isrc`); a backend that cannot ignores it. `read_speed`, when
         > 0, caps the drive read speed for this pass (cyanrip's `-S N`); 0 lets
         the drive pick its maximum. The adaptive ladder feeds slower values here
         on a re-rip (see :mod:`platterpus.read_speed_ladder`). `only_tracks`, when

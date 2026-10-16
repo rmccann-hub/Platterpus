@@ -537,6 +537,7 @@ _BAD_VALUES: dict[str, object] = {
     "schema_version": "six",  # not an int
     "override_read_offset": "yes",  # not a bool
     "force_overread": "yes",
+    "prefer_disc_isrc": "yes",
     "auto_launch_picard": "yes",
     "auto_eject_after_rip": "yes",
     "notify_on_completion": "yes",

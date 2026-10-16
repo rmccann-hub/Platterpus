@@ -329,6 +329,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `isrc_disc_differs` and `isrc_disc_malformed`. The log and the tags carry
 #      only the value we pass with `-t`, so the disc's reading reached nothing a
 #      user could see (TASKS R20, `isrc_provenance`). Additions only.
+#      Same unreleased version, round 35 (R20 part 2, `.24`'s `Disc ISRC:` line
+#      and `--prefer-disc-isrc`): per track `disc_isrc`, `disc_isrc_state`
+#      (`code` / `none` / `unknown`, empty for a build without the line) and
+#      `disc_isrc_reason` from the log; per `isrc_provenance` row `passed` (the
+#      code we sent with `-t`, null when not known), and on the block
+#      `prefer_disc_isrc_sent` (from the argv as spawned; null with no argv). With
+#      `passed` known, `agreement` compares the disc with what we passed, since
+#      under the option the files carry the disc's code. Additions only.
 REPORT_SCHEMA_VERSION: int = 35
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -1739,6 +1747,11 @@ def _track(track: object) -> dict:
         # EAC CRC and what the AccurateRip tally counts. None on audio tracks.
         "data_crc32": getattr(track, "data_crc32", "") or None,
         "data_sector_edc": getattr(track, "data_sector_edc", "") or None,
+        # v35: the disc's own ISRC as the log's `Disc ISRC:` line states it (`.24`+),
+        # beside the tag's `isrc`. None on an earlier build: not stated, not "none".
+        "disc_isrc": getattr(track, "disc_isrc", "") or None,
+        "disc_isrc_state": getattr(track, "disc_isrc_state", "") or None,
+        "disc_isrc_reason": getattr(track, "disc_isrc_reason", "") or None,
         # Absolute disc geometry (sectors). EAC's "TOC of the extracted CD" is
         # derived from these exactly, so without them the JSON could not
         # reconstruct a table the .log already shows.

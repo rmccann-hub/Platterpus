@@ -335,6 +335,13 @@ class TrackResult:
     # structured field with no reader is dead code that reads as coverage. ""
     # when the row is absent.
     data_sector_edc: str = ""
+    # The disc's own ISRC from the `Disc ISRC:` line (`.24`+, round 35, TASKS R20):
+    # the code, and `disc_isrc_state` `code`, or `none`/`unknown` with the ripper's
+    # reason (the `-j` record's `isrc_disc_reason`, word for word). All "" on an
+    # earlier build, which prints no such line: "not stated", never "no ISRC".
+    disc_isrc: str = ""
+    disc_isrc_state: str = ""
+    disc_isrc_reason: str = ""
 
 
 @dataclass(frozen=True)

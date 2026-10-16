@@ -62,6 +62,7 @@ set cover_art embed
 set save_additional_art on
 set max_retries 5
 set force_overread off
+set prefer_disc_isrc on
 set secure_rerip_matches 2
 set secure_rerip_dynamic on
 set rerip_offset_variant on
