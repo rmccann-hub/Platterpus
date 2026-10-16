@@ -11,6 +11,20 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-16 (later) — round 34 closes; `FORK_PIN` to `.23`; 0.7.107
+
+**What was done.** Our lap 2 was released on the operator's word ("release lap 2"), after the
+fork's own checker read it well formed against a clone of our `main` alone. Their lap 3 (`GO`,
+`cyanrip@68f56fa`) was filed and our gate reads round 34 CLOSED. `FORK_PIN` rolled to
+`891c79e` with the approval record for `.23` with 0.7.106. The operator's word of 2026-10-16
+releases 0.7.107, the first that installs `.23` by default, while the fork moves `.23` to its
+stable channel. The disc-ISRC preference is planned for round 35 (TASKS R20).
+
+**Learned.** Their lap 3 corrected our lap 2 twice, and both corrections held against the
+filed logs: the log's `ISRC:` lines are what our app passed, and track 5 needed 3 reads. Both
+were readings of a log line's meaning that the line itself does not state; a line that does
+not say where its value came from invites exactly this.
+
 ## 2026-10-16 — round 34's Full run filed; the fork's lap 1 filed; our lap 2, GO, held
 
 **What was done.** The operator's Full run on 0.7.106 with `.23` (426 pass, 0 fail, 1
@@ -10764,4 +10778,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.106.*
+*Last updated for Platterpus v0.7.107.*
