@@ -14,6 +14,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Planned for round 35: the disc's own ISRC preferred over MusicBrainz's.** The fork adds a
+  log line for each track's disc ISRC read and an option we set to prefer it; until then every
+  tag carries the MusicBrainz value we pass (TASKS R20).
 - **Round 34: our lap 2 is released, on the operator's word of 2026-10-16.** Its
   `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
   changed. The envelope leads with it, the status block holds nothing back, and the round
