@@ -24,6 +24,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   is malformed is an `info` issue that names both values, never a failed rip (TASKS R20, the
   half that needs nothing from the fork).
 
+### Changed
+
+- **The evidence ledger grades the 2026-10-14 and 2026-10-16 Full runs.** 2026-10-16 (0.7.106
+  with `.23`, round 34's test) is the fourth `full-green` row, on the maintainer's standing
+  reading of E2's N/A. 2026-10-14 (0.7.105 with `.22`) is `partial`: K2's cover-art check, in
+  an ARCHIVAL section, was blocked by the Cover Art Archive's HTTP 500, so it never ran.
+  Neither moves a version gate (same machine, distro and person). TASKS R17.
+
 ### Fixed
 
 - **A repository-wide test walk no longer fails when a tool's cache directory vanishes under

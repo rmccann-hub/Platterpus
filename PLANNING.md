@@ -1420,15 +1420,18 @@ is the decision log failing at the one thing it is for. All three were live in
   0.8.1 up and nothing is easier to reach. `tests/test_no_stale_version_claims.py`
   gates at 0.8.1.
 
-**Status, 2026-10-13:** the ledger carries nineteen rows, and three are `full-green`:
+**Status, 2026-10-16:** the ledger carries twenty-one rows, and four are `full-green`:
 the 2026-10-07 Full run on app 0.6.66 and the 2026-10-12 Full run on app 0.7.103, both
-against `ca3f3ea` (`.21`), and the 2026-10-13 Full run on app 0.7.104 against `200530e`
-(`.22`), round 32's test, each with no failure and with E2 N/A on this drive (the
+against `ca3f3ea` (`.21`), the 2026-10-13 Full run on app 0.7.104 against `200530e`
+(`.22`), round 32's test, and the 2026-10-16 Full run on app 0.7.106 against `891c79e`
+(`.23`), round 34's test, each with no failure and with E2 N/A on this drive (the
 maintainer's rulings, with E2 recorded as not covered). The first met `0.7.100`'s gate.
-Every other row is `partial`, and each one's reason is in `docs/testing.md` §5B. All
-nineteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's
-floor of two `full-green` rows on two machines and two distros is still one machine and
-one distro short.
+The 2026-10-14 run on 0.7.105 is `partial` for one ARCHIVAL step that could not run (K2's
+cover-art check, blocked by the Cover Art Archive's HTTP 500). Every other row is
+`partial`, and each one's reason is in `docs/testing.md` §5B. All twenty-one rows are
+**one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's floor of two
+`full-green` rows on two machines and two distros is still one machine and one distro
+short.
 
 **Why.** The implicit gate was "the tests pass", and the maintainer corrected it:
 *"we have only tested on my rig, my hardware. we need more people, more hardware,
