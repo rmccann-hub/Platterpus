@@ -51,6 +51,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
+from platterpus.isrc_provenance import IsrcReading, read_isrcs
 from platterpus.ladder_trigger import judge_step_down
 from platterpus.parsers import cyanrip_log
 from platterpus.parsers.rip_log import RereadAgreement
@@ -1043,6 +1044,9 @@ class RipWorker(QObject):
         # ended (`ripper_ending`, W6). None until read, at the end of the rip.
         self._album_record: Path | None = None
         self._ripper_ending: RipperEnding | None = None
+        # What the same record says about each track's ISRC: the one the files
+        # carry and the disc's own (`isrc_provenance`, TASKS R20).
+        self._isrc_reading: IsrcReading | None = None
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert pre-cyanrip seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -1952,6 +1956,7 @@ class RipWorker(QObject):
             if outcome is None:
                 # A hard start/stream error already emitted `error`; stop here.
                 self._ripper_ending = read_ending(self._album_record)
+                self._isrc_reading = read_isrcs(self._album_record)
                 self.finished.emit(False, "")
                 return
             success, log_path_str = outcome
@@ -2124,6 +2129,7 @@ class RipWorker(QObject):
         # On a cancel the in-container ripper may write it later still; then it
         # reads "absent", which is "not determined", never "not interrupted".
         self._ripper_ending = read_ending(self._album_record)
+        self._isrc_reading = read_isrcs(self._album_record)
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
@@ -3679,6 +3685,14 @@ class RipWorker(QObject):
         for every field (`ripper_ending`). Read on this thread before `finished`.
         """
         return self._ripper_ending
+
+    @property
+    def isrc_reading(self) -> IsrcReading | None:
+        """Each track's two ISRCs from the album pass's record, or ``None`` if unread.
+
+        Read beside :attr:`ripper_ending`, from the same file, on this thread.
+        """
+        return self._isrc_reading
 
     @property
     def securing_pass_started(self) -> bool:

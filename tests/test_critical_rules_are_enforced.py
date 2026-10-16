@@ -1992,7 +1992,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2677 -> 2701** (2026-10-14, TASKS R9): schema v34 — the history note, `build_outcome` writing `securing_pass_record` and the `securing_pass_record_missing` issue. Both delegate to `record_fate.py` (`outcome_block`, `missing_issue`); what stays is the one place that builds the outcome block and the one list of issues.
     # **-> 2721** (2026-10-14, integration): both v34 changes above landed in one unreleased schema version; the combined module is the sum of the two, with one v34 note.
     # **2721 -> 2764** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
-    "rip_report.py": 2764,
+    # **2764 -> 2783** (2026-10-16, TASKS R20): schema v35 — the history note and the loop raising `isrc_disc_differs` / `isrc_disc_malformed` from `disc.isrc_provenance`. Reading the record, comparing and wording live in `isrc_provenance.py`; this is the one place that assembles `issues`.
+    "rip_report.py": 2783,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2365,7 +2366,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5006 -> 4932** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the post-rip re-compress step, its gate inputs and its `_on_flac_recompressed` slot.
     # **4932 -> 4941** (2026-10-14, TASKS R9): the worker's `securing_pass_record` handed to `build_outcome`, and the rip bundle's `securing pass -j record` fact.
     # **4958 -> 4967** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
-    "ui/main_window_rip.py": 4967,
+    # **4967 -> 4974** (2026-10-16, TASKS R20): `_last_disc` carries `isrc_provenance`, built by `isrc_provenance.report_block` from the worker's reading while the worker still exists, like the record's ending.
+    "ui/main_window_rip.py": 4974,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2691,7 +2693,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4128 -> 4134** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): two log records quote a ripper percentage head and tail, counted.
     # **4134 -> 4197** (2026-10-14, TASKS R9): the securing pass's record is remembered where the pass is spawned and kept before its temp folder is deleted. The copy and every reason live in `record_fate.py`; what stays is the call in the `finally` that owns the folder, the two attributes and the property the report reads.
     # **4197 -> 4203** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
-    "workers/rip_worker.py": 4203,
+    # **4203 -> 4217** (2026-10-16, TASKS R20): the worker reads each track's two ISRCs from the album pass's `-j` record beside `ripper_ending`, at the same two moments, and exposes `isrc_reading`. The parsing is `isrc_provenance.py`; only the worker knows which record is the album pass's and when it is safe to read.
+    "workers/rip_worker.py": 4217,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

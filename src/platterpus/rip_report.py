@@ -31,6 +31,7 @@ from platterpus.handshake_approval import (
     approve_rip_log,
     cross_check_note,
 )
+from platterpus.isrc_provenance import findings as isrc_findings
 from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
@@ -317,7 +318,18 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `disc_identity_not_determined` (info). TASKS P1 #1: a disc swapped after
 #      the scan was archived under the scanned disc's tags with nothing saying so.
 #      All three sets of keys landed in the same unreleased version. Additions only.
-REPORT_SCHEMA_VERSION: int = 34
+# v35: `disc.isrc_provenance` — each track's ISRC as the files carry it beside the
+#      disc's own sub-channel reading, from cyanrip's `-j` record of the album
+#      pass (`rip.track_state[].isrc_written` / `isrc_disc` / `isrc_disc_reason`,
+#      `cyanrip@891c79e:src/diagnostics.c:359-371`): per track `number`,
+#      `audio_ripped`, `written`, `disc`, `disc_reason`, `disc_well_formed` (ISO 3901, null with
+#      no disc value) and `agreement` (`agree` / `differ` / `disc_only` /
+#      `written_only` / `neither` / `not_ripped` / `not_determined`), with the record's `state`
+#      and a count of rows not read. Two info issues read it:
+#      `isrc_disc_differs` and `isrc_disc_malformed`. The log and the tags carry
+#      only the value we pass with `-t`, so the disc's reading reached nothing a
+#      user could see (TASKS R20, `isrc_provenance`). Additions only.
+REPORT_SCHEMA_VERSION: int = 35
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -2170,6 +2182,13 @@ def _issues(
         # Info, not a warning — the rip may be right — but said, because a
         # `not_determined` nobody sees reads as a pass.
         add("info", "disc_identity_not_determined", str(identity_check.get("detail")))
+
+    # EACH TRACK'S ISRC: THE FILES' AGAINST THE DISC'S OWN (v35, TASKS R20).
+    # Information, never a warning: the round-34 agreement with the fork is that
+    # a disc whose code differs from MusicBrainz's is worth knowing, not a
+    # failed rip. Both values are named in the sentence.
+    for isrc_code, sentence in isrc_findings((disc or {}).get("isrc_provenance")):
+        add("info", isrc_code, sentence)
 
     theirs = (rip or {}).get("ripper_release_id")
     ours = (disc or {}).get("musicbrainz_release_id")

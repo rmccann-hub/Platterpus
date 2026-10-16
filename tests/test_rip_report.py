@@ -1219,7 +1219,10 @@ def test_schema_version_is_27() -> None:
     # own `--diagnostics` record, kept or missing and why (TASKS R9).
     # v34 added `disc.lookup_disc_id` and `disc.identity_check`: the disc ID the
     # tags were looked up for, compared with the rip log's (TASKS P1 #1).
-    assert REPORT_SCHEMA_VERSION == 34
+    #
+    # v35 added `disc.isrc_provenance`: each track's ISRC as the files carry it
+    # beside the disc's own, from cyanrip's `-j` record (TASKS R20).
+    assert REPORT_SCHEMA_VERSION == 35
 
 
 def _issue_codes(report: dict) -> set[str]:

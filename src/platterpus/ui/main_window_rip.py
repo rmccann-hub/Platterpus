@@ -66,6 +66,7 @@ from platterpus.adapters.transcode import (
 )
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
+from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import (
@@ -1863,6 +1864,12 @@ class RipMixin(MainWindowShared):
             # Filled in when the EAC-layout log is written, at the end of the rip
             # (D16): lines a metadata value had shaped like a log signature.
             "eac_log_signature_lines_defused": [],
+            # Each track's ISRC as the files carry it beside the disc's own, from
+            # cyanrip's -j record (v35, TASKS R20). Read off the worker while it
+            # still exists, like the record's ending above.
+            "isrc_provenance": isrc_report_block(
+                getattr(self._rip_worker, "isrc_reading", None)
+            ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.

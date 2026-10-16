@@ -12,6 +12,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The rip report records the disc's own ISRC beside the one the files carry.** Since the
+  fork's `.23`, cyanrip reads each track's ISRC from the disc even when we pass one, but only
+  its `-j` record held the disc's reading: the log's `ISRC:` line and the tags carry the
+  MusicBrainz code we pass. The report's new `disc.isrc_provenance` block (schema 35) states
+  both per track, whether the disc's is a well-formed ISO 3901 code, and how they compare
+  (`agree`, `differ`, `disc_only`, `written_only`, `neither`, `not_ripped`, or
+  `not_determined` for a record from before the fields existed). A disc code that differs or
+  is malformed is an `info` issue that names both values, never a failed rip (TASKS R20, the
+  half that needs nothing from the fork).
+
 ### Changed
 
 - **0.7.107 is published: Platterpus now installs the fork's `.23` by default.** The status

@@ -11,6 +11,35 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-16 (evening) — round 35 kickoff: the disc's ISRC reaches the report
+
+**Asked:** start round 35 by asking the fork which open items need both of us, and start
+on the most important or easiest. Round 35 opens with the fork's lap 1 (the repository that
+produces the build opens), so the ask travels in our standing status block and the handoff,
+not in a lap of ours.
+
+**Built:** R20's half that needs nothing from the fork. `.23` already writes each track's
+`isrc_written` and `isrc_disc` into the `-j` record, and nothing read them. New
+`isrc_provenance.py` (pure, never raises, tri-state) reads them on the worker beside
+`ripper_ending`, and the report's `disc.isrc_provenance` (schema 35) states both per track,
+ISO 3901 well-formedness, and the comparison; `isrc_disc_differs` / `isrc_disc_malformed`
+are info issues naming both values.
+
+**Learned, from the round 34 records rather than the contract:** a limited pass (`-l`, the
+securing pass, a cancel) lists every track, and the unripped ones carry `isrc_written: null`
+with reason `not read`. Read naively that is "MusicBrainz gave no ISRC", so `audio_ripped`
+is read too and those tracks say `not_ripped`. A `cyanrip-diagnostics/7` record has no ISRC
+fields, so its tracks say `not_determined`, never `neither`. Every whole-disc record of the
+2026-10-16 run reads `written_only` with `libcdio returned none`: the reference disc carries
+no sub-channel ISRC on that drive, so the `differ` path has never been exercised by hardware.
+
+**Status block:** `rip-identity` and `securing-record-kept` retired (shipped in 0.7.105),
+`j-record-fields` retired (released in `.23`, and now read); the rest moved to round 35, our
+halves of the fork's `subchannel-pregap-varies` and `exit-classes` added, and
+`isrc-disc-preferred` names the fork's pull request #31 (`cyanrip@dd60143`: the log line
+`Disc ISRC:` and `--prefer-disc-isrc`), which the operator's round 35 message pointed to.
+That message also put R18, R17, R14 and R16 into round 35, in that order.
+
 ## 2026-10-16 (later) — round 34 closes; `FORK_PIN` to `.23`; 0.7.107
 
 **What was done.** Our lap 2 was released on the operator's word ("release lap 2"), after the
