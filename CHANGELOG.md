@@ -18,6 +18,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
   changed. The status block holds nothing back, the round row says released, and the sent
   lap is pinned by its sha256.
+- **0.7.108 is released** (`v0.7.108` at `2165361b`, 2026-10-16): the status block records
+  it, and round 35's Full run on `.24` is ready to go through it.
 
 ## [0.7.108] — 2026-10-16
 
