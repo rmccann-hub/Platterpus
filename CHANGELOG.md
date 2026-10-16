@@ -12,6 +12,34 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.108] — 2026-10-16
+
+The first release that reads the fork's `Disc ISRC:` line and sends `--prefer-disc-isrc`, and
+the release round 35's Full run goes through, on the fork's `.24` (`93afa15`). It still
+installs `.23` (`891c79e`) by default: `.24` is the build under review until round 35
+closes. The option goes only to a build whose provider contract lists it, so on `.23` a rip
+is unchanged.
+
+**What the acceptance run must cover on our side** (the operator's round 35 message, point 1,
+and the fork's round 35 lap 1 S17):
+
+1. **A disc whose sub-channel carries ISRCs, with the option and without.** The Full run
+   does both: section F rips with `Disc ISRC` on, and its `expect-rip-argv with
+   --prefer-disc-isrc` checks the flag was sent; section J2 turns it off and checks it was
+   not. In each rip's `.platterpus.json`, `tracks[].disc_isrc` / `disc_isrc_state` is the
+   log's line, and `disc.isrc_provenance` gives per track what we `passed`, what the files
+   carry (`written`) and the disc's code (`disc`), with `prefer_disc_isrc_sent` true in F and
+   false in J2. Where the disc's code and MusicBrainz's differ, the report carries the
+   `isrc_disc_differs` line naming both; with the option on, the files carry the disc's.
+2. **A disc that carries none.** The same Full run on the reference disc, whose drive read
+   returned none on `.23`: every track's line reads `none (` reason `)` or `unknown (` reason
+   `)`, `agreement` is `written_only`, and no mismatch line appears.
+3. **One bounded `-O` read, run by hand after the Full run**:
+   `./platterpus-x86_64.AppImage --run-script overreadprobe`. It stops before reading unless
+   the ripper is `.24` and the offset is +667, then rips the last track only with `-O`, killed
+   at the step's fixed 300-second limit, and the transcript records the exit code and the
+   `Beyond disc:` line.
+
 ### Added
 
 - **Round 35 opens: the fork's `.24` is the build under review.** Their round 35 lap 1 is
@@ -18845,7 +18873,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...HEAD
+[0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
 [0.7.106]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...v0.7.106
 [0.7.105]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...v0.7.105
@@ -18923,4 +18952,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.107.*
+*Last updated for Platterpus v0.7.108.*
