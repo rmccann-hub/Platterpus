@@ -24,6 +24,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   is malformed is an `info` issue that names both values, never a failed rip (TASKS R20, the
   half that needs nothing from the fork).
 
+### Fixed
+
+- **A repository-wide test walk no longer fails when a tool's cache directory vanishes under
+  it.** Every Markdown sweep shares one walker (`tests/conftest.py`), which used `Path.rglob`
+  and raised `FileNotFoundError` when a parallel worker deleted `.hypothesis/tmp` mid-walk
+  (one local run, 2026-10-15). It now walks with `os.walk`, skipping a directory that is gone
+  by the time it descends (any other error still raises), and leaves out the tool caches. A
+  test removes a directory during the walk (TASKS R18).
+
 ### Changed
 
 - **0.7.107 is published: Platterpus now installs the fork's `.23` by default.** The status

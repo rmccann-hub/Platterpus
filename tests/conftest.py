@@ -87,9 +87,17 @@ else:
 # which is why the per-test QThread-join backstop below is still essential).
 
 
+#: Tool caches no walk of ours reads, and that a parallel test run creates and
+#: deletes while another worker walks the tree (TASKS R18: a walk met
+#: `.hypothesis/tmp` as an xdist worker removed it, 2026-10-15).
+TOOL_CACHE_DIRS: frozenset[str] = frozenset(
+    {".hypothesis", ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__"}
+)
+
+
 def repo_markdown_files(root: Path) -> list[Path]:
-    """Every Markdown file of THIS checkout, sorted: none from ``.git`` and none
-    from a separate checkout nested inside it.
+    """Every Markdown file of THIS checkout, sorted: none from ``.git``, none
+    from a tool cache, and none from a separate checkout nested inside it.
 
     A git worktree nested in the tree (an agent's ``.claude/worktrees/…``) holds a
     ``.git`` FILE, not a directory, so the ``".git" in path.parts`` test each walk
@@ -97,14 +105,27 @@ def repo_markdown_files(root: Path) -> list[Path]:
     copies as ours. One walk failed on them (2026-09-25); the other three passed
     only because the copies happened to match. Callers keep their own further
     filters, so no walk's population changes except that the other trees leave it.
+
+    **A directory that vanishes mid-walk is skipped, not fatal** (R18). This was
+    ``Path.rglob``, which raises ``FileNotFoundError`` when a directory it has
+    listed is gone by the time it descends; ``os.walk`` reports that to
+    ``onerror``, and a directory that no longer exists holds no file of ours.
+    Any other error still raises, so an unreadable directory is not passed over.
     """
-    nested = [git.parent for git in root.rglob(".git") if git.parent != root]
-    return sorted(
-        path
-        for path in root.rglob("*.md")
-        if ".git" not in path.relative_to(root).parts
-        and not any(checkout in path.parents for checkout in nested)
-    )
+
+    def _gone_is_fine(error: OSError) -> None:
+        if not isinstance(error, FileNotFoundError):
+            raise error
+
+    found: list[Path] = []
+    for here, dirs, files in os.walk(root, onerror=_gone_is_fine):
+        top = Path(here)
+        if top != root and ".git" in dirs + files:
+            dirs[:] = []  # a separate checkout nested in ours
+            continue
+        dirs[:] = [d for d in dirs if d != ".git" and d not in TOOL_CACHE_DIRS]
+        found.extend(top / name for name in files if name.endswith(".md"))
+    return sorted(found)
 
 
 #: The maintained Python OUTSIDE the package and the tests, as (root, glob) pairs.

@@ -159,3 +159,76 @@ def test_a_NESTED_CHECKOUT_is_not_part_of_this_tree(tmp_path: Path) -> None:
     (tmp_path / ".git" / "inside.md").write_text("x", encoding="utf-8")
     found = [p.relative_to(tmp_path).as_posix() for p in repo_markdown_files(tmp_path)]
     assert found == ["notes/also-ours.md", "ours.md"]
+
+
+def test_a_directory_REMOVED_DURING_THE_WALK_is_skipped_not_fatal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASKS R18: a repository walk met `.hypothesis/tmp` just as a parallel xdist
+    worker removed it, and `Path.rglob` raised `FileNotFoundError` (2026-10-15).
+
+    This removes a directory for real, between the moment the walk lists the
+    root and the moment it descends, by wrapping `os.scandir` (which both
+    `os.walk` and `Path.rglob` call). The directory is not a tool cache, so the
+    cache prune cannot be what saves the walk."""
+    import os
+    import shutil
+
+    (tmp_path / "ours.md").write_text("x", encoding="utf-8")
+    victim = tmp_path / "vanishing"
+    victim.mkdir()
+    (victim / "gone.md").write_text("x", encoding="utf-8")
+    real_scandir = os.scandir
+    removed: list[Path] = []
+    listing: list[os.DirEntry[str]] = []
+
+    class _Listed:
+        """The root's listing, taken before the removal, as scandir returns it."""
+
+        def __init__(self, entries: list[os.DirEntry[str]]) -> None:
+            self._entries = iter(entries)
+
+        def __iter__(self) -> _Listed:
+            return self
+
+        def __next__(self) -> os.DirEntry[str]:
+            return next(self._entries)
+
+        def __enter__(self) -> _Listed:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    def scandir(path: object = ".") -> object:
+        # `shutil.rmtree` lists by file descriptor; only the root is intercepted.
+        if isinstance(path, int) or Path(os.fspath(path)) != tmp_path:  # type: ignore[call-overload]  # str or PathLike here
+            return real_scandir(path)  # type: ignore[call-overload]  # as the caller passed
+        if not removed:
+            with real_scandir(path) as it:  # type: ignore[call-overload]  # as above
+                listing.extend(it)
+            shutil.rmtree(victim)
+            removed.append(victim)
+        # Every listing of the root is the one taken before the removal, as a
+        # walker racing the deletion would see it: `Path.rglob` lists a directory
+        # more than once, and a fresh second listing would hide the race.
+        return _Listed(listing)
+
+    monkeypatch.setattr(os, "scandir", scandir)
+    found = [p.relative_to(tmp_path).as_posix() for p in repo_markdown_files(tmp_path)]
+
+    assert removed == [victim]  # floor: the removal happened mid-walk
+    assert found == ["ours.md"]
+
+
+def test_tool_caches_are_not_part_of_the_walk(tmp_path: Path) -> None:
+    """R18's other half: `.pytest_cache/README.md` is a tool's file, not ours."""
+    (tmp_path / "ours.md").write_text("x", encoding="utf-8")
+    for cache in (".hypothesis", ".pytest_cache", ".mypy_cache", ".ruff_cache"):
+        (tmp_path / cache).mkdir()
+        (tmp_path / cache / "README.md").write_text("x", encoding="utf-8")
+    found = [p.relative_to(tmp_path).as_posix() for p in repo_markdown_files(tmp_path)]
+    assert found == ["ours.md"]
