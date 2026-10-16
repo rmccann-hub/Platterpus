@@ -42,6 +42,7 @@ STATUS-OPEN: eac-htoa-log us cannot, because we hold no EAC log of a disc with a
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested
+STATUS-OPEN: isrc-disc-preferred them fixing at round 35: a log line per track for the disc's ISRC read, and an option our app sets so the disc's ISRC is preferred over the one we pass (your round 34 lap 3 S26; our operator's choice of 2026-10-16); we parse the line and send the option once its wording is agreed
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
 the round and its state against the gate's own `round_status()`; the laps against
