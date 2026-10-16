@@ -63,10 +63,12 @@ from platterpus.uiscript.report import (
     render,
 )
 from platterpus.uiscript.script import (
+    LAST_TRACK_PLACEHOLDER,
     OFFSET_PLACEHOLDER,
     Step,
     args_as_preflight_sees_them,
     expand_identity,
+    expand_last_track,
     expand_offset,
     sanitise_cyanrip_args,
 )
@@ -1762,6 +1764,19 @@ class ScriptRunner(
                 )
                 return
             args = expand_offset(args, self._drive_offset)
+        # `(lasttrack)` is the loaded disc's last track number, from the track
+        # table the rip steps read; with no disc loaded there is nothing to name.
+        if any(LAST_TRACK_PLACEHOLDER in arg for arg in args):
+            last = _last_track_number(self._window)
+            if last is None:
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"{LAST_TRACK_PLACEHOLDER} could not be expanded: no track "
+                    "rows are loaded",
+                )
+                return
+            args = expand_last_track(args, last)
         # `(consumer)` / `(diagnostics)`: the words an app rip sends, from the
         # functions its argv builder calls, gated on the build this run has seen.
         args, identity_notes = expand_identity(args, build_tag=self._ripper_build_tag)
@@ -4308,6 +4323,16 @@ class ScriptRunner(
 
 
 # --- Small helpers, kept module-level so they are testable without a runner ---
+
+
+def _last_track_number(window: object) -> int | None:
+    """The highest track number the window's track table holds, or ``None``."""
+    table = getattr(window, "_track_table", None)
+    if table is None:
+        return None
+    numbers = [getattr(row, "number", None) for row in table.tracks()]
+    valid = [n for n in numbers if isinstance(n, int) and n > 0]
+    return max(valid) if valid else None
 
 
 def _ripper_workdir(window: object) -> tuple[Path | None, str]:

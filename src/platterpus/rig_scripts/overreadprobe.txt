@@ -1,0 +1,54 @@
+# Platterpus UI script — ONE bounded -O read, run by hand (round 35).
+#
+# Run it with:  ./platterpus-x86_64.AppImage --run-script overreadprobe
+#          or:  Tools → Advanced → Run test script…  → Load → Run
+#
+# WHAT IT IS FOR. The cyanrip fork's `.24` (93afa15) reads a frame outside the
+# disc once, writes a frame the drive refuses as silence, and says so per track:
+# `Beyond disc: N of M frames refused (written as silence)`. Before `.24`, `-O`
+# hung a read on the rig's BDR-209D for about 23 minutes, which is why every
+# other script here keeps `force_overread` off. The fork's round 35 lap 1 S17
+# item 3 asks for exactly one read: the LAST track only, at +667, so it reaches
+# two frames past the lead-out, under a time limit of a few minutes.
+#
+# THE TIME LIMIT CANNOT BE LEFT OFF. The `cyanrip` step below has no timeout
+# argument: the runner kills the ripper at its own fixed limit
+# (`CYANRIP_VERB_TIMEOUT_S`, 300 seconds) and records the kill. Nothing a script
+# can write raises or removes it.
+#
+# WHAT IT RECORDS. The transcript keeps the step's exit code, its exact argv and
+# its complete output; cyanrip prints the `Beyond disc:` line to its output as
+# well as its log (`cyanrip@93afa15:src/cyanrip_log.c:481`), so the line is in
+# the transcript, and the log lands in `r35overread` in the rips folder. The
+# bundle the run ends with carries both.
+#
+# ONE THING TO DO BY HAND FIRST: put the reference disc in and let the drive
+# settle. Run it after the Full run, not during it.
+
+log ===== Round 35: one bounded -O read of the last track =====
+
+log --- 1. the build that bounds -O, or stop ---
+cyanrip --version
+expect-exit 0
+# `.23` and earlier have no bound on -O; on them this read could hang the
+# drive until the step's limit kills it. Stop rather than find out.
+expect-cyanrip platterpus-fork-g93afa15
+abort-if-failed the installed ripper is not .24, whose -O is bounded
+
+log --- 2. the disc and the drive's offset, or stop ---
+rescan
+pick-release 1 90
+expect-tracks 1+
+set-drive-offset
+# +667 is the BDR-209D's offset, which is what reaches past the lead-out here.
+expect read_offset 667
+abort-if-failed not the BDR-209D at +667, so the read would not be the one asked for
+
+log --- 3. the read: last track only, -O, killed at the step's fixed limit ---
+cyanrip -N -s (offset) -l (lasttrack) -O -D r35overread (consumer) (diagnostics)
+expect-exit 0
+expect-cyanrip Beyond disc:
+snapshot afteroverread
+
+log --- 4. nothing here turned overread on for your rips ---
+expect force_overread off

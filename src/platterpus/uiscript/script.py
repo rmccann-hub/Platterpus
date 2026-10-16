@@ -240,6 +240,17 @@ def expand_offset(args: list[str], offset: int) -> list[str]:
     return [arg.replace(OFFSET_PLACEHOLDER, str(offset)) for arg in args]
 
 
+#: In a ``cyanrip`` step, the number of the disc's last track, read from the
+#: track table when the step runs (round 35: the fork's lap 1 S17 item 3 asks for
+#: one ``-O`` read of the last track, and a typed number is right for one disc).
+LAST_TRACK_PLACEHOLDER: str = "(lasttrack)"
+
+
+def expand_last_track(args: list[str], last_track: int) -> list[str]:
+    """``args`` with :data:`LAST_TRACK_PLACEHOLDER` replaced by ``last_track``."""
+    return [arg.replace(LAST_TRACK_PLACEHOLDER, str(last_track)) for arg in args]
+
+
 #: In a ``cyanrip`` step, a WHOLE argument that expands to the two words every app
 #: rip sends to name its caller: ``--consumer platterpus/<version>``. Whole-word,
 #: because it can expand to nothing (a build that does not accept the flag).
@@ -293,7 +304,8 @@ def expand_identity(args: list[str], *, build_tag: str) -> tuple[list[str], list
 def args_as_preflight_sees_them(args: list[str]) -> list[str]:
     """The argv the sanitiser judges BEFORE the run, when no offset is known yet.
 
-    The placeholder stands in as ``0``, a valid offset, so the rest of the line is
+    The offset placeholder stands in as ``0``, a valid offset, and the last-track
+    one as ``1``, a valid track, so the rest of the line is
     still checked; the real value is range-checked when the step runs, by the same
     sanitiser, on the expanded argv. One function, so the runner's preflight and
     the committed-script sweep cannot judge a line two different ways.
@@ -303,7 +315,9 @@ def args_as_preflight_sees_them(args: list[str]) -> list[str]:
     """
     from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG
 
-    return expand_identity(expand_offset(args, 0), build_tag=FORK_EXPECTED_BUILD_TAG)[0]
+    return expand_identity(
+        expand_last_track(expand_offset(args, 0), 1), build_tag=FORK_EXPECTED_BUILD_TAG
+    )[0]
 
 
 def sanitise_cyanrip_args(args: list[str]) -> str | None:

@@ -40,6 +40,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   disc's, and says whether the option was sent, read from the argv as spawned. The Full
   acceptance run sends it in section F and leaves it out in J2 (TASKS R20, round 35).
 
+- **A rig script for the one bounded `-O` read the fork asked for (`overreadprobe`).** The
+  fork's `.24` reads a frame outside the disc once, writes a refused one as silence and says
+  so per track (`Beyond disc:`); before it, `-O` hung a read on the rig's drive for about 23
+  minutes, so every other script keeps `Overread` off. `--run-script overreadprobe` rips only
+  the disc's last track at +667 with `-O`, and stops before reading unless the ripper is `.24`
+  and the offset is +667. The read runs under the `cyanrip` step's fixed 300-second limit,
+  which no script can raise or remove, and the transcript keeps its exit code, argv and the
+  `Beyond disc:` line. A new script token, `(lasttrack)`, names the loaded disc's last track.
+
 ### Changed
 
 - **The app log no longer records cyanrip's progress line ten times a second.** With debug

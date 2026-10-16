@@ -84,8 +84,54 @@ def test_each_shape_s4_gives_is_read(line: str, expected: tuple[str, str, str]) 
     assert (track.disc_isrc, track.disc_isrc_state, track.disc_isrc_reason) == expected
 
 
+def _contract_rows() -> list[str]:
+    """`.24`'s P2 rows for the line, as its provider contract publishes them."""
+    import re
+
+    rows = re.findall(
+        r"^\| `[^`]+` \| `(Disc ISRC:[^`]*)` \|$",
+        _CONTRACT.read_text(encoding="utf-8"),
+        re.M,
+    )
+    assert rows == ["Disc ISRC:     %s", "Disc ISRC:     %s (%s)"]  # floor: both
+    return rows
+
+
+@pytest.mark.parametrize(
+    ("row", "fill", "expected"),
+    [
+        (0, ("USRC17607839",), ("USRC17607839", "code", "")),
+        (1, ("none", "libcdio returned none"), ("", "none", "libcdio returned none")),
+        (
+            1,
+            ("unknown", "the driver does not report reading ISRC"),
+            ("", "unknown", "the driver does not report reading ISRC"),
+        ),
+    ],
+)
+def test_the_contracts_own_rows_filled_in_are_read(
+    row: int, fill: tuple[str, ...], expected: tuple[str, str, str]
+) -> None:
+    """Built from the contract's format strings, not from our own pattern: the
+    `.24` contract's P2 rows (lines 309-310), indented as the track block is."""
+    line = "  " + _contract_rows()[row] % fill + "\n"
+    track = parse_cyanrip_log(_with_line(line)).tracks[0]
+    assert (track.disc_isrc, track.disc_isrc_state, track.disc_isrc_reason) == expected
+
+
 def test_a_build_without_the_line_states_nothing_not_none() -> None:
     track = parse_cyanrip_log(_R6B_LOG.read_text(encoding="utf-8")).tracks[0]
+    assert (track.disc_isrc, track.disc_isrc_state, track.disc_isrc_reason) == (
+        "",
+        "",
+        "",
+    )
+
+
+def test_the_24_log_with_the_line_removed_reads_as_a_build_before_24() -> None:
+    """The same track block with no `Disc ISRC:` line at all: nothing is stated,
+    which is not the ripper's `none` and not its `unknown`."""
+    track = parse_cyanrip_log(_with_line("")).tracks[0]
     assert (track.disc_isrc, track.disc_isrc_state, track.disc_isrc_reason) == (
         "",
         "",
@@ -221,3 +267,69 @@ def test_the_pin_under_review_has_been_asked_about_the_option() -> None:
         "BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC; add it if its provider contract "
         "lists --prefer-disc-isrc in P1"
     )
+
+
+# --- the Full run's bounded -O read (their lap 1 S17 item 3) ----------------------
+
+
+def test_lasttrack_expands_to_the_loaded_discs_highest_track_number() -> None:
+    from types import SimpleNamespace
+
+    from platterpus.uiscript.runner import _last_track_number
+    from platterpus.uiscript.script import expand_last_track
+
+    rows = [SimpleNamespace(number=n) for n in (1, 2, 14, 3)]
+    window = SimpleNamespace(_track_table=SimpleNamespace(tracks=lambda: rows))
+    assert _last_track_number(window) == 14
+    assert expand_last_track(["-l", "(lasttrack)"], 14) == ["-l", "14"]
+    # No table, or no rows: nothing to name, so the step fails rather than guess.
+    assert _last_track_number(SimpleNamespace()) is None
+    empty = SimpleNamespace(_track_table=SimpleNamespace(tracks=lambda: []))
+    assert _last_track_number(empty) is None
+
+
+_RIG = Path(__file__).resolve().parents[1] / "src/platterpus/rig_scripts"
+
+
+def test_the_bounded_o_read_is_the_last_track_only_and_stops_on_the_wrong_rig() -> None:
+    """The operator's point 4 (2026-10-16): run by hand, last track only, at
+    +667, and impossible without the limit. The limit is the `cyanrip` verb's
+    own (no step can pass one); the script stops before the read unless the
+    build is `.24` and the offset +667."""
+    from platterpus.uiscript.runner import CYANRIP_VERB_TIMEOUT_S
+    from platterpus.uiscript.script import (
+        args_as_preflight_sees_them,
+        parse,
+        sanitise_cyanrip_args,
+    )
+
+    text = (_RIG / "overreadprobe.txt").read_text(encoding="utf-8")
+    steps = parse(text)
+    assert all(not s.error for s in steps)
+    reads = [s for s in steps if s.verb == "cyanrip" and "-O" in s.args]
+    assert len(reads) == 1  # exactly one -O read
+    args = list(reads[0].args)
+    assert args[args.index("-l") + 1] == "(lasttrack)"
+    assert args[args.index("-s") + 1] == "(offset)"
+    assert sanitise_cyanrip_args(args_as_preflight_sees_them(args)) is None
+    # Both preconditions are checked, and stopped on, before the read.
+    before = steps[: steps.index(reads[0])]
+    assert sum(s.verb == "abort-if-failed" for s in before) == 2
+    assert any(
+        s.verb == "expect" and tuple(s.args[:2]) == ("read_offset", "667")
+        for s in before
+    )
+    assert any(
+        s.verb == "expect-cyanrip" and "platterpus-fork-g93afa15" in s.args
+        for s in before
+    )
+    assert 60 <= CYANRIP_VERB_TIMEOUT_S <= 600  # "a few minutes"
+
+
+def test_no_other_packaged_script_sends_o() -> None:
+    for script in sorted(_RIG.glob("*.txt")):
+        if script.name == "overreadprobe.txt":
+            continue
+        for line in script.read_text(encoding="utf-8").splitlines():
+            if line.startswith("cyanrip "):
+                assert "-O" not in line.split(), (script.name, line)
