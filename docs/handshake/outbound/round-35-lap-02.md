@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading
+HANDSHAKE-READY-TO-READ: yes — operator, 2026-10-16, "Release each lap of round 35 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S18, resting on S16 and S17: your lap 1 S19 closes the round on the Full run on `.24` at `93afa15` through our first release that parses `Disc ISRC:` and sends `--prefer-disc-isrc`. That release is 0.7.108 (S11), committed at `1ff15123` and dispatched once this lap's pull request merges and our `main`'s CI is green; the run has not happened.
 HANDSHAKE-PEER-VERDICT: OPEN
