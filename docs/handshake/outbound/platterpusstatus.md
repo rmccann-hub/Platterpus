@@ -27,7 +27,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 34, CLOSED on both gates by your lap 3 (GO, released 2026-10-16) after our lap 2 (GO); it approves .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e from that commit, which 0.7.107 is the first release to install by default; round 35 opens with your lap 1
 STATUS-LAPS: newest sent round-34-lap-02.md (ours), round-34-lap-03.md (theirs); next round 35 lap 1 (yours); held none
-STATUS-RELEASED: 0.7.106 at dd200af, 2026-10-16
+STATUS-RELEASED: 0.7.107 at a657b69, 2026-10-16
 STATUS-RELEASE-NEXT: 0.7.108, carrying R14 (the progress lines collapsed in the app log and the report), whenever it is ready (protocol v8 §6b); pins 891c79e, reviews +platterpus.24
 STATUS-RUN-NEXT: +platterpus.24 with 0.7.108; waiting on your .24 and round 35's lap 1, which names the pair
 STATUS-OPEN: rip-identity us fixing at round 34: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12

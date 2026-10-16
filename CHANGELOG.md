@@ -12,6 +12,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **0.7.107 is published: Platterpus now installs the fork's `.23` by default.** The status
+  block names it released (`a657b69`, 2026-10-16).
+
 ## [0.7.107] — 2026-10-16
 
 The first release that installs the fork's `.23` (`891c79e`, upstream cyanrip 0.9.4-rc3) by
