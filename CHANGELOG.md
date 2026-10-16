@@ -12,6 +12,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **0.7.106 is published, and round 34's run can start.** The status block names it released
+  (`dd200af`, 2026-10-16) and the next run as `.23` (`891c79e`) with 0.7.106, ready.
+
 ## [0.7.106] — 2026-10-15
 
 The release for round 34: it carries the fork's `.23` (`891c79e`, upstream cyanrip
