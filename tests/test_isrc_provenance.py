@@ -150,7 +150,10 @@ def test_a_disc_only_code_is_said_and_a_malformed_one_is_flagged() -> None:
 
 def test_well_formed_follows_iso_3901() -> None:
     assert ip.well_formed("GBAAM0201086") is True
-    assert ip.well_formed("GB-AAM-02-01086") is True
+    # As written, as cyanrip's `.25` check reads it (round 35 lap 5 S5): the
+    # hyphenated display form and lower case are not codes a file may carry.
+    assert ip.well_formed("GB-AAM-02-01086") is False
+    assert ip.well_formed("gbaam0201086") is False
     assert ip.well_formed("GBAAM020108") is False  # eleven characters
     assert ip.well_formed("12AAM0201086") is False  # country must be letters
     assert ip.well_formed("GBAAMXX01086") is False  # year must be digits

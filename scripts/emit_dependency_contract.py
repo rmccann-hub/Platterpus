@@ -49,10 +49,16 @@ from platterpus.cyanrip_cli import (  # noqa: E402
     VERSION_FLAGS,
 )
 from platterpus.deps.fork_source import (  # noqa: E402
+    FORK_BRANCH as _FORK_BRANCH,
+)
+from platterpus.deps.fork_source import (  # noqa: E402
     FORK_EXPECTED_BANNER as _APPROVED_BANNER,
 )
 from platterpus.deps.fork_source import (  # noqa: E402
     FORK_EXPECTED_BUILD_TAG as _APPROVED_BUILD_TAG,
+)
+from platterpus.deps.fork_source import (  # noqa: E402
+    PIN_UNDER_REVIEW as _PIN_UNDER_REVIEW,
 )
 from platterpus.handshake_approval import (  # noqa: E402
     APPROVED_BY_ROUND as _APPROVED_ROUND,
@@ -62,6 +68,9 @@ from platterpus.handshake_approval import (  # noqa: E402
 )
 from platterpus.parsers import cyanrip_log as _parser  # noqa: E402
 from platterpus.rig_check import DIAGNOSTICS_FLAG  # noqa: E402
+
+#: The build under review's tag, so a flag gated on its capabilities is derived too.
+_UNDER_REVIEW_BUILD_TAG: str = f"{_FORK_BRANCH}-g{_PIN_UNDER_REVIEW}"
 
 OUTPUT_PATH: Path = _REPO_ROOT / "docs" / "cyanrip-consumer-contract.md"
 
@@ -221,12 +230,25 @@ def _emitted_flags() -> list[str]:
     """Every flag we can hand cyanrip, obtained by *calling* the arg builder.
 
     A maximal parameter set is used so conditional flags (``-Z``, ``-O``, ``-S``,
-    ``-l``, and the build-gated ``--consumer``) are all present. This is a derivation, not a list: a flag the
+    ``-l``, and the build-gated ``--consumer`` and ``--prefer-disc-isrc``) are all present. This is a derivation, not a list: a flag the
     adapter stops passing vanishes from the contract, and one it starts passing
     appears, without anyone remembering to edit a doc.
     """
     backend = CyanripImpl(binary_path="cyanrip")
-    argv = backend._build_rip_argv(
+    tokens: set[str] = set()
+    # BOTH builds we may drive, the pin our app installs AND the build under
+    # review: a capability-gated flag is sent to whichever lists it, so a
+    # maximal set taken over one build alone is not maximal. Round 35 found
+    # this: `--prefer-disc-isrc`, sent only to `.24`, was missing from §3 while
+    # every rip on the build under review sent it (`tests/test_disc_isrc.py`).
+    for build_tag in (_APPROVED_BUILD_TAG, _UNDER_REVIEW_BUILD_TAG):
+        tokens.update(_maximal_argv(backend, build_tag)[1:])
+    return _with_probe_flags(tokens)
+
+
+def _maximal_argv(backend: CyanripImpl, build_tag: str) -> list[str]:
+    """The rip argv with every option on, for one build tag."""
+    return backend._build_rip_argv(
         "/dev/sr0",
         unknown=False,
         cover_art="",  # recorded only; `-G` is now sent unconditionally
@@ -255,8 +277,13 @@ def _emitted_flags() -> list[str]:
         # flags — and §3 "Flags we pass you" omitted a flag every production rip
         # sends, while the comment below said that omission was the failure to
         # avoid. Derived from `fork_source`, never typed, so it moves with the pin.
-        ripper_build_tag=_APPROVED_BUILD_TAG,
+        ripper_build_tag=build_tag,
+        prefer_disc_isrc=True,
     )
+
+
+def _with_probe_flags(tokens: set[str]) -> list[str]:
+    """``tokens`` from the rip argv, with every probe invocation's flags added."""
     # argv[0] is the binary path, not a flag.
     #
     # SHORT **AND LONG** options. Short-only was the filter here, which made this
@@ -268,7 +295,6 @@ def _emitted_flags() -> list[str]:
     # Third instance of this exact blind spot in one session (the rip audit's argv
     # comparison, the release gate's, and here). A pattern matching only `-X` looks
     # complete because every cyanrip flag *was* short.
-    tokens = set(argv[1:])
     # The rip is not the only thing we run. Every invocation we make is part of the
     # argv surface, and a renamed flag is indistinguishable from an absent tool —
     # which is exactly how upstream's `-V` removal turned a working fork build into

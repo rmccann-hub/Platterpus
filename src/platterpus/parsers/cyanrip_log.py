@@ -704,8 +704,17 @@ _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$
 # ISRC, or `unknown (<reason>)` where the read was not made or did not finish. The
 # reason is the `-j` record's `isrc_disc_reason`, word for word. Bounded: a code is
 # twelve characters, and the fork's longest reason is under fifty.
+#
+# `.25` adds a fourth shape (round 35 lap 5 S2, `cyanrip@72a7a8b`): a code the disc
+# returned that is not an ISO 3901 code prints `<code> (not an ISO 3901 code, so not
+# used)`, the same P2 row `%s (%s)` with a code where `none`/`unknown` stood. The
+# code is kept and read as `not_used`, with the ripper's reason beside it; the
+# `none`/`unknown` arm comes first, so those two words are never read as a code.
+# That arm admits inner spaces, since a code the ripper refused may hold any bytes
+# libcdio returned short of a parenthesis.
 _DISC_ISRC = re.compile(
     r"^\s+Disc ISRC:\s+(?:(?P<state>none|unknown) \((?P<reason>[^()\n]{1,120})\)"
+    r"|(?P<unused>[^\s()][^()\n]{0,39}?) \((?P<unused_reason>[^()\n]{1,120})\)"
     r"|(?P<code>[^\s()]{1,40}))\s*$"
 )
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
@@ -3641,6 +3650,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 if match.group("code"):
                     current.disc_isrc = match.group("code")
                     current.disc_isrc_state = "code"
+                elif match.group("unused"):
+                    # The disc gave a code and the ripper did not use it, for
+                    # the reason it states (`.25`: not an ISO 3901 code).
+                    current.disc_isrc = match.group("unused")
+                    current.disc_isrc_state = "not_used"
+                    current.disc_isrc_reason = match.group("unused_reason")
                 else:
                     current.disc_isrc_state = match.group("state")
                     current.disc_isrc_reason = match.group("reason")

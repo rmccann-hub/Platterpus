@@ -68,7 +68,7 @@ from pathlib import Path
 from typing import Final, NamedTuple
 
 import pytest
-from conftest import maintained_tooling_modules
+from conftest import maintained_tooling_modules, repo_files
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 SRC_ROOT: Final[Path] = REPO_ROOT / "src" / "platterpus"
@@ -1785,7 +1785,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # compare, one job: `passed` beside the disc and the files, and whether the
     # option went. Splitting the findings off would separate a sentence from the
     # rows it reads.
-    "isrc_provenance.py": 324,
+    # **324 -> 337** (2026-10-17, round 35 lap 6): `well_formed` reads the code as written, as cyanrip's `.25` check does, and the malformed finding quotes the ripper's reason.
+    "isrc_provenance.py": 337,
     # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
     "help_content.py": 651,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
@@ -1860,7 +1861,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # publishes. Most of the growth is the citations into `cyanrip@aa45b975` that
     # derive each shape, and why a data track's CRC is not an audio CRC.
     # **3822 -> 3854** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC:` line's pattern and handler, beside the other per-track lines.
-    "parsers/cyanrip_log.py": 3854,
+    # **3854 -> 3869** (2026-10-17, round 35 lap 6): the `Disc ISRC:` line's fourth shape, `<code> (<reason>)`, from `.25`.
+    "parsers/cyanrip_log.py": 3869,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1880,7 +1882,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `data_sector_edc`, a data track's own facts, kept out of `copy_crc` on
     # purpose, and `RipLog.accuraterip_disc_id`, each beside the dataclass it fills.
     # **1015 -> 1022** (2026-10-16, TASKS R20 part 2, round 35): three `TrackResult` fields for the `Disc ISRC:` line.
-    "parsers/rip_log.py": 1022,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1022 -> 1023** (2026-10-17, round 35 lap 6): the `not_used` state named in the field's comment.
+    "parsers/rip_log.py": 1023,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2807,7 +2810,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **498 -> 499** (2026-10-05): lint and format-check read `scripts/` and `build/`
     # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
     "scripts/check.py": 499,
-    "scripts/emit_dependency_contract.py": 534,
+    # **534 -> 560** (2026-10-17, round 35 lap 6): the maximal argv taken over both builds we may drive, so a flag gated on the build under review is in §3.
+    "scripts/emit_dependency_contract.py": 560,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the
@@ -3260,7 +3264,9 @@ def test_no_file_carries_an_unresolved_conflict_marker() -> None:
 
     offenders: list[str] = []
     examined = 0
-    for path in root.rglob("*"):
+    # The shared walker (`conftest.repo_files`), which skips a directory that
+    # vanishes mid-walk; a whole-tree `rglob` raised on one (2026-10-17).
+    for path in repo_files(root):
         if not path.is_file() or path.suffix not in _CONFLICT_SCAN_SUFFIXES:
             continue
         if any(part in _CONFLICT_SKIP_DIRS for part in path.parts):

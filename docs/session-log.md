@@ -11,6 +11,33 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-17 — round 35 lap 6, and 0.7.109 reads `.25`'s refused-code line
+
+**Asked:** file the fork's laps 3 to 5, answer their lap 4 S6 and lap 5 S8 and S13 in lap 6,
+copy their `seam-commands.md` line 112, and release a parser for `Disc ISRC: <code>
+(<reason>)` before they cut `.25`. Their lap 3 asked for a shorter run and our view of it.
+
+**Built:** the parser's fourth shape (`not_used`); an as-written ISO 3901 check, equal to the
+fork's by a property test against a port of their C; the consumer contract's flag list taken
+over both builds we may drive, which exposed a flag it had omitted; one shared walker for
+every whole-repository test walk; `overreadprobe`'s lead-in step and the `isrcdisc` script;
+0.7.109 committed and held for the operator's word; lap 6 held for its pull request.
+
+**Decided:** the shorter run is Standard plus the two scripts, enough to close round 35 on
+the operator's override of R1, not a full-green ledger row and not round 36's opening run.
+Release 0.7.109 waits for the operator's word, since this message relayed the fork's request
+rather than asking for a release.
+
+**Learned:** a document derived from "a maximal parameter set" is maximal only over the
+inputs it was given; ours took one build tag and so could not see a flag gated on another.
+This is `CLAUDE.md`'s "is the population I measured closed?" (`docs/testing.md` §5.ao)
+arriving through a capability gate, so it graduates no new rule; the emitter now iterates
+the builds it can drive, and a test holds the option in the list. And a value written from
+memory of a prefix is a fabricated value: lap 6's draft carried lap 5's hash with the first
+16 characters right and the rest invented, caught only because the checker compared it.
+The rule that applies is "answering from the artifact, not from memory of it" (`CLAUDE.md`);
+every hash in a lap is pasted from a command's output.
+
 ## 2026-10-16 (late) — round 35 lap 2, and 0.7.108 reads the disc's ISRC
 
 **Asked:** answer the fork's round 35 lap 1 (S13 to S15), make the release that parses
@@ -10851,4 +10878,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.108.*
+*Last updated for Platterpus v0.7.109.*

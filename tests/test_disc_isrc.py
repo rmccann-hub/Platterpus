@@ -77,6 +77,16 @@ def test_every_track_of_the_24_log_states_the_unknown_shape_and_its_reason() -> 
             ("", "none", "libcdio returned an all-zero ISRC"),
         ),
         ("  Disc ISRC:     unknown (not read)\n", ("", "unknown", "not read")),
+        # `.25` (round 35 lap 5 S2-S3, cyanrip@72a7a8b): a code the disc returned
+        # that is not an ISO 3901 code, kept and not used. Their cue's two cases.
+        (
+            "  Disc ISRC:     1234567890AB (not an ISO 3901 code, so not used)\n",
+            ("1234567890AB", "not_used", "not an ISO 3901 code, so not used"),
+        ),
+        (
+            "  Disc ISRC:     usrc17607839 (not an ISO 3901 code, so not used)\n",
+            ("usrc17607839", "not_used", "not an ISO 3901 code, so not used"),
+        ),
     ],
 )
 def test_each_shape_s4_gives_is_read(line: str, expected: tuple[str, str, str]) -> None:
@@ -106,6 +116,12 @@ def _contract_rows() -> list[str]:
             1,
             ("unknown", "the driver does not report reading ISRC"),
             ("", "unknown", "the driver does not report reading ISRC"),
+        ),
+        # The same `%s (%s)` row with a code where `none`/`unknown` stood (`.25`).
+        (
+            1,
+            ("1234567890AB", "not an ISO 3901 code, so not used"),
+            ("1234567890AB", "not_used", "not an ISO 3901 code, so not used"),
         ),
     ],
 )
@@ -307,7 +323,12 @@ def test_the_bounded_o_read_is_the_last_track_only_and_stops_on_the_wrong_rig() 
     steps = parse(text)
     assert all(not s.error for s in steps)
     reads = [s for s in steps if s.verb == "cyanrip" and "-O" in s.args]
-    assert len(reads) == 1  # exactly one -O read
+    # Two -O reads: the last track at the drive's offset (their lap 3 S9), then
+    # the lead-in side at a deliberately wrong -667 (S10), after it.
+    assert len(reads) == 2
+    leadin = list(reads[1].args)
+    assert leadin[leadin.index("-s") + 1] == "-667"
+    assert leadin[leadin.index("-l") + 1] == "1"
     args = list(reads[0].args)
     assert args[args.index("-l") + 1] == "(lasttrack)"
     assert args[args.index("-s") + 1] == "(offset)"
@@ -333,3 +354,92 @@ def test_no_other_packaged_script_sends_o() -> None:
         for line in script.read_text(encoding="utf-8").splitlines():
             if line.startswith("cyanrip "):
                 assert "-O" not in line.split(), (script.name, line)
+
+
+def test_a_code_cyanrip_did_not_use_is_flagged_with_its_own_reason() -> None:
+    """Our report and `.25`'s check agree in both directions (their lap 5 S5): a
+    lower-case code is malformed to both, and the finding quotes the ripper."""
+    reading = ip.IsrcReading(
+        ip.STATE_READ,
+        tracks=(
+            ip.TrackIsrc(
+                4,
+                None,
+                "usrc17607839",
+                "not an ISO 3901 code, so not used",
+                ripped=True,
+            ),
+        ),
+    )
+    block = ip.report_block(reading, passed={})
+    [(code, sentence)] = ip.findings(block)
+    assert code == "isrc_disc_malformed"
+    assert sentence.endswith("; cyanrip: not an ISO 3901 code, so not used")
+
+
+def _cyanrip_iso3901(code: str) -> bool:
+    """A port of `crip_isrc_is_iso3901()` (`cyanrip@64bc315:src/cyanrip_main.h:643-653`)."""
+    if len(code) != 12:
+        return False
+    for i, c in enumerate(code):
+        letter = "A" <= c <= "Z"
+        digit = "0" <= c <= "9"
+        if not (letter if i < 2 else (letter or digit) if i < 5 else digit):
+            return False
+    return True
+
+
+@given(
+    st.one_of(
+        st.text(max_size=16),
+        st.from_regex(r"[A-Za-z0-9 -]{10,14}", fullmatch=True),
+        st.from_regex(r"[A-Z]{2}[A-Z0-9]{3}[0-9]{7}", fullmatch=True),
+    )
+)
+def test_our_well_formed_is_the_rippers_check_in_both_directions(code: str) -> None:
+    """Their lap 5 S5: our report normalised before checking and theirs reads the
+    bytes, so a lower-case code was fine to us and refused by them. Now equal."""
+    assert ip.well_formed(code) is _cyanrip_iso3901(code)
+
+
+def test_a_refused_code_with_inner_spaces_is_still_read() -> None:
+    track = parse_cyanrip_log(
+        _with_line("  Disc ISRC:     US RC1 76 (not an ISO 3901 code, so not used)\n")
+    ).tracks[0]
+    assert (track.disc_isrc, track.disc_isrc_state) == ("US RC1 76", "not_used")
+
+
+def test_the_consumer_contract_lists_the_option_every_rip_on_24_sends() -> None:
+    """Round 35 regression: §3 "Flags we pass you" was derived from a maximal
+    argv for the installed pin only, so `--prefer-disc-isrc`, sent to the build
+    under review alone, was missing from the contract that claims completeness."""
+    contract = (
+        Path(__file__).resolve().parents[1] / "docs/cyanrip-consumer-contract.md"
+    ).read_text(encoding="utf-8")
+    flags_line = contract.split("## 3. Flags we pass you", 1)[1].split("```")[1]
+    assert PREFER_DISC_ISRC_FLAG in flags_line.split()
+    assert "--consumer" in flags_line.split()  # floor: the other gated flag too
+
+
+def test_the_isrc_disc_script_rips_with_the_option_then_without() -> None:
+    """Their lap 3 S8: one disc that carries ISRCs, ripped with the option and
+    without, each rip's argv checked as spawned, and the default put back."""
+    from platterpus.uiscript.script import parse
+
+    steps = parse((_RIG / "isrcdisc.txt").read_text(encoding="utf-8"))
+    assert all(not s.error for s in steps)
+    seen = [
+        (s.verb, tuple(s.args))
+        for s in steps
+        if s.verb in ("rip", "expect-rip-argv")
+        or (s.verb == "set" and s.args[0] == "prefer_disc_isrc")
+    ]
+    assert seen == [
+        ("set", ("prefer_disc_isrc", "on")),
+        ("rip", ()),
+        ("expect-rip-argv", ("with", PREFER_DISC_ISRC_FLAG)),
+        ("set", ("prefer_disc_isrc", "off")),
+        ("rip", ()),
+        ("expect-rip-argv", ("without", PREFER_DISC_ISRC_FLAG)),
+        ("set", ("prefer_disc_isrc", "on")),
+    ]

@@ -109,6 +109,7 @@ its own, which is a different call path and is tabled separately in §2.
 | `-F` | — | flag | conditional | — *(transcribed from the builder; semantics need confirming, see §5)* | HAVE |  HAVE — track naming scheme, §7 |
 | `-I` | — | flag | **never with `-J`** | — *(mutual exclusion recorded in `dependency-contracts.md`; we should state why)* | HAVE |  HAVE — refuses with `-J`, §7 |
 | `--consumer` | tag | `str`, `<name>/<version>` | no whitespace, contains `/` | who we tell them we are. Validated because it is written verbatim into an archival log as the identity of the producing program | HAVE |  HAVE |
+| `--prefer-disc-isrc` | — | flag | sent only to a build whose provider contract lists it in P1, and only with the `Disc ISRC` setting on | a code the disc returned is what the files and the `Metadata:` block's `ISRC:` carry, over the one `-t` gave, track by track; a track whose disc gave none keeps ours, and the one we gave stays in `Invoked as:` | HAVE |  HAVE — .24, 93afa15 |
 
 ## 2. Probe-path flags, which is a separate call and a separate risk
 

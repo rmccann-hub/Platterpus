@@ -12,7 +12,56 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.109] — 2026-10-17
+
+The release that reads the fork's next `Disc ISRC:` shape, which the fork waits for before it
+cuts `.25`: a disc code that is not an ISO 3901 code, printed with the ripper's reason and not
+used. Our report's well-formedness check now matches cyanrip's exactly. It still installs
+`.23` (`891c79e`) by default, with `.24` (`93afa15`) under review; round 35's run may go
+through 0.7.108 or this release, since both parse the line and send the option.
+
+### Added
+
+- **Our round 35 lap 6, answering the fork's laps 3 to 5.** It accepts the ISO 3901 check as
+  the fork landed it for `.25`, with its wording, in both modes, and resolves the one
+  difference by checking codes as written on our side; gives the shorter run the fork's
+  operator asked about (an acceptance run at size Standard, then `overreadprobe`, then
+  `isrcdisc` on a disc with ISRCs) and our view that it is enough to close round 35 on an
+  override of R1, with round 36 opening on the next Full run; and proposes four rows and a
+  corrected count for `docs/seam-commands.md` §1, whose table was missing four flags our rips
+  send. Held until its pull request merges, then released on the operator's standing word.
+
+- **The `Disc ISRC:` line's `.25` shape is read.** The fork's next build will refuse a disc
+  code that is not an ISO 3901 code and print `Disc ISRC:     <code> (not an ISO 3901 code,
+  so not used)`. The parser keeps the code with the state `not_used` and the ripper's reason;
+  `.24`'s shapes read as before. The fork waits for this before cutting `.25`.
+- **`isrcdisc`, a rig script for a disc that carries ISRCs** (`--run-script isrcdisc`): it rips
+  the first two tracks with `--prefer-disc-isrc` and then without, checking each argv as
+  spawned, and puts the default back. **`overreadprobe` gains the lead-in side**: after the
+  last-track read, track 1 at a deliberately wrong -667 with `-O`, under the same fixed limit
+  (the fork's round 35 lap 3 S10).
+
 ### Changed
+
+- **A disc ISRC counts as well formed only as written.** The report matched a code after
+  upper-casing it and removing hyphens and spaces; cyanrip's check reads the bytes a file would
+  carry, so a lower-case or hyphenated code was well formed to us and refused by the ripper.
+  The two now agree in both directions (a property test runs our check against a port of
+  theirs), and the malformed finding quotes the ripper's own reason. Comparing two codes for
+  equality still normalises.
+- **`docs/seam-commands.md` carries the `--prefer-disc-isrc` row,** copied byte for byte from
+  the fork's line 112, so the shared file is identical in both repositories again.
+
+### Fixed
+
+- **Our generated consumer contract listed every flag but `--prefer-disc-isrc`.** Its "Flags
+  we pass you" was taken from a maximal argv built for the installed pin only, and the option
+  is sent only to the build under review. It is now derived over both builds, so it lists 24
+  flags, and a test holds the option in it.
+- **Every whole-repository test walk now survives a directory vanishing under it.** R18 fixed
+  the Markdown sweeps; two other sweeps still walked with `rglob` and one failed locally when a
+  parallel worker removed `.hypothesis/tmp` mid-walk (2026-10-17). They now share the same
+  walker (`tests/conftest.py`).
 
 - **Round 35: our lap 2 is released, on the operator's standing word for round 35.** Its
   `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
@@ -18891,7 +18940,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...HEAD
+[0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
 [0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
 [0.7.106]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...v0.7.106
@@ -18970,4 +19020,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.108.*
+*Last updated for Platterpus v0.7.109.*
