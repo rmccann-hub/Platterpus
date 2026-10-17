@@ -564,6 +564,12 @@ _KNOWN_MISMATCHES: Final[dict[str, str]] = {
         "c3a7a2a4... after it, and 3d3696c4dc884152 reproduces exactly over the "
         "first copy"
     ),
+    "inbound/round-35-lap-03.md": (
+        "theirs, computed before they filed our lap 2, so over their lap 1 alone "
+        "(`85a64e289f431911 over 1`, which is our own lap 2's value); their lap 4 "
+        "S17 says so and pins it in their KNOWN_UNREPRODUCIBLE. Their lap 4's digest "
+        "covers laps 1 to 3"
+    ),
 }
 
 

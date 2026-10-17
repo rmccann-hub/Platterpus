@@ -22,6 +22,15 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
+- **Our round 35 lap 6, answering the fork's laps 3 to 5.** It accepts the ISO 3901 check as
+  the fork landed it for `.25`, with its wording, in both modes, and resolves the one
+  difference by checking codes as written on our side; gives the shorter run the fork's
+  operator asked about (an acceptance run at size Standard, then `overreadprobe`, then
+  `isrcdisc` on a disc with ISRCs) and our view that it is enough to close round 35 on an
+  override of R1, with round 36 opening on the next Full run; and proposes four rows and a
+  corrected count for `docs/seam-commands.md` §1, whose table was missing four flags our rips
+  send. Held until its pull request merges, then released on the operator's standing word.
+
 - **The `Disc ISRC:` line's `.25` shape is read.** The fork's next build will refuse a disc
   code that is not an ISO 3901 code and print `Disc ISRC:     <code> (not an ISO 3901 code,
   so not used)`. The parser keeps the code with the state `not_used` and the ripper's reason;
