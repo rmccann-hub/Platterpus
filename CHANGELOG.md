@@ -12,6 +12,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.109] — 2026-10-17
+
+The release that reads the fork's next `Disc ISRC:` shape, which the fork waits for before it
+cuts `.25`: a disc code that is not an ISO 3901 code, printed with the ripper's reason and not
+used. Our report's well-formedness check now matches cyanrip's exactly. It still installs
+`.23` (`891c79e`) by default, with `.24` (`93afa15`) under review; round 35's run may go
+through 0.7.108 or this release, since both parse the line and send the option.
+
 ### Added
 
 - **The `Disc ISRC:` line's `.25` shape is read.** The fork's next build will refuse a disc
@@ -18923,7 +18931,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...HEAD
+[0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
 [0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
 [0.7.106]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...v0.7.106
@@ -19002,4 +19011,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.108.*
+*Last updated for Platterpus v0.7.109.*
