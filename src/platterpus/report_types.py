@@ -408,7 +408,7 @@ class TrackBlock(TypedDict):
     data_crc32: str | None
     data_sector_edc: str | None
     #: v35: the disc's own ISRC from the `Disc ISRC:` line (`.24`+): the code, its
-    #: state (`code` / `none` / `unknown`) and the ripper's reason. None on any
+    #: state (`code` / `not_used` / `none` / `unknown`) and the ripper's reason. None on any
     #: earlier build, which prints no such line.
     disc_isrc: str | None
     disc_isrc_state: str | None

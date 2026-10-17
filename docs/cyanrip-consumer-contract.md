@@ -108,7 +108,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_pregap_length` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<frames>\\d{1,9})\\s+frames?\\b` |
 | `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,62}\\S)?)\\s*$` |
 | `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
-| `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
+| `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<unused>[^\\s()][^()\\n]{0,39}?) \\((?P<unused_reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
 | `track_data_crc32` | indented | `^\\s+CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})\\s*$` |
 | `track_data_sector_edc` | indented | `^\\s+Sector EDC:\\s+(?P<value>\\S(?:.{0,198}\\S)?)\\s*$` |
@@ -201,7 +201,7 @@ dropped.
 | `^Checking .{1,200} for cdrom\\.\\.\\.\\s*$` | libcdio image-probe chatter; the path is ours and Invoked as: records it |
 | `^Stopping, ripping incomplete!\\s*$` | abort marker; Rip completed: carries the verdict and ripper_messages surfaces this sentence |
 
-## 3. Flags we pass you (23)
+## 3. Flags we pass you (24)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -209,7 +209,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---consumer --diagnostics --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -l -o -r -s -t
+--consumer --diagnostics --prefer-disc-isrc --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

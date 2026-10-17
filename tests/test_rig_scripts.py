@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from conftest import ROUND_STATES, supply_round_state
+from conftest import ROUND_STATES, repo_files, supply_round_state
 
 from platterpus.config import Config
 from platterpus.goal_presets import GOAL_CUSTOM, apply_preset
@@ -1508,7 +1508,9 @@ def _live_text_files() -> list[tuple[str, Path]]:
     root = Path(__file__).resolve().parents[1]
     dated = ("CHANGELOG.md", "docs/session-log.md", "docs/handshake/", "docs/archive/")
     found: list[tuple[str, Path]] = []
-    for path in sorted(root.rglob("*")):
+    # The shared walker (`conftest.repo_files`): a whole-tree `rglob` here met a
+    # tool cache vanishing under a parallel worker (2026-10-17).
+    for path in repo_files(root):
         if path.suffix.lower() not in {".md", ".py", ".sh", ".txt", ".toml", ".yml"}:
             continue
         rel = path.relative_to(root).as_posix()

@@ -116,10 +116,19 @@ def normalise(code: str) -> str:
 
 
 def well_formed(code: str | None) -> bool | None:
-    """Whether ``code`` is an ISO 3901 ISRC. ``None`` when there is no code."""
+    """Whether ``code`` is an ISO 3901 ISRC as written. ``None`` with no code.
+
+    **As written, not normalised** (round 35 lap 5 S5): cyanrip's check reads the
+    bytes libcdio returned, which are the bytes a file would carry, so a
+    lower-case or hyphenated code is one it does not use. Normalising here made
+    our report call such a code well formed while the ripper refused it; now the
+    two implementations of one check agree in both directions. Comparing two
+    codes for equality (:func:`agreement`) still normalises: that is a different
+    question from whether a code may be written to a file.
+    """
     if code is None:
         return None
-    return ISRC_PATTERN.fullmatch(normalise(code)) is not None
+    return ISRC_PATTERN.fullmatch(code) is not None
 
 
 def agreement(track: TrackIsrc, ours: str | None = None, *, known: bool = False) -> str:
@@ -276,11 +285,15 @@ def findings(block: object) -> list[tuple[str, str]]:
                 )
             )
         if isinstance(disc, str) and row.get("disc_well_formed") is False:
+            # `.25` says what it did with such a code in the record's reason
+            # (`not an ISO 3901 code, so not used`); quote it, never infer it.
+            said = row.get("disc_reason")
+            ripper = f"; cyanrip: {said}" if isinstance(said, str) and said else ""
             found.append(
                 (
                     "isrc_disc_malformed",
                     f"track {number}: the disc's own ISRC {disc!r} is not a "
-                    "well-formed ISO 3901 code",
+                    f"well-formed ISO 3901 code{ripper}",
                 )
             )
     return found

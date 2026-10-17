@@ -113,6 +113,20 @@ def repo_markdown_files(root: Path) -> list[Path]:
     Any other error still raises, so an unreadable directory is not passed over.
     """
 
+    return [path for path in repo_files(root) if path.name.endswith(".md")]
+
+
+def repo_files(root: Path) -> list[Path]:
+    """Every file of THIS checkout, sorted, by the rules of
+    :func:`repo_markdown_files`: no ``.git``, no tool cache, no nested checkout,
+    and a directory that vanishes mid-walk skipped, not fatal.
+
+    One walker for every whole-repository sweep, whatever it reads. R18 fixed the
+    Markdown sweeps; on 2026-10-17 a sweep of every text file
+    (`test_rig_scripts.py::_live_text_files`) met `.hypothesis/tmp` as an xdist
+    worker removed it, through its own `rglob`, so the fix moved here.
+    """
+
     def _gone_is_fine(error: OSError) -> None:
         if not isinstance(error, FileNotFoundError):
             raise error
@@ -124,7 +138,7 @@ def repo_markdown_files(root: Path) -> list[Path]:
             dirs[:] = []  # a separate checkout nested in ours
             continue
         dirs[:] = [d for d in dirs if d != ".git" and d not in TOOL_CACHE_DIRS]
-        found.extend(top / name for name in files if name.endswith(".md"))
+        found.extend(top / name for name in files)
     return sorted(found)
 
 

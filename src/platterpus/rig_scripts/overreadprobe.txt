@@ -8,8 +8,9 @@
 # `Beyond disc: N of M frames refused (written as silence)`. Before `.24`, `-O`
 # hung a read on the rig's BDR-209D for about 23 minutes, which is why every
 # other script here keeps `force_overread` off. The fork's round 35 lap 1 S17
-# item 3 asks for exactly one read: the LAST track only, at +667, so it reaches
-# two frames past the lead-out, under a time limit of a few minutes.
+# item 3 asks for one read: the LAST track only, at +667, so it reaches two
+# frames past the lead-out, under a time limit of a few minutes. Step 4 adds their
+# lap 3 S10, the lead-in side, under the same limit.
 #
 # THE TIME LIMIT CANNOT BE LEFT OFF. The `cyanrip` step below has no timeout
 # argument: the runner kills the ripper at its own fixed limit
@@ -50,5 +51,15 @@ expect-exit 0
 expect-cyanrip Beyond disc:
 snapshot afteroverread
 
-log --- 4. nothing here turned overread on for your rips ---
+log --- 4. the lead-in side: track 1 at a deliberately wrong -667, the same limit ---
+# The fork's round 35 lap 3 S10, optional on their side and the one to drop for
+# time: the reference disc's track 1 starts at LSN 0, so -667 reads two frames
+# BEFORE the disc through the same bounded branch. Typed, not (offset), because a
+# wrong offset is the point; it reaches only this argv, never the drive's setting.
+# Its audio is not kept. If step 3 hit the limit, this one will tell nothing new.
+cyanrip -N -s -667 -l 1 -O -D r35overreadleadin (consumer) (diagnostics)
+expect-exit 0
+expect-cyanrip Beyond disc:
+
+log --- 5. nothing here turned overread on for your rips ---
 expect force_overread off

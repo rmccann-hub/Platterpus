@@ -1,0 +1,57 @@
+# Platterpus UI script — the disc's own ISRC, with --prefer-disc-isrc and without.
+#
+# Run it with:  ./platterpus-x86_64.AppImage --run-script isrcdisc
+#          or:  Tools → Advanced → Run test script…  → Load → Run
+#
+# WHAT IT IS FOR. Round 35 (the fork's lap 3 S8): the drive's own ISRC read is
+# the one path no disc image reaches, and our app sends --prefer-disc-isrc by
+# default to `.24`. The reference disc's read returned none for every track on
+# `.23`, so this script is for A DISC WHOSE SUB-CHANNEL CARRIES ISRCs. It rips
+# the first two tracks twice: once with the option, once without.
+#
+# WHAT TO READ AFTERWARDS (the bundle carries both rips' reports and logs). In
+# each report, `disc.isrc_provenance` gives per track what we passed, what the
+# files carry and the disc's code, and `prefer_disc_isrc_sent` is true for the
+# first rip and false for the second. With the option the files carry the disc's
+# code; without it, MusicBrainz's. Each log's `Disc ISRC:` line equals the
+# record's `isrc_disc`. On the reference disc the same script still runs, and
+# shows every line reading `none` or `unknown`, which is that disc, not a fault.
+#
+# ONE THING TO DO BY HAND FIRST: put the disc in and let the drive settle.
+
+log ===== Round 35: the disc's own ISRC, with the option and without =====
+
+log --- 1. the build that prints the line, or stop ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork-g93afa15
+abort-if-failed the installed ripper is not .24, so there is no Disc ISRC line to read
+
+log --- 2. the disc ---
+rescan
+pick-release 1 90
+expect-tracks 2+
+abort-if-failed no disc with two tracks was identified
+select-tracks 1-2
+
+log --- 3. with --prefer-disc-isrc: the files carry the disc's code ---
+set prefer_disc_isrc on
+expect prefer_disc_isrc on
+album isrc with the option (ripper)
+rip
+wait-for-rip 3600
+expect-rip-complete
+expect-rip-argv with --prefer-disc-isrc
+
+log --- 4. without it: the files carry MusicBrainz's code ---
+set prefer_disc_isrc off
+expect prefer_disc_isrc off
+album isrc without the option (ripper)
+rip
+wait-for-rip 3600
+expect-rip-complete
+expect-rip-argv without --prefer-disc-isrc
+
+log --- 5. back to the shipped default ---
+set prefer_disc_isrc on
+expect prefer_disc_isrc on
