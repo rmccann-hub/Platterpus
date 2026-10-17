@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .24 at 93afa15; it closes on the Full run on .24 through our first release that parses Disc ISRC: and sends --prefer-disc-isrc (your S19); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
-STATUS-LAPS: newest sent round-35-lap-02.md (ours), round-35-lap-01.md (theirs); next round 35 lap 3 (yours); held none
+STATUS-LAPS: newest sent round-35-lap-02.md (ours), round-35-lap-05.md (theirs); next round 35 lap 6 (ours); held none
 STATUS-RELEASED: 0.7.108 at 2165361, 2026-10-16
 STATUS-RELEASE-NEXT: 0.7.109, whenever it is ready (protocol v8 §6b); pins 891c79e, reviews 93afa15
 STATUS-RUN-NEXT: 93afa15 with 0.7.108; ready
