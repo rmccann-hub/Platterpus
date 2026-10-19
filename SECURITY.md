@@ -71,8 +71,10 @@ reproduce on the newest release before reporting.
   checked-out head with merge commits diffed against each parent (`--log-opts="-m
   HEAD"`). A scan that read too little would also print "no leaks found", so the job
   refuses three ways: a shallow clone, fewer than an absolute minimum of commits, and
-  fewer than 90 % of the commits reachable from the head. The full history is what
-  matters: this repository is public and `git log` is a distribution channel, so a
+  fewer than 90 % of the commits reachable from the head. The same job then scans
+  every commit of the `evidence` branch, where run evidence has lived since
+  2026-10-14, and refuses a scan that read fewer commits than the branch holds.
+  The full history is what matters: this repository is public and `git log` is a distribution channel, so a
   credential removed in a later commit is still published. Same reasoning the media
   guard uses for audio. *History:* until 2026-10-05 the job ran
   `gitleaks/gitleaks-action`, which scans a range it builds itself, `--no-merges
@@ -97,7 +99,7 @@ reproduce on the newest release before reporting.
 ## Scope
 
 This policy covers the **Platterpus application**. Vulnerabilities in the
-underlying external tools (cyanrip, flac/metaflac, ffmpeg, MusicBrainz Picard)
+underlying external tools (cyanrip, flac/metaflac, ffmpeg, cd-paranoia, MusicBrainz Picard)
 should be reported to those projects.
 
 ---

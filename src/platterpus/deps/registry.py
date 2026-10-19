@@ -242,8 +242,10 @@ SPECS: list[DependencySpec] = [
             "output is selected, AND verifies those derived files afterward "
             "(decode-to-PCM bit-compare for lossless, decode-clean for MP3). "
             "Absent only disables non-FLAC output (FLAC ripping is unaffected, "
-            "and the FLAC master is always kept). Already present wherever "
-            "cyanrip is installed (cyanrip is built on FFmpeg)."
+            "and the FLAC master is always kept). It must be on the host's PATH: "
+            "the setup wizard neither installs nor exports it, and the FFmpeg "
+            "libraries inside the ripping container are not a command the app "
+            "can run. Install it with your distribution's package manager."
         ),
         optional=True,  # absent only disables non-FLAC output (FLAC unaffected)
     ),

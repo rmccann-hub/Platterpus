@@ -190,18 +190,22 @@ def _row(label: str, value: str) -> str:
 def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
     """The sidecar's full text. Pure — no I/O — so it is testable as text.
 
-    ``trigger`` is why the re-rip happened (``"accuraterip"`` or anything else,
-    which means read instability). Returns ``""`` for an empty track list so a
-    caller cannot write an empty file that reads as "no supersede happened" when
-    it means "we had nothing to say".
+    ``trigger`` is why the re-rip happened: ``"accuraterip"``, ``""`` when the
+    reason is not known, or anything else, which means read instability. The
+    empty case is real: a supersede rebuilt from a report written by 0.6.19 to
+    0.7.108 has no reason to read, because those reports dropped the field, and
+    naming instability there would state a cause nobody recorded. Returns ``""``
+    for an empty track list so a caller cannot write an empty file that reads as
+    "no supersede happened" when it means "we had nothing to say".
     """
     if not swapped:
         return ""
-    why = (
-        "did not match AccurateRip on the first pass"
-        if trigger == "accuraterip"
-        else "did not read consistently on the first pass"
-    )
+    if trigger == "accuraterip":
+        why = "did not match AccurateRip on the first pass"
+    elif not trigger:
+        why = "were flagged on the first pass (the report did not record why)"
+    else:
+        why = "did not read consistently on the first pass"
     lines: list[str] = [
         _RULE,
         ADDENDUM_MARKER,

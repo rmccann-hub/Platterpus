@@ -27,6 +27,7 @@ import socket
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Any, TypeAlias
 
 import musicbrainzngs
 
@@ -334,6 +335,15 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
 # below isolate that structure so a future RequestsJsonImpl can produce
 # the same dataclasses from MB's JSON response without touching the
 # rest of the codebase.
+#
+# `Any` below is a claim about reality, the same call `config.py` makes for raw
+# TOML and `medium_select.MediumChoice.medium` for this JSON: musicbrainzngs ships
+# no stubs, so `object` would be stricter than the truth and force a cast at every
+# `.get()`. Values are coerced where they leave this module (`_safe_int`,
+# `isinstance`, `str(...)`). Naming them took the module off the
+# `disallow_any_generics` opt-out list (2026-10-19).
+_MbObject: TypeAlias = dict[str, Any]  # one JSON object (release, medium, track)
+_MbArray: TypeAlias = list[Any]  # one JSON array; its items are unchecked
 
 
 def _is_not_found(exc: musicbrainzngs.ResponseError) -> bool:
@@ -344,7 +354,7 @@ def _is_not_found(exc: musicbrainzngs.ResponseError) -> bool:
 
 
 def _summaries_from_disc_response(
-    response: dict,
+    response: _MbObject,
 ) -> list[ReleaseSummary]:
     """Extract release summaries from `get_releases_by_discid` payload."""
     disc = response.get("disc") or {}
@@ -352,7 +362,7 @@ def _summaries_from_disc_response(
 
 
 def _summary_from_release_dict(
-    release: dict, *, choice: MediumChoice | None = None
+    release: _MbObject, *, choice: MediumChoice | None = None
 ) -> ReleaseSummary:
     """Map one MB release dict to a ReleaseSummary.
 
@@ -405,7 +415,7 @@ def _summary_from_release_dict(
     )
 
 
-def _tracks_from_medium(medium: dict) -> tuple[TrackSummary, ...]:
+def _tracks_from_medium(medium: _MbObject) -> tuple[TrackSummary, ...]:
     """Per-track summaries for ONE medium — the disc in the drive.
 
     Takes the already-selected medium rather than reaching for
@@ -436,7 +446,7 @@ def _tracks_from_medium(medium: dict) -> tuple[TrackSummary, ...]:
     return tuple(tracks)
 
 
-def _artist_credit_string(credit: list) -> str:
+def _artist_credit_string(credit: _MbArray) -> str:
     """Render MB's artist-credit list as a display string.
 
     MB returns artist credits as a list alternating dicts (with
@@ -453,7 +463,7 @@ def _artist_credit_string(credit: list) -> str:
     return "".join(parts).strip()
 
 
-def _medium_track_count_of(medium: dict) -> int | None:
+def _medium_track_count_of(medium: _MbObject) -> int | None:
     """One medium's track count, declared or counted. None when unknown."""
     if not isinstance(medium, dict):
         return None
@@ -464,7 +474,7 @@ def _medium_track_count_of(medium: dict) -> int | None:
     return len(tracks) if isinstance(tracks, list) else None
 
 
-def _medium_format_of(medium: dict) -> str:
+def _medium_format_of(medium: _MbObject) -> str:
     """One medium's format ("CD", "Digital Media", …), or "".
 
     MusicBrainz JSON is the untrusted boundary of an unmaintained adapter
@@ -478,7 +488,7 @@ def _medium_format_of(medium: dict) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _top_tag_name(release: dict) -> str:
+def _top_tag_name(release: _MbObject) -> str:
     """The highest-voted folksonomy tag as a best-effort genre, or "".
 
     MB has no curated genre in musicbrainzngs 0.7.1's includes, so we use the
@@ -496,7 +506,7 @@ def _top_tag_name(release: dict) -> str:
     return best_name
 
 
-def _first_isrc(recording: dict) -> str:
+def _first_isrc(recording: _MbObject) -> str:
     """First ISRC for a recording, or "". MB returns isrc-list as strings or
     `{"id": ...}` dicts depending on the response shape — handle both."""
     for item in recording.get("isrc-list", []):
@@ -506,7 +516,7 @@ def _first_isrc(recording: dict) -> str:
     return ""
 
 
-def _first_label_info(infos: list) -> tuple[str, str]:
+def _first_label_info(infos: _MbArray) -> tuple[str, str]:
     if not infos:
         return "", ""
     info = infos[0]

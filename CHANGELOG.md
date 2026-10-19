@@ -22,6 +22,37 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
+- **Our round 35 lap 8, answering the fork's lap 7.** It copies the fork's `seam-commands.md`
+  byte for byte (our four §1 rows landed, and a new §1b rows every flag our rip path does not
+  send), gives each §1b flag our reason, leaving three for us to settle; accepts the fork's
+  per-track error positions (asking for the first and last 500 when capped), its all-reads
+  paranoia counters and `--encoder-option`; names the exit codes we want (64 for a refused
+  argument, 74 for a disc or drive failure, 128 + N for a run that quits on a signal); asks for
+  `--diagnostics` rows in the boundary table; and reports what we landed since lap 6.
+
+- **The report records the frames past the disc's edge that the drive refused, on a ripper that
+  prints them.** Under `-O`, the fork's `.24` (`93afa15`) reads each frame outside the disc once,
+  writes a frame the drive refuses as silence, and says so per track: `Beyond disc: N of M frames
+  refused (written as silence)`. Each track in the report now carries `beyond_disc_frames_refused`
+  and `beyond_disc_frames` (**report schema v37**), both null when the line is absent, never 0; a
+  positive count raises the `beyond_disc_frames_refused` info issue. The line is listed as parsed
+  in the generated consumer contract (TASKS R26). Not yet seen from a drive: the rig's
+  `overreadprobe` run is the first that can print it.
+
+- **A test can no longer walk the whole repository with `rglob`** (TASKS R28).
+  `tests/test_no_whole_repo_rglob.py` works out the directory each `.rglob` / `.glob("**…")` call
+  in a test walks and refuses one that reaches the repository root or that it cannot place,
+  because `Path.rglob` raises when a parallel worker deletes a tool cache mid-walk (R18). The four
+  whole-tree walks left in the suite now use `conftest.repo_files`, with the same files as before;
+  two walks of a temporary staging directory are allowlisted, and the allowlist may only shrink.
+
+- **A short rig check before a Full acceptance run: `--run-script quickcheck`.** It checks the
+  installed ripper, the drive offset and the disc lookup, then rips one short track (track 2) with
+  overread off and grades it the way the acceptance run grades its rips: completion, AccurateRip,
+  CTDB, the self-audit, tags and cover art, ending on the run's one bundle. About five minutes on
+  the reference disc (estimated from the app's own run estimate, not yet timed on the rig); a test
+  holds that figure to the estimate and the wait to the worst case (TASKS R22).
+
 - **Our round 35 lap 6, answering the fork's laps 3 to 5.** It accepts the ISO 3901 check as
   the fork landed it for `.25`, with its wording, in both modes, and resolves the one
   difference by checking codes as written on our side; gives the shorter run the fork's
@@ -43,6 +74,21 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Changed
 
+- **Documentation audited against the code, every file (maintainer, 2026-10-19).** Four auditors
+  checked every path, name, command, count, version and pin in the docs against the tree and the
+  fork's source, and corrected what was stale. Among them: the docs index (round 35 open, seam-rules
+  v8, protocol v9 with 50 conformance rows), the rig sheets (a bundle goes to `~/platterpus-rig/`;
+  `-x -I` is probe-only; `-O` is bounded from `.24`), the test plan, the hardware checklist, the
+  GitHub SOP, the output-reference READMEs, the handshake README (rounds 31 and 32 are closed), the
+  archive map, and the open task rows; `architecture.md` and `testing.md` (renamed functions, the
+  release assets, signing steps that immutable releases broke, the full-green ledger summary); the
+  seam and parity documents (every flag the argv builder sends, the retired `-x`, `--verify-log`,
+  the fork's actual line shapes, per-track counts over all 26 rips to 2026-10-16); and the root
+  documents (README's overread status, SECURITY's evidence-branch scan, DEPENDENCIES' ffmpeg note
+  and release dates, PLANNING's module map, CLAUDE.md's operations section). The dependency
+  dialog's ffmpeg description no longer says ffmpeg comes with cyanrip: it must be on the host's
+  PATH. The audit's one probable code defect, a stock cyanrip refusing `--diagnostics`, is TASKS R30.
+
 - **A disc ISRC counts as well formed only as written.** The report matched a code after
   upper-casing it and removing hyphens and spaces; cyanrip's check reads the bytes a file would
   carry, so a lower-case or hyphenated code was well formed to us and refused by the ripper.
@@ -53,6 +99,29 @@ through 0.7.108 or this release, since both parse the line and send the option.
   the fork's line 112, so the shared file is identical in both repositories again.
 
 ### Fixed
+
+- **The test harness now stops every thread a window declares.** `stop_window_threads` listed
+  seven of the window's eight QThread slots and missed `_ripper_update_thread`, which `closeEvent`
+  already stops; a test now derives the slots from the window's declarations and refuses one the
+  harness forgets.
+
+- **The `police-rerip.txt` rig script could start a whole-disc rip from its probe steps.** Its
+  `--cache-probe -N` and both `--diagnostics … -N` steps carried no `-I`, and with no other action
+  cyanrip's default is to rip the whole disc; its identity check named round 7's build, so it failed
+  on every install and the batch went on. The probes now carry `-I`, the check asks for the fork and
+  stops the batch if it is not there, and a test refuses a probe step in any packaged script that
+  could fall through into a rip.
+
+- **The JSON report kept every retried track but not why it was retried.** Since v0.6.19
+  `read_speed.retried_tracks[].trigger` was written by the rip and dropped on its way into the
+  report, so a supersede note rebuilt from the report said a track "did not read consistently"
+  when it had been re-read for failing AccurateRip. Restored in **report schema v36**. Found by
+  retiring five more modules from mypy's `disallow_any_generics` opt-outs (`rip_worker`,
+  `main_window`, `main_window_shared`, `musicbrainz_client`, `rip_compare`; only `rip_report`
+  remains), which also found that a saved report whose `"tracks"` is not a list made
+  `rip_compare.best_of_plan` raise; both readers now accept a list or nothing. A note rebuilt
+  from a report written before the fix now says the reason was not recorded, rather than
+  naming one.
 
 - **The crash dialog opens over the app's window, not as a window of its own.** It was the one
   prompt built without a parent, so a desktop could place it anywhere, give it its own taskbar

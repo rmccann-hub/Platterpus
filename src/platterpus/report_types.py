@@ -413,6 +413,11 @@ class TrackBlock(TypedDict):
     disc_isrc: str | None
     disc_isrc_state: str | None
     disc_isrc_reason: str | None
+    #: v37: the `Beyond disc:` line (`.24`+, `-O` only): of the frames this track
+    #: read outside the disc, how many the drive refused (written as silence).
+    #: None when the line is absent, never 0.
+    beyond_disc_frames_refused: int | None
+    beyond_disc_frames: int | None
     start_sector: int | None
     end_sector: int | None
     pregap_sectors: int | None
@@ -450,6 +455,10 @@ class SpeedPassBlock(TypedDict):
 
 class RetriedTrackBlock(TypedDict):
     track: int
+    # Why the track was re-read: "accuraterip" or "instability"
+    # (securing_pass.TRIGGER_*). None when the record predates schema v36, whose
+    # reports dropped it in the copy (v0.6.19 to v0.7.109). Schema v36.
+    trigger: str | None
     reripped_z: int
     converged: bool
     replaced: bool
@@ -502,6 +511,9 @@ class EtaSampleBlock(TypedDict):
     # with `our_eta_seconds` — a held value is a re-shown older measurement, not a
     # fresh one, and without this field the two are indistinguishable in the trace.
     state: str
+    # Which kind of cyanrip run produced the sample: "album" or "refix" (the
+    # securing re-rip). Written since 0.6.4b13; declared here 2026-10-19.
+    pass_kind: str
     # Restart count for the current track's read (0 = first read). Non-zero means a
     # secure re-read is running, which pins the album bar.
     reread_pass: int

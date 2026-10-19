@@ -668,8 +668,9 @@ class CyanripImpl(RipBackend):
     # that then overrode the correct AccurateRip-list value (a silent
     # wrong-offset bug on real hardware — the drive's true offset was +667).
     # Section O of the acceptance run now grades ``-f``'s own summary line
-    # against that +667 (`uiscript/probe_grading.py`), and that is the evidence
-    # to implement this against, if it earns it. Until then we inherit the base
+    # against that +667 (`uiscript/probe_grading.py`), and has passed on the rig in
+    # every full-green run since 2026-10-07 (`docs/testing.md` §5B); that is one
+    # drive, and the evidence to implement this against, if it earns it. Until then we inherit the base
     # class's ``NotImplementedError``, which the drive-setup wizard already
     # handles as "this backend can't auto-detect the read offset"; the offset
     # comes from the bundled AccurateRip drive-model list + manual entry instead.

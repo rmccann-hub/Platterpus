@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-19 — prompts attached to the window, a documentation audit, and round 35 lap 8
+
+- **Prompts.** The operator asked that no prompt open as a window of its own. The album picker was already parented; the crash dialog was not, and is now. `tests/test_dialogs_have_a_parent.py` refuses a parentless dialog anywhere in the package (PR #357).
+- **Open rows done:** D2 (five `disallow_any_generics` opt-outs retired; typing found the report dropping `retried_tracks[].trigger` since v0.6.19, schema v36, and `rip_compare` raising on a non-list `tracks`), R22 (`quickcheck`), R26 (`Beyond disc:` parsed, schema v37), R28 (a ratchet on whole-repo `rglob` walks).
+- **Documentation audit.** Four read-only auditors checked every document against the code, the fork's source and git, and corrected what was stale; findings outside their scope were fixed by hand, including `police-rerip.txt`'s probe steps, which carried no `-I` and would have ripped the whole disc, and the harness missing one of the window's eight threads. One probable code defect is recorded, not fixed: a stock cyanrip would refuse every rip on `--diagnostics` (TASKS R30).
+- **Round 35 lap 8** answers the fork's lap 7: their `seam-commands.md` copied, the §1b reasons, the four decisions, the exit codes.
+- **Learned.** Seven full suites at once on four cores push `test_ui_conformance.py` past its five-minute limit, so parallel helpers should run only their targeted tests and the integrator runs the suite once. And a session's model allowance can run out mid-work: helpers stopped by it resume from their transcript with a message, and their uncommitted work survives in the worktree.
+
 ## 2026-10-17 — round 35 lap 6, and 0.7.109 reads `.25`'s refused-code line
 
 **Asked:** file the fork's laps 3 to 5, answer their lap 4 S6 and lap 5 S8 and S13 in lap 6,

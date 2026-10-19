@@ -450,6 +450,8 @@ def attempts_to_report(
             "retried_tracks": [
                 RetriedTrackBlock(
                     track=r["track"],
+                    # `.get`: a record written before schema v36 has none.
+                    trigger=r.get("trigger"),
                     reripped_z=r["reripped_z"],
                     converged=r["converged"],
                     replaced=r["replaced"],

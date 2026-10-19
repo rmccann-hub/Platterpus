@@ -134,7 +134,7 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
   rendered as "in DB, no match", which claimed a comparison that never took place.
 * **A `Pre-gap length` row can appear where it never did**, and any that appears is now much
   shorter — see A24's warning. It was being computed from the wrong quantity.
-* The `.platterpus.json` report was **schema v24** at v0.6.0 (now 30; `rip_report.REPORT_SCHEMA_VERSION` is the authority). Two new blocks: `artifacts`, which holds
+* The `.platterpus.json` report was **schema v24** at v0.6.0 (raised many times since; `rip_report.REPORT_SCHEMA_VERSION` is the authority, so read it rather than a number here). Two new blocks: `artifacts`, which holds
   the full text of the three files written beside it, and `completeness`, which finally
   states the **disc's** track count instead of leaving you to infer it from the track list.
   See A24 — a two-minute file check, not a rip.
@@ -1122,7 +1122,15 @@ perfectly, then the last track's lead-out froze the progress bar near 100%. This
 still instructing an operator to enable it and rip.
 
 **So this item is BLOCKED, not pending.** It needs a *different drive*, and it is not worth a
-rig session on the one we have. If a second optical drive ever comes into the picture, the
+rig session on the one we have.
+
+**Superseded on this drive, 2026-10-19, by a bounded read.** The fork's `.24` (`93afa15`)
+bounds `-O`: a frame the drive refuses is written as silence and counted per track,
+`Beyond disc: N of M frames refused (written as silence)`. Round 35's
+`overreadprobe.txt` reads the last track with it on the BDR-209D, under the script verb's
+fixed 300-second limit, and stops before reading if the installed ripper is not `.24`
+(`TASKS.md` R24). That script is the route on this drive, and the Settings toggle stays
+off; the procedure below is for a second drive. If a second optical drive ever comes into the picture, the
 procedure is: Settings → Overread on → rip one track → send the cyanrip `.log` (the line is
 near the top, beside `Overread mode:` / `Underread mode:`) → Overread back off.
 
@@ -1230,4 +1238,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.109.*

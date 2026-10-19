@@ -135,7 +135,7 @@ def _ar_match_confidence(ar: object) -> int | None:
     return None
 
 
-def _track_status(track: dict) -> tuple[str, int | None]:
+def _track_status(track: dict[str, object]) -> tuple[str, int | None]:
     """Classify one report track: ``(status, confidence)``.
 
     Reads the report's own ``accuraterip_verified`` flag first (the shared
@@ -157,14 +157,14 @@ def _track_status(track: dict) -> tuple[str, int | None]:
     return STATUS_NOT_IN_DB, None
 
 
-def _track_crc(track: dict) -> str | None:
+def _track_crc(track: dict[str, object]) -> str | None:
     crc = track.get("copy_crc") if isinstance(track, dict) else None
     if isinstance(crc, str) and crc.strip():
         return crc.strip().upper()
     return None
 
 
-def _track_title(track: dict, number: int) -> str:
+def _track_title(track: dict[str, object], number: int) -> str:
     """A short human label for a track (filename stem, else "Track NN")."""
     filename = track.get("filename") if isinstance(track, dict) else None
     if isinstance(filename, str) and filename.strip():
@@ -185,7 +185,7 @@ _DISC_KEY_PRIORITY: tuple[str, ...] = (
 )
 
 
-def _disc_fields(report: dict) -> dict[str, str]:
+def _disc_fields(report: dict[str, object]) -> dict[str, str]:
     """All disc-identity fields present in a report: ``{field: value}``.
 
     ``musicbrainz_disc_id`` / ``cddb_id`` come from the ``rip`` block (v9+),
@@ -208,7 +208,7 @@ def _disc_fields(report: dict) -> dict[str, str]:
     return out
 
 
-def disc_key(report: dict) -> str | None:
+def disc_key(report: dict[str, object]) -> str | None:
     """The strongest available single "same physical disc" key, for display.
 
     Returns the value of the highest-priority field present (see
@@ -225,7 +225,7 @@ def disc_key(report: dict) -> str | None:
     return None
 
 
-def same_disc(report_a: dict, report_b: dict) -> bool | None:
+def same_disc(report_a: dict[str, object], report_b: dict[str, object]) -> bool | None:
     """Whether two reports are the same physical disc. Pure; never raises.
 
     Decides by the **strongest identity field the two reports both carry**: if
@@ -243,7 +243,7 @@ def same_disc(report_a: dict, report_b: dict) -> bool | None:
     return None
 
 
-def report_label(report: dict, *, fallback: str = "") -> str:
+def report_label(report: dict[str, object], *, fallback: str = "") -> str:
     """A short human label for a report: "vX.Y.Z · <rip date>", best-effort."""
     if not isinstance(report, dict):
         return fallback
@@ -490,8 +490,8 @@ def _describe_status(status: str) -> str:
 
 
 def compare_reports(
-    report_a: dict,
-    report_b: dict,
+    report_a: dict[str, object],
+    report_b: dict[str, object],
     *,
     label_a: str = "",
     label_b: str = "",
@@ -529,16 +529,20 @@ def compare_reports(
         )
 
 
-def _report_tracks_by_number(report: dict) -> dict[int, dict]:
-    out: dict[int, dict] = {}
-    for track in report.get("tracks") or ():
+def _report_tracks_by_number(report: dict[str, object]) -> dict[int, dict[str, object]]:
+    out: dict[int, dict[str, object]] = {}
+    # A LIST or nothing: `report.get("tracks") or ()` iterated whatever the JSON
+    # held, so a truthy non-list (`"tracks": 5`) raised TypeError, found
+    # 2026-10-19 when typing the report as `dict[str, object]`.
+    tracks = report.get("tracks")
+    for track in tracks if isinstance(tracks, list) else ():
         if isinstance(track, dict) and isinstance(track.get("number"), int):
             out[track["number"]] = track
     return out
 
 
 def _compare(
-    report_a: dict, report_b: dict, label_a: str, label_b: str
+    report_a: dict[str, object], report_b: dict[str, object], label_a: str, label_b: str
 ) -> RipComparison:
     label_a = label_a or report_label(report_a, fallback="rip A")
     label_b = label_b or report_label(report_b, fallback="rip B")
@@ -778,7 +782,7 @@ def _change_summary(
 # --- Filesystem helpers (I/O; still never raise) ----------------------------
 
 
-def load_report(path: Path) -> dict | None:
+def load_report(path: Path) -> dict[str, object] | None:
     """Load a ``.platterpus.json`` report. Returns None on any error.
 
     Never raises — a missing/torn/foreign JSON just yields None (the callers
@@ -795,7 +799,7 @@ def find_prior_report(
     current_report_path: Path,
     search_root: Path,
     *,
-    current_report: dict | None = None,
+    current_report: dict[str, object] | None = None,
     extra_roots: Sequence[Path] = (),
 ) -> Path | None:
     """Find a prior report for the SAME disc as ``current_report_path``.
@@ -933,7 +937,7 @@ def _is_under(path: Path, ancestor: Path) -> bool:
         return False
 
 
-def _recency_key(report: dict, path: Path) -> float:
+def _recency_key(report: dict[str, object], path: Path) -> float:
     """A numeric recency key (epoch seconds) for a report, higher = newer.
 
     Uses the report's ``generated_at`` (parsed to an epoch), falling back to the
@@ -1070,11 +1074,14 @@ class BestOfResult:
     error: str | None = None
 
 
-def _report_filenames_by_number(report: dict) -> dict[int, str]:
+def _report_filenames_by_number(report: dict[str, object]) -> dict[int, str]:
     out: dict[int, str] = {}
     if not isinstance(report, dict):
         return out
-    for track in report.get("tracks") or ():
+    # A list or nothing, as in `_report_tracks_by_number`: this is the path that
+    # broke `best_of_plan`'s never-raises promise on `"tracks": 5`.
+    tracks = report.get("tracks")
+    for track in tracks if isinstance(tracks, list) else ():
         if not isinstance(track, dict) or not isinstance(track.get("number"), int):
             continue
         name = track.get("filename")
@@ -1087,8 +1094,8 @@ def _report_filenames_by_number(report: dict) -> dict[int, str]:
 
 def best_of_plan(
     comparison: RipComparison,
-    report_a: dict,
-    report_b: dict,
+    report_a: dict[str, object],
+    report_b: dict[str, object],
 ) -> BestOfPlan:
     """Build a per-track best-of plan from a comparison + the two reports.
 

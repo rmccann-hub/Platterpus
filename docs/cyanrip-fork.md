@@ -2,7 +2,7 @@
 
 Why Platterpus maintains a fork of cyanrip at all, what the alternatives were, and how the fork is kept sane against upstream.
 
-§1 is long-horizon *research* — a menu of options, explicitly not a commitment, including the licensing analysis that gates all of it. §2 is the concrete, executable half: branch layout, the patches we carry, how the container builds it, and the re-merge discipline that keeps the diff small.
+Part A is long-horizon *research* — a menu of options, explicitly not a commitment, including the licensing analysis that gates all of it. Part B is the concrete, executable half: branch layout, the patches we carry, how the container builds it, and the re-merge discipline that keeps the diff small.
 
 For the **binding release protocol** with the fork see [`cyanrip-handshake.md`](cyanrip-handshake.md); for what we want *from* cyanrip and how it reaches upstream see [`cyanrip-upstream.md`](cyanrip-upstream.md).
 
@@ -30,6 +30,11 @@ Consolidated from two separate documents so the subject has one home — part of
 > [KDD-18](../PLANNING.md)'s "never fork" stance**. Nothing here changes current direction; adopting any
 > fork/combine path requires an explicit new KDD that amends KDD-18. This file is
 > *living* — append findings as the research continues (see §6).
+>
+> *Status 2026-10-19:* Option 2, as a **soft** fork, was adopted by KDD-32
+> (2026-07-24) and KDD-33 (2026-08-03): the setup wizard builds the fork's
+> `platterpus-fork` branch at `FORK_PIN` (`src/platterpus/deps/fork_source.py`).
+> A hard fork and Option 3 remain research.
 
 ### 0. Why this exists
 
@@ -152,11 +157,12 @@ fork/combine option open.
 - [x] **Gauge cyanrip upstream's activity + PR responsiveness (gates Option 0) — done 2026-07-08.** *Development:* `master` is live (last commit 2026-03-25; ~25–30 commits/yr). *Releases:* stalled — last tag v0.9.3.1 is ~2 yr old. *Responsiveness:* the maintainer **does merge external PRs, but slowly** (contact/cadence facts live in the roadmap's **Process** block — [`cyanrip-upstream.md`](cyanrip-upstream.md) — the canonical home; PR #115, pregap/HTOA, is open and actively reviewed). **Conclusion — a fork is NOT warranted for "slow releases":** because Platterpus owns the `ripping` Distrobox container, we can build cyanrip **from any git commit** (our own topic branch *before* a merge, or upstream `master` *after*), so cyanrip's release cadence never gates us — the "slow releases → must fork" reasoning dissolves. The real, smaller decision is **build-cyanrip-from-source in the container vs. a distro package** (a maintenance choice, not a fork). Escalate to a **soft fork** (upstream `master` + our small rebased patch set) only if a needed PR is *declined or stalls indefinitely*; a **hard fork / consolidated tree (§7)** stays behind the §5 gates + a KDD-18 amendment. (Upstream conventions/CI: see the roadmap's Process block.) **The soft fork now exists** (decided 2026-07-08): runbook in [`cyanrip-fork.md`](cyanrip-fork.md), execution kit in `scripts/cyanrip/` — two contributions prepared (the `-a`/`-t` colon fix ⭐ and full encoder opts). The "map cyanrip's FFmpeg flag surface" question below was answered **negatively** the same day: cyanrip hardcodes `compression_level` and opens encoders with no options dict — hence the prepared encoder-opts contribution.
 - [ ] Inventory exactly what the previous backend does that cyanrip doesn't (gap-detection
       method, log fields, `.cue`/`.toc` output) — gates Option 3.
-- [ ] Map cyanrip's FFmpeg flag surface for what we want (FLAC compression level,
+- [x] Map cyanrip's FFmpeg flag surface for what we want (FLAC compression level,
       encode verify, richer tags) — a rich-enough flag surface could make a fork
-      unnecessary.
-- [ ] Prototype: build cyanrip from source inside our `ripping` container; measure
-      the build/packaging burden.
+      unnecessary. *(Answered negatively 2026-07-08, in the first item above.)*
+- [x] Prototype: build cyanrip from source inside our `ripping` container; measure
+      the build/packaging burden. *(Done: since KDD-33 the setup wizard builds the
+      fork from source over the COPR package, `deps/fork_source.py`.)*
 - [ ] Re-verify transitive-dep licenses at the exact versions we'd ship
       (FFmpeg build flags; libcdio components).
 - [ ] Re-confirm the previous backend's Python-3.14 / `pkg_resources` status at decision time.
@@ -593,9 +599,10 @@ cyanreg/cyanrip (upstream)
                                       #   the tree we build in the ripping container, at FORK_PIN
 ```
 
-**As it actually is (checked 2026-09-30 with `git ls-remote`):** the fork has two
-branches, `master` (an ancestor of the other) and **`platterpus-fork`**, which the
-container builds at `FORK_PIN` (`src/platterpus/deps/fork_source.py`). The fork
+**As it actually is (checked 2026-10-19 with `git ls-remote`):** the fork has three
+branches: `master` (an ancestor of the next), **`platterpus-fork`**, which the
+container builds at `FORK_PIN` (`src/platterpus/deps/fork_source.py`), and an orphan
+`evidence` branch for run evidence (HR-2, `cyanrip-handshake.md` §7.4b). The fork
 carries its work on `platterpus-fork` directly; the per-contribution topic branches
 below are the plan for an upstream PR, and none exists today. (This diagram named
 the integration branch `platterpus` until 2026-09-30.)
@@ -649,6 +656,13 @@ int err = av_dict_parse_string(&ctx->meta, copy, "=", ":", 0);
 > `restore_substituted_colons` would ship U+2236 into every user's tags. The
 > version-guarded removal plan below still applies; its trigger is now "the
 > container runs `master` or the fork", not "upstream fixes it".
+>
+> *Status (2026-08-06, round 7 lap 31): that trigger fired.* `_escape_meta_value`
+> now sends a literal colon as `\:`, and nothing writes U+2236 any more;
+> `restore_substituted_colons` stays only as a safety net, armed when the
+> metadata holds a colon, until a hardware rip proves the real `:` reaches the
+> tag (its docstring in `adapters/cyanrip_backend.py`). The two paragraphs above
+> are the 2026-07-31 record.
 
 `append_missing_keys()` tokenises with `av_strtok(src, ":", ...)` — splitting on
 **every** `:`, ignoring both `=` and backslash escapes — and injects a key in
@@ -794,6 +808,12 @@ text are the three touch points):
    user `-O compression_level=…` overrides it via the dict (options applied in
    `avcodec_open2` win). Document that unknown options warn but don't abort.
 
+> **The letter in this sketch cannot be used:** `-O` is cyanrip's overread flag, on
+> 0.9.3.x and on every later build (`cyanrip@64bc315e:src/cyanrip_main.c:2430` on the
+> fork). The correction, and how to pick a name, is `cyanrip-upstream.md` Part A §2.7;
+> since genopt replaced getopt, every option also has a long name, so a long-only
+> `--enc-opt` is available on `master`.
+
 This preserves every current default (no `-O` → identical output) and adds the
 full encoder surface.
 
@@ -910,4 +930,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.109.*

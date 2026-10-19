@@ -577,12 +577,15 @@ def stop_window_threads(window: object) -> None:
     """
     # Qt worker threads. `quit()` is delivered to each thread's own event loop
     # directly (not via a queued `finished` → `quit`), so it works even when the
-    # test never pumped the GUI event loop. ALL SEVEN slots that
-    # `main_window_shared.MainWindowShared` declares — the first version of this
-    # helper listed four and its docstring already claimed to be the one place a
-    # thread could not be forgotten. Three were forgotten on day one.
+    # test never pumped the GUI event loop. EVERY QThread slot
+    # `main_window_shared.MainWindowShared` declares, plus `_mb_thread` — the first
+    # version of this helper listed four and its docstring already claimed to be
+    # the one place a thread could not be forgotten. Three were forgotten on day
+    # one, and `_ripper_update_thread` was forgotten later (added 2026-10-19);
+    # `tests/test_harness_fidelity.py` now derives the list it checks this against.
     for name in (
         "_mb_thread",
+        "_ripper_update_thread",
         "_dep_check_thread",
         "_disc_info_thread",
         "_drive_list_thread",

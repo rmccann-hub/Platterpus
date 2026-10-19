@@ -20,10 +20,12 @@ it — so this file is what makes the promise checkable:
   re-derived HERE by a different method (plain text and ``tomllib``, not the
   generator's AST walkers) and required in the BOM, because two implementations
   sharing one ancestor share its bugs;
-* **structure** — CycloneDX's shape, asserted field by field. **This is not
-  JSON-schema validation**: no schema validator is a dependency of this project,
-  and adding one needs the maintainer's approval. The assertions below cover
-  every field the generator writes.
+* **structure** — CycloneDX's shape, asserted field by field, covering every
+  field the generator writes; and, since the schema validator joined the dev
+  extra (`cyclonedx-python-lib`), validation against the published CycloneDX 1.7
+  schema too (`test_it_is_valid_cyclonedx_1_7_by_the_published_schema`). The
+  field-by-field assertions stay: a schema accepts a document that is valid and
+  wrong.
 
 Regenerate with ``python3 scripts/emit_bom.py``.
 """

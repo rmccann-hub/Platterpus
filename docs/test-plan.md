@@ -147,8 +147,10 @@ call. Record any wizard step that fails **verbatim**.
 AccurateRip drive list (e.g. **+667** for a BDR-209D) — one **Save offset**
 click, no disc. If your drive isn't in the list: look it up at
 accuraterip.com/driveoffsets.htm and **type it** into the manual field, then
-Save. (cyanrip has no on-disc offset detection, so there is no "Detect" button —
-the value comes from the list or manual entry.)
+Save. (The wizard does not measure the offset from a disc, so there is no "Detect"
+button — the value comes from the list or manual entry. The fork's own finder,
+`cyanrip -f`, runs only in the acceptance run's section O. The dialog's **Analyse
+cache** button measures the drive's cache with `cd-paranoia -A`, KDD-29.)
 
 ### A6 — [ ] Rip a recognized CD
 Insert a commercial CD → it's identified via MusicBrainz, the track list fills →
@@ -365,7 +367,7 @@ album works best) exercises almost everything in one sitting:
 > container once: `distrobox enter ripping -- distrobox-export --bin /usr/bin/flac`.
 > Even without it, the **lookup half** of Test 1 still validates the wire format.
 
-## Test 1 — [~] CTDB verify: wire format + CRC (KDD-16)
+## Test 1 — [x] CTDB verify: wire format + CRC (KDD-16)
 
 **Goal:** confirm (or correct) the CTDB lookup wire format and the audio-CRC
 algorithm, which were written clean-room from the spec and are unvalidated.
@@ -477,8 +479,9 @@ the choice in `TASKS.md` / KDD-14.)
 ## Test 3 — [ ] Drive-setup wizard: success screens + auto-vs-manual offset (rewritten 2026-07-21)
 
 *(Successor to the previous backend's `drive analyze`/`offset find` string
-captures — that backend is gone (KDD-18) and cyanrip has no probe commands; the wizard fills
-the offset from the bundled AccurateRip drive list, or takes manual entry.)*
+captures — that backend is gone (KDD-18), and the wizard runs no offset probe: it fills
+the offset from the bundled AccurateRip drive list, or takes manual entry. The fork's
+`cyanrip -f` finder is exercised by the acceptance run's section O, not by the wizard.)*
 
 **Goal:** capture what wizard success actually looks like on real hardware —
 screenshots/strings for the README and the wizard's own help text — and confirm
@@ -692,7 +695,7 @@ embedded cover? `____`; WAV warning shown? `____`; logs committed? `____`.
 **If it fails:** a missing/empty non-FLAC file → check host `ffmpeg` is present and
 on PATH (`platterpus --doctor` reports it); a PCM mismatch on WavPack/WAV → a real
 transcode bug (the adapter is `adapters/transcode.py`); a missing WavPack folder
-cover → the cover-art force-save gate in `main_window_rip._on_rip_finished`.
+cover → the cover-art force-save gate in `main_window_rip._finish_rip` (reached from `_on_rip_finished`).
 
 
 ## Test 12 — [ ] Read-speed ladder, auto-fix re-rip-and-swap, and the speed-locked drive (added 2026-07-21)
@@ -766,7 +769,7 @@ and if allowed to pass then it should be scrutinized and documented."*
 Parts 0–D say **what to exercise**. This part says **what to disbelieve**, and it
 is derived from the record rather than from imagination: the numbered cases in
 [`testing.md` §5](testing.md), the `[Fixed]` entries in `CHANGELOG.md`, and the
-rig runs in the [§5B evidence ledger](testing.md) (nineteen rows on 2026-10-13, three of them
+rig runs in the [§5B evidence ledger](testing.md) (twenty-one rows on 2026-10-19, four of them
 `full-green`, all on one machine). A pass on this project has
 been wrong often enough that "it passed" is the beginning of the check, not the end.
 
@@ -851,7 +854,7 @@ has happened here:
    binaries are not interchangeable evidence.
 2. **`--doctor` first.** It costs seconds and it fails on the things that would
    otherwise waste the disc pass.
-3. **Run Tools → Advanced → Run acceptance test… → Full** (324 steps at v0.6.65)
+3. **Run Tools → Advanced → Run acceptance test… → Full** (324 steps at v0.6.65; the script has grown since, and the run states its own estimate when it starts)
    end to end. Only a Full run counts as evidence. Do not stop at the first failure.
 4. **Upload the evidence bundle**, not a transcript. One file, self-describing,
    with the exit code (tri-state — `null` for a child never reaped is a real
@@ -912,4 +915,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.7.105.*
+*Last updated for Platterpus v0.7.109.*

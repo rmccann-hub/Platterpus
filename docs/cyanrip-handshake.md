@@ -3,6 +3,10 @@
 > **The rule, in one line:** neither project ships until **both** have sent a handshake file and
 > **both** have verified the other's. Two files, two verifications, every round. No exceptions,
 > including "it's only a small change".
+>
+> *Ships* is read as *the pin moves*, since protocol v8 §6b (2026-10-11, E1 and E9): a release
+> no longer waits on a round and claims only its own side's testing, while `FORK_PIN`, the
+> jointly verified pair a user installs by default, moves only when a round closes.
 
 This is the canonical, single-homed description of that protocol. `CLAUDE.md` links here rather
 than restating it; `tests/test_handshake_protocol.py` enforces that this file and its links stay
@@ -42,10 +46,12 @@ Fixed order. Steps 3 and 5 are the ones people skip; they are the entire point.
 5. **Platterpus → cyanrip: verification result.** A short confirmation that each claim checked
    out, or a list of what did not. **This is the second handshake and it is mandatory** — a
    silent "no news" leaves the fork unable to distinguish "verified" from "not looked at yet".
-6. **Only now** does either side release, and only now does the container switch to the pin.
+6. **Only now** does the container switch to the pin. (Until protocol v8 §6b, 2026-10-11, this
+   step held either side's release too; a release now goes ahead with a round open, after its
+   gate prints every open round.)
 
-If step 4 finds a discrepancy, return to step 2. Do not ship "the rest of it" while one item is
-outstanding — a partly-verified pin is an unverified pin.
+If step 4 finds a discrepancy, return to step 2. Do not move the pin to "the rest of it" while
+one item is outstanding — a partly-verified pin is an unverified pin.
 
 ## 3. What Platterpus sends (steps 1 and 5)
 
@@ -58,6 +64,8 @@ outstanding — a partly-verified pin is an unverified pin.
 - **Asks**, separated into *behaviour changes* and *questions*.
 - **Explicitly not asking for** — so they do not spend effort on declined items.
 - **The return-file spec** (§4), inline. Do not link to it; they may not have this repo.
+  *(That reason was never true: both repositories are public, and `scripts/handshake.py`'s
+  `REPLY_SECTIONS` comment records it.)*
 
 **Step 5 — the verification file.** Short. For each claim in their return file: verified /
 not verified / could not check, and the command or fixture that settled it. Plus a go / no-go
@@ -90,6 +98,15 @@ missing section: a section present but empty, and D or H trailing off instead of
 null case. `--emit N` produces our outbound skeleton with every §3 section present, and it
 builds the table above **from the same data the checker uses**, so we cannot ask for a section
 we do not check or check one we never asked for.
+
+**Who these two sections now describe.** Since protocol v3 §1a the provider opens every round,
+so our laps are replies and their lap 1 is an opener. `--check` (`check_inbound`) holds an
+inbound lap 1 to `OPENER_SUBJECTS` (`check_opener`) and a later inbound lap to its wire header
+and pre-commit only; the A–J table applies only to a file with no `HANDSHAKE-LAP`, the shape
+before laps. An outbound lap after lap 1 is held to `REPLY_SECTIONS`, and §3's list applies only
+to an opener of ours.
+The reasons, with the measured failures that forced them, are the comments on those three
+tables in `scripts/handshake.py`.
 
 ## 5. The shared rigour bar
 
@@ -128,7 +145,7 @@ Both sides hold to these. They are not style preferences; each was paid for.
 | A new cyanrip flag or argument semantics | **Yes** |
 | Switching the container to a new fork pin | **Yes** |
 | A Platterpus parser change reading fork-only fields | **Yes** |
-| A Platterpus release while a fork pin is outstanding | **Yes** |
+| A Platterpus release while a fork pin is outstanding | No, from protocol v8 §6b (2026-10-11): the release claims its own side's testing and the pin stays put. **Yes** until then |
 | Platterpus UI, packaging, docs with no parser impact | No |
 | A cyanrip change to code that emits nothing we read | No |
 
@@ -315,7 +332,9 @@ branches are the fork's to decide.
 landing plan", round 33's first task, after each side reviewed a draft twice). Like HR-1
 it is landed here, word for word, and not in the shared `docs/handshake-protocol.md`:
 the text says "protocol v9", and moving `PROTOCOL_VERSION` / `DECLARED_PROTOCOL` past 8
-waits for a v9 edit of that shared file that both sides hold byte-identical (§7.7a). The
+waits for a v9 edit of that shared file that both sides hold byte-identical (§7.7a). (Both
+moved: 9 implemented from 2026-10-14, 9 declared from 2026-10-15; §8. Our move landed on
+2026-10-14, the removal commit `9439bfec`.) The
 behaviour it asks of a checker is keyed on evidence citations, which no lap uses until
 §12's proof, so landing it changes how no existing lap reads.
 
@@ -697,8 +716,8 @@ their 22,260 and 18,972 bytes.
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
-have a cost (S-13: close conditions are fixed at lap 1, and an open round blocks
-both sides' releases). Between rounds the fork still needs to know where we are.
+have a cost (S-13: close conditions are fixed at lap 1, and an open round holds
+the pin; until protocol v8 §6b, 2026-10-11, it also blocked both sides' releases). Between rounds the fork still needs to know where we are.
 
 **That answer lives in
 [`docs/handshake/outbound/platterpusstatus.md`](handshake/outbound/platterpusstatus.md),
@@ -1074,7 +1093,7 @@ What lives where:
 |---|---|
 | the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
 | our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
-| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C45 plus C13a at v6; v7, landed 2026-09-30, adds C46, which our gate implements before our round 31 lap 1), **except the v3/v4 rows among C21–C36 that still have no row-named test** — binding since round 9, counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`, a ratchet that may only shrink (sixteen until 2026-09-25, when C23 and C24 got tests with v6's K2 field; the count moves, so read the table, not this cell) |
+| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C45 plus C13a at v6; v7, landed 2026-09-30, adds C46, which our gate implements before our round 31 lap 1; v8 adds C47–C49, and v9 adds none), **except the v3/v4 rows among C21–C36 that still have no row-named test** — binding since round 9, counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`, a ratchet that may only shrink (sixteen until 2026-09-25, when C23 and C24 got tests with v6's K2 field; the count moves, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
 **Current protocol version: 9 implemented, 9 declared, and the shared spec is 9** (v9 is v8 plus HR-2 and HR-2.1, §17; landed in both trees 2026-10-14 as HR-2's order B: the fork at `cyanrip@8f847271`, ours copied byte for byte from there, sha256 `c0539096…`). **9 implemented since 2026-10-14** (HR-2 order C), after the fork's round 33 lap 1 said their gate implements 9: v9 §17 lets neither gate implement 9 until the file is byte-identical in both trees. v9 adds no gate row; its one lap rule, §3b's exemption of an evidence citation from `HANDSHAKE-FROM-COMMIT`, is the lap checker's. **Declared 9 since 2026-10-15**: both gates said so in a lap (their round 33 lap 1 S1, our lap 2 S6); their lap 3 declares 9 and our lap 4 does. v8 landed in both trees 2026-10-11, round 31's close condition S28: the fork at `cyanrip@5cadca3`, ours in the commit that files their round 31 lap 4 — `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, `handshake.DECLARED_PROTOCOL` for what our laps declare, and the shared file's title for the spec. **8 implemented since 2026-10-11**, the day v8 §16's condition held (the file byte-identical in both trees, `72216c06…`). What it changed in our gate: **`--release-gate` no longer refuses a release while a round is open**; it prints every open round, the peer file each close rests on and any recorded override, and permits (§6b, C19 as amended, E1; our side of E9, with `release.yml`'s step and two `CLAUDE.md` rules, which the maintainer authorised on 2026-10-07). `--status` still exits non-zero while a round is open or a closed round carries a refused later lap, because whether a round is closed decides whether the pin moves. **C47**: `HANDSHAKE-INBOUND-OBSERVED` is required from a declared 8, not 6 as our gate had read K2, so the two gates agree (E11). **C48, C49**: the gate, the round digest and the lap-language checker strip fences by one CommonMark rule, `round_digest.fenced_lines` (E10); on the 303 files filed that day the digest's old toggle and the new rule stripped identical text, so no digest on record moved. **Declared 7 still**: round 31 closes under v7, and v8 governs from round 32; neither side declares 8 until both have said in a lap that their gate implements it (v8 §16). **7 implemented since 2026-10-05**, as our round 30 lap 8 S41 promised before our round 31 lap 1: v7 §15's condition held (the shared file byte-identical in both trees, `b9611d3b…` against `cyanrip@872b4156`), and v7 adds one gate row, **C46**: every lap of a file declaring 7 carries `HANDSHAKE-NEXT-LAP`, opening with `<n> (ours):`, `<n> (yours):` or `none` (`next_lap_problems`, on any verdict, at `--check` and on the close path; a field declared twice is refused even with identical values, as §2 rule 3 says and the fork's gate does). It is keyed on the declared version, so round 30's laps, which declare 6, read as they did. **Declared 7 from round 31** (our lap 2, 2026-10-07), v7 §15's condition having held since round 30: both gates implement 7 and both said so in a lap (our lap 10 S8, their lap 9 S5). Their round 31 lap 1 declared 7 first, and under C29 our lap could not declare less. v7's §6c status block is checked by our own suite, not the gate: `tests/test_standing_status_is_current.py` reads `STATUS-RELEASED` against the newest release tag reachable from HEAD and the block's order against §6c. **6 implemented since 2026-09-25**, when both of v6 §14's conditions held: the shared file byte-identical in both trees (`05abdfde…`), and the fork's gate at 6 (`cyanrip@643631b`, said in their round 25 lap 5). **Declared 6 since round 28 lap 6**, the lap that says our gate implements 6 (its S23, at the fork's round 28 lap 5 S7 request; under C29 a lap declaring less than an earlier lap of the record refuses the round) — §14: *"neither side declares 6 until both have said, in a lap, that their gate implements it"*. v6 adds §5e's `HANDSHAKE-AGREED-CHANGES` ledger (C44 requires it on a `GO` file declaring 6; C45: its content never gates a close), K2's `HANDSHAKE-INBOUND-OBSERVED` beside `-HELD` (required on a file declaring 6 by a reading of ours until 2026-10-11, since no row named it; v8's C47 requires it from 8, and our gate now keys on 8; both sides have written it on every lap since round 22), C43 (the version refusal over every file of a round, which we had since 2026-09-22), and the amended **C13a**: once a round is `CLOSED` a later lap declaring a *different* verdict is refused as a file and the round stays closed (`_terminal_at`), while one declaring the same verdict is not a transition. **What a C13a refusal did to a release was ours, because v6 left it to v7**: until v8 it held a release until a later round existed, then that round governed (`illegal_transition_blockers`); from v8 a round can no more hold a release than authorise one (§16), so `--release-gate` prints it and `--status` still exits non-zero on it. The fork's gate still reopens on such a lap (its known divergence), so the two gates would print different round states and both hold the release. No such lap exists in either record; replaying ours finds ten later laps in eight rounds, all `GO`. The same commit enforced **C23** (`INBOUND-HELD` on every round ≥ 9 file), binding since round 9 and never checked: one sent file in the record lacks it, our `verified/round-13-lap-03.md`, pinned by hash. v5 (2026-09-22) added §5b (a close may resolve the peer verdict from the newest peer lap the gate holds, has enumerated and may read, when that lap is newer than the transcription's source), §5c (such a lap must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), the `HANDSHAKE-PEER-VERDICT-SOURCE` field (ours, from round 23 lap 2) and rows C37–C42. **Implemented the same day the text became byte-identical, before round 24's lap 1**, because a rehearsal showed what staying at 4 would do: `--check` refused a v5 peer lap while `--status` and `--release-gate` closed a round on it. Both halves are fixed — the version refusal now runs on the path that decides a close (`refused_round_files`), and §5b is `resolve_peer_verdict`. **One reading of the spec is ours and was derived, not chosen**: "enumerated" means enumerated by the gate when it decides, because row C40 (a candidate *newer* than the source) is unreachable if it means "listed in the closing lap's own `INBOUND-HELD`". Raised with the fork for round 24. **Files declaring 4 or less keep v4 close semantics**, for the reason row C29 gives: a declared version is a request to be graded by that version's rules. (This sentence said *v4* until 2026-09-22, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
@@ -1262,7 +1281,7 @@ or how far it could be trusted. This table makes both explicit.
 | G2 | **The release's TOC and track lengths from MusicBrainz**, and the disc ID it matched | A cross-check of the TOC they read against the one the release lists, to flag a different pressing before ripping | easy: fetched before every rip | the disc-ID match is exact for the TOC it names; the release data is crowd-entered and can be wrong | **declined by them** (lap 9 S34): comparing their TOC with a release's is a judgement derivable afterwards, which `docs/OWNERSHIP.md` puts on our side. Ours to build, if at all |
 | G3 | **The read offset's provenance**: AccurateRip's drive table, the user, or a measurement, beside the `-s` we pass (`drive_profile_store.OffsetSource`) | The log could say where its offset came from, which a logchecker reader and their `-f` search could both use | easy: stored per drive | exact as provenance; a value the user typed is only as good as its source | proposed |
 | G4 | **Our post-rip verdicts per track**: CTDB, the FLAC decode check, our own AccurateRip reading, in each `.platterpus.json` | Their rig readings already use our reports; named stable fields would let their tools read them without following our schema changes | easy: written every rip | exact for what each check tests; CTDB covers only discs in its database | proposed |
-| G5 | **The filed rig timings**: every report's per-track extraction time and span, already in our public tree (`docs/handshake/artifactsround*/*report.json`) | Data for their cache and stall calibration without a rig run | easy: already committed | measured on one rig, one drive model (Pioneer BDR-209D); not a population of drives | available |
+| G5 | **The filed rig timings**: every report's per-track extraction time and span, already public (`docs/handshake/artifactsround*/*report.json`, on our `evidence` branch since HR-2, §7.4b, each with a row in `docs/evidence-manifest.tsv`) | Data for their cache and stall calibration without a rig run | easy: already committed | measured on one rig, one drive model (Pioneer BDR-209D); not a population of drives | available |
 | G6 | **Why we sent SIGTERM**: the user cancelled, the app is quitting, or a script ran out of time | Their footer and `-j` record could say which. To them every one is the same signal | moderate: we know which, but a signal carries no payload, so it needs a channel such as a marker file or an argv flag at start | exact | proposed |
 
 ### What the fork wants from us (their round 30 lap 9 S34)
@@ -1275,7 +1294,7 @@ We are the giver here, so the ease and accuracy columns are ours.
 | X2 | **The read offset's provenance** | The log could say where its offset came from | the same row as our G3: easy | exact as provenance | proposed (G3) |
 | X3 | **`cd-paranoia -A`'s output in every bundle** | Their cache-probe calibration beside a second instrument | **already given in every acceptance bundle that runs the cache probe**: the step saves the raw output, screened, as `cacheprobeNNNN.txt` (`src/platterpus/uiscript/probe_verbs.py:223-234`). Not in a single rip's report bundle, which never runs it | exact copy of its output; screened, so a control character is shown escaped | available; asked in our lap 10 whether "every bundle" means more |
 | X4 | **The securing pass's own log in the bundle** | Their reading of a second pass from its own signed log | **already given since `32985e07`**: the log is kept beside the album's, and the session bundle collects every cyanrip-written `.log` under the rips folder, judged by content (`src/platterpus/test_session.py:905`) | exact copy; `-Y` verifies it | available |
-| X5 | **Track outcome lines in our captured stdout** | Their lap 9 S29: the line that says a track read with errors | being fixed for their S29 | exact once kept | landing in round 30 |
+| X5 | **Track outcome lines in our captured stdout** | Their lap 9 S29: the line that says a track read with errors | fixed 2026-10-05: the capture no longer drops a line because it moves the progress bar (`TASKS.md`, *Their lap 9 S29*) | exact once kept | landed (ours) |
 
 ### What the fork can give us (their round 30 lap 9 S34)
 
@@ -1287,4 +1306,4 @@ We are the giver here, so the ease and accuracy columns are ours.
 
 ---
 
-*Last updated for Platterpus v0.7.106.*
+*Last updated for Platterpus v0.7.109.*

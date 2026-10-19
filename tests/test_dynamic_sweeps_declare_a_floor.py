@@ -181,6 +181,10 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_rig_scripts.py::test_no_step_failed_to_parse": (
         "test_there_are_scripts_to_check"
     ),
+    "test_rig_scripts.py::"
+    "test_a_probe_step_never_falls_through_into_a_whole_disc_rip": (
+        "test_there_are_scripts_to_check"
+    ),
     # Each value is EITHER the name of the unparametrized test in the same module
     # that floors this population, OR "NO FLOOR NEEDED: <reason>".
     #

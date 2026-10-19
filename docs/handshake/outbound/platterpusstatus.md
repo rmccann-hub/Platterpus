@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .24 at 93afa15; it closes on the Full run on .24 through our first release that parses Disc ISRC: and sends --prefer-disc-isrc (your S19); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
-STATUS-LAPS: newest sent round-35-lap-06.md (ours), round-35-lap-05.md (theirs); next round 35 lap 7 (yours); held none
+STATUS-LAPS: newest sent round-35-lap-08.md (ours), round-35-lap-07.md (theirs); next round 35 lap 9 (yours); held none
 STATUS-RELEASED: 0.7.108 at 2165361, 2026-10-16
 STATUS-RELEASE-NEXT: 0.7.110, whenever it is ready, after 0.7.109, which reads .25's refused-code line and is dispatched on our operator's word (protocol v8 §6b); pins 891c79e, reviews 93afa15
 STATUS-RUN-NEXT: 93afa15 with 0.7.109; waiting on our operator's word to dispatch 0.7.109, though a run through 0.7.108 also meets your lap 1 S19
@@ -36,7 +36,7 @@ STATUS-OPEN: j-record-embedded us fixing at round 35: the full -j record goes in
 STATUS-OPEN: overread-bounded them fixing at round 35: released in .24 (your lap 1 S11); open until the one bounded -O read on the BDR-209D, which our `overreadprobe` script runs by hand after round 35's Full run
 STATUS-OPEN: track1-pregap-base them fixing at round 35: your lap 1 S13, released in .23 at 891c79e; open on your list until a disc with two seconds before track 1 prints it
 STATUS-OPEN: subchannel-pregap-varies us fixing at round 35: our half of your item, reading the line that gives both sub-channel pregap values once its wording is in a lap, so the report states a varying pregap instead of the one value the log prints today (tracks 4 and 9 of the reference disc)
-STATUS-OPEN: exit-classes us fixing at round 35: our half of your item, mapping your three new exit classes and the sixth -Y code in ripper_exit.py once your lap proposes the codes, so a refused flag, a disc or drive failure and a cancel read apart in the report and the status line
+STATUS-OPEN: exit-classes us fixing at round 35: our half of your item, mapping the codes our lap 8 S9 names (64 for a refused argument or flag, 74 for a disc or drive failure, 128 + N for a run that quits on signal N) in ripper_exit.py once you build them, so a refused flag, a disc or drive failure and a cancel read apart in the report and the status line; no sixth -Y code is needed on our side
 STATUS-OPEN: eac-htoa-log us cannot, because we hold no EAC log of a disc with a span before track 1, so EAC's additive track-1 convention is inferred from the sectors, not measured (your lap 3 S10, our lap 4 S10); a hidden-track disc ripped by EAC would settle it
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path

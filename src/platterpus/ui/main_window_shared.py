@@ -108,8 +108,9 @@ if TYPE_CHECKING:
     from platterpus.drive_media import MediaWatcher
     from platterpus.drive_profile_store import DriveProfileStore
     from platterpus.drive_profiles import OffsetSource
-    from platterpus.parsers.rip_log import RipLog
-    from platterpus.report_types import TimingBlock
+    from platterpus.parsers.rip_log import RereadAgreement, RipLog
+    from platterpus.read_speed_ladder import SpeedAttempt
+    from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlock
     from platterpus.rip_estimate import ReadRate
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
     from platterpus.ui.dialogs.setup_center import SetupCenterDialog
@@ -269,12 +270,12 @@ class MainWindowShared(_SeamBase):
     _rip_started_at: str
     _last_rip_timing: TimingBlock | None
     # Per-rip histories folded into the report at finish.
-    _last_speed_attempts: list
-    _last_unstable_tracks: list
-    _last_retried_tracks: list
-    _last_swapped_tracks: dict
-    _last_reread_agreements: dict
-    _last_eta_trace: list
+    _last_speed_attempts: list[SpeedAttempt]
+    _last_unstable_tracks: list[int]
+    _last_retried_tracks: list[RetriedTrackBlock]
+    _last_swapped_tracks: dict[int, object]
+    _last_reread_agreements: dict[int, RereadAgreement]
+    _last_eta_trace: list[EtaSampleBlock]
     # Rip time-windows for per-report debug-log filtering.
     _rip_epoch_start: float | None
     _rip_windows: list[tuple[float, float]]
@@ -314,14 +315,14 @@ class MainWindowShared(_SeamBase):
     # What remains below is what genuinely belongs to "the rip the window is
     # showing" rather than to a finished album.
     _last_rip_error: str | None
-    _last_outcome: dict | None
+    _last_outcome: dict[str, object] | None
     # The system-tray icon, created lazily by `_ensure_tray_icon` for the
     # rip-complete notification. Declared here (not only assigned in the
     # mixin) because this module is the single source of truth for the
     # shared surface — a `getattr` read of an undeclared attribute was
     # exactly the untyped hole the audit flagged.
     _tray_icon: QSystemTrayIcon | None
-    _last_disc: dict | None
+    _last_disc: dict[str, object] | None
     _last_read_offset_effective: int | None
     _last_secure_rerip: object | None
     _last_dependency_report: DependencyReport | None
@@ -342,8 +343,8 @@ class MainWindowShared(_SeamBase):
     #: `None` means "no snapshot for this rip", and every reader falls back to the
     #: live config rather than dropping the block — a missing snapshot must cost a
     #: stale field, never the whole `settings` record.
-    _rip_settings_snapshot: dict | None
-    _rip_gate_inputs: dict | None
+    _rip_settings_snapshot: dict[str, object] | None
+    _rip_gate_inputs: dict[str, bool] | None
     #: One record per finished album, by the rip generation that produced it —
     #: see `ui/post_rip_record.py`. This is where a rip's own facts live now; the
     #: `_last_*` fields above are the window's working copy while a rip is in

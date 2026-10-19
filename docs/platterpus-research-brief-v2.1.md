@@ -6,7 +6,8 @@
 > `PLANNING.md`*. The largest amendments since it was written:
 > **whipper → cyanrip as the sole backend** (KDD-18, 2026-06-30 — the
 > Distrobox host-export routing constraint stands unchanged, the binary is
-> `~/.local/bin/cyanrip`, and `whipper.conf` is a read-only legacy reference);
+> `~/.local/bin/cyanrip`, and `whipper.conf` was a read-only legacy reference until
+> 2026-09-24, when it stopped being read at all);
 > **CTDB verification moved in-scope and shipped** (KDD-12/KDD-16,
 > hardware-validated v0.4.20); **MP3/WavPack/WAV shipped** via the single
 > ffmpeg transcode adapter, not lame/sox (KDD-22, 2026-06-26); and the
@@ -311,4 +312,4 @@ This is what I'm leaning toward. Tell me if it's right or wrong.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.7.109.*

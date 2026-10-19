@@ -343,6 +343,15 @@ class TrackResult:
     disc_isrc: str = ""
     disc_isrc_state: str = ""
     disc_isrc_reason: str = ""
+    # The `Beyond disc: N of M frames refused (written as silence)` line (`.24`+,
+    # printed only under `-O`, round 35, TASKS R26): of the M frames this track
+    # read from outside the disc, the N the drive refused, which the ripper wrote
+    # as SILENCE. N > 0 means the track's edge holds silence that is not disc
+    # audio, like `appended_silence_frames` by another path. Both None when the
+    # line is absent (an earlier build, `-O` off, or a track that read nothing
+    # outside the disc): "not stated", never 0.
+    beyond_disc_frames_refused: int | None = None
+    beyond_disc_frames: int | None = None
 
 
 @dataclass(frozen=True)

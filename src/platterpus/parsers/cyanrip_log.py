@@ -1357,6 +1357,31 @@ _APPENDED_SILENCE = re.compile(
     r"^\s+Appended:\s+(?P<frames>\d{1,9})\s+frames? of silence"
 )
 
+# --- 5. "Beyond disc: N of M frames refused (written as silence)" — `.24`+ ----
+#
+# FORK-ONLY, and printed only under `-O` (overread). `.24` (`cyanrip@93afa15`)
+# reads a frame that lies outside the disc ONCE, instead of retrying it with no
+# limit, and writes a frame the drive refuses as silence rather than failing the
+# rip. Each track that read any frame outside the disc then says so in its
+# Properties block, after `Appended:` (`cyanrip@93afa15:src/cyanrip_log.c:481`,
+# the P2 row `Beyond disc: %i of %i frames refused (written as silence)`, round
+# 35 lap 1 S11): N of the M frames it tried were refused.
+#
+# Why it matters to an archive: those N frames are SILENCE WE DID NOT READ, at the
+# very edge of the track, in a rip the user asked to overread. It is the same kind
+# of statement as `Appended:` (fabricated, not disc audio), from the other path.
+#
+# One shape: the format string has no singular form, but `frames?` costs nothing
+# and keeps a one-frame wording from going unread. The tail is not anchored, as
+# `Appended:` is not, so a reworded parenthetical still yields the two counts —
+# the parenthetical restates what the counts already mean. Bounded digits, as
+# everywhere here. A count pair that cannot be true (N above M) is refused in the
+# handler, never recorded.
+_BEYOND_DISC = re.compile(
+    r"^\s+Beyond disc:\s+(?P<refused>\d{1,9})\s+of\s+(?P<frames>\d{1,9})"
+    r"\s+frames?\s+refused\b"
+)
+
 
 def _parse_overread_mode(mode: str) -> bool | None:
     """Map cyanrip's "Overread mode:" text to EAC's Yes/No, or None if unrecognised.
@@ -1805,6 +1830,10 @@ class _TrackAcc:
     disc_isrc: str = ""
     disc_isrc_state: str = ""
     disc_isrc_reason: str = ""
+    # `Beyond disc:` (`.24`+, `-O` only): frames refused, of frames read outside
+    # the disc. Both None when the line is absent: "not stated", never 0.
+    beyond_disc_frames_refused: int | None = None
+    beyond_disc_frames: int | None = None
 
 
 # A handler takes the accumulator and the successful match, records the fact, and
@@ -2651,6 +2680,9 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # of the "skimmed" residue this listing exists to expose, so the test that
     # walks the real logs now requires it to be recognised.
     ("track_appended_silence", _APPENDED_SILENCE),
+    # `.24`, under `-O` only (TASKS R26): frames outside the disc the drive
+    # refused, written as silence.
+    ("track_beyond_disc", _BEYOND_DISC),
     # FORK-ONLY (see the pattern block). Listed so the enumeration stays complete;
     # they match nothing in the committed 0.9.3 logs, which is exactly the point.
     ("track_peak_kind_header", _PEAK_KIND_HEADER),
@@ -3220,6 +3252,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 disc_isrc=current.disc_isrc,
                 disc_isrc_state=current.disc_isrc_state,
                 disc_isrc_reason=current.disc_isrc_reason,
+                beyond_disc_frames_refused=current.beyond_disc_frames_refused,
+                beyond_disc_frames=current.beyond_disc_frames,
             )
         )
         current = None
@@ -3541,6 +3575,31 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.appended_silence_frames = int_or_none(
                     match.group("frames"), field="cyanrip appended silence frames"
                 )
+                continue
+
+            # "Beyond disc: 2 of 2 frames refused (written as silence)" — `.24`
+            # under `-O`, beside `Appended:` in the same block. Recorded as a PAIR
+            # or not at all: N refused means nothing without the M it is out of,
+            # and N above M is a line we cannot have read right, so it is logged
+            # and left unstated rather than recorded as a fact.
+            match = _BEYOND_DISC.match(line)
+            if match:
+                refused = int_or_none(
+                    match.group("refused"), field="cyanrip beyond-disc refused"
+                )
+                tried = int_or_none(
+                    match.group("frames"), field="cyanrip beyond-disc frames"
+                )
+                if refused is not None and tried is not None and refused <= tried:
+                    current.beyond_disc_frames_refused = refused
+                    current.beyond_disc_frames = tried
+                else:
+                    log.warning(
+                        "cyanrip log: track %s's Beyond disc line does not hold "
+                        "together (%r); left unstated",
+                        current.number,
+                        diagnostics.bounded_chars(line, head=100, tail=100),
+                    )
                 continue
 
             # --- the FORK-ONLY per-track rows ------------------------------------

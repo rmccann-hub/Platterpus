@@ -2912,3 +2912,211 @@ def test_every_expect_on_a_retry_setting_matches_what_the_script_set() -> None:
         )
         checked += 1
     assert checked >= 4, f"floor: only {checked} retry expect(s) found"
+
+
+#: Flags that a script reaches for to PROBE something, not to rip. cyanrip has no
+#: probe-only mode for them: with no other action its default is to rip the whole
+#: disc, so a probe step without `-I` starts an unasked-for whole-disc rip after
+#: the probe (found 2026-10-19 in `police-rerip.txt`, whose `--cache-probe -N`
+#: and `--diagnostics … -N` steps had no `-I`).
+_PROBE_FLAGS: frozenset[str] = frozenset({"--cache-probe", "-x", "--diagnostics"})
+
+#: Flags that scope a step to a deliberate rip (a track list, a folder, an offset),
+#: which is a rip the script asked for rather than one a probe fell into.
+_RIP_SCOPE_FLAGS: frozenset[str] = frozenset({"-l", "-D", "-s"})
+
+
+def _probe_steps_without_info_only(text: str) -> list[tuple[int, str]]:
+    """Every `cyanrip` step that carries a probe flag, rips nothing on purpose,
+    and lacks `-I` — the steps that would fall through into a whole-disc rip."""
+    from platterpus.uiscript.script import parse
+
+    found: list[tuple[int, str]] = []
+    for step in parse(text):
+        words = step.source.split()
+        if not words or words[0] != "cyanrip":
+            continue
+        args = set(words[1:])
+        if args & _PROBE_FLAGS and not args & _RIP_SCOPE_FLAGS and "-I" not in args:
+            found.append((step.line_no, step.source))
+    return found
+
+
+@pytest.mark.parametrize("path", _scripts(), ids=lambda p: p.name)
+def test_a_probe_step_never_falls_through_into_a_whole_disc_rip(path: Path) -> None:
+    offenders = _probe_steps_without_info_only(path.read_text(encoding="utf-8"))
+    assert not offenders, (
+        f"{path.name}: these probe steps carry no -I, so cyanrip rips the whole "
+        f"disc after probing: {offenders}"
+    )
+
+
+def test_the_probe_sweep_sees_a_probe_with_no_info_flag() -> None:
+    """Non-triviality: the sweep refuses the exact shape it was written for and
+    passes the two fixed shapes, so it cannot pass by finding nothing."""
+    bad = "cyanrip --cache-probe -N\ncyanrip --diagnostics /tmp/d.json -N\n"
+    good = "cyanrip --cache-probe -I -N\ncyanrip -N -s 667 -l 1 -D x --diagnostics d\n"
+    assert [n for n, _ in _probe_steps_without_info_only(bad)] == [1, 2]
+    assert _probe_steps_without_info_only(good) == []
+
+
+# ==========================================================================
+# `quickcheck.txt`: ONE track, overread never on, and short enough to be quick
+# ==========================================================================
+#
+# TASKS R22: a ten-minute check the operator runs before a Full acceptance run.
+# Its value is that it is short and safe, so those two properties are asserted
+# here rather than left to its header comment. The sweeps above already hold it
+# to the language (every verb built, every setting real, every rip asserted
+# finished); these hold it to its own promise.
+
+QUICKCHECK: Path = RIG_SCRIPTS / "quickcheck.txt"
+
+#: The reference disc's filed rip report, committed text (Critical rule #8): it
+#: carries each track's sector span and whether AccurateRip confirmed it.
+_REFERENCE_REPORT: Path = (
+    Path(__file__).resolve().parents[1]
+    / "output_reference"
+    / "cyanrip_fork_flac"
+    / "cyanrip_fork_police_classics.platterpus.json"
+)
+
+
+def _quickcheck_steps() -> list[uiscript.Step]:
+    steps = uiscript.parse(QUICKCHECK.read_text(encoding="utf-8"))
+    assert steps, "quickcheck.txt parsed to no steps"
+    assert all(not s.error for s in steps)
+    return steps
+
+
+def test_the_quick_check_rips_exactly_one_track_and_never_turns_overread_on() -> None:
+    """One `rip`, of one track, with overread set off, read back off, and
+    graded off in the argv the rip actually spawned."""
+    from platterpus.uiscript.script_values import parse_track_spec
+
+    steps = _quickcheck_steps()
+    rips = [i for i, s in enumerate(steps) if s.verb == "rip"]
+    assert len(rips) == 1, f"quickcheck must rip once, found {len(rips)} rip steps"
+    rip = rips[0]
+
+    # The selection in force at the rip is ONE track (the last select-tracks
+    # before it), and nothing anywhere selects the whole disc.
+    selections = [s for s in steps[:rip] if s.verb == "select-tracks"]
+    assert selections, "no select-tracks before the rip, so it would rip every track"
+    numbers, problem = parse_track_spec(selections[-1].args[0])
+    assert not problem and len(numbers) == 1, selections[-1].source
+    assert not any(
+        s.verb == "select-tracks" and s.args[0].lower() == "all" for s in steps
+    )
+    # The floor for that selection: enough tracks are loaded for it to exist.
+    assert any(
+        s.verb == "expect-tracks"
+        and s.args[0].endswith("+")
+        and int(s.args[0].rstrip("+")) >= numbers[0]
+        for s in steps[:rip]
+    )
+
+    # Overread: never set on, set off and read back before the rip, and the
+    # spawned argv graded for `-O` absent and `-l` present after it.
+    settings = [
+        (s.args[0], " ".join(s.args[1:]).lower())
+        for s in steps
+        if s.verb in ("set", "expect") and s.args
+    ]
+    assert ("force_overread", "on") not in settings
+    before = [
+        (s.verb, s.args[0], " ".join(s.args[1:]).lower())
+        for s in steps[:rip]
+        if s.verb in ("set", "expect") and s.args
+    ]
+    assert ("set", "force_overread", "off") in before
+    assert ("expect", "force_overread", "off") in before
+    after = [tuple(s.args) for s in steps[rip:] if s.verb == "expect-rip-argv"]
+    assert ("without", "-O") in after
+    assert ("with", "-l") in after
+    assert not any(s.verb == "cyanrip" and "-O" in s.args for s in steps)
+
+
+def test_the_quick_check_grades_its_rip_as_the_acceptance_run_does() -> None:
+    """The ripper check comes first, then the one rip and every grade a
+    partial acceptance rip carries (CTDB `partial`: one track is not a disc)."""
+    steps = _quickcheck_steps()
+    verbs_in_order = [s.verb for s in steps]
+    rip = verbs_in_order.index("rip")
+    version = next(
+        i
+        for i, s in enumerate(steps)
+        if s.verb == "cyanrip" and tuple(s.args) == ("--version",)
+    )
+    assert version < rip
+    assert steps[version + 1].verb == "expect-exit"
+    assert tuple(steps[version + 1].args) == ("0",)
+    # Every precondition stops the run before the rip, never after it.
+    assert verbs_in_order[:rip].count("abort-if-failed") >= 3
+    assert "abort-if-failed" not in verbs_in_order[rip:]
+    for needed in ("set-drive-offset", "rescan", "pick-release", "expect-identified"):
+        assert needed in verbs_in_order[:rip], needed
+    graded = verbs_in_order[rip:]
+    for needed in (
+        "wait-for-rip",
+        "expect-rip-complete",
+        "expect-verification",
+        "expect-album-audit",
+        "expect-accuraterip",
+        "expect-tags",
+        "expect-cover-art",
+    ):
+        assert needed in graded, needed
+    assert any(
+        s.verb == "expect-ctdb" and tuple(s.args) == ("partial",) for s in steps[rip:]
+    )
+
+
+def test_the_quick_check_is_quick_on_the_reference_disc() -> None:
+    """**Derived, not asserted from the header**: the run estimate the app
+    itself makes, over the reference disc's own track lengths, at the rig
+    drive's measured speed. The expected run (AccurateRip confirms the track,
+    as it did on the filed reference rip) is under ten minutes, and the rip's
+    wait covers the worst case, every re-read up to the retry ceiling."""
+    import json
+
+    from platterpus import rip_estimate
+    from platterpus.uiscript import run_estimate
+    from platterpus.uiscript.runner import MAX_WAIT_S, TICK_MS
+
+    report = json.loads(_REFERENCE_REPORT.read_text(encoding="utf-8"))
+    tracks = {t["number"]: t for t in report["tracks"]}
+    assert len(tracks) >= 10, "floor: the reference report lost its tracks"
+    lengths = {
+        n: (t["end_sector"] - t["start_sector"] + 1) / 75 for n, t in tracks.items()
+    }
+
+    steps = _quickcheck_steps()
+    [chosen] = [s for s in steps if s.verb == "select-tracks"]
+    track = int(chosen.args[0])
+    # Neither edge of the disc, and a track the reference rip saw confirmed.
+    assert 1 < track < max(tracks), "the quick check's track touches a disc edge"
+    assert tracks[track]["accuraterip_verified"] is True
+
+    rate = rip_estimate.seed_for("PIONEER BD-RW BDR-209D")
+    assert rate is not None
+    estimate = run_estimate.estimate_run(
+        steps,
+        run_size="full",
+        config=Config(),
+        track_lengths=lengths,
+        rate=rate,
+        tick_s=TICK_MS / 1000,
+        wait_cap_s=MAX_WAIT_S,
+    )
+    assert estimate.rips == 1 and estimate.rips_estimated == 1
+    # Non-triviality: a rip of the chosen track was actually costed.
+    assert estimate.rips_low_s >= lengths[track]
+    assert estimate.rips_low_s + 60 <= 600, (
+        f"the rip alone is estimated at {estimate.rips_low_s:.0f}s; with a minute "
+        "for the disc lookup and the checks that is no longer a ten-minute check"
+    )
+    [wait] = [s for s in steps if s.verb == "wait-for-rip"]
+    assert estimate.rips_high_s <= float(wait.args[0]), (
+        f"worst case {estimate.rips_high_s:.0f}s exceeds wait-for-rip {wait.args[0]}s"
+    )

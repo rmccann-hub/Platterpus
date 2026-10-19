@@ -19,6 +19,8 @@ import ast
 import re
 from pathlib import Path
 
+from conftest import repo_files
+
 _ROOT = Path(__file__).resolve().parents[1]
 # Scan the shipped package AND the developer/CLI entry points that also shell
 # out — the injection surface isn't only in src/. `scripts/` holds standalone
@@ -100,7 +102,11 @@ def _shell_scripts() -> list[Path]:
     """
     skip = {".git", "venv", ".venv", "node_modules", "__pycache__"}
     scripts: list[Path] = []
-    for path in _ROOT.rglob("*"):
+    # `repo_files`, not `_ROOT.rglob("*")`: a whole-tree `rglob` raises when a
+    # parallel worker deletes a tool cache mid-walk (TASKS R18, R28). It also
+    # prunes `.git`, tool caches and nested checkouts, none of which holds a
+    # script of ours; the filters below stay so the population is unchanged.
+    for path in repo_files(_ROOT):
         if not path.is_file():
             continue
         # Parts RELATIVE to the repo root: matched against the absolute path, a
@@ -127,7 +133,7 @@ def test_the_inbound_exclusion_covers_only_received_records() -> None:
     """
     excluded = [
         p
-        for p in _ROOT.rglob("*")
+        for p in repo_files(_ROOT)  # not rglob: R28, as in `_shell_scripts`
         if p.is_file()
         and not p.relative_to(_ROOT).as_posix().startswith(_AGENT_WORKTREES)
         and _looks_like_shell(p)

@@ -52,7 +52,12 @@ from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:  # pragma: no cover — annotations only
     from platterpus.read_speed_ladder import SpeedAttempt
-    from platterpus.report_types import RetriedTrackBlock, TimingBlock
+    from platterpus.report_types import (
+        EtaSampleBlock,
+        RetriedTrackBlock,
+        SecureReripBlock,
+        TimingBlock,
+    )
 
 #: Which ``verification.gates`` key each post-rip result feeds, and the record
 #: attribute holding that result.
@@ -103,8 +108,8 @@ class PostRipRecord:
     outcome: dict[str, object] | None = None
     disc: dict[str, object] | None = None
     timing: TimingBlock | None = None
-    secure_rerip: dict[str, object] | None = None
-    eta_trace: list[object] | None = None
+    secure_rerip: SecureReripBlock | None = None
+    eta_trace: list[EtaSampleBlock] | None = None
     ripper_stdout: str = ""
     ripper_log_verification: object | None = None
     disc_track_total: int | None = None

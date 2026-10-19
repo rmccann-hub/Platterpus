@@ -2,14 +2,15 @@
 
 **Status:** how-to (2026-07-21). This is the manual repair workflow that
 [`eac-parity.md`](eac-parity.md) has recommended documenting since
-2026-06-28 — in Part C's *Part B — In-app CUETools / CTDB repair* and in
+2026-06-28 — in Part C §2 (*In-app CUETools / CTDB repair*) and in
 Part A's *P2(b)*. It is assembled **strictly from the
 project's research record** — that doc plus the archived
 [`archive/upstream-modification-investigation.md`](archive/upstream-modification-investigation.md)
 — and **none of it has been executed on project hardware yet**: every claim we
 have not proven ourselves is marked *(unverified)*. In-app repair remains
-parked (KDD-14 Phase 2 — blocked on maintainer appetite for the .NET dependency
-and on repair-path validation); this page exists so a power user with a
+parked (KDD-14 Phase 2, decided 2026-07-21 as "D → B": nothing ships until a user
+needs repair, and then `ctdb-cli` arrives as an optional user-installed tool,
+never a bundled .NET; the repair path itself is still unvalidated); this page exists so a power user with a
 stubborn disc isn't stuck waiting on that decision.
 
 ## When to reach for this
@@ -100,4 +101,4 @@ mathematically, without re-reading the disc. It operates on the **whole disc**
 
 ---
 
-*Last updated for Platterpus v0.6.63.*
+*Last updated for Platterpus v0.7.109.*
