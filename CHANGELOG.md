@@ -119,6 +119,10 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **A round-digest test no longer writes into the repository's own handshake folder.** It
+  created a crossing lap in `docs/handshake/outbound/` and deleted it afterwards, and a test on
+  another worker that listed the folder in between failed on `main`'s Python 3.12 leg on
+  2026-10-19; it now works on a copy of round 15's laps (`tests/test_round_digest.py`).
 - **A container-gate test no longer depends on which of two threads the scheduler starts first.**
   It asserted thread `a` started before `b`, 50 ms apart, and failed on `main`'s Python 3.13 leg on
   2026-10-19 when `b` won; it now asserts what it is for, that both commands start before either
