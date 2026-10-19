@@ -413,6 +413,11 @@ class TrackBlock(TypedDict):
     disc_isrc: str | None
     disc_isrc_state: str | None
     disc_isrc_reason: str | None
+    #: v37: the `Beyond disc:` line (`.24`+, `-O` only): of the frames this track
+    #: read outside the disc, how many the drive refused (written as silence).
+    #: None when the line is absent, never 0.
+    beyond_disc_frames_refused: int | None
+    beyond_disc_frames: int | None
     start_sector: int | None
     end_sector: int | None
     pregap_sectors: int | None

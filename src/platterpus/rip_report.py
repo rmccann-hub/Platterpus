@@ -345,7 +345,17 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      every report since dropped it, and a supersede rebuilt from the report
 #      said "did not read consistently" of a track re-read for AccurateRip. Found
 #      2026-10-19 by typing the worker's record as `RetriedTrackBlock`. Additions only.
-REPORT_SCHEMA_VERSION: int = 36
+# v37: per track `beyond_disc_frames_refused` and `beyond_disc_frames`, from the
+#      log's `Beyond disc: N of M frames refused (written as silence)` line
+#      (`.24`+, printed only under `-O`, `cyanrip@93afa15:src/cyanrip_log.c:481`,
+#      TASKS R26): of the M frames the track read from outside the disc, the N
+#      the drive refused and the ripper wrote as silence. Both null when the line
+#      is absent (an earlier build, `-O` off, a track that read nothing outside
+#      the disc), never 0. A positive N raises the `beyond_disc_frames_refused`
+#      info issue: the track's edge holds silence that is not disc audio, in a
+#      rip that asked to read it. v35 shipped in 0.7.108, so this is a new
+#      number. Additions only.
+REPORT_SCHEMA_VERSION: int = 37
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1357,6 +1367,10 @@ def _build(
     verdict_message, verdict_level = apply_downgrades(
         message, level, [identity.downgrade_reason]
     )
+    # The per-track blocks, built ONCE: `issues` reads them (the `Beyond disc:`
+    # finding) and the same list is serialised as `tracks`, so the finding and
+    # the row it summarises cannot disagree.
+    track_blocks = [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())]
     issues = _issues(
         outcome=outcome,
         verdict_level=level,
@@ -1373,6 +1387,7 @@ def _build(
         completeness=completeness,
         rip=rip_block,
         disc=disc,
+        tracks=track_blocks,
         artifacts=artifacts,
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
@@ -1509,7 +1524,7 @@ def _build(
         # non-UTF-8 byte forced ``errors="replace"``, or nothing parsed) is flagged
         # here so a thin/empty report isn't mistaken for a clean rip.
         "log_parse": log_parse_block,
-        "tracks": [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())],
+        "tracks": track_blocks,
         "ctdb": ctdb,
         # The full post-rip verification suite in one place: AccurateRip lives in
         # `verdict`/`tracks`, CTDB stays at `ctdb` (back-compat), and this block
@@ -1760,6 +1775,14 @@ def _track(track: object) -> dict:
         "disc_isrc": getattr(track, "disc_isrc", "") or None,
         "disc_isrc_state": getattr(track, "disc_isrc_state", "") or None,
         "disc_isrc_reason": getattr(track, "disc_isrc_reason", "") or None,
+        # v37: the `Beyond disc:` line (`.24`+, `-O` only): frames read from
+        # outside the disc, and how many of them the drive refused, which the
+        # ripper wrote as silence. Copied as-is: None is "not stated", and an `or
+        # None` here would turn a measured 0 refused into "not stated".
+        "beyond_disc_frames_refused": getattr(
+            track, "beyond_disc_frames_refused", None
+        ),
+        "beyond_disc_frames": getattr(track, "beyond_disc_frames", None),
         # Absolute disc geometry (sectors). EAC's "TOC of the extracted CD" is
         # derived from these exactly, so without them the JSON could not
         # reconstruct a table the .log already shows.
@@ -2060,6 +2083,9 @@ def _issues(
     # against the one we sent. Two blocks, one question, and the comparison is the
     # only thing that makes either number more than a record.
     disc: dict | None = None,
+    # The serialised per-track blocks (`tracks`), for the findings that are a
+    # per-track fact: the same list the report writes, never a second build.
+    tracks: list[dict] | None = None,
     # The real type, not a widened one: this is the SAME block the report
     # serializes, and typing it `dict` here would let a future rename of an
     # artifact key pass the checker while silently matching nothing.
@@ -2210,6 +2236,26 @@ def _issues(
     # failed rip. Both values are named in the sentence.
     for isrc_code, sentence in isrc_findings((disc or {}).get("isrc_provenance")):
         add("info", isrc_code, sentence)
+
+    # FRAMES OUTSIDE THE DISC THE DRIVE REFUSED (v37, TASKS R26). Under `-O`,
+    # `.24` reads each frame past the disc's edge once and writes a refused one
+    # as silence, saying so per track (`Beyond disc: N of M frames refused`).
+    # Information, not a warning: the ripper did what it says, and the audio
+    # inside the disc is untouched. But the track's edge now holds silence that
+    # is not disc audio, in a rip that asked to read it, and a reader of the
+    # report should not have to open the log to learn that. Only a POSITIVE N
+    # fires: 0 refused is a clean measurement and null is no measurement.
+    for row in tracks or ():
+        refused = row.get("beyond_disc_frames_refused")
+        if isinstance(refused, int) and not isinstance(refused, bool) and refused:
+            add(
+                "info",
+                "beyond_disc_frames_refused",
+                f"track {row.get('number')}: the drive refused {refused} of the "
+                f"{row.get('beyond_disc_frames')} frames read from outside the "
+                "disc, and the ripper wrote them as silence: the track's edge "
+                "holds silence that is not disc audio",
+            )
 
     theirs = (rip or {}).get("ripper_release_id")
     ours = (disc or {}).get("musicbrainz_release_id")

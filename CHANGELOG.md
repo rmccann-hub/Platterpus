@@ -22,6 +22,22 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
+- **The report records the frames past the disc's edge that the drive refused, on a ripper that
+  prints them.** Under `-O`, the fork's `.24` (`93afa15`) reads each frame outside the disc once,
+  writes a frame the drive refuses as silence, and says so per track: `Beyond disc: N of M frames
+  refused (written as silence)`. Each track in the report now carries `beyond_disc_frames_refused`
+  and `beyond_disc_frames` (**report schema v37**), both null when the line is absent, never 0; a
+  positive count raises the `beyond_disc_frames_refused` info issue. The line is listed as parsed
+  in the generated consumer contract (TASKS R26). Not yet seen from a drive: the rig's
+  `overreadprobe` run is the first that can print it.
+
+- **A test can no longer walk the whole repository with `rglob`** (TASKS R28).
+  `tests/test_no_whole_repo_rglob.py` works out the directory each `.rglob` / `.glob("**…")` call
+  in a test walks and refuses one that reaches the repository root or that it cannot place,
+  because `Path.rglob` raises when a parallel worker deletes a tool cache mid-walk (R18). The four
+  whole-tree walks left in the suite now use `conftest.repo_files`, with the same files as before;
+  two walks of a temporary staging directory are allowlisted, and the allowlist may only shrink.
+
 - **A short rig check before a Full acceptance run: `--run-script quickcheck`.** It checks the
   installed ripper, the drive offset and the disc lookup, then rips one short track (track 2) with
   overread off and grades it the way the acceptance run grades its rips: completion, AccurateRip,

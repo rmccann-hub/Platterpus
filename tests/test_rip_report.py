@@ -1252,9 +1252,11 @@ def test_schema_version_is_27() -> None:
     # v35 added `disc.isrc_provenance`: each track's ISRC as the files carry it
     # beside the disc's own, from cyanrip's `-j` record (TASKS R20).
     #
-    # v36 restored `read_speed.retried_tracks[].trigger`: why each track was
-    # re-read, which the ladder's field-by-field copy had dropped since v0.6.19.
-    assert REPORT_SCHEMA_VERSION == 36
+    # v36 restored `read_speed.retried_tracks[].trigger`; v37 added, per track,
+    # `beyond_disc_frames_refused` and `beyond_disc_frames`: `.24`'s `Beyond
+    # disc:` line under `-O`, frames outside the disc the drive refused and the
+    # ripper wrote as silence (TASKS R26).
+    assert REPORT_SCHEMA_VERSION == 37
 
 
 def _issue_codes(report: dict) -> set[str]:
