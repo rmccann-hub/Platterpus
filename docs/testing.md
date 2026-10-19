@@ -48,7 +48,7 @@ the point: **we do not pretend CI proves the app rips a disc.**
 | **End-to-end** | `pytest` + fakes at the boundary only | the *whole* pipeline through the real assembled `MainWindow` (all mixins, real signals, a real `RipWorker` on a real `QThread`), faking only the external edge (ripper subprocess, MusicBrainz, cover-art HTTP, `metaflac`). `test_e2e_rip_pipeline.py` drives one full rip and asserts the cross-cutting outcome: tagged FLACs + embedded/saved cover art + a fidelity verdict. This is the only tier that proves the *threaded* finish path is wired across module boundaries. |
 | **Startup smoke** | `pytest` + offscreen Qt | the real `app.main()` entry point comes up headless (composition root, real adapters, a turn of the real event loop), with probes stubbed for hermeticity. `test_app_smoke.py` asserts the window composes (menus + widgets) and the launch dependency check applies **on the GUI thread** with no cross-thread Qt warnings — it caught a real off-thread-apply bug unit tests couldn't. |
 | **Property-based** | `hypothesis` | invariants over huge input spaces — see §4. |
-| **Packaging smoke** | `appimage.yml` | the built AppImage launches headless and reaches the Qt loop (`test_build_harness.py` guards the recipe). |
+| **Packaging smoke** | `appimage.yml` | the built AppImage starts and answers `--version` (which exits before any Qt window), and its bundled `sigstore` verifier runs on a genuine attestation (`scripts/check_bundled_verifier.py`); `test_build_harness.py` guards the recipe. |
 | **Supply-chain / audit** | `ci.yml` + `mutation.yml` | gating `pip-audit` (dependency CVEs), the server-side media-guard (rule 9's CI backstop), the `tests-touched` gate (rule 1's backstop: it fails when `src/platterpus` changes with no change under `tests/` and no `[no-test-needed] <reason>`; advisory when the 2026-07-08 audit added it, gating since 2026-08-20), the gating `gitleaks` job (secret scanning over the full history) and the gating `sbom` job (a CycloneDX inventory of what ships, with a component floor), and the weekly non-gating mutation run — from the 2026-07-08 trust audit ([trust-audit-2026-07-08.md](archive/trust-audit-2026-07-08.md)). |
 | **Manual / hardware** | [test-plan.md](test-plan.md) | a real rip, CTDB verify CRC, the drive-setup wizard screens (Test 3), the read-effort/CD-Extra/companion-log cases (Tests 12–14), the GUI screenshot. Gated work that the cloud env can't validate. |
 
@@ -445,7 +445,10 @@ collector around its pump; the e2e rip fixture pauses it for a whole test):
   instant it goes out of scope; only cycle *detection* is deferred to a
   deterministic point on the main thread.
 * `stop_window_threads` joins **all seven** QThread slots and **all nine** daemon
-  thread slots a window owns. It previously joined four and no daemons.
+  thread slots a window owned on 2026-07-28. It previously joined four and no
+  daemons. (The window has since gained an eighth QThread slot,
+  `_ripper_update_thread`, which `closeEvent` stops and the helper's list does
+  not name.)
 * `_join_leaked_worker_threads` is the backstop for plain `threading.Thread`,
   mirroring the existing one for `QThread`.
 
@@ -827,8 +830,9 @@ Three shapes that work here, all in `tests/test_qthread_ownership.py`:
   by class with the reason as its value, plus a staleness check that fails when an
   entry stops being needed. The forced justification is the feature — it is exactly
   what did not happen for the cancel that wore a killer's docstring for five releases.
-- **Ratchet a gap you are not closing today.** Five workers expose no `cancel()` at
-  all. Pinning that as a frozen set with an upper bound means the known gap is written
+- **Ratchet a gap you are not closing today.** Five workers exposed no `cancel()` at
+  all when this was written (three now; read the live set from
+  `tests/test_qthread_ownership.py::_WORKERS_WITHOUT_CANCEL`). Pinning that as a frozen set with an upper bound means the known gap is written
   down, counted, and can only shrink — the same discipline as the mypy per-module
   opt-outs (`CLAUDE.md` rule 10). A tracked gap is honest; an untracked one spreads.
 
@@ -909,7 +913,8 @@ Two concrete shapes that came out of this one:
 - **Validate at the chokepoint, not at every caller.** The `-t` guard lives in
   `_metadata_args`, the single place argv is built, so it holds no matter which
   path assembled the metadata — including the medium-selection bug that
-  produced the bad list in the first place, which is still unfixed. A boundary
+  produced the bad list in the first place, which was still unfixed when this was
+  written (fixed since by `medium_select.py`). A boundary
   guard is worth having *even when you know the upstream cause*, because it
   bounds the blast radius of causes you have not found yet.
 - **Range-check anything not derived from the thing you are about to act on.**
@@ -4366,11 +4371,12 @@ matches EAC in both rips. That is the disc, not a defect in either build. **It i
 second witness** either: one machine, one distro, one person, and failures in ARCHIVAL
 sections (`docs/handshake/artifactsround30/README.md` → *The 2026-10-05 run*).
 
-**One row is `full-green`, the 2026-10-07 run, and every other row is `partial`.**
-That meets `0.7.100`'s gate. 0.8.1 needs two `full-green` rows on at least two
-machines and two distros, so the count toward it is one of two, on one machine.
+**Four rows are `full-green` (2026-10-07, 2026-10-12, 2026-10-13 and 2026-10-16),
+and every other row is `partial`.** The first met `0.7.100`'s gate. 0.8.1 needs two
+`full-green` rows on at least two machines and two distros, and all four are on one
+machine and one distro, so the count toward it is one machine of two.
 Recording the partials anyway matters: a ledger that held only successes would make
-the denominator invisible. The `full-green` row is one where K1 and K2 *could* have
+the denominator invisible. Each `full-green` row is one where K1 and K2 *could* have
 failed and did not.
 
 **How a row gets produced** is `docs/test-plan.md` **Part E** — the
@@ -4556,7 +4562,8 @@ python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py \
 ```
 
 Install the test tooling with the dev extra: `pip install -e ".[dev]"`
-(brings in `pytest`, `ruff`, `pytest-cov`, `hypothesis`, `mypy`).
+(brings in `pytest`, `pytest-cov`, `pytest-xdist`, `hypothesis`,
+`cyclonedx-python-lib`, `ruff`, `mypy`).
 
 ### Moved from `CLAUDE.md` (2026-09-26): the test-command notes in full
 
@@ -4579,4 +4586,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.7.108.*
+*Last updated for Platterpus v0.7.109.*

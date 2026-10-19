@@ -60,7 +60,7 @@ pieces independently testable and replaceable.
 | **Parsers** | `parsers/` | Turn external tool output (rip logs, disc info) into typed dataclasses. Pure, never raise. | stdlib only |
 | **Deps** | `deps/` | The single dependency self-management subsystem (detect → install → guide) and the host bootstrap/teardown engines. | adapters, stdlib |
 | **Domain** | `ctdb/` | Backend-independent CTDB verify (TOC math, PCM decode, CRC). | adapters, stdlib |
-| **Qt-free domain modules** | ~25 top-level modules (`verdict.py`, `rip_report.py`, `parity.py`, `rip_compare.py`, `naming.py`, `settings_validation.py`, …) | One pure, Qt-free concern each (verdicts, reports, parity, naming, validation, timing, …). **The canonical per-module map is PLANNING.md §2** — look there, not here, for what each does. | parsers, adapters, stdlib |
+| **Qt-free domain modules** | ~80 top-level modules (`verdict.py`, `rip_report.py`, `parity.py`, `rip_compare.py`, `naming.py`, `settings_validation.py`, …) | One pure, Qt-free concern each (verdicts, reports, parity, naming, validation, timing, …). **The canonical per-module map is PLANNING.md §2** — look there, not here, for what each does. | parsers, adapters, stdlib |
 | **Core** | `config.py`, `paths.py`, `logging_setup.py`, `app.py`, `composition.py` | Config schema, well-known paths, app entry, and the composition root. | everything (composition) |
 
 `app.py` is the **composition root**, with the reusable construction logic in
@@ -233,8 +233,9 @@ Worker mechanics, all demonstrated in `workers/`:
   every change made in the meantime. It happened (2026-09-23, reproduced as the
   save sequence `[6, 667]`): the drive wizard, opened from inside Settings, saved
   a new read offset and OK wrote the old one back. The rule is
-  `settings_dialog.apply_user_edits`: snapshot what the widgets were loaded from,
-  and on OK apply only the fields whose widgets now differ. The same shape
+  `user_settings.apply_user_edits` (called by `SettingsDialog`): snapshot what
+  the widgets were loaded from, and on OK apply only the fields whose widgets now
+  differ. The same shape
   applies to any restore: `_restore_settings_after_acceptance` puts back the
   user's settings but not `config.APP_STATE_FIELDS`, because the first version
   restored everything and would have re-asked the first-run setup question after
@@ -421,7 +422,7 @@ returns a best-effort dataclass instead of raising:
 - Match on *labels*, not positions. See `deps/version.py`
   (`DEFAULT_VERSION_PATTERN`) and the live cyanrip rip-progress patterns in
   `workers/rip_worker.py` (`_CYANRIP_TRACK_PROGRESS`,
-  `Ripping(?: and encoding)? track (?P<track>\d+), progress - …`).
+  `Ripping(?P<encoding> and encoding)? track (?P<track>\d{1,4}), progress - …`).
 - Treat "couldn't parse" as a first-class outcome (return `None`/empty), not a
   crash — upstream output drifts.
 - Add a fixture + test for every real-world output sample you encounter, and a
@@ -667,8 +668,10 @@ captured, enumerated in the JSON, and *invisible* in the one file most bug repor
 contain. Failure records land at ERROR or WARNING; `tests/test_diagnostics.py`
 asserts the level, not merely that something was logged.
 
-**`.platterpus.json` — the per-rip bundle.** Schema v16. `diagnostics` sits
-**third**, ahead of `outcome` and the verdict, because it is the first thing anyone
+**`.platterpus.json` — the per-rip bundle.** Its schema number is
+`rip_report.REPORT_SCHEMA_VERSION` (v16 when this was written; read the constant,
+not this sentence). `diagnostics` sits right after the generator header, ahead of
+`outcome` and the verdict, because it is the first thing anyone
 debugging a rip should read. `issues[]` is the severity-tagged derived list — the
 thing a triager opens first — and it is derived from the *serialised* blocks, never
 the raw results, so it can never disagree with what the report shows. `issues[]`
@@ -846,8 +849,8 @@ The pattern that replaced it, and the one to follow for any new grid:
   identically — otherwise the column changes width *between* rips instead of during
   one.
 - **Recompute on a DATA change, never on a status change.** `_apply_column_widths` is
-  called from `set_release` / `set_placeholder_tracks` / the album-artist
-  propagation, and from nowhere else.
+  called once at construction and then from `set_release` /
+  `set_placeholder_tracks` / the album-artist propagation, and from nowhere else.
 - **Two `Stretch` columns split the remainder evenly**, which is almost never what you
   want: it gave a column repeating `"The Police"` the same width as the column of long
   varied titles. Stretch the one that needs the room; size the other to its content
@@ -1054,7 +1057,8 @@ worth running on any package added as "the subsystem for X".
 
 ```
 uiscript/script.py    parse(text) -> [Step]        pure, never raises
-uiscript/verbs.py     VERBS, OPENABLE, reference   the single vocabulary table
+uiscript/verbs.py     VERBS, OPENABLE,             the single vocabulary table
+                      verb_reference()
 uiscript/runner.py    ScriptRunner(window)          one step per event-loop tick
 uiscript/report.py    RunReport -> text / dict      the transcript
 ui/dialogs/script_console.py                        the SURFACE (menu, buttons)
@@ -1275,7 +1279,8 @@ screenshot" is four manual steps and a compression, and a folder upload that sil
 drops one file is indistinguishable from a step that never ran.
 
 So: **every rip writes one `.tar.gz`, on every outcome**, and the UI hands the user its
-location. `evidence_bundle.py` builds it; `main_window_rip._write_evidence_bundle_async`
+location. `evidence_bundle.py` builds it; `main_window_rip._arm_evidence_bundle` (which
+snapshots the rip and hands the build to `_launch_evidence_bundle`'s daemon thread)
 is the only caller for a rip and `uiscript.runner._write_run_bundle` the only one for a
 test-script run.
 
@@ -1360,7 +1365,8 @@ cyanrip is currently the **sole** backend (KDD-18 — the previous backend was
 removed 2026-06-30), but the `RipBackend` ABC seam is kept exactly so another engine
 can be slotted in without rewriting the GUI:
 1. Implement the `RipBackend` ABC in `adapters/xyzrip_backend.py`
-   (`rip`, `disc_info`, `version`, optional `find_offset`/`analyze_drive`).
+   (`list_drives`, `disc_info`, `rip`, `version`, optional
+   `find_offset`/`analyze_drive`).
 2. Add a parser in `parsers/` for its log + disc-info output (named-group
    regex, never-raise, + a property test). Map it onto the shared `RipLog` /
    `DiscInfo` dataclasses so the GUI verdict code is unchanged.
@@ -1714,7 +1720,7 @@ situation, including branches that don't have a published release yet.
 |---|---|---|
 | Every push to `main` | `.github/workflows/appimage.yml` | Builds + smoke-tests (`--version`); uploads the AppImage as a **run artifact**. Catches a broken build recipe immediately. |
 | Manual run on **any branch** | `appimage.yml` (`workflow_dispatch`) | Same — a downloadable AppImage artifact for a branch with no release. (Run artifacts expire — 90 days by default; re-run the workflow to regenerate one.) |
-| Push a `vX.Y.Z` tag **or dispatch the Release workflow with the tag as input** (Actions → Release → *Run workflow* — it creates the tag itself; the only route that works from cloud sessions) | `.github/workflows/release.yml` | Builds, checksums, and **publishes** the AppImage + its `.sha256` + `.zsync` (self-update) + `install.sh`/`install-appimage.sh` to a GitHub Release (`v0.*` → pre-release), then dispatches the PyPI publish. |
+| Push a `vX.Y.Z` tag **or dispatch the Release workflow with the tag as input** (Actions → Release → *Run workflow* — it creates the tag itself; the only route that works from cloud sessions) | `.github/workflows/release.yml` | Builds, checksums, and **publishes** the AppImage + its `.sha256` + `.zsync` (self-update) + `.sigstore.json` (the build attestation the updater checks, §6.2) + `install.sh`/`install-appimage.sh` to a GitHub Release (`v0.*` → pre-release), then dispatches the PyPI publish. |
 
 **Before 2026-09-25, a `main` or branch AppImage was the LAST RELEASE, not the
 tree.** The build pinned `platterpus==<tree version>`, and between releases the tree
@@ -1913,15 +1919,24 @@ workflow builds and uploads the AppImage, its `.sha256`, and the `.zsync`. It
    asset, next to the AppImage. That's the file the updater fetches
    (`<AppImage>.minisig`) and checks.
 
+> **Since 2026-10-12 this order no longer works as written.** Releases on this
+> repository are immutable once published (§6.4 step 1), and `release.yml` publishes
+> its draft in the same step that creates it, so there is no point after CI at which
+> a `.minisig` can still be attached. Arming signing would first need `release.yml`
+> to leave the release as a draft until the signature is uploaded. It is never armed
+> (KDD-37, D9), so nothing waits on this.
+
 > **Sanity check the whole chain** on a spare machine: run the *previous*
 > released Platterpus, "Check for updates," and confirm it installs the new
-> signed release. If you ever need to unpublish, delete the release assets; the
-> updater fails closed rather than installing something unverifiable.
+> signed release. If you ever need to unpublish, delete the release (§6.4; an
+> immutable release's assets cannot be removed one at a time); the updater fails
+> closed rather than installing something unverifiable.
 
 **If a release shipped unsigned by mistake.** The updater will refuse it
-(fail-closed) once signing is armed — that's working as intended, not a bug. Fix
-it by signing that release's AppImage and uploading the `.minisig` (steps 2–4
-above); no rebuild needed, since you sign the exact published bytes.
+(fail-closed) once signing is armed — that's working as intended, not a bug.
+Before 2026-10-12 the fix was to sign that release's AppImage and upload the
+`.minisig` (steps 2–4 above). An immutable release cannot take a new asset, so the
+fix is now a new, signed version (§6.4 step 5).
 
 ### 6.3 Why each CI and release step exists (moved from `CLAUDE.md` *CI / release*, 2026-09-26)
 
@@ -1937,7 +1952,7 @@ above); no rebuild needed, since you sign the exact published bytes.
 
 *Amendment, 2026-10-05 (amendment A12, released from C3 by `PLANNING.md` KDD-41): the `gitleaks` job now DOES scan the full history. It installs the gitleaks CLI itself, version and tarball sha256 pinned in the job, and scans every commit reachable from the checked-out head with merge commits diffed against each parent. Because a scan that read nothing also prints "no leaks found", it refuses a shallow clone, fewer than `MIN_COMMITS_SCANNED` commits, and fewer than 90 % of the commits reachable; the shallow refusal and the absolute minimum exist because a depth-5 clone passed the relative floor alone when it was first tried. `tests/test_workflow_permissions.py` holds the job to that shape. The same day, `lint` started reading `scripts/` and `build/`, and `tests/test_check_script.py::test_the_local_lint_paths_match_ci` holds `scripts/check.py` to the same paths.*
 
-*Amendment, 2026-10-05 (TASKS `scripts-outside-gates`): the `typecheck` job's "strict def-typing across the whole package" now reaches past the package. `[tool.mypy] files` is `src/platterpus`, `scripts` and `build/*.py`, under the same flags and with no per-module opt-out; the first strict run over `scripts/` found 9 errors, one a crash in `scripts/check.py`. The module-size ratchet and the regex-time sweep read the same tooling population (`tests/conftest.py` → `maintained_tooling_modules`), and `tests/test_audit_regressions.py::test_mypy_checks_every_module_the_other_gates_read` holds `files` to it. `lint` (`ruff check` / `ruff format --check`) still reads `src tests` only; `scripts/` and `build/` measured clean under both on the same day.*
+*Amendment, 2026-10-05 (TASKS `scripts-outside-gates`): the `typecheck` job's "strict def-typing across the whole package" now reaches past the package. `[tool.mypy] files` is `src/platterpus`, `scripts` and `build/*.py`, under the same flags and with no per-module opt-out; the first strict run over `scripts/` found 9 errors, one a crash in `scripts/check.py`. The module-size ratchet and the regex-time sweep read the same tooling population (`tests/conftest.py` → `maintained_tooling_modules`), and `tests/test_audit_regressions.py::test_mypy_checks_every_module_the_other_gates_read` holds `files` to it. `lint` (`ruff check` / `ruff format --check`) still reads `src tests` only; `scripts/` and `build/` measured clean under both on the same day.* *(Superseded the same day, as the amendment above records: `lint` in `.github/workflows/ci.yml` reads `src tests scripts build`.)*
 
 #### Releasing is automated
 
@@ -1945,11 +1960,15 @@ above); no rebuild needed, since you sign the exact published bytes.
 
 **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`, which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. **Handshake gate:** if a cyanrip handshake round is open, the release waits — see `docs/cyanrip-handshake.md`. Both directions must be complete: their return file received *and* our verification sent. A partly-verified pin is an unverified pin. Before tagging: **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — this is the *single source*; `pyproject.toml` reads it dynamically, so do **not** add a version there — **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a matching compare link — and **(3)** run **`pytest tests/test_no_stale_version_claims.py`** — the version-bump gate: it fails until the CHANGELOG has a section *and* a compare link for the new version, the `[Unreleased]` link points at it, and README/SECURITY name the new minor and carry its stamp. (Added 2026-08-02 after the maintainer found the README still announcing **v0.5.x** deep into the v0.6 line and noted it *"has happened many times"*. The doc-stamp gate could not see it: a stamp records *when a doc was edited*, and a doc nobody edits keeps an accurate stamp while its prose quietly expires. Two different things, two different checks.) — **(4)** restamp the docs the cycle touched: run `pytest tests/test_doc_version_stamps.py`; it fails listing every Markdown doc changed since the last release tag whose `*Last updated for Platterpus vX.Y.Z.*` footer must move to the new version (the doc-stamp convention — `docs/README.md` → *Doc version stamps*) — and **(5)** **re-run the generators, AFTER the bump, not before**: `python3 scripts/emit_script_language.py`, `python3 scripts/emit_dependency_contract.py` and `python3 scripts/emit_bom.py`. All three embed `__version__` (the BOM names the app version it describes, in `metadata.component`) — the consumer contract carries a `"platterpus_version"` field, not just a footer — so a generator run from *before* step (1) produces a page the emitted-doc tests reject, and **hand-editing the footer does not fix it** because the version appears in generated body content too. Ordering, not effort: it cost a red run on 2026-08-19 with the page otherwise correct. The two tests that catch it (`tests/test_dependency_contract_emitted.py`, `tests/test_script_language_emitted.py`) are the authority; `--check` modes exist on both scripts. **A third generator exists and is NOT version-stamped, so it is not part of the bump ordering: `python3 scripts/emit_ripper_inventory.py` rebuilds the fatal-message inventory and its test fixture from the newest provider contract filed under `docs/handshake/inbound/artifacts/`. Run it when a handshake round ships a new contract, not when the version moves** — it is keyed to the *fork's* releases rather than ours. It has a `--check` mode too, and it is the tool the inventory's own *"do not hand-edit, regenerate"* instruction lacked for eleven rounds. — and **(6)** **re-run `pip install -e .` before you believe a local suite run.** `tests/test_app.py::test_installed_metadata_matches_canonical_version` compares `importlib.metadata.version('platterpus')` against `__version__`, and an editable install records the version *at install time* — so step (1) makes that test fail locally until the metadata is refreshed. It is not a code problem and it is not CI's problem (CI installs fresh every run, so it never sees it); it is purely a dev-container artifact, and it has now cost two confused suite runs in one session. **While you are there: read pytest's own exit code, not a pipeline's.** A `pytest ... | tail` reports `tail`'s status, so a run with a real failure prints `0` — which is the silent-partial-green shape this project already has a guard for, arriving through the tooling rather than the product.
 
+*Correction, 2026-10-19 (documentation audit): two statements in the quote above no longer hold, and it is left as it was because it is verbatim. The **handshake gate** no longer holds a release: since protocol v8 §6b (E1, E9, 2026-10-11) the release prints every open round and goes ahead, and `FORK_PIN` moving only on a close is what keeps a user on a jointly verified ripper (the release-time gates below; `CLAUDE.md` → *CI / release*). And step (5) has **three** emitted-doc tests, not two: `tests/test_bom_emitted.py` holds `scripts/emit_bom.py` beside the two named, and all three scripts have a `--check` mode.*
+
 #### WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (Project operations → CI / release), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run.** A squash merge creates a **new commit**, so CI starts again *on `main`* — and `release.yml`'s CI gate reads **that** run, by head SHA. Dispatching straight after a green PR therefore fires against a run that is still in progress, and the gate refuses with *"refuse to release a commit whose CI is not green"* — which reads like a red suite and is not one. Measured 2026-09-14: merged at 23:43:24, dispatched at 23:43:32, gate refused at 23:43:45, and `main`'s CI went **green at 23:50:07** on the same SHA. The seven-minute matrix is the whole wait. **The gate is right and must not be loosened** — it exists because a release could otherwise ship a commit whose suite was red *or had never run*, and "never run" is exactly the case it caught. Check the CI run for the merge SHA is `completed`/`success`, then dispatch. Same shape as the editable-install note above: a step that is correct and simply has to happen in the right order.
+
+*Correction, 2026-10-19 (documentation audit): every pull request now merges with a **merge commit**; squash and rebase merging have been off since 2026-10-12 (`CLAUDE.md` → *Commit & PR hygiene*). A merge commit is also a new commit on `main`, so the wait described above is unchanged.*
 
 #### The gates that actually run at release time live in `release.yml`, not in the checklist above
 
@@ -2048,9 +2067,12 @@ places we haven't planned.
 - **CTDB repair** (KDD-14/16): the verify half is built and
   backend-independent; repair (wrapping the .NET `ctdb-cli`) is the headline
   EAC++ differentiator, parked on the bundle-vs-install question.
-- **Library management:** ReplayGain, auto-move to a library tree, multi-disc
-  queue, udev-driven auto-detect on disc insert — all sit above the rip
-  pipeline and need no changes to the adapter layer.
+- **Library management:** a multi-disc queue, udev-driven disc-insert events
+  (insert detection today is a media poll, `main_window_drive.py`) — all sit
+  above the rip pipeline and need no changes to the adapter layer. Two items once
+  listed here already ship: auto-move to a library folder (`library_move.py`,
+  Settings → *Move finished rips to*), and ReplayGain, which cyanrip writes into
+  each FLAC and the report records per track.
 - **Internationalization:** user-facing strings are currently inline; a future
   `tr()` pass would route them through Qt's translation system.
 - **Packaging reach:** AppImage + pipx today; the adapter/host-wizard split
@@ -2096,4 +2118,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.7.105.*
+*Last updated for Platterpus v0.7.109.*
