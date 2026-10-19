@@ -127,6 +127,15 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
 
+## fork_release_manifest_44d3cf3.json (added 2026-10-19)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@44d3cf3`, the commit that published `.25`: sha256 `3ddacfff…`, 1,135 bytes,
+pinned by `tests/test_handshake_pin_under_review.py`. Beta names `5f1d036` (`.25`,
+`release_seq` 36, `handshake_round` 35, `round_closed: false`); stable names `891c79e`
+(`.23`, `release_seq` 34, round 34 closed). Round 35's subject from their lap 15, which
+moved the round's pin from `.24` on the operator's override of R4. Not edited.
+
 ## fork_release_manifest_40d319c.json (added 2026-10-16)
 
 The cyanrip fork's `release-manifest.json` exactly as their tree held it at

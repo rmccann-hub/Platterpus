@@ -294,6 +294,13 @@ FORK_PIN: Final[str] = "891c79e"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 35's subject from 2026-10-19, on BETA only: `release_seq` 36,
+    # `handshake_round` 35, `round_closed: false`, version `0.9.4-rc3+platterpus.25`.
+    # Read off their `release-manifest.json` at `44d3cf3` (the commit that published
+    # it), filed byte-exact as `tests/fixtures/fork_release_manifest_44d3cf3.json`.
+    # Their lap 15 moved round 35's pin here from `.24` on the operator's override of
+    # R4 (HANDSHAKE-OVERRIDE in its header).
+    "5f1d036": 36,
     # Round 35's subject, on BETA only: `release_seq` 35, `handshake_round` 35,
     # `round_closed: false`, version `0.9.4-rc3+platterpus.24`. Read off their
     # `release-manifest.json` at `40d319c` (the commit that published it), 2026-10-16,
@@ -848,7 +855,16 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: at `g16b9469`, whose `src/` and `meson.build` equal `93afa15`'s) is filed as
 #: `round-35-lap-01-provider-contract-g16b9469.md`; P1 adds `--prefer-disc-isrc` and
 #: keeps `--consumer` and `-Y`. **`FORK_PIN` stays `891c79e` until round 35 closes.**
-PIN_UNDER_REVIEW: Final[str] = "93afa15"
+#: **Moved `93afa15` -> `5f1d036` on 2026-10-19, still round 35**: their lap 15
+#: (`cyanrip@1279445a`) moves the round's pin to `+platterpus.25` on the operator's
+#: override of R4, and its run to `.25` (S5, S6). Their manifest at `44d3cf3` names
+#: it (`release_seq` 36, beta only; `tests/fixtures/fork_release_manifest_44d3cf3.json`)
+#: and `meson.build` at `5f1d036` declares the version. Its `PROVIDER-CONTRACT.md`
+#: (built at `g3e978f9`, whose `src/` and `meson.build` equal `5f1d036`'s) is filed
+#: as `round-35-lap-15-provider-contract-g3e978f9.md`; P1 keeps `--consumer`,
+#: `--prefer-disc-isrc` and `-Y`. **`FORK_PIN` stays `891c79e` until round 35
+#: closes.**
+PIN_UNDER_REVIEW: Final[str] = "5f1d036"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -1344,6 +1360,10 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # `93afa15` (built at `g16b9469`, same `src/` and `meson.build`) carries
         # `--consumer` in P1 at line 58, unchanged.
         "platterpus-fork-g93afa15",
+        # Round 35's subject from 2026-10-19, `+platterpus.25`. Its
+        # `PROVIDER-CONTRACT.md` at `5f1d036` (built at `g3e978f9`, same `src/` and
+        # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-g5f1d036",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1537,9 +1557,10 @@ def accepts_consumer_flag(build_tag: str) -> bool:
 #: never inferred from a version**, for the reason ``--consumer``'s set gives.
 #: ``.24`` is the first (its ``PROVIDER-CONTRACT.md`` at ``93afa15``, built at
 #: ``g16b9469``, line 60; round 35, TASKS R20). A later build joins when its own
-#: contract is filed and still lists the option.
+#: contract is filed and still lists the option: ``.25`` (``5f1d036``, built at
+#: ``g3e978f9``, line 60) on 2026-10-19.
 BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
-    {"platterpus-fork-g93afa15"}
+    {"platterpus-fork-g93afa15", "platterpus-fork-g5f1d036"}
 )
 
 
@@ -2059,7 +2080,10 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `891c79e`, `version` `0.9.4-rc3+platterpus.23`, as `meson.build` there declares.
     # **Round 35's subject, from their manifest's beta entry at `40d319c`**: `commit`
     # `93afa15`, `version` `0.9.4-rc3+platterpus.24`, as `meson.build` there declares.
-    version="0.9.4-rc3+platterpus.24",
+    # **Moved to `.25` on 2026-10-19 (their lap 15's R4 override), from their
+    # manifest's beta entry at `44d3cf3`**: `commit` `5f1d036`, `version`
+    # `0.9.4-rc3+platterpus.25`, as `meson.build` there declares.
+    version="0.9.4-rc3+platterpus.25",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

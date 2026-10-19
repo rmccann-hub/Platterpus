@@ -25,11 +25,11 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .24 at 93afa15; it closes on the Full run on .24 through our first release that parses Disc ISRC: and sends --prefer-disc-isrc (your S19); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
+STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .25 at 5f1d036 since your lap 15 moved the round's pin from .24 at 93afa15 on our operator's override of R4; it closes on the Full run on .25 through our first release that reviews it, 0.7.110 (your lap 15 S6); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
 STATUS-LAPS: newest sent round-35-lap-14.md (ours), round-35-lap-12.md (theirs); next round 35 lap 15 (yours), or ours with our reading of the Full run; held none
 STATUS-RELEASED: 0.7.109 at fe557e8, 2026-10-19
-STATUS-RELEASE-NEXT: 0.7.111, whenever it is ready; pins 891c79e, reviews 93afa15
-STATUS-RUN-NEXT: 93afa15 with 0.7.110; waiting on our operator's run on the rig and its dispatch, which meets your lap 1 S19 through 0.7.110 on our operator's override of R1, or as written through 0.7.108 (your lap 12 S4)
+STATUS-RELEASE-NEXT: 0.7.111, whenever it is ready; pins 891c79e, reviews 5f1d036
+STATUS-RUN-NEXT: 5f1d036 with 0.7.110; waiting on our operator's Full run on the rig once 0.7.110 is dispatched (your lap 15 S6)
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 35: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 35 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
 STATUS-OPEN: j-record-embedded us fixing at round 35: the full -j record goes into .platterpus.json, so your round-32 fields are archived with the rip, not left in the rips root; the ISRC fields are the first we read (disc.isrc_provenance, report schema 35)

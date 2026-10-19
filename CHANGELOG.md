@@ -16,8 +16,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 The release for the next acceptance run. It stops two of the app's own surfaces over-claiming:
 a CTDB match against a minority entry no longer shows a green "verified", and the AccurateRip
-summary counts the tracks that shipped. It still installs `.23` (`891c79e`) by default and
-reviews `.24` (`93afa15`) for round 35.
+summary counts the tracks that shipped. And it reviews the fork's `.25` (`5f1d036`), to which
+round 35 moved on the operator's word, so the acceptance run can test it. It still installs
+`.23` (`891c79e`) by default.
 
 ### Fixed
 
@@ -36,6 +37,10 @@ reviews `.24` (`93afa15`) for round 35.
 
 ### Changed
 
+- **The build under review is the fork's `.25` (`5f1d036`).** Round 35 moved to it from `.24`
+  on the operator's word of 2026-10-19 (the fork's lap 15); `.25`'s provider contract is filed,
+  the message inventory is regenerated from it (142 refusal messages, nine restored), and the
+  acceptance run's first check, the setup wizard and the build picker now name `.25`.
 - **A weekly dependency check.** `.github/workflows/dependencies.yml` runs every Monday, names
   each dependency behind its newest release, and keeps one issue open until all are current (the
   owner's word of 2026-10-19). `actions/upload-artifact` moves to 7.0.2. The rest of the list

@@ -1524,7 +1524,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # FORK_EXPECTED_VERSION to `.23`, each roll recorded beside its constant.
     # **2751 -> 2773** (2026-10-16, round 35 opens): `.24` becomes the build under review (`PIN_UNDER_REVIEW` `93afa15`, its release sequence 35, its consumer-flag row, its version), each with the source it was read from, as every round open adds.
     # **2773 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): `BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC` and its reader, beside the other per-build capability sets.
-    "deps/fork_source.py": 2796,
+    # **2796 -> 2820** (2026-10-19, round 35 moves to `.25` on the operator's override of R4, the fork's lap 15): `PIN_UNDER_REVIEW` `5f1d036`, its release sequence 36, its consumer-flag and `--prefer-disc-isrc` rows, its version, each with the source it was read from.
+    "deps/fork_source.py": 2820,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2072,7 +2073,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Then 1256 -> 1332: the decisions `.23`'s contract asks for, four strings it
     # dropped retained for `.22` (still `FORK_PIN`), four new P5a rows declined, and
     # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
-    "ripper_message_inventory.py": 1332,
+    # **1332 -> 1362** (2026-10-19): regenerated from `.25`'s contract (`round-35-lap-15-provider-contract-g3e978f9.md`), 142 P5 and 11 P5a; the nine argument errors their lap 15 S10 restored. Generated, not hand-grown.
+    "ripper_message_inventory.py": 1362,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own

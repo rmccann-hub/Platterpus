@@ -143,7 +143,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `cyanrip` | `0.9.4-rc3+platterpus.23` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
-| `cyanrip (build under review)` | `0.9.4-rc3+platterpus.24` | optional | The build handshake round 35 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
+| `cyanrip (build under review)` | `0.9.4-rc3+platterpus.25` | optional | The build handshake round 35 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
 | `cyanrip (upstream)` | `>=0.9.0` | optional | Stock cyanrip. The wizard installs it first from the COPR so a failed fork build still leaves a working ripper; the fork is then exported over it. Also the project the fork tracks. | src/platterpus/deps/host_setup.py (the cyanrip step) | src/platterpus/deps/registry.py (min_version) |
 
 Details for `cyanrip`:
@@ -159,13 +159,13 @@ Details for `cyanrip`:
 - `installed-at`: /usr/local/bin/cyanrip inside the ripping container
 - `host-export`: ~/.local/bin/cyanrip
 - `exported-from`: /usr/bin/cyanrip, /usr/local/bin/cyanrip (the last export wins)
-- `pin-under-review`: 93afa15 (0.9.4-rc3+platterpus.24, round 35, published: yes)
+- `pin-under-review`: 5f1d036 (0.9.4-rc3+platterpus.25, round 35, published: yes)
 - `test-pin`: 3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)
 - `handshake`: bidirectional release handshake: docs/cyanrip-handshake.md
 
 Details for `cyanrip (build under review)`:
 
-- `pin`: 93afa15
+- `pin`: 5f1d036
 - `round`: 35
 - `published`: yes
 
