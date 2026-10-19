@@ -1,8 +1,8 @@
 # EAC parity — how close we are, and what is left
 
-The single home for *"can Platterpus output stand in for an EAC rip?"*. Four investigations that each answered one part of that question, kept whole and put in one place: what deviates and why, whether a tracker would accept our log, how the two log formats compare field by field, and what the actual logcheckers deduct for.
+The single home for *"can Platterpus output stand in for an EAC rip?"*. Four investigations that each answered one part of that question, kept whole and put in one place: what deviates and why, whether a tracker would accept our log, how the two log formats compare field by field, and what the actual logcheckers deduct for. A fifth, Part E, is an independent audit of the whole comparison that re-derives its numbers from the raw logs and grades each area better, equal or worse.
 
-**Read Part A first.** It carries the framing the other three assume — that *bit-identical audio* and *tracker-accepted log* are different goals with different answers, and conflating them is how this subject goes wrong.
+**For the verdict, read Part E first; for the framing, Part A**, which carries the framing the other parts assume — that *bit-identical audio* and *tracker-accepted log* are different goals with different answers, and conflating them is how this subject goes wrong.
 
 ## Standing direction (KDD-36, 2026-09-21)
 
@@ -39,6 +39,7 @@ Consolidated from four separate documents so the subject has one home. Each part
 | B | the former `log-format-comparison.md` | 2026-05-28, rewritten for cyanrip 2026-07-01 |
 | C | the former `eac-log-and-repair-feasibility.md` | 2026-06-28 |
 | D | the former `eac-tracker-requirements-2026-07.md` | 2026-07-29 |
+| E | written here: the independent audit against EAC | 2026-10-19 |
 
 ---
 
@@ -104,6 +105,12 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround34/
    Correction (2026-10-07): earlier text here, and in `TASKS.md`, called track 5
    "the disc" and said no ripper could verify it. The 2026-10-07 secure re-read
    shows otherwise.
+
+   **EAC was not consistent on this disc either** (Part E §E2, 2026-10-19): of its three
+   committed sessions, only 2026-06-11 read track 3 correctly. The two 2026-06-25 sessions
+   (`output_reference/EAC_mp3/`, `EAC_wav/`) read it wrong, with Test ≠ Copy, and one
+   misread track 4 as well. Two of EAC's wrong track-3 values are values our ripper also
+   read, so the misread is the drive's.
 
    The 12/14 below is the dated stock-0.9.3 record that the analysis was written
    against.
@@ -222,7 +229,7 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 | Read offset | **Present + auto-confirmed (KDD-31)** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical to EAC on 14/14 tracks (the fork, 2026-08-04). A rip that matches the AccurateRip global consensus records the offset as `ACCURATERIP_CONFIRMED` (medium on its own), promoted to CONFIRMED/HIGH when it agrees with the AccurateRip-list value (`drive_profiles.py`) — the equal-or-stronger analogue of EAC's Key-Disc check (re-confirms every matching rip). A from-scratch finder for drives *absent* from the AR list is deferred to the soft-fork roadmap. |
 | Cache defeat | **Measured (KDD-29)** | libcdio-paranoia attempts cache defeat every rip; cyanrip emits no verdict, so we **measure** it with `cd-paranoia -A` (libcdio's copy of that same engine) via Set up drive → Analyse cache, recorded per drive and folded into the EAC-compatible log. Still `(unknown)` (never forged) when the probe is inconclusive — the KDD-25 honesty rule holds. Hardware-tuned on the BDR-209D. |
 | Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 14/14 fork rip matched). Flag-letter corrected the same day: this row previously said `-x`, which did not exist in cyanrip then — `-O` verified against 0.9.3.1 + master. `-x` later existed on the fork as the cache probe, not overread, and from `.23` the probe is the long-only `--cache-probe`. **On the BDR-209D leave `-O` off:** cyanrip stalled about 23 minutes at the lead-out with it (2026-07-22, stock 0.9.3; `docs/dependency-contracts.md`). |
-| Subcode / pre-gap / `INDEX 00` | **Present on the fork; absent on stock 0.9.3** | Stock cyanrip 0.9.3 performs no subchannel pre-gap detection, so it emits no `INDEX 00` cue metadata — that is the `cyanrip_flac/` reference, still cited by tests. The Platterpus fork, which is the build the setup wizard installs (KDD-33), reads them from the sub-channel: the 2026-08-04 rig rip matched **all ten** of EAC's `Pre-gap length` rows to the hundredth of a second, in order (`output_reference/cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`). That 2026-08-04 cue predates two fork cue fixes (it has four zero-length `INDEX 00` rows and one ISRC of 14); the 2026-10-07 cue (`docs/handshake/artifactsround31/round31fullwholedisc.cue`) has EAC's nine markers, on the same tracks, and all 14 ISRCs. The underlying *audio* was never affected either way (append/merge-to-previous matches EAC). See "Pre-gaps" above. |
+| Subcode / pre-gap / `INDEX 00` | **Present on the fork; absent on stock 0.9.3** | Stock cyanrip 0.9.3 performs no subchannel pre-gap detection, so it emits no `INDEX 00` cue metadata — that is the `cyanrip_flac/` reference, still cited by tests. The Platterpus fork, which is the build the setup wizard installs (KDD-33), reads them from the sub-channel: the 2026-08-04 rig rip matched **all ten** of EAC's `Pre-gap length` rows to the hundredth of a second, in order (`output_reference/cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`). That 2026-08-04 cue predates two fork cue fixes (it has four zero-length `INDEX 00` rows and one ISRC of 14); the 2026-10-07 cue (`docs/handshake/artifactsround31/round31fullwholedisc.cue`) has EAC's nine markers, on the same tracks, and all 14 ISRCs. Those ISRCs are MusicBrainz's, passed in with `-t`, not the disc's: track 1 reads `GBAAM0201086` where EAC's cue has `GBAAM7800003` (Part E §E5, TASKS R20). The underlying *audio* was never affected either way (append/merge-to-previous matches EAC). See "Pre-gaps" above. |
 | HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and cyanrip (the sole backend since KDD-18) gives us no clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
 | Pre-emphasis | **Preserved from 0.7.102 (`-W`)** | Up to 0.7.101 a pre-emphasised disc was de-emphasised: cyanrip does that by default (`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816) and Platterpus did not pass `-W`, so the FLAC held altered samples AccurateRip could not verify. From 0.7.102 every rip passes `-W` (the maintainer's call, 2026-10-07): the FLAC holds the disc's samples, as EAC's does, and the cue carries `FLAGS PRE` (cyanrip@ca3f3ea:src/cue_writer.c:187-188) for a player to de-emphasise on playback. `-E` (force de-emphasis) is never passed. Untested on hardware: no pre-emphasised disc has been ripped. |
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
@@ -1055,6 +1062,206 @@ policy limit, not a technical one.
 [interviewfor.red ripping](https://interviewfor.red/en/ripping.html) ·
 [eacguide.github.io](https://eacguide.github.io/) ·
 [arg274/cambia](https://github.com/arg274/cambia)
+
+---
+
+## Part E — Independent audit against EAC (2026-10-19)
+
+**Asked by the maintainer, 2026-10-19:** *"you are supposed to be the same or better
+than EAC… can you do a complete 3rd party audit and make sure you are at least as good?
+… give why you are worse or better, make sure there is evidence."*
+
+**How it was done.** Parts A to D were not taken as evidence. Every number below was
+re-derived from a primary artifact: the three genuine EAC 1.8 logs in
+`output_reference/EAC_flac/`, `EAC_mp3/` and `EAC_wav/`, the 262 rip logs filed on the
+`evidence` branch (fetched blobless from evidence commits `c737fb6b`, `f57cdc2b` and `fe13de0c`, read-only, never into the working clone), the
+Platterpus source, and the cyanrip fork's source at the pinned commit `891c79e`
+(`src/platterpus/deps/fork_source.py:270`). Where a claim rests only on a document, it
+says so.
+
+### E1. The answer, first
+
+**On getting the audio right, we are level with EAC on the one drive and disc where the
+two can be compared. We are better at telling the user the truth about a rip, and at
+checking the files afterwards. We are worse in six places, and one is serious: a disc
+AccurateRip does not know gets one read and no second check. And "at least as good as
+EAC" is not proven yet, because every rip on record comes from one drive and one machine.**
+
+| Area | Grade | One-line reason |
+|---|---|---|
+| Reading the audio correctly | **Equal** (one drive) | EAC verified 13, 11 and 12 of 14 tracks in its three sessions; we verified 12 or 13 of 14 in each of 26 (E2) |
+| Proof when AccurateRip has the disc | **Better** | A track that fails AccurateRip is re-read automatically until reads agree; EAC leaves the re-rip to the user |
+| Proof when AccurateRip lacks the disc | **Worse** | Default rip reads each track once with no second pass (E3) |
+| Honesty of the verdict | **Better** | EAC printed `Copy OK` and `No errors occurred` over tracks it could not verify; our log refuses to |
+| File integrity after tagging | **Better** | `flac --test` on the finished files, SHA-256 per file, derived formats re-verified |
+| CTDB | **Worse** | Whole-disc check at offset 0 only; EAC's plugin reports per track, locates the bad samples, and submits |
+| Error location | **Worse** today | Skip counts per track, no positions, in the build users get; the fork's tip adds positions |
+| Cue sheet | **Worse** today | Pregaps match EAC; ISRCs are MusicBrainz's, not the disc's (TASKS R20) |
+| Odd discs (HTOA, Enhanced CD, image + cue) | **Worse** | HTOA and image mode absent; data tracks mishandled (R12, R13) |
+| Contributing back (AccurateRip, CTDB) | **Worse** | AccurateRip submission is impossible from Linux; CTDB submission not built |
+| Tracker acceptance | **Worse, by design** | Logcheckers accept EAC and XLD by name (Part D); not chased |
+| Diagnostics in the record | **Better** | Paranoia counts, loudness, per-track speed, JSON report, session log |
+| Platform, cost, auditability | **Better** | Native Linux, open source, offset and settings chosen for the user |
+| Breadth of proof | **Worse** | One drive model, one machine, one distro, two discs, against EAC's twenty years |
+
+### E2. Extraction accuracy — the head-to-head on the reference disc
+
+The reference disc is The Police, *Every Breath You Take: The Classics*, in a Pioneer
+BDR-209D at +667. It is the only disc both tools have ripped on the same drive.
+
+**EAC, three sessions** (Test & Copy, secure mode, accurate stream, cache defeat on):
+
+| Session | AccurateRip-verified | Tracks that failed | Test CRC ≠ Copy CRC | Speed |
+|---|---|---|---|---|
+| 2026-06-11 (`EAC_flac/`) | 13 of 14 | 5 | none | 1.6–3.5× |
+| 2026-06-25 18:09 (`EAC_mp3/`) | 11 of 14 | 3, 4, 5 | 3, 4 | 3.3–9.1× |
+| 2026-06-25 18:42 (`EAC_wav/`) | 12 of 14 | 3, 5 | 3 | 3.4–9.0× |
+
+`EAC_flac/eac_baseline_police_classics.log` holds the 06-11 session twice, one minute
+apart; it is one rip, counted once here.
+
+**Platterpus, 26 rips** (2026-08-04 to 2026-10-16; every 14-track EAC-layout export on
+`evidence` plus `output_reference/cyanrip_fork_flac/`; one row per shipped album):
+
+| Track | Result over 26 |
+|---|---|
+| 1, 2, 4, 6–14 | the AccurateRip value at confidence 200, all 26 times |
+| 3 | AccurateRip's `59D352DD` 9 times; 15 different values in all; none since 2026-09-30 |
+| 5 | AccurateRip's `C96464AB` once (2026-10-07 secure re-read); EAC's unverified `E0036697` 17 times; `6902BCF0` 7; `4065BECC` 1 |
+
+So every rip verified 12 or 13 of 14: 13 in ten rips, 12 in sixteen. **Part A's TL;DR
+numbers all re-derive exactly** (the method is in the 2026-10-19 session-log entry).
+
+**What the comparison shows:**
+
+- **Neither tool reads tracks 3 and 5 reliably on this drive.** EAC read track 3
+  correctly in 1 of 3 sessions; we did in 9 of 26. EAC never read track 5 correctly; we
+  did once.
+- **The wrong reads are the drive's, not the ripper's.** EAC's wrong track-3 copies
+  `418F6CF8` (`EAC_mp3/…log:86`) and `329DC760` (`EAC_wav/…log:86`) are byte-for-byte
+  values our ripper also produced. Our 2026-10-07 securing pass read `418F6CF8` three
+  times in a row and accepted it as converged
+  (`docs/handshake/artifactsround31/round31fullwholediscsecuringpass.txt:57-63`). Our
+  2026-10-05 22:48 whole-disc rip shipped `329DC760`
+  (`docs/handshake/artifactsround30/round30oct06fullwholedisceac.log`). Two different programs got the same wrong bytes, so the drive gives back the
+  same wrong data on that track. That is a systematic misread, and no software on this
+  drive can beat it except by luck.
+- **Track 4 goes our way.** EAC misread it once (`EAC_mp3/…log`, Test `60D796AE`,
+  Copy `1D0079A1`). We read it right 26 times out of 26.
+- **Agreement is not correctness, for either tool.** EAC's Test and Copy agreed on the
+  wrong track-5 value in all three sessions, and its CTDB plugin found that read 3
+  samples off at 02:24:59 (`EAC_flac/…log:264`). Our `-Z` re-reads also "converged" on
+  wrong values: track 3 on `3D8FCF0C` after 3 reads
+  (`docs/handshake/artifactsround30/round30fullsecurereread.log:263-264`), and track 5 on
+  `E0036697` again and again. Our securing pass accepted EAC's own wrong `418F6CF8` after
+  three identical reads (above). Only AccurateRip and CTDB catch this, in both tools.
+- **One thing to settle: is the disc wearing out?** We read track 3 right in 9 of the
+  first 11 rips and in none of the last 15. EAC's last session was 2026-06-25. A fresh
+  EAC rip on the same drive (Windows, or EAC under Wine) would show whether the disc
+  has worn or our reads have got worse. Logged as TASKS R32.
+
+**Grade: equal**, with the caveat that it is one disc in one drive. Per rip, EAC
+averaged 12.0 of 14 (3 sessions) and we averaged 12.4 (26 rips). Those samples are too
+small to call either one better.
+
+### E3. The serious gap: a disc AccurateRip does not know
+
+The default rip is *dynamic* (`config.py:314-325`): read the whole disc once at speed,
+then re-read only the tracks that miss AccurateRip. When the disc is not in AccurateRip
+at all, the securing pass is **skipped** (`securing_pass.py:159-166`,
+`SKIPPED_DISC_NOT_IN_ACCURATERIP`). Each track is then read exactly once.
+
+How much a single read is worth on this drive, measured: track 3's first-pass read was
+wrong in **11 of the 12** whole-disc rips on `evidence` (rounds 27 to 34, and the
+0.7.103 run). Each wrong read came with `Ripping errors: 0`, `Track 3 read
+successfully!` and no skips; only AccurateRip knew (e.g.
+`docs/handshake/artifactsround31/round31fullwholedisc.log:241` and `:1141`). On a disc
+AccurateRip does not know, a misread like that would ship with nothing in the rip to
+flag it.
+
+EAC configured for Test & Copy reads every track twice whatever the database says, so
+it would at least flag the read as unstable when the two reads differ. That is what it
+did for track 3 in two of its sessions. (When the misread is systematic, as on track 5,
+Test & Copy cannot catch it either.)
+
+This is already on the backlog as the maintainer's own *First-rip proof* (TASKS.md, P0,
+2026-07-30), unstarted, waiting on one decision: whether doubling rip time for unknown
+discs is acceptable. **This audit recommends yes:** run `-Z` on every track when the
+disc is not in AccurateRip, and give the result its own named verdict. Otherwise a rare
+pressing, a promo or a CD-R gets the weakest proof, and those are the discs where no
+re-rip from a database is possible later.
+
+### E4. The rest of the extraction path, row by row
+
+| EAC capability | What we do, with the evidence | Grade |
+|---|---|---|
+| Secure read | libcdio-paranoia at `PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP` (`cyanrip@891c79e:src/cyanrip_main.c:175`, set at `:358`), `-r 5` retries. After retries paranoia may *skip* (keep an unverified read) and counts it; EAC keeps going too, and marks the position | Equal on results (E2); see *error location* |
+| Test & Copy | `-Z N` keeps reading until N+1 reads agree and keeps the read most reads agreed on; on by default only for AccurateRip-failing tracks; a Settings tick makes it every track | Better when AccurateRip has the disc, worse when not (E3) |
+| Cache defeat | Paranoia tries on every read; the result is measured per drive (KDD-29, measured `Yes` on the BDR-209D) | Equal on the rig; unmeasured elsewhere |
+| C2 pointers | Not used; the log states the drive's capability (`cyanrip@891c79e:src/cyanrip_log.c:927-928`). EAC's baseline also had C2 off | Equal |
+| Accurate stream | No equivalent, and nothing measures it | Not determined |
+| Read offset | From AccurateRip's drive list, applied with `-s`, and re-confirmed by every rip that matches AccurateRip (KDD-31) | Equal; ahead in that it re-confirms on every rip |
+| Overread into lead-in and lead-out | Opt-in `-O`; it stalled for about 23 minutes on the BDR-209D (Part A scorecard) | Equal (EAC's baseline left it off) |
+| Read speed | The drive does not advertise speed control (`Speed: default (unchangeable)` in all 135 drive banners on `evidence`), so we never send `-S`, and the read-speed ladder only re-reads. Its slower steps have never run on hardware | Not proven |
+| Error location | Pinned `.23`: skip and error **counts** per track only. EAC prints `Suspicious position` times, and its CTDB plugin pinpoints errors (`Differs in 16 samples @04:04:68,04:05:17,04:11:32`, `EAC_wav/…log`). The fork's tip records positions (`cyanrip@820c0c5:src/cyanrip_main.c:643-645`), but no released build does yet | Worse today |
+| Pregaps, `INDEX 00` | Matches all ten of EAC's pregap rows (`tests/test_fork_rip_eac_parity.py`); the 2026-10-07 cue's `INDEX 00` lines equal EAC's | Equal |
+| Hidden track one audio (HTOA) | Not supported (out of scope, TASKS.md) | Worse (rare discs) |
+| Pre-emphasis | Kept as the disc stores it (`-W`) with `FLAGS PRE` in the cue, from 0.7.102; never ripped on hardware | Equal, but not shown on a real disc |
+| Data tracks (Enhanced CD) | `.23` copies them by default, and the verdict counts a data track as a missing audio track (TASKS R12, R13) | Worse |
+| Single-file image + cue | Not supported (Part A P5) | Worse |
+
+### E5. Verification, output and record
+
+| EAC (with the CTDB and AcoustID plugins) | Ours, with the evidence | Grade |
+|---|---|---|
+| AccurateRip v1 and v2, confidence | Same, plus the frame-450 one-frame match reported separately and never counted as verified | Equal, plus a diagnostic EAC lacks |
+| Re-reads a failed track automatically | No; the user re-rips by hand | **We do it:** the securing pass and the auto-fix re-read (`securing_pass.py`) |
+| CTDB: per-track status, finds offset-shifted pressings, locates bad samples, submits; CUETools repairs | One whole-disc check at offset 0. A non-match says nothing, because offset-shifted pressings are not checked (`ctdb/verify.py:250-256`). No per-track result, no localisation, no submission, no repair (repair deferred, KDD-14) | **Worse.** On this disc EAC's CTDB plugin pinpointed track 3's 14 to 16 bad samples; our CTDB check cannot |
+| AccurateRip submission | Impossible from Linux | Worse (ecosystem) |
+| Verdict wording | A skipped or non-converged track reads `Copy NOT confirmed`, never `Copy OK` (Part B). EAC printed `Copy OK` over tracks whose Test and Copy CRCs differed, and `No errors occurred` under them (`EAC_mp3/…log`, tracks 3 and 4) | Better |
+| Integrity of finished files | `flac --test` decode of every file after tagging and cover art, SHA-256 per file, derived MP3, WavPack and WAV checked against the FLAC master (`workers/flac_verify_worker.py`, `checksums.py`). EAC's `flac -V` checks the encode only | Better |
+| Cue ISRCs | MusicBrainz's ISRC for each track, passed in with `-t`, not the disc's (TASKS R20): track 1 is `GBAAM0201086` in ours (`docs/handshake/artifactsround31/round31fullwholedisc.cue`) and `GBAAM7800003` in EAC's. Two codes for one recording can both be valid; a cue's ISRC should be the disc's. EAC can read cue ISRCs from the disc, but its log does not say where these came from, and `.23`'s own disc read has not been compared with them. `.24`'s `--prefer-disc-isrc` fixes ours; `.23` is still what users install | Worse today |
+| Log checksum | Fork `Log FUN512` plus our SHA-256 footer, open and checked on every rip. EAC's is obfuscated and has been reverse-engineered (`eac_logsigner`). Neither stops a determined forger | Equal in strength; only EAC's is recognised by others |
+| Tags, cover art | MusicBrainz via the adapter, front art embedded, back and booklet saved, ReplayGain and R128 | Better out of the box |
+
+### E6. How much the evidence covers
+
+**Covered, with evidence:** the extraction path on one Pioneer BDR-209D (firmware
+1.51, all 135 drive banners on `evidence`), on one Bazzite machine (every row of the
+`docs/testing.md` §5B ledger), with two discs: the 14-track reference disc and an
+18-track damaged disc (DiscIDs `pNtImOkd…` and `zxtbw2Jg…`). Four full-green
+acceptance runs (2026-10-07, 10-12, 10-13 and 10-16).
+
+**Not covered:** a second drive or chipset; a second machine or distro (the 0.8.1 gate
+needs both); a disc AccurateRip does not know, ripped end to end and checked against a
+second drive; a pre-emphasised disc; an HTOA disc; an Enhanced CD; a CD-R; a drive that
+honours speed changes.
+
+EAC's case rests on two decades of use across thousands of drives. AccurateRip's
+drive-offset list was largely built from EAC users. **Our extraction is as good as
+EAC's on the one drive we can compare, and nothing yet shows how it does on any
+other.**
+
+### E7. What to do, ranked by archival impact
+
+1. **Read every track at least twice when AccurateRip lacks the disc** (E3; the
+   maintainer's *First-rip proof*, items 1 and 2). Needs the maintainer's yes on rip
+   time.
+2. **Prove it on more hardware:** a second drive from another maker, a second machine
+   and distro, and the disc types in E6. This is also the 0.8.1 gate.
+3. **Find out whether the reference disc is wearing out:** one EAC rip of it now on the
+   BDR-209D (TASKS R32).
+4. **Deepen CTDB:** per-track results, then the offset-shifted sweep, then localisation
+   of bad samples, then submission (TASKS R33). Repair stays deferred under KDD-14.
+5. **Ship disc ISRCs** with `.24` (R20) and **data-track handling** (R12, R13).
+6. **Show error positions** once the fork releases them. They need EAC-layout wording
+   agreed through the handshake, since the fork diffs that log (TASKS R34).
+7. HTOA and image + cue: low, only if users ask.
+
+**Corrections this audit made to Parts A and B:** Part A's scorecard said the 2026-10-07
+cue carries "all 14 ISRCs". It does, but they are MusicBrainz's codes, not the disc's.
+And Part A compared us with one EAC session; the two other committed EAC sessions read
+track 3 wrong and misread track 4 once. Both are fixed inline above, with a pointer here.
 
 ---
 

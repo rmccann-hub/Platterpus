@@ -97,6 +97,9 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 | R29 | **cyanreg/cyanrip#167 has a maintainer reply we cannot read from here.** The fork's lap 5 reports the issue as unreadable to them too | The operator relays any reply; we answer it in the next lap if it bears on our use of the flags | operator |
 | R30 | **A stock cyanrip would refuse every rip on `--diagnostics`.** Found by the 2026-10-19 docs audit, from source, not run: the argv builder sends `--diagnostics` to every build (`adapters/cyanrip_backend.py`, `argv += diagnostics_args()`), while `--consumer` and `--prefer-disc-isrc` go only to builds known to accept them. Stock cyanrip 0.9.3.x, which the setup wizard installs from the COPR before building the fork, parses options with `getopt`, has no long options and returns 1 on an unknown one (`cyanrip@063d848:src/cyanrip_main.c:1797-1798`), so an install where the fork build failed and stock remained cannot rip. | Withhold `--diagnostics` only from a build POSITIVELY identified as stock (`ripper_identity` `kind == "stock"`), and keep sending it to the fork and to an unreadable banner, because dropping it there loses the one record of a refused run. Needs the observed banner, not only the tag, at the argv chokepoint; a test per kind | ours |
 | R31 | **Three §1b cells we left `?` in our round 35 lap 8 S5:** `-X` (whether a data track's raw binary belongs in an archive), `-C` (our cover art goes in after the rip; whether `-C` should replace that) and `-B` (whether a rip under `-N` fingerprints at all). And the fork's builds our lap 8 accepted or named: error positions, all-reads counters, `--encoder-option`, exit codes 64/74/128+N (ours to map in `ripper_exit.py` once built) | Settle each cell with `NO: <reason>` or a change, in a lap; map the exit codes when a build carries them | ours |
+| R32 | **Is the reference disc wearing out, or have our reads of track 3 got worse?** Found by the 2026-10-19 EAC audit (`docs/eac-parity.md` Part E §E2): we read track 3 right (`59D352DD`) in 9 of the first 11 rips and in none of the last 15 (since 2026-09-30); EAC's last session was 2026-06-25, and two of its three sessions also misread track 3. Nothing on record separates a worn disc from a change on our side | One EAC rip of the reference disc now, on the BDR-209D (Windows, or EAC under Wine), with its log committed beside the others in `output_reference/`; if EAC also reads track 3 wrong, it is the disc | maintainer, on hardware |
+| R33 | **CTDB is a whole-disc check at offset 0 only.** No per-track result, no offset-shifted sweep, no localisation of bad samples, no submission (`ctdb/verify.py:250-256`). On the reference disc EAC's CTDB plugin pinpointed track 3's 14 to 16 bad samples (`output_reference/EAC_wav/`); ours cannot. Found by the 2026-10-19 EAC audit (Part E §E5) | In order: per-track CTDB results, then the offset sweep, then sample localisation, then submission (repair stays deferred, KDD-14); each with a test against a real CTDB response | ours |
+| R34 | **Error positions, once a released fork build prints them.** EAC logs where a track was doubtful; the build users get (`.23`) prints only counts. The fork's tip records positions (`cyanrip@820c0c5:src/cyanrip_main.c:643-645`), accepted in our round 35 lap 8. Found again by the 2026-10-19 EAC audit (Part E §E4) | Parse them with a never-raises property test, put them in the report, and agree their EAC-layout wording through the handshake (the fork diffs that log) | ours, on the build that carries them |
 
 ### P2 — close soon, in this order
 
@@ -7389,6 +7392,14 @@ never be glossed: **it cannot detect a systematic misread**, a drive that return
 wrong bytes every time. Only a *second drive* breaks that, because it is the only way to
 vary the thing being tested. Any "gold standard" wording has to respect that boundary or
 it is the same borrowed confidence in a new costume.
+
+> **Measured 2026-10-19 (the EAC audit, `docs/eac-parity.md` Part E §E3).** On the
+> reference disc, track 3's first-pass read was wrong in 11 of the 12 whole-disc rips on
+> `evidence`, each with `Ripping errors: 0` and no skips; only AccurateRip knew. In the
+> default dynamic mode a disc AccurateRip does not know gets no securing pass at all
+> (`securing_pass.py`, `SKIPPED_DISC_NOT_IN_ACCURATERIP`), so a misread like that would
+> ship with nothing to flag it. The audit recommends piece 2 below; the rip-time question
+> is still the maintainer's.
 
 Four candidate pieces, cheapest first. **None started — the defaults question below is the
 maintainer's call, not mine:**

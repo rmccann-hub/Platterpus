@@ -12,6 +12,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
+  re-derives every accuracy number from the raw logs: the three committed EAC sessions
+  and the 262 rip logs on the `evidence` branch. It grades each area better, equal or
+  worse. On the reference disc we are level with EAC on reading the audio (EAC verified
+  13, 11 and 12 of 14 tracks; we verified 12 or 13 in each of 26 rips, and both tools
+  get the same wrong bytes from this drive on track 3). We are better at the verdict and
+  at checking files after the rip. We are worse when AccurateRip does not know the disc
+  (one read, no second check), at CTDB, at error location and at ISRCs in the cue, and
+  every rip on record comes from one drive. It corrects two statements in Part A and
+  adds TASKS rows R32 to R34.
+
 ## [0.7.109] — 2026-10-17
 
 The release that reads the fork's next `Disc ISRC:` shape, which the fork waits for before it

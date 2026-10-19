@@ -11,6 +11,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-19 — an independent audit against EAC
+
+**Asked:** a complete third-party audit of Platterpus against EAC, better or worse with reasons
+and evidence. **Built:** `docs/eac-parity.md` Part E, two inline corrections to Part A, TASKS
+rows R32 to R34, and a measured note on the *First-rip proof* item. No code changed.
+
+**Method, so the numbers can be re-derived.** The 262 `.log` files under
+`docs/handshake/artifactsround26/` to `artifactsround34/` were fetched blobless into a
+separate bare repository (evidence commits `c737fb6b`, `f57cdc2b`, `fe13de0c`). Each
+14-track EAC-layout export (`*eac.log`, plus `output_reference/cyanrip_fork_flac/`) was
+split at `^Track N$`, and its `Copy CRC` and AccurateRip line were read per track: 26
+rips. First-pass values came from each raw `*wholedisc.log` (`EAC CRC32:`, `Paranoia
+status counts:`, `Ripping errors:`). EAC's three sessions were read the same way from
+`output_reference/EAC_*/` (UTF-16). Every Part A TL;DR number re-derived exactly.
+
+**Learned.** (1) EAC's own logs disagree with each other on this disc. Two of its three
+sessions misread track 3, and two of its wrong values match values our ripper read, so
+comparing against one EAC session overstated what EAC achieves. (2) The exports show
+what *shipped*, after the securing pass. The raw first pass is much worse on track 3:
+1 of 12 right, all with `Ripping errors: 0`. That is the evidence for the gap the
+maintainer named on 2026-07-30: a disc AccurateRip does not know gets one read.
+(3) The four audit helpers stopped on the session's usage limit; the audit was finished
+by hand from their partial evidence fetch.
+
 ## 2026-10-19 — prompts attached to the window, a documentation audit, and round 35 lap 8
 
 - **Prompts.** The operator asked that no prompt open as a window of its own. The album picker was already parented; the crash dialog was not, and is now. `tests/test_dialogs_have_a_parent.py` refuses a parentless dialog anywhere in the package (PR #357).
