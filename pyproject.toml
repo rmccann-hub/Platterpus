@@ -350,11 +350,34 @@ disallow_any_generics = true
 [[tool.mypy.overrides]]
 module = [
     "platterpus.rip_report",                  # 67 — the .platterpus.json shape
-    "platterpus.rip_compare",                 # 18 — reads that same shape
-    "platterpus.adapters.musicbrainz_client", # 10 — genuine raw-JSON boundary
-    "platterpus.ui.main_window_shared",       #  9 — shared-surface report attrs
-    "platterpus.ui.main_window",              #  6
-    "platterpus.workers.rip_worker",          #  5
+    #   (re-measured 2026-10-19, mypy 2.3.1: 70 before this round's retirements,
+    #   67 after its three `secure_rerip` parameters became `SecureReripBlock`.)
+    #
+    # RETIRED 2026-10-19, five at once (TASKS D2). Measured with each opt-out
+    # removed, mypy 2.3.1: rip_worker 5, main_window 8, main_window_shared 10,
+    # musicbrainz_client 9, rip_compare 18.
+    #   * `platterpus.workers.rip_worker` — its retried-track, ETA-sample and
+    #     secure-re-rip records are now the report's own `RetriedTrackBlock`,
+    #     `EtaSampleBlock` and `SecureReripBlock`. Typing them found a dropped
+    #     field: the worker writes `trigger` on every retried track, the TypedDict
+    #     did not declare it, and `read_speed_ladder.attempts_to_report` (which
+    #     copies field by field) had left it out of every report since v0.6.19.
+    #     Restored as report schema v36. `EtaSampleBlock` likewise gained the
+    #     `pass_kind` key the worker has written since 0.6.4b13.
+    #   * `platterpus.ui.main_window` and `platterpus.ui.main_window_shared` —
+    #     ONE set of attributes declared twice (the window's `__init__` and the
+    #     mixin seam), so they retire together. The window's working copies take
+    #     the worker's types; `_last_outcome` / `_last_disc` / the settings
+    #     snapshot take `dict[str, object]` / `dict[str, bool]`, the types of the
+    #     `PostRipRecord` fields they are frozen into.
+    #   * `platterpus.adapters.musicbrainz_client` — the raw-JSON boundary named
+    #     as `dict[str, Any]` / `list[Any]` aliases, the same call `config.py`
+    #     makes for raw TOML (see the comment at the aliases).
+    #   * `platterpus.rip_compare` — `dict[str, object]`, as the note above says.
+    #     It found a never-raises breach: both track readers iterated
+    #     `report.get("tracks") or ()`, so `"tracks": 5` in a report on disk made
+    #     `best_of_plan` raise TypeError.
+    #
     # RETIRED 2026-07-31: `platterpus.parsers.cyanrip_log` — its single bare
     # `dict` was the in-progress track block, now the typed `_TrackAcc`
     # dataclass, so the parser that produces the bit-perfection claim is fully

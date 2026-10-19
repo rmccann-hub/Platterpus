@@ -97,6 +97,17 @@ def test_the_render_says_why_it_is_a_separate_file() -> None:
     assert "BYTE-EXACT" in text or "byte-exact" in text.lower()
 
 
+def test_an_unrecorded_reason_is_not_reported_as_instability() -> None:
+    """A rebuild from a report written before the trigger reached the report
+    (0.6.19 to 0.7.108) has no reason to give. Tri-state: it says it does not
+    know, rather than naming read instability, which nobody recorded."""
+    text = ra.render_addendum("", [_record()])
+    assert "did not read consistently" not in text
+    assert "did not match AccurateRip" not in text
+    assert "did not record why" in text
+    assert "did not read consistently" in ra.render_addendum("instability", [_record()])
+
+
 def test_a_missing_field_renders_as_na_rather_than_being_dropped() -> None:
     """An omitted row silently reads as "unchanged", which is the H5 failure again."""
     text = ra.render_addendum("instability", [_record(accuraterip_v1="", crc="")])
@@ -511,6 +522,44 @@ def test_the_supersede_is_rebuilt_from_the_report_when_no_sidecar_exists(
     assert ra.ADDENDUM_MARKER in text
     for expected in ("Track 5", "6902BCF0", "4CCBCF89", "converged after 3 reads"):
         assert expected in text, f"the rebuilt block lost {expected!r}: {text}"
+
+
+def test_the_rebuilt_supersede_says_why_from_a_report_our_producer_wrote(
+    tmp_path: Path,
+) -> None:
+    """Regression (2026-10-19, schema v36): the reason came from a stand-in.
+
+    The fixture above writes ``trigger`` by hand, but the real report had not
+    carried it since v0.6.19: ``read_speed_ladder.attempts_to_report`` copied the
+    retried-track record field by field and left it out. So the rebuilt block
+    said "did not read consistently" of a track re-read because it did not match
+    AccurateRip. This builds ``read_speed`` with the real producer instead.
+    """
+    from platterpus.read_speed_ladder import SpeedAttempt, attempts_to_report
+
+    report = _report_with_replaced_track_5()
+    report["read_speed"] = attempts_to_report(
+        [SpeedAttempt(1, 0, 2, clean=True)],
+        unstable=[],
+        retried=[
+            {
+                "track": 5,
+                "trigger": "accuraterip",
+                "reripped_z": 2,
+                "converged": True,
+                "replaced": True,
+                "replaced_because": "accuraterip",
+            }
+        ],
+    )
+    log = tmp_path / "Album.log"
+    log.write_text("Track 5\n", encoding="utf-8")
+    (tmp_path / "Album.platterpus.json").write_text(
+        json.dumps(report), encoding="utf-8"
+    )
+    text = ra.addendum_text(log)
+    assert "did not match AccurateRip on the first pass" in text, text
+    assert "did not read consistently" not in text, text
 
 
 def test_a_legacy_sidecar_still_wins_over_the_report(tmp_path: Path) -> None:

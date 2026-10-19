@@ -555,6 +555,31 @@ def test_best_of_plan_never_raises_on_garbage() -> None:
     assert plan.entries == ()
 
 
+@pytest.mark.parametrize("hostile", [5, True, 2.5])
+def test_a_report_whose_tracks_is_not_a_list_is_read_as_no_tracks(
+    hostile: object,
+) -> None:
+    """Regression (2026-10-19): ``"tracks": 5`` made ``best_of_plan`` raise.
+
+    Both track readers iterated ``report.get("tracks") or ()``, so a truthy
+    non-list in a report read from disk raised ``TypeError``. ``best_of_plan``
+    promises never to raise and has no handler of its own; ``compare_reports``
+    survived only through its catch-all, which threw the whole comparison away
+    as "an unexpected error" over one malformed key. Found by typing the report
+    as ``dict[str, object]``, where the iteration no longer type-checks.
+    """
+    a = _report(tracks=[_track(1, "AA")])
+    b = _report(tracks=[_track(1, "BB", verified=False)])
+    bad = dict(a, tracks=hostile)
+    plan = best_of_plan(compare_reports(a, b), bad, b)
+    # A names no file now, so the plan falls back to B and flags the track, as
+    # it does for a track whose filename is missing.
+    assert plan.entries[0].side == SIDE_B
+    assert 1 in plan.ambiguous_tracks
+    comp = compare_reports(bad, b)
+    assert not any("unexpected error" in note for note in comp.notes), comp.notes
+
+
 def test_find_prior_report_scans_extra_roots(tmp_path: Path) -> None:
     """With auto-move on, prior rips live in the LIBRARY folder — extra_roots
     lets the scan cover it, and the newest match across ALL roots wins."""

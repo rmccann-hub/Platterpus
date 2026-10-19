@@ -42,6 +42,7 @@ from platterpus.report_types import (
     DebugBlock,
     EnvironmentBlock,
     ReportReadSpeedBlock,
+    SecureReripBlock,
     TimingBlock,
 )
 from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
@@ -337,7 +338,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `prefer_disc_isrc_sent` (from the argv as spawned; null with no argv). With
 #      `passed` known, `agreement` compares the disc with what we passed, since
 #      under the option the files carry the disc's code. Additions only.
-REPORT_SCHEMA_VERSION: int = 35
+# v36: `read_speed.retried_tracks[].trigger` RESTORED — why each track was re-read
+#      (`accuraterip` / `instability`, `securing_pass.TRIGGER_*`), or null. The
+#      worker always wrote it (v23 reports carry it), but the field-by-field copy
+#      in `read_speed_ladder.attempts_to_report` (v0.6.19) did not name it, so
+#      every report since dropped it, and a supersede rebuilt from the report
+#      said "did not read consistently" of a track re-read for AccurateRip. Found
+#      2026-10-19 by typing the worker's record as `RetriedTrackBlock`. Additions only.
+REPORT_SCHEMA_VERSION: int = 36
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -386,7 +394,7 @@ def build_report(
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
     read_speed: ReportReadSpeedBlock | None = None,
-    secure_rerip: dict | None = None,
+    secure_rerip: SecureReripBlock | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
     audio_md5: dict | None = None,
@@ -1234,7 +1242,7 @@ def _build(
     audio_md5: dict | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
-    secure_rerip: dict | None = None,
+    secure_rerip: SecureReripBlock | None = None,
     outcome: dict | None = None,
     settings: dict | None = None,
     disc: dict | None = None,
@@ -2660,7 +2668,7 @@ def write_report(
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
     read_speed: ReportReadSpeedBlock | None = None,
-    secure_rerip: dict | None = None,
+    secure_rerip: SecureReripBlock | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
     audio_md5: dict | None = None,

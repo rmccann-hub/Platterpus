@@ -51,7 +51,9 @@ from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
 from platterpus.disc_probe_retry import DiscReadRetries
 from platterpus.drive_profile_store import DriveProfileStore
-from platterpus.report_types import TimingBlock
+from platterpus.parsers.rip_log import RereadAgreement
+from platterpus.read_speed_ladder import SpeedAttempt
+from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlock
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.getting_started_dialog import GettingStartedDialog
@@ -554,24 +556,24 @@ class MainWindow(
         # The adaptive read-speed ladder's per-pass history for the just-finished
         # rip (read off the worker at finish, before it's cleared), folded into
         # the report so a slow re-read — or a still-unresolved disc — is recorded.
-        self._last_speed_attempts: list = []
+        self._last_speed_attempts: list[SpeedAttempt] = []
         # Tracks whose secure re-read never converged on the just-finished rip
         # and that the per-track auto-fix couldn't rescue — flagged in the report
         # + results pane.
-        self._last_unstable_tracks: list = []
+        self._last_unstable_tracks: list[int] = []
         # Per-track auto-fix history for the just-finished rip (which unstable
         # tracks were re-ripped alone, whether they converged, whether swapped in).
-        self._last_retried_tracks: list = []
+        self._last_retried_tracks: list[RetriedTrackBlock] = []
         # Parsed records of the re-rips SWAPPED INTO the album on the
         # just-finished rip, keyed by track number — the shipped files' own
         # reads, which the whole-disc first-pass log cannot describe.
-        self._last_swapped_tracks: dict = {}
+        self._last_swapped_tracks: dict[int, object] = {}
         # How many reads agreed in each of those re-reads, swapped in or not,
         # from the re-rip's own log (`RipWorker.reread_agreements`).
-        self._last_reread_agreements: dict = {}
+        self._last_reread_agreements: dict[int, RereadAgreement] = {}
         # The just-finished rip's ETA trace (PC clock + cyanrip's ETA + our ETA +
         # read speed) — recorded in the report "for posterity" / future modelling.
-        self._last_eta_trace: list = []
+        self._last_eta_trace: list[EtaSampleBlock] = []
         # Rip time-windows (epoch start, end) for every rip THIS session, used to
         # strip *other* albums' rip lines out of each report's embedded debug log
         # (the report stays a self-contained, single-album debug record). The
@@ -604,8 +606,8 @@ class MainWindow(
         # The settings this rip runs under, frozen at Start (see
         # `main_window_shared`), and the post-rip ledger that says which
         # checks were begun and which a newer rip cut short.
-        self._rip_settings_snapshot: dict | None = None
-        self._rip_gate_inputs: dict | None = None
+        self._rip_settings_snapshot: dict[str, object] | None = None
+        self._rip_gate_inputs: dict[str, bool] | None = None
         self._post_rip_records: dict[int, PostRipRecord] = {}
         # The system-tray icon for the rip-complete notification, created lazily
         # by `_ensure_tray_icon`. Initialised HERE, at runtime, and not only

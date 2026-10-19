@@ -354,11 +354,12 @@ def test_read_speed_block_records_auto_fix_retries() -> None:
     )
     rs = report["read_speed"]
     assert rs["unstable_tracks"] == []  # rescued
-    # The input record predates schema v30 and carries no reason, so the report
-    # says "not recorded" rather than inventing one.
+    # The input record predates schema v30 and carries no reason (nor v36's
+    # trigger), so the report says "not recorded" rather than inventing one.
     assert rs["retried_tracks"] == [
         {
             "track": 3,
+            "trigger": None,
             "reripped_z": 3,
             "converged": True,
             "replaced": True,
@@ -367,6 +368,34 @@ def test_read_speed_block_records_auto_fix_retries() -> None:
     ]
     # An auto-fixed-and-clean rip is not "unresolved".
     assert rs["unresolved"] is False
+
+
+def test_read_speed_block_keeps_why_each_track_was_reread() -> None:
+    """Regression (2026-10-19, schema v36): the report kept every key but one.
+
+    The worker records ``trigger`` (``accuraterip`` / ``instability``) on each
+    retried track, and a v23 report carried it. The field-by-field copy in
+    ``attempts_to_report`` (v0.6.19) named five keys and not that one, so every
+    report since dropped it. The input here is the record the worker writes
+    (``tests/test_rip_worker.py`` pins that shape), not a hand-trimmed one.
+    """
+    from platterpus.read_speed_ladder import SpeedAttempt, attempts_to_report
+
+    worker_record = {
+        "track": 5,
+        "trigger": "accuraterip",
+        "reripped_z": 2,
+        "converged": False,
+        "replaced": True,
+        "replaced_because": "accuraterip",
+    }
+    report = build_report(
+        _sample_log(),
+        read_speed=attempts_to_report(
+            [SpeedAttempt(1, 0, 2, clean=True)], unstable=[], retried=[worker_record]
+        ),
+    )
+    assert report["read_speed"]["retried_tracks"] == [worker_record]
 
 
 def test_eta_trace_block_serialized_and_labeled() -> None:
@@ -1222,7 +1251,10 @@ def test_schema_version_is_27() -> None:
     #
     # v35 added `disc.isrc_provenance`: each track's ISRC as the files carry it
     # beside the disc's own, from cyanrip's `-j` record (TASKS R20).
-    assert REPORT_SCHEMA_VERSION == 35
+    #
+    # v36 restored `read_speed.retried_tracks[].trigger`: why each track was
+    # re-read, which the ladder's field-by-field copy had dropped since v0.6.19.
+    assert REPORT_SCHEMA_VERSION == 36
 
 
 def _issue_codes(report: dict) -> set[str]:

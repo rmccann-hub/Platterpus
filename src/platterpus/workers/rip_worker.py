@@ -64,6 +64,7 @@ from platterpus.read_speed_ladder import (
     unstable_tracks,
 )
 from platterpus.redraw_run import LoggedRun, RedrawRun
+from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, SecureReripBlock
 from platterpus.rip_addendum import (
     SupersededTrack,
     read_log_with_addendum,
@@ -1150,7 +1151,7 @@ class RipWorker(QObject):
         # `_last_cyanrip_eta` is the most recent cyanrip reading (updated as its
         # progress lines stream); the trace is sampled in `_album_eta_text`.
         self._last_cyanrip_eta: str | None = None
-        self._eta_trace: list[dict] = []
+        self._eta_trace: list[EtaSampleBlock] = []
         self._last_eta_sample_monotonic: float = 0.0
         # The read speed (`-S`) in effect for the current pass (0 = drive max),
         # stamped into each ETA sample so the recorded curve is correlated with
@@ -1174,7 +1175,7 @@ class RipWorker(QObject):
         # alone with a harder -Z ({track, reripped_z, converged, replaced}). The
         # GUI folds this into the report and results pane. Empty when nothing was
         # re-ripped.
-        self._retried_tracks: list[dict] = []
+        self._retried_tracks: list[RetriedTrackBlock] = []
         # The PARSED per-track record of every re-rip we actually swapped into the
         # album, keyed by track number. This is the shipped file's own read — its
         # CRC and AccurateRip results — which the whole-disc first-pass log cannot
@@ -1784,7 +1785,7 @@ class RipWorker(QObject):
         return list(self._last_unstable_tracks)
 
     @property
-    def retried_tracks(self) -> list[dict]:
+    def retried_tracks(self) -> list[RetriedTrackBlock]:
         """Per-track auto-fix history: which unstable tracks were re-ripped alone
         with a harder -Z, whether they then converged, and whether the improved
         FLAC replaced the original. The GUI folds this into the report + results
@@ -1814,14 +1815,14 @@ class RipWorker(QObject):
         return dict(self._reread_agreements)
 
     @property
-    def eta_trace(self) -> list[dict]:
+    def eta_trace(self) -> list[EtaSampleBlock]:
         """The "for posterity" ETA trace: throttled samples pairing the PC clock
         time with cyanrip's ETA and our smoothed album ETA. The GUI reads this at
         finish for the report. NOT the estimate shown live (that's the status)."""
         return list(self._eta_trace)
 
     @property
-    def secure_rerip_report(self) -> dict | None:
+    def secure_rerip_report(self) -> SecureReripBlock | None:
         """Why the dynamic secure re-rip did/didn't run — the report's
         ``read_speed.secure_rerip``. None in plain ``off`` mode (nothing to
         explain); otherwise ``{mode, engaged, disc_in_accuraterip,

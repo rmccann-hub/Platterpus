@@ -1179,7 +1179,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1857 -> 1877** (2026-10-14, the fork's round 32 lap 9 S9): `consumer_args_for_build` and `diagnostics_args`, the argv words every rip sends, so a script's `(consumer)` / `(diagnostics)` and the rip argv builder send the same words under the same gate instead of each spelling the flag. They live beside `consumer_tag_for_build` and `diagnostics_record_name`, which they wrap.
     # **1877 -> 1908** (2026-10-16, TASKS R20 part 2, round 35): `--prefer-disc-isrc` through the argv chokepoint, gated on the build tag beside `--consumer`'s gate.
     "adapters/cyanrip_backend.py": 1908,
-    "adapters/musicbrainz_client.py": 524,
+    # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
+    "adapters/musicbrainz_client.py": 534,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
     # signature last has the window, so this is a property of the SEAM and
@@ -1902,7 +1903,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
     # **418 -> 450** (2026-10-05, the fork's `+platterpus.20`): `_instability_explains_arm`, which keeps a paranoia skip and a `-Z` track at the repeat limit, both `with errors` from `.20`, out of the whole-disc step-down. It is the trigger's own exclusion, so it sits beside `read_errors_present`; most of the growth is the docstring saying why, and that the policy question is the maintainer's.
     # **450 -> 465** (2026-10-05, the fork's round 30 lap 9 S12): `read_errors_present` reads `RipLog.drive_read_errors` first, so `.20`'s paranoia skips leave the whole-disc step-down, and the module docstring says a step also needs the pass to have finished. The decision itself went to a new focused module, `ladder_trigger.py`, rather than here.
-    "read_speed_ladder.py": 465,
+    # **465 -> 467** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the retried-track copy carries `trigger` again (schema v36); it had been dropped since v0.6.19.
+    "read_speed_ladder.py": 467,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -1922,7 +1924,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 775** (2026-10-14, integration): the two v34 changes above combined in one unreleased version.
     # **775 -> 782** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **782 -> 788** (2026-10-16, TASKS R20 part 2, round 35): the three per-track `disc_isrc` keys.
-    "report_types.py": 788,
+    # **788 -> 795** (2026-10-19, TASKS D2, `disallow_any_generics` retired): `RetriedTrackBlock.trigger` (schema v36) and `EtaSampleBlock.pass_kind`, keys the worker always wrote, each in the TypedDict it types.
+    "report_types.py": 795,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -1967,7 +1970,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1590 -> 1613** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `_audit_disc_identity` asks whether the disc ripped is the disc looked up, of the same predicate the report used, on the report's own fields. The comparison itself lives in `disc_identity.py`.
     "rip_audit.py": 1613,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
-    "rip_compare.py": 1405,
+    # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
+    "rip_compare.py": 1412,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
     "rip_files.py": 437,
     # **2302 -> 2402 on 2026-09-15**: `SUPERSEDED_GATE`, `OPTIONAL_ARTIFACTS`, and
@@ -2013,7 +2017,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2721 -> 2764** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **2764 -> 2783** (2026-10-16, TASKS R20): schema v35 — the history note and the loop raising `isrc_disc_differs` / `isrc_disc_malformed` from `disc.isrc_provenance`. Reading the record, comparing and wording live in `isrc_provenance.py`; this is the one place that assembles `issues`.
     # **2783 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): the schema note and the three per-track keys.
-    "rip_report.py": 2796,
+    # **2796 -> 2804** (2026-10-19, TASKS D2, `disallow_any_generics` retired): schema v36's history note (`retried_tracks[].trigger` restored) and the `SecureReripBlock` import for the three `secure_rerip` parameters.
+    "rip_report.py": 2804,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2217,7 +2222,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1800 -> 1810** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the menu action, beside the full run's, and in the rip lock with it.
     # **1810 -> 1825** (2026-10-07, KDD-42 W6): Help → Getting started, first in the Help menu, its handler beside the other Help slots, and the kept non-modal window it raises rather than duplicates.
     # **1825 -> 1819** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac_recompress_done` signal and its connection.
-    "ui/main_window.py": 1819,
+    # **1819 -> 1821** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the typed `_last_*` working copies.
+    "ui/main_window.py": 1821,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2411,7 +2417,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
     # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
     # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
-    "ui/main_window_shared.py": 457,
+    # **457 -> 458** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the same declarations on the seam.
+    "ui/main_window_shared.py": 458,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2722,7 +2729,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4203 -> 4217** (2026-10-16, TASKS R20): the worker reads each track's two ISRCs from the album pass's `-j` record beside `ripper_ending`, at the same two moments, and exposes `isrc_reading`. The parsing is `isrc_provenance.py`; only the worker knows which record is the album pass's and when it is safe to read.
     # **4217 -> 4232** (2026-10-16, TASKS R14): the app log's copy of a run of progress redraws goes through `redraw_run.LoggedRun` (first, a checkpoint every 10 s, last, and a counted marker) instead of one `log.debug` per throttled tick, and the run is flushed when any other line arrives and when the stream ends. The collapsing is `redraw_run.py`; the worker is the one place the stream is read.
     # **4232 -> 4238** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` on the rip parameters and both calls.
-    "workers/rip_worker.py": 4238,
+    # **4238 -> 4239** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the `report_types` import its records are now typed by.
+    "workers/rip_worker.py": 4239,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

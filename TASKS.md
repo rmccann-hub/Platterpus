@@ -297,7 +297,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 | # | What | Time | Row |
 |---|---|---|---|
 | D1 | **Done 2026-10-05** (PR #288). `ruff` over `scripts/` and `build/` in CI and `scripts/check.py` (clean on 2026-10-05); a CI change, so after C8 | 20 min | *Found while integrating* (5) |
-| D2 | Retire the two smallest `disallow_any_generics` opt-outs: `workers.rip_worker` (5), `ui.main_window` (6) | Under 1 h each | *Retire the two smallest…* (new) |
+| D2 | **[x] Done 2026-10-19:** five opt-outs retired (`workers.rip_worker` 5, `ui.main_window` 8, `ui.main_window_shared` 10, `adapters.musicbrainz_client` 9, `rip_compare` 18, mypy 2.3.1); only `rip_report` (67) remains. Typing them found two defects, both fixed with tests: the report dropped `retried_tracks[].trigger` since v0.6.19 (schema v36), and `rip_compare.best_of_plan` raised on a non-list `"tracks"`. Was: Retire the two smallest `disallow_any_generics` opt-outs: `workers.rip_worker` (5), `ui.main_window` (6) | Under 1 h each | *Retire the two smallest…* (new) |
 | D3 | **Done 2026-10-06** (`43a7d76d`). `_strip_fences` misses unterminated and indented fences; C46 counts through it | 1 h | *C6.* |
 | D4 | **Done 2026-10-06** (`6c42338c`). A message box shown a second time is not refitted | 2 h | *A message box shown a second time is not fitted again* |
 | D5 | The conformance matrix is built once per xdist worker: `xdist_group` and `--dist loadgroup`; changes how CI distributes the suite, so after C8 | 1–2 h | *The conformance matrix is built once per xdist worker* |

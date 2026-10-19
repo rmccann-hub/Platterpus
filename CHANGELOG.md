@@ -54,6 +54,17 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **The JSON report kept every retried track but not why it was retried.** Since v0.6.19
+  `read_speed.retried_tracks[].trigger` was written by the rip and dropped on its way into the
+  report, so a supersede note rebuilt from the report said a track "did not read consistently"
+  when it had been re-read for failing AccurateRip. Restored in **report schema v36**. Found by
+  retiring five more modules from mypy's `disallow_any_generics` opt-outs (`rip_worker`,
+  `main_window`, `main_window_shared`, `musicbrainz_client`, `rip_compare`; only `rip_report`
+  remains), which also found that a saved report whose `"tracks"` is not a list made
+  `rip_compare.best_of_plan` raise; both readers now accept a list or nothing. A note rebuilt
+  from a report written before the fix now says the reason was not recorded, rather than
+  naming one.
+
 - **The crash dialog opens over the app's window, not as a window of its own.** It was the one
   prompt built without a parent, so a desktop could place it anywhere, give it its own taskbar
   entry or put it behind the app. The album picker and every other prompt were already attached
