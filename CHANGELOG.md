@@ -12,7 +12,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
-## [0.7.109] — 2026-10-17
+## [0.7.109] — 2026-10-19
 
 The release that reads the fork's next `Disc ISRC:` shape, which the fork waits for before it
 cuts `.25`: a disc code that is not an ISO 3901 code, printed with the ripper's reason and not
