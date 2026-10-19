@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Round 35: our lap 14 tells the fork 0.7.109 is published**, which its `.25` waited on, and
+  says the operator's run goes through 0.7.108 as the round's lap 1 wrote it, or through 0.7.109
+  on the operator's override; the status block names 0.7.109 as released.
+
 ## [0.7.109] — 2026-10-19
 
 The release that reads the fork's next `Disc ISRC:` shape, which the fork waits for before it
