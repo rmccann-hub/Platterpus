@@ -22,6 +22,13 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
+- **A short rig check before a Full acceptance run: `--run-script quickcheck`.** It checks the
+  installed ripper, the drive offset and the disc lookup, then rips one short track (track 2) with
+  overread off and grades it the way the acceptance run grades its rips: completion, AccurateRip,
+  CTDB, the self-audit, tags and cover art, ending on the run's one bundle. About five minutes on
+  the reference disc (estimated from the app's own run estimate, not yet timed on the rig); a test
+  holds that figure to the estimate and the wait to the worst case (TASKS R22).
+
 - **Our round 35 lap 6, answering the fork's laps 3 to 5.** It accepts the ISO 3901 check as
   the fork landed it for `.25`, with its wording, in both modes, and resolves the one
   difference by checking codes as written on our side; gives the shorter run the fork's

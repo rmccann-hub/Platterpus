@@ -1,0 +1,135 @@
+# Platterpus UI script — a ten-minute check before a Full acceptance run.
+#
+# Run it with:  ./platterpus-x86_64.AppImage --run-script quickcheck
+#          or:  Tools → Advanced → Run test script…  → Load → Run
+#
+# WHAT IT IS FOR. A Full acceptance run takes four to six hours. If the ripper
+# is the wrong build, the drive has no offset, MusicBrainz cannot be reached, or
+# a rip no longer comes out right, you want to know in ten minutes, not at 2am.
+# This script does the cheapest version of each of those: it checks the ripper,
+# finds the disc, rips ONE track (track 2, about three minutes on the reference
+# disc), and grades that one track the same way the Full run grades its rips.
+# A pass here does not replace the Full run. A failure here saves you one.
+#
+# HOW LONG. About five minutes on the reference disc: a few seconds for the
+# ripper check, under a minute to read the disc and look it up, and about three
+# and a half minutes for the rip (track 2 is 3:01 long, and the rig's drive reads
+# at about its own playing time, plus a few seconds to start). If AccurateRip
+# does not confirm the track, the app reads it again three to five times, which
+# adds ten to sixteen minutes; that is itself worth knowing before a Full run.
+#
+# WHY TRACK 2. It is short, and it is neither the first track nor the last, so
+# the read never goes near the edges of the disc. Overread (reading past the
+# edge, cyanrip's -O) stays OFF: it once hung this rig's drive for 23 minutes.
+# The script turns it off, checks it is off, and checks the rip did not send it.
+#
+# WHAT IT RECORDS. The transcript keeps every step's result: the ripper's own
+# version line, the disc it found, and for the rip whether it finished, its
+# AccurateRip and CTDB answers, its self-audit, its tags and its cover art.
+# CTDB checks whole discs only, so for one track the right answer is that it
+# declines; the Full run checks CTDB properly. When the script ends the app
+# packs the transcript, the screenshot and the app log into ONE .tar.gz.
+#
+# WHAT IT CHANGES. It sets the rip settings it grades to the shipped defaults
+# (the Fast Verified goal, cover art embedded, overread off), turns debug logging
+# on for the run and off again at the end. If you set a library folder in
+# Settings, the one test track is filed there like any rip, under the artist
+# "Platterpus Quick Check"; delete it afterwards if you like.
+#
+# ONE THING TO DO BY HAND FIRST: put the reference disc in and let the drive
+# settle. Then run the line at the top, and send the file it names at the end.
+
+log =============================================================
+log QUICK CHECK - one track, about five minutes, before a Full run
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+log --- 1. the ripper: which build is installed, or stop ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+# The build the handshake record names, and the newest pair of releases: the
+# same two checks that stop a Full run in its first seconds.
+expect-ripper-under-review
+expect-newest-pair
+snapshot identity
+abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
+
+log --- 2. the drive's read offset, or stop ---
+set-drive-offset
+expect-drive-offset
+expect override_read_offset on
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+
+log --- 3. the settings this check grades: the shipped defaults ---
+# One goal sets the format, both post-rip checks and the re-read rule; each is
+# read back, because a result is only as good as the settings it ran under.
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect output_format flac
+expect ctdb_verify_after_rip on
+expect verify_flac_after_rip on
+expect secure_rerip_dynamic on
+set max_retries 5
+expect max_retries 5
+set cover_art embed
+expect cover_art embed
+set force_overread off
+expect force_overread off
+# Your library folder, recorded as it is and left alone.
+keep library_dir
+snapshot settingsdone
+
+log --- 4. the disc: read it and look it up, or stop ---
+rescan
+pick-release 1 120
+expect-dialog none
+expect-tracks 2+
+expect-identified
+snapshot discidentified
+abort-if-failed the disc was not identified — the release was not chosen or no tracks loaded, so a rip would be about an unknown album
+
+log --- 5. rip ONE track: track 2 ---
+select-tracks 2
+album quick check (run) (ripper)
+album-artist Platterpus Quick Check
+rip
+# Three and a half minutes expected; thirty allows for every re-read the app
+# may do, and past it the run stops rather than grade a rip still reading.
+wait-for-rip 1800
+snapshot afterrip
+screenshot afterrip
+expect-rip-complete
+expect-verification
+expect-rip-argv with -l
+expect-rip-argv without -O
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
+rig-check
+
+log --- 6. what this check did not cover ---
+log not covered here, and covered by the Full run: a whole-disc rip, CTDB on a
+log whole disc, the secure re-read of every track, MP3/WavPack/WAV, the cancel
+log path and the overwrite prompt. A pass here means "worth starting the Full run".
+
+log --- 7. back to the shipped defaults ---
+set debug_logging off
+expect debug_logging off
+expect force_overread off
+expect-drive-offset
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log It carries this transcript (every result above), the
+log screenshot and the app log. No audio.
+log =============================================================

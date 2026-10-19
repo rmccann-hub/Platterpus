@@ -50,6 +50,31 @@ product's gap invisible.
 > build older than v0.6.32 has no menu item; both files are still in the source
 > tree of every release up to v0.6.61.
 
+## Before a Full run: `quickcheck.txt`
+
+**About five minutes on the reference disc, one track.** Run it before a Full
+acceptance run, so a wrong ripper, a drive with no offset, an unreachable
+MusicBrainz or a rip that no longer comes out right costs five minutes instead
+of a night (TASKS R22).
+
+```sh
+./platterpus-x86_64.AppImage --run-script quickcheck
+```
+
+It checks the installed ripper exactly as the Full run's section A does (and
+stops on the same two failures), sets the drive's offset, rescans and picks the
+release, then rips **track 2 only** (3:01 on the reference disc, neither edge of
+it) on the shipped Fast Verified settings with overread off, and grades it with
+the acceptance run's own verbs: completion, the post-rip checks, `-l` sent and
+`-O` not (read from the argv as spawned), the self-audit, AccurateRip, CTDB
+`partial` (one track is not a disc, so CTDB must decline), tags, cover art and
+`rig-check`. The run's own bundle is the one file to send. Its length is held
+by `tests/test_rig_scripts.py`, which costs the rip with the app's own
+estimator over the reference disc's committed track lengths: about 3m20s for
+the rip, and the 1800 s wait covers the worst case of every re-read up to the
+retry ceiling (about 19 minutes). A pass means *worth starting the Full run*,
+never *the Full run passed*.
+
 ## A disc MusicBrainz does not know: `unknowndiscacceptance.txt`
 
 **About 15 minutes, and it needs a different disc.** `fullacceptance.txt` stops
