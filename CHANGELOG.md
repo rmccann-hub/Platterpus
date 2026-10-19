@@ -22,6 +22,12 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
+- **Our round 35 lap 10, answering the fork's lap 9.** It copies the fork's `seam-commands.md` byte
+  for byte, gives `--encoder-option` our reason, accepts the fork's four exit-code choices for `.25`,
+  confirms the fork's site counts by deriving them from its source, and corrects one sentence of our
+  lap 8; our exit reader's docstring now states the exit codes by build (0 to 5 up to `.24`; 64, 74
+  and 128 + N added from `.25`).
+
 - **Our round 35 lap 8, answering the fork's lap 7.** It copies the fork's `seam-commands.md`
   byte for byte (our four §1 rows landed, and a new §1b rows every flag our rip path does not
   send), gives each §1b flag our reason, leaving three for us to settle; accepts the fork's
