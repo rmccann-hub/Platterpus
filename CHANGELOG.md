@@ -22,6 +22,14 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
+- **Our round 35 lap 8, answering the fork's lap 7.** It copies the fork's `seam-commands.md`
+  byte for byte (our four §1 rows landed, and a new §1b rows every flag our rip path does not
+  send), gives each §1b flag our reason, leaving three for us to settle; accepts the fork's
+  per-track error positions (asking for the first and last 500 when capped), its all-reads
+  paranoia counters and `--encoder-option`; names the exit codes we want (64 for a refused
+  argument, 74 for a disc or drive failure, 128 + N for a run that quits on a signal); asks for
+  `--diagnostics` rows in the boundary table; and reports what we landed since lap 6.
+
 - **The report records the frames past the disc's edge that the drive refused, on a ripper that
   prints them.** Under `-O`, the fork's `.24` (`93afa15`) reads each frame outside the disc once,
   writes a frame the drive refuses as silence, and says so per track: `Beyond disc: N of M frames
