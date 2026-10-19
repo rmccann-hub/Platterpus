@@ -42,7 +42,7 @@ This module is deliberately **Qt-free and side-effect-light** so it is testable
 without a GUI: the caller passes in whatever text it wants embedded (the
 diagnostics blob, for instance) rather than this module reaching into the UI for
 it. Threading is the caller's job too — see
-``main_window_rip._write_evidence_bundle_async``, which runs it on a daemon
+``main_window_rip._arm_evidence_bundle`` → ``_launch_evidence_bundle``, which runs it on a daemon
 thread because gzipping a 4 MB log is not a GUI-thread operation.
 """
 

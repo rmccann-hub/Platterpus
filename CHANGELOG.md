@@ -62,6 +62,11 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **The test harness now stops every thread a window declares.** `stop_window_threads` listed
+  seven of the window's eight QThread slots and missed `_ripper_update_thread`, which `closeEvent`
+  already stops; a test now derives the slots from the window's declarations and refuses one the
+  harness forgets.
+
 - **The `police-rerip.txt` rig script could start a whole-disc rip from its probe steps.** Its
   `--cache-probe -N` and both `--diagnostics … -N` steps carried no `-I`, and with no other action
   cyanrip's default is to rip the whole disc; its identity check named round 7's build, so it failed

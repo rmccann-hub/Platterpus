@@ -71,6 +71,31 @@ def _string_literals_ending_with(source: str, suffix: str) -> set[str]:
     return found
 
 
+def _declared_qthread_slots() -> set[str]:
+    """Every `_x_thread: QThread | None` the shared mixin seam declares."""
+    shared = (
+        REPO_ROOT / "src" / "platterpus" / "ui" / "main_window_shared.py"
+    ).read_text(encoding="utf-8")
+    declared: set[str] = set()
+    for node in ast.walk(ast.parse(shared)):
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            name = node.target.id
+            if name.endswith("_thread") and "QThread" in ast.unparse(node.annotation):
+                declared.add(name)
+    return declared
+
+
+def _harness_stops() -> set[str]:
+    """The `_thread` slot names `conftest.stop_window_threads` stops."""
+    conftest_source = (REPO_ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    helper = next(
+        node
+        for node in ast.walk(ast.parse(conftest_source))
+        if isinstance(node, ast.FunctionDef) and node.name == "stop_window_threads"
+    )
+    return _string_literals_ending_with(ast.unparse(helper), "_thread")
+
+
 def test_the_harness_does_not_stop_a_qthread_that_production_leaves_running() -> None:
     """The check that would have caught the mid-rip abort five releases earlier.
 
@@ -118,15 +143,10 @@ def test_the_harness_does_not_stop_a_qthread_that_production_leaves_running() ->
     # on a long post-rip step). The harness joins them because a daemon still
     # running during a later test's garbage collection is what segfaulted CI.
     # That asymmetry is intended and reasoned; only QThreads are policed here.
-    qthread_slots = {
-        "_mb_thread",
-        "_dep_check_thread",
-        "_disc_info_thread",
-        "_drive_list_thread",
-        "_update_thread",
-        "_install_thread",
-        "_rip_thread",
-    }
+    # Derived from the declarations, plus `_mb_thread`, which `MainWindow`
+    # creates in `__init__` without a declaration on the shared seam. A literal
+    # set here went stale once already: it never gained `_ripper_update_thread`.
+    qthread_slots = _declared_qthread_slots() | {"_mb_thread"}
 
     covered_only_by_harness = sorted((harness_stops & qthread_slots) - production_stops)
     assert not covered_only_by_harness, (
@@ -149,16 +169,7 @@ def test_every_qthread_slot_is_stopped_on_close() -> None:
     from platterpus.ui.main_window import MainWindow
     from platterpus.ui.main_window_rip import RipMixin
 
-    shared = (
-        REPO_ROOT / "src" / "platterpus" / "ui" / "main_window_shared.py"
-    ).read_text(encoding="utf-8")
-    # Annotated declarations of the form `_x_thread: QThread | None`.
-    declared: set[str] = set()
-    for node in ast.walk(ast.parse(shared)):
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            name = node.target.id
-            if name.endswith("_thread") and "QThread" in ast.unparse(node.annotation):
-                declared.add(name)
+    declared = _declared_qthread_slots()
     assert declared, (
         "no QThread slots found in main_window_shared — the declaration style "
         "changed and this guard has gone vacuous. Fix the walk."
@@ -172,6 +183,20 @@ def test_every_qthread_slot_is_stopped_on_close() -> None:
     assert not forgotten, (
         f"closeEvent does not account for these QThread slots: {forgotten}. "
         "Destroying the window while one of them runs aborts the process."
+    )
+
+
+def test_the_harness_stops_every_qthread_slot_the_window_declares() -> None:
+    """The harness half the two tests above leave open: a declared slot the
+    harness forgets is a thread a window fixture can leave running into the next
+    test (found 2026-10-19: `_ripper_update_thread` had been declared, and
+    stopped by `closeEvent`, but `stop_window_threads` never listed it)."""
+    declared = _declared_qthread_slots()
+    assert len(declared) >= 7, f"only {len(declared)} slots read; the walk is broken"
+    forgotten = sorted(declared - _harness_stops())
+    assert not forgotten, (
+        f"tests/conftest.py::stop_window_threads does not stop {forgotten}; "
+        "add them to its slot list."
     )
 
 
