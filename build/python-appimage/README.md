@@ -15,7 +15,7 @@ AppImage. The actual build is driven by `../build_appimage.sh`.
 
 | File | Purpose |
 |---|---|
-| `requirements.txt` | pip deps bundled into the AppImage. The locally-built platterpus wheel is resolved via the `PIP_FIND_LINKS` the build script exports (a global `--find-links .` line does **not** work — python-appimage installs each line from a temp dir). Version pins use `~=` because `<`/`>` get read as shell redirections during the build. |
+| `requirements.txt` | pip deps bundled into the AppImage. The locally-built platterpus wheel is resolved via the `PIP_FIND_LINKS` the build script exports (a global `--find-links .` line does **not** work — python-appimage installs each line from a temp dir). Version pins use `~=` (or an exact `==`) because `<`/`>` get read as shell redirections during the build. |
 | `entrypoint.sh` | Launch script. AppImage runtime sets `$APPDIR`; we run `$APPDIR/opt/python*/bin/python -m platterpus`. **Must keep an extension** — python-appimage globs `entrypoint.*` and silently ignores a bare `entrypoint`. |
 | `io.github.rmccann_hub.Platterpus.desktop` | Desktop integration metadata (named for the freedesktop app-id). |
 | `io.github.rmccann_hub.Platterpus.png` | App icon (512×512). `build_appimage.sh` generates a grey placeholder if missing; regenerate the real one with `build/make_icon.py`. |
@@ -98,12 +98,14 @@ supports an **opt-in, hash-verified wheelhouse**:
    ```
 
    It resolves the third-party closure (PySide6 → shiboken6, musicbrainzngs,
-   tomli-w) via `pip download --report` and writes exact `name==version` pins
+   tomli-w, cryptography, sigstore and their dependencies) via `pip download --report` and writes exact `name==version` pins
    with `--hash=sha256:…`. The local `platterpus` wheel is intentionally *not*
    locked (built here every commit; pinned by `SOURCE_DATE_EPOCH` instead).
 
 2. **Commit `requirements.lock`.** It's small text; the wheelhouse it rebuilds
-   from is transient and git-ignored (`.wheelhouse/`).
+   from is transient and git-ignored (`.wheelhouse/`). **No lock is committed
+   yet** (checked 2026-10-19), so today every build takes the online `~=` path in
+   step 3.
 
 3. **Build as usual.** When the lock is present, `build_appimage.sh`
    `pip download --require-hashes`-es the closure into `.wheelhouse/` (aborting
@@ -117,4 +119,4 @@ is in place. That can't be done in a sandbox that can't run the AppImage build.
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.7.109.*

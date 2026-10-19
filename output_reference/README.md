@@ -8,8 +8,9 @@ measured against (see [`../docs/test-plan.md`](../docs/test-plan.md) → *EAC
 output-parity check*). The EAC reference is committed here now. cyanrip (the sole backend since
 2026-06-30, KDD-18) rips are committed once there is a **hardware run worth
 documenting** — imperfections stated honestly in the dir README (the
-"store the text, document the imperfection" practice); full 14/14 parity is
-the goal that closes the TASKS.md checkbox.
+"store the text, document the imperfection" practice). Full 14/14 parity was
+reached by the Platterpus fork of cyanrip on 2026-08-04 (`cyanrip_fork_flac/`,
+below).
 
 ## What "parity" means here (and why there's no audio)
 
@@ -60,7 +61,8 @@ WavPack/MP3/WAV *output formats* now ship (KDD-22), but their per-backend parity
 |---|---|---|---|
 | **EAC** (baseline) | `EAC_flac/` ✅ committed | `EAC_wav/` 🟡 13/14; **WavPack not plain WAV** (see below) | `EAC_mp3/` 🟡 imperfect (12/14; see its README) |
 | **previous backend** *(removed 2026-06-30, KDD-18 — historical row; no proof will be added)* | — | — | — |
-| **cyanrip** | `cyanrip_flac/` 🟡 12/14 (T3+T5; see its README) | `cyanrip_wav/` ⬜ | `cyanrip_mp3/` 🟡 13/14 (T5 only; see its README) |
+| **cyanrip** | `cyanrip_flac/` 🟡 12/14 (T3+T5; stock 0.9.3) | `cyanrip_wav/` ⬜ | `cyanrip_mp3/` 🟡 13/14 (T5 only) |
+| **cyanrip, Platterpus fork** | `cyanrip_fork_flac/` ✅ 14/14 (its own README) | — | — |
 
 The committed EAC baseline (`EAC_flac/eac_baseline_police_classics.log`) is the
 canonical extraction reference. Its per-track **Copy CRC** is the CRC of the
@@ -75,7 +77,9 @@ therefore reuse this same extraction baseline rather than duplicating it.
 Consolidated here from nine per-directory READMEs, because nine files describing
 one 3×3 matrix meant the shared rules (no audio, UTF-16, how to replace a rip)
 were restated nine times and could drift nine ways. The per-rip findings below
-are unchanged.
+are unchanged. The one directory that keeps its own README is
+`cyanrip_fork_flac/`, added after the consolidation, because its README records
+what the artifact caught as well as what it proves.
 
 ### `EAC_flac/` — the canonical baseline ✅
 
@@ -83,6 +87,10 @@ are unchanged.
 (Test & Copy) of the reference disc on the Pioneer BDR-209D, read offset **+667**.
 This is the extraction baseline every parity check measures against
 (`scripts/eac_parity.py`, `tests/test_parity.py`, `docs/test-plan.md` Part B).
+
+`eac_pcm_md5.txt` (2026-08-05) holds the FLAC STREAMINFO MD5s of the decoded PCM
+of five of the EAC rip's fourteen tracks, read from EAC's own FLAC files: a
+direct proof of bit-identity, stronger than a CRC32, and still pure text.
 
 ⚠️ **The `.log` is UTF-16 — do not re-encode or "fix" it.** See the log-encoding
 note above; converting it to UTF-8 silently broke the parity checker once.
@@ -158,6 +166,15 @@ the same verified samples. The extraction CRCs are the proof.
   verify it either. Repair-class tooling (CUETools/CTDB) or a cleaner disc is the
   only path to a verified track 5. *(Not so: see the 2026-10-07 status note above.)*
 
+### `cyanrip_fork_flac/` — 14/14, the fork's whole-disc rip ✅
+
+A 2026-08-04 rip by the Platterpus fork of cyanrip (`platterpus-fork-g9003e6f`) on
+the same disc, drive and offset: every Copy CRC equals EAC's, and all ten of EAC's
+`Pre-gap length` rows match. Its own README says what it proves and what reading
+it caught, and `tests/test_fork_rip_eac_parity.py` reads these files. Read its
+track-5 result with the 2026-10-07 status note above: it matches EAC's
+`E0036697`, which is not AccurateRip's value.
+
 ### `cyanrip_wav/` — pending ⬜
 
 Empty until a cyanrip WAV rip matches the baseline (WAV is lossless, so the target
@@ -205,4 +222,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.109.*

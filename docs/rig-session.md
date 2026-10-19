@@ -25,8 +25,11 @@ that says what closes it; the steps below are what such a run takes. When no rou
 testing a build, a run on the default build is still useful evidence about the pin.
 
 **Only a Full run counts as evidence**; Quick and Standard are for checking the setup.
-`0.7.100` is gated on a Full run with **zero failures in the ARCHIVAL sections**
-(`docs/testing.md` §5B), and the field-evidence ledger has no `full-green` row yet.
+`0.7.100`'s gate, a Full run with **zero failures in the ARCHIVAL sections**, was met by
+the ledger's first `full-green` row (2026-10-07). The next gate is **0.8.1**: two
+`full-green` rows on at least two machines and two distros (`docs/testing.md` §5B, whose
+ledger is the authority for how many rows exist), so a run on a second machine counts
+for more than another run on this rig.
 
 ## Three steps
 
@@ -48,7 +51,9 @@ testing a build, a run on the default build is still useful evidence about the p
 
 - **Do not enable Overread (`-O`) on this drive.** It has run on the BDR-209D and hung
   the drive for about 23 minutes (`docs/dependency-contracts.md`). The acceptance
-  script never sets it.
+  script never sets it; the one script that sends `-O` is round 35's
+  `overreadprobe`, which needs `.24` (whose `-O` is bounded) and runs after the Full
+  run, under the script verb's fixed 300-second limit.
 - **`-Z` is on, in dynamic mode.** A default rip reads the whole disc once at speed and
   re-reads with `-Z 2` only the tracks that miss AccurateRip; sections F and N pin the
   rip goal so the run covers both the default path and the whole-disc secure re-read.
@@ -59,4 +64,4 @@ testing a build, a run on the default build is still useful evidence about the p
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.109.*

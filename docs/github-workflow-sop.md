@@ -12,8 +12,11 @@
 >   delete, no tag push (releases go via the `release.yml` `workflow_dispatch`).
 > - Feature work goes on the **designated branch** the session is given
 >   (e.g. `claude/…`), never a personal `username/…` branch.
-> - We merge session-branch PRs to `main` with a **merge commit**, not a squash
->   (since 2026-09-26; §7.1 below says why).
+> - We merge every PR to `main` with a **merge commit**, not a squash
+>   (session branches since 2026-09-26, every PR since 2026-10-12, when squash
+>   and rebase merging were turned off; §7.1 below says why).
+> - `main` and the `v*` tags are protected by **repository rulesets** (since
+>   2026-10-12; §7.2 below).
 > - GitHub **deletes a merged head branch automatically** (since 2026-09-30), so
 >   start the next change with `git switch -C <branch> origin/main`; the push
 >   recreates the branch.
@@ -209,4 +212,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.7.104.*
+*Last updated for Platterpus v0.7.109.*

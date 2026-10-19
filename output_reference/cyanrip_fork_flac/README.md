@@ -31,6 +31,13 @@ whole-disc log records the first pass; the `[Platterpus auto-fix addendum]` reco
 the shipped file. So this artifact is also the proof that the re-rip feature does
 the thing it exists for.
 
+> **Status (2026-10-07): EAC's track-5 value is not AccurateRip's.** A later secure
+> re-read on the same drive converged on `C96464AB`, which AccurateRip verifies at
+> confidence 200; EAC's `E0036697` is the unverified read
+> (`../README.md` → `cyanrip_flac/`, and `docs/eac-parity.md` Part A, TL;DR item 1).
+> So the 14/14 above is parity with EAC, and track 5's swap matched EAC rather than
+> AccurateRip. The paragraph above is the dated record.
+
 All of the above is asserted by `tests/test_fork_rip_eac_parity.py`, which **reads
 these files** rather than restating their numbers — a remembered measurement has no
 provenance you can re-check.
@@ -68,4 +75,4 @@ bit-perfection without it — that is the entire reason this directory is text.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.7.109.*

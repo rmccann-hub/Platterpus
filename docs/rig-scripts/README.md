@@ -9,21 +9,22 @@ product's gap invisible.
 > **Tools → Advanced → Run acceptance test…** inside the app (directly under
 > **Tools** on v0.6.61 and earlier), and that is the route to use. It makes the
 > session folder, holds off sleep, runs the batch, releases the lock and packs
-> one `.tar.gz` into `~/Downloads` — then names it, with a button that opens the
-> folder. **There is nothing to download and no second command in the morning.**
+> one `.tar.gz` into the session's own folder under `~/platterpus-rig/` (it went to
+> `~/Downloads` until the one-folder rule of 2026-09-24, `test_session.plan_session`)
+> — then names it, with a button that opens the folder. **There is nothing to download and no second command in the morning.**
 >
 > Check the ripper first: **Tools → Setup & Updates… → Check for cyanrip updates** — and *which*
 > offer to take depends on whether a handshake round is open, which is the thing
 > this note got backwards until v0.6.35.
 >
 > * **No round open.** Take the offer only if it is a plain one-click install.
-> * **A round IS open** (none is today: rounds 1–23 are closed, and round 24 is the
->   fork's to open — when it does, its lap 1 names any test pin). Section A asserts the
+> * **A round IS open** (Help → About Platterpus… shows a *Build under test* line while
+>   one is; the round's lap 1 names any test pin). Section A asserts the
 >   installed build is the **pin under review**, and a build under review is by
 >   definition one no closed round has approved — so its offer is the *warned*
 >   one, **"Install it anyway"**, with the consequence stated and *Not now* as
->   the default button. Take it. Declining it is what makes section A abort at
->   L165 four seconds into a six-hour run.
+>   the default button. Take it. Declining it is what makes section A's
+>   `abort-if-failed` stop the run four seconds into a six-hour run.
 >
 > The old wording said to refuse exactly the offer the run requires. It was true
 > when written — between rounds the approved build and the pin under review are
@@ -173,6 +174,13 @@ two lines below edited for your disc.
 ```
 
 or, in a running window: **Tools → Advanced → Run test script…** → **Load** → **Run**.
+
+> **⚠ It is the round-7 script, unchanged since.** Its section 0 expects the build
+> `platterpus-fork-gddf7ac3` (`0.9.4-rc1+platterpus.5`), so on any current build those
+> two steps record FAIL and the batch carries on; and its step 1a sends
+> `cyanrip --cache-probe -N` **without `-I`**, which on a real drive measures and then
+> rips the whole disc (2026-08-19, the table at the end of this file). Read it as the
+> worked example of the two lines below, and check those steps before running it.
 
 The window is real and on screen while it runs — the script drives it. This is
 "no person needed", not "no display needed".
@@ -350,8 +358,8 @@ purpose is being trustworthy evidence.
 
 | flag | what it does | note |
 |---|---|---|
-| `-x` / `--cache-probe` | measures the drive's readback cache **and then rips the whole disc** — measured 2026-08-19, ETA 1h 3m, unreapable when killed | fork-only, from round 7 lap 1 |
-| `-O` | overread into lead-in/lead-out | **confirmed to hang the BDR-209D for ~23 minutes** |
+| `-x` / `--cache-probe` | measures the drive's readback cache; **alone it then rips the whole disc** — measured 2026-08-19, ETA 1h 3m, unreapable when killed. With `-I` it is probe-only and writes no audio: the full run's section P sends `-N --cache-probe -I` | fork-only, from round 7 lap 1 |
+| `-O` | overread into lead-in/lead-out | **confirmed to hang the BDR-209D for ~23 minutes** on builds before `.24`; `.24` bounds it, and only `overreadprobe.txt` sends it, under the verb's fixed 300 s limit |
 | `-x` / `--force-overread` | overread | **the ripper used before cyanrip only** — never cyanrip |
 
 Older revisions of `docs/dependency-contracts.md` said `-x` did not exist in
@@ -367,10 +375,11 @@ measurement: `Cache probe: 32 sectors, 73.5 KiB, uncached read 362.6 ms`. It req
 seconds, which wasted the probe's first two attempts.
 
 **And then it ripped the disc**, which is the finding that matters and the reason the
-step is no longer in any script here. The absurd-number case the old wording braced
+step left `rigcancelandoverread.txt`. It came back in the full run as section P in its
+probe-only form, `-x -I`, which writes no audio. The absurd-number case the old wording braced
 for turned out to be an absurd *behaviour* instead; that it was a finding rather than a
 disappointment is still true. What we still do not know, said out loud so nobody reads
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.109.*

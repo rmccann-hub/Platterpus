@@ -43,6 +43,14 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Changed
 
+- **Documentation audited against the code, every file (maintainer, 2026-10-19).** Four auditors
+  checked every path, name, command, count, version and pin in the docs against the tree and the
+  fork's source, and corrected what was stale. Among them: the docs index (round 35 open, seam-rules
+  v8, protocol v9 with 50 conformance rows), the rig sheets (a bundle goes to `~/platterpus-rig/`;
+  `-x -I` is probe-only; `-O` is bounded from `.24`), the test plan, the hardware checklist, the
+  GitHub SOP, the output-reference READMEs, the handshake README (rounds 31 and 32 are closed), the
+  archive map, and the open task rows.
+
 - **A disc ISRC counts as well formed only as written.** The report matched a code after
   upper-casing it and removing hyphens and spaces; cyanrip's check reads the bytes a file would
   carry, so a lower-case or hyphenated code was well formed to us and refused by the ripper.
