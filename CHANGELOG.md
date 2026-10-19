@@ -56,7 +56,14 @@ through 0.7.108 or this release, since both parse the line and send the option.
   v8, protocol v9 with 50 conformance rows), the rig sheets (a bundle goes to `~/platterpus-rig/`;
   `-x -I` is probe-only; `-O` is bounded from `.24`), the test plan, the hardware checklist, the
   GitHub SOP, the output-reference READMEs, the handshake README (rounds 31 and 32 are closed), the
-  archive map, and the open task rows.
+  archive map, and the open task rows; `architecture.md` and `testing.md` (renamed functions, the
+  release assets, signing steps that immutable releases broke, the full-green ledger summary); the
+  seam and parity documents (every flag the argv builder sends, the retired `-x`, `--verify-log`,
+  the fork's actual line shapes, per-track counts over all 26 rips to 2026-10-16); and the root
+  documents (README's overread status, SECURITY's evidence-branch scan, DEPENDENCIES' ffmpeg note
+  and release dates, PLANNING's module map, CLAUDE.md's operations section). The dependency
+  dialog's ffmpeg description no longer says ffmpeg comes with cyanrip: it must be on the host's
+  PATH. The audit's one probable code defect, a stock cyanrip refusing `--diagnostics`, is TASKS R30.
 
 - **A disc ISRC counts as well formed only as written.** The report matched a code after
   upper-casing it and removing hyphens and spaces; cyanrip's check reads the bytes a file would

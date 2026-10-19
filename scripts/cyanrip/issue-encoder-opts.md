@@ -11,7 +11,7 @@ from the format table and `cyanrip_init_track_encoding()` calls
 or set any other libavcodec encoder option. For archival vs. speed trade-offs
 (and codec tuning generally) it'd help to expose the encoder option surface.
 
-**Proposal:** a repeatable `-O key=value` that builds an `AVDictionary` passed to
+**Proposal:** a repeatable long option, `--enc-opt key=value` (`-O` is already overread, so it cannot be reused), that builds an `AVDictionary` passed to
 `avcodec_open2` (per track, via `av_dict_copy`). Generic across codecs; defaults
 unchanged when unused; unknown keys warn rather than abort. Happy to open a PR if
 this direction is acceptable — worth a quick sanity-check on the flag

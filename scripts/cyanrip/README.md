@@ -51,7 +51,7 @@ scripts/cyanrip/build.sh cyanrip               # build; then smoke-rip a colon-t
 ```
 
 The **encoder-args** contribution follows the same flow on a `feat/encoder-opts`
-branch, but ask the maintainer about the `-O key=value` flag name first (the
+branch, but ask the maintainer about the flag name first (`--enc-opt key=value`; `-O` is already overread) (the
 wiring is more invasive — see the runbook §3).
 
 ## After a PR merges upstream
