@@ -2912,3 +2912,49 @@ def test_every_expect_on_a_retry_setting_matches_what_the_script_set() -> None:
         )
         checked += 1
     assert checked >= 4, f"floor: only {checked} retry expect(s) found"
+
+
+#: Flags that a script reaches for to PROBE something, not to rip. cyanrip has no
+#: probe-only mode for them: with no other action its default is to rip the whole
+#: disc, so a probe step without `-I` starts an unasked-for whole-disc rip after
+#: the probe (found 2026-10-19 in `police-rerip.txt`, whose `--cache-probe -N`
+#: and `--diagnostics … -N` steps had no `-I`).
+_PROBE_FLAGS: frozenset[str] = frozenset({"--cache-probe", "-x", "--diagnostics"})
+
+#: Flags that scope a step to a deliberate rip (a track list, a folder, an offset),
+#: which is a rip the script asked for rather than one a probe fell into.
+_RIP_SCOPE_FLAGS: frozenset[str] = frozenset({"-l", "-D", "-s"})
+
+
+def _probe_steps_without_info_only(text: str) -> list[tuple[int, str]]:
+    """Every `cyanrip` step that carries a probe flag, rips nothing on purpose,
+    and lacks `-I` — the steps that would fall through into a whole-disc rip."""
+    from platterpus.uiscript.script import parse
+
+    found: list[tuple[int, str]] = []
+    for step in parse(text):
+        words = step.source.split()
+        if not words or words[0] != "cyanrip":
+            continue
+        args = set(words[1:])
+        if args & _PROBE_FLAGS and not args & _RIP_SCOPE_FLAGS and "-I" not in args:
+            found.append((step.line_no, step.source))
+    return found
+
+
+@pytest.mark.parametrize("path", _scripts(), ids=lambda p: p.name)
+def test_a_probe_step_never_falls_through_into_a_whole_disc_rip(path: Path) -> None:
+    offenders = _probe_steps_without_info_only(path.read_text(encoding="utf-8"))
+    assert not offenders, (
+        f"{path.name}: these probe steps carry no -I, so cyanrip rips the whole "
+        f"disc after probing: {offenders}"
+    )
+
+
+def test_the_probe_sweep_sees_a_probe_with_no_info_flag() -> None:
+    """Non-triviality: the sweep refuses the exact shape it was written for and
+    passes the two fixed shapes, so it cannot pass by finding nothing."""
+    bad = "cyanrip --cache-probe -N\ncyanrip --diagnostics /tmp/d.json -N\n"
+    good = "cyanrip --cache-probe -I -N\ncyanrip -N -s 667 -l 1 -D x --diagnostics d\n"
+    assert [n for n, _ in _probe_steps_without_info_only(bad)] == [1, 2]
+    assert _probe_steps_without_info_only(good) == []

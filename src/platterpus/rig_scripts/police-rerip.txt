@@ -28,8 +28,12 @@ expect-exit 0
 # The build tag is the load-bearing string: it is the only one of the three
 # records that can tell two binaries at the same path apart. If this fails, STOP
 # — the wrong ripper is installed and the string is permanent in every log.
-expect-cyanrip platterpus-fork-gddf7ac3
-expect-cyanrip 0.9.4-rc1+platterpus.5
+# 2026-10-19: this used to name round 7's build (`gddf7ac3`, `+platterpus.5`),
+# which no current install is, so it failed on every run and the batch went on.
+# It now asks only for the fork; for one exact build, copy the line from
+# `overreadprobe.txt` (`expect-cyanrip platterpus-fork-g<sha>`).
+expect-cyanrip platterpus-fork
+abort-if-failed the installed ripper is not the Platterpus fork
 
 # --- 1. The two flags a rip never sends ------------------------------------
 
@@ -42,13 +46,16 @@ log --- 1a. -x, the drive cache probe ---
 # NOTE: --cache-probe (formerly -x) is the FORK's cache probe. It is NOT
 # overread. Overread is -O, and -O is the flag confirmed to hang this drive for
 # ~23 minutes. Do not substitute one for the other.
-cyanrip --cache-probe -N
+# `-I` makes it probe-only. Without it, cyanrip goes on to rip the whole disc
+# after the probe (the same line in `fullacceptance.txt` section P carries it).
+cyanrip --cache-probe -I -N
 expect-cyanrip Cache probe:
 
 log --- 1b. --diagnostics, the machine-readable diagnostics record ---
 # Written from atexit, so it exists even for runs that open no logfile. Not
 # passed on either J1 pass, so no diagnostics record of theirs exists yet.
-cyanrip --diagnostics /tmp/platterpus-rig/diag-prerip.json -N
+# `-I` again: with no other action, cyanrip's default is to rip the whole disc.
+cyanrip --diagnostics /tmp/platterpus-rig/diag-prerip.json -I -N
 
 # --- 2. Settings, stated rather than assumed -------------------------------
 # The rip's own flags are the app's call, so pin them here instead of trusting
@@ -93,6 +100,6 @@ expect-rip-complete
 # --- 5. Post-rip diagnostics ------------------------------------------------
 
 log --- 5. post-rip ---
-cyanrip --diagnostics /tmp/platterpus-rig/diag-postrip.json -N
+cyanrip --diagnostics /tmp/platterpus-rig/diag-postrip.json -I -N
 
 log ===== done — now run the artifact checks (see docs/rig-scripts/README.md) =====

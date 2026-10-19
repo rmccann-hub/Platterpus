@@ -62,6 +62,13 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **The `police-rerip.txt` rig script could start a whole-disc rip from its probe steps.** Its
+  `--cache-probe -N` and both `--diagnostics … -N` steps carried no `-I`, and with no other action
+  cyanrip's default is to rip the whole disc; its identity check named round 7's build, so it failed
+  on every install and the batch went on. The probes now carry `-I`, the check asks for the fork and
+  stops the batch if it is not there, and a test refuses a probe step in any packaged script that
+  could fall through into a rip.
+
 - **The JSON report kept every retried track but not why it was retried.** Since v0.6.19
   `read_speed.retried_tracks[].trigger` was written by the rip and dropped on its way into the
   report, so a supersede note rebuilt from the report said a track "did not read consistently"
