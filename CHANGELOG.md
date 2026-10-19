@@ -22,6 +22,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   submissions; K disagree" in amber. The report records the weight (`ctdb.best_confidence`,
   `ctdb.total_confidence`, `ctdb.outvoted`; schema 38).
 
+- **The AccurateRip summary counts the tracks that shipped, not the first pass.** cyanrip prints
+  "N/M tracks ripped accurately" once; after a re-read fixed a track the report still quoted the
+  first pass, so it could say 12/14 beside a verdict of 13 of 14. The count is now taken from the
+  tracks the rip kept.
+
 ### Changed
 
 - **Round 35: our lap 14 tells the fork 0.7.109 is published**, which its `.25` waited on, and

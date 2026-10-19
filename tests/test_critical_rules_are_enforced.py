@@ -2411,7 +2411,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4958 -> 4967** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **4967 -> 4974** (2026-10-16, TASKS R20): `_last_disc` carries `isrc_provenance`, built by `isrc_provenance.report_block` from the worker's reading while the worker still exists, like the record's ending.
     # **4974 -> 4987** (2026-10-16, TASKS R20 part 2, round 35): what we passed and the argv, handed to the ISRC block.
-    "ui/main_window_rip.py": 4987,
+    # **4987 -> 4996** (2026-10-19, P4): the auto-fix merge recounts the AccurateRip summary from the tracks it ships.
+    "ui/main_window_rip.py": 4996,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2701,7 +2702,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **613 -> 653** (2026-10-06, round 30's closing run): `_unconverged_clause`, so the headline names a track AccurateRip did not verify whose re-reads also did not converge; the verdict owns its wording.
     # **653 -> 674** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `apply_downgrades`, the ONE assembly of a downgraded trust headline, which the window's banner and the report's verdict both call (it was inline in `rip_progress`, which shrank by the same amount).
     # **674 -> 706** (2026-10-19, P1): `accuraterip_rejected_count`, the one count of tracks AccurateRip compared and did not verify, beside `accuraterip_counts`, which it complements.
-    "verdict.py": 706,
+    # **706 -> 735** (2026-10-19, P4): `recount_accuraterip_summary`, the ripper's first-pass "N/M tracks ripped accurately" recounted from the tracks shipped, beside the other AccurateRip counts.
+    "verdict.py": 735,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.

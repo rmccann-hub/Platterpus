@@ -103,6 +103,35 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     return total, verified, partial
 
 
+_SUMMARY: Final[re.Pattern[str]] = re.compile(
+    r"^(?P<hit>\d{1,3})/(?P<total>\d{1,3}) tracks ripped accurately(?P<rest>.{0,80})$"
+)
+
+
+def recount_accuraterip_summary(
+    summary: str | None, tracks: Sequence[object]
+) -> str | None:
+    """The ripper's ``N/M tracks ripped accurately`` line, ``N`` recounted.
+
+    cyanrip prints the line once, from the first pass. After a securing pass
+    swaps a re-read in, the report and the window's fallback still quoted it, so
+    a round-27 report said ``12/14`` beside a verdict of 13 of 14 (2026-10-19,
+    P4). ``N`` becomes the tracks AccurateRip verified in ``tracks``, capped at
+    the ripper's ``M``; any other shape is returned unchanged. Never raises.
+    """
+    if not summary:
+        return summary
+    match = _SUMMARY.match(summary)
+    if match is None:
+        return summary
+    try:
+        total = int(match.group("total"))
+        hit = sum(1 for t in tracks if track_accuraterip_verified(t))
+    except (TypeError, ValueError):
+        return summary
+    return f"{min(hit, total)}/{total} tracks ripped accurately{match.group('rest')}"
+
+
 def accuraterip_rejected_count(rip_log: object) -> int:
     """Tracks AccurateRip compared and did not verify, one-frame matches included.
 
