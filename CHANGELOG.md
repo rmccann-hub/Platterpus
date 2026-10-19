@@ -12,6 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **CTDB no longer shows a green "verified" for a match against a minority entry.** On the
+  reference disc, 8 of 26 rips matched a CTDB entry with one submission, very likely the
+  owner's own earlier rip with the same misread, while about 1,405 submissions disagreed, and
+  the app said "CTDB: verified ✓". A match is now green only when its entry is the strongest for
+  the disc and AccurateRip rejects no track; otherwise the line says "matched 1 of N CTDB
+  submissions; K disagree" in amber. The report records the weight (`ctdb.best_confidence`,
+  `ctdb.total_confidence`, `ctdb.outvoted`; schema 38).
+
 ### Changed
 
 - **Round 35: our lap 14 tells the fork 0.7.109 is published**, which its `.25` waited on, and

@@ -132,7 +132,14 @@ def run_diagnostics(
     if result.db_crcs:
         out(f"DB CRC(s):  {_fmt_crcs(set(result.db_crcs))}")
     out(f"Detail:     {result.message}")
-    if result.verdict is Verdict.MATCH and not result.trustworthy:
+    if result.verdict is Verdict.MATCH and result.outvoted:
+        out(
+            f"\nNOTE: the matched entry has confidence {result.confidence}; the "
+            f"strongest has {result.best_confidence}, and "
+            f"{result.disagreeing_confidence} submissions disagree. A minority "
+            "match does not corroborate the rip."
+        )
+    elif result.verdict is Verdict.MATCH and not result.trustworthy:
         out(
             "\nNOTE: a MATCH here is EXPERIMENTAL until the CRC algorithm is "
             "confirmed bit-exact on hardware (KDD-16)."

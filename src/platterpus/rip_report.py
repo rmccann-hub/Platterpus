@@ -355,7 +355,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      info issue: the track's edge holds silence that is not disc audio, in a
 #      rip that asked to read it. v35 shipped in 0.7.108, so this is a new
 #      number. Additions only.
-REPORT_SCHEMA_VERSION: int = 37
+# v38: `ctdb.best_confidence`, `ctdb.total_confidence` and `ctdb.outvoted`. A
+#      MATCH whose entry is weaker than the strongest entry for the TOC is
+#      `outvoted`, and is no longer `trustworthy`, so its message and the results
+#      pane say "matched N of M submissions; K disagree" in amber instead of a
+#      green "verified" (the claude-code-skills audit check of 2026-10-19, P1:
+#      8 of 26 reference-disc rips matched a confidence-1 entry against one of
+#      about 1,405). v37 shipped in 0.7.109, so this is a new number. Additions
+#      only, and one field's meaning narrowed: `trustworthy` is false for an
+#      outvoted match.
+REPORT_SCHEMA_VERSION: int = 38
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1954,6 +1963,13 @@ def _ctdb(result: object | None) -> dict | None:
         "verdict": verdict,
         "confidence": getattr(result, "confidence", None),
         "trustworthy": getattr(result, "trustworthy", None),
+        # The weight behind the verdict (v38): the strongest entry's confidence,
+        # all entries' confidence summed, and whether the entry we matched is
+        # outvoted by a stronger one. A match at confidence 1 beside an entry of
+        # 1,405 is a minority agreement, not corroboration.
+        "best_confidence": getattr(result, "best_confidence", None),
+        "total_confidence": getattr(result, "total_confidence", None),
+        "outvoted": getattr(result, "outvoted", None),
         "crc_validated": getattr(result, "crc_validated", None),
         # Include the CRCs + message so a consumer can audit a match, not just
         # see the verdict (hex to match the per-track AccurateRip CRC style).

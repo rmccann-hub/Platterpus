@@ -103,6 +103,38 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     return total, verified, partial
 
 
+def accuraterip_rejected_count(rip_log: object) -> int:
+    """Tracks AccurateRip compared and did not verify, one-frame matches included.
+
+    A track the database has no entry for is not counted: AccurateRip made no
+    finding about it. Used to keep a CTDB match from showing green beside a
+    track AccurateRip rejected (2026-10-19, P1). Pure; never raises.
+    """
+    try:
+        return sum(
+            1
+            for t in _audio_tracks(rip_log)
+            if not track_accuraterip_verified(t)
+            and (
+                track_accuraterip_partial(t)
+                or accuraterip_state(
+                    getattr(t, "accuraterip_v1", None),
+                    getattr(t, "accuraterip_offset", None),
+                    getattr(t, "accuraterip_lookup", None),
+                )
+                == AR_STATE_NO_MATCH
+                or accuraterip_state(
+                    getattr(t, "accuraterip_v2", None),
+                    getattr(t, "accuraterip_offset", None),
+                    getattr(t, "accuraterip_lookup", None),
+                )
+                == AR_STATE_NO_MATCH
+            )
+        )
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
 # --- The one AccurateRip state classification --------------------------------
 #
 # Lifted here from `ui/rip_progress` (2026-07-30). Two surfaces render this fact

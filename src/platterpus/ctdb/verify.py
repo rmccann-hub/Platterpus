@@ -87,19 +87,49 @@ class CtdbVerifyResult:
     # `--ctdb-calibrate` carry everything needed to pin the algorithm offline
     # (our_crc vs these) without a second live lookup. Empty when not in the DB.
     db_crcs: tuple[int, ...] = ()
+    # **The weight of the entries, beside the one we matched** (2026-10-19,
+    # the claude-code-skills audit check, P1). CTDB's confidence is the number of
+    # submissions behind an entry. A match only says our CRC equals SOME entry;
+    # on the reference disc it equalled a confidence-1 entry, very likely the
+    # owner's own EAC rip of 2026-06-11 with the same track-5 misread, while an
+    # entry of 1,405 disagreed, and the app showed a green "verified". These two
+    # numbers are what a reader needs to see that: the strongest entry's
+    # confidence, and every entry's confidence summed.
+    best_confidence: int = 0
+    total_confidence: int = 0
+
+    @property
+    def outvoted(self) -> bool:
+        """A MATCH whose entry is not the strongest one CTDB holds for this TOC.
+
+        Our rip equals a minority of submissions and differs from the plurality,
+        which corroborates nothing: it is as consistent with a shared misread as
+        with a correct read. False for anything that is not a MATCH.
+        """
+        return self.verdict is Verdict.MATCH and self.confidence < self.best_confidence
+
+    @property
+    def disagreeing_confidence(self) -> int:
+        """Submissions behind every entry other than the one we matched."""
+        if self.verdict is not Verdict.MATCH:
+            return 0
+        return max(0, self.total_confidence - self.confidence)
 
     @property
     def trustworthy(self) -> bool | None:
         """Can this verdict's claim about the disc be believed? Tri-state.
 
-        A MATCH is only trustworthy once the CRC algorithm is confirmed. ``None``
+        A MATCH is only trustworthy once the CRC algorithm is confirmed, and only
+        when its entry is the plurality (:attr:`outvoted` is False). ``None``
         is for a check that made NO claim — :attr:`Verdict.NOT_WHOLE_DISC` never
         asked CTDB anything, so there is nothing to trust or distrust, and a
         ``true`` beside it would read as "a CTDB check ran and can be relied on".
         """
         if self.verdict is Verdict.NOT_WHOLE_DISC:
             return None
-        return self.verdict is not Verdict.MATCH or self.crc_validated
+        if self.verdict is not Verdict.MATCH:
+            return True
+        return self.crc_validated and not self.outvoted
 
 
 # A decoder turns a FLAC path into PCM bytes (injected for tests).
@@ -222,8 +252,19 @@ def _crc_all(
 
 def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
     db_crcs = tuple(e.crc for e in result.entries if e.crc is not None)
+    best = max((e.confidence for e in result.entries), default=0)
+    total = sum(max(0, e.confidence) for e in result.entries)
     for entry in result.entries:
         if entry.crc is not None and entry.crc == our_crc:
+            if not crc_mod.CRC_VALIDATED:
+                message = (
+                    "CRC matched, but the CRC algorithm is UNVERIFIED "
+                    "(KDD-16) — treat as experimental"
+                )
+            elif entry.confidence < best:
+                message = minority_match_sentence(entry.confidence, total)
+            else:
+                message = f"verified against CTDB (confidence {entry.confidence})"
             return CtdbVerifyResult(
                 Verdict.MATCH,
                 confidence=entry.confidence,
@@ -231,14 +272,10 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
                 matched_crc=entry.crc,
                 db_crcs=db_crcs,
                 crc_validated=crc_mod.CRC_VALIDATED,
-                message=(
-                    f"verified against CTDB (confidence {entry.confidence})"
-                    if crc_mod.CRC_VALIDATED
-                    else "CRC matched, but the CRC algorithm is UNVERIFIED "
-                    "(KDD-16) — treat as experimental"
-                ),
+                message=message,
+                best_confidence=best,
+                total_confidence=total,
             )
-    best = max((e.confidence for e in result.entries), default=0)
     n = len(result.entries)
     # The message MUST depend on whether our CRC algorithm is trustworthy. While
     # CRC_VALIDATED is False (KDD-16), our_crc is a known-placeholder value that
@@ -268,6 +305,20 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
         db_crcs=db_crcs,
         crc_validated=crc_mod.CRC_VALIDATED,
         message=message,
+    )
+
+
+def minority_match_sentence(matched: int, total: int) -> str:
+    """The one wording for a match outvoted by a stronger CTDB entry.
+
+    Shared by the verify message and the results pane, so the report and the
+    screen cannot describe the same match two ways.
+    """
+    disagree = max(0, total - matched)
+    return (
+        f"matched {matched:,} of {total:,} CTDB submissions; {disagree:,} disagree. "
+        "Our rip equals a minority entry, which a shared misread could explain, "
+        "so this does not corroborate the rip; AccurateRip is the authority"
     )
 
 
