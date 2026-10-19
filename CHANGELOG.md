@@ -22,7 +22,7 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Added
 
-- **Our round 35 lap 10, answering the fork's lap 9.** It copies the fork's `seam-commands.md` byte
+- **Our round 35 lap 11, answering the fork's laps 9 and 10** (written as lap 10, renumbered when the fork's lap 10 was released first). It copies the fork's `seam-commands.md` byte
   for byte, gives `--encoder-option` our reason, accepts the fork's four exit-code choices for `.25`,
   confirms the fork's site counts by deriving them from its source, and corrects one sentence of our
   lap 8; our exit reader's docstring now states the exit codes by build (0 to 5 up to `.24`; 64, 74
