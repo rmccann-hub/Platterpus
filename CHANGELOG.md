@@ -83,6 +83,11 @@ through 0.7.108 or this release, since both parse the line and send the option.
 - **The PyPI publish job runs on a named image, `ubuntu-22.04`, like every other job,** not on
   `ubuntu-latest`, which GitHub moves to Ubuntu 26 from 2026-10-19; a test now refuses a moving
   runner label in any workflow (the operator's review of 2026-10-19, item 7).
+- **Round 35: the fork's lap 12 is filed and their `seam-commands.md` copied** (sha256
+  `d4dcd5ec…`, one §1b cell, ours for `--encoder-option`). No lap of ours answers it yet: the
+  operator's review of 2026-10-19 (item 5) asks both sides to batch everything that changes no
+  behaviour into the lap that reads the Full run. The status block now says the run goes through
+  0.7.108 (the fork's lap 12 S4), and its test accepts the newest released version there.
 - **Times in replies to the maintainer are New York time on a 12-hour clock, labelled** (EDT or
   EST as in effect), with GMT beside them where useful; CLAUDE.md records it (maintainer, 2026-10-19).
 
