@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .24 at 93afa15; it closes on the Full run on .24 through our first release that parses Disc ISRC: and sends --prefer-disc-isrc (your S19); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
-STATUS-LAPS: newest sent round-35-lap-11.md (ours), round-35-lap-12.md (theirs); next round 35 lap 13 (ours), our reading of the Full run, which also takes in your lap 12 (your seam-commands.md is copied at d4dcd5ec); held none
+STATUS-LAPS: newest sent round-35-lap-13.md (ours), round-35-lap-12.md (theirs); next round 35 lap 14 (yours), or ours with our reading of the Full run; held none
 STATUS-RELEASED: 0.7.108 at 2165361, 2026-10-16
 STATUS-RELEASE-NEXT: 0.7.110, whenever it is ready, after 0.7.109, which reads .25's refused-code line and is dispatched on our operator's word (protocol v8 §6b); pins 891c79e, reviews 93afa15
 STATUS-RUN-NEXT: 93afa15 with 0.7.108; waiting on our operator's Full run on the rig, through 0.7.108 whenever 0.7.109 is dispatched (your lap 12 S4)

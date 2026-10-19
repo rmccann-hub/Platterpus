@@ -84,10 +84,11 @@ through 0.7.108 or this release, since both parse the line and send the option.
   `ubuntu-latest`, which GitHub moves to Ubuntu 26 from 2026-10-19; a test now refuses a moving
   runner label in any workflow, and the dependency map lists one runner image, not two (the
   operator's review of 2026-10-19, item 7).
-- **Round 35: the fork's lap 12 is filed and their `seam-commands.md` copied** (sha256
-  `d4dcd5ec…`, one §1b cell, ours for `--encoder-option`). No lap of ours answers it yet: the
-  operator's review of 2026-10-19 (item 5) asks both sides to batch everything that changes no
-  behaviour into the lap that reads the Full run. The status block now says the run goes through
+- **Round 35: the fork's lap 12 is filed, and our lap 13 answers it.** Their `seam-commands.md`
+  is copied (sha256 `d4dcd5ec…`, one §1b cell, ours for `--encoder-option`), their count
+  correction is taken, and the run goes through 0.7.108. The lap goes now rather than with the
+  run's reading, as the operator's review of 2026-10-19 (item 5) would otherwise ask, because our
+  checks hold both sides' newest laps to the shared files' hashes and the copy changes one. The status block now says the run goes through
   0.7.108 (the fork's lap 12 S4), and its test accepts the newest released version there.
 - **Times in replies to the maintainer are New York time on a 12-hour clock, labelled** (EDT or
   EST as in effect), with GMT beside them where useful; CLAUDE.md records it (maintainer, 2026-10-19).
