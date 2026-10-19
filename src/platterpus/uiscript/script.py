@@ -269,7 +269,7 @@ def expand_identity(args: list[str], *, build_tag: str) -> tuple[list[str], list
     type ``platterpus/0.7.104``: the version moves every release, and a stale one
     would be recorded in an archival log as the program that made it. So the words
     come from the SAME functions the app's rip argv builder calls
-    (``consumer_args_for_build``, ``diagnostics_args``), under the same gate, and
+    (``consumer_args_for_build``, ``diagnostics_args_for_build``), under the same gates, and
     a script line cannot send what an app rip would not.
 
     ``build_tag`` is the ripper build the run has seen. An unknown or older build
@@ -279,7 +279,7 @@ def expand_identity(args: list[str], *, build_tag: str) -> tuple[list[str], list
     """
     from platterpus.adapters.cyanrip_backend import (
         consumer_args_for_build,
-        diagnostics_args,
+        diagnostics_args_for_build,
     )
 
     out: list[str] = []
@@ -295,7 +295,14 @@ def expand_identity(args: list[str], *, build_tag: str) -> tuple[list[str], list
                 )
             out += words
         elif arg == DIAGNOSTICS_PLACEHOLDER:
-            out += diagnostics_args()
+            words = diagnostics_args_for_build(build_tag)
+            if not words:
+                notes.append(
+                    f"{DIAGNOSTICS_PLACEHOLDER} sent nothing: the ripper build "
+                    f"{build_tag} is not the Platterpus fork, and a build that is "
+                    "not refuses --diagnostics, so this step writes no -j record"
+                )
+            out += words
         else:
             out.append(arg)
     return out, notes

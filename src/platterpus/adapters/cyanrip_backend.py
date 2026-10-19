@@ -429,7 +429,10 @@ class CyanripImpl(RipBackend):
         # Spelled `--diagnostics` since 2026-10-13, from the one home of the
         # spelling: the fork's next build refuses `-j` outright, and every build
         # that takes `-j` takes `--diagnostics` (see `DIAGNOSTICS_FLAG`).
-        argv += diagnostics_args()
+        # Gated since 2026-10-19 (TASKS R30): stock cyanrip refuses every long
+        # option, so sending this to it refused every rip. Which builds get it,
+        # and why an unread banner still does: `diagnostics_args_for_build`.
+        argv += diagnostics_args_for_build(ripper_build_tag)
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the
@@ -1638,6 +1641,37 @@ def diagnostics_args(moment: datetime | None = None) -> list[str]:
     able to spell the flag, or name the record, two different ways.
     """
     return [DIAGNOSTICS_FLAG, diagnostics_record_name(moment)]
+
+
+def diagnostics_args_for_build(build_tag: str) -> list[str]:
+    """:func:`diagnostics_args` for a build that will accept them, else ``[]``.
+
+    **Sent when the banner names the fork, or when no banner was read; withheld
+    when a banner WAS read and does not name the fork** — stock cyanrip's
+    ``(release)``, and any tag we read but do not recognise.
+
+    Why not the ``--consumer`` allow-set of commits: that set is a table of the
+    fork's builds shipped inside our release, so it cannot know a build agreed
+    after it, and a fork build missing from it would lose the one record a
+    refused run leaves (provider contract P4). Every fork build since round 15
+    takes the flag, so the fork's ID is the right key, the same one
+    :mod:`platterpus.ripper_identity` classifies on.
+
+    Why an unread banner (``""``) still gets it: the binary in ``~/.local/bin`` is
+    the one our wizard installed, a failed version probe says more about the
+    probe than the binary, and dropping the record there loses evidence on the
+    run most likely to need it. A stock build always prints a parenthetical, so
+    ``""`` is not how stock cyanrip reaches this function.
+
+    The two costs are not equal, which is why a read, unrecognised tag is
+    withheld: sending to a build that refuses it fails the rip, while withholding
+    from one that would accept it costs a diagnostic record and nothing else.
+    """
+    from platterpus.ripper_identity import identify_ripper  # noqa: PLC0415
+
+    if (build_tag or "").strip() and identify_ripper("", build_tag).kind != "fork":
+        return []
+    return diagnostics_args()
 
 
 def consumer_tag() -> str:

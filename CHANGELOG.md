@@ -80,6 +80,16 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Changed
 
+- **The PyPI publish job runs on a named image, `ubuntu-22.04`, like every other job,** not on
+  `ubuntu-latest`, which GitHub moves to Ubuntu 26 from 2026-10-19; a test now refuses a moving
+  runner label in any workflow, and the dependency map lists one runner image, not two (the
+  operator's review of 2026-10-19, item 7).
+- **Round 35: the fork's lap 12 is filed, and our lap 13 answers it.** Their `seam-commands.md`
+  is copied (sha256 `d4dcd5ec…`, one §1b cell, ours for `--encoder-option`), their count
+  correction is taken, and the run goes through 0.7.108. The lap goes now rather than with the
+  run's reading, as the operator's review of 2026-10-19 (item 5) would otherwise ask, because our
+  checks hold both sides' newest laps to the shared files' hashes and the copy changes one. The status block now says the run goes through
+  0.7.108 (the fork's lap 12 S4), and its test accepts the newest released version there.
 - **Times in replies to the maintainer are New York time on a 12-hour clock, labelled** (EDT or
   EST as in effect), with GMT beside them where useful; CLAUDE.md records it (maintainer, 2026-10-19).
 
@@ -108,6 +118,14 @@ through 0.7.108 or this release, since both parse the line and send the option.
   the fork's line 112, so the shared file is identical in both repositories again.
 
 ### Fixed
+
+- **A stock cyanrip is no longer sent `--diagnostics`, which made it refuse every rip.** Stock
+  cyanrip has no long options and exits on one it does not know; the setup wizard installs it
+  before building the fork, so an install left on it could not rip. The flag now goes only to a
+  build whose banner names the Platterpus fork, or whose banner could not be read, from the rip
+  and from a script's `(diagnostics)` placeholder, which says when it sent nothing. A stock build
+  now gets none of our three long options (TASKS R30, the operator's review of 2026-10-19). A test's
+  stand-in ripper that called itself stock while accepting `--diagnostics` now calls itself the fork.
 
 - **The test harness now stops every thread a window declares.** `stop_window_threads` listed
   seven of the window's eight QThread slots and missed `_ripper_update_thread`, which `closeEvent`
