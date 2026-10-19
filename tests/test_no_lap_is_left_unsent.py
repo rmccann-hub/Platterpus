@@ -42,6 +42,13 @@ EMITTER: Final[Path] = REPO_ROOT / "scripts" / "emit_envelope.py"
 #: the list may shrink but should not grow casually — every addition is a lap that
 #: went out unpacked, which is the shape the envelope exists to prevent.
 SENT_OUTSIDE_THE_ENVELOPE: Final[dict[str, str]] = {
+    "round-35-lap-08.md": (
+        "Sent bare, through git on `main` at fc82ac89, as laps travel since "
+        "2026-09-13. The fork's lap 9 confirms arrival: `HANDSHAKE-INBOUND-HELD: "
+        "round-35-lap-08.md (OPEN), sha256 7ff8699f...`, filed byte for byte at "
+        "their 81e5cb5, and its S4 lands our S4's cells. Held at "
+        "docs/handshake/inbound/round-35-lap-09.md."
+    ),
     "round-15-lap-02.md": (
         "The fork's lap 3 answers it directly — it quotes our lap 2's subject "
         "and declares GO on the pin lap 2 proposed — so it demonstrably arrived. "

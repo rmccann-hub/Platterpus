@@ -97,7 +97,7 @@ Twenty-one flags reach the argv builder's rip path (`adapters/cyanrip_backend.py
 | `-o` | format | `str` enum | **always `flac`** | archival master; every other format is transcoded host-side, so the ripper is never asked for a lossy encode | HAVE |  HAVE |
 | `-D` | folder_scheme | `str`, a naming scheme | expanded per album by `src/naming.c` | **"Directory naming scheme"** (`src/cyanrip_main.c` option table), not a plain output directory: a scheme whose components are expanded per album, continued per track by `-F`. An empty leading component once made a multi-component scheme resolve **absolute**, which a reader of the old wording here would not have looked for | HAVE |  HAVE |
 | `-a` | tag blob | `str`, colon-delimited, **backslash-escaped** | no newline, no NUL, bounded. Every `:` `=` `\` `'` in a *value* is escaped; the blob's structure (one `key=value` per unescaped `:`, exactly one unescaped `=` per field, no dangling escape) is refused at our argv chokepoint. Measured: an **unescaped** `:` does not fail, it silently truncates the value | the whole tag set as one argument | HAVE — escape shipped lap 31 |  HAVE — **and there IS an escape: `\\:`. See §7.** |
-| `-t` | track list | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required. Your reading was right and understated: it did not only read past the string, it **published** what it read as track metadata. **Refused since `3923dee`** — `Missing "=" in track metadata "%s"`, exit 1 | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — fixed `3923dee`, measured in §7, regression test in `sc_cli` |
+| `-t` | track list | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required. Your reading was right and understated: it did not only read past the string, it **published** what it read as track metadata. **Refused since `3923dee`** — `Missing "=" in track metadata "%s"`, exit 64 (1 until round 35's exit classes) | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — fixed `3923dee`, measured in §7, regression test in `sc_cli` |
 | `-c` | disc position | `int/int` | both ints, `number <= total`, else the flag is dropped | `DISCNUMBER` / `TOTALDISCS` | HAVE |  HAVE |
 | `-s` | offset | `int`, samples | drive-plausible range | read offset correction | HAVE |  HAVE — **now bounded ±1048576**, §7 |
 | `-S` | speed | `int` multiplier | bounded; `0` = drive max | read speed, fixed mode only | HAVE |  HAVE |
@@ -128,27 +128,28 @@ has no row in §1, §1b or §2.
 
 | flag | meaning (cyanrip's `--help`) | **PP** | **CR** |
 |---|---|---|---|
-| `-h`, `--help` | Print this text | ? | HAVE |
-| `--stall-secs` | Seconds a frame read must stall before reporting liveness (0 disables) (default: 10) | ? | HAVE |
-| `--cache-probe` | Measure the drive's readback cache before ripping (costs seconds; with -I to measure without ripping) (default: false) | ? | HAVE |
-| `-p`, `--pregap` | Track pregap handling: N=default\|drop\|merge\|track (repeatable) | ? | HAVE |
-| `-P`, `--paranoia` | Paranoia level (0..max, or 'none'/'max') | ? | HAVE |
-| `-H`, `--hdcd` | Enable HDCD decoding (default: false) | ? | HAVE |
-| `-E`, `--force-deemphasis` | Force CD deemphasis (default: false) | ? | HAVE |
-| `-K`, `--no-replaygain` | Disable ReplayGain tagging (default: false) | ? | HAVE |
+| `-h`, `--help` | Print this text | NO: we never print help; our probes read --version (§2) | HAVE |
+| `--stall-secs` | Seconds a frame read must stall before reporting liveness (0 disables) (default: 10) | NO: your default is kept | HAVE |
+| `--cache-probe` | Measure the drive's readback cache before ripping (costs seconds; with -I to measure without ripping) (default: false) | NO: not in a rip; our acceptance script's section P and --rig-check send it with -I, probe-only | HAVE |
+| `--encoder-option` | Pass key=value to every output's encoder, as FFmpeg names its options (repeatable) | ? | HAVE |
+| `-p`, `--pregap` | Track pregap handling: N=default\|drop\|merge\|track (repeatable) | NO: your default pregap handling is kept; a per-track choice is not offered | HAVE |
+| `-P`, `--paranoia` | Paranoia level (0..max, or 'none'/'max') | NO: your default level is kept; a lower level is not offered | HAVE |
+| `-H`, `--hdcd` | Enable HDCD decoding (default: false) | NO: not in a rip; our acceptance script's section P3 sends it with -E and with -W | HAVE |
+| `-E`, `--force-deemphasis` | Force CD deemphasis (default: false) | NO: a rip keeps the disc's own samples with -W (§1); section P3 sends -E once, to test the other side | HAVE |
+| `-K`, `--no-replaygain` | Disable ReplayGain tagging (default: false) | NO: we keep and read your ReplayGain tags | HAVE |
 | `-X`, `--no-data-tracks` | Skip data tracks instead of ripping them to raw binaries (default: false) | ? | HAVE |
-| `-b`, `--bitrate` | Bitrate of lossy files in kbps (default: 256.000000) | ? | HAVE |
-| `-L`, `--log-scheme` | Log file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | ? | HAVE |
-| `-M`, `--cue-scheme` | CUE file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | ? | HAVE |
-| `-J`, `--cue-only` | Only generate and print a CUE sheet, don't rip (default: false) | ? | HAVE |
-| `-R`, `--release` | MusicBrainz release: 1-based index or ID string | ? | HAVE |
+| `-b`, `--bitrate` | Bitrate of lossy files in kbps (default: 256.000000) | NO: lossy files are derived from the FLAC master by our own transcoder | HAVE |
+| `-L`, `--log-scheme` | Log file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | NO: your default names are kept; the album folder comes from -D (§1) | HAVE |
+| `-M`, `--cue-scheme` | CUE file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | NO: your default names are kept; the album folder comes from -D (§1) | HAVE |
+| `-J`, `--cue-only` | Only generate and print a CUE sheet, don't rip (default: false) | NO: we never ask for a cue without a rip | HAVE |
+| `-R`, `--release` | MusicBrainz release: 1-based index or ID string | NO: our MusicBrainz lookup chooses the release, and its tags reach you with -a and -t under -N | HAVE |
 | `-C`, `--cover` | Cover art: title=path (or N=path per-track, repeatable) | ? | HAVE |
-| `-A`, `--no-accurip` | Disable AccurateRip database query and validation (default: false) | ? | HAVE |
+| `-A`, `--no-accurip` | Disable AccurateRip database query and validation (default: false) | NO: AccurateRip is the verification we read | HAVE |
 | `-B`, `--no-acoustid` | Disable AcoustID fingerprinting (default: false) | ? | HAVE |
-| `--acoustid-key` | AcoustID user API key, to submit fingerprints of verified rips | ? | HAVE |
-| `-m`, `--cover-size` | Cover art max size: 250, 500, 1200, or -1 for original (default: -1) | ? | HAVE |
-| `-Q`, `--eject` | Eject tray once successfully done (default: false) | ? | HAVE |
-| `-f`, `--find-offset` | Find drive offset (requires a disc with an AccuRip entry) (default: false) | ? | HAVE |
+| `--acoustid-key` | AcoustID user API key, to submit fingerprints of verified rips | NO: we submit nothing to AcoustID | HAVE |
+| `-m`, `--cover-size` | Cover art max size: 250, 500, 1200, or -1 for original (default: -1) | NO: under -N and -U you fetch no cover art | HAVE |
+| `-Q`, `--eject` | Eject tray once successfully done (default: false) | NO: the app ejects after it has read the results | HAVE |
+| `-f`, `--find-offset` | Find drive offset (requires a disc with an AccuRip entry) (default: false) | NO: not in a rip; our acceptance script's section O runs cyanrip -N -f against the reference drive's +667 | HAVE |
 
 ## 2. Probe-path flags, which is a separate call and a separate risk
 
@@ -451,85 +452,85 @@ rather than an error — also an `absent` row.
 
 <!-- BEGIN GENERATED probe-argv-surface -->
 
-*Generated by `tools/probe-argv-surface.py --markdown` from `cyanrip 0.9.4-rc3+platterpus.24 (platterpus-fork-g2bd6915)`. Do not hand-edit; `--check` verifies it.*
+*Generated by `tools/probe-argv-surface.py --markdown` from `cyanrip 0.9.4-rc3+platterpus.24 (platterpus-fork-g37dee7b)`. Do not hand-edit; `--check` verifies it.*
 
 ### Measured argument behaviour (black-box, our own binary)
 
 | flag | meaning | value | outcome | exit | message / observed |
 |---|---|---|---|---|---|
-| `-s` | read offset, samples | `-2147483648` | **refused** | 1 | Error parsing -2147483648 for argument "offset": not in [-1048576:1048576] range! |
+| `-s` | read offset, samples | `-2147483648` | **refused** | 64 | Error parsing -2147483648 for argument "offset": not in [-1048576:1048576] range! |
 | `-s` | read offset, samples | `-5000` | **accepted** | 0 | -5000 |
 | `-s` | read offset, samples | `-667` | **accepted** | 0 | -667 |
 | `-s` | read offset, samples | `0` | **accepted** | 0 | +0 |
 | `-s` | read offset, samples | `667` | **accepted** | 0 | +667 |
 | `-s` | read offset, samples | `5000` | **accepted** | 0 | +5000 |
-| `-s` | read offset, samples | `2147483647` | **refused** | 1 | Error parsing 2147483647 for argument "offset": not in [-1048576:1048576] range! |
-| `-r` | frame/rip retries | `-1` | **refused** | 1 | Error parsing -1 for argument "retries": not in [0:2147483647] range! |
+| `-s` | read offset, samples | `2147483647` | **refused** | 64 | Error parsing 2147483647 for argument "offset": not in [-1048576:1048576] range! |
+| `-r` | frame/rip retries | `-1` | **refused** | 64 | Error parsing -1 for argument "retries": not in [0:2147483647] range! |
 | `-r` | frame/rip retries | `0` | **accepted** | 0 | 0 |
 | `-r` | frame/rip retries | `1` | **accepted** | 0 | 1 |
 | `-r` | frame/rip retries | `10` | **accepted** | 0 | 10 |
 | `-r` | frame/rip retries | `2147483647` | **accepted** | 0 | 2147483647 |
-| `-r` | frame/rip retries | `2147483648` | **refused** | 1 | Error parsing 2147483648 for argument "retries": not in [0:2147483647] range! |
-| `-Z` | repeat rips until N matches | `-1` | **refused** | 1 | Error parsing -1 for argument "repeat_rips": not in [0:2147483647] range! |
+| `-r` | frame/rip retries | `2147483648` | **refused** | 64 | Error parsing 2147483648 for argument "retries": not in [0:2147483647] range! |
+| `-Z` | repeat rips until N matches | `-1` | **refused** | 64 | Error parsing -1 for argument "repeat_rips": not in [0:2147483647] range! |
 | `-Z` | repeat rips until N matches | `0` | **unobservable** | 0 | (no header field exposes this) |
 | `-Z` | repeat rips until N matches | `1` | **unobservable** | 0 | (no header field exposes this) |
 | `-Z` | repeat rips until N matches | `2` | **unobservable** | 0 | (no header field exposes this) |
-| `-Z` | repeat rips until N matches | `10` | **refused** | 1 | -Z 10 can never converge with -r 10: it needs 11 reads to agree, and -r 10 never allows that many. Use -r 11 or more! |
-| `-Z` | repeat rips until N matches | `2147483647` | **refused** | 1 | -Z 2147483647 can never converge with -r 10: it needs 2147483648 reads to agree, more than any -r allows. Use a smaller -Z! |
-| `-S` | drive speed multiplier | `-1` | **refused** | 1 | Error parsing -1 for argument "speed": not in [0:2147483647] range! |
+| `-Z` | repeat rips until N matches | `10` | **refused** | 64 | -Z 10 can never converge with -r 10: it needs 11 reads to agree, and -r 10 never allows that many. Use -r 11 or more! |
+| `-Z` | repeat rips until N matches | `2147483647` | **refused** | 64 | -Z 2147483647 can never converge with -r 10: it needs 2147483648 reads to agree, more than any -r allows. Use a smaller -Z! |
+| `-S` | drive speed multiplier | `-1` | **refused** | 64 | Error parsing -1 for argument "speed": not in [0:2147483647] range! |
 | `-S` | drive speed multiplier | `0` | **unobservable** | 0 | (no header field exposes this) |
-| `-S` | drive speed multiplier | `1` | **refused** | 1 | Device does not support changing speeds! |
-| `-S` | drive speed multiplier | `48` | **refused** | 1 | Device does not support changing speeds! |
-| `-S` | drive speed multiplier | `2147483647` | **refused** | 1 | Device does not support changing speeds! |
-| `--stall-secs` | stall threshold, seconds | `-1` | **refused** | 1 | Error parsing -1 for argument "stall_secs": not in [0:2147483647] range! |
+| `-S` | drive speed multiplier | `1` | **refused** | 74 | Device does not support changing speeds! |
+| `-S` | drive speed multiplier | `48` | **refused** | 74 | Device does not support changing speeds! |
+| `-S` | drive speed multiplier | `2147483647` | **refused** | 74 | Device does not support changing speeds! |
+| `--stall-secs` | stall threshold, seconds | `-1` | **refused** | 64 | Error parsing -1 for argument "stall_secs": not in [0:2147483647] range! |
 | `--stall-secs` | stall threshold, seconds | `0` | **unobservable** | 0 | (no header field exposes this) |
 | `--stall-secs` | stall threshold, seconds | `1` | **unobservable** | 0 | (no header field exposes this) |
 | `--stall-secs` | stall threshold, seconds | `10` | **unobservable** | 0 | (no header field exposes this) |
 | `--stall-secs` | stall threshold, seconds | `2147483647` | **unobservable** | 0 | (no header field exposes this) |
-| `-P` | paranoia level | `-1` | **refused** | 1 | Invalid paranoia level -1 must be between 0 and 3! |
+| `-P` | paranoia level | `-1` | **refused** | 64 | Invalid paranoia level -1 must be between 0 and 3! |
 | `-P` | paranoia level | `0` | **accepted** | 0 | none |
 | `-P` | paranoia level | `1` | **accepted** | 0 | 1 |
 | `-P` | paranoia level | `3` | **accepted** | 0 | max |
-| `-P` | paranoia level | `4` | **refused** | 1 | Invalid paranoia level 4 must be between 0 and 3! |
-| `-P` | paranoia level | `999` | **refused** | 1 | Invalid paranoia level 999 must be between 0 and 3! |
-| `-P` | paranoia level | `4294967296` | **refused** | 1 | Invalid paranoia level 4294967296 must be between 0 and 3! |
-| `-P` | paranoia level | `4294967297` | **refused** | 1 | Invalid paranoia level 4294967297 must be between 0 and 3! |
-| `-m` | cover art max size | `-2` | **refused** | 1 | Error parsing -2 for argument "cover_size": not in [-1:1200] range! |
+| `-P` | paranoia level | `4` | **refused** | 64 | Invalid paranoia level 4 must be between 0 and 3! |
+| `-P` | paranoia level | `999` | **refused** | 64 | Invalid paranoia level 999 must be between 0 and 3! |
+| `-P` | paranoia level | `4294967296` | **refused** | 64 | Invalid paranoia level 4294967296 must be between 0 and 3! |
+| `-P` | paranoia level | `4294967297` | **refused** | 64 | Invalid paranoia level 4294967297 must be between 0 and 3! |
+| `-m` | cover art max size | `-2` | **refused** | 64 | Error parsing -2 for argument "cover_size": not in [-1:1200] range! |
 | `-m` | cover art max size | `-1` | **unobservable** | 0 | (no header field exposes this) |
 | `-m` | cover art max size | `250` | **unobservable** | 0 | (no header field exposes this) |
 | `-m` | cover art max size | `500` | **unobservable** | 0 | (no header field exposes this) |
 | `-m` | cover art max size | `1200` | **unobservable** | 0 | (no header field exposes this) |
-| `-m` | cover art max size | `999` | **refused** | 1 | Invalid max coverart size 999 (must be 250, 500, 1200 or -1) |
-| `-b` | lossy bitrate, kbps | `-1` | **refused** | 1 | Error parsing -1.000000 for argument "bitrate": not in [0.000000:10000.000000] range! |
+| `-m` | cover art max size | `999` | **refused** | 64 | Invalid max coverart size 999 (must be 250, 500, 1200 or -1) |
+| `-b` | lossy bitrate, kbps | `-1` | **refused** | 64 | Error parsing -1.000000 for argument "bitrate": not in [0.000000:10000.000000] range! |
 | `-b` | lossy bitrate, kbps | `0` | **unobservable** | 0 | (no header field exposes this) |
 | `-b` | lossy bitrate, kbps | `1` | **unobservable** | 0 | (no header field exposes this) |
 | `-b` | lossy bitrate, kbps | `256` | **unobservable** | 0 | (no header field exposes this) |
-| `-b` | lossy bitrate, kbps | `100000` | **refused** | 1 | Error parsing 100000.000000 for argument "bitrate": not in [0.000000:10000.000000] range! |
-| `-l` | track list | `0` | **refused** | 1 | Invalid rip index 0, list has 2 tracks! |
+| `-b` | lossy bitrate, kbps | `100000` | **refused** | 64 | Error parsing 100000.000000 for argument "bitrate": not in [0.000000:10000.000000] range! |
+| `-l` | track list | `0` | **refused** | 64 | Invalid rip index 0, list has 2 tracks! |
 | `-l` | track list | `1` | **unobservable** | 0 | (no header field exposes this) |
 | `-l` | track list | `2` | **unobservable** | 0 | (no header field exposes this) |
-| `-l` | track list | `3` | **refused** | 1 | Invalid rip index 3, list has 2 tracks! |
-| `-l` | track list | `99` | **refused** | 1 | Invalid rip index 99, list has 2 tracks! |
-| `-c` | disc/totaldiscs | `'0/0'` | **refused** | 1 | Invalid discnumber 0 |
+| `-l` | track list | `3` | **refused** | 64 | Invalid rip index 3, list has 2 tracks! |
+| `-l` | track list | `99` | **refused** | 64 | Invalid rip index 99, list has 2 tracks! |
+| `-c` | disc/totaldiscs | `'0/0'` | **refused** | 64 | Invalid discnumber 0 |
 | `-c` | disc/totaldiscs | `'1/1'` | **accepted** | 0 | 1 |
-| `-c` | disc/totaldiscs | `'2/1'` | **refused** | 1 | discnumber 2 is larger than totaldiscs 1 |
+| `-c` | disc/totaldiscs | `'2/1'` | **refused** | 64 | discnumber 2 is larger than totaldiscs 1 |
 | `-c` | disc/totaldiscs | `'1/2'` | **accepted** | 0 | 1 |
 | `-c` | disc/totaldiscs | `'2147483647/2147483647'` | **accepted** | 0 | 2147483647 |
-| `-c` | disc/totaldiscs | `'2147483648/2147483648'` | **refused** | 1 | Invalid discnumber 2147483648 |
-| `-c` | disc/totaldiscs | `'1/2147483648'` | **refused** | 1 | Invalid totaldiscs 2147483648 |
-| `-c` | disc/totaldiscs | `'4294967297/4294967297'` | **refused** | 1 | Invalid discnumber 4294967297 |
-| `-c` | disc/totaldiscs | `'1/4294967298'` | **refused** | 1 | Invalid totaldiscs 4294967298 |
+| `-c` | disc/totaldiscs | `'2147483648/2147483648'` | **refused** | 64 | Invalid discnumber 2147483648 |
+| `-c` | disc/totaldiscs | `'1/2147483648'` | **refused** | 64 | Invalid totaldiscs 2147483648 |
+| `-c` | disc/totaldiscs | `'4294967297/4294967297'` | **refused** | 64 | Invalid discnumber 4294967297 |
+| `-c` | disc/totaldiscs | `'1/4294967298'` | **refused** | 64 | Invalid totaldiscs 4294967298 |
 | `-c` | disc/totaldiscs | `'1'` | **accepted** | 0 | 1 |
 | `-c` | disc/totaldiscs | `'1/'` | **accepted** | 0 | 1 |
-| `-c` | disc/totaldiscs | `'/2'` | **refused** | 1 | Missing discnumber |
+| `-c` | disc/totaldiscs | `'/2'` | **refused** | 64 | Missing discnumber |
 | `-c` | disc/totaldiscs | `'1//2'` | **accepted** | 0 | 1 |
-| `-c` | disc/totaldiscs | `'/'` | **refused** | 1 | Missing discnumber |
-| `-c` | disc/totaldiscs | `'//'` | **refused** | 1 | Missing discnumber |
+| `-c` | disc/totaldiscs | `'/'` | **refused** | 64 | Missing discnumber |
+| `-c` | disc/totaldiscs | `'//'` | **refused** | 64 | Missing discnumber |
 | `-d` | disc image or drive | `'basic.cue'` | **unobservable** | 0 | (no header field exposes this) |
 | `-d` | disc image or drive | `'basic.bin'` | **unobservable** | 0 | (no header field exposes this) |
-| `-d` | disc image or drive | `'/nonexistent'` | **refused** | 1 | Unable to open device: /nonexistent |
-| `-d` | disc image or drive | `'/nonexistent.toc'` | **refused** | 1 | Unable to open device: /nonexistent.toc |
-| `-d` | disc image or drive | `'/nonexistent.nrg'` | **refused** | 1 | Unable to open device: /nonexistent.nrg |
+| `-d` | disc image or drive | `'/nonexistent'` | **refused** | 74 | Unable to open device: /nonexistent |
+| `-d` | disc image or drive | `'/nonexistent.toc'` | **refused** | 74 | Unable to open device: /nonexistent.toc |
+| `-d` | disc image or drive | `'/nonexistent.nrg'` | **refused** | 74 | Unable to open device: /nonexistent.nrg |
 | `--consumer` | consumer tag | `''` | **accepted** | 0 | (reported |
 | `--consumer` | consumer tag | `'x'` | **accepted** | 0 | x |
 | `--consumer` | consumer tag | `'platterpus/0.6.4b12'` | **accepted** | 0 | platterpus/0.6.4b12 |
@@ -539,65 +540,69 @@ rather than an error — also an `absent` row.
 | `-a` | album metadata blob | `'album=a:b'` | **unobservable** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'album=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'` | **unobservable** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'album'` | **unobservable** | 0 | (no header field exposes this) |
-| `-a` | album metadata blob | `'=x'` | **refused** | 1 | Error reading album tags: Invalid argument |
-| `-a` | album metadata blob | `'album='` | **refused** | 1 | Error reading album tags: Invalid argument |
+| `-a` | album metadata blob | `'=x'` | **refused** | 64 | Error reading album tags: Invalid argument |
+| `-a` | album metadata blob | `'album='` | **refused** | 64 | Error reading album tags: Invalid argument |
 | `-a` | album metadata blob | `'a=b:'` | **unobservable** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'a=b::c=d'` | **unobservable** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'a==b'` | **unobservable** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'album=x\\'` | **unobservable** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'1=title=x'` | **unobservable** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'1=title=a:b'` | **unobservable** | 0 | (no header field exposes this) |
-| `-t` | track metadata | `'0=title=x'` | **refused** | 1 | Invalid track number 0, list has 2 tracks! |
+| `-t` | track metadata | `'0=title=x'` | **refused** | 64 | Invalid track number 0, list has 2 tracks! |
 | `-t` | track metadata | `'2=title=x'` | **unobservable** | 0 | (no header field exposes this) |
-| `-t` | track metadata | `'3=title=x'` | **refused** | 1 | Invalid track number 3, list has 2 tracks! |
-| `-t` | track metadata | `'99=title=x'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
-| `-t` | track metadata | `'4294967297=title=x'` | **refused** | 1 | Invalid track number 4294967297, list has 2 tracks! |
-| `-t` | track metadata | `'1'` | **refused** | 1 | Missing "=" in track metadata "1" |
-| `-t` | track metadata | `'99'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
+| `-t` | track metadata | `'3=title=x'` | **refused** | 64 | Invalid track number 3, list has 2 tracks! |
+| `-t` | track metadata | `'99=title=x'` | **refused** | 64 | Invalid track number 99, list has 2 tracks! |
+| `-t` | track metadata | `'4294967297=title=x'` | **refused** | 64 | Invalid track number 4294967297, list has 2 tracks! |
+| `-t` | track metadata | `'1'` | **refused** | 64 | Missing "=" in track metadata "1" |
+| `-t` | track metadata | `'99'` | **refused** | 64 | Invalid track number 99, list has 2 tracks! |
 | `-t` | track metadata | `'1='` | **unobservable** | 0 | (no header field exposes this) |
 | `-o` | output formats | `'flac'` | **unobservable** | 0 | (no header field exposes this) |
-| `-o` | output formats | `''` | **refused** | 1 | Invalid format "" |
-| `-o` | output formats | `'nosuchformat'` | **refused** | 1 | Invalid format "nosuchformat" |
-| `-o` | output formats | `'flac,flac'` | **refused** | 1 | Duplicated format "flac" |
+| `-o` | output formats | `''` | **refused** | 64 | Invalid format "" |
+| `-o` | output formats | `'nosuchformat'` | **refused** | 64 | Invalid format "nosuchformat" |
+| `-o` | output formats | `'flac,flac'` | **refused** | 64 | Duplicated format "flac" |
 | `-T` | filename sanitation | `'simple'` | **unobservable** | 0 | (no header field exposes this) |
 | `-T` | filename sanitation | `'os_simple'` | **unobservable** | 0 | (no header field exposes this) |
 | `-T` | filename sanitation | `'unicode'` | **unobservable** | 0 | (no header field exposes this) |
 | `-T` | filename sanitation | `'os_unicode'` | **unobservable** | 0 | (no header field exposes this) |
-| `-T` | filename sanitation | `'bogus'` | **refused** | 1 | Invalid sanitation method bogus |
+| `-T` | filename sanitation | `'bogus'` | **refused** | 64 | Invalid sanitation method bogus |
 | `-p` | pregap action | `'1=default'` | **unobservable** | 0 | (no header field exposes this) |
 | `-p` | pregap action | `'1=drop'` | **unobservable** | 0 | (no header field exposes this) |
 | `-p` | pregap action | `'1=merge'` | **unobservable** | 0 | (no header field exposes this) |
 | `-p` | pregap action | `'1=track'` | **unobservable** | 0 | (no header field exposes this) |
-| `-p` | pregap action | `'1=bogus'` | **refused** | 1 | Invalid pregap action bogus |
-| `-p` | pregap action | `'99=drop'` | **refused** | 1 | Invalid track number 99 for pregap, list has 2 tracks! |
-| `-p` | pregap action | `'197=drop'` | **refused** | 1 | Invalid track number 197 for pregap, list has 2 tracks! |
-| `-p` | pregap action | `'198=drop'` | **refused** | 1 | Invalid track idx for pregap: 198 |
-| `-p` | pregap action | `'4294967297=drop'` | **refused** | 1 | Invalid track idx for pregap: 4294967297 |
-| `-p` | pregap action | `'1'` | **refused** | 1 | Missing pregap action |
-| `-p` | pregap action | `'=drop'` | **refused** | 1 | Invalid track idx for pregap: 0 |
-| `-p` | pregap action | `'1='` | **refused** | 1 | Missing pregap action |
+| `-p` | pregap action | `'1=bogus'` | **refused** | 64 | Invalid pregap action bogus |
+| `-p` | pregap action | `'99=drop'` | **refused** | 64 | Invalid track number 99 for pregap, list has 2 tracks! |
+| `-p` | pregap action | `'197=drop'` | **refused** | 64 | Invalid track number 197 for pregap, list has 2 tracks! |
+| `-p` | pregap action | `'198=drop'` | **refused** | 64 | Invalid track idx for pregap: 198 |
+| `-p` | pregap action | `'4294967297=drop'` | **refused** | 64 | Invalid track idx for pregap: 4294967297 |
+| `-p` | pregap action | `'1'` | **refused** | 64 | Missing pregap action |
+| `-p` | pregap action | `'=drop'` | **refused** | 64 | Invalid track idx for pregap: 0 |
+| `-p` | pregap action | `'1='` | **refused** | 64 | Missing pregap action |
 | `-p` | pregap action | `'1==drop'` | **unobservable** | 0 | (no header field exposes this) |
 | `-p` | pregap action | `'1=drop='` | **unobservable** | 0 | (no header field exposes this) |
-| `-p` | pregap action | `'='` | **refused** | 1 | Missing track idx for pregap |
-| `-p` | pregap action | `'=='` | **refused** | 1 | Missing track idx for pregap |
+| `-p` | pregap action | `'='` | **refused** | 64 | Missing track idx for pregap |
+| `-p` | pregap action | `'=='` | **refused** | 64 | Missing track idx for pregap |
 | `-C` | cover art location | `'Front=/nonexistent.png'` | **refused** | 1 | Unable to open "/nonexistent.png": No such file or directory! |
 | `-C` | cover art location | `'Front='` | **refused** | 1 | Unable to open "": No such file or directory! |
 | `-C` | cover art location | `'=/nonexistent.png'` | **refused** | 1 | Unable to open "/nonexistent.png": No such file or directory! |
 | `-C` | cover art location | `'Front'` | **refused** | 1 | Unable to open "Front": No such file or directory! |
 | `-C` | cover art location | `'1='` | **refused** | 1 | Unable to open "": No such file or directory! |
 | `-C` | cover art location | `'='` | **refused** | 1 | Unable to open "": No such file or directory! |
+| `--diagnostics` | diagnostics record path | `'rec.json'` | **accepted** | 0 | record written |
+| `--diagnostics` | diagnostics record path | `'/nonexistent/rec.json'` | **no record** | 0 | Couldn't open diagnostics path "/nonexistent/rec.json" for writing! |
+| `--diagnostics` | diagnostics record path | `''` | **no record** | 0 | Couldn't open diagnostics path "" for writing! |
+| `--diagnostics` | diagnostics record path | `'.'` | **no record** | 0 | Couldn't open diagnostics path "." for writing! |
 
 ### Interactions
 
 | flags | meaning | outcome | exit | message |
 |---|---|---|---|---|
-| `-I -J` | info-only with cue-only | **refused** | 1 | -J (only generate a CUE sheet) cannot be used with -I (only print info)! |
+| `-I -J` | info-only with cue-only | **refused** | 64 | -J (only generate a CUE sheet) cannot be used with -I (only print info)! |
 | `-J` | cue-only alone | **unobservable** | 0 |  |
 | `-E -W` | force deemphasis with no-deemphasis | **unobservable** | 0 |  |
 | `--cache-probe` | cache probe on an image | **unobservable** | 0 |  |
 | `-f` | find-offset on an image | **refused** | 1 | No track had AccuRip entry, cannot find offset! |
 
-**129 probes: 22 accepted, 43 unobservable, 64 refused, 0 silently ignored.**
+**133 probes: 23 accepted, 43 unobservable, 64 refused, 3 exited 0 with no record and a line saying why, 0 silently ignored.**
 
 <!-- END GENERATED probe-argv-surface -->
 
