@@ -12,6 +12,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.110] — 2026-10-19
+
+The release for the next acceptance run. It stops two of the app's own surfaces over-claiming:
+a CTDB match against a minority entry no longer shows a green "verified", and the AccurateRip
+summary counts the tracks that shipped. It still installs `.23` (`891c79e`) by default and
+reviews `.24` (`93afa15`) for round 35.
+
 ### Fixed
 
 - **CTDB no longer shows a green "verified" for a match against a minority entry.** On the
@@ -19075,7 +19082,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...HEAD
+[0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
 [0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
 [0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
@@ -19155,4 +19163,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.110.*
