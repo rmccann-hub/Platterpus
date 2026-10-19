@@ -38,10 +38,12 @@ cell reads **`not-probed: <reason>`** — a recorded finding. **A blank reads as
 
 **Nothing is out of scope for being unused.** *We may have to use or fix it in
 the future*, and at that moment an undocumented argument is something a person
-rediscovers under time pressure. The tables below are therefore incomplete by
-construction today: they cover the 17 flags we send, not the 41 their tool has.
-**That gap is the work, not an oversight** — every remaining flag needs a row
-with `NO: <reason>` or `?`.
+rediscovers under time pressure. The tables below were incomplete by
+construction until round 35: they covered the flags we send and not the rest of
+cyanrip's. **That gap was the work, not an oversight**, and §1b closes it: every
+flag cyanrip's `--help` lists has a row in §1, §1b or §2, each one we do not
+send reading `NO: <reason>` or `?`, and `tools/probe-argv-surface.py --check`
+fails when one has none.
 
 ## How to read the two status columns
 
@@ -86,9 +88,7 @@ the other side's wrong code, because nothing put them in the same row.
 
 ## 1. Rip-path flags
 
-Seventeen flags reach the argv builder (`adapters/cyanrip_backend.py`). The
-generated contract's §3 lists eighteen because the **version probe** contributes
-its own, which is a different call path and is tabled separately in §2.
+Twenty-one flags reach the argv builder's rip path (`adapters/cyanrip_backend.py`), one row each below, and `-I`, sent only by the disc-info probe, has a row here too. The generated contract's §3 lists twenty-four because it also counts the version and verify-log probes' own flags, which §2 tables separately.
 
 | flag | argument | type | range / shape enforced | meaning | **PP** | **CR** |
 |---|---|---|---|---|---|---|
@@ -110,6 +110,45 @@ its own, which is a different call path and is tabled separately in §2.
 | `-I` | — | flag | **never with `-J`** | — *(mutual exclusion recorded in `dependency-contracts.md`; we should state why)* | HAVE |  HAVE — refuses with `-J`, §7 |
 | `--consumer` | tag | `str`, `<name>/<version>` | no whitespace, contains `/` | who we tell them we are. Validated because it is written verbatim into an archival log as the identity of the producing program | HAVE |  HAVE |
 | `--prefer-disc-isrc` | — | flag | sent only to a build whose provider contract lists it in P1, and only with the `Disc ISRC` setting on | a code the disc returned is what the files and the `Metadata:` block's `ISRC:` carry, over the one `-t` gave, track by track; a track whose disc gave none keeps ours, and the one we gave stays in `Invoked as:` | HAVE |  HAVE — .24, 93afa15 |
+| `-T` | mode | `str` enum | always `unicode` | how cyanrip replaces characters a file name cannot hold; pinned to cyanrip's default so a moved default cannot rename files | HAVE |  HAVE |
+| `-U` | — | flag | always present | turns off the Cover Art DB query, which cannot succeed under `-N`; the log loses only that query's line (your round 30 lap 5 S15) | HAVE |  HAVE |
+| `-W` | — | flag | always present | keeps a pre-emphasised disc's own samples, and the cue says `FLAGS PRE`, instead of de-emphasising | HAVE |  HAVE |
+| `--diagnostics` | file | `str`, a file name | `cyanrip-diagnostics-<stamp>.json`, unique per rip, in the rips folder | cyanrip's machine-readable record of the rip, the one artifact of a run refused before its log opens | HAVE |  HAVE |
+
+## 1b. Flags of ours the rip path does not send
+
+Every other flag cyanrip accepts, one row each, so §1, this table and §2 list
+them all between them (Platterpus's F8, landed in round 35). The meaning is
+cyanrip's own `--help` line, word for word, a pipe in it escaped. **PP** says
+why the rip path does not send it, `NO: <reason>`, or `?` until that is
+stated; a flag sent by another call, a rig script or a probe, can say so
+there. **CR** is cyanrip's. `--version`, `-v`, `-V` and `--verify-log`, `-Y`
+are §2's. `tools/probe-argv-surface.py --check` fails when a flag in `--help`
+has no row in §1, §1b or §2.
+
+| flag | meaning (cyanrip's `--help`) | **PP** | **CR** |
+|---|---|---|---|
+| `-h`, `--help` | Print this text | ? | HAVE |
+| `--stall-secs` | Seconds a frame read must stall before reporting liveness (0 disables) (default: 10) | ? | HAVE |
+| `--cache-probe` | Measure the drive's readback cache before ripping (costs seconds; with -I to measure without ripping) (default: false) | ? | HAVE |
+| `-p`, `--pregap` | Track pregap handling: N=default\|drop\|merge\|track (repeatable) | ? | HAVE |
+| `-P`, `--paranoia` | Paranoia level (0..max, or 'none'/'max') | ? | HAVE |
+| `-H`, `--hdcd` | Enable HDCD decoding (default: false) | ? | HAVE |
+| `-E`, `--force-deemphasis` | Force CD deemphasis (default: false) | ? | HAVE |
+| `-K`, `--no-replaygain` | Disable ReplayGain tagging (default: false) | ? | HAVE |
+| `-X`, `--no-data-tracks` | Skip data tracks instead of ripping them to raw binaries (default: false) | ? | HAVE |
+| `-b`, `--bitrate` | Bitrate of lossy files in kbps (default: 256.000000) | ? | HAVE |
+| `-L`, `--log-scheme` | Log file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | ? | HAVE |
+| `-M`, `--cue-scheme` | CUE file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | ? | HAVE |
+| `-J`, `--cue-only` | Only generate and print a CUE sheet, don't rip (default: false) | ? | HAVE |
+| `-R`, `--release` | MusicBrainz release: 1-based index or ID string | ? | HAVE |
+| `-C`, `--cover` | Cover art: title=path (or N=path per-track, repeatable) | ? | HAVE |
+| `-A`, `--no-accurip` | Disable AccurateRip database query and validation (default: false) | ? | HAVE |
+| `-B`, `--no-acoustid` | Disable AcoustID fingerprinting (default: false) | ? | HAVE |
+| `--acoustid-key` | AcoustID user API key, to submit fingerprints of verified rips | ? | HAVE |
+| `-m`, `--cover-size` | Cover art max size: 250, 500, 1200, or -1 for original (default: -1) | ? | HAVE |
+| `-Q`, `--eject` | Eject tray once successfully done (default: false) | ? | HAVE |
+| `-f`, `--find-offset` | Find drive offset (requires a disc with an AccuRip entry) (default: false) | ? | HAVE |
 
 ## 2. Probe-path flags, which is a separate call and a separate risk
 
@@ -243,8 +282,10 @@ positive teaches people to ignore the true ones.
    We sanitise it outbound; we do not know what they do with it inbound, and a
    value that survives our check and breaks theirs is the exact gap the
    double-check rule exists for.
-3. **Which of their 41 flags are rip-path and which are probe-path**, so §2's
-   distinction can be mechanical rather than ours to infer.
+3. **ANSWERED in round 35, and kept as the record of the ask:** which of
+   their flags are rip-path and which are probe-path, so §2's distinction can
+   be mechanical rather than ours to infer. §1 rows the rip path's, §2 the
+   probes', and §1b every other flag cyanrip accepts.
 4. **ANSWERED in round 7 lap 31, and kept as the record of the ask:** `\:`
    escapes a colon in both flags (§7, *Answers to §4.4*), and Platterpus sends it.
    The U+2236 substitution described below ended then; what still reads the
@@ -410,7 +451,7 @@ rather than an error — also an `absent` row.
 
 <!-- BEGIN GENERATED probe-argv-surface -->
 
-*Generated by `tools/probe-argv-surface.py --markdown` from `cyanrip 0.9.4-rc3+platterpus.23 (platterpus-fork-g8a59ec2)`. Do not hand-edit; `--check` verifies it.*
+*Generated by `tools/probe-argv-surface.py --markdown` from `cyanrip 0.9.4-rc3+platterpus.24 (platterpus-fork-g2bd6915)`. Do not hand-edit; `--check` verifies it.*
 
 ### Measured argument behaviour (black-box, our own binary)
 
@@ -451,6 +492,8 @@ rather than an error — also an `absent` row.
 | `-P` | paranoia level | `3` | **accepted** | 0 | max |
 | `-P` | paranoia level | `4` | **refused** | 1 | Invalid paranoia level 4 must be between 0 and 3! |
 | `-P` | paranoia level | `999` | **refused** | 1 | Invalid paranoia level 999 must be between 0 and 3! |
+| `-P` | paranoia level | `4294967296` | **refused** | 1 | Invalid paranoia level 4294967296 must be between 0 and 3! |
+| `-P` | paranoia level | `4294967297` | **refused** | 1 | Invalid paranoia level 4294967297 must be between 0 and 3! |
 | `-m` | cover art max size | `-2` | **refused** | 1 | Error parsing -2 for argument "cover_size": not in [-1:1200] range! |
 | `-m` | cover art max size | `-1` | **unobservable** | 0 | (no header field exposes this) |
 | `-m` | cover art max size | `250` | **unobservable** | 0 | (no header field exposes this) |
@@ -468,15 +511,25 @@ rather than an error — also an `absent` row.
 | `-l` | track list | `3` | **refused** | 1 | Invalid rip index 3, list has 2 tracks! |
 | `-l` | track list | `99` | **refused** | 1 | Invalid rip index 99, list has 2 tracks! |
 | `-c` | disc/totaldiscs | `'0/0'` | **refused** | 1 | Invalid discnumber 0 |
-| `-c` | disc/totaldiscs | `'1/1'` | **unobservable** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'1/1'` | **accepted** | 0 | 1 |
 | `-c` | disc/totaldiscs | `'2/1'` | **refused** | 1 | discnumber 2 is larger than totaldiscs 1 |
-| `-c` | disc/totaldiscs | `'1/2'` | **unobservable** | 0 | (no header field exposes this) |
-| `-c` | disc/totaldiscs | `'1'` | **unobservable** | 0 | (no header field exposes this) |
-| `-c` | disc/totaldiscs | `'1/'` | **unobservable** | 0 | (no header field exposes this) |
-| `-c` | disc/totaldiscs | `'/2'` | **unobservable** | 0 | (no header field exposes this) |
-| `-c` | disc/totaldiscs | `'1//2'` | **unobservable** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'1/2'` | **accepted** | 0 | 1 |
+| `-c` | disc/totaldiscs | `'2147483647/2147483647'` | **accepted** | 0 | 2147483647 |
+| `-c` | disc/totaldiscs | `'2147483648/2147483648'` | **refused** | 1 | Invalid discnumber 2147483648 |
+| `-c` | disc/totaldiscs | `'1/2147483648'` | **refused** | 1 | Invalid totaldiscs 2147483648 |
+| `-c` | disc/totaldiscs | `'4294967297/4294967297'` | **refused** | 1 | Invalid discnumber 4294967297 |
+| `-c` | disc/totaldiscs | `'1/4294967298'` | **refused** | 1 | Invalid totaldiscs 4294967298 |
+| `-c` | disc/totaldiscs | `'1'` | **accepted** | 0 | 1 |
+| `-c` | disc/totaldiscs | `'1/'` | **accepted** | 0 | 1 |
+| `-c` | disc/totaldiscs | `'/2'` | **refused** | 1 | Missing discnumber |
+| `-c` | disc/totaldiscs | `'1//2'` | **accepted** | 0 | 1 |
 | `-c` | disc/totaldiscs | `'/'` | **refused** | 1 | Missing discnumber |
 | `-c` | disc/totaldiscs | `'//'` | **refused** | 1 | Missing discnumber |
+| `-d` | disc image or drive | `'basic.cue'` | **unobservable** | 0 | (no header field exposes this) |
+| `-d` | disc image or drive | `'basic.bin'` | **unobservable** | 0 | (no header field exposes this) |
+| `-d` | disc image or drive | `'/nonexistent'` | **refused** | 1 | Unable to open device: /nonexistent |
+| `-d` | disc image or drive | `'/nonexistent.toc'` | **refused** | 1 | Unable to open device: /nonexistent.toc |
+| `-d` | disc image or drive | `'/nonexistent.nrg'` | **refused** | 1 | Unable to open device: /nonexistent.nrg |
 | `--consumer` | consumer tag | `''` | **accepted** | 0 | (reported |
 | `--consumer` | consumer tag | `'x'` | **accepted** | 0 | x |
 | `--consumer` | consumer tag | `'platterpus/0.6.4b12'` | **accepted** | 0 | platterpus/0.6.4b12 |
@@ -495,7 +548,10 @@ rather than an error — also an `absent` row.
 | `-t` | track metadata | `'1=title=x'` | **unobservable** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'1=title=a:b'` | **unobservable** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'0=title=x'` | **refused** | 1 | Invalid track number 0, list has 2 tracks! |
+| `-t` | track metadata | `'2=title=x'` | **unobservable** | 0 | (no header field exposes this) |
+| `-t` | track metadata | `'3=title=x'` | **refused** | 1 | Invalid track number 3, list has 2 tracks! |
 | `-t` | track metadata | `'99=title=x'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
+| `-t` | track metadata | `'4294967297=title=x'` | **refused** | 1 | Invalid track number 4294967297, list has 2 tracks! |
 | `-t` | track metadata | `'1'` | **refused** | 1 | Missing "=" in track metadata "1" |
 | `-t` | track metadata | `'99'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
 | `-t` | track metadata | `'1='` | **unobservable** | 0 | (no header field exposes this) |
@@ -514,6 +570,9 @@ rather than an error — also an `absent` row.
 | `-p` | pregap action | `'1=track'` | **unobservable** | 0 | (no header field exposes this) |
 | `-p` | pregap action | `'1=bogus'` | **refused** | 1 | Invalid pregap action bogus |
 | `-p` | pregap action | `'99=drop'` | **refused** | 1 | Invalid track number 99 for pregap, list has 2 tracks! |
+| `-p` | pregap action | `'197=drop'` | **refused** | 1 | Invalid track number 197 for pregap, list has 2 tracks! |
+| `-p` | pregap action | `'198=drop'` | **refused** | 1 | Invalid track idx for pregap: 198 |
+| `-p` | pregap action | `'4294967297=drop'` | **refused** | 1 | Invalid track idx for pregap: 4294967297 |
 | `-p` | pregap action | `'1'` | **refused** | 1 | Missing pregap action |
 | `-p` | pregap action | `'=drop'` | **refused** | 1 | Invalid track idx for pregap: 0 |
 | `-p` | pregap action | `'1='` | **refused** | 1 | Missing pregap action |
@@ -538,7 +597,7 @@ rather than an error — also an `absent` row.
 | `--cache-probe` | cache probe on an image | **unobservable** | 0 |  |
 | `-f` | find-offset on an image | **refused** | 1 | No track had AccuRip entry, cannot find offset! |
 
-**111 probes: 16 accepted, 46 unobservable, 49 refused, 0 silently ignored.**
+**129 probes: 22 accepted, 43 unobservable, 64 refused, 0 silently ignored.**
 
 <!-- END GENERATED probe-argv-surface -->
 
