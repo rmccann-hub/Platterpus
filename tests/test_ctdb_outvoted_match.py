@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from tests.evidence_paths import evidence
+from evidence_paths import evidence
 
 from platterpus.adapters.ctdb_client import CtdbEntry, CtdbLookupResult
 from platterpus.ctdb import crc as crc_mod
