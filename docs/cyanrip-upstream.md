@@ -1,16 +1,16 @@
 # What we want from cyanrip, and how it gets upstream
 
-The ask list and the route. §1 is *what* — every improvement we want from cyanrip, ranked, each with the evidence that motivates it and an explicit list of asks we decided **not** to make. §2 is *how* — the contributor-facing roadmap for turning an ask into a merged pull request, in priority order, with the uncertainties flagged rather than smoothed over.
+The ask list and the route. Part A is *what* — every improvement we want from cyanrip, ranked, each with the evidence that motivates it and an explicit list of asks we decided **not** to make. Part B is *how* — the contributor-facing roadmap for turning an ask into a merged pull request, in priority order, with the uncertainties flagged rather than smoothed over.
 
-§1.6 is worth reading on its own: corrections to our **own** record found while assembling the list.
+Part A §6 is worth reading on its own: corrections to our **own** record found while assembling the list.
 
 For the fork we maintain in the meantime see [`cyanrip-fork.md`](cyanrip-fork.md).
 
 ## Where this came from
 
-Consolidated from four separate documents so the subject has one home. Content is unchanged — each part below is the original file, whole, with its headings demoted one level.
+Consolidated from two separate documents so the subject has one home — part of a four-document merge that also produced `cyanrip-fork.md`. Content is unchanged — each part below is the original file, whole, with its headings demoted one level.
 
-**Parts are lettered, not numbered, on purpose:** the originals number their own sections from 0, so a numbered wrapper would make a reference like *§2.1* ambiguous. `Part A §8` reads exactly one way.
+**Parts are lettered, not numbered, on purpose:** the originals number their own sections from 0, so a numbered wrapper would make a reference like *§2.1* ambiguous. `Part A §2.1` reads exactly one way.
 
 | Part | Was | Written |
 |---|---|---|
@@ -36,9 +36,9 @@ Consolidated from four separate documents so the subject has one home. Content i
 > | Document | Owns |
 > |---|---|
 > | **Part B of this file** (below) | The **process** — do you need collaborator access (no), who the maintainer is, upstream style/CI/responsiveness, and the ranked *PR* list as of 2026-07-07 |
-> | [`cyanrip-fork.md`](cyanrip-fork.md) | The **runbook** — fork/branch layout, re-merge discipline, and the two already-prepared patches |
+> | [`cyanrip-fork.md`](cyanrip-fork.md) Part B | The **runbook** — fork/branch layout, re-merge discipline, and the two already-prepared patches |
 > | [`scripts/cyanrip/`](../scripts/cyanrip/) | The **execution kit** — the canonical paste-ready issue/PR bodies, the verified patcher, the build script |
-> | [`cyanrip-fork.md`](cyanrip-fork.md) | The **long-horizon options** — fork/combine feasibility, licensing, the §10 per-gap menu |
+> | [`cyanrip-fork.md`](cyanrip-fork.md) Part A | The **long-horizon options** — fork/combine feasibility, licensing, the §10 per-gap menu |
 > | This file | The **ask list** — *what* we want changed in cyanrip, ranked, with first-party evidence and an honest audio-vs-record verdict per item |
 >
 > **Standing policy (unchanged, and it governs every item here).** PR-first and
@@ -218,7 +218,7 @@ and would refuse it (see the constraints below).
 
 **Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The reader is
 already written and shipped, so a fork that prints this line fills EAC's row with
-no further Platterpus change. `parsers/cyanrip_log.py` accepts **two** shapes,
+no further Platterpus change. *(Status 2026-10-19: delivered by the fork, not upstream. The pinned `.23` prints `    Sample peak level: %.1f%% (%.1f dBFS)` (`cyanrip@891c79e:src/cyanrip_log.c:574`), and our reader takes it.)* `parsers/cyanrip_log.py` accepts **two** shapes,
 because the upstream print site is unread and cyanrip's own log uses both styles:
 
 ```
@@ -385,6 +385,8 @@ comparable to EAC's. Say the definition in the log or the number is noise.
 touches no drive behaviour, cannot affect correctness, and "how long did this
 take" is a question every user of a slow CD ripper has.
 
+*(Status 2026-10-19: delivered by the fork, not upstream. The pinned `.23` prints `    Extraction speed:  %.*fx` and `    Elapsed:            %.2f s` (`cyanrip@891c79e:src/cyanrip_log.c:610-612`), and our reader takes it.)*
+
 **Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** We already measure
 and record whole-rip elapsed ourselves (`rip_timing.py` → the `timing` block in
 `.platterpus.json`), so only the per-track row needs cyanrip — and the reader for
@@ -497,6 +499,8 @@ of shell on the rig (§5).
 **Route.** **Upstream PR** if confirmed; **closed with a note** if the line is
 already in the log file.
 
+*(Status 2026-10-19: delivered by the fork, not upstream. The pinned `.23` prints an indented `  Secure re-read:` row for every track (`converged after N reads`, `did NOT converge after N reads (repeat limit hit)`, `not attempted`) (`cyanrip@891c79e:src/cyanrip_log.c:629-637`), and our reader takes it.)*
+
 **Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The reader handles
 all three states the verdict has, and **indentation is the discriminator**:
 
@@ -576,6 +580,8 @@ may reasonably be declined. Cheap enough to try alongside something else, and
 this is the one item where a soft-fork-only patch would be a defensible outcome
 rather than a failure.
 
+*(Status 2026-10-19: delivered by the fork, not upstream. The pinned `.23` prints `C2 errors:      supported by drive, not used` on a C2-capable drive (`cyanrip@891c79e:src/cyanrip_log.c:927-928`), and our reader takes it.)*
+
 **Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The branch is
 shipped: `supported by drive, not used` (also `unused` / `never used`) maps to a
 truthful **No** for EAC's `Make use of C2 pointers`, filling the row on a
@@ -595,7 +601,7 @@ pointers, so a "used" line would contradict the engine. **Do not print one.**
 
 **Gap — partly delivered, and by the fork rather than upstream.** Upstream
 cyanrip has no cache flag and emits no cache line at all. The fork has a cache
-*probe* — `-x`/`--cache-probe`, from round 7 lap 1 — and emits `Cache probe:`
+*probe* — `-x`/`--cache-probe`, from round 7 lap 1, long-only `--cache-probe` from `.23` — and emits `Cache probe:`
 (its own measurement: a range, a bound, or an explicit unknown) alongside
 `Cache model:` (paranoia's *modelled* size, renamed from `Cache defeat:` in round
 6 because the old label asserted an outcome the value disclaims). Neither is a
@@ -668,7 +674,12 @@ Runbook: [`cyanrip-fork.md`](cyanrip-fork.md) §2 and §3. Paste text:
   sight. Pick the letter by reading `master`'s getopt string, and note that
   cyanrip's documented interface is short-flags-only, so a long-only
   `--enc-opt` may not be available either (**unverified** — check whether
-  cyanrip has any long-option parsing at all before proposing one). The kit
+  cyanrip has any long-option parsing at all before proposing one). *(Answered
+  2026-10-19: it has, on `master`. genopt, which replaced getopt after 0.9.3,
+  registers every option as `--<field name>` with `_` read as `-`
+  (`cyanrip@b40c1f0:src/genopt.h:160`, `:472-479`), so `--acoustid-key` exists
+  beside `-k` and a long-only option is possible. 0.9.3.x, on getopt, has no
+  long options.)* The kit
   README already says to sanity-check the flag name with the maintainer first;
   this is the specific reason why.
 
@@ -975,10 +986,10 @@ the upstream maintainer's call, and we never fake provenance.*
 > Platterpus needs, with the **EAC INDEX-00 pre-gap gap** as the driver. Order 1
 > below (support cyanrip **PR #115**) is unchanged as the *action*, but the fork
 > is no longer merely "prepared": the `ripping` container will **build cyanrip
-> from the `platterpus` integration branch** (`master` + our topic branches)
+> from the `platterpus` integration branch** (`master` + our topic branches; named `platterpus-fork` in the fork)
 > instead of the 2-year-old v0.9.3.1 COPR tag — which alone yields INDEX-00 cue
 > metadata (`master` already emits it) and carries PR #115 for exact pregaps +
-> HTOA. See PLANNING **KDD-32** and [`cyanrip-fork.md` Part A §3.1 + §4](cyanrip-fork.md).
+> HTOA. See PLANNING **KDD-32** and [`cyanrip-fork.md` Part B §3.1 + §4](cyanrip-fork.md).
 
 > **Update (2026-07-08, soft-fork decision):** two prepared, higher-readiness
 > cyanrip contributions now exist *alongside* this ranked list — the `-a`/`-t`
@@ -1342,4 +1353,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.109.*

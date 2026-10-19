@@ -59,7 +59,7 @@ Classics*** (cyanrip 0.9.3, Pioneer BDR-209D, +667 offset) compared against the
 EAC V1.8 baseline of the same disc. Logs/cues live in
 [`output_reference/`](../output_reference/) (`EAC_flac/` vs `cyanrip_flac/`).
 Later evidence: the fork's rip (`output_reference/cyanrip_fork_flac/`, 2026-08-04)
-and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/` (the 2026-10-12 run is `artifactsround31/v07103full*`).
+and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround34/` (the 2026-10-12 run is `artifactsround31/v07103full*`). Since HR-2 (2026-10-14) those run folders live on the `evidence` branch, each indexed by a row of `docs/evidence-manifest.tsv`; `main` keeps only their READMEs.
 
 ### TL;DR — two very different goals
 
@@ -68,19 +68,23 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/
    "archival/EAC-quality": the *samples* equal the AccurateRip consensus, proven by
    the per-track CRC. Matching EAC is the usual proxy, and on this disc it is not
    the same thing, because EAC's own track 5 is not the consensus.
-   **Status (2026-10-13), measured over every 14-track log of the reference disc in
-   the repository: 22 rips, 2026-08-04 to 2026-10-13** (`output_reference/
+   **Status (2026-10-19), measured over every 14-track log of the reference disc on
+   record: 26 rips, 2026-08-04 to 2026-10-16** (`output_reference/
    cyanrip_fork_flac/` and the `*eac.log` files under
-   `docs/handshake/artifactsround26/` to `artifactsround32/`):
-   - **Twelve tracks match AccurateRip at confidence 200 in all 22**, each with one
-     value across all 22.
+   `docs/handshake/artifactsround26/` to `artifactsround34/`, read at evidence
+   commit `fe13de0c`):
+   - **Twelve tracks match AccurateRip at confidence 200 in all 26**, each with one
+     value across all 26.
    - **Track 3.** AccurateRip verifies EAC's value, `59D352DD`. We read it in 9 of
-     the 22, and in none of the 11 since the round 30 whole-disc rip of 2026-09-30.
+     the 26, and in none of the 15 since the round 30 whole-disc rip of 2026-09-30.
      On 2026-10-12 the whole-disc rip gave `2AC1F945` and the secure re-read a value
      not seen before, `029BB984` (`v07103fullsecurerereadeac.log`). On 2026-10-13, on
      `.22`, the whole-disc rip gave `2AC1F945` again and the secure re-read
      `69D238D2`, first seen in round 30's securing pass of 2026-10-06
-     (`round32fullsecurerereadeac.log`).
+     (`round32fullsecurerereadeac.log`). Rounds 33 and 34 gave four values never
+     seen before: `0759E037` and `1CA7B917` on 2026-10-14 (`.22`), `A2C798BA` and
+     `1AC787A1` on 2026-10-15/16 (`.23`), whole-disc rip then secure re-read
+     (`round33full*eac.log`, `round34full*eac.log`): fifteen values in 26 rips.
      This drive reads the track differently from pass to pass: on 2026-10-07 the
      whole-disc rip's first pass gave `1D0B4419`, and its secure re-read's five
      reads gave `149C0991`, `418F6CF8` twice, `34D9A79A` and `418F6CF8` again
@@ -89,8 +93,9 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/
      says *"Cannot be verified as accurate … AccurateRip returned [BCF4E815]"*. The
      2026-10-07 secure re-read converged on `C96464AB`, which AccurateRip verifies
      (v2 `BCF4E815`, confidence 200; v1 confidence 129;
-     `round31fullsecurereread.log:437-441`). We read that value once in 22. The
-     others gave EAC's `E0036697` (14) or `6902BCF0` (7).
+     `round31fullsecurereread.log:437-441`). We read that value once in 26. The
+     others gave EAC's `E0036697` (17), `6902BCF0` (7), or once `4065BECC`
+     (round 33's whole-disc rip, 2026-10-14, `round33fullwholedisceac.log`).
    - **Equal to EAC on all 14:** 5 rips (2026-08-04, 2026-09-24, 2026-09-26 twice,
      2026-09-28). Each of those carries EAC's unverified track 5.
    - **AccurateRip-verified on all 14 in one rip:** none yet. Track 3's verified
@@ -142,7 +147,7 @@ the consensus (item 1).
 | TOC (track sectors) | — | — | ✅ identical (all 14) | n/a |
 | Secure / re-read | Secure | paranoia max | ✅ equivalent | n/a |
 | Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (14/14 on the fork, 2026-08-04, and the Gap handling row agrees) | n/a |
-| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 22 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 22, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
+| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 26 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 26, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
 | Overread lead-in/out | No | No: the offset needs 2 frames past the edge, and they are filled with silence, not read (`Overread mode: fill with silence in lead-in/lead-out`) | ✅ same | closed: EAC also fills with silence when overread is off; tracks 1 and 14 match EAC and AccurateRip |
 | **Pre-gap markers in cue** (`INDEX 00`) | Yes: 9 in the cue (its log lists 10 pre-gaps, counting track 1's lead-in) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; the 2026-10-07 cue, `docs/handshake/artifactsround31/round31fullwholedisc.cue`) |
 | FLAC **file bytes** | flac.exe `-8` | libavcodec | ❌ differ | **No** (encoder-determined) — and unnecessary |
@@ -153,10 +158,10 @@ the consensus (item 1).
 
 ### The two audio tracks that differ (the only real audio gap)
 
-> **Status (2026-10-13).** Both tracks are still open, and track 5 is not what the
+> **Status (2026-10-19).** Both tracks are still open, and track 5 is not what the
 > analysis below says. Track 5's AccurateRip-verified value is `C96464AB`, read
 > once (2026-10-07); EAC's `E0036697` is the unverified read. Track 3's verified
-> value is EAC's `59D352DD`, read in 9 of 22 rips and in none since 2026-09-30.
+> value is EAC's `59D352DD`, read in 9 of 26 rips and in none since 2026-09-30.
 > Full numbers: TL;DR, item 1. The analysis below is the stock-0.9.3 record.
 
 - **Track 5 — a defect on this physical disc, not a ripper fault.** EAC *also*
@@ -216,7 +221,7 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 |---|---|---|
 | Read offset | **Present + auto-confirmed (KDD-31)** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical to EAC on 14/14 tracks (the fork, 2026-08-04). A rip that matches the AccurateRip global consensus records the offset as `ACCURATERIP_CONFIRMED` (medium on its own), promoted to CONFIRMED/HIGH when it agrees with the AccurateRip-list value (`drive_profiles.py`) — the equal-or-stronger analogue of EAC's Key-Disc check (re-confirms every matching rip). A from-scratch finder for drives *absent* from the AR list is deferred to the soft-fork roadmap. |
 | Cache defeat | **Measured (KDD-29)** | libcdio-paranoia attempts cache defeat every rip; cyanrip emits no verdict, so we **measure** it with `cd-paranoia -A` (libcdio's copy of that same engine) via Set up drive → Analyse cache, recorded per drive and folded into the EAC-compatible log. Still `(unknown)` (never forged) when the probe is inconclusive — the KDD-25 honesty rule holds. Hardware-tuned on the BDR-209D. |
-| Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 14/14 fork rip matched). Flag-letter corrected the same day: this row previously said `-x`, which did not exist in cyanrip then — `-O` verified against 0.9.3.1 + master. `-x` now exists on the fork as the cache probe, not overread. **On the BDR-209D leave `-O` off:** cyanrip stalled about 23 minutes at the lead-out with it (2026-07-22, stock 0.9.3; `docs/dependency-contracts.md`). |
+| Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 14/14 fork rip matched). Flag-letter corrected the same day: this row previously said `-x`, which did not exist in cyanrip then — `-O` verified against 0.9.3.1 + master. `-x` later existed on the fork as the cache probe, not overread, and from `.23` the probe is the long-only `--cache-probe`. **On the BDR-209D leave `-O` off:** cyanrip stalled about 23 minutes at the lead-out with it (2026-07-22, stock 0.9.3; `docs/dependency-contracts.md`). |
 | Subcode / pre-gap / `INDEX 00` | **Present on the fork; absent on stock 0.9.3** | Stock cyanrip 0.9.3 performs no subchannel pre-gap detection, so it emits no `INDEX 00` cue metadata — that is the `cyanrip_flac/` reference, still cited by tests. The Platterpus fork, which is the build the setup wizard installs (KDD-33), reads them from the sub-channel: the 2026-08-04 rig rip matched **all ten** of EAC's `Pre-gap length` rows to the hundredth of a second, in order (`output_reference/cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`). That 2026-08-04 cue predates two fork cue fixes (it has four zero-length `INDEX 00` rows and one ISRC of 14); the 2026-10-07 cue (`docs/handshake/artifactsround31/round31fullwholedisc.cue`) has EAC's nine markers, on the same tracks, and all 14 ISRCs. The underlying *audio* was never affected either way (append/merge-to-previous matches EAC). See "Pre-gaps" above. |
 | HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and cyanrip (the sole backend since KDD-18) gives us no clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
 | Pre-emphasis | **Preserved from 0.7.102 (`-W`)** | Up to 0.7.101 a pre-emphasised disc was de-emphasised: cyanrip does that by default (`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816) and Platterpus did not pass `-W`, so the FLAC held altered samples AccurateRip could not verify. From 0.7.102 every rip passes `-W` (the maintainer's call, 2026-10-07): the FLAC holds the disc's samples, as EAC's does, and the cue carries `FLAGS PRE` (cyanrip@ca3f3ea:src/cue_writer.c:187-188) for a player to de-emphasise on playback. `-E` (force de-emphasis) is never passed. Untested on hardware: no pre-emphasised disc has been ripped. |
@@ -892,8 +897,9 @@ cyanrip flags from `_build_rip_argv`: `-d`, `-s <offset>`, `-o flac`,
 `-T <sanitize mode>` (pinned since 0.6.24 — a default is not a contract),
 `-r <retries>`, `-Z <matches>`, `-O` (only when force-overread is on),
 `-S <speed>`, `-l <tracks>`, `-N`, `-c <disc>/<discs>`, `-a`/`-t`, `-D`/`-F`, `-G`,
-`-U`, `-j <record>`, and `--consumer <name>/<version>` on a build that accepts it
-(the generated list: `docs/cyanrip-consumer-contract.md`). Notably **no `-p`** —
+`-U`, `-W`, `--diagnostics <record>` (`-j` until 2026-10-13), and `--consumer
+<name>/<version>` and `--prefer-disc-isrc` on a build that accepts each (the
+generated list: `docs/cyanrip-consumer-contract.md`). Notably **no `-p`** —
 cyanrip's default already merges pregaps into the previous track.
 
 | Requirement | Platterpus equivalent | Status |
@@ -1022,7 +1028,7 @@ Platterpus makes a *different and narrower* claim, and it is a stronger one abou
 audio itself: **provably bit-perfect, verified openly** via AccurateRip v1/v2 + CTDB
 CRCs and per-track Copy-CRC parity against the committed EAC baseline in
 `output_reference/EAC_flac/` (**14/14 on the fork** — `cyanrip_fork_flac/`,
-2026-08-04, and in four rips since; 13/14 on the latest run, 2026-10-07, where
+2026-08-04, and in four rips since; 13/14 on the latest run, 2026-10-16, where
 track 3 read differently from pass to pass. The dated 12/14 stock-0.9.3 record is
 `cyanrip_flac/`. On track 5 EAC's value is not AccurateRip's consensus, so the
 stronger claim is AccurateRip's, and that has been met on every track but never on
@@ -1052,4 +1058,4 @@ policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.7.105.*
+*Last updated for Platterpus v0.7.109.*
