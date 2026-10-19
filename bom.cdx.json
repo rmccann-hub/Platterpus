@@ -101,7 +101,7 @@
       },
       {
         "name": "platterpus:count:ci-runner",
-        "value": "2"
+        "value": "1"
       },
       {
         "name": "platterpus:count:service",
@@ -2911,32 +2911,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pinned",
           "value": "to the image's major release"
-        }
-      ]
-    },
-    {
-      "type": "operating-system",
-      "bom-ref": "runner:ubuntu-latest",
-      "name": "ubuntu-latest",
-      "description": "GitHub-hosted runner image.",
-      "scope": "excluded",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "ci-runner"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": ".github/workflows/publish-pypi.yml (publish)"
-        },
-        {
-          "name": "platterpus:pinned",
-          "value": "no (a moving label)"
         }
       ]
     }

@@ -100,7 +100,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 <!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
 
-**91 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+**90 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
 
 | Category | Entries |
 |---|---|
@@ -116,7 +116,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | Python packages for building, releasing and CI | 8 |
 | GitHub Actions | 5 |
 | CI and build programs | 11 |
-| CI runner images | 2 |
+| CI runner images | 1 |
 | External services | 15 |
 
 ### Languages, runtimes and platforms (4)
@@ -291,12 +291,11 @@ Details for `cyanrip (build under review)`:
 | `libxkbcommon0` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
 | `zsync` | unconstrained | excluded | zsyncmake, which writes the AppImage's .zsync delta-update file. | .github/workflows/release.yml (build-and-release) | — |
 
-### CI runner images (2)
+### CI runner images (1)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
-| `ubuntu-22.04` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/release.yml (build-and-release) | — |
-| `ubuntu-latest` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/publish-pypi.yml (publish) | — |
+| `ubuntu-22.04` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | — |
 
 ### External services (15)
 

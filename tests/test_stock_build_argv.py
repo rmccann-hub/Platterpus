@@ -31,7 +31,9 @@ from platterpus.uiscript.script import DIAGNOSTICS_PLACEHOLDER, expand_identity
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 
 #: A real stock cyanrip 0.9.3 rip of the reference disc, captured 2026-06-27.
-STOCK_LOG: Path = REPO_ROOT / "output_reference/cyanrip_flac/cyanrip_flac_police_classics.log"
+STOCK_LOG: Path = (
+    REPO_ROOT / "output_reference/cyanrip_flac/cyanrip_flac_police_classics.log"
+)
 
 #: Every long option our argv builder can send that stock cyanrip lacks.
 LONG_OPTIONS: tuple[str, ...] = ("--consumer", PREFER_DISC_ISRC_FLAG, DIAGNOSTICS_FLAG)

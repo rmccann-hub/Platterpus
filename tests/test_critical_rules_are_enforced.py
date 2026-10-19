@@ -1179,7 +1179,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1857 -> 1877** (2026-10-14, the fork's round 32 lap 9 S9): `consumer_args_for_build` and `diagnostics_args`, the argv words every rip sends, so a script's `(consumer)` / `(diagnostics)` and the rip argv builder send the same words under the same gate instead of each spelling the flag. They live beside `consumer_tag_for_build` and `diagnostics_record_name`, which they wrap.
     # **1877 -> 1908** (2026-10-16, TASKS R20 part 2, round 35): `--prefer-disc-isrc` through the argv chokepoint, gated on the build tag beside `--consumer`'s gate.
     # **1908 -> 1909** (2026-10-19): the `find_offset` note says section O has passed on the rig since 2026-10-07 (docs audit).
-    "adapters/cyanrip_backend.py": 1909,
+    # **1909 -> 1943** (2026-10-19, TASKS R30): `diagnostics_args_for_build`, the gate that keeps `--diagnostics` off stock cyanrip, beside `consumer_args_for_build` and `prefer_disc_isrc_args_for_build`, the two gates it joins; its docstring says why it keys on the fork's ID and why an unread banner still gets the flag.
+    "adapters/cyanrip_backend.py": 1943,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     "adapters/musicbrainz_client.py": 534,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
@@ -2636,7 +2637,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **348 -> 332** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `Step.unsafe` and `uses_unsafe` went.
     # **332 -> 387** (2026-10-14, the fork's round 32 lap 9 S9): `(consumer)` and `(diagnostics)` beside `(offset)`, with the one preflight view of all three; the docstring records why a script cannot type the version.
     # **387 -> 401** (2026-10-16, round 35, `overreadprobe`): `LAST_TRACK_PLACEHOLDER` and its expander, beside the offset's.
-    "uiscript/script.py": 401,
+    # **401 -> 408** (2026-10-19, TASKS R30): `(diagnostics)` goes through the same gate as the rip argv and notes the omission, as `(consumer)` does.
+    "uiscript/script.py": 408,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is

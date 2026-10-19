@@ -82,7 +82,8 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 - **The PyPI publish job runs on a named image, `ubuntu-22.04`, like every other job,** not on
   `ubuntu-latest`, which GitHub moves to Ubuntu 26 from 2026-10-19; a test now refuses a moving
-  runner label in any workflow (the operator's review of 2026-10-19, item 7).
+  runner label in any workflow, and the dependency map lists one runner image, not two (the
+  operator's review of 2026-10-19, item 7).
 - **Round 35: the fork's lap 12 is filed and their `seam-commands.md` copied** (sha256
   `d4dcd5ec…`, one §1b cell, ours for `--encoder-option`). No lap of ours answers it yet: the
   operator's review of 2026-10-19 (item 5) asks both sides to batch everything that changes no
@@ -122,7 +123,8 @@ through 0.7.108 or this release, since both parse the line and send the option.
   before building the fork, so an install left on it could not rip. The flag now goes only to a
   build whose banner names the Platterpus fork, or whose banner could not be read, from the rip
   and from a script's `(diagnostics)` placeholder, which says when it sent nothing. A stock build
-  now gets none of our three long options (TASKS R30, the operator's review of 2026-10-19).
+  now gets none of our three long options (TASKS R30, the operator's review of 2026-10-19). A test's
+  stand-in ripper that called itself stock while accepting `--diagnostics` now calls itself the fork.
 
 - **The test harness now stops every thread a window declares.** `stop_window_threads` listed
   seven of the window's eight QThread slots and missed `_ripper_update_thread`, which `closeEvent`

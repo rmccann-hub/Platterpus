@@ -429,14 +429,9 @@ class CyanripImpl(RipBackend):
         # Spelled `--diagnostics` since 2026-10-13, from the one home of the
         # spelling: the fork's next build refuses `-j` outright, and every build
         # that takes `-j` takes `--diagnostics` (see `DIAGNOSTICS_FLAG`).
-        #
-        # **Gated since 2026-10-19 (TASKS R30), and the gate is narrower than the
-        # other two on purpose.** Stock cyanrip parses options with `getopt`, has
-        # no long options and exits 1 on one it does not know
-        # (`cyanrip@063d848:src/cyanrip_main.c:1797-1798`), so sending this to the
-        # stock build the wizard installs before it builds the fork refused EVERY
-        # rip. See `diagnostics_args_for_build` for which builds get it and why an
-        # unread banner still does.
+        # Gated since 2026-10-19 (TASKS R30): stock cyanrip refuses every long
+        # option, so sending this to it refused every rip. Which builds get it,
+        # and why an unread banner still does: `diagnostics_args_for_build`.
         argv += diagnostics_args_for_build(ripper_build_tag)
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
