@@ -993,6 +993,78 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
 RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
     (
         RipperMessage(
+            site="cyanrip_main.c:2604",
+            text="Invalid paranoia level %i must be between 0 and %i!",
+            evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
+            reaches_logfile=True,
+        ),
+        "`.24`'s wording, retained when `.25` (`5f1d036`) printed the number with "
+        "`%lli` instead (their integer-argument fix, `716a99b`, in round 35). A rig "
+        "still on `.24`, round 35's pin until the fork's lap 15, prints this form; "
+        "dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:2641",
+            text="Invalid release index %i!",
+            evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
+            reaches_logfile=True,
+        ),
+        "`.24`'s wording, retained when `.25` (`5f1d036`) printed the number with "
+        "`%lli` instead (their integer-argument fix, `716a99b`, in round 35). A rig "
+        "still on `.24`, round 35's pin until the fork's lap 15, prints this form; "
+        "dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:2657",
+            text="Invalid discnumber %i",
+            evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
+            reaches_logfile=True,
+        ),
+        "`.24`'s wording, retained when `.25` (`5f1d036`) printed the number with "
+        "`%lli` instead (their integer-argument fix, `716a99b`, in round 35). A rig "
+        "still on `.24`, round 35's pin until the fork's lap 15, prints this form; "
+        "dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:2664",
+            text="Invalid totaldiscs %i",
+            evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
+            reaches_logfile=True,
+        ),
+        "`.24`'s wording, retained when `.25` (`5f1d036`) printed the number with "
+        "`%lli` instead (their integer-argument fix, `716a99b`, in round 35). A rig "
+        "still on `.24`, round 35's pin until the fork's lap 15, prints this form; "
+        "dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:2748",
+            text="Invalid track idx for pregap: %i",
+            evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
+            reaches_logfile=True,
+        ),
+        "`.24`'s wording, retained when `.25` (`5f1d036`) printed the number with "
+        "`%lli` instead (their integer-argument fix, `716a99b`, in round 35). A rig "
+        "still on `.24`, round 35's pin until the fork's lap 15, prints this form; "
+        "dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:2803",
+            text="Invalid track idx for cover art: %i",
+            evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
+            reaches_logfile=True,
+        ),
+        "`.24`'s wording, retained when `.25` (`5f1d036`) printed the number with "
+        "`%lli` instead (their integer-argument fix, `716a99b`, in round 35). A rig "
+        "still on `.24`, round 35's pin until the fork's lap 15, prints this form; "
+        "dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
             site="naming.c:123",
             text="Error parsing string: %s!",
             evidence="control flow (round 15 P5)",
@@ -1127,19 +1199,6 @@ RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
         "`repeat limit` prefix and reads it as not converged "
         "(`tests/test_parsers_cyanrip_log.py` holds the `last read …, not kept` "
         "form).",
-    ),
-    (
-        RipperMessage(
-            site="cyanrip_main.c:2031",
-            text="Offset is unset! To continue with an offset of 0, run with -s 0!",
-            evidence="round 15 P5a — not classified in either direction",
-            reaches_logfile=True,
-        ),
-        "Almost certainly one of the two P5a rows that ARE failures — their own P5a "
-        "preamble cites `Offset is unset!` as an abort that leaves via `goto end`. "
-        "It ends the run and tells the user exactly what to do. Dropping it to "
-        "follow P5a literally would replace an actionable sentence with "
-        "`Rip failed.`",
     ),
     (
         RipperMessage(

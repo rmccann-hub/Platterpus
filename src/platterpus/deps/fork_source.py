@@ -1482,6 +1482,12 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # here post-dates round 4 and `test_no_published_table_has_ever_withdrawn`
         # establishes no published table has withdrawn the flag since.
         f"{FORK_BRANCH}-g{PIN_UNDER_REVIEW}",
+        # `.24`, the build under review from 2026-10-16 until the fork's round 35
+        # lap 15 moved the round to `.25` on 2026-10-19, and still on rigs that
+        # took the beta. Moving the pin under review off `93afa15` would drop it
+        # here: the 2026-08-25 defect below, one build along. Its
+        # `PROVIDER-CONTRACT.md` (built at `g16b9469`) carries `-Y` in P1.
+        f"{FORK_BRANCH}-g93afa15",
         # `.19`, the build under review until 2026-10-06, the fork's STABLE channel
         # while `.20` was on beta, and `FORK_PIN` from round 30's close (so
         # `FORK_EXPECTED_BUILD_TAG` covers it too; the line stays for when it rolls). Without this line, moving the pin to `.20`
