@@ -1239,7 +1239,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # auto-close without it). A separate module would split one `finally` in two.
     # **1555 -> 1560** (2026-09-30): `app.main` joins `exit_work` after `app.exec()` returns and before `hard_exit` decides how to leave; the exit path is where that join belongs.
     # **1560 -> 1568** (2026-10-05): `app.main` runs the exit check (`exit_work.audit`) after the exit work is joined, so the next session's log says whether a close let go of the drive (operator, 2026-10-05).
-    "app.py": 1568,
+    # **1568 -> 1573** (2026-10-19): the fatal-error box takes the active window as its parent, with the comment saying why (operator, 2026-10-19: a prompt never opens as a window of its own).
+    "app.py": 1573,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
