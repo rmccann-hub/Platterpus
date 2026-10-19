@@ -74,6 +74,9 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Changed
 
+- **Times in replies to the maintainer are New York time on a 12-hour clock, labelled** (EDT or
+  EST as in effect), with GMT beside them where useful; CLAUDE.md records it (maintainer, 2026-10-19).
+
 - **Documentation audited against the code, every file (maintainer, 2026-10-19).** Four auditors
   checked every path, name, command, count, version and pin in the docs against the tree and the
   fork's source, and corrected what was stale. Among them: the docs index (round 35 open, seam-rules
