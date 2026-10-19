@@ -51,6 +51,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from conftest import repo_files
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 BACKEND: Final[Path] = (
@@ -124,9 +125,13 @@ def _live_docs(root: Path = REPO_ROOT) -> list[str]:
     """
     tracked = _tracked_files(root)
     if tracked is None:
+        # `repo_files`, not `root.rglob("*")` (TASKS R28): the whole-tree
+        # `rglob` raised when a parallel worker deleted a tool cache mid-walk,
+        # and the walker also leaves out the caches themselves
+        # (`.pytest_cache/README.md`, the first stray file named above).
         candidates = [
             path.relative_to(root).as_posix()
-            for path in root.rglob("*")
+            for path in repo_files(root)
             if path.is_file()
         ]
     else:

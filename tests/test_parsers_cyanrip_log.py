@@ -14,6 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+from conftest import repo_files
 from evidence_paths import FIXTURE_ROOT as EVIDENCE_ROOT
 from evidence_paths import evidence
 from evidence_population import with_moved_evidence
@@ -3470,8 +3471,12 @@ def test_every_committed_tracks_to_rip_value_is_recognised() -> None:
     examined = 0
     subsets = 0
     # Logs that moved to the evidence branch (HR-2) are read from their fixtures,
-    # once each: the same population before the move and after it.
-    for path in with_moved_evidence(_REPO.rglob("*.log"), "**/*.log"):
+    # once each: the same population before the move and after it. The live
+    # half is `repo_files`, not `rglob`: a whole-tree `rglob` raises when a
+    # parallel worker deletes a tool cache mid-walk (TASKS R18, R28), and the
+    # caches it prunes are dot-directories this loop skipped anyway.
+    live = [p for p in repo_files(_REPO) if p.name.endswith(".log")]
+    for path in with_moved_evidence(live, "**/*.log"):
         if any(part.startswith(".") for part in path.relative_to(_REPO).parts):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
