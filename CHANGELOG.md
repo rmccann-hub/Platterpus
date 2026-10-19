@@ -109,6 +109,13 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **A stock cyanrip is no longer sent `--diagnostics`, which made it refuse every rip.** Stock
+  cyanrip has no long options and exits on one it does not know; the setup wizard installs it
+  before building the fork, so an install left on it could not rip. The flag now goes only to a
+  build whose banner names the Platterpus fork, or whose banner could not be read, from the rip
+  and from a script's `(diagnostics)` placeholder, which says when it sent nothing. A stock build
+  now gets none of our three long options (TASKS R30, the operator's review of 2026-10-19).
+
 - **The test harness now stops every thread a window declares.** `stop_window_threads` listed
   seven of the window's eight QThread slots and missed `_ripper_update_thread`, which `closeEvent`
   already stops; a test now derives the slots from the window's declarations and refuses one the
