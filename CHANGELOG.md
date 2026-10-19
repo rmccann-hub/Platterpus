@@ -54,6 +54,10 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **The crash dialog opens over the app's window, not as a window of its own.** It was the one
+  prompt built without a parent, so a desktop could place it anywhere, give it its own taskbar
+  entry or put it behind the app. The album picker and every other prompt were already attached
+  to the main window; a new test refuses any prompt built without one (operator, 2026-10-19).
 - **Our generated consumer contract listed every flag but `--prefer-disc-isrc`.** Its "Flags
   we pass you" was taken from a maximal argv built for the installed pin only, and the option
   is sent only to the build under review. It is now derived over both builds, so it lists 24

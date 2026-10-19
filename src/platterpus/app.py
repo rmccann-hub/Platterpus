@@ -274,7 +274,12 @@ def _show_fatal_dialog(
                 exc,
             )
             return
-        box = QMessageBox()
+        # PARENTED to the window the user is looking at (operator, 2026-10-19:
+        # a prompt must never open as a window of its own). With no parent it was
+        # a free-standing top-level, which a desktop may place anywhere, give its
+        # own taskbar entry, or put behind the app. `activeWindow()` is None only
+        # when no window of ours is up, and then there is nothing to attach to.
+        box = QMessageBox(QApplication.activeWindow())
         box.setIcon(QMessageBox.Icon.Critical)
         # PlainText, because `{exc}` below is EXTERNAL TEXT. Qt's default
         # `AutoText` auto-detects HTML, so an exception message containing `<` —
