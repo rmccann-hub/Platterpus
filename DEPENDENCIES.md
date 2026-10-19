@@ -100,7 +100,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 <!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
 
-**90 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+**91 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
 
 | Category | Entries |
 |---|---|
@@ -114,7 +114,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | Bundled data | 1 |
 | Python packages for development and tests (the dev extra) | 7 |
 | Python packages for building, releasing and CI | 8 |
-| GitHub Actions | 5 |
+| GitHub Actions | 6 |
 | CI and build programs | 11 |
 | CI runner images | 1 |
 | External services | 15 |
@@ -265,15 +265,16 @@ Details for `cyanrip (build under review)`:
 | `twine` | `unpinned` | excluded | Checks the wheel and sdist before the PyPI upload. | .github/workflows/publish-pypi.yml (publish) | .github/workflows/publish-pypi.yml (publish) |
 | `wheel` | `unpinned` | excluded | Wheel support for the build backend. | pyproject.toml [build-system].requires | pyproject.toml [build-system].requires |
 
-### GitHub Actions (5)
+### GitHub Actions (6)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `actions/attest-build-provenance` | `v4` | excluded | Signs the release AppImage's build-provenance attestation. | .github/workflows/release.yml (build-and-release) | .github/workflows/release.yml |
-| `actions/checkout` | `v7.0.1` | excluded | Checks out the repository. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
+| `actions/checkout` | `v7.0.1` | excluded | Checks out the repository. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/dependencies.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
 | `pypa/gh-action-pypi-publish` | `release/v1` | excluded | Publishes the wheel and sdist to PyPI. | .github/workflows/publish-pypi.yml (publish) | .github/workflows/publish-pypi.yml |
 | `actions/setup-python` | `v7.0.0` | excluded | Installs the job's Python. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
-| `actions/upload-artifact` | `v7.0.1` | excluded | Keeps a job's output (the SBOM, the AppImage, mutation reports). | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml |
+| `astral-sh/setup-uv` | `v10.3.0` | excluded | — | .github/workflows/dependencies.yml (outdated) | .github/workflows/dependencies.yml |
+| `actions/upload-artifact` | `v7.0.2` | excluded | Keeps a job's output (the SBOM, the AppImage, mutation reports). | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml |
 
 ### CI and build programs (11)
 
@@ -295,7 +296,7 @@ Details for `cyanrip (build under review)`:
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
-| `ubuntu-22.04` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | — |
+| `ubuntu-22.04` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | — |
 
 ### External services (15)
 

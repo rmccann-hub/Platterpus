@@ -93,7 +93,7 @@
       },
       {
         "name": "platterpus:count:ci-action",
-        "value": "5"
+        "value": "6"
       },
       {
         "name": "platterpus:count:ci-tool",
@@ -2497,11 +2497,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml"
+          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/dependencies.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml"
         },
         {
           "name": "platterpus:pinned-ref",
@@ -2603,13 +2603,54 @@
     },
     {
       "type": "application",
-      "bom-ref": "gha:actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "bom-ref": "gha:astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+      "group": "astral-sh",
+      "name": "setup-uv",
+      "version": "v10.3.0",
+      "scope": "excluded",
+      "purl": "pkg:github/astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/astral-sh/setup-uv"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/dependencies.yml (outdated)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/dependencies.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "1c37ad07a6a961277cf70c0d37d6f313000f5884"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "v10.3.0"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
       "group": "actions",
       "name": "upload-artifact",
-      "version": "v7.0.1",
+      "version": "v7.0.2",
       "description": "Keeps a job's output (the SBOM, the AppImage, mutation reports).",
       "scope": "excluded",
-      "purl": "pkg:github/actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "purl": "pkg:github/actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2631,7 +2672,7 @@
         },
         {
           "name": "platterpus:pinned-ref",
-          "value": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+          "value": "cf430e030ddbb5b0abf93d22962f4752f3646cd9"
         },
         {
           "name": "platterpus:pinned-to-commit-sha",
@@ -2639,7 +2680,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v7.0.1"
+          "value": "v7.0.2"
         }
       ]
     },
@@ -2911,7 +2952,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pinned",

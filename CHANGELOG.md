@@ -29,6 +29,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A weekly dependency check.** `.github/workflows/dependencies.yml` runs every Monday, names
+  each dependency behind its newest release, and keeps one issue open until all are current (the
+  owner's word of 2026-10-19). `actions/upload-artifact` moves to 7.0.2. The rest of the list
+  (ruff, mypy, PySide6, Python 3.15, runner images) is TASKS R36, one gate at a time.
+- **CLAUDE.md's release hold records the owner's word of 2026-10-19**, which released 0.7.109 and
+  that release only; the hold otherwise stands.
 - **Round 35: our lap 14 tells the fork 0.7.109 is published**, which its `.25` waited on, and
   says the operator's run goes through 0.7.108 as the round's lap 1 wrote it, or through 0.7.109
   on the operator's override; the status block names 0.7.109 as released.
