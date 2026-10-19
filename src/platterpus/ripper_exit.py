@@ -17,11 +17,15 @@ not get to print why.
 
 **What an exit status can tell us, and where each reading comes from:**
 
-* **The ripper's own codes are 0-5.** The fork's provider contract derives its
-  exit inventory from source and resolves exactly ``0``-``5`` with no unresolved
-  paths (``docs/handshake/inbound/artifacts/round-26-lap-01-provider-contract-
-  g37f946b.md`` §P4). So a larger number did not come from cyanrip deciding to
-  stop.
+* **The ripper's own codes are 0-5 on builds up to ``.24``.** The fork's provider
+  contract derives its exit inventory from source and resolves exactly ``0``-``5``
+  with no unresolved paths (``docs/handshake/inbound/artifacts/round-26-lap-01-
+  provider-contract-g37f946b.md`` §P4). From ``.25`` (their round 35 lap 9 S10,
+  ``cyanrip@292858d``) three classes join them: ``64`` for an argument or flag it
+  refuses, ``74`` for the disc or drive, and ``128 + N`` when a signal N stopped a
+  run after its footer said so; ``--verify-log``'s ``0``-``5`` do not move. So on
+  ``.24`` and earlier a number above 5 did not come from cyanrip deciding to stop,
+  and from ``.25`` a ``64`` or ``74`` did.
 * **128 + N is a death by signal N**, in the shell convention the Distrobox
   wrapper's transport (``podman exec``) reports a killed child with; ``137`` is
   SIGKILL, ``143`` SIGTERM. A **negative** status is the same fact reported by
@@ -31,7 +35,8 @@ not get to print why.
   the post-rip probe above returned.
 
 **A signal comes from software.** A scratched disc, a failing drive or a bad read
-offset make the ripper *report* an error and exit 1; none of them sends a signal.
+offset make the ripper *report* an error and exit 1 (``74`` from ``.25`` for the
+disc or drive); none of them sends a signal.
 So when the ripper dies by a signal Platterpus did not send, the one thing this
 module can say with certainty is that the disc and the drive are not the cause —
 and that the rip is safe to run again. Which piece of software sent it is NOT
