@@ -156,4 +156,11 @@ def test_once_open_container_commands_overlap_as_before(
     for t in threads:
         t.join(timeout=10)
     lines = record.read_text().split()
-    assert lines[:4] == ["start", "a", "start", "b"], lines
+    order = [" ".join(lines[i : i + 2]) for i in range(0, len(lines), 2)]
+    # The property is OVERLAP: both commands start before either ends. Which
+    # starts first is the scheduler's choice, not the gate's; the 50 ms stagger
+    # above does not fix it on a loaded runner, and asserting "a" first failed on
+    # main's py3.13 leg on 2026-10-19 with ["start b", "start a", ...]. Run one at
+    # a time, as the gate does BEFORE it opens, an "end" would come second.
+    assert len(order) == 4, order
+    assert sorted(order[:2]) == ["start a", "start b"], order

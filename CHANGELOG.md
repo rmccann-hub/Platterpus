@@ -119,6 +119,10 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Fixed
 
+- **A container-gate test no longer depends on which of two threads the scheduler starts first.**
+  It asserted thread `a` started before `b`, 50 ms apart, and failed on `main`'s Python 3.13 leg on
+  2026-10-19 when `b` won; it now asserts what it is for, that both commands start before either
+  ends (`tests/test_container_gate.py`).
 - **A stock cyanrip is no longer sent `--diagnostics`, which made it refuse every rip.** Stock
   cyanrip has no long options and exits on one it does not know; the setup wizard installs it
   before building the fork, so an install left on it could not rip. The flag now goes only to a
