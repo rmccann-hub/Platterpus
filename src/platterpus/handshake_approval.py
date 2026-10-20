@@ -191,7 +191,13 @@ from platterpus.deps import fork_source
 #: 0.9.4-rc3+platterpus.23`, the pair round 34 reviewed and its Full run tested
 #: (2026-10-16, 426 pass, none failed, E2 unreachable on this drive). A new pin
 #: (`200530e` -> `891c79e`, `+platterpus.23`).
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.106"
+#: **Round 35 moves it to 0.7.110**, read from the peer's closing lap: round 35 lap
+#: 17 declares `HANDSHAKE-APP-VERSION: platterpus 0.7.110` (sha256 `f5aa05dd…`,
+#: 24,252 bytes, `cyanrip@8885ed23`) beside `HANDSHAKE-RIPPER-VERSION: cyanrip
+#: 0.9.4-rc3+platterpus.25`, the pair round 35 reviewed and its Full run tested
+#: (2026-10-20, 434 pass, one failure of the script's own). A new pin (`891c79e` ->
+#: `5f1d036`, `+platterpus.25`).
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.110"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -335,7 +341,10 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.106"
 #: **34 on 2026-10-16**, closed on both gates at three laps: our lap 2 `GO` and their
 #: lap 3 `GO`. It approves `.23` (`891c79e`, upstream rc3) with 0.7.106 on the Full
 #: run of 2026-10-16, filed on our evidence branch at `fe13de0c` and read in our lap 2.
-APPROVED_BY_ROUND: Final[int] = 34
+#: **35 on 2026-10-20**, closed on both gates at eighteen laps: their lap 17 `GO`
+#: and our lap 18 `GO`. It approves `.25` (`5f1d036`) with 0.7.110 on the Full run
+#: of 2026-10-20, filed on our evidence branch at `37482669` and read in our lap 18.
+APPROVED_BY_ROUND: Final[int] = 35
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

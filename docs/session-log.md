@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-20 (evening) — round 35 closes; the release word, and fixes first
+
+- **The fork's lap 17 (`GO`) and our lap 18 (`GO`) close round 35.** Lap 17 also found a second defect of ours: the acceptance runner took `(no read exceeded 10s)` from a refused rip's summary as the build tag, so the deemphasis rip sent no `--consumer`. Fixed (`813ecfd4`). `FORK_PIN` rolls to `5f1d036` with the approval record (round 35, 0.7.110).
+- **Two PRs, not one.** HR-2 §6b reads the manifest at a lap's FROM-COMMIT, and a FROM-COMMIT must be on `main` for the fork to fetch it. The run's manifest rows were on the session branch, so PR #369 merged first (`bccf8d7a`) and lap 18 names that merge.
+- **The owner's word for the next release** (*"i can't do number 3 of waiting for me for a little bit, but do 1, and 2 do it as part of a full acceptance test, at least as long as we need to. proceed"*), and then: *"we need to get as many fixes and improvements into the next releases so we can actually do a proper full acceptance test for as much as possible."* So 0.7.111 waits for a batch of fixes and, if it is out, `.26`. Written into `CLAUDE.md`'s hold line.
+- **Learned.** A lap that cites evidence filed in the same pull request cannot pass its own checker: file the rows, merge, then write the lap. Order the work that way from the start.
+
 ## 2026-10-20 (afternoon) — round 35's Full run filed, and one writer for lap 17
 
 - **The run, on 0.7.110 with `.25`, is filed** on our evidence branch at `374826695ec2233ae685be7f797d75e6aa326db5` and graded `partial` (TASKS R39): 434 pass, one ARCHIVAL failure that was ours. P2 expected exit 1 from a refused flag; `.25` exits 64, as both sides agreed, so the script now asks the build which code a refusal exits with.
