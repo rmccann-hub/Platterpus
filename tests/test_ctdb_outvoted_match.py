@@ -108,3 +108,21 @@ def test_a_plurality_match_is_amber_beside_a_track_accuraterip_rejected() -> Non
     assert plurality.trustworthy is True
     assert ctdb_verdict_level(plurality) == "ok"
     assert ctdb_verdict_level(plurality, rip_log) == "warn"
+
+
+def test_a_no_match_carries_the_weight_of_the_entries_too(validated: None) -> None:
+    """The 2026-10-20 Full run's report said `confidence: 1416` beside
+    `best_confidence: 0` and `total_confidence: 0`: the weights were worked out
+    and then dropped, because only a MATCH carried them. A reader of that record
+    could only conclude the strongest entry had no submissions."""
+    lookup, matched = _lookup(_real_ctdb_block())
+    result = _match_verdict(lookup, matched ^ 0xFFFFFFFF)  # a CRC no entry holds
+    assert result.verdict is Verdict.NO_MATCH
+    strongest = max(e.confidence for e in lookup.entries)
+    assert strongest > 1  # non-triviality: the real block has a heavy entry
+    assert result.best_confidence == strongest == result.confidence
+    assert result.total_confidence == sum(e.confidence for e in lookup.entries)
+    block = _ctdb(result)
+    assert block is not None
+    assert block["best_confidence"] == strongest
+    assert block["outvoted"] is False  # outvoted is a MATCH-only reading
