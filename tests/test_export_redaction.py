@@ -83,6 +83,23 @@ def test_every_home_shape_becomes_a_tilde_and_is_counted() -> None:
     assert "f ~/already/replaced and /tmp/elsewhere and x/home/notahome\n" in new
 
 
+def test_a_path_after_an_escaped_newline_is_replaced() -> None:
+    """The 2026-10-20 Full run's reports held the setup log as one JSON string:
+    ``...distrobox\\n/home/<name>/.local/bin/flac``. The ``n`` of the escape is a
+    word character, so the boundary saw a path inside a word and kept the
+    owner's username, in a bundle bound for the public evidence branch."""
+    text = '"host-setup: exit 0 from distrobox\\n/home/alice/.local/bin/flac\\t/home/bob/x"\n'
+    new, replaced, _ = redact_text(text)
+    assert replaced == 2, new
+    assert "alice" not in new and "bob" not in new
+    assert "distrobox\\n~/.local/bin/flac" in new
+    # This machine's exact home, and the identity patterns, share the boundary.
+    exact, n, _ = redact_text("a\\n/root/rips\n", homes=["/root"])
+    assert (exact, n) == ("a\\n~/rips\n", 1)
+    # Still untouched: a path embedded in a longer word.
+    assert redact_text("x/home/notahome\n") == ("x/home/notahome\n", 0, 0)
+
+
 def test_this_machines_own_home_is_replaced_exactly_and_only_at_a_boundary() -> None:
     """A home outside ``/home`` (``/root``) is caught by name, not by shape."""
     new, replaced, _ = redact_text(
@@ -290,3 +307,11 @@ def test_the_bundle_replaces_records_and_hashes_after_replacement(
     assert f"{hashlib.sha256(toml).hexdigest()}  album/config.toml" in manifest
     entry = next(e for e in result.included if e.name == "album/config.toml")
     assert entry.home_paths_replaced == 2
+
+
+def test_home_path_starts_each_unix_arm_with_the_shared_prefix() -> None:
+    """HOME_PATH is a literal so the regex sweep can time it; this keeps its two
+    Unix arms on the one escape-aware start the identity patterns use."""
+    from platterpus.export_redaction import ESCAPE_AWARE_START, HOME_PATH
+
+    assert HOME_PATH.pattern.count(ESCAPE_AWARE_START) == 2

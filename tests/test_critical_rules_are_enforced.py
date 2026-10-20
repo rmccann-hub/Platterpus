@@ -1077,6 +1077,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # two files.
     # **336 -> 345** (2026-10-20): a CTDB no-match now carries the entries' weights, which the 2026-10-20 Full run's report showed it dropping.
     "ctdb/verify.py": 345,
+    # 299 -> 306 on 2026-10-20, crossing the heuristic. **One job, kept as one
+    # module**: replacing home paths at export. The 2026-10-20 Full run left the
+    # owner's username in a filed bundle, because a JSON ``\n`` escape sits
+    # directly before the path; the escape-aware start that fixes it is shared by
+    # every boundary here and in `export_identity`, and must stay beside them.
+    "export_redaction.py": 306,
     # 352 lines on arrival (2026-10-14, TASKS R9). **One job, kept as one module**:
     # what became of each ripper invocation's `--diagnostics` record. Its two
     # halves are one fact seen from two places: the worker keeping the securing

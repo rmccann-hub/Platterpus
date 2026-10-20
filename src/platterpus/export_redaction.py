@@ -6,9 +6,9 @@ they replaced home paths in nine files by hand, because the owner's rule of
 the right place: once, by the program that wrote the files.
 
 **What is replaced, and how it is known rather than guessed.** A home folder is
-recognised by its SHAPE, with the same pattern the fork's own helper uses
-(``cyanrip@aa45b975:tools/redact.py:55-58``), so the two projects replace the
-same strings: ``/home/<name>``, ``/var/home/<name>`` (the real home on an
+recognised by its SHAPE, with the fork's own helper's pattern
+(``cyanrip@aa45b975:tools/redact.py:55-58``) plus an escape-aware start (see
+``ESCAPE_AWARE_START``): ``/home/<name>``, ``/var/home/<name>`` (the real home on an
 rpm-ostree system such as Bazzite, the rig's), ``/Users/<name>`` and
 ``C:\\Users\\<name>`` all become ``~``, with whatever follows kept. No list of
 user names is needed, so none is written anywhere. On top of the shape, this
@@ -65,14 +65,19 @@ from platterpus.export_identity import (
 
 log = logging.getLogger(__name__)
 
-#: A home folder by its shape — the fork's ``HOME_PATH``, byte for byte
-#: (``cyanrip@aa45b975:tools/redact.py:55-58``), so a bundle we export and a bundle
-#: they file replace the same strings. The lookbehind keeps an already-replaced
-#: ``~/…`` and a path embedded in a longer word (``x/home/y``) from matching; the
-#: name stops at the next separator or quoting character.
+#: The start of a name or path: after a non-word character, or straight after a
+#: two-character ``\n``/``\r``/``\t`` escape. The 2026-10-20 Full run's JSON held
+#: ``distrobox\n/home/<name>/…``; the escape's ``n`` is a word character, so the
+#: plain lookbehind kept the username. Shared with ``export_identity``.
+ESCAPE_AWARE_START: Final[str] = r"(?:(?<=\\[nrt])|(?<![\w.~-]))"
+
+#: A home folder by its shape: the fork's ``HOME_PATH``
+#: (``cyanrip@aa45b975:tools/redact.py:55-58``) plus the escape-aware start, which
+#: goes to them in our next lap, written out so the regex sweep can time it. The
+#: name stops at a separator or quote.
 HOME_PATH: Final[re.Pattern[str]] = re.compile(
-    r"(?<![\w.~-])(?:/var)?/home/[^/\s\"'<>|:;,)\]]+"
-    r"|(?<![\w.~-])/Users/[^/\s\"'<>|:;,)\]]+"
+    r"(?:(?<=\\[nrt])|(?<![\w.~-]))(?:/var)?/home/[^/\s\"'<>|:;,)\]]+"
+    r"|(?:(?<=\\[nrt])|(?<![\w.~-]))/Users/[^/\s\"'<>|:;,)\]]+"
     r"|\b[A-Za-z]:\\\\?Users\\\\?[^\\\s\"'<>|:;,)\]]+"
 )
 
@@ -162,7 +167,9 @@ def _exact_home_patterns(homes: Sequence[str]) -> list[re.Pattern[str]]:
         usable.add(candidate)
     return [
         re.compile(
-            r"(?<![\w.~/-])" + re.escape(home) + r"(?=$|[/\s\"'<>|:;,)\]])",
+            r"(?:(?<=\\[nrt])|(?<![\w.~/-]))"
+            + re.escape(home)
+            + r"(?=$|[/\s\"'<>|:;,)\]])",
             re.M,
         )
         for home in sorted(usable, key=len, reverse=True)
