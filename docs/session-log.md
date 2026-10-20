@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-20 (evening) — the orphaned EAC audit branch taken over and its review applied
+
+- **The branch.** `ccr-3c66e173-5708ow` (one docs commit, `69641172`, Part E of `docs/eac-parity.md`) had no pull request and no longer merged (P7 of the claude-code-skills check of the audit). Taken over as `eac-audit-takeover`: `main` merged in with a merge commit, not a rebase, so `69641172` stays the commit the check cites. Its TASKS rows R32 to R34 collided with `main`'s and are now R42 (disc wear, one fresh EAC rip), R43 (CTDB depth) and R44 (error positions); `main`'s R34 points at R43.
+- **The review applied.** P3: E1 and E5 said our log "refuses" `Copy OK` and `No errors occurred` over unverified tracks; `round32fullwholedisceac.log:123-125` and `:253` print both, so the claim is narrowed to where re-reads disagree. P5: re-derived over all 26 rips, rounds 33 and 34 fetched by hash into a scratch bare repository (evidence commits `f57cdc2b`, `fe13de0c`, the round-33 export's SHA-256 matching its manifest row): track 9's pre-gap is EAC's `1.25` in 23 and `1.26` in 3, and a `1.26` rip's cue puts `INDEX 00` one frame early. Noted in R10 (the fork's `subchannel-pregap-varies`), not a new row. P6: `tests/test_fork_rip_eac_parity.py`'s docstrings no longer say it closes the parity question. P8: the oct06 rip's time is given in UTC with the export's own stamp, EAC's session times are marked as zoneless, and E2 quotes the whole 06-25 CTDB row for track 5, whose `(2/1443) Accurately ripped` half is the evidence for R34.
+- **Part E caught up with `main`.** E1, E3, E4 and E7 now say the second read is built (R38, next release) and decided from the lookup's own answer (`accuraterip_standing.py`); E5's CTDB row records the minority-match fix (R34, 0.7.110) and its cite moved with the code (`ctdb/verify.py:286-292`). The grades as first written stay visible beside the new ones.
+- **Checked, not taken on trust.** The check's citations held where opened: the CTDB submission at `EAC_flac/…log:258` sits under the `CUETools DB Plugin` header (`:255`), not the AcoustID one above it (`:248-252`).
+- **Learned.** A takeover of someone else's branch is two jobs: making it merge, and making it true against the `main` it merges into. The second is where the work was: four of Part E's grades had been overtaken by `main` within a day.
+
 ## 2026-10-20 (afternoon) — round 35's Full run filed, and one writer for lap 17
 
 - **The run, on 0.7.110 with `.25`, is filed** on our evidence branch at `374826695ec2233ae685be7f797d75e6aa326db5` and graded `partial` (TASKS R39): 434 pass, one ARCHIVAL failure that was ours. P2 expected exit 1 from a refused flag; `.25` exits 64, as both sides agreed, so the script now asks the build which code a refusal exits with.
