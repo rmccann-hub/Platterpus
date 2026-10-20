@@ -68,8 +68,13 @@ class _FakeHandle:
         *,
         never_exits: bool = False,
         cancel_returns: int | None = -15,
+        build_tag: str = "",
     ) -> None:
         self._lines: list[str] = list(lines)
+        # The real handle's banner build tag, read at spawn (`RipHandle.build_tag`):
+        # what the exit code means depends on it (`ripper_exit_class`). "" is the
+        # real handle's own value when no banner was read.
+        self.build_tag: str = build_tag
         self._exit_code: int = exit_code
         self._never_exits: bool = never_exits
         self._cancel_returns: int | None = cancel_returns
@@ -5308,6 +5313,77 @@ def test_an_ordinary_failure_exit_gets_no_signal_story(
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
     worker.start_rip()
     assert worker.failure_hint == "", worker.failure_hint
+
+
+# --- Which kind of failure: the fork's exit classes from release 36 ---------
+
+#: `.25`, fork release 36, the first build that emits the classes; and `.24`,
+#: release 35, the last that does not (`fork_source.FORK_RELEASE_SEQ_BY_PIN`).
+_WITH_CLASSES_TAG = "platterpus-fork-g5f1d036"
+_BEFORE_CLASSES_TAG = "platterpus-fork-g93afa15"
+
+
+def test_a_disc_or_drive_exit_says_so_after_cyanrips_own_words(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Exit 74 from `.25` reaches the user as a disc-or-drive failure.
+
+    The status line is built from `failure_hint`, and until the classes were read
+    a 74 produced the same hint as a 1: whatever line cyanrip printed, or nothing.
+    The ripper had said which KIND of failure it was, and we did not pass it on.
+    cyanrip's own sentence still leads (CLAUDE.md: show the dependency's own
+    sentence), and the album pass's build tag is kept for the report.
+    """
+    handle = _FakeHandle(
+        lines=["Unable to open device!"], exit_code=74, build_tag=_WITH_CLASSES_TAG
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    hint = worker.failure_hint
+    assert hint.startswith("Unable to open device!"), hint
+    assert "The disc or the drive failed" in hint and "exited 74" in hint, hint
+    assert worker.ripper_exit_code == 74
+    assert worker.ripper_build_tag == _WITH_CLASSES_TAG
+
+
+def test_a_refused_argument_exit_says_cyanrip_refused_it(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Exit 64 from `.25` says cyanrip refused an argument or flag, not the drive."""
+    handle = _FakeHandle(lines=["x"], exit_code=64, build_tag=_WITH_CLASSES_TAG)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    hint = worker.failure_hint
+    assert "cyanrip refused an argument or a flag" in hint, hint
+    assert "disc or the drive failed" not in hint, hint
+
+
+@pytest.mark.parametrize("tag", [_BEFORE_CLASSES_TAG, "release", "", "g1a2b3c4"])
+@pytest.mark.parametrize("code", [64, 74])
+def test_a_build_without_the_classes_is_never_given_one(
+    qapp: QApplication, tmp_path: Path, tag: str, code: int
+) -> None:
+    """A 64 or 74 from a build that cannot emit the classes gets no class story.
+
+    `.24` and stock cyanrip exit 1 for a refusal and for a drive failure alike, so
+    a 74 from them is not cyanrip saying "the drive"; an unplaceable build is not
+    determined. Telling the user the drive failed would be inventing a cause.
+    """
+    handle = _FakeHandle(lines=["x"], exit_code=code, build_tag=tag)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    assert worker.failure_hint == "", worker.failure_hint
+
+
+def test_a_cancelled_rip_gets_no_class_story(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A rip the user cancelled is described by the cancel, whatever it exited."""
+    handle = _FakeHandle(lines=["x"], exit_code=74, build_tag=_WITH_CLASSES_TAG)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.cancel()
+    worker.start_rip()
+    assert "disc or the drive" not in worker.failure_hint, worker.failure_hint
 
 
 @pytest.mark.parametrize(

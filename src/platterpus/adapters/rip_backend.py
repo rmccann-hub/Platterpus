@@ -340,8 +340,15 @@ class RipHandle:
     itself by scanning `output_dir` after the process exits.
     """
 
-    def __init__(self, process: subprocess.Popen[str]) -> None:
+    def __init__(self, process: subprocess.Popen[str], build_tag: str = "") -> None:
         self._process: subprocess.Popen[str] = process
+        # The build tag from the ripper's version banner, read by the backend just
+        # before it spawned this process (the same read that gates the argv's
+        # capability flags). Kept because what an exit code MEANS depends on the
+        # build (`ripper_exit_class`): from fork release 36 a 74 is "the disc or
+        # drive failed", before it every failure is 1. "" when no banner was read,
+        # which classifies as not determined rather than as either convention.
+        self.build_tag: str = build_tag
 
     @property
     def argv(self) -> tuple[str, ...]:

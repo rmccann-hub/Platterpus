@@ -47,6 +47,7 @@ from platterpus.report_types import (
 )
 from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
+from platterpus.ripper_exit_class import classify_exit
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.user_settings import user_settings
 from platterpus.verdict import (
@@ -376,6 +377,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      records what AccurateRip could say (`in_database`, `not_in_database`,
 #      `lookup_failed`, `not_determined`), and `retried_tracks[].trigger` gains
 #      `"second_read"`. Additions only.
+#      Same unreleased version, round 35 (the fork's exit classes from `.25`,
+#      release 36, provider contract P4): `outcome.ripper_exit_class` reads the
+#      album pass's exit code by the build that ran (`ok`, `refused` for 64,
+#      `disc_or_drive` for 74, `signal`, `container_tool` for podman's 125,
+#      `failure`, `unclassified` on a build before the classes, `not_determined`
+#      with no exit or an unplaceable build; `ripper_exit_class.py`), and
+#      `outcome.ripper_exit_build_tag` names the build tag it was read against,
+#      from the banner read at spawn, null when none was read. Additions only.
 REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -800,6 +809,7 @@ def build_outcome(
     auto_unknown_retry_fired: bool = False,
     auto_unknown_retry_reason: str | None = None,
     ripper_exit_code: int | None = None,
+    ripper_build_tag: str | None = None,
     ripper_argv: tuple[str, ...] | list[str] | None = None,
     ripper_argv_first_pass: tuple[str, ...] | list[str] | None = None,
     securing_pass_started: bool = False,
@@ -834,6 +844,10 @@ def build_outcome(
     The securing pass's is ``securing_pass_exit_code``, read beside
     ``securing_pass_started`` (see :mod:`~platterpus.rip_pass_exit`).
 
+    ``ripper_build_tag`` is the album pass's build tag as its banner read at spawn.
+    The exit code's class depends on it (:mod:`~platterpus.ripper_exit_class`), so
+    the two are recorded together; a non-string (a stand-in worker's) is no tag.
+
     ``ripper_record`` is cyanrip's own ``-j`` record of how the album pass ended
     (v32, W6), compared here with ``status`` and the exit code we reaped, because
     this is the one place that holds all three (:mod:`~platterpus.ripper_ending`).
@@ -860,6 +874,7 @@ def build_outcome(
     # None when there was only one pass, so "single-pass" and "first of several"
     # stay distinguishable rather than both rendering as a bare argv.
     first = tuple(ripper_argv_first_pass or ())
+    build_tag = ripper_build_tag.strip() if isinstance(ripper_build_tag, str) else ""
     return {
         "status": status,
         "failure_hint": failure_hint or None,
@@ -870,6 +885,13 @@ def build_outcome(
         # Distinct keys rather than one nested object, because a support reader
         # greps this file and a flat key is findable.
         "ripper_exit_code": ripper_exit_code,
+        # WHICH KIND of failure that code names, for the build that ran: from fork
+        # release 36, 64 is a refused argument and 74 the disc or drive; before
+        # it every failure is 1, so no class is claimed (`unclassified`), and an
+        # unplaceable build is `not_determined`. The tag it was read against sits
+        # beside it, because a refused run writes no log to carry one.
+        "ripper_exit_class": classify_exit(ripper_exit_code, build_tag),
+        "ripper_exit_build_tag": build_tag or None,
         # The securing pass's own exit status, never folded into the album
         # pass's above (v31, ruling C1). `null` with `started` false is "did not
         # run"; with `started` true it is "never reaped".

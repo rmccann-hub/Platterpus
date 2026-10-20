@@ -10,6 +10,7 @@ from typing import NotRequired, TypedDict
 
 from platterpus.disc_identity import DiscIdentityBlock
 from platterpus.record_fate import SecuringRecordBlock
+from platterpus.ripper_exit_class import ExitClass
 
 
 class GeneratorBlock(TypedDict):
@@ -155,6 +156,13 @@ class OutcomeBlock(TypedDict):
     #: v31: the ALBUM pass's exit status (the pass `status` describes). Until then
     #: it was whichever pass ran last, so a securing pass overwrote it.
     ripper_exit_code: int | None
+    #: v39 (round 35, the fork's exit classes from release 36): the class of
+    #: `ripper_exit_code` for the build that ran, one of
+    #: `ripper_exit_class.EXIT_CLASSES` (`ok`, `refused`, `disc_or_drive`,
+    #: `signal`, `container_tool`, `failure`, `unclassified`, `not_determined`),
+    #: and the build tag it was read against (`None` when no banner was read).
+    ripper_exit_class: ExitClass
+    ripper_exit_build_tag: str | None
     #: v31: whether a securing pass's ripper was spawned, and its own exit status
     #: (`None` = never reaped when started, did not run otherwise). Kept apart from
     #: the album pass's, which ruling C1 (KDD-41) made necessary.

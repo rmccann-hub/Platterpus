@@ -9178,6 +9178,49 @@ def test_a_failed_rip_with_no_securing_pass_names_no_pass(teardown_threads) -> N
     assert window._last_outcome["securing_pass_exit_code"] is None
 
 
+def test_a_disc_or_drive_exit_reaches_the_status_line_and_the_report(
+    teardown_threads,
+) -> None:
+    """`.25`'s exit 74 is said on the status line and classed in the outcome.
+
+    The hint is composed by the worker (`ripper_exit_class.explain_failed_exit`,
+    pinned in `test_rip_worker.py`); this pins the half the window owns: the
+    status line shows it with cyanrip's own words first, and the snapshot reads
+    the code by the build tag the worker kept (schema v39, `ripper_exit_class`).
+    """
+    from platterpus.ripper_exit_class import explain_failed_exit
+
+    tag = "platterpus-fork-g5f1d036"  # `.25`, release 36
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="Unable to open device! — "
+        + explain_failed_exit(74, tag, we_stopped_it=False),
+        ripper_exit_code=74,
+        ripper_build_tag=tag,
+    )
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert status.startswith("Unable to open device!"), status
+    assert "The disc or the drive failed" in status, status
+    assert window._last_outcome["ripper_exit_class"] == "disc_or_drive"
+    assert window._last_outcome["ripper_exit_build_tag"] == tag
+
+
+def test_a_worker_without_a_build_tag_classes_nothing(teardown_threads) -> None:
+    """A worker that kept no tag gives `not_determined`, never a guessed class."""
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="", ripper_exit_code=74)
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    assert window._last_outcome["ripper_exit_class"] == "not_determined"
+    assert window._last_outcome["ripper_exit_build_tag"] is None
+
+
 def test_a_failed_rip_says_what_cyanrips_own_record_says(teardown_threads) -> None:
     """W6: the status line says how cyanrip's own record says the album pass
     ended, and the outcome snapshot carries the record, tri-state."""
