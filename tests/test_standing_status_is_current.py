@@ -611,7 +611,14 @@ def _status_block_problems(text: str) -> list[str]:
                 f"STATUS-RUN-NEXT tests {run.group(1)}, but the next release "
                 f"reviews {release.group(3)}"
             )
-        consumers = {__version__} | ({release.group(1)} if release else set())
+        # The newest RELEASED version counts too, not only ours and the next: while
+        # a bump sits on `main` waiting for its dispatch, the rig still runs the
+        # release before it. On 2026-10-19 the fork's round 35 lap 12 S4 put the
+        # run through 0.7.108 while `__version__` read 0.7.109, and this set could
+        # not say so. The frozen-script check below is what holds that case.
+        consumers = {__version__, newest_version} | (
+            {release.group(1)} if release else set()
+        )
         if run.group(2) not in consumers:
             problems.append(
                 f"STATUS-RUN-NEXT runs {run.group(2)}, neither ours nor the next release"

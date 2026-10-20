@@ -24,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.7.109` — the build that
+- **Platterpus:** `0.7.110` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc3+platterpus.23 (platterpus-fork-g891c79e)` — the build a
@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (70)
+## 1. Log lines we parse (71)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -66,6 +66,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
 | `accuraterip_disc_id` | disc | `^AccurateRip ID:\\s+(?P<value>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8})\\s*$` |
+| `accuraterip_disc_status` | disc | `^AccurateRip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
@@ -167,7 +168,7 @@ the log **and** its addendum (`rip_addendum.with_addendum`), because the
 addendum is the only statement in the folder about which bytes actually
 shipped after an auto-fix re-rip.
 
-## 2. Log lines we knowingly ignore (25)
+## 2. Log lines we knowingly ignore (24)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -190,7 +191,6 @@ dropped.
 | `^HDCD decoding:\\s` | candidate: alters samples when enabled |
 | `^Album Art:\\s` | candidate: cover-art presence |
 | `^Disc tracks:\\s` | candidate: total tracks on the disc |
-| `^AccurateRip:\\s` | the indented per-track Accurip: row is read |
 | `^AcoustID:\\s` | fingerprinting state; under -N with no --acoustid-key nothing is ever submitted, and a build with libchromaprint writes an ACOUSTID_FINGERPRINT tag the file itself records |
 | `^Disc (?:has no audio tracks\|TOC is invalid), skipping DiscID` | disc-ID guard; the DiscID:/CDDB ID: lines are then absent, which reads as not reported |
 | `^Disc has no audio tracks, skipping AccuRIP DB!` | AccurateRip guard; the AccurateRip ID: line is then absent and every per-track Accurip: row says what was looked up |

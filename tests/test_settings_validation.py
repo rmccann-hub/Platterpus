@@ -547,6 +547,7 @@ _BAD_VALUES: dict[str, object] = {
     "debug_logging": "yes",
     "secure_rerip_dynamic": "yes",
     "rerip_offset_variant": "yes",
+    "second_read_without_accuraterip": "yes",
     "ctdb_verify_after_rip": "yes",
     "verify_flac_after_rip": "yes",
     "write_eac_log_after_rip": "yes",

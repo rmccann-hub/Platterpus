@@ -135,7 +135,9 @@ class TestTheThreeRefusals:
         with pytest.raises(rd.DigestError, match="matched NO lap"):
             rd.round_digest(15, exclude="round-15-lap-99.md")
 
-    def test_an_exclude_that_matches_MORE_THAN_ONE_refuses(self) -> None:
+    def test_an_exclude_that_matches_MORE_THAN_ONE_refuses(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """**The mirror, which neither side had asked for.**
 
         It becomes reachable the moment two laps cross at one number — round 14
@@ -145,18 +147,30 @@ class TestTheThreeRefusals:
 
         Driven with a real pair of same-named laps in both directions, since that
         is precisely the shape that occurs.
+
+        **In a copy of round 15's laps, never in the repository's own folder.**
+        Writing the crossing lap into `docs/handshake/outbound/` and deleting it
+        afterwards raced every test that lists that folder under xdist: on 2026-10-19
+        `main`'s py3.12 leg (at 12612923) `test_rig_scripts` listed the file, then
+        found it gone. A test must not change the tree its neighbours read.
         """
         rd = _module()
-        inbound = rd._HANDSHAKE / "inbound" / "round-15-lap-03.md"
-        outbound = rd._HANDSHAKE / "outbound" / "round-15-lap-03.md"
+        real = rd._HANDSHAKE
+        copy = tmp_path / "handshake"
+        for direction in ("inbound", "outbound"):
+            (copy / direction).mkdir(parents=True)
+            for lap in sorted((real / direction).glob("round-15-lap-*.md")):
+                (copy / direction / lap.name).write_bytes(lap.read_bytes())
+        monkeypatch.setattr(rd, "_HANDSHAKE", copy)
+        inbound = copy / "inbound" / "round-15-lap-03.md"
+        outbound = copy / "outbound" / "round-15-lap-03.md"
         assert inbound.exists(), "fixture assumption changed"
         assert not outbound.exists(), "an outbound lap 3 exists; pick another number"
+        # Non-triviality: the copy reads as the real folder does before the crossing.
+        assert rd.round_digest(15, exclude="round-15-lap-01.md")
         outbound.write_text(inbound.read_text(encoding="utf-8"), encoding="utf-8")
-        try:
-            with pytest.raises(rd.DigestError, match="matched 2 laps"):
-                rd.round_digest(15, exclude="round-15-lap-03.md")
-        finally:
-            outbound.unlink()
+        with pytest.raises(rd.DigestError, match="matched 2 laps"):
+            rd.round_digest(15, exclude="round-15-lap-03.md")
 
     def test_the_refusal_message_names_the_count_and_the_paths(self) -> None:
         """A refusal a reader cannot act on is an error message, not a check."""

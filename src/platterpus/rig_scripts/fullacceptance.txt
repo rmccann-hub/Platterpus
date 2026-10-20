@@ -222,6 +222,7 @@ set prefer_disc_isrc on
 set secure_rerip_matches 2
 set secure_rerip_dynamic on
 set rerip_offset_variant on
+set second_read_without_accuraterip on
 set read_speed_mode auto_ladder
 set read_speed 0
 set ctdb_verify_after_rip on
@@ -1388,9 +1389,14 @@ snapshot aftercacheprobe
 #
 # `-l 1` is insurance, not intent. If the refusal does NOT fire on this drive,
 # cyanrip would otherwise start ripping; limiting it to one track bounds the
-# damage to something the verb timeout can end. In that case `expect-exit 1`
+# damage to something the verb timeout can end. In that case `expect-exit refused`
 # fails and says so, which is the correct result — "it did not refuse" is a real
 # finding about the rig, not a broken step.
+#
+# `refused`, not `1`: from `.25` a refusal exits 64, the class our round 35 lap 8
+# S9 asked for. The 2026-10-20 Full run failed here on `expect-exit 1` against a
+# correct `.25`, so the code is now asked of the build (`ripper_exit.
+# refusal_exit_code`): 1 before `.25`, 64 from it.
 #
 # NO `-j` HERE, and the reason is worth recording rather than leaving as an
 # omission. The fork's §K2 suggested one, to get cyanrip's own record as a
@@ -1405,7 +1411,7 @@ snapshot aftercacheprobe
 log --- P2. C1: does a no-offset refusal hang the drive? ---
 run-size standard
 cyanrip -N -l 1
-expect-exit 1
+expect-exit refused
 expect-cyanrip Offset is unset
 snapshot afterc1
 

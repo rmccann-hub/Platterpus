@@ -80,6 +80,12 @@ _FILED_MANIFESTS: Final[dict[str, str]] = {
     ),
     # `.24` on beta (`release_seq` 35, `handshake_round` 35, `round_closed: false`),
     # stable `.23` (`release_seq` 34, round 34 closed), 2026-10-16: round 35's subject.
+    # `.25` on beta (`release_seq` 36, `handshake_round` 35, `round_closed: false`),
+    # stable `.23` (`release_seq` 34), 2026-10-19: round 35's subject after their lap
+    # 15's R4 override.
+    "fork_release_manifest_44d3cf3.json": (
+        "3ddacfffb7da4fc83dc107ea4a881944931789156ae42b4463e07ed5aaf588a4"
+    ),
     "fork_release_manifest_40d319c.json": (
         "170dc9d7806738ff7b4af7bdfa6ae0e2d373d928c24c4d87c4a2d57aa2125ccc"
     ),

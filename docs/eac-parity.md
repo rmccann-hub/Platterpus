@@ -1158,7 +1158,7 @@ numbers all re-derive exactly** (the method is in the 2026-10-19 session-log ent
 - **One thing to settle: is the disc wearing out?** We read track 3 right in 9 of the
   first 11 rips and in none of the last 15. EAC's last session was 2026-06-25. A fresh
   EAC rip on the same drive (Windows, or EAC under Wine) would show whether the disc
-  has worn or our reads have got worse. Logged as TASKS R32.
+  has worn or our reads have got worse. Logged as TASKS R42.
 
 **Grade: equal**, with the caveat that it is one disc in one drive. Per rip, EAC
 averaged 12.0 of 14 (3 sessions) and we averaged 12.4 (26 rips). Those samples are too
@@ -1250,12 +1250,12 @@ other.**
 2. **Prove it on more hardware:** a second drive from another maker, a second machine
    and distro, and the disc types in E6. This is also the 0.8.1 gate.
 3. **Find out whether the reference disc is wearing out:** one EAC rip of it now on the
-   BDR-209D (TASKS R32).
+   BDR-209D (TASKS R42).
 4. **Deepen CTDB:** per-track results, then the offset-shifted sweep, then localisation
-   of bad samples, then submission (TASKS R33). Repair stays deferred under KDD-14.
+   of bad samples, then submission (TASKS R43). Repair stays deferred under KDD-14.
 5. **Ship disc ISRCs** with `.24` (R20) and **data-track handling** (R12, R13).
 6. **Show error positions** once the fork releases them. They need EAC-layout wording
-   agreed through the handshake, since the fork diffs that log (TASKS R34).
+   agreed through the handshake, since the fork diffs that log (TASKS R44).
 7. HTOA and image + cue: low, only if users ask.
 
 **Corrections this audit made to Parts A and B:** Part A's scorecard said the 2026-10-07

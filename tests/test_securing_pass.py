@@ -12,13 +12,24 @@ from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from platterpus.accuraterip_standing import (
+    AR_STANDING_IN_DATABASE,
+    AR_STANDING_LOOKUP_FAILED,
+    AR_STANDING_NOT_DETERMINED,
+    AR_STANDING_NOT_IN_DATABASE,
+    accuraterip_standing,
+    unvouched_sentence,
+)
 from platterpus.ladder_trigger import why_pass_unfinished
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.securing_pass import (
+    SKIPPED_ACCURATERIP_LOOKUP_FAILED,
+    SKIPPED_ACCURATERIP_NOT_DETERMINED,
     SKIPPED_ALBUM_PASS_UNFINISHED,
     SKIPPED_DISC_NOT_IN_ACCURATERIP,
     TRIGGER_ACCURATERIP,
     TRIGGER_INSTABILITY,
+    TRIGGER_SECOND_READ,
     SecuringPlan,
     first_pass_records,
     plan_securing_pass,
@@ -199,11 +210,107 @@ def test_dynamic_mode_secures_the_tracks_accuraterip_did_not_confirm() -> None:
     assert plan.disc_in_accuraterip is True and plan.skipped_reason is None
 
 
-def test_dynamic_mode_skips_a_disc_accuraterip_does_not_know() -> None:
-    plan = _plan(_fork_log())  # no AccurateRip lines at all
-    assert plan.tracks == ()
+# --- The second read of a disc AccurateRip can't vouch for ---------------------
+#
+# The owner's word of 2026-10-20: "yes, read twice by default". Until then these
+# discs kept their one fast read.
+
+
+def _ar_log(disc_status: str, *, track_row: str = "not found") -> object:
+    """A two-track fork log whose AccurateRip lookup answered ``disc_status``.
+
+    The rows are the shapes cyanrip prints: the disc-level line
+    (``cyanrip@3861b266:src/cyanrip_log.c:1037-1041``) and each track's
+    ``Accurip:`` row (``:669-671``), which says ``not found`` both when the lookup
+    failed and when the disc is not in the database.
+    """
+    header = f"AccurateRip:    {disc_status}\n" if disc_status else ""
+    return parse_cyanrip_log(
+        "cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)\n"
+        "Tracks to rip:  all\n" + header + "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     00000001\n"
+        f"  Accurip:       {track_row}\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     00000002\n"
+        f"  Accurip:       {track_row}\n"
+        "Ripping errors: 0\n"
+        "Rip completed:  yes (2 of 2 tracks)\n"
+    )
+
+
+def test_the_disc_level_line_is_parsed_verbatim() -> None:
+    assert getattr(_ar_log("not found"), "accuraterip_disc_status", None) == "not found"
+    assert getattr(_ar_log(""), "accuraterip_disc_status", None) == ""
+
+
+def test_each_lookup_answer_has_its_own_standing() -> None:
+    """The per-track rows are identical in the first three; only the disc line
+    tells them apart, which is why it is read now."""
+    assert accuraterip_standing(_ar_log("not found")) == AR_STANDING_NOT_IN_DATABASE
+    assert accuraterip_standing(_ar_log("mismatch")) == AR_STANDING_NOT_IN_DATABASE
+    assert accuraterip_standing(_ar_log("error")) == AR_STANDING_LOOKUP_FAILED
+    assert accuraterip_standing(_ar_log("disabled", track_row="disabled")) == (
+        AR_STANDING_LOOKUP_FAILED
+    )
+    assert (
+        accuraterip_standing(_ar_log("found", track_row="disc found in database"))
+        == AR_STANDING_IN_DATABASE
+    )
+    # The disc line alone decides "found": the rows are a fallback for a log that
+    # has no disc line, and must not be what this case rests on.
+    assert accuraterip_standing(_ar_log("found")) == AR_STANDING_IN_DATABASE
+    # No disc line and "not found" rows: the rows cannot separate the two
+    # failures, so it is not determined, never a guess.
+    assert accuraterip_standing(_ar_log("")) == AR_STANDING_NOT_DETERMINED
+    # A word we do not know is not evidence either.
+    assert accuraterip_standing(_ar_log("maybe")) == AR_STANDING_NOT_DETERMINED
+    assert accuraterip_standing(None) == AR_STANDING_NOT_DETERMINED
+
+
+def test_a_disc_not_in_accuraterip_has_every_track_read_again() -> None:
+    plan = _plan(_ar_log("not found"))
+    assert plan.tracks == (1, 2)
+    assert (plan.trigger, plan.rerip_z) == (TRIGGER_SECOND_READ, 2)
     assert plan.disc_in_accuraterip is False
-    assert plan.skipped_reason == SKIPPED_DISC_NOT_IN_ACCURATERIP
+    assert plan.skipped_reason is None
+    assert plan.accuraterip_standing == AR_STANDING_NOT_IN_DATABASE
+
+
+def test_a_failed_lookup_is_read_again_too_and_says_so() -> None:
+    plan = _plan(_ar_log("error"))
+    assert (plan.tracks, plan.trigger) == ((1, 2), TRIGGER_SECOND_READ)
+    assert plan.accuraterip_standing == AR_STANDING_LOOKUP_FAILED
+    assert "lookup failed" in unvouched_sentence(plan.accuraterip_standing)
+    assert "no entry" in unvouched_sentence(AR_STANDING_NOT_IN_DATABASE)
+
+
+def test_a_disc_whose_answer_is_not_in_the_log_is_read_again() -> None:
+    plan = _plan(_fork_log())  # no AccurateRip lines at all
+    assert (plan.tracks, plan.trigger) == ((1, 2), TRIGGER_SECOND_READ)
+    assert plan.accuraterip_standing == AR_STANDING_NOT_DETERMINED
+
+
+def test_a_disc_in_accuraterip_whose_every_track_failed_re_reads_toward_it() -> None:
+    """Not the second read: a consensus exists. Until 2026-10-20 this disc was
+    skipped as "not in AccurateRip", because no track had matched."""
+    plan = _plan(_ar_log("found", track_row="disc found in database"))
+    assert (plan.tracks, plan.trigger) == ((1, 2), TRIGGER_ACCURATERIP)
+    assert plan.disc_in_accuraterip is True
+    assert plan.accuraterip_standing == AR_STANDING_IN_DATABASE
+
+
+def test_turning_the_second_read_off_keeps_one_read_with_the_right_reason() -> None:
+    off = {"second_read_without_accuraterip": False}
+    reasons = {
+        status: _plan(_ar_log(status), **off).skipped_reason
+        for status in ("not found", "error", "")
+    }
+    assert reasons == {
+        "not found": SKIPPED_DISC_NOT_IN_ACCURATERIP,
+        "error": SKIPPED_ACCURATERIP_LOOKUP_FAILED,
+        "": SKIPPED_ACCURATERIP_NOT_DETERMINED,
+    }
+    assert all(_plan(_ar_log(s), **off).tracks == () for s in reasons)
 
 
 def test_the_ladder_re_reads_its_unstable_tracks_inside_the_retry_ceiling() -> None:

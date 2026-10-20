@@ -85,6 +85,9 @@ SETTING_HOMES: Final[dict[str, SettingHome]] = {
     "prefer_disc_isrc": SettingHome(SETTINGS, "_prefer_disc_isrc_check"),
     "secure_rerip_matches": SettingHome(SETTINGS, "_secure_rerip_spin"),
     "rerip_offset_variant": SettingHome(SETTINGS, "_rerip_offset_variant_check"),
+    "second_read_without_accuraterip": SettingHome(
+        SETTINGS, "_second_read_unvouched_check"
+    ),
     # Shown inverted, as "Verify every track with a second read".
     "secure_rerip_dynamic": SettingHome(SETTINGS, "_verify_every_track_check"),
     "read_speed_mode": SettingHome(SETTINGS, "_read_speed_mode_combo"),

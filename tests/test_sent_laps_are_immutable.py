@@ -211,6 +211,18 @@ SENT_LAPS: dict[str, str] = {
     # Released 2026-10-17 on the operator's standing word for round 35, 18,660 bytes.
     "outbound/round-35-lap-06.md": "fddc9b67ad420311a56f820fb77e7359c4a7605dfe4e82a359ce42f5346ecc8f",
     "outbound/round-35-lap-08.md": "7ff8699fb61f472adf5daf8652a4da784220e6ae7d76f0f4a22b94d1eff26f31",
+    # Released 2026-10-19 on the operator's standing word for round 35, 12,458
+    # bytes; the fork's lap 12 quotes this sha256 back in its INBOUND-HELD.
+    "outbound/round-35-lap-11.md": "068e2517373b6ee82cfb8b5ff1b341c333861154d6766a61c4373711348253a6",
+    # Released 2026-10-19 on the standing word, 11,147 bytes; byte-identical to the
+    # copy the fork filed at cyanrip@024c7fbd.
+    "outbound/round-35-lap-13.md": "7d2a1156bce717c6873e8eba0d16a0964324555f8928684a0d001675b31aedcc",
+    # Released 2026-10-19 on the standing word, 10,255 bytes; the fork's lap 15
+    # quotes this sha256 back in its INBOUND-HELD.
+    "outbound/round-35-lap-14.md": "87a95aa72abff030f6cbeb9fbe0c8651472df3bfa8d0dfad40eb49fb1f981af0",
+    # Released 2026-10-20 on the standing word, 12,685 bytes; the fork's lap 17
+    # quotes this sha256 back in its INBOUND-HELD.
+    "outbound/round-35-lap-16.md": "a147a3027a9a32d9c7994ddd1adae9df85f921b73d9075bfa5960108199bbc81",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

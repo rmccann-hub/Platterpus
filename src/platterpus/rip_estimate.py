@@ -148,6 +148,10 @@ class RipEstimate:
     #: Dynamic mode: a re-read track costs this many times its own length, lo-hi.
     reread_low: float | None
     reread_high: float | None
+    #: Dynamic mode with the second read on: the whole rip, at least, when
+    #: AccurateRip can't vouch for the disc and every track is read again (the
+    #: owner's word of 2026-10-20). None when that cannot happen.
+    unvouched_seconds: float | None = None
 
 
 def estimate_rip(
@@ -157,6 +161,7 @@ def estimate_rip(
     secure_rerip_matches: int,
     dynamic: bool,
     max_retries: int,
+    second_read_without_accuraterip: bool = False,
 ) -> RipEstimate | None:
     """The estimate for a rip of ``audio_seconds``, or None when it cannot be made."""
     if rate is None or audio_seconds <= 0 or not math.isfinite(audio_seconds):
@@ -186,6 +191,13 @@ def estimate_rip(
         None,
         multiple * reads_low if reread else None,
         multiple * reads_high if reread else None,
+        # The main pass, then every track again at N+1 reads: the least a disc
+        # AccurateRip can't vouch for takes, and a scratched one takes longer.
+        (
+            reading + OVERHEAD_S + reading * reads_low + OVERHEAD_S
+            if reread and second_read_without_accuraterip
+            else None
+        ),
     )
 
 
@@ -249,5 +261,11 @@ def describe(estimate: RipEstimate | None, *, known: bool = True) -> str:
             " Any track AccurateRip does not confirm is then re-read, which "
             f"takes {estimate.reread_low:.0f} to {estimate.reread_high:.0f} times "
             "that track's own length."
+        )
+    if estimate.unvouched_seconds is not None:
+        sentence += (
+            " A disc AccurateRip doesn't know, or can't be looked up, is read "
+            f"twice: at least {rough(estimate.unvouched_seconds)}, and longer on "
+            "a scratched disc."
         )
     return sentence

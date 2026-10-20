@@ -11,11 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-10-19 — an independent audit against EAC
+## 2026-10-20 (afternoon) — round 35's Full run filed, and one writer for lap 17
+
+- **The run, on 0.7.110 with `.25`, is filed** on our evidence branch at `374826695ec2233ae685be7f797d75e6aa326db5` and graded `partial` (TASKS R39): 434 pass, one ARCHIVAL failure that was ours. P2 expected exit 1 from a refused flag; `.25` exits 64, as both sides agreed, so the script now asks the build which code a refusal exits with.
+- **Two more fixes from the bundle.** A CTDB no-match now carries its entries' weights. The export's redaction left the owner's username in the setup log held inside a JSON string, because `\n` puts a word character right before `/home/<name>`; every name boundary now treats an escape as a start. Caught at filing and replaced before the evidence commit was pushed.
+- **Lap 17 is the fork's.** The operator saw both sessions starting a lap 17 and asked for one decision, not a race. Both status blocks already named the fork as lap 17's writer; each also said "or the other side first", which was the race. Ours now says only the fork writes 17, and ours is 18. The fork's operator relay confirmed the same.
+- **Learned.** "Claimed at release" (K1) settles a collision after it happens; it does not prevent two sessions doing the work. When both status blocks say "or yours first", neither has said who. Name one writer.
+
+## 2026-10-20 (morning) — the second read by default, and the hourly check stopped
+
+- **The owner's answer to P2: *"yes, read twice by default"*.** It came through the claude-code-skills session at 9:14 AM EDT (13:14 UTC). Built the same morning as TASKS R38: a disc AccurateRip can't vouch for is read twice, with the named "Reads agree" verdict and an opt-out. Not released: the hold in `CLAUDE.md` still stands, and round 35's Full run, on 0.7.110 with `.25`, is unaffected.
+- **Found while building it.** The report suggested using each track's `accuraterip_lookup`, but cyanrip writes `not found` on that row both when the lookup failed and when the disc is not in the database (`cyanrip@3861b266:src/cyanrip_log.c:669-671`). Only the disc-level `AccurateRip:` line separates them, and our parser had skipped it on purpose since round 28. It is read now. A second finding: a disc in the database whose every track failed was being skipped as "not in AccurateRip", because "no track matched" was the only test.
+- **The hourly handshake Routine is off** on the owner's word, *"stop the hourly check"*. It is disabled, not deleted.
+- **Learned.** A field named after a question does not always answer it. `accuraterip_lookup` holds the lookup's per-track row, which cannot tell "the database has nothing" from "we never heard back", so read the row's source before building on it.
+
+## 2026-10-20 — 0.7.110 out for the Full run on `.25`
+
+- **Released.** 0.7.110 at 00:22 UTC (8:22 PM EDT on 10-19) from `e4b0115d`, on the owner's word *"When you are both ready do a new release"*, with `.25` (`5f1d036`) under review. PR #366 carried P1, P4, the weekly dependency workflow, the move to `.25` and our round 35 lap 16; merging it released the lap. The full check found one more thing before the merge: the size ratchet, because keeping `.24`'s wordings and its verify-log entry beside `.25` grew two files. Both numbers were raised with the reason beside each (`dd0d7430`).
+- **Learned.** A release built against the build under review has to be re-read against the fork's newest lap just before merging. 0.7.110 was first built against `.24`, and only reading their lap 15 showed the round had moved to `.25`.
+
+## 2026-10-19 (evening) — 0.7.109 out, the sessions to read each other directly, and CTDB's minority match
+
+- **Talking without the operator in the middle.** The owner's word, relayed by the claude-code-skills session: *"make it so they will talk to each other about this in the next round/lap. We need them to communicate without us in the middle."* This session now has an hourly Routine (`trig_01EPieBQES8fMQkPqKutjn8Z`, at 14 minutes past) that reads the fork's `platterpus-fork` and answers a released lap addressed to us under the standing word; the HANDOFF block stays as the operator's copy. Our lap 16 accepts the rule once the fork's lap 15 proposes it.
+- **CTDB's green over a minority entry (P1, TASKS R34).** 8 of 26 reference-disc rips showed "CTDB: verified ✓ (confidence 1)": the matched entry had one submission, the strongest about 1,405, and each rip had a track AccurateRip rejected. A match now records the strongest entry's confidence and the total; an outvoted match is not `trustworthy`, its line says "matched 1 of N submissions; K disagree", and a match beside a track AccurateRip rejected is amber (report schema 38). The 2026-07-28 entry's "independent whole-disc corroboration" is corrected in place.
+- **Round 35 moved to `.25`, and 0.7.110 reviews it.** The fork's lap 15 (7:30 PM EDT, 23:30 UTC) moved the round's pin from `.24` to `.25` (`5f1d036`) on the operator's override of R4 and the run with it; 0.7.110 had been built against `.24` and was caught before merging by reading that lap. `PIN_UNDER_REVIEW` moved, `.25`'s contract filed and the inventory regenerated; our lap 16 accepts the direct-reading rule and the fork's time format (both now in `CLAUDE.md`).
+- **Learned.** A database match is evidence in proportion to the weight behind the entry and the independence of whoever submitted it; a count of one, from the same drive and disc, is our own read echoed back.
+
+## 2026-10-19 (late afternoon) — an independent audit against EAC
 
 **Asked:** a complete third-party audit of Platterpus against EAC, better or worse with reasons
 and evidence. **Built:** `docs/eac-parity.md` Part E, two inline corrections to Part A, TASKS
-rows R32 to R34, and a measured note on the *First-rip proof* item. No code changed.
+rows R42 to R44 (first numbered R32 to R34 on the branch; renumbered when it merged `main`, which had taken those numbers), and a measured note on the *First-rip proof* item. No code changed.
 
 **Method, so the numbers can be re-derived.** The 262 `.log` files under
 `docs/handshake/artifactsround26/` to `artifactsround34/` were fetched blobless into a
@@ -34,6 +60,15 @@ what *shipped*, after the securing pass. The raw first pass is much worse on tra
 maintainer named on 2026-07-30: a disc AccurateRip does not know gets one read.
 (3) The four audit helpers stopped on the session's usage limit; the audit was finished
 by hand from their partial evidence fetch.
+
+## 2026-10-19 (afternoon) — the fork's lap 12, the operator's review, and stock cyanrip's argv
+
+- **The fork's lap 12** (released at `cyanrip@820c0c55`, 2:46 pm New York time, EDT) is filed byte for byte (sha256 `773d1133…`) and passes `--check`. Their round digest `c04e79ac0268a00c` over 11 reproduces, and their S3, that our lap 11 counted 7 `CRIP_EXIT_IOERR` lines where there are 8, is right (re-derived from their source). Our lap 11 is now pinned as sent, with lap 12's INBOUND-HELD as the evidence.
+- **Our lap 13 answers it**, with their `seam-commands.md` copied (sha256 `d4dcd5ec…`), their count taken, and our lap 11's ruff version corrected (0.15.8 is a stray copy on PATH; the gate runs 0.15.22). The operator's review (item 5) asks for no lap before the run unless it changes what a side does; I first held this one, and our two shared-file checks failed: a copy of a jointly owned file must travel with the lap that declares its hash, so it went.
+- **The review's item 1, fixed (TASKS R30):** `--diagnostics` went to every ripper build, and stock cyanrip refuses any long option, so an install left on stock cyanrip could not rip. It now goes to a build whose banner names the fork, or whose banner was not read; held by `tests/test_stock_build_argv.py`, revert-probed on both routes. Not yet shown against a real stock binary, which this container lacks.
+- **Item 7:** the PyPI publish ran on `ubuntu-latest`, which moves to Ubuntu 26 from today; pinned, and a test refuses a moving runner label. **Item 2:** R29 said upstream issue 167 had a reply we could not read; it has none. **Item 3:** the size of `CLAUDE.md`, `TASKS.md` and `CHANGELOG.md` is R32, after the round. **Item 4** (the release hold) is the operator's.
+- **0.7.109 released** at 6:52 pm New York time (EDT), 22:52 GMT, on the operator's word, from `fe557e80`, after two tests that failed `main`'s CI on one Python version each were fixed (a thread-order assumption, PR #362; a test writing into our own handshake folder under xdist, PR #364). Our lap 14 tells the fork.
+- **Learned.** Our status-block test allowed only our version and the next release as the one a run goes through, so it could not state the true case of a run on the release before a staged bump; it now allows the newest released version, which its frozen-script check already guarded.
 
 ## 2026-10-19 — prompts attached to the window, a documentation audit, and round 35 lap 8
 
@@ -10433,7 +10468,7 @@ jointly-verified records into unverified ones.
 
 - **Fifth hardware run (v0.5.12): full 14/14 EAC parity, the first CTDB match — and one regression the log caught (2026-07-28, continued session).** The maintainer ran the released v0.5.12 on the reference rig and sent the full artifact set. **The best result this disc has produced.** `parity.compare_logs`, reading only the genuine EAC V1.8 baseline and our EAC-compatible log, reports **14/14 tracks byte-identical** — up from 12/14, then 13/14. The reason is track 3: the disc's chronic problem child, which had produced a different CRC on every earlier run (`52DFDF7D`, `3D8FCF0C`), **read cleanly on the first pass** as `59D352DD` with an exact AccurateRip match at confidence 200 — and that value agrees with EAC. Track 5 remains a genuine offset-variant pressing (v1/v2 both "not found", `Accurip 450` matching at confidence 200), was re-read three times, converged, and was swapped in; its `E0036697` has held across all five runs and also matches EAC. So the disc's honest ceiling is 13/14 exact + 1 offset-variant, and we are at it.
 
-  **CTDB matched for the first time**: `verdict: match`, `confidence 1`, `our_crc == matched_crc == 5DA89FCD` against 102 database entries, `crc_validated: true`. Our reimplemented CTDB CRC is now confirmed against a real database hit on real hardware — independent whole-disc corroboration on top of AccurateRip. I also recomputed the log's SHA-256 by hand (`head -n -1 … | sha256sum`) and it matched the footer exactly.
+  **CTDB matched for the first time**: `verdict: match`, `confidence 1`, `our_crc == matched_crc == 5DA89FCD` against 102 database entries, `crc_validated: true`. Our reimplemented CTDB CRC is now confirmed against a real database hit on real hardware — independent whole-disc corroboration on top of AccurateRip. *(Corrected 2026-10-19: the CRC half stands, but "independent corroboration" does not. The matched entry had confidence 1 beside an entry of about 1,405, very likely the owner's own EAC rip of 2026-06-11 with the same track-5 misread; see the 2026-10-19 (evening) entry and TASKS R34.)* I also recomputed the log's SHA-256 by hand (`head -n -1 … | sha256sum`) and it matched the footer exactly.
 
   **The regression the log caught — mine, from v0.5.12.** Every completed rip raised `AttributeError: 'MainWindow' object has no attribute '_tray_icon'` inside `_ensure_tray_icon`, swallowed because notifications are best-effort, so **the desktop notification silently never fired for anyone**. Cause: to satisfy mypy's `warn_return_any` I replaced `getattr(self, "_tray_icon", None)` with a plain attribute read and declared `_tray_icon` on `MainWindowShared` — but that seam's declarations live under `if TYPE_CHECKING:`, so they inform the type checker and *create nothing*. The read preceded the only assignment. Fixed by initialising it in `__init__`, with two regression tests: the pre-existing notification test had passed throughout because it **stubbed** `_ensure_tray_icon` instead of calling it — the same "tested one layer below the layer that broke" shape the whole audit was about, landing on the audit's own fix.
 
@@ -10910,4 +10945,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.110.*

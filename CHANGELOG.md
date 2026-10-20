@@ -23,9 +23,63 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   at checking files after the rip. We are worse when AccurateRip does not know the disc
   (one read, no second check), at CTDB, at error location and at ISRCs in the cue, and
   every rip on record comes from one drive. It corrects two statements in Part A and
-  adds TASKS rows R32 to R34.
+  adds TASKS rows R42 to R44.
 
-## [0.7.109] — 2026-10-17
+### Changed
+
+- **A disc AccurateRip can't vouch for is read twice by default** (the owner's word of 2026-10-20: *"yes, read twice by default"*). A burned CD-R, an obscure pressing, or a disc ripped while the AccurateRip lookup failed used to get one fast read. Single reads go wrong without saying so: on the reference disc, track 3 read wrong in 11 of 12 whole-disc rips, each with no ripping error. Now every track of such a disc is read again with `-Z`, and the reads are compared. When every track's reads agree, the result says **"Reads agree … not verified by AccurateRip"**, never "verified", because a drive can misread a scratch the same way twice. A track whose reads disagree turns the headline amber. The time estimate and the rip plan say such a disc reads twice. Settings has an opt-out, *Read every track twice when AccurateRip can't vouch for the disc*, and its tooltip says what turning it off gives up. The report records the evidence as `verdict.basis`, and AccurateRip's answer as `read_speed.secure_rerip.accuraterip_standing` (schema 39).
+
+### Fixed
+
+- **`CLAUDE.md` records the owner's word for the next release, and `docs/handshake/README.md` no longer says an open round blocks releases.** The owner's word of 2026-10-20 covers the next release (the second read and the fixes since 0.7.110) and puts the timed `.25`-vs-`.26` rip inside the Full run; the README line still described the rule protocol v8 §6b retired in round 31.
+- **The acceptance script no longer takes a refused rip's summary for the ripper's build.** The round-35 Full run's no-offset refusal printed no version banner, but its summary's `(no read exceeded 10s)` was read as the build tag, so the next rip (the deemphasis test) sent no `--consumer` and no `--diagnostics` (the fork's round 35 lap 17 S10, first reported in round 34). The latch now reads only a line shaped like a banner (`ripper_identity.version_banner_in`).
+- **A home folder or hostname right after an escaped newline is now redacted.** The 2026-10-20 Full run's reports held a setup log as one JSON string, `…distrobox\n/home/<name>/.local/bin/flac`. The bundle export and the evidence filing tool both read the `n` of `\n` as part of a word, and left the owner's username in the bundle. All three name boundaries (home folders by shape, this machine's own home, and hostnames and names) now also start after an escaped `\n`, `\r` or `\t`.
+- **The CTDB record on a no-match now carries the weight of the entries.** The 2026-10-20 Full run's report read `confidence: 1416` beside `best_confidence: 0` and `total_confidence: 0`, as if the strongest entry had no submissions. Both were worked out and then dropped, because only a match carried them.
+- **The acceptance test's no-offset refusal step asks the ripper's build which exit code a refusal uses.** From `.25` cyanrip exits 64 when it refuses an argument or an unset offset (the exit classes we asked the fork for), and the script still expected 1. That failed one step of the 2026-10-20 Full run against a ripper that did the right thing. The script now writes `expect-exit refused`, which means 1 before `.25` and 64 from it, and reports "not determined" for a build Platterpus cannot place.
+- **A failed AccurateRip lookup is no longer reported as a disc the database lacks.** cyanrip's per-track `Accurip:` row says `not found` in both cases, so Platterpus now reads the disc-level `AccurateRip:` line (`error`, `not found`, `found`, `mismatch`, `disabled`). With the second read turned off, each case records its own skip reason.
+- **`CLAUDE.md` now says the hourly handshake check is stopped** (the owner's word of 2026-10-20, *"stop the hourly check"*). The fork's laps are read at session start, before a turn ends, and when the owner asks. The second-read default is off the list of questions kept for the owner, now that the owner has settled it.
+- **A disc in AccurateRip whose every track failed now gets its failing tracks re-read** toward the database entry. Until now it was skipped as "not in AccurateRip", because no track had matched.
+
+## [0.7.110] — 2026-10-19
+
+The release for the next acceptance run. It stops two of the app's own surfaces over-claiming:
+a CTDB match against a minority entry no longer shows a green "verified", and the AccurateRip
+summary counts the tracks that shipped. And it reviews the fork's `.25` (`5f1d036`), to which
+round 35 moved on the operator's word, so the acceptance run can test it. It still installs
+`.23` (`891c79e`) by default.
+
+### Fixed
+
+- **CTDB no longer shows a green "verified" for a match against a minority entry.** On the
+  reference disc, 8 of 26 rips matched a CTDB entry with one submission, very likely the
+  owner's own earlier rip with the same misread, while about 1,405 submissions disagreed, and
+  the app said "CTDB: verified ✓". A match is now green only when its entry is the strongest for
+  the disc and AccurateRip rejects no track; otherwise the line says "matched 1 of N CTDB
+  submissions; K disagree" in amber. The report records the weight (`ctdb.best_confidence`,
+  `ctdb.total_confidence`, `ctdb.outvoted`; schema 38).
+
+- **The AccurateRip summary counts the tracks that shipped, not the first pass.** cyanrip prints
+  "N/M tracks ripped accurately" once; after a re-read fixed a track the report still quoted the
+  first pass, so it could say 12/14 beside a verdict of 13 of 14. The count is now taken from the
+  tracks the rip kept.
+
+### Changed
+
+- **The build under review is the fork's `.25` (`5f1d036`).** Round 35 moved to it from `.24`
+  on the operator's word of 2026-10-19 (the fork's lap 15); `.25`'s provider contract is filed,
+  the message inventory is regenerated from it (142 refusal messages, nine restored), and the
+  acceptance run's first check, the setup wizard and the build picker now name `.25`.
+- **A weekly dependency check.** `.github/workflows/dependencies.yml` runs every Monday, names
+  each dependency behind its newest release, and keeps one issue open until all are current (the
+  owner's word of 2026-10-19). `actions/upload-artifact` moves to 7.0.2. The rest of the list
+  (ruff, mypy, PySide6, Python 3.15, runner images) is TASKS R36, one gate at a time.
+- **CLAUDE.md's release hold records the owner's word of 2026-10-19**, which released 0.7.109 and
+  that release only; the hold otherwise stands.
+- **Round 35: our lap 14 tells the fork 0.7.109 is published**, which its `.25` waited on, and
+  says the operator's run goes through 0.7.108 as the round's lap 1 wrote it, or through 0.7.109
+  on the operator's override; the status block names 0.7.109 as released.
+
+## [0.7.109] — 2026-10-19
 
 The release that reads the fork's next `Disc ISRC:` shape, which the fork waits for before it
 cuts `.25`: a disc code that is not an ISO 3901 code, printed with the ripper's reason and not
@@ -93,6 +147,16 @@ through 0.7.108 or this release, since both parse the line and send the option.
 
 ### Changed
 
+- **The PyPI publish job runs on a named image, `ubuntu-22.04`, like every other job,** not on
+  `ubuntu-latest`, which GitHub moves to Ubuntu 26 from 2026-10-19; a test now refuses a moving
+  runner label in any workflow, and the dependency map lists one runner image, not two (the
+  operator's review of 2026-10-19, item 7).
+- **Round 35: the fork's lap 12 is filed, and our lap 13 answers it.** Their `seam-commands.md`
+  is copied (sha256 `d4dcd5ec…`, one §1b cell, ours for `--encoder-option`), their count
+  correction is taken, and the run goes through 0.7.108. The lap goes now rather than with the
+  run's reading, as the operator's review of 2026-10-19 (item 5) would otherwise ask, because our
+  checks hold both sides' newest laps to the shared files' hashes and the copy changes one. The status block now says the run goes through
+  0.7.108 (the fork's lap 12 S4), and its test accepts the newest released version there.
 - **Times in replies to the maintainer are New York time on a 12-hour clock, labelled** (EDT or
   EST as in effect), with GMT beside them where useful; CLAUDE.md records it (maintainer, 2026-10-19).
 
@@ -121,6 +185,22 @@ through 0.7.108 or this release, since both parse the line and send the option.
   the fork's line 112, so the shared file is identical in both repositories again.
 
 ### Fixed
+
+- **A round-digest test no longer writes into the repository's own handshake folder.** It
+  created a crossing lap in `docs/handshake/outbound/` and deleted it afterwards, and a test on
+  another worker that listed the folder in between failed on `main`'s Python 3.12 leg on
+  2026-10-19; it now works on a copy of round 15's laps (`tests/test_round_digest.py`).
+- **A container-gate test no longer depends on which of two threads the scheduler starts first.**
+  It asserted thread `a` started before `b`, 50 ms apart, and failed on `main`'s Python 3.13 leg on
+  2026-10-19 when `b` won; it now asserts what it is for, that both commands start before either
+  ends (`tests/test_container_gate.py`).
+- **A stock cyanrip is no longer sent `--diagnostics`, which made it refuse every rip.** Stock
+  cyanrip has no long options and exits on one it does not know; the setup wizard installs it
+  before building the fork, so an install left on it could not rip. The flag now goes only to a
+  build whose banner names the Platterpus fork, or whose banner could not be read, from the rip
+  and from a script's `(diagnostics)` placeholder, which says when it sent nothing. A stock build
+  now gets none of our three long options (TASKS R30, the operator's review of 2026-10-19). A test's
+  stand-in ripper that called itself stock while accepting `--diagnostics` now calls itself the fork.
 
 - **The test harness now stops every thread a window declares.** `stop_window_threads` listed
   seven of the window's eight QThread slots and missed `_ripper_update_thread`, which `closeEvent`
@@ -19035,7 +19115,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...HEAD
+[0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
 [0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
 [0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
@@ -19115,4 +19196,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.110.*

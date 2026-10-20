@@ -4074,6 +4074,7 @@ that is what the section costs, not what its title implies.
 | 2026-10-13 | 0.7.104 | maintainer | bdr209d | bazzite | full-green |
 | 2026-10-14 | 0.7.105 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-16 | 0.7.106 | maintainer | bdr209d | bazzite | full-green |
+| 2026-10-20 | 0.7.110 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4265,6 +4266,22 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 `pick-release` called an unidentified disc identified; and the 42 s quit grace was
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
+
+**The 2026-10-20 0.7.110 row is `partial`, and the one failure is ours: round 35's test,
+the Full run on `.25` (`5f1d036`) through 0.7.110** (graded 2026-10-20). 434 passed, one
+failed, E2 was `unreachable` on this listed drive, and six were `info`
+(`platterpus@374826695ec2233ae685be7f797d75e6aa326db5:docs/handshake/artifactsround35/round35fullscriptreport.json
+sha256 340336d4783deeee6fabe8a2c1e081c84d08ede2688ee92cc527af739bfbfb12`, its `counts`).
+**The failure is P2's `expect-exit 1`, which met exit 64**: `.25` is the first build with
+the exit classes both sides agreed (64 for a refused argument), so the ripper did what was
+agreed and our script still expected the old code. P2 is `ARCHIVAL`, graded in advance, so
+the run is `partial` whatever the cause; regrading it now would make a version easier to
+reach on a step that failed, the direction this section distrusts. Fixed with a regression
+test: `expect-exit refused` resolves the code from the build (`ripper_exit.refusal_exit_code`).
+The run also showed two tracks whose agreeing re-reads AccurateRip rejected, a CTDB no-match
+reported without its entries' weights (fixed), and the owner's username surviving the
+export's redaction inside a JSON escape (fixed; replaced before filing). **It moves no
+version gate**: same machine, distro and person.
 
 **The 2026-10-16 0.7.106 row is the fourth `full-green` row: round 34's test, the Full run
 on `.23` (`891c79e`) through 0.7.106** (graded 2026-10-16, TASKS R17). 426 of 427 steps
@@ -4586,4 +4603,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.110.*

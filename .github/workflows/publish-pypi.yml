@@ -42,7 +42,11 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # A named image, like every other job: `ubuntu-latest` moves to a new Ubuntu
+    # on GitHub's schedule (to 26 from 2026-10-19), and this job runs once per
+    # release, so it would meet the new image at a release. Held by
+    # tests/test_workflow_permissions.py::test_every_job_names_its_runner_image.
+    runs-on: ubuntu-22.04
     # Bounded like every other job — see tests/test_ci_jobs_are_bounded.py. Short,
     # because this job builds a wheel and uploads it; if it is still going at 30
     # minutes the upload is wedged, and a wedged publish is worth failing fast so

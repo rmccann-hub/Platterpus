@@ -81,3 +81,12 @@ def test_a_signed_member_is_kept_and_what_it_still_names_is_counted() -> None:
 def test_redaction_never_raises(text: str, words: list[str]) -> None:
     done = redact_all(text, hosts=words, names=words)
     assert done.homes >= 0 and done.hosts >= 0 and done.names >= 0
+
+
+def test_a_hostname_after_an_escaped_newline_is_replaced() -> None:
+    """Same boundary as the home folders (the 2026-10-20 Full run): in a JSON
+    string the ``n`` of ``\\n`` is a word character, so a hostname straight after
+    it was read as part of a longer word and kept."""
+    done = redact_all('"log\\nbox1 started"\n', hosts=["box1"])
+    assert done.text == '"log\\nhost started"\n'
+    assert done.hosts == 1

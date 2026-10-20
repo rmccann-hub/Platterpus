@@ -145,7 +145,7 @@ if [ "{refuse}" = "yes" ]; then
   exit 1
 fi
 mkdir -p "$dir"
-printf 'cyanrip 0.9.3 (release)\\nRipping errors: 0\\n' > "$dir/rip.log"
+printf 'cyanrip 0.9.4-rc3+platterpus.24 (platterpus-fork-g93afa15)\\nRipping errors: 0\\n' > "$dir/rip.log"
 printf '{{"exit_code": 0}}\\n' > "$record"
 exit 0
 """
@@ -160,7 +160,15 @@ def _worker_rip(
     binary.write_text(_STAND_IN.format(refuse="yes" if refuse else "no"))
     binary.chmod(0o755)
     impl = CyanripImpl(binary_path=str(binary))
-    monkeypatch.setattr(impl, "version", lambda: "cyanrip 0.9.3 (release)")
+    # A FORK banner, because only the fork takes `--diagnostics`: stock cyanrip
+    # refuses every long option, so since 2026-10-19 (TASKS R30) a stock banner
+    # gets no record, and a stand-in calling itself stock while accepting the flag
+    # would describe a binary that does not exist.
+    monkeypatch.setattr(
+        impl,
+        "version",
+        lambda: "cyanrip 0.9.4-rc3+platterpus.24 (platterpus-fork-g93afa15)",
+    )
     root = tmp_path / "rips"
     worker = RipWorker(
         impl,

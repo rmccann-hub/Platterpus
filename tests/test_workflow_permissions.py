@@ -190,3 +190,22 @@ def test_the_pin_check_refuses_a_tag_ref() -> None:
     assert _PINNED.match("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1")
     found = _USES.search("      - uses: actions/checkout@v4 # comment\n")
     assert found is not None and found.group("ref") == "actions/checkout@v4"
+
+
+def test_every_job_names_its_runner_image() -> None:
+    """No job runs on a moving ``-latest`` label (2026-10-19 review, item 7).
+
+    GitHub moves ``ubuntu-latest`` to a new Ubuntu on its own schedule. A job on it
+    changes environment without a commit of ours, and the PyPI publish, which runs
+    once per release, would meet the change at a release, the worst time.
+    """
+    labels: list[tuple[str, str]] = []
+    for workflow in _workflow_files():
+        for line in workflow.read_text(encoding="utf-8").splitlines():
+            match = re.match(r"\s+runs-on:\s*(\S+)", line)
+            if match:
+                labels.append((workflow.name, match.group(1)))
+    # Floor: the sweep read every job we have, not none of them.
+    assert len(labels) >= 10, labels
+    moving = [(name, label) for name, label in labels if label.endswith("-latest")]
+    assert not moving, f"jobs on a moving runner label: {moving}"

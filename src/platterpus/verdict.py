@@ -103,6 +103,67 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     return total, verified, partial
 
 
+_SUMMARY: Final[re.Pattern[str]] = re.compile(
+    r"^(?P<hit>\d{1,3})/(?P<total>\d{1,3}) tracks ripped accurately(?P<rest>.{0,80})$"
+)
+
+
+def recount_accuraterip_summary(
+    summary: str | None, tracks: Sequence[object]
+) -> str | None:
+    """The ripper's ``N/M tracks ripped accurately`` line, ``N`` recounted.
+
+    cyanrip prints the line once, from the first pass. After a securing pass
+    swaps a re-read in, the report and the window's fallback still quoted it, so
+    a round-27 report said ``12/14`` beside a verdict of 13 of 14 (2026-10-19,
+    P4). ``N`` becomes the tracks AccurateRip verified in ``tracks``, capped at
+    the ripper's ``M``; any other shape is returned unchanged. Never raises.
+    """
+    if not summary:
+        return summary
+    match = _SUMMARY.match(summary)
+    if match is None:
+        return summary
+    try:
+        total = int(match.group("total"))
+        hit = sum(1 for t in tracks if track_accuraterip_verified(t))
+    except (TypeError, ValueError):
+        return summary
+    return f"{min(hit, total)}/{total} tracks ripped accurately{match.group('rest')}"
+
+
+def accuraterip_rejected_count(rip_log: object) -> int:
+    """Tracks AccurateRip compared and did not verify, one-frame matches included.
+
+    A track the database has no entry for is not counted: AccurateRip made no
+    finding about it. Used to keep a CTDB match from showing green beside a
+    track AccurateRip rejected (2026-10-19, P1). Pure; never raises.
+    """
+    try:
+        return sum(
+            1
+            for t in _audio_tracks(rip_log)
+            if not track_accuraterip_verified(t)
+            and (
+                track_accuraterip_partial(t)
+                or accuraterip_state(
+                    getattr(t, "accuraterip_v1", None),
+                    getattr(t, "accuraterip_offset", None),
+                    getattr(t, "accuraterip_lookup", None),
+                )
+                == AR_STATE_NO_MATCH
+                or accuraterip_state(
+                    getattr(t, "accuraterip_v2", None),
+                    getattr(t, "accuraterip_offset", None),
+                    getattr(t, "accuraterip_lookup", None),
+                )
+                == AR_STATE_NO_MATCH
+            )
+        )
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
 # --- The one AccurateRip state classification --------------------------------
 #
 # Lifted here from `ui/rip_progress` (2026-07-30). Two surfaces render this fact
@@ -402,6 +463,43 @@ def _unconverged_clause(audio: list[object]) -> str:
     )
 
 
+#: The report's ``verdict.basis`` for :func:`reads_agree_without_accuraterip`: its
+#: own name, so no reader can take a consistent read for a verified one.
+VERDICT_BASIS_READS_AGREE: Final[str] = "reads_agree"
+
+
+def reads_agree_without_accuraterip(
+    rip_log: object, *, disc_track_total: int | None = None
+) -> bool:
+    """True when nothing matched AccurateRip and every track's repeated reads agreed.
+
+    **The named verdict for a disc AccurateRip can't vouch for** (the owner's word
+    of 2026-10-20, *"yes, read twice by default"*). Its evidence is the drive
+    agreeing with itself: ``-Z`` kept reading each track until its reads matched
+    (``secure_rerip_converged is True``). That is a real finding and a weaker one
+    than AccurateRip's, because a drive that misreads a scratch the same way every
+    time agrees with itself too. So it is its own verdict, never "verified".
+
+    Every audio track must have converged, on the whole disc: a track never
+    re-read says nothing about agreement, and a stopped rip's missing tracks were
+    never read at all. Pure; never raises.
+    """
+    try:
+        total, verified, partial = accuraterip_counts(rip_log)
+        if total == 0 or verified or partial:
+            return False
+        audio = _audio_tracks(rip_log)
+        logged = len(getattr(rip_log, "tracks", ()) or ())
+        expected = (
+            disc_track_total if disc_track_total and disc_track_total > 0 else logged
+        )
+        if len(audio) < expected or total < expected:
+            return False
+        return all(getattr(t, "secure_rerip_converged", None) is True for t in audio)
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
 def accuraterip_verdict(
     rip_log: object,
     *,
@@ -514,6 +612,25 @@ def accuraterip_verdict(
             f"⚠ AccurateRip: on {partial} of {total} tracks only one frame "
             f"matched, so none is verified{unconverged} — see the table",
             "warn",
+        )
+    # Nothing matched. When the tracks were read more than once (the second read
+    # a disc AccurateRip can't vouch for now gets by default, the owner's word of
+    # 2026-10-20), what the reads did is the only evidence left, so say it: amber
+    # when a track's reads disagreed, and the named "reads agree" verdict when
+    # every track's did. It is never "verified".
+    if unconverged:
+        return (
+            "⚠ Not verified: AccurateRip couldn't vouch for these tracks"
+            f"{unconverged} (see the table)",
+            "warn",
+        )
+    if reads_agree_without_accuraterip(rip_log, disc_track_total=disc_track_total):
+        return (
+            f"ⓘ Reads agree: all {total} tracks read the same on repeated reads, "
+            "not verified by AccurateRip. Matching reads show your drive returned "
+            "the same audio each time; they cannot show that the audio is right, "
+            "because a drive can misread a scratch the same way twice.",
+            "neutral",
         )
     # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
     # text, never colour alone — colour-blind and screen-reader users get the

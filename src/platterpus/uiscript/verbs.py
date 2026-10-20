@@ -871,7 +871,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-exit",
         1,
         1,
-        "expect-exit <code> — assert the last cyanrip exit code",
+        "expect-exit <code|refused> — assert the last cyanrip exit code; "
+        "`refused` is the build's own code for refusing to start (1, or 64 from .25)",
     ),
     Verb(
         "rig-check",
