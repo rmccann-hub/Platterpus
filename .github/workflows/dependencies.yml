@@ -28,7 +28,8 @@ jobs:
       issues: write # to open, update and close the one dependencies issue
     env:
       TITLE: Dependencies behind their newest release
-      SKILLCHECK: git+https://github.com/rmccann-hub/claude-code-skills@ef35082deedab76d28664078144c5f9f86ff6850
+      # claude-code-skills v0.1.18 (tag resolved by git ls-remote, 2026-10-20).
+      SKILLCHECK: git+https://github.com/rmccann-hub/claude-code-skills@9c545d63190f6a5d4fa7aa7e86da33b6dc330fe4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
