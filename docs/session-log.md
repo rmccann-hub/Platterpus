@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-20 (afternoon) — round 35's Full run filed, and one writer for lap 17
+
+- **The run, on 0.7.110 with `.25`, is filed** on our evidence branch at `374826695ec2233ae685be7f797d75e6aa326db5` and graded `partial` (TASKS R39): 434 pass, one ARCHIVAL failure that was ours. P2 expected exit 1 from a refused flag; `.25` exits 64, as both sides agreed, so the script now asks the build which code a refusal exits with.
+- **Two more fixes from the bundle.** A CTDB no-match now carries its entries' weights. The export's redaction left the owner's username in the setup log held inside a JSON string, because `\n` puts a word character right before `/home/<name>`; every name boundary now treats an escape as a start. Caught at filing and replaced before the evidence commit was pushed.
+- **Lap 17 is the fork's.** The operator saw both sessions starting a lap 17 and asked for one decision, not a race. Both status blocks already named the fork as lap 17's writer; each also said "or the other side first", which was the race. Ours now says only the fork writes 17, and ours is 18. The fork's operator relay confirmed the same.
+- **Learned.** "Claimed at release" (K1) settles a collision after it happens; it does not prevent two sessions doing the work. When both status blocks say "or yours first", neither has said who. Name one writer.
+
 ## 2026-10-20 (morning) — the second read by default, and the hourly check stopped
 
 - **The owner's answer to P2: *"yes, read twice by default"*.** It came through the claude-code-skills session at 9:14 AM EDT (13:14 UTC). Built the same morning as TASKS R38: a disc AccurateRip can't vouch for is read twice, with the named "Reads agree" verdict and an opt-out. Not released: the hold in `CLAUDE.md` still stands, and round 35's Full run, on 0.7.110 with `.25`, is unaffected.
