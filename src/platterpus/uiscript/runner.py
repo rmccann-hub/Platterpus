@@ -1968,9 +1968,10 @@ class ScriptRunner(
         """
         if not text:
             return
-        from platterpus.ripper_identity import identify_from_banner
+        from platterpus.ripper_identity import identify_from_banner, version_banner_in
 
-        tag = identify_from_banner(text).build_tag
+        # Only a banner line names a build (round 35 lap 17 S10).
+        tag = identify_from_banner(version_banner_in(text)).build_tag
         if tag:
             self._ripper_build_tag = tag
 

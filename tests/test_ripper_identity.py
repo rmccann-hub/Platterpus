@@ -429,3 +429,17 @@ def test_a_parenthesis_in_a_later_line_is_never_read_as_the_build_tag() -> None:
     assert fork_commit_from_banner(capture) == "deadbee"
     fork = "cyanrip 0.9.4-rc2+platterpus.20 (platterpus-fork-g5704062)\nlibav (x)\n"
     assert fork_commit_from_banner(banner_line(fork)) == "5704062"
+
+
+def test_version_banner_in_finds_only_a_banner_line() -> None:
+    from platterpus.ripper_identity import version_banner_in
+
+    assert version_banner_in("Read stalls:\n  none (no read exceeded 10s)\n") == ""
+    assert (
+        version_banner_in(
+            "x\n  cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)\n"
+        )
+        == "cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)"
+    )
+    assert version_banner_in("cyanrip 0.9.3\n") == "cyanrip 0.9.3"
+    assert version_banner_in("cyanrip: error (bad)\n") == ""
