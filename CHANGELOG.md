@@ -18,6 +18,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The CTDB record on a no-match now carries the weight of the entries.** The 2026-10-20 Full run's report read `confidence: 1416` beside `best_confidence: 0` and `total_confidence: 0`, as if the strongest entry had no submissions. Both were worked out and then dropped, because only a match carried them.
+- **The acceptance test's no-offset refusal step asks the ripper's build which exit code a refusal uses.** From `.25` cyanrip exits 64 when it refuses an argument or an unset offset (the exit classes we asked the fork for), and the script still expected 1. That failed one step of the 2026-10-20 Full run against a ripper that did the right thing. The script now writes `expect-exit refused`, which means 1 before `.25` and 64 from it, and reports "not determined" for a build Platterpus cannot place.
 - **A failed AccurateRip lookup is no longer reported as a disc the database lacks.** cyanrip's per-track `Accurip:` row says `not found` in both cases, so Platterpus now reads the disc-level `AccurateRip:` line (`error`, `not found`, `found`, `mismatch`, `disabled`). With the second read turned off, each case records its own skip reason.
 - **`CLAUDE.md` now says the hourly handshake check is stopped** (the owner's word of 2026-10-20, *"stop the hourly check"*). The fork's laps are read at session start, before a turn ends, and when the owner asks. The second-read default is off the list of questions kept for the owner, now that the owner has settled it.
 - **A disc in AccurateRip whose every track failed now gets its failing tracks re-read** toward the database entry. Until now it was skipped as "not in AccurateRip", because no track had matched.

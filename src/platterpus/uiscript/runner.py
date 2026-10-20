@@ -2112,8 +2112,24 @@ class ScriptRunner(
             self._record(step, Outcome.ERROR, "no cyanrip command has run yet")
             return
         raw = step.args[0]
-        if raw.lower() in {"null", "none"}:
-            wanted: int | None = None
+        if raw.lower() == "refused":
+            # A refusal's code depends on the build: 1 before `.25`, 64 from it.
+            # Asked of the one function that knows, never restated here.
+            from platterpus.ripper_exit import refusal_exit_code
+
+            code = refusal_exit_code(self._ripper_build_tag)
+            if code is None:
+                self._record(
+                    step,
+                    Outcome.ERROR,
+                    "which code a refusal exits with is not determined: the "
+                    f"build {self._ripper_build_tag or '(none read)'!r} is not one "
+                    "Platterpus can place",
+                )
+                return
+            wanted: int | None = code
+        elif raw.lower() in {"null", "none"}:
+            wanted = None
         else:
             try:
                 wanted = int(raw)

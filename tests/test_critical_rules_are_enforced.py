@@ -1075,7 +1075,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # (`minority_match_sentence`) are part of the verdict this module computes,
     # and splitting them out would put the definition of a trustworthy match in
     # two files.
-    "ctdb/verify.py": 336,
+    # **336 -> 345** (2026-10-20): a CTDB no-match now carries the entries' weights, which the 2026-10-20 Full run's report showed it dropping.
+    "ctdb/verify.py": 345,
     # 352 lines on arrival (2026-10-14, TASKS R9). **One job, kept as one module**:
     # what became of each ripper invocation's `--diagnostics` record. Its two
     # halves are one fact seen from two places: the worker keeping the securing
@@ -2651,7 +2652,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4757 -> 4759** (2026-10-14, TASKS R10): one more verb mixin in the class list and its import; the handler lives in `pregap_verbs.py`.
     # **4765 -> 4767** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **4767 -> 4792** (2026-10-16, round 35, `overreadprobe`): the `(lasttrack)` expansion in the `cyanrip` verb and its reader, beside `(offset)`'s.
-    "uiscript/runner.py": 4792,
+    # **4792 -> 4808** (2026-10-20): `expect-exit refused`, which asks `ripper_exit.refusal_exit_code` for the build's own refusal code (the 2026-10-20 Full run, section P2).
+    "uiscript/runner.py": 4808,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2692,7 +2694,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **984 -> 995** (2026-10-14, TASKS R10): the `expect-pregaps-agree` declaration, the one grader that reads a whole run rather than one rip. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **995 -> 997** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **997 -> 998** (2026-10-16, round 35, `overreadprobe`): the `cyanrip` verb's help names `(lasttrack)`.
-    "uiscript/verbs.py": 998,
+    # **998 -> 999** (2026-10-20): the `refused` word in `expect-exit`'s help line.
+    "uiscript/verbs.py": 999,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
