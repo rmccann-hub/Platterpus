@@ -1273,7 +1273,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **853 -> 854** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): `test_script_allow_unsafe` left the dataclass and joined `RETIRED_CONFIG_KEYS` with the reason, so an old config loads without a warning; the entry's comment is one line longer than the field was.
     # **854 -> 851** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `recompress_flac_after_rip` left the dataclass and joined `RETIRED_CONFIG_KEYS` with its reason, shorter than the field's own comment was.
     # **851 -> 860** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` setting and its reason.
-    "config.py": 860,
+    # **860 -> 871** (2026-10-20, the owner's word "yes, read twice by default"): the `second_read_without_accuraterip` setting, with the owner's word that set its default.
+    "config.py": 871,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -1802,7 +1803,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **324 -> 337** (2026-10-17, round 35 lap 6): `well_formed` reads the code as written, as cyanrip's `.25` check does, and the malformed finding quotes the ripper's reason.
     "isrc_provenance.py": 337,
     # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
-    "help_content.py": 651,
+    # **651 -> 661** (2026-10-20, the owner's word "yes, read twice by default"): the User Guide entry for the second-read setting, saying what 'reads agree' does and does not prove.
+    "help_content.py": 661,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1877,7 +1879,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3822 -> 3854** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC:` line's pattern and handler, beside the other per-track lines.
     # **3854 -> 3869** (2026-10-17, round 35 lap 6): the `Disc ISRC:` line's fourth shape, `<code> (<reason>)`, from `.25`.
     # **3869 -> 3928** (2026-10-19, TASKS R26, round 35): the `Beyond disc:` line's pattern, its listing and its handler, beside `Appended:`, with the citation into `cyanrip@93afa15` that derives the shape.
-    "parsers/cyanrip_log.py": 3928,
+    # **3928 -> 3941** (2026-10-20, the owner's word "yes, read twice by default"): the disc-level `AccurateRip:` line is parsed, because only it tells a failed lookup from a disc not in the database.
+    "parsers/cyanrip_log.py": 3941,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1899,7 +1902,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1015 -> 1022** (2026-10-16, TASKS R20 part 2, round 35): three `TrackResult` fields for the `Disc ISRC:` line.
     # **1022 -> 1023** (2026-10-17, round 35 lap 6): the `not_used` state named in the field's comment.
     # **1023 -> 1032** (2026-10-19, TASKS R26, round 35): two `TrackResult` fields for the `Beyond disc:` line.
-    "parsers/rip_log.py": 1032,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1032 -> 1037** (2026-10-20, the owner's word "yes, read twice by default"): the `accuraterip_disc_status` field the parser fills.
+    "parsers/rip_log.py": 1037,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1940,7 +1944,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **782 -> 788** (2026-10-16, TASKS R20 part 2, round 35): the three per-track `disc_isrc` keys.
     # **788 -> 795** (2026-10-19, TASKS D2, `disallow_any_generics` retired): `RetriedTrackBlock.trigger` (schema v36) and `EtaSampleBlock.pass_kind`, keys the worker always wrote, each in the TypedDict it types.
     # **795 -> 800** (2026-10-19, TASKS R26, round 35): the two per-track `beyond_disc` keys.
-    "report_types.py": 800,
+    # **800 -> 807** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and `secure_rerip.accuraterip_standing`, report schema 39.
+    "report_types.py": 807,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2036,7 +2041,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2796 -> 2804** (2026-10-19, TASKS D2, `disallow_any_generics` retired): schema v36's history note (`retried_tracks[].trigger` restored) and the `SecureReripBlock` import for the three `secure_rerip` parameters.
     # **2804 -> 2850** (2026-10-19, TASKS R26, round 35): schema v37 — the history note, the two per-track keys, the track blocks built once so `issues` and `tracks` read the same list, and the `beyond_disc_frames_refused` info issue.
     # **2850 -> 2866** (2026-10-19, P1 of the claude-code-skills audit check): schema v38 — the history note and three `ctdb` keys giving the weight behind a match (`best_confidence`, `total_confidence`, `outvoted`).
-    "rip_report.py": 2866,
+    # **2866 -> 2889** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and the schema-39 history note.
+    "rip_report.py": 2889,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2094,7 +2100,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1233 -> 1208** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe-opt-in refusal went with the setting.
     # **1208 -> 1207** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the re-compress bool in `_BOOL_FIELDS`.
     # **1207 -> 1208** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` among the booleans.
-    "settings_validation.py": 1208,
+    # **1208 -> 1209** (2026-10-20, the owner's word "yes, read twice by default"): the new boolean setting in the validated list.
+    "settings_validation.py": 1209,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2500,7 +2507,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1382 -> 1388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the validation banner (it quotes what was typed) and the filename preview (it renders the user's template) state PlainText.
     # **1388 -> 1373** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the greyed-out Re-compress FLACs row, its save and its preset wiring.
     # **1373 -> 1390** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC` checkbox, its tooltip and save key.
-    "ui/settings_dialog.py": 1390,
+    # **1390 -> 1412** (2026-10-20, the owner's word "yes, read twice by default"): the second-read checkbox and its tooltip, which says what turning it off gives up.
+    "ui/settings_dialog.py": 1412,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
@@ -2707,7 +2715,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **653 -> 674** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `apply_downgrades`, the ONE assembly of a downgraded trust headline, which the window's banner and the report's verdict both call (it was inline in `rip_progress`, which shrank by the same amount).
     # **674 -> 706** (2026-10-19, P1): `accuraterip_rejected_count`, the one count of tracks AccurateRip compared and did not verify, beside `accuraterip_counts`, which it complements.
     # **706 -> 735** (2026-10-19, P4): `recount_accuraterip_summary`, the ripper's first-pass "N/M tracks ripped accurately" recounted from the tracks shipped, beside the other AccurateRip counts.
-    "verdict.py": 735,
+    # **735 -> 791** (2026-10-20, the owner's word "yes, read twice by default"): the named 'reads agree' verdict and an amber headline when a track's reads disagree on a disc nothing matched.
+    "verdict.py": 791,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -2755,7 +2764,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4217 -> 4232** (2026-10-16, TASKS R14): the app log's copy of a run of progress redraws goes through `redraw_run.LoggedRun` (first, a checkpoint every 10 s, last, and a counted marker) instead of one `log.debug` per throttled tick, and the run is flushed when any other line arrives and when the stream ends. The collapsing is `redraw_run.py`; the worker is the one place the stream is read.
     # **4232 -> 4238** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` on the rip parameters and both calls.
     # **4238 -> 4239** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the `report_types` import its records are now typed by.
-    "workers/rip_worker.py": 4239,
+    # **4239 -> 4284** (2026-10-20, the owner's word "yes, read twice by default"): the second read's log lines, status wording and report field.
+    "workers/rip_worker.py": 4284,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

@@ -583,6 +583,25 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("", self._rerip_offset_variant_check)
 
+        # Read a disc AccurateRip cannot vouch for twice (on by default, the
+        # owner's word of 2026-10-20). Unticked is the old single fast read.
+        self._second_read_unvouched_check: QCheckBox = QCheckBox(
+            "Read every track twice when AccurateRip can't vouch for the disc", self
+        )
+        self._second_read_unvouched_check.setChecked(
+            config.second_read_without_accuraterip
+        )
+        self._second_read_unvouched_check.setToolTip(
+            "On by default. When the disc isn't in AccurateRip, or the lookup "
+            "failed, nothing outside your drive can check the rip, so every track "
+            "is read again and the reads are compared. Matching reads show your "
+            "drive gave the same audio twice; they are not an AccurateRip "
+            "verification. Takes at least twice as long on such a disc, and longer "
+            "on a scratched one. When off, those discs get one read, and a wrong "
+            "read can pass without any warning."
+        )
+        form.addRow("", self._second_read_unvouched_check)
+
         # EAC-style Test & Copy: read EVERY track (at least) twice and confirm
         # the two reads agree, not just the marginal ones. Checked flips the
         # dynamic fast-path OFF (secure_rerip_dynamic=False) so `-Z` runs on the
@@ -988,6 +1007,9 @@ class SettingsDialog(CenteredDialog):
             # Checked = verify every track (whole-disc Test & Copy) = dynamic OFF.
             "secure_rerip_dynamic": not self._verify_every_track_check.isChecked(),
             "rerip_offset_variant": self._rerip_offset_variant_check.isChecked(),
+            "second_read_without_accuraterip": (
+                self._second_read_unvouched_check.isChecked()
+            ),
             "read_speed_mode": self._read_speed_mode_combo.currentData(),
             "read_speed": self._read_speed_spin.value(),
             "ctdb_verify_after_rip": self._ctdb_verify_check.isChecked(),

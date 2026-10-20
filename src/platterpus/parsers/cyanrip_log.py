@@ -261,11 +261,19 @@ _RELEASE_ID = re.compile(r"^Release ID:\s+(?P<value>\S+)")
 # (their §1b), so this line is the only record of which key a rip was checked
 # under. Its third word is the CDDB ID, which the log states separately.
 #
-# Must not be confused with the ignored `AccurateRip:` status row below: that one
+# Must not be confused with the `AccurateRip:` status row below: that one
 # has its colon straight after the word, this one has ` ID:`.
 _ACCURATERIP_DISC_ID = re.compile(
     r"^AccurateRip ID:\s+(?P<value>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8})\s*$"
 )
+# `AccurateRip:    found` — the disc-level answer to the database lookup, one of
+# `error`, `not found`, `found`, `mismatch` or `disabled`
+# (`cyanrip@3861b266:src/cyanrip_log.c:1037-1041`). Read since 2026-10-20 for the
+# owner's second-read decision: the per-track `Accurip:` row says `not found` both
+# when the lookup failed and when the disc is not in the database
+# (`cyanrip@3861b266:src/cyanrip_log.c:669-671`), and only this line tells a
+# failed lookup apart. Verbatim; `accuraterip_standing.accuraterip_standing` reads it.
+_ACCURATERIP_DISC_STATUS = re.compile(r"^AccurateRip:\s+(?P<value>\S(?:.*\S)?)\s*$")
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
 # cyanrip's drive banner reports whether the drive can change read speed. When
 # it can't, cyanrip ABORTS on `-S` — so the read-speed ladder must read this and
@@ -1603,6 +1611,8 @@ class _Disc:
     cddb_id: str = ""
     # `AccurateRip ID:` verbatim (see `_ACCURATERIP_DISC_ID`). "" = not printed.
     accuraterip_disc_id: str = ""
+    # `AccurateRip:` verbatim (see `_ACCURATERIP_DISC_STATUS`). "" = not printed.
+    accuraterip_disc_status: str = ""
     # The MusicBrainz RELEASE id cyanrip resolved and used, from its own header
     # (see _RELEASE_ID). Not the same claim as the id we sent: this is the value
     # that survived its parse of our `-a` blob.
@@ -1979,6 +1989,12 @@ def _take_cddb_id(disc: _Disc, match: re.Match[str]) -> bool:
 def _take_accuraterip_disc_id(disc: _Disc, match: re.Match[str]) -> bool:
     """The disc's AccurateRip ID, verbatim and lower-cased (cyanrip prints `%08x`)."""
     disc.accuraterip_disc_id = match.group("value").lower()
+    return True
+
+
+def _take_accuraterip_disc_status(disc: _Disc, match: re.Match[str]) -> bool:
+    """The disc-level AccurateRip lookup answer, verbatim (``found``, ``error``...)."""
+    disc.accuraterip_disc_status = match.group("value")
     return True
 
 
@@ -2522,6 +2538,13 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
         _take_accuraterip_disc_id,
         disc_level_only=True,
     ),
+    # The lookup's own answer. Disc-level only: a start-report row.
+    _LineRule(
+        "accuraterip_disc_status",
+        _ACCURATERIP_DISC_STATUS,
+        _take_accuraterip_disc_status,
+        disc_level_only=True,
+    ),
     _LineRule("release_id", _RELEASE_ID, _take_release_id),
     _LineRule("speed_capability", _SPEED_CAP, _take_speed_cap),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
@@ -2842,20 +2865,9 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Disc tracks:\s"), "candidate: total tracks on the disc"),
     # `Tracks to rip:` left this list on 2026-09-28 and is parsed now
     # (`_TRACKS_TO_RIP`): the cancelled rip of the Full run needed it.
-    # Whether the DISC was found in AccurateRip at all ("AccurateRip:    found").
-    # Skipped because the INDENTED per-track `Accurip:` row carries the same fact
-    # at finer granularity and is what the classifier reads (see
-    # `_TRACK_ACCURIP_STATUS`). NOT skipped because "the per-track CRC rows only
-    # print when the disc was found" — that was the old reason here and it is
-    # false: cyanrip prints those rows in every state, including `disabled`, which
-    # is how a disc nobody looked up came to render as "in DB, no match".
-    #
-    # Answered by the fork (round 28 lap 5 S13), and read in their source: a disc
-    # NOT in the database still gets per-track `Accurip:       not found` rows, or
-    # `disabled` under `-A` (cyanrip@e0471f4:src/cyanrip_log.c:566-568), so those
-    # rows stay the signal and this line needs no parsing. No committed log covers
-    # such a disc yet; a CD-R or an unlisted pressing on the rig would.
-    (re.compile(r"^AccurateRip:\s"), "the indented per-track Accurip: row is read"),
+    # `AccurateRip:` (the disc-level lookup answer) left this list on 2026-10-20
+    # and is parsed now (`_ACCURATERIP_DISC_STATUS`): the per-track `Accurip:`
+    # row cannot tell a failed lookup from a disc the database does not hold.
     # `AcoustID:` (upstream rc3, so `+platterpus.23`), in every shape cyanrip prints
     # at column 0 under that label, read at their source:
     #
@@ -3922,6 +3934,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,
         accuraterip_disc_id=disc.accuraterip_disc_id,
+        accuraterip_disc_status=disc.accuraterip_disc_status,
         release_id=disc.release_id,
         log_truncated=truncated,
         last_track_incomplete=last_incomplete,

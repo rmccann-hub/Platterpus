@@ -230,6 +230,7 @@ def test_secure_rerip_report_marks_an_interrupted_pass() -> None:
     worker._secure_rerip_engaged = True
     worker._disc_in_accuraterip = True
     worker._secure_rerip_skipped_reason = None
+    worker._accuraterip_standing = None
 
     # Mid-pass: the flag is up.
     worker._secure_rerip_interrupted = True

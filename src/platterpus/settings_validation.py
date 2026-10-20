@@ -378,6 +378,7 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "debug_logging",
     "secure_rerip_dynamic",
     "rerip_offset_variant",
+    "second_read_without_accuraterip",
     "ctdb_verify_after_rip",
     "verify_flac_after_rip",
     "write_eac_log_after_rip",

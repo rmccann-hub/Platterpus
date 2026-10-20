@@ -463,6 +463,43 @@ def _unconverged_clause(audio: list[object]) -> str:
     )
 
 
+#: The report's ``verdict.basis`` for :func:`reads_agree_without_accuraterip`: its
+#: own name, so no reader can take a consistent read for a verified one.
+VERDICT_BASIS_READS_AGREE: Final[str] = "reads_agree"
+
+
+def reads_agree_without_accuraterip(
+    rip_log: object, *, disc_track_total: int | None = None
+) -> bool:
+    """True when nothing matched AccurateRip and every track's repeated reads agreed.
+
+    **The named verdict for a disc AccurateRip can't vouch for** (the owner's word
+    of 2026-10-20, *"yes, read twice by default"*). Its evidence is the drive
+    agreeing with itself: ``-Z`` kept reading each track until its reads matched
+    (``secure_rerip_converged is True``). That is a real finding and a weaker one
+    than AccurateRip's, because a drive that misreads a scratch the same way every
+    time agrees with itself too. So it is its own verdict, never "verified".
+
+    Every audio track must have converged, on the whole disc: a track never
+    re-read says nothing about agreement, and a stopped rip's missing tracks were
+    never read at all. Pure; never raises.
+    """
+    try:
+        total, verified, partial = accuraterip_counts(rip_log)
+        if total == 0 or verified or partial:
+            return False
+        audio = _audio_tracks(rip_log)
+        logged = len(getattr(rip_log, "tracks", ()) or ())
+        expected = (
+            disc_track_total if disc_track_total and disc_track_total > 0 else logged
+        )
+        if len(audio) < expected or total < expected:
+            return False
+        return all(getattr(t, "secure_rerip_converged", None) is True for t in audio)
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
 def accuraterip_verdict(
     rip_log: object,
     *,
@@ -575,6 +612,25 @@ def accuraterip_verdict(
             f"⚠ AccurateRip: on {partial} of {total} tracks only one frame "
             f"matched, so none is verified{unconverged} — see the table",
             "warn",
+        )
+    # Nothing matched. When the tracks were read more than once (the second read
+    # a disc AccurateRip can't vouch for now gets by default, the owner's word of
+    # 2026-10-20), what the reads did is the only evidence left, so say it: amber
+    # when a track's reads disagreed, and the named "reads agree" verdict when
+    # every track's did. It is never "verified".
+    if unconverged:
+        return (
+            "⚠ Not verified: AccurateRip couldn't vouch for these tracks"
+            f"{unconverged} (see the table)",
+            "warn",
+        )
+    if reads_agree_without_accuraterip(rip_log, disc_track_total=disc_track_total):
+        return (
+            f"ⓘ Reads agree: all {total} tracks read the same on repeated reads, "
+            "not verified by AccurateRip. Matching reads show your drive returned "
+            "the same audio each time; they cannot show that the audio is right, "
+            "because a drive can misread a scratch the same way twice.",
+            "neutral",
         )
     # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
     # text, never colour alone — colour-blind and screen-reader users get the

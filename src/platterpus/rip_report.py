@@ -49,7 +49,12 @@ from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.user_settings import user_settings
-from platterpus.verdict import accuraterip_verdict, apply_downgrades
+from platterpus.verdict import (
+    VERDICT_BASIS_READS_AGREE,
+    accuraterip_verdict,
+    apply_downgrades,
+    reads_agree_without_accuraterip,
+)
 
 log = logging.getLogger(__name__)
 
@@ -364,7 +369,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      about 1,405). v37 shipped in 0.7.109, so this is a new number. Additions
 #      only, and one field's meaning narrowed: `trustworthy` is false for an
 #      outvoted match.
-REPORT_SCHEMA_VERSION: int = 38
+# v39: the second read of a disc AccurateRip can't vouch for (the owner's word
+#      of 2026-10-20). v38 shipped in 0.7.110, so this is a new number. `verdict.basis` names the evidence the verdict rests on:
+#      `"reads_agree"` when nothing matched AccurateRip and every track's repeated
+#      reads agreed, else null. `read_speed.secure_rerip.accuraterip_standing`
+#      records what AccurateRip could say (`in_database`, `not_in_database`,
+#      `lookup_failed`, `not_determined`), and `retried_tracks[].trigger` gains
+#      `"second_read"`. Additions only.
+REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1464,7 +1476,18 @@ def _build(
         "log_creator": getattr(rip_log, "log_creator", "") or None,
         # The AccurateRip verdict with any downgrade applied (`verdict_level`,
         # assembled above as the window's banner assembles it).
-        "verdict": {"level": verdict_level, "message": verdict_message or None},
+        "verdict": {
+            "level": verdict_level,
+            "message": verdict_message or None,
+            # What the verdict rests on, when it is not AccurateRip (schema 39).
+            "basis": (
+                VERDICT_BASIS_READS_AGREE
+                if reads_agree_without_accuraterip(
+                    rip_log, disc_track_total=disc_track_total
+                )
+                else None
+            ),
+        },
         # Immediately after the verdict, because it is the verdict's denominator
         # — the number the sentence above is measured against, in machine-readable
         # form so no consumer has to re-derive it from `len(tracks)`.

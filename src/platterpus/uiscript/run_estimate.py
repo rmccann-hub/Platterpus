@@ -138,6 +138,7 @@ def _rip_cost(
         secure_rerip_matches=config.secure_rerip_matches,
         dynamic=config.secure_rerip_dynamic,
         max_retries=config.max_retries,
+        second_read_without_accuraterip=config.second_read_without_accuraterip,
     )
     if est is None:
         return "this drive's reading speed is not known (it has finished no rip here)"

@@ -260,6 +260,16 @@ and the startup test script in the script console.
   re-read as an AccurateRip miss (above), so an unstable one settles on a
   stable, repeatable result. It costs extra time on discs where it happens;
   untick it to accept the match on the first read instead.
+- **Read every track twice when AccurateRip can't vouch for the disc** — **on by
+  default.** A burned CD-R, an obscure pressing, or a rip while AccurateRip can't
+  be reached has nothing outside your drive to check it against, and a single
+  read can come back wrong without any error. With this on, every track of such a
+  disc is read again and the reads are compared. When they all agree the result
+  says **"Reads agree"**, which means your drive gave the same audio each time.
+  It is not an AccurateRip verification: a drive can misread a scratch the same
+  way twice. It takes at least twice as long on such a disc, and longer on a
+  scratched one. Untick it to keep the single fast read, at the cost of a wrong
+  read passing without a warning.
 - **Verify every track with a second read (EAC-style Test & Copy)** — **off by
   default.** Normally Platterpus rips fast and only re-reads tracks that didn't
   match AccurateRip. Turn this on to read *every* track at least twice and keep
