@@ -11,6 +11,11 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-20 — 0.7.110 out for the Full run on `.25`
+
+- **Released.** 0.7.110 at 00:22 UTC (8:22 PM EDT on 10-19) from `e4b0115d`, on the owner's word *"When you are both ready do a new release"*, with `.25` (`5f1d036`) under review. PR #366 carried P1, P4, the weekly dependency workflow, the move to `.25` and our round 35 lap 16; merging it released the lap. The full check found one more thing before the merge: the size ratchet, because keeping `.24`'s wordings and its verify-log entry beside `.25` grew two files. Both numbers were raised with the reason beside each (`dd0d7430`).
+- **Learned.** A release built against the build under review has to be re-read against the fork's newest lap just before merging. 0.7.110 was first built against `.24`, and only reading their lap 15 showed the round had moved to `.25`.
+
 ## 2026-10-19 (evening) — 0.7.109 out, the sessions to read each other directly, and CTDB's minority match
 
 - **Talking without the operator in the middle.** The owner's word, relayed by the claude-code-skills session: *"make it so they will talk to each other about this in the next round/lap. We need them to communicate without us in the middle."* This session now has an hourly Routine (`trig_01EPieBQES8fMQkPqKutjn8Z`, at 14 minutes past) that reads the fork's `platterpus-fork` and answers a released lap addressed to us under the standing word; the HANDOFF block stays as the operator's copy. Our lap 16 accepts the rule once the fork's lap 15 proposes it.
