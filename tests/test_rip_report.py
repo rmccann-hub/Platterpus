@@ -1261,7 +1261,10 @@ def test_schema_version_is_27() -> None:
     # 1,405 did not show (P1 of the 2026-10-19 audit check).
     # v39 added `verdict.basis` and `read_speed.secure_rerip.accuraterip_standing`:
     # the second read of a disc AccurateRip can't vouch for, and the named
-    # "reads agree" verdict it can earn (the owner's word of 2026-10-20).
+    # "reads agree" verdict it can earn (the owner's word of 2026-10-20). The same
+    # unreleased v39 added `outcome.ripper_exit_class` and
+    # `outcome.ripper_exit_build_tag`: the exit code read by the fork's classes
+    # from release 36 (64 refused, 74 disc or drive), and the build it was read by.
     assert REPORT_SCHEMA_VERSION == 39
 
 

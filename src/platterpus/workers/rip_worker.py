@@ -41,6 +41,7 @@ from platterpus import (
     record_fate,
     rip_estimate,
     ripper_exit,
+    ripper_exit_class,
 )
 from platterpus.accuraterip_standing import unvouched_sentence
 from platterpus.adapters.rip_backend import (
@@ -1042,6 +1043,11 @@ class RipWorker(QObject):
         # `_securing_pass_started`; otherwise the pass never ran.
         self._securing_pass_started: bool = False
         self._securing_pass_exit_code: int | None = None
+        # The build tag of the ALBUM pass's ripper, as its banner read at spawn
+        # (`RipHandle.build_tag`). What its exit code means depends on it: from fork
+        # release 36 a 64 is a refused argument and a 74 the disc or drive, before
+        # it both are 1 (`ripper_exit_class`). "" until an album pass is reaped.
+        self._ripper_build_tag: str = ""
         self._ripper_argv: tuple[str, ...] = ()
         # The FIRST pass's argv, kept separately because only the first pass
         # writes the whole-disc log whose `Invoked as:` line we cross-check
@@ -2695,10 +2701,14 @@ class RipWorker(QObject):
         # securing pass, which since ruling C1 also follows an album pass that
         # exited 1, has its own, so neither is reported as the other's.
         securing = pass_kind == _PASS_REFIX
+        # The build that ran, read off the handle (`getattr`: a stand-in handle
+        # without the attribute reads as "no banner", i.e. not determined).
+        build_tag = str(getattr(self._handle, "build_tag", "") or "")
         if securing:
             self._securing_pass_exit_code = exit_code
         else:
             self._ripper_exit_code = exit_code
+            self._ripper_build_tag = build_tag
         success = (exit_code == 0) and not self._cancelled
         if exit_code not in (0, None) and not self._cancelled:
             # SAY WHO ENDED IT when the exit status can tell us. A ripper that is
@@ -2707,8 +2717,12 @@ class RipWorker(QObject):
             # WAS the diagnosis (2026-09-24 acceptance run: the ripping container
             # was stopped under a whole-disc rip 95 s in). Appended rather than
             # replacing, so a fatal line the ripper did print still leads.
-            explained = ripper_exit.describe_unrequested_exit(
+            # And SAY WHICH KIND OF FAILURE when the build names one: from fork
+            # release 36, 74 is the disc or drive and 64 a refused argument, which
+            # the status line ignored, so a 74 read exactly like a 1.
+            explained = ripper_exit_class.explain_failed_exit(
                 exit_code,
+                build_tag,
                 we_stopped_it=self._we_stopped_ripper(),
                 said_quit_notice=self._said_quit_notice(),
             )
@@ -3743,6 +3757,15 @@ class RipWorker(QObject):
         negative value is a signal number (``-9`` = we SIGKILLed the group).
         """
         return self._ripper_exit_code
+
+    @property
+    def ripper_build_tag(self) -> str:
+        """The album pass's build tag, read at spawn; ``""`` if none was read.
+
+        The report reads it beside :attr:`ripper_exit_code` to record the exit's
+        class (`ripper_exit_class`), which depends on the build that ran.
+        """
+        return self._ripper_build_tag
 
     @property
     def ripper_ending(self) -> RipperEnding | None:

@@ -1800,6 +1800,10 @@ class RipMixin(MainWindowShared):
             ripper_exit_code=getattr(self._rip_worker, "ripper_exit_code", None)
             if self._rip_worker
             else None,
+            # The build the album pass ran, so the report reads its exit code by
+            # that build's classes (v40, `ripper_exit_class`).
+            # `build_outcome` refuses a non-string (a stand-in worker's) as no tag.
+            ripper_build_tag=getattr(self._rip_worker, "ripper_build_tag", None),
             ripper_argv=getattr(self._rip_worker, "ripper_argv", ())
             if self._rip_worker
             else (),

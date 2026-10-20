@@ -2245,6 +2245,35 @@ def test_a_rip_keeps_reading_past_a_byte_that_is_not_utf8(
     assert lines == ["before", "CD-TEXT: caf\ufffd", "after"]
 
 
+def test_the_handle_carries_the_build_tag_the_argv_was_built_for(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The banner read at spawn reaches the handle, so the exit is read by it.
+
+    What an exit code means depends on the build (`ripper_exit_class`: from fork
+    release 36 a 74 is the disc or drive, before it every failure is 1). The
+    backend already read the banner to gate the argv's flags and then dropped it,
+    so the worker could not tell which convention the code it reaped was in.
+    """
+    binary = tmp_path / "cyanrip"
+    binary.write_text("#!/bin/sh\nexit 74\n", encoding="utf-8")
+    binary.chmod(0o755)
+    impl = CyanripImpl(binary_path=str(binary))
+    monkeypatch.setattr(
+        impl, "version", lambda: "cyanrip 0.9.4-rc3 (platterpus-fork-g5f1d036)"
+    )
+    handle = impl.rip(
+        drive="/dev/sr0",
+        release_id="",
+        output_dir=tmp_path / "out",
+        track_template="%t - %n",
+        disc_template="",
+    )
+    list(handle.log_lines())
+    assert handle.wait(timeout=10) == 74
+    assert handle.build_tag == "platterpus-fork-g5f1d036"
+
+
 # --- -l is range-checked against the disc (TASKS conv.argv-range, 2026-09-25) ---
 
 

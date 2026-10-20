@@ -473,6 +473,9 @@ class CyanripImpl(RipBackend):
         # directory part). cyanrip rips CD-Rs without a flag and continues past
         # bad tracks by design.
         del disc_template
+        # Read ONCE and used twice: to gate the argv's flags and, on the handle,
+        # to read the exit code by the build that ran (`ripper_exit_class`).
+        build_tag = self._observed_build_tag()
         argv = self._build_rip_argv(
             drive,
             unknown=unknown,
@@ -506,7 +509,7 @@ class CyanripImpl(RipBackend):
             # design (an unreadable banner yields `""`, which withholds the flag — the same
             # fail-safe direction as before, now reached by measurement rather than by
             # omission). This runs on the rip worker's thread, never the GUI thread.
-            ripper_build_tag=self._observed_build_tag(),
+            ripper_build_tag=build_tag,
         )
         # cyanrip writes under the current directory (its -D/-F schemes are
         # relative), so run it from the output dir.
@@ -522,7 +525,7 @@ class CyanripImpl(RipBackend):
             bufsize=1,
             start_new_session=True,
         )
-        return RipHandle(process=process)
+        return RipHandle(process=process, build_tag=build_tag)
 
     # --- Misc ---
 

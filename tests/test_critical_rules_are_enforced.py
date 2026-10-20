@@ -1194,7 +1194,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1877 -> 1908** (2026-10-16, TASKS R20 part 2, round 35): `--prefer-disc-isrc` through the argv chokepoint, gated on the build tag beside `--consumer`'s gate.
     # **1908 -> 1909** (2026-10-19): the `find_offset` note says section O has passed on the rig since 2026-10-07 (docs audit).
     # **1909 -> 1943** (2026-10-19, TASKS R30): `diagnostics_args_for_build`, the gate that keeps `--diagnostics` off stock cyanrip, beside `consumer_args_for_build` and `prefer_disc_isrc_args_for_build`, the two gates it joins; its docstring says why it keys on the fork's ID and why an unread banner still gets the flag.
-    "adapters/cyanrip_backend.py": 1943,
+    # **1943 -> 1946** (2026-10-20, round 35, the fork's exit classes from release 36): the banner's build tag is read once in `rip()` and handed to the `RipHandle` as well as the argv gate.
+    "adapters/cyanrip_backend.py": 1946,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     "adapters/musicbrainz_client.py": 534,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
@@ -1215,7 +1216,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **705 -> 698** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `produces_max_compression_flac()` capability went with the re-compress, its only reader; a two-line note says so.
     # **698 -> 701** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` keyword on the ABC, where every ripper's options are declared.
     # **701 -> 703** (2026-10-19): `supports_offset_detection`'s docstring says the same (docs audit).
-    "adapters/rip_backend.py": 703,
+    # **703 -> 710** (2026-10-20, round 35, the fork's exit classes from release 36): `RipHandle.build_tag`, the banner read at spawn, so the worker reads the exit code by the build that ran.
+    "adapters/rip_backend.py": 710,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1955,7 +1957,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **788 -> 795** (2026-10-19, TASKS D2, `disallow_any_generics` retired): `RetriedTrackBlock.trigger` (schema v36) and `EtaSampleBlock.pass_kind`, keys the worker always wrote, each in the TypedDict it types.
     # **795 -> 800** (2026-10-19, TASKS R26, round 35): the two per-track `beyond_disc` keys.
     # **800 -> 807** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and `secure_rerip.accuraterip_standing`, report schema 39.
-    "report_types.py": 807,
+    # **807 -> 815** (2026-10-20, round 35, the fork's exit classes from release 36): `OutcomeBlock.ripper_exit_class` and `ripper_exit_build_tag`, schema 39 additions; the vocabulary is `ripper_exit_class.ExitClass`.
+    "report_types.py": 815,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2052,7 +2055,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2804 -> 2850** (2026-10-19, TASKS R26, round 35): schema v37 — the history note, the two per-track keys, the track blocks built once so `issues` and `tracks` read the same list, and the `beyond_disc_frames_refused` info issue.
     # **2850 -> 2866** (2026-10-19, P1 of the claude-code-skills audit check): schema v38 — the history note and three `ctdb` keys giving the weight behind a match (`best_confidence`, `total_confidence`, `outvoted`).
     # **2866 -> 2889** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and the schema-39 history note.
-    "rip_report.py": 2889,
+    # **2889 -> 2911** (2026-10-20, round 35, the fork's exit classes from release 36): `build_outcome` records `ripper_exit_class` and the tag it was read against, and the schema-39 note says so; the classification lives in `ripper_exit_class.py`.
+    "rip_report.py": 2911,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2433,7 +2437,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4967 -> 4974** (2026-10-16, TASKS R20): `_last_disc` carries `isrc_provenance`, built by `isrc_provenance.report_block` from the worker's reading while the worker still exists, like the record's ending.
     # **4974 -> 4987** (2026-10-16, TASKS R20 part 2, round 35): what we passed and the argv, handed to the ISRC block.
     # **4987 -> 4996** (2026-10-19, P4): the auto-fix merge recounts the AccurateRip summary from the tracks it ships.
-    "ui/main_window_rip.py": 4996,
+    # **4996 -> 5000** (2026-10-20, round 35, the fork's exit classes from release 36): the outcome snapshot passes the worker's album-pass build tag to `build_outcome`.
+    "ui/main_window_rip.py": 5000,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2778,7 +2783,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4232 -> 4238** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` on the rip parameters and both calls.
     # **4238 -> 4239** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the `report_types` import its records are now typed by.
     # **4239 -> 4284** (2026-10-20, the owner's word "yes, read twice by default"): the second read's log lines, status wording and report field.
-    "workers/rip_worker.py": 4284,
+    # **4284 -> 4307** (2026-10-20, round 35, the fork's exit classes from release 36): the album pass's build tag kept off the handle, its property, and the failed-exit sentence asked of `ripper_exit_class.explain_failed_exit`; the wording lives there.
+    "workers/rip_worker.py": 4307,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
