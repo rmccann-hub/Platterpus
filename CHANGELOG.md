@@ -12,6 +12,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
+  re-derives every accuracy number from the raw logs: the three committed EAC sessions
+  and the 262 rip logs on the `evidence` branch. It grades each area better, equal or
+  worse. On the reference disc we are level with EAC on reading the audio (EAC verified
+  13, 11 and 12 of 14 tracks; we verified 12 or 13 in each of 26 rips, and both tools
+  get the same wrong bytes from this drive on track 3). We are better at the verdict and
+  at checking files after the rip. We are worse at CTDB, at error location and at ISRCs
+  in the cue, and every rip on record comes from one drive. It found the serious gap,
+  one read and no second check when AccurateRip does not know the disc, which the second
+  read by default (below) closes. It corrects two statements in Part A and adds TASKS
+  rows R42 to R44. Before merging, it was checked independently and corrected: it had
+  said our log never prints `Copy OK` or `No errors occurred` over an unverified track
+  (it prints both, by design), and graded pre-gaps equal from one rip (track 9 reads a
+  frame longer than EAC's in 3 of 26). `tests/test_fork_rip_eac_parity.py` no longer
+  says it closes the parity question.
+
 ### Changed
 
 - **The weekly dependency check runs claude-code-skills v0.1.18** (`9c545d63`), moved from `ef35082d` as the claude-code-skills report of 2026-10-20 asked; `--outdated` is unchanged between the two.
