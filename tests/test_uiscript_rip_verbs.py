@@ -1823,7 +1823,12 @@ def test_answer_dialog_click_refuses_an_ambiguous_substring(
             "then record a confident answer to the wrong question"
         )
     finally:
-        box.close()
+        # Not `close()`: Qt REFUSES it here. A QMessageBox with no escape button
+        # (two AcceptRole buttons and no Cancel) ignores its close event, so this
+        # box was still on screen when the test ended, and only the cycle
+        # collector's teardown pass took it down. `done()` hides it whatever
+        # buttons it has. Caught by `conftest._no_test_leaves_a_dialog_behind`.
+        box.done(0)
         box.deleteLater()
 
 

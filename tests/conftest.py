@@ -870,6 +870,104 @@ def _no_test_leaves_the_dialog_filter_installed() -> Generator[None, None, None]
         leaked.deleteLater()
 
 
+def put_away_leftover_dialogs() -> list[str]:
+    """Hide every dialog a test left on screen, or armed to put itself there.
+
+    Returns one description per dialog it had to put away (empty when the test
+    was clean). Split out of the fixture below so a test can call it.
+
+    Two shapes, both of which `uiscript.runner._active_dialog()` reads as "a
+    dialog is waiting for an answer" in whichever LATER test happens to ask:
+
+    * **On screen.** A top-level `QDialog` still visible after the test. Two
+      causes seen: `deleteLater()` without `close()` (a deferred delete posted
+      outside an event loop is not run by `processEvents()`, so the window stays
+      up until some later test happens to run a nested `exec()` loop), and
+      `close()` on a `QMessageBox` with no escape button, which Qt refuses.
+    * **Armed.** A `QProgressDialog` that is hidden but whose force-show timer is
+      running. Qt starts that timer in the CONSTRUCTOR, for `minimumDuration`
+      (4 s by default), so a progress dialog that is built and never shown or
+      closed shows ITSELF the first time any later test pumps events past that
+      mark, untitled and active. That is the 2026-10-20 CI failure on PR #369:
+      `test_a_plain_dialog_is_only_ever_made_smaller` built one and only
+      `deleteLater()`'d it, and `rip` in
+      `test_expect_rip_complete_refuses_to_grade_a_rip_that_never_started`
+      refused to start behind *"a dialog is waiting for an answer: ''"*. Only
+      `QProgressDialog` is checked for this: it is the one stock dialog that
+      shows itself, and "any hidden dialog with a timer" would also catch
+      ordinary timers (a copy button's label reset) that show nothing.
+
+    Hidden with `hide()`, not `close()`, because `close()` runs `reject()` and
+    its `finished` signal into product slots on a window that may be half torn
+    down. A progress dialog is `reset()` first, which is what stops its timer.
+    """
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QDialog, QProgressDialog
+
+    if QApplication.instance() is None:
+        return []
+    found: list[str] = []
+    for widget in QApplication.topLevelWidgets():
+        try:
+            if not isinstance(widget, QDialog):
+                continue
+            visible = widget.isVisible()
+            armed = isinstance(widget, QProgressDialog) and any(
+                timer.isActive() for timer in widget.findChildren(QTimer)
+            )
+            if not (visible or armed):
+                continue
+            found.append(
+                f"{type(widget).__name__} {widget.windowTitle()!r} "
+                f"({'on screen' if visible else 'armed to show itself'})"
+            )
+            if isinstance(widget, QProgressDialog):
+                widget.reset()
+            widget.hide()
+            widget.deleteLater()
+        except RuntimeError:
+            continue  # its C++ side is already gone: nothing left to show
+    return found
+
+
+@pytest.fixture(autouse=True)
+def _no_test_leaves_a_dialog_behind() -> Generator[None, None, None]:
+    """FAIL the test that leaves a dialog up, not the later test it ambushes.
+
+    A dialog left behind is action at a distance, like the crash-dialog hook
+    above: the test that leaked it passes, and a test minutes later on the same
+    xdist worker fails, with no way to tell which earlier test was responsible.
+    Every `rip` step refuses to press Start behind an open dialog, so the victims
+    are the script-runner tests, and the culprit can be in any file. Found from
+    the victim's side twice before this fixture existed: the screenshot test's
+    "another window", still visible at the start of 112 later tests (2026-09-26,
+    `tests/test_uiscript_rip_verbs.py`), and the progress dialog above
+    (2026-10-20).
+
+    **Why this FAILS rather than only tidying up.** Tidying silently would be a
+    harness kinder than the product: a dialog that stays up is a real defect in
+    whatever left it, and a fixture that quietly put it away would hide that,
+    which is the class `tests/test_harness_fidelity.py` exists for. So it puts
+    the dialog away (so the leak cannot spread to the next test) AND fails the
+    test that left it, naming the dialog.
+    """
+    yield
+    leftovers = put_away_leftover_dialogs()
+    if leftovers:
+        pytest.fail(
+            "this test left a dialog behind, which every later `rip` step on "
+            "this worker would refuse to start behind ('a dialog is waiting for "
+            "an answer'):\n  "
+            + "\n  ".join(leftovers)
+            + "\nClose it before the test ends: `close()` then `deleteLater()`. "
+            "`deleteLater()` alone leaves it on screen; a QMessageBox with no "
+            "escape button (no Cancel/RejectRole) REFUSES `close()`, so use "
+            "`done(0)`; and a QProgressDialog that is never shown or closed "
+            "shows itself after minimumDuration.",
+            pytrace=False,
+        )
+
+
 @pytest.fixture(autouse=True)
 def _cyclic_gc_paused_during_each_test():
     """Run each test with the cyclic collector off; collect between tests.
