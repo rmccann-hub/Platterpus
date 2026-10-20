@@ -222,6 +222,7 @@ set prefer_disc_isrc on
 set secure_rerip_matches 2
 set secure_rerip_dynamic on
 set rerip_offset_variant on
+set second_read_without_accuraterip on
 set read_speed_mode auto_ladder
 set read_speed 0
 set ctdb_verify_after_rip on

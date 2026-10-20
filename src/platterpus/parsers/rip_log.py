@@ -499,6 +499,11 @@ class RipLog:
     # per-track results say. Printed from cyanrip 0.9.4-rc3 / the fork's
     # `+platterpus.23`; "" for every earlier build and every legacy-format log.
     accuraterip_disc_id: str = ""
+    # The disc-level AccurateRip lookup answer, verbatim: `found`, `not found`,
+    # `mismatch`, `error` or `disabled` (`cyanrip@3861b266:src/cyanrip_log.c:1037-1041`).
+    # "" when the line was not printed (a legacy-format log). The per-track
+    # `Accurip:` row cannot tell `error` from `not found`; this line can.
+    accuraterip_disc_status: str = ""
     # The MusicBrainz RELEASE id the ripper resolved and USED, read off its own
     # header — NOT the id we sent, which is the point. We hand the whole tag set as
     # one colon-delimited `-a` blob, so this is the witness that its parse of that

@@ -103,6 +103,7 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 | R35 | **[x] Fixed 2026-10-19 (P4 of the claude-code-skills audit check):** the report's `accuraterip_summary` and the window's fallback quoted cyanrip's first-pass "N/M tracks ripped accurately" after a securing pass had fixed a track (`round27fullwholediscreport.json` and `round30fullwholediscreport.json` say 12/14 beside a verdict of 13 of 14). The auto-fix merge now recounts N from the shipped tracks (`verdict.recount_accuraterip_summary`); held by `tests/test_auto_fix_convergence.py`, revert-probed | Nothing more | ours |
 | R36 | **Every dependency on its newest release, checked weekly** (the owner's word of 2026-10-19, *"are all repos using the most up to date of all dependcies, they should. And we need a way to make sure they are. Like a weekly repo check"*; P10 and S2 of the claude-code-skills report). **Done 2026-10-19:** `.github/workflows/dependencies.yml` runs `skillcheck --outdated` every Monday and keeps one issue open while anything is behind; `actions/upload-artifact` 7.0.1 to 7.0.2 (`cf430e03`, tag verified by `git ls-remote`). **Open, each its own commit because each moves a gate or the runtime (rule #11):** `ruff` to `>=0.17.1,<0.18` (may reformat; re-run the gate); `mypy` to `>=2.4.0,<2.5` (strict flags are version-dependent); `PySide6` 6.12 (Dependabot #332; the minor pin exists because a patch removed two shortcuts, so the shortcut and conformance tests decide); Python 3.15 in the CI matrix, then the single-version jobs; the AppImage's Python 3.12 (`build/build_appimage.sh`), which users run; every job's runner image (named, not `-latest`); exact releases in the comments of `attest-build-provenance` and `gh-action-pypi-publish` | One per pull request, each with its gate re-run | ours |
 | R37 | **[x] Released 2026-10-20:** 0.7.110 published at 00:22 UTC from `e4b0115d` (release run 39346990446; PyPI 0.7.110), on the owner's word "When you are both ready do a new release. Then let me know so I can do a full acceptance test." It reviews `.25` (`5f1d036`, `PIN_UNDER_REVIEW`) and still pins `.23` (`891c79e`, `FORK_PIN`); it carries R34 (CTDB minority match), R35 (recounted AccurateRip summary), R30 (no long options to stock cyanrip) and the weekly dependency check. The release hold of 2026-10-12 is otherwise unchanged | The operator's Full run on `.25` with 0.7.110, then the `overreadprobe` script; we file the bundle and write the reading lap | operator, then ours |
+| R38 | **[x] Built 2026-10-20 (P2; *First-rip proof* items 1 and 2):** a disc AccurateRip can't vouch for is read twice by default, on the owner's word *"yes, read twice by default"*. The parser now reads cyanrip's disc-level `AccurateRip:` line, because the per-track `Accurip:` row says `not found` both for a failed lookup and for a disc the database lacks (`cyanrip@3861b266:src/cyanrip_log.c:669-671` and `:1037-1041`). `accuraterip_standing.py` sorts a disc into in the database, not in it, lookup failed, or not determined. The securing pass re-reads every track of the last three with `-Z` (trigger `second_read`). A disc in the database whose every track failed now re-reads the failing tracks toward its entry; until today it was skipped as "not in AccurateRip". The verdict is the named **"Reads agree … not verified by AccurateRip"** (`verdict.basis` = `reads_agree`, report schema 39), amber when a track's reads disagree. The estimate and the plan say an unknown disc reads twice. The opt-out is Settings → *Read every track twice when AccurateRip can't vouch for the disc*, with each skip reason recorded. Held by `tests/test_second_read_default.py`, `tests/test_securing_pass.py` and `tests/test_rip_worker.py`; five reverts probed | Ships in the next release the owner gives the word for; reported to the fork in our next lap. Open: whether `-Z 1` would do (P2 item 5, for the fork and us), and the timed rip with and without upstream `7dbe56a` (the owner's, at the drive) | ours |
 
 ### P2 — close soon, in this order
 
@@ -7396,8 +7397,9 @@ wrong bytes every time. Only a *second drive* breaks that, because it is the onl
 vary the thing being tested. Any "gold standard" wording has to respect that boundary or
 it is the same borrowed confidence in a new costume.
 
-Four candidate pieces, cheapest first. **None started — the defaults question below is the
-maintainer's call, not mine:**
+Four candidate pieces, cheapest first. **Items 1 and 2 built on 2026-10-20** (TASKS R38),
+after the owner answered the defaults question: *"yes, read twice by default"*. Items 3
+and 4 are not started:
 
 1. **A first-rip verdict tier.** Today "not in AccurateRip" collapses to grey. Instead
    report what we *can* prove, as its own named tier with its own colour: reads agreed
@@ -7407,8 +7409,8 @@ maintainer's call, not mine:**
 2. **Test & Copy on by default when AccurateRip has nothing.** The behaviour change that
    makes tier 1 mean something: if no database can vouch for the disc, earn the proof
    locally instead of shrugging. Costs a second full read (roughly doubles rip time) on
-   exactly the discs where it matters. ***Needs sign-off: is doubling the rip time
-   acceptable for an unknown disc?***
+   exactly the discs where it matters. **Signed off 2026-10-20 and built (R38):** the
+   owner's word, *"yes, read twice by default"*.
 3. **Cross-drive verification, as an explicit feature.** Rip in drive A, rip in drive B,
    `--compare` the reports; agreement at each drive's own offset is the strongest evidence
    a single owner can produce, and it is the only one that survives a systematic misread.

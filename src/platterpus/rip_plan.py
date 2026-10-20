@@ -75,6 +75,7 @@ def describe_rip_plan(
     secure_rerip_matches: int,
     secure_rerip_dynamic: bool,
     rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT,
+    second_read_without_accuraterip: bool = False,
     max_retries: int = 5,
     read_speed_mode: str = "fixed",
     read_speed: int = 0,
@@ -140,6 +141,17 @@ def describe_rip_plan(
             f"{secure_rerip_matches + 1} identical reads (EAC-style Test & Copy)."
         )
     if mode == MODE_DYNAMIC:
+        # The owner's word of 2026-10-20: read twice by default.
+        lines.append(
+            f"{PLAN_PREFIX}   Disc AccurateRip can't vouch for (not in its "
+            "database, or the lookup failed): "
+            + (
+                f"EVERY track is read again with -Z {secure_rerip_matches} and the "
+                "reads compared ('reads agree' is not an AccurateRip verification)."
+                if second_read_without_accuraterip
+                else "kept on the one fast read (the second read is off in Settings)."
+            )
+        )
         lines.append(
             f"{PLAN_PREFIX}   'Partially accurate' tracks re-read: "
             + ("YES" if rerip_offset_variant else "no")

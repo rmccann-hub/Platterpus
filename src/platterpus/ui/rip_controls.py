@@ -204,6 +204,9 @@ class RipControls(QWidget):
             secure_rerip_matches=self._config.secure_rerip_matches,
             secure_rerip_dynamic=self._config.secure_rerip_dynamic,
             rerip_offset_variant=self._config.rerip_offset_variant,
+            second_read_without_accuraterip=(
+                self._config.second_read_without_accuraterip
+            ),
             force_overread=self._config.force_overread,
             prefer_disc_isrc=self._config.prefer_disc_isrc,
             # Adaptive read-speed ladder (0.4.6), carried from Settings.

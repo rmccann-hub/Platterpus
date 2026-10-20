@@ -2136,29 +2136,51 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
         # that produced no log) — the state run 4 hit on real hardware, where an
         # engaged pass left an empty `retried_tracks` and said nothing about it.
         "interrupted": False,
+        "accuraterip_standing": "in_database",
     }
 
 
-def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
+#: A stock two-track pass whose AccurateRip lookup found no entry for the disc:
+#: the disc-level line says so (`cyanrip@3861b266:src/cyanrip_log.c:1037-1041`),
+#: and every track's v1 row says "not found".
+_NOT_IN_AR_PASS: str = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    2\n"
+    "AccurateRip:    not found\n"
+    "Track 1 ripped and encoded successfully!\n"
+    "  EAC CRC32:     11111111\n"
+    "    Accurip v1:  AAAAAAAA (not found, either a new pressing, or bad rip)\n"
+    "  File(s):\n"
+    "    Artist/Album/01 - A.flac\n"
+    "Track 2 ripped and encoded successfully!\n"
+    "  EAC CRC32:     22222222\n"
+    "    Accurip v1:  BBBBBBBB (not found, either a new pressing, or bad rip)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Ripping errors: 0\n"
+)
+
+
+def test_dynamic_mode_reads_a_disc_not_in_accuraterip_twice(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    """Regression: a disc that isn't in AccurateRip at all (a CD-R / obscure
-    pressing — every track "fails" AR because there's nothing to match) must NOT
-    trigger a whole-disc secure re-rip. There's no DB consensus to converge
-    toward, so a re-rip can't verify anything and would just re-read + swap every
-    track (the "20min → 1h" slowdown dynamic mode exists to avoid). The fast pass
-    stands, no track re-ripped."""
-    pass1 = (
+    """The owner's word of 2026-10-20: "yes, read twice by default".
+
+    Until that date this disc kept its one fast read: no consensus to converge
+    toward, so a re-read was judged wasted time. But single reads go wrong
+    without saying so, and here nothing outside the drive checked this one. So
+    every track is read again with -Z, and kept when its reads agree."""
+    rerip = (
         "cyanrip 0.9.3 (release)\n"
         "Disc tracks:    2\n"
+        "Done; (2 out of 2 matches for current checksum 11111111)\n"
         "Track 1 ripped and encoded successfully!\n"
         "  EAC CRC32:     11111111\n"
-        "    Accurip v1:  AAAAAAAA (not found, either a new pressing, or bad rip)\n"
         "  File(s):\n"
         "    Artist/Album/01 - A.flac\n"
+        "Done; (2 out of 2 matches for current checksum 22222222)\n"
         "Track 2 ripped and encoded successfully!\n"
         "  EAC CRC32:     22222222\n"
-        "    Accurip v1:  BBBBBBBB (not found, either a new pressing, or bad rip)\n"
         "  File(s):\n"
         "    Artist/Album/02 - B.flac\n"
         "Ripping errors: 0\n"
@@ -2167,9 +2189,12 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
     def side_effect(call: dict) -> None:
         rel = call["output_dir"] / "Artist" / "Album"
         rel.mkdir(parents=True, exist_ok=True)
-        # A re-rip would be a bug here — write only the whole-disc pass log.
-        if not call["only_tracks"]:
-            (rel / "rip.log").write_text(pass1, encoding="utf-8")
+        if call["only_tracks"]:
+            (rel / "rerip.log").write_text(rerip, encoding="utf-8")
+            (rel / "01 - A.flac").write_bytes(b"READ-TWICE-A")
+            (rel / "02 - B.flac").write_bytes(b"READ-TWICE-B")
+        else:
+            (rel / "rip.log").write_text(_NOT_IN_AR_PASS, encoding="utf-8")
 
     backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
     backend.rip_side_effect = side_effect
@@ -2185,11 +2210,55 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
 
     worker.start_rip()
 
-    assert len(backend.rip_calls) == 1  # ONE fast pass, no targeted re-rip
     assert backend.rip_calls[0]["only_tracks"] == ()
+    assert backend.rip_calls[0]["secure_rerip_matches"] == 0
+    # Then EVERY track again, at the user's -Z.
+    assert len(backend.rip_calls) == 2
+    assert backend.rip_calls[1]["only_tracks"] == (1, 2)
+    assert backend.rip_calls[1]["secure_rerip_matches"] == 2
+    assert [r["trigger"] for r in worker.retried_tracks] == ["second_read"] * 2
+    assert all(r["converged"] for r in worker.retried_tracks)
+    assert worker.unstable_tracks == []
+    assert worker.secure_rerip_report == {
+        "mode": "dynamic",
+        "engaged": True,
+        "disc_in_accuraterip": False,
+        "skipped_reason": None,
+        "interrupted": False,
+        "accuraterip_standing": "not_in_database",
+    }
+
+
+def test_dynamic_mode_keeps_one_read_when_the_second_read_is_off(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The opt-out the owner kept: off restores the old single fast read, and
+    the report says which reason it was skipped for."""
+
+    def side_effect(call: dict) -> None:
+        rel = call["output_dir"] / "Artist" / "Album"
+        rel.mkdir(parents=True, exist_ok=True)
+        # A re-rip would be a bug here — write only the whole-disc pass log.
+        if not call["only_tracks"]:
+            (rel / "rip.log").write_text(_NOT_IN_AR_PASS, encoding="utf-8")
+
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = side_effect
+    worker = RipWorker(
+        backend,
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            secure_rerip_matches=2,
+            secure_rerip_dynamic=True,
+            second_read_without_accuraterip=False,
+        ),
+    )
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1  # ONE fast pass, no re-read
     assert worker.retried_tracks == []
-    # The report explains WHY the shaky-looking tracks weren't re-ripped: the
-    # disc isn't in AccurateRip, so a targeted re-rip couldn't verify anything.
     assert worker.secure_rerip_report == {
         "mode": "dynamic",
         "engaged": False,
@@ -2197,6 +2266,7 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
         "skipped_reason": "disc_not_in_accuraterip",
         # Never started, so it cannot have been interrupted.
         "interrupted": False,
+        "accuraterip_standing": "not_in_database",
     }
 
 

@@ -621,6 +621,7 @@ def test_restore_defaults_resets_every_control_this_dialog_owns(
         prefer_disc_isrc=not shipped.prefer_disc_isrc,
         secure_rerip_matches=4,
         rerip_offset_variant=not shipped.rerip_offset_variant,
+        second_read_without_accuraterip=not shipped.second_read_without_accuraterip,
         secure_rerip_dynamic=not shipped.secure_rerip_dynamic,
         read_speed_mode="fixed",
         read_speed=8,

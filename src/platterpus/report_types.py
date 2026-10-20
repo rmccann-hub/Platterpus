@@ -21,6 +21,9 @@ class GeneratorBlock(TypedDict):
 class VerdictBlock(TypedDict):
     level: str
     message: str | None
+    # What the verdict rests on when it is not AccurateRip: "reads_agree"
+    # (`verdict.VERDICT_BASIS_READS_AGREE`), else None. Report schema 39.
+    basis: str | None
 
 
 class RipBlock(TypedDict):
@@ -473,6 +476,10 @@ class SecureReripBlock(TypedDict):
     disc_in_accuraterip: bool | None
     skipped_reason: str | None
     interrupted: bool
+    # What AccurateRip could say about the disc (`accuraterip_standing.AR_STANDING_*`):
+    # in the database, not in it, the lookup failed, or not determined. None when
+    # it was not asked (uniform mode, or a refused pass). Report schema 39.
+    accuraterip_standing: str | None
 
 
 class ReportReadSpeedBlock(TypedDict, total=False):

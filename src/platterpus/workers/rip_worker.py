@@ -42,6 +42,7 @@ from platterpus import (
     rip_estimate,
     ripper_exit,
 )
+from platterpus.accuraterip_standing import unvouched_sentence
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -84,7 +85,11 @@ from platterpus.ripper_message_inventory import ALL_FORMATS
 from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
 from platterpus.securing_pass import (
+    SKIPPED_ACCURATERIP_LOOKUP_FAILED,
+    SKIPPED_ACCURATERIP_NOT_DETERMINED,
+    SKIPPED_DISC_NOT_IN_ACCURATERIP,
     TRIGGER_ACCURATERIP,
+    TRIGGER_SECOND_READ,
     SecuringPlan,
     first_pass_records,
     plan_securing_pass,
@@ -163,6 +168,9 @@ class RipParameters:
     # agree. On by default: `Config`'s own named default, so a worker built from
     # defaults rips the way a user's does. False accepts the match on the fast read.
     rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT
+    # In dynamic mode, re-read every track of a disc AccurateRip cannot vouch for
+    # (not in the database, or the lookup failed). On by default, as `Config`.
+    second_read_without_accuraterip: bool = True
     # The drive's measured reading speed (or the rig's for its model), for the
     # up-front time estimate (`rip_estimate`). None: no estimate up front.
     read_rate: ReadRate | None = None
@@ -1209,6 +1217,8 @@ class RipWorker(QObject):
         # must not imply a securing pass that did not complete.
         self._secure_rerip_interrupted: bool = False
         self._disc_in_accuraterip: bool | None = None
+        # `accuraterip_standing.AR_STANDING_*`, when the securing plan asked it.
+        self._accuraterip_standing: str | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
     def _make_estimate(self) -> rip_estimate.RipEstimate | None:
@@ -1237,6 +1247,7 @@ class RipWorker(QObject):
                 secure_rerip_matches=params.secure_rerip_matches,
                 dynamic=params.secure_rerip_dynamic,
                 max_retries=params.max_retries,
+                second_read_without_accuraterip=params.second_read_without_accuraterip,
             )
         except Exception:  # noqa: BLE001 — an estimate must never stop a rip
             log.exception("could not estimate the rip's time")
@@ -1835,6 +1846,7 @@ class RipWorker(QObject):
             "disc_in_accuraterip": self._disc_in_accuraterip,
             "skipped_reason": self._secure_rerip_skipped_reason,
             "interrupted": self._secure_rerip_interrupted,
+            "accuraterip_standing": self._accuraterip_standing,
         }
 
     # --- Slots ---
@@ -1883,6 +1895,7 @@ class RipWorker(QObject):
             secure_rerip_matches=self._params.secure_rerip_matches,
             secure_rerip_dynamic=self._params.secure_rerip_dynamic,
             rerip_offset_variant=self._params.rerip_offset_variant,
+            second_read_without_accuraterip=self._params.second_read_without_accuraterip,
             max_retries=self._params.max_retries,
             read_speed_mode=self._params.read_speed_mode,
             read_speed=self._params.read_speed,
@@ -2098,6 +2111,9 @@ class RipWorker(QObject):
                 max_retries=self._params.max_retries,
                 include_offset_variant=self._params.rerip_offset_variant,
                 unstable=self._last_unstable_tracks,
+                second_read_without_accuraterip=(
+                    self._params.second_read_without_accuraterip
+                ),
             ),
             parsed_log,
             log_path_str,
@@ -3080,17 +3096,40 @@ class RipWorker(QObject):
             self._secure_rerip_skipped_reason = plan.skipped_reason
         if plan.disc_in_accuraterip is not None:
             self._disc_in_accuraterip = plan.disc_in_accuraterip
+        if plan.accuraterip_standing:
+            self._accuraterip_standing = plan.accuraterip_standing
         if plan.refused:
             log.info("securing pass not run: %s", plan.refused)
             self.log_line.emit(f"[secure re-rip] not run: {plan.refused}")
             return
-        if plan.disc_in_accuraterip is False:
+        unvouched = unvouched_sentence(plan.accuraterip_standing)
+        if plan.skipped_reason in (
+            SKIPPED_DISC_NOT_IN_ACCURATERIP,
+            SKIPPED_ACCURATERIP_LOOKUP_FAILED,
+            SKIPPED_ACCURATERIP_NOT_DETERMINED,
+        ):
+            # The user turned the second read off in Settings.
             self.log_line.emit(
-                "[secure re-rip] disc is not in AccurateRip — keeping the "
-                "fast read (a re-rip can't verify against a DB that has no "
-                "entry for this disc)."
+                f"[secure re-rip] {unvouched} — keeping the single fast read, "
+                "because 'Read every track twice when AccurateRip can't vouch "
+                "for the disc' is off in Settings."
             )
-            log.info("dynamic secure re-rip skipped: disc not in AccurateRip")
+            log.info("second read skipped (setting off): %s", unvouched)
+        if plan.trigger == TRIGGER_SECOND_READ:
+            # The owner's word of 2026-10-20: read twice by default.
+            self._secure_rerip_engaged = bool(plan.tracks)
+            if plan.tracks:
+                self.log_line.emit(
+                    f"[secure re-rip] {unvouched} — reading every track again "
+                    f"(-Z {plan.rerip_z}) and comparing the reads. Matching reads "
+                    "show the drive returned the same audio twice; they are not "
+                    "an AccurateRip verification."
+                )
+                log.info(
+                    "second read: %s; re-reading tracks %s",
+                    unvouched,
+                    list(plan.tracks),
+                )
         if plan.trigger == TRIGGER_ACCURATERIP:
             # Engaged only when a track needed securing: every track matching
             # AccurateRip on the fast read is already proven.
@@ -3319,7 +3358,13 @@ class RipWorker(QObject):
                         f"[auto-fix] track(s) {verified_names}: the re-rip matches "
                         "AccurateRip and the first read did not — kept the re-rip."
                     )
-                self.status.emit(f"Auto-fixed track(s) {names}.")
+                # A second read confirms or replaces a read nothing checked; it
+                # does not fix a known fault, so it is not called a fix.
+                self.status.emit(
+                    f"Read again: track(s) {names} read consistently."
+                    if trigger == TRIGGER_SECOND_READ
+                    else f"Auto-fixed track(s) {names}."
+                )
                 # Keep the durable-proof log honest: the swapped-in files no longer
                 # match the CRCs the first-pass log recorded for them.
                 self._append_swap_addendum(album_log_path, trigger, swapped)

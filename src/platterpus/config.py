@@ -330,6 +330,17 @@ class Config:
     # has offset-variant tracks.
     rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT
 
+    # Read every track a second time when AccurateRip cannot vouch for the disc
+    # (default ON, the owner's word of 2026-10-20: "yes, read twice by default").
+    # In dynamic mode a disc the database does not hold, or whose lookup failed,
+    # used to get one fast read and nothing else, and single reads go wrong
+    # without saying so (track 3 of the reference disc read wrong in 11 of 12
+    # whole-disc rips, each with `Ripping errors: 0`). On: every track of such a
+    # disc is re-read with `-Z` and the reads are compared. The verdict says
+    # "reads agree", never "verified": two reads agreeing show the drive gave the
+    # same bytes twice, not that they are right. Off: the old one-read path.
+    second_read_without_accuraterip: bool = True
+
     # --- Adaptive read-speed ladder (headline, 0.4.6) ---
     # How the read speed is chosen for a rip:
     #   "auto_ladder" (default) — start at the drive's max speed; on a pass with

@@ -61,6 +61,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "secure_rerip_matches": "Extra matching reads to trust a track",
     "secure_rerip_dynamic": "Verify every track with a second read",
     "rerip_offset_variant": "re-read tracks where only one frame matched",
+    "second_read_without_accuraterip": "read every track twice when accuraterip",
     "read_speed_mode": "Read speed",
     "read_speed": "Read speed",
     "ctdb_verify_after_rip": "Verify with CTDB",

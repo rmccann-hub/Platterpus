@@ -203,6 +203,7 @@ than the UI it stands in for.
 | `secure_rerip_matches` | integer |
 | `secure_rerip_dynamic` | boolean (on/off) |
 | `rerip_offset_variant` | boolean (on/off) |
+| `second_read_without_accuraterip` | boolean (on/off) |
 | `read_speed_mode` | text |
 | `read_speed` | integer |
 | `ctdb_verify_after_rip` | boolean (on/off) |
@@ -1046,6 +1047,10 @@ found nothing wrong*.
     },
     {
       "field": "rerip_offset_variant",
+      "type": "boolean (on/off)"
+    },
+    {
+      "field": "second_read_without_accuraterip",
       "type": "boolean (on/off)"
     },
     {

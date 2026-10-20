@@ -134,7 +134,12 @@ def test_the_report_records_a_match_and_leaves_the_verdict_alone() -> None:
     codes = {issue["code"] for issue in report["issues"]}
     assert not {"disc_identity_mismatch", "disc_identity_not_determined"} & codes
     message, level = accuraterip_verdict(log)
-    assert report["verdict"] == {"level": level, "message": message or None}
+    assert report["verdict"] == {
+        "level": level,
+        "message": message or None,
+        # Schema 39: no "reads agree" basis on a disc nothing re-read.
+        "basis": None,
+    }
 
 
 def test_a_mismatch_downgrades_the_verdict_and_raises_an_error() -> None:

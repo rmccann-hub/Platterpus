@@ -1259,7 +1259,10 @@ def test_schema_version_is_27() -> None:
     # v38 added `ctdb.best_confidence`, `ctdb.total_confidence` and `ctdb.outvoted`:
     # the weight behind a CTDB match, which a confidence-1 entry beside one of
     # 1,405 did not show (P1 of the 2026-10-19 audit check).
-    assert REPORT_SCHEMA_VERSION == 38
+    # v39 added `verdict.basis` and `read_speed.secure_rerip.accuraterip_standing`:
+    # the second read of a disc AccurateRip can't vouch for, and the named
+    # "reads agree" verdict it can earn (the owner's word of 2026-10-20).
+    assert REPORT_SCHEMA_VERSION == 39
 
 
 def _issue_codes(report: dict) -> set[str]:
