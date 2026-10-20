@@ -19,6 +19,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 ### Fixed
 
 - **A failed AccurateRip lookup is no longer reported as a disc the database lacks.** cyanrip's per-track `Accurip:` row says `not found` in both cases, so Platterpus now reads the disc-level `AccurateRip:` line (`error`, `not found`, `found`, `mismatch`, `disabled`). With the second read turned off, each case records its own skip reason.
+- **`CLAUDE.md` now says the hourly handshake check is stopped** (the owner's word of 2026-10-20, *"stop the hourly check"*). The fork's laps are read at session start, before a turn ends, and when the owner asks. The second-read default is off the list of questions kept for the owner, now that the owner has settled it.
 - **A disc in AccurateRip whose every track failed now gets its failing tracks re-read** toward the database entry. Until now it was skipped as "not in AccurateRip", because no track had matched.
 
 ## [0.7.110] — 2026-10-19

@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-20 (morning) — the second read by default, and the hourly check stopped
+
+- **The owner's answer to P2: *"yes, read twice by default"*.** It came through the claude-code-skills session at 9:14 AM EDT (13:14 UTC). Built the same morning as TASKS R38: a disc AccurateRip can't vouch for is read twice, with the named "Reads agree" verdict and an opt-out. Not released: the hold in `CLAUDE.md` still stands, and round 35's Full run, on 0.7.110 with `.25`, is unaffected.
+- **Found while building it.** The report suggested using each track's `accuraterip_lookup`, but cyanrip writes `not found` on that row both when the lookup failed and when the disc is not in the database (`cyanrip@3861b266:src/cyanrip_log.c:669-671`). Only the disc-level `AccurateRip:` line separates them, and our parser had skipped it on purpose since round 28. It is read now. A second finding: a disc in the database whose every track failed was being skipped as "not in AccurateRip", because "no track matched" was the only test.
+- **The hourly handshake Routine is off** on the owner's word, *"stop the hourly check"*. It is disabled, not deleted.
+- **Learned.** A field named after a question does not always answer it. `accuraterip_lookup` holds the lookup's per-track row, which cannot tell "the database has nothing" from "we never heard back", so read the row's source before building on it.
+
 ## 2026-10-20 — 0.7.110 out for the Full run on `.25`
 
 - **Released.** 0.7.110 at 00:22 UTC (8:22 PM EDT on 10-19) from `e4b0115d`, on the owner's word *"When you are both ready do a new release"*, with `.25` (`5f1d036`) under review. PR #366 carried P1, P4, the weekly dependency workflow, the move to `.25` and our round 35 lap 16; merging it released the lap. The full check found one more thing before the merge: the size ratchet, because keeping `.24`'s wordings and its verify-log entry beside `.25` grew two files. Both numbers were raised with the reason beside each (`dd0d7430`).
