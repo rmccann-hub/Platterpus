@@ -1525,7 +1525,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2751 -> 2773** (2026-10-16, round 35 opens): `.24` becomes the build under review (`PIN_UNDER_REVIEW` `93afa15`, its release sequence 35, its consumer-flag row, its version), each with the source it was read from, as every round open adds.
     # **2773 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): `BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC` and its reader, beside the other per-build capability sets.
     # **2796 -> 2820** (2026-10-19, round 35 moves to `.25` on the operator's override of R4, the fork's lap 15): `PIN_UNDER_REVIEW` `5f1d036`, its release sequence 36, its consumer-flag and `--prefer-disc-isrc` rows, its version, each with the source it was read from.
-    "deps/fork_source.py": 2820,
+    # **2820 -> 2826** (2026-10-19): `.24` (`93afa15`) named in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` by commit, with its reason, now that `.25` is under review and `.24` is no longer covered by being the pin under review.
+    "deps/fork_source.py": 2826,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2074,7 +2075,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # dropped retained for `.22` (still `FORK_PIN`), four new P5a rows declined, and
     # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
     # **1332 -> 1362** (2026-10-19): regenerated from `.25`'s contract (`round-35-lap-15-provider-contract-g3e978f9.md`), 142 P5 and 11 P5a; the nine argument errors their lap 15 S10 restored. Generated, not hand-grown.
-    "ripper_message_inventory.py": 1362,
+    # **1362 -> 1421** (2026-10-19): six `.24` wordings `.25` reworded kept in `RETAINED_BEYOND_P5` with their reasons, since an install may still run `.24`, and the hand-kept "Offset is unset!" row removed now that `.25`'s P5 carries it.
+    "ripper_message_inventory.py": 1421,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
