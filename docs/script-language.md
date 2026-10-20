@@ -112,7 +112,7 @@ text is taken verbatim as one value.
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
-| `expect-exit` | 1 | ready | expect-exit <code> — assert the last cyanrip exit code |
+| `expect-exit` | 1 | ready | expect-exit <code|refused> — assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25) |
 | `rig-check` | 0+ (rest of line) | ready | rig-check [album-folder] — run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only |
 
 A verb marked **NOT IMPLEMENTED** is listed on purpose rather than
@@ -903,7 +903,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-exit <code> \u2014 assert the last cyanrip exit code"
+      "help": "expect-exit <code|refused> \u2014 assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25)"
     },
     {
       "name": "rig-check",

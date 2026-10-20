@@ -225,6 +225,25 @@ def banner_line(text: str) -> str:
     return ""
 
 
+#: ``cyanrip <version>`` and an optional ``(<build tag>)``, alone on a line.
+_BANNER_LINE: Final[re.Pattern[str]] = re.compile(
+    r"^cyanrip\s+v?\d[^\s()]*(?:\s+\([^()\n]{1,80}\))?$"
+)
+
+
+def version_banner_in(text: str) -> str:
+    """The first line of ``text`` shaped like a version banner, or ``""``.
+
+    For output that may or may not carry one (round 35 lap 17 S10): a refused
+    rip printed no banner, but its summary's ``(no read exceeded 10s)`` was read
+    as the build tag, because :func:`identify_from_banner` takes the first ``(``.
+    """
+    for line in (text or "").splitlines():
+        if _BANNER_LINE.match(line.strip()):
+            return line.strip()
+    return ""
+
+
 def identify_from_banner(banner: str) -> RipperIdentity:
     """Classify from a whole ``cyanrip -V`` line, e.g. before a rip starts.
 

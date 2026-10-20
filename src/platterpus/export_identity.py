@@ -111,7 +111,7 @@ def host_patterns(hosts: Iterable[str]) -> list[re.Pattern[str]]:
     """Whole-word patterns for each hostname and its short form. Pure."""
     usable = {h for h in hosts if h and h.lower() not in NOT_PERSONAL}
     return [
-        re.compile(r"(?<![\w.-])" + re.escape(form) + r"(?![\w-])")
+        re.compile(r"(?:(?<=\\[nrt])|(?<![\w.-]))" + re.escape(form) + r"(?![\w-])")
         for host in sorted(usable, key=len, reverse=True)
         for form in _forms(host)
     ]

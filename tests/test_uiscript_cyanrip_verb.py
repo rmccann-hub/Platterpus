@@ -757,3 +757,32 @@ class TestEveryScriptedRipNamesItsCallerAndHasARecord:
             seen = args_as_preflight_sees_them(list(step.args))
             assert "--consumer" in seen and "--diagnostics" in seen, seen
             assert sanitise_cyanrip_args(seen) is None, seen
+
+
+def test_a_refused_rips_summary_is_not_latched_as_the_build_tag(
+    window: QWidget,
+) -> None:
+    """Round 35 lap 17 S10: the C1 refusal printed no banner, and its summary's
+    ``(no read exceeded 10s)`` was taken as the build tag, so the deemphasis rip
+    after it sent no ``--consumer``. Only a banner line names a build."""
+    run = runner_mod.ScriptRunner(window)
+    run._ripper_build_tag = "platterpus-fork-g5f1d036"
+    refused = (
+        "Opening drive...\n"
+        "Offset is unset! To continue with an offset of 0, run with -s 0!\n"
+        "Ripping errors: 0\n"
+        "Read stalls:\n"
+        "  none (no read exceeded 10s)\n"
+    )
+    run._latch_ripper_identity(refused)
+    assert run._ripper_build_tag == "platterpus-fork-g5f1d036"
+
+    run._latch_ripper_identity(
+        "cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)\n"
+    )
+    assert run._ripper_build_tag == "platterpus-fork-g5f1d036"
+    run._ripper_build_tag = ""
+    run._latch_ripper_identity(
+        "noise\ncyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gabc1234)\n"
+    )
+    assert run._ripper_build_tag == "platterpus-fork-gabc1234"

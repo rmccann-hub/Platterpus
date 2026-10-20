@@ -145,3 +145,48 @@ def describe_unrequested_exit(
             f"keeps happening, Tools → Setup & Updates checks the container."
         )
     return ""
+
+
+#: cyanrip's exit for a refusal to start (an argument refused, a flag it lacks,
+#: ``Offset is unset!``) on builds from ``.25``: ``CRIP_EXIT_USAGE``, EX_USAGE
+#: (``cyanrip@3861b266:src/cyanrip_main.h:221``; ``.25``'s provider contract P4).
+REFUSED_EXIT_WITH_CLASSES: Final[int] = 64
+
+#: The same refusal on every earlier build, and on stock cyanrip: plain failure.
+REFUSED_EXIT_BEFORE_CLASSES: Final[int] = 1
+
+#: The first fork release whose exits carry the classes (``.25``, release 36;
+#: ``cyanrip@292858d``).
+FIRST_RELEASE_WITH_EXIT_CLASSES: Final[int] = 36
+
+
+def refusal_exit_code(build_tag: str) -> int | None:
+    """The exit status ``build_tag``'s build uses when it refuses to start.
+
+    **Why this exists** (the 2026-10-20 Full run, section P2). The acceptance
+    script expected ``1`` for ``Offset is unset!``, and ``.25`` exited ``64``, the
+    class our round 35 lap 8 S9 asked for. The ripper was right and the script
+    was stale. A refusal's code depends on the build, so the one place that knows
+    which build does what answers it: ``64`` for a fork release from ``.25``,
+    ``1`` for an earlier fork release or stock cyanrip, and ``None`` when the build
+    is not one we can place (an unknown tag, a fork commit outside the release
+    list): not determined, never a guess in either direction. Never raises.
+    """
+    from platterpus.deps.fork_source import release_seq_for_commit
+    from platterpus.ripper_identity import identify_ripper
+
+    tag = (build_tag or "").strip()
+    if not tag:
+        return None
+    identity = identify_ripper("", tag)
+    if identity.kind == "stock":
+        return REFUSED_EXIT_BEFORE_CLASSES
+    if identity.kind != "fork":
+        return None
+    commit = tag.casefold().removesuffix("-dirty").rsplit("-g", 1)[-1]
+    seq = release_seq_for_commit(commit)
+    if seq is None:
+        return None
+    if seq >= FIRST_RELEASE_WITH_EXIT_CLASSES:
+        return REFUSED_EXIT_WITH_CLASSES
+    return REFUSED_EXIT_BEFORE_CLASSES

@@ -25,7 +25,9 @@ headers, which is why the lap-naming test does not bind them, and they are
 **rewritten in place** rather than gaining a sibling per revision (a stale standing
 status is worse than none — the opposite rule from the correspondence above, which
 is append-only). Rounds are the formal channel and they cost something: S-13 fixes
-a round's close conditions at lap 1, and an open round blocks both sides' releases.
+a round's close conditions at lap 1, and an open round holds the pin, not a
+release: since protocol v8 §6b (round 31) either side may release while a round is
+open, and only `FORK_PIN` waits for the close (`docs/handshake-protocol.md` §6b).
 Between rounds each side still needs somewhere to say where it is.
 
 ```

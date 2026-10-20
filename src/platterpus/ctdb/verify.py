@@ -298,6 +298,11 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
             "meaningful — AccurateRip is the authority here. Run "
             f"`{self_invocation()} --ctdb-calibrate <folder>` to pin the algorithm."
         )
+    # The weight of the entries is a fact about the database whatever our CRC
+    # did, so a no-match carries it too. Until 2026-10-20 only a MATCH did, and
+    # the 2026-10-20 Full run's report read `confidence: 1416` beside
+    # `best_confidence: 0` and `total_confidence: 0`, as if the strongest entry
+    # had no submissions behind it.
     return CtdbVerifyResult(
         Verdict.NO_MATCH,
         confidence=best,
@@ -305,6 +310,8 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
         db_crcs=db_crcs,
         crc_validated=crc_mod.CRC_VALIDATED,
         message=message,
+        best_confidence=best,
+        total_confidence=total,
     )
 
 
@@ -333,4 +340,6 @@ def _db_only_result(
         db_crcs=tuple(e.crc for e in result.entries if e.crc is not None),
         crc_validated=crc_mod.CRC_VALIDATED,
         message=message,
+        best_confidence=best,
+        total_confidence=sum(max(0, e.confidence) for e in result.entries),
     )
