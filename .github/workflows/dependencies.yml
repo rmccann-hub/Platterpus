@@ -1,0 +1,98 @@
+name: Dependencies
+
+# Every Monday, and on demand: names each dependency behind its newest release, past a
+# three-day wait, and keeps one issue open while anything is behind or can't be read. It runs
+# `skillcheck --outdated` from claude-code-skills, pinned to a commit.
+#
+# From the owner's word of 2026-10-19: "are all repos using the most up to date of all
+# dependcies, they should. And we need a way to make sure they are. Like a weekly repo check".
+# The workflow is the claude-code-skills session's Appendix A of that day, with one change:
+# it runs on a named image, like every other job here, because
+# tests/test_workflow_permissions.py::test_every_job_names_its_runner_image refuses a
+# moving `-latest` label. Moving every job to a newer image is its own change (TASKS R36).
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  outdated:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write # to open, update and close the one dependencies issue
+    env:
+      TITLE: Dependencies behind their newest release
+      SKILLCHECK: git+https://github.com/rmccann-hub/claude-code-skills@ef35082deedab76d28664078144c5f9f86ff6850
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.1"
+
+      - name: Measure each dependency against its newest release
+        id: report
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # raises the API's limit for reading releases
+        run: |
+          set +e
+          uvx --python 3.15 --from "$SKILLCHECK" skillcheck --outdated . > "$RUNNER_TEMP/outdated.txt"
+          found=$?
+          set -e
+          if ! tail -n 1 "$RUNNER_TEMP/outdated.txt" | grep -q '^skillcheck: '; then
+            echo "::error::skillcheck --outdated did not finish"
+            cat "$RUNNER_TEMP/outdated.txt"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/outdated.txt"
+          {
+            echo "Found by the run of $(date -u +%Y-%m-%d):"
+            echo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/outdated.txt"
+            echo '```'
+            echo
+            echo "Behind: a newer release has been out at least three days. Waiting: one is newer"
+            echo "but still inside that wait. Unread: the registry couldn't be read, or the pin"
+            echo "names no exact release. Update what's behind, and close this issue from that"
+            echo "pull request."
+          } > "$RUNNER_TEMP/outdated.md"
+          if [ "$found" -ne 0 ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open the dependencies issue, or add this run to it
+        if: steps.report.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title $TITLE" \
+            --json number,title --jq '.[] | select(.title == env.TITLE) | .number' | head -n 1)
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/outdated.md"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$RUNNER_TEMP/outdated.md"
+          fi
+
+      - name: Close the dependencies issue once everything is current
+        if: steps.report.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title $TITLE" \
+            --json number,title --jq '.[] | select(.title == env.TITLE) | .number' | head -n 1)
+          if [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+              --comment "Every dependency is on its newest release, as of the run of $(date -u +%Y-%m-%d)."
+          fi

@@ -58,7 +58,11 @@ from PySide6.QtWidgets import (
 
 from platterpus import album_loudness, one_frame_match
 from platterpus.build_info import self_invocation
-from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+from platterpus.ctdb.verify import (
+    CtdbVerifyResult,
+    Verdict,
+    minority_match_sentence,
+)
 from platterpus.parsers.rip_log import (
     RipLog,
     accuraterip_is_match,
@@ -82,6 +86,7 @@ from platterpus.verdict import (
     accuraterip_compared,
     accuraterip_confidence_text,
     accuraterip_db_max_confidence,
+    accuraterip_rejected_count,
     accuraterip_state,
     accuraterip_verdict,
     apply_downgrades,
@@ -1086,7 +1091,9 @@ class RipProgress(QWidget):
         verdict_text = ctdb_verdict_line(result)
         self._ctdb_label.setText(verdict_text)
         self._ctdb_label.setStyleSheet(
-            status_style(ctdb_verdict_level(result), self._ctdb_label)
+            status_style(
+                ctdb_verdict_level(result, self._last_rip_log), self._ctdb_label
+            )
         )
         self._ctdb_label.setVisible(True)
         self._announce_ctdb(verdict_text)
@@ -1285,6 +1292,10 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     if verdict is Verdict.MATCH:
         if result.trustworthy:
             return f"CTDB: verified ✓ (confidence {result.confidence})"
+        if result.crc_validated and result.outvoted:
+            return "CTDB: " + minority_match_sentence(
+                result.confidence, result.total_confidence
+            )
         return (
             f"CTDB: CRC matched (confidence {result.confidence}) — "
             "EXPERIMENTAL, pending hardware validation of the CRC algorithm "
@@ -1329,7 +1340,7 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     return "CTDB: verification unavailable (lookup or decode error)"
 
 
-def ctdb_verdict_level(result: CtdbVerifyResult) -> str:
+def ctdb_verdict_level(result: CtdbVerifyResult, rip_log: object = None) -> str:
     """Banner level ("ok" | "warn" | "neutral") for a CTDB verdict.
 
     Pairs with :func:`ctdb_verdict_line` to colour the label. A *trustworthy*
@@ -1338,10 +1349,19 @@ def ctdb_verdict_level(result: CtdbVerifyResult) -> str:
     else (no match, not in DB, decoder missing, error) is neutral grey: those
     are "couldn't confirm", not "failed". A partial rip's ``NOT_WHOLE_DISC``
     is grey too: the check did not run, which is neither a pass nor a failure.
+
+    **Green also needs AccurateRip to reject no track** (2026-10-19, P1): a
+    whole-disc match beside a track AccurateRip compared and did not verify is
+    two checks disagreeing, and green would side with the weaker one. Without a
+    rip log the AccurateRip half is unknown and does not block green.
     """
     verdict = result.verdict
     if verdict is Verdict.MATCH:
-        return "ok" if result.trustworthy else "warn"
+        if not result.trustworthy:
+            return "warn"
+        if rip_log is not None and accuraterip_rejected_count(rip_log) > 0:
+            return "warn"
+        return "ok"
     return "neutral"
 
 

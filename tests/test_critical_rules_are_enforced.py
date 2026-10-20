@@ -1069,6 +1069,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # expects. The rule deciding WHEN that warning is expected is a separate
     # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
     "uiscript/artifact_grading.py": 331,
+    # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
+    # claude-code-skills audit check. **Kept as one module deliberately**: the
+    # weight behind a match (`best_confidence`, `outvoted`) and its one wording
+    # (`minority_match_sentence`) are part of the verdict this module computes,
+    # and splitting them out would put the definition of a trustworthy match in
+    # two files.
+    "ctdb/verify.py": 336,
     # 352 lines on arrival (2026-10-14, TASKS R9). **One job, kept as one module**:
     # what became of each ripper invocation's `--diagnostics` record. Its two
     # halves are one fact seen from two places: the worker keeping the securing
@@ -1517,7 +1524,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # FORK_EXPECTED_VERSION to `.23`, each roll recorded beside its constant.
     # **2751 -> 2773** (2026-10-16, round 35 opens): `.24` becomes the build under review (`PIN_UNDER_REVIEW` `93afa15`, its release sequence 35, its consumer-flag row, its version), each with the source it was read from, as every round open adds.
     # **2773 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): `BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC` and its reader, beside the other per-build capability sets.
-    "deps/fork_source.py": 2796,
+    # **2796 -> 2820** (2026-10-19, round 35 moves to `.25` on the operator's override of R4, the fork's lap 15): `PIN_UNDER_REVIEW` `5f1d036`, its release sequence 36, its consumer-flag and `--prefer-disc-isrc` rows, its version, each with the source it was read from.
+    # **2820 -> 2826** (2026-10-19): `.24` (`93afa15`) named in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` by commit, with its reason, now that `.25` is under review and `.24` is no longer covered by being the pin under review.
+    "deps/fork_source.py": 2826,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2026,7 +2035,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2783 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): the schema note and the three per-track keys.
     # **2796 -> 2804** (2026-10-19, TASKS D2, `disallow_any_generics` retired): schema v36's history note (`retried_tracks[].trigger` restored) and the `SecureReripBlock` import for the three `secure_rerip` parameters.
     # **2804 -> 2850** (2026-10-19, TASKS R26, round 35): schema v37 — the history note, the two per-track keys, the track blocks built once so `issues` and `tracks` read the same list, and the `beyond_disc_frames_refused` info issue.
-    "rip_report.py": 2850,
+    # **2850 -> 2866** (2026-10-19, P1 of the claude-code-skills audit check): schema v38 — the history note and three `ctdb` keys giving the weight behind a match (`best_confidence`, `total_confidence`, `outvoted`).
+    "rip_report.py": 2866,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2064,7 +2074,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Then 1256 -> 1332: the decisions `.23`'s contract asks for, four strings it
     # dropped retained for `.22` (still `FORK_PIN`), four new P5a rows declined, and
     # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
-    "ripper_message_inventory.py": 1332,
+    # **1332 -> 1362** (2026-10-19): regenerated from `.25`'s contract (`round-35-lap-15-provider-contract-g3e978f9.md`), 142 P5 and 11 P5a; the nine argument errors their lap 15 S10 restored. Generated, not hand-grown.
+    # **1362 -> 1421** (2026-10-19): six `.24` wordings `.25` reworded kept in `RETAINED_BEYOND_P5` with their reasons, since an install may still run `.24`, and the hand-kept "Offset is unset!" row removed now that `.25`'s P5 carries it.
+    "ripper_message_inventory.py": 1421,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -2403,7 +2415,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4958 -> 4967** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **4967 -> 4974** (2026-10-16, TASKS R20): `_last_disc` carries `isrc_provenance`, built by `isrc_provenance.report_block` from the worker's reading while the worker still exists, like the record's ending.
     # **4974 -> 4987** (2026-10-16, TASKS R20 part 2, round 35): what we passed and the argv, handed to the ISRC block.
-    "ui/main_window_rip.py": 4987,
+    # **4987 -> 4996** (2026-10-19, P4): the auto-fix merge recounts the AccurateRip summary from the tracks it ships.
+    "ui/main_window_rip.py": 4996,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2449,7 +2462,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
     # **1681 -> 1676** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): lowered: the downgrade assembly moved to `verdict.apply_downgrades`.
-    "ui/rip_progress.py": 1676,
+    # **1676 -> 1696** (2026-10-19, P1): the CTDB line says "matched N of M submissions; K disagree" for an outvoted match, and the colour takes the rip log so a match beside a track AccurateRip rejected is amber.
+    "ui/rip_progress.py": 1696,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2691,7 +2705,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **593 -> 613** (2026-10-05): `track_has_unverified_skips`, the shared rule for a track whose reads paranoia could not all verify and AccurateRip did not confirm (2026-10-04 rig run, track 18).
     # **613 -> 653** (2026-10-06, round 30's closing run): `_unconverged_clause`, so the headline names a track AccurateRip did not verify whose re-reads also did not converge; the verdict owns its wording.
     # **653 -> 674** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `apply_downgrades`, the ONE assembly of a downgraded trust headline, which the window's banner and the report's verdict both call (it was inline in `rip_progress`, which shrank by the same amount).
-    "verdict.py": 674,
+    # **674 -> 706** (2026-10-19, P1): `accuraterip_rejected_count`, the one count of tracks AccurateRip compared and did not verify, beside `accuraterip_counts`, which it complements.
+    # **706 -> 735** (2026-10-19, P4): `recount_accuraterip_summary`, the ripper's first-pass "N/M tracks ripped accurately" recounted from the tracks shipped, beside the other AccurateRip counts.
+    "verdict.py": 735,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.

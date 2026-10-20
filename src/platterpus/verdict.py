@@ -103,6 +103,67 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     return total, verified, partial
 
 
+_SUMMARY: Final[re.Pattern[str]] = re.compile(
+    r"^(?P<hit>\d{1,3})/(?P<total>\d{1,3}) tracks ripped accurately(?P<rest>.{0,80})$"
+)
+
+
+def recount_accuraterip_summary(
+    summary: str | None, tracks: Sequence[object]
+) -> str | None:
+    """The ripper's ``N/M tracks ripped accurately`` line, ``N`` recounted.
+
+    cyanrip prints the line once, from the first pass. After a securing pass
+    swaps a re-read in, the report and the window's fallback still quoted it, so
+    a round-27 report said ``12/14`` beside a verdict of 13 of 14 (2026-10-19,
+    P4). ``N`` becomes the tracks AccurateRip verified in ``tracks``, capped at
+    the ripper's ``M``; any other shape is returned unchanged. Never raises.
+    """
+    if not summary:
+        return summary
+    match = _SUMMARY.match(summary)
+    if match is None:
+        return summary
+    try:
+        total = int(match.group("total"))
+        hit = sum(1 for t in tracks if track_accuraterip_verified(t))
+    except (TypeError, ValueError):
+        return summary
+    return f"{min(hit, total)}/{total} tracks ripped accurately{match.group('rest')}"
+
+
+def accuraterip_rejected_count(rip_log: object) -> int:
+    """Tracks AccurateRip compared and did not verify, one-frame matches included.
+
+    A track the database has no entry for is not counted: AccurateRip made no
+    finding about it. Used to keep a CTDB match from showing green beside a
+    track AccurateRip rejected (2026-10-19, P1). Pure; never raises.
+    """
+    try:
+        return sum(
+            1
+            for t in _audio_tracks(rip_log)
+            if not track_accuraterip_verified(t)
+            and (
+                track_accuraterip_partial(t)
+                or accuraterip_state(
+                    getattr(t, "accuraterip_v1", None),
+                    getattr(t, "accuraterip_offset", None),
+                    getattr(t, "accuraterip_lookup", None),
+                )
+                == AR_STATE_NO_MATCH
+                or accuraterip_state(
+                    getattr(t, "accuraterip_v2", None),
+                    getattr(t, "accuraterip_offset", None),
+                    getattr(t, "accuraterip_lookup", None),
+                )
+                == AR_STATE_NO_MATCH
+            )
+        )
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
 # --- The one AccurateRip state classification --------------------------------
 #
 # Lifted here from `ui/rip_progress` (2026-07-30). Two surfaces render this fact

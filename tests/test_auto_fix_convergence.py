@@ -436,3 +436,42 @@ def test_the_rendered_log_states_the_rereads_count_not_the_first_passs() -> None
     text = render_eac_style_log(RipMixin._apply_auto_fix_results(window, log))
     assert "(re-reads did NOT agree — this read is not confirmed" in text, text
     assert "2 of 3" not in text, text
+
+
+def test_the_accuraterip_summary_counts_the_shipped_tracks() -> None:
+    """P4 (2026-10-19): the ripper prints "N/M tracks ripped accurately" once,
+    from the first pass. A re-read that fixes a track must move N, or the report
+    says 12/14 beside a verdict of 13 of 14, as round 27's and round 30's did."""
+    verified = AccurateRipResult(
+        version=2, result="accurately ripped, confidence 200", confidence=200
+    )
+    first_pass = RipLog(
+        log_creator="cyanrip 0.9.4-rc3",
+        accuraterip_summary="0/2 tracks ripped accurately (AccurateRip)",
+        tracks=(
+            TrackResult(number=3, filename="03.flac", copy_crc="3D8FCF0C"),
+            TrackResult(number=5, filename="05.flac", copy_crc="E0036697"),
+        ),
+    )
+    window = _window(
+        [{"track": 3, "reripped_z": 2, "converged": True, "replaced": True}],
+        {
+            3: TrackResult(
+                number=3,
+                filename="tmp/03.flac",
+                copy_crc="59D352DD",
+                accuraterip_v2=verified,
+            )
+        },
+    )
+    out = RipMixin._apply_auto_fix_results(window, first_pass)
+    assert out.accuraterip_summary == "1/2 tracks ripped accurately (AccurateRip)"
+
+
+def test_a_summary_in_another_shape_is_left_alone() -> None:
+    from platterpus.verdict import recount_accuraterip_summary
+
+    assert recount_accuraterip_summary("Disc not present in database", ()) == (
+        "Disc not present in database"
+    )
+    assert recount_accuraterip_summary(None, ()) is None

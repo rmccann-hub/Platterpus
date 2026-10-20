@@ -12,8 +12,41 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.110] — 2026-10-19
+
+The release for the next acceptance run. It stops two of the app's own surfaces over-claiming:
+a CTDB match against a minority entry no longer shows a green "verified", and the AccurateRip
+summary counts the tracks that shipped. And it reviews the fork's `.25` (`5f1d036`), to which
+round 35 moved on the operator's word, so the acceptance run can test it. It still installs
+`.23` (`891c79e`) by default.
+
+### Fixed
+
+- **CTDB no longer shows a green "verified" for a match against a minority entry.** On the
+  reference disc, 8 of 26 rips matched a CTDB entry with one submission, very likely the
+  owner's own earlier rip with the same misread, while about 1,405 submissions disagreed, and
+  the app said "CTDB: verified ✓". A match is now green only when its entry is the strongest for
+  the disc and AccurateRip rejects no track; otherwise the line says "matched 1 of N CTDB
+  submissions; K disagree" in amber. The report records the weight (`ctdb.best_confidence`,
+  `ctdb.total_confidence`, `ctdb.outvoted`; schema 38).
+
+- **The AccurateRip summary counts the tracks that shipped, not the first pass.** cyanrip prints
+  "N/M tracks ripped accurately" once; after a re-read fixed a track the report still quoted the
+  first pass, so it could say 12/14 beside a verdict of 13 of 14. The count is now taken from the
+  tracks the rip kept.
+
 ### Changed
 
+- **The build under review is the fork's `.25` (`5f1d036`).** Round 35 moved to it from `.24`
+  on the operator's word of 2026-10-19 (the fork's lap 15); `.25`'s provider contract is filed,
+  the message inventory is regenerated from it (142 refusal messages, nine restored), and the
+  acceptance run's first check, the setup wizard and the build picker now name `.25`.
+- **A weekly dependency check.** `.github/workflows/dependencies.yml` runs every Monday, names
+  each dependency behind its newest release, and keeps one issue open until all are current (the
+  owner's word of 2026-10-19). `actions/upload-artifact` moves to 7.0.2. The rest of the list
+  (ruff, mypy, PySide6, Python 3.15, runner images) is TASKS R36, one gate at a time.
+- **CLAUDE.md's release hold records the owner's word of 2026-10-19**, which released 0.7.109 and
+  that release only; the hold otherwise stands.
 - **Round 35: our lap 14 tells the fork 0.7.109 is published**, which its `.25` waited on, and
   says the operator's run goes through 0.7.108 as the round's lap 1 wrote it, or through 0.7.109
   on the operator's override; the status block names 0.7.109 as released.
@@ -19054,7 +19087,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...HEAD
+[0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
 [0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
 [0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
 [0.7.107]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.106...v0.7.107
@@ -19134,4 +19168,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.110.*

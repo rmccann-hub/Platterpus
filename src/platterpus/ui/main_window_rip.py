@@ -97,7 +97,7 @@ from platterpus.ui.unknown_album import (
     apply_track_tags,
     launch_picard_for,
 )
-from platterpus.verdict import expected_track_total
+from platterpus.verdict import expected_track_total, recount_accuraterip_summary
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
 from platterpus.workers.derived_verify_worker import (
@@ -3910,7 +3910,16 @@ class RipMixin(MainWindowShared):
                 )
                 for track in rip_log.tracks
             )
-            return replace(rip_log, tracks=tracks)
+            # The ripper's "N/M tracks ripped accurately" line is the first
+            # pass's; recount N from the tracks now shipped (P4, 2026-10-19).
+            return replace(
+                rip_log,
+                tracks=tracks,
+                accuraterip_summary=recount_accuraterip_summary(
+                    rip_log.accuraterip_summary, tracks
+                )
+                or "",
+            )
         except Exception:  # noqa: BLE001 — enrichment must never break finish
             log.warning("could not apply auto-fix results", exc_info=True)
             return rip_log
