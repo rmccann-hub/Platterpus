@@ -267,7 +267,16 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: 2026-10-16 Full run on 0.7.106, 426 pass and none failed, filed on our `evidence`
 #: branch at `fe13de0c`. Their manifest at `68f56fa` carries `.23` on beta with
 #: `round_closed: true`; stable moves to it on the operator's word of 2026-10-16.
-FORK_PIN: Final[str] = "891c79e"
+#: **Rolled to `5f1d036` (`+platterpus.25`, upstream rc3) on round 35's close
+#: (2026-10-20)**: their lap 17 `GO` against our lap 18 `GO`
+#: (`docs/handshake/inbound/round-35-lap-17.md`, sha256 `f5aa05dd…`, released at
+#: `cyanrip@8885ed23`); both gates read the round CLOSED. `5f1d036` is round 35's
+#: pin from their lap 15, moved from `.24` on their operator's override of R4 and
+#: not moved again. Its evidence is the 2026-10-20 Full run on 0.7.110, 434 pass and
+#: one failure of our script's (it expected exit 1 where `.25` exits 64, as agreed),
+#: filed on our `evidence` branch at `37482669`. Their manifest at `eca33dc7` still
+#: carries `.25` on beta with `round_closed: false`, until their gate reads our lap.
+FORK_PIN: Final[str] = "5f1d036"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -592,7 +601,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: **Rolled to `0.9.4-rc3+platterpus.23` on 2026-10-16, with `FORK_PIN`**, read off
 #: round 34 lap 3's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc3+platterpus.23
 #: (platterpus-fork-g891c79e)`, and cross-checked against `meson.build` at `891c79e`.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.23"
+#: **Rolled to `0.9.4-rc3+platterpus.25` on 2026-10-20, with `FORK_PIN`**, read off
+#: round 35 lap 17's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc3+platterpus.25
+#: (platterpus-fork-g5f1d036)`, and cross-checked against `meson.build` at `5f1d036`.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.25"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -1513,6 +1525,10 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # moved the pin under review to `.23`, and `FORK_PIN` follows only when
         # round 34 closes. Its `PROVIDER-CONTRACT.md` at `200530e` carries `-Y`.
         f"{FORK_BRANCH}-g200530e",
+        # `.23`, `FORK_PIN` from round 34's close until round 35's, and the fork's
+        # stable channel until their gate reads round 35 closed. Listed by name for
+        # the same reason as `.22`. Its `PROVIDER-CONTRACT.md` carries `-Y` in P1.
+        f"{FORK_BRANCH}-g891c79e",
     }
 )
 
@@ -1951,17 +1967,19 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 34 approved, GO on both sides: the round's declared pin, "
-        "held fixed by rule R4 for the whole round, and published by the fork "
-        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 33, read from their "
+        "the build round 35 approved, GO on both sides: the round's pin, moved once "
+        "from +platterpus.24 on the fork operator's override of rule R4 and then held "
+        f"fixed (cyanrip {FORK_EXPECTED_VERSION}, release_seq 36, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). It is upstream cyanrip "
-        "0.9.4-rc3 with the fork's changes: it reads each track's ISRC from the "
-        "disc into its diagnostics record, prints the AccurateRip and AcoustID "
-        "lines, and counts track 1's pregap from the start of the disc. Round 34's "
-        "evidence on it is the Full run on a drive, installed through Platterpus "
-        "0.7.106: 426 steps passed, none failed, and the one step left is one this "
-        "drive cannot reach. See docs/handshake/inbound/round-34-lap-03.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.23 it "
+        "checks a disc's ISRC (ISO 3901) before preferring it, bounds the overread "
+        "past the disc's end, records error positions and every read's counters in "
+        "its diagnostics record, and exits with a class: 64 for a refused argument, "
+        "74 for a disc or drive failure, 128 + N for a run stopped by signal N. "
+        "Round 35's evidence on it is the Full run on a drive, installed through "
+        "Platterpus 0.7.110: 434 steps passed, and the one failure was the test "
+        "script's own, expecting the old exit code. See "
+        "docs/handshake/inbound/round-35-lap-17.md"
     ),
 )
 

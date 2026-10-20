@@ -1516,9 +1516,15 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # `libqrencode` are optional dependencies (`src/meson.build:141,151`), not
     # options, so there is still nothing to pass.
     #
+    # **FOURTEENTH TIME, ON THE ROLL TO `5f1d036` (round 35 close, 2026-10-20), AND
+    # THE ANSWER AGAIN DID NOT CHANGE.** Re-derived in the fork's tree: `git diff
+    # 891c79e 5f1d036 -- meson_options.txt` empty, sha256 `0a32b1f7ac8efbde…`, 973
+    # bytes. `.25`'s exit classes, error positions and bounded overread are code,
+    # not options, so there is still nothing to pass.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "891c79e", (
+    assert fork_source.PRODUCTION_TARGET.pin == "5f1d036", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

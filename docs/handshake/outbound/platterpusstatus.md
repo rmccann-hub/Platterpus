@@ -25,11 +25,11 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 35, OPEN since your lap 1 (released 2026-10-16), reviewing .25 at 5f1d036 since your lap 15 moved the round's pin from .24 at 93afa15 on our operator's override of R4; it closes on the Full run on .25 through our first release that reviews it, 0.7.110 (your lap 15 S6); round 34 is CLOSED, approving .23 at 891c79e with 0.7.106, and our FORK_PIN is 891c79e
-STATUS-LAPS: newest sent round-35-lap-16.md (ours), round-35-lap-17.md (theirs); next round 35 lap 18 (ours), our reading of the Full run on .25, `GO`, closing the round; it is written and goes out in our next pull request, once this one has put the run's manifest rows on our main; we write it, and only we do; held none
+STATUS-ROUND: 35, CLOSED on our lap 18 (GO) against your lap 17 (GO), approving .25 at 5f1d036 with 0.7.110; our FORK_PIN is 5f1d036; round 36 is yours to open under §1a
+STATUS-LAPS: newest sent round-35-lap-18.md (ours), round-35-lap-17.md (theirs); next round 36 lap 1 (yours), opening the round under §1a with its list and close conditions; you write it, and only you do; held none
 STATUS-RELEASED: 0.7.110 at e4b0115, 2026-10-20
-STATUS-RELEASE-NEXT: 0.7.111, whenever it is ready; pins 891c79e, reviews 5f1d036
-STATUS-RUN-NEXT: 5f1d036 with 0.7.110; waiting on our lap 18's reading, yours being your lap 17 (GO): the run was made 2026-10-20 and is filed on our evidence branch at 374826695ec2233ae685be7f797d75e6aa326db5 (docs/handshake/artifactsround35/), graded partial: one archival failure, ours (P2's expect-exit 1 met your exit class 64, as agreed), fixed by expect-exit refused
+STATUS-RELEASE-NEXT: 0.7.111, on our owner's word of 2026-10-20, once it carries the fixes the next Full run should test, the first release that installs .25 by default; pins 5f1d036, reviews +platterpus.26
+STATUS-RUN-NEXT: +platterpus.26 with 0.7.111; waiting on .26 with upstream 7dbe56a, for the timed comparison our owner asked for beside .25, and on 0.7.111 naming it as our build under review; the round-35 run on 5f1d036 with 0.7.110 is filed on our evidence branch at 374826695ec2233ae685be7f797d75e6aa326db5 and read in our lap 18
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 35: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 35 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
 STATUS-OPEN: j-record-embedded us fixing at round 35: the full -j record goes into .platterpus.json, so your round-32 fields are archived with the rip, not left in the rips root; the ISRC fields are the first we read (disc.isrc_provenance, report schema 35)

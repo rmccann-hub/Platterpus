@@ -1534,7 +1534,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2773 -> 2796** (2026-10-16, TASKS R20 part 2, round 35): `BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC` and its reader, beside the other per-build capability sets.
     # **2796 -> 2820** (2026-10-19, round 35 moves to `.25` on the operator's override of R4, the fork's lap 15): `PIN_UNDER_REVIEW` `5f1d036`, its release sequence 36, its consumer-flag and `--prefer-disc-isrc` rows, its version, each with the source it was read from.
     # **2820 -> 2826** (2026-10-19): `.24` (`93afa15`) named in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` by commit, with its reason, now that `.25` is under review and `.24` is no longer covered by being the pin under review.
-    "deps/fork_source.py": 2826,
+    # **2826 -> 2840** (2026-10-20): the roll to `5f1d036` on round 35's close, recorded beside `FORK_PIN`, `FORK_EXPECTED_VERSION` and the production target's reason, as each roll is.
+    # **2840 -> 2844** (2026-10-20): `.23` listed by name in the `--verify-log` set, which the roll off `891c79e` would otherwise drop while it is still the fork's stable channel.
+    "deps/fork_source.py": 2844,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1768,7 +1770,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves.
     # 795 -> 804 (2026-10-16): round 34's close moves the approval record to round
     # 34 for `.23` with 0.7.106, recorded beside both constants.
-    "handshake_approval.py": 804,  # 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **804 -> 813** (2026-10-20): round 35's approval record (0.7.110, round 35), recorded beside its constants, as each round's is.
+    "handshake_approval.py": 813,  # 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
