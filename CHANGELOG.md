@@ -50,6 +50,20 @@ the owner's word of 2026-10-20.
   carry it: `install-ripper` (only a build our record knows, through the same function
   as `--install-ripper`, now `deps/ripper_install.py`, on a helper thread), and
   `skip-if-same-build`, `record-timing` and `compare-timings`.
+- **The report and the results pane now say whether the read offset is right, not
+  only which one was applied** (the owner's known-fixes list of 2026-10-21, item 11;
+  TASKS P2 #6). The drive the rip's own log names is looked up in the same AccurateRip
+  drive-offset list the app picks offsets from, by the same rule
+  (`OffsetDatabase.lookup_entry`, which `lookup` now delegates to). Four answers: the
+  offset matches, naming the list's row (`+667, matches the AccurateRip drive database
+  for PIONEER BD-RW BDR-209D`); it differs, naming both values, with a new
+  `read_offset_differs_from_accuraterip` warning issue; the drive is not in the list,
+  with a `read_offset_drive_not_listed` info issue; or it could not be checked (no drive
+  named, no list, no offset stated), which is never written as a pass. Beside it sits
+  KDD-31's evidence: whether this rip's AccurateRip matches re-confirm the offset. The
+  report records both as `rip.read_offset_check`, an addition to the unreleased schema 39
+  (`read_offset_check.py`). The EAC-layout log is unchanged, because the fork diffs it; a
+  wording for it is proposed in TASKS P2 #6 for the next round-36 lap.
 - **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
   re-derives every accuracy number from the raw logs: the three committed EAC sessions
   and the 262 rip logs on the `evidence` branch. It grades each area better, equal or

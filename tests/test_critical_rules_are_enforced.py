@@ -1137,7 +1137,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "uiscript/report.py": 543,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
-    "adapters/accuraterip_offsets.py": 322,
+    # **322 -> 339** (2026-10-21, TASKS P2 #6, the owner's known-fixes item 11): `lookup_entry` names the row a drive matched, and `lookup` delegates to it, so the offset the app applies and the offset the report checks come from one rule.
+    "adapters/accuraterip_offsets.py": 339,
     "adapters/accuraterip_offsets_data.py": 388,
     # **372 -> 378** (2026-09-29): a cache probe our cancel ended returns no measurement
     # and records no tool failure (`killable.was_cancelled`).
@@ -1991,7 +1992,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **825 -> 837** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): `Mp3ReplayGainBlock` and `TranscodeBlock.replaygain`, the report shape beside the other blocks.
     # **825 -> 871** (2026-10-21, TASKS R44): `ErrorPositionEntry`, `TrackErrorPositionsBlock`, `ErrorPositionsBlock` and `DiscBlock.error_positions`, schema 39 (unreleased, additions only).
     # **-> 883** (2026-10-21): both of the above landed together, the MP3 ReplayGain block and R44's error positions.
-    "report_types.py": 883,
+    # **815 -> 819** (2026-10-21, TASKS P2 #6): `RipBlock.read_offset_check`, typed by `read_offset_check.ReadOffsetCheckBlock`.
+    # **-> 887** (2026-10-21): the entries above landed together on one branch.
+    "report_types.py": 887,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2093,7 +2096,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2991 -> 3004** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): `transcode.replaygain` in `_transcode` with its v39 history entry, beside the block it extends.
     # **2991 -> 3023** (2026-10-21, TASKS R44): schema 39's note for `disc.error_positions`, and the loop raising `error_positions_reported` (warning) and `error_positions_count_disagrees` (info). Reading and wording live in `error_positions.py`; this is the one place that assembles `issues`.
     # **-> 3036** (2026-10-21): both of the above landed together, the MP3 ReplayGain block and R44's error positions.
-    "rip_report.py": 3036,
+    # **2911 -> 2947** (2026-10-21, TASKS P2 #6, the owner's known-fixes item 11): `rip.read_offset_check`, the `offset_lookup` parameter threaded through `build_report`/`_build`/`write_report`, the offset issue and the schema-39 note. The check and its wording live in `read_offset_check.py`.
+    # **-> 3072** (2026-10-21): the entries above landed together on one branch.
+    "rip_report.py": 3072,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2478,7 +2483,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4987 -> 4996** (2026-10-19, P4): the auto-fix merge recounts the AccurateRip summary from the tracks it ships.
     # **4996 -> 5000** (2026-10-20, round 35, the fork's exit classes from release 36): the outcome snapshot passes the worker's album-pass build tag to `build_outcome`.
     # **5000 -> 5006** (2026-10-21, TASKS R44): `_last_disc` carries `error_positions`, built by `error_positions.report_block` from the same worker reading as `isrc_provenance`.
-    "ui/main_window_rip.py": 5006,
+    # **5000 -> 5032** (2026-10-21, TASKS P2 #6, the owner's known-fixes item 11): `_announce_read_offset_check` puts the report's read-offset sentence in the results pane, and both report writes hand the writer the AccurateRip list. The check and its wording live in `read_offset_check.py`.
+    # **-> 5038** (2026-10-21): the entries above landed together on one branch.
+    "ui/main_window_rip.py": 5038,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

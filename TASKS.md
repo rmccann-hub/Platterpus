@@ -122,7 +122,7 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 | 3 | Error lines are not checked against the `Ripping errors: 0` summary. A `ripper.fatal_message` diagnostic is recorded, but nothing amends health from it | *Check ripper error lines against the summary* |
 | 4 | `gates.flac_integrity` reads `ran` from config even when the checker aborts on a missing binary. This is CLAUDE.md's *completeness field derived from config*. The acceptance run also only screenshots the dependencies dialog | *The dependency dialog is unchecked…* |
 | 5 | Post-rip verification cut short (the unattended give-up path, `app.py`) writes nothing to `.platterpus.json`, and `build_gates` has no cover-art or completeness block, so the record reads as complete | *An archival record must say when its post-rip verification was cut short* |
-| 6 | The log and report never assert the read offset is *correct*: only the number applied is written, never compared with the AccurateRip drive database (the UI alone says "two independent sources agree") | *Assert the read offset is CORRECT, not merely applied* |
+| 6 | The log and report never assert the read offset is *correct*: only the number applied is written, never compared with the AccurateRip drive database (the UI alone says "two independent sources agree"). **Report and results-pane half shipped 2026-10-21** (`rip.read_offset_check`, schema 39, `read_offset_check.py`; the owner's known-fixes item 11); the EAC-layout line is proposed for our next round-36 lap | *Assert the read offset is CORRECT, not merely applied* |
 | 7 | The report has no `issues` code for a track with unverified paranoia skips (the EAC-layout half shipped in `1e118482`) | *The EAC-layout log and the report for a track with unverified skips* |
 | 8 | **[x] Fixed 2026-10-21** (re-measured on the MP3, `adapters/mp3_replaygain.py`). Was: a derived MP3 carries the FLAC's `REPLAYGAIN_*` tags, measured before the lossy encode | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
 | 9 | Embed the full `-j` record in `.platterpus.json`. Do this before round 32's new `-j` fields arrive (pre-emphasis, ISRC, CD-TEXT, `-f`) | *Embed the full -j diagnostics record* |
@@ -8741,7 +8741,7 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       number shifts, which breaks the disc ID and therefore both AccurateRip *and* CTDB —
       silently, across a whole class of discs. Cheap question, large downside; this is a
       "check where it could have failed" case.
-- **[ ] Assert the read offset is CORRECT, not merely applied.** Already ranked #3 in
+- **[~] Assert the read offset is CORRECT, not merely applied.** Already ranked #3 in
       `docs/eac-parity.md` Part D §4 and still open; the audit of the previous backend re-surfaced it as
       the second-highest-value gap. We have the drive table
       (`adapters/accuraterip_offsets_data.py`); the log can say `+667 (matches the
@@ -8751,6 +8751,41 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       (its `command/offset.py:168` — confirm across tracks 2..n−1, require agreement), **not**
       its disc-based probe, which its own README calls "quite primitive" and which our
       adapter records failing on the BDR-209D with an in-database disc (KDD-31 stands).
+      **Report and results pane DONE 2026-10-21** (the owner's known-fixes list of
+      2026-10-21, item 11). `read_offset_check.py` looks the drive the rip's own log
+      names (`Drive used:` / `Device model:`, revision and interface words dropped) up
+      in the AccurateRip list by `OffsetDatabase.lookup_entry`, the one rule the app
+      also applies offsets with. `rip.read_offset_check` (schema 39, an addition)
+      records `matches` / `differs` / `drive_not_listed` / `not_determined`, the
+      list's row and value, and KDD-31's evidence beside it (`accuraterip_reconfirms`:
+      `confirmed` / `not_confirmed` / `not_determined`). `differs` raises the
+      `read_offset_differs_from_accuraterip` warning, `drive_not_listed` an info
+      issue; the results pane prints the same sentence with a `✓`/`⚠`/`ⓘ` marker.
+      Held by `tests/test_read_offset_check.py`. The consensus discipline above is
+      not built: KDD-31's re-confirmation counts matching tracks, it does not
+      require agreement across tracks 2..n−1.
+      **Still open: the EAC-layout log**, which the fork diffs, so its wording is not
+      changed here. **PROPOSAL for our next round-36 lap.** EAC's own log prints only
+      the number and says nothing about the database, in its header or anywhere else
+      (all three `output_reference/EAC_*/*.log`, line 14: `Read offset correction                      : 667`; line 7:
+      `Used drive  : PIONEER BD-RW   BDR-209D   Adapter: 1  ID: 0`). So we do not
+      forge an EAC line. We keep EAC's row and value exactly and add our own
+      parenthetical after two spaces, as the `Defeat audio cache` row already does
+      (`eac_log_export.py`, "(measured for this drive with cd-paranoia -A, …)"). The
+      exact lines, one per state:
+
+      ```
+      Read offset correction                      : 667  (matches the AccurateRip drive offset database for PIONEER BD-RW BDR-209D)
+      Read offset correction                      : 48  (the AccurateRip drive offset database gives +667 for PIONEER BD-RW BDR-209D)
+      Read offset correction                      : 667  (this drive is not in the AccurateRip drive offset database)
+      Read offset correction                      : 667
+      ```
+
+      The last is `not_determined`: unchanged from today. To settle before the lap
+      (from the logchecker source `docs/eac-parity.md` Part D already reads): whether a
+      logchecker reading `Read offset correction                      :` takes the whole rest of the line as the
+      value (it would then misread the suffix); if so, the fallback is the same
+      sentence on a line of its own after `Gap handling`, outside EAC's rows.
 - **[ ] Use the per-track paranoia counts to strengthen `track_read_effort_flag`.**
       The data landed 2026-08-24 (`TrackResult.paranoia_counts`); the *use* did not,
       deliberately. `rip_log.py`'s note says the flag cannot catch a disc whose

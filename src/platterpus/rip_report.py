@@ -41,6 +41,8 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.read_offset_check import OffsetLookup, check_read_offset
+from platterpus.read_offset_check import issue_for as read_offset_issue
 from platterpus.record_fate import RecordFate, missing_issue, outcome_block
 from platterpus.report_types import (
     ArtifactsBlock,
@@ -420,6 +422,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      a list that disagrees with its counters `error_positions_count_disagrees`
 #      (info). The EAC-layout log is unchanged: its wording goes through the
 #      handshake (`error_positions`).
+#      Same unreleased version (TASKS P2 #6, the owner's known-fixes item 11):
+#      `rip.read_offset_check` says whether the offset the log applied is the
+#      AccurateRip drive list's for the drive the log names (`matches`,
+#      `differs`, `drive_not_listed`, `not_determined`), names the list's row and
+#      value, and records whether this rip's AccurateRip matches re-confirm the
+#      offset (KDD-31). `differs` raises the `read_offset_differs_from_accuraterip`
+#      warning and `drive_not_listed` the `read_offset_drive_not_listed` info
+#      issue (`read_offset_check.py`). Additions only.
 REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -488,6 +498,10 @@ def build_report(
     #: — an independent witness, unlike our own SHA-256 footer check. Typed
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
+    #: v39 (an addition): the AccurateRip drive-offset list, so the report can
+    #: say whether the applied read offset is the list's (`read_offset_check`).
+    #: A Protocol, because this pure builder must not import an adapter.
+    offset_lookup: OffsetLookup | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -537,6 +551,7 @@ def build_report(
             disc_track_total=disc_track_total,
             artifacts=artifacts,
             ripper_log_verification=ripper_log_verification,
+            offset_lookup=offset_lookup,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -1343,6 +1358,7 @@ def _build(
     #: — an independent witness, unlike our own SHA-256 footer check. Typed
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
+    offset_lookup: OffsetLookup | None = None,  # v39; see `build_report`
 ) -> dict:
     # The JSON's verdict must be the SAME claim the window makes, so it is given
     # the same two extra facts: the disc's own track count (the only denominator a
@@ -1429,7 +1445,7 @@ def _build(
     # and the block it claims to summarise disagree. They are serialised into the
     # returned dict below by name, never rebuilt.
     log_parse_block = _log_parse(rip_log, log_parse)
-    rip_block = _rip_block(rip_log, info)
+    rip_block = _rip_block(rip_log, info, offset_lookup)
     # WAS THE DISC RIPPED THE DISC THE TAGS WERE LOOKED UP FOR (v34)? Written into
     # the `disc` block, which `issues` then reads, so the list and the block it
     # summarises cannot disagree. Only when a disc block was supplied: a report
@@ -1702,7 +1718,9 @@ def _ordered_for_reading(report: dict) -> dict:
     return {k: report[k] for k in (*lead, *middle, *bulk)}
 
 
-def _rip_block(rip_log: object, info: object) -> dict:
+def _rip_block(
+    rip_log: object, info: object, offset_lookup: OffsetLookup | None = None
+) -> dict:
     """The ``rip`` block: what the drive and the ripper binary actually did.
 
     Built by its own function rather than inline in :func:`_build`'s dict literal
@@ -1715,6 +1733,15 @@ def _rip_block(rip_log: object, info: object) -> dict:
         "drive": getattr(info, "drive", "") or None,
         "extraction_engine": getattr(info, "extraction_engine", "") or None,
         "read_offset_correction": getattr(info, "read_offset_correction", None),
+        # v39 (an addition): whether that offset is the AccurateRip list's for
+        # the drive the log names, and whether this rip's AccurateRip matches
+        # re-confirm it (KDD-31): the two pieces of evidence side by side.
+        "read_offset_check": check_read_offset(
+            drive_banner=getattr(info, "drive", ""),
+            applied=getattr(info, "read_offset_correction", None),
+            lookup=offset_lookup,
+            tracks=getattr(rip_log, "tracks", None),
+        ),
         "defeat_audio_cache": getattr(info, "defeat_audio_cache", None),
         "overread_lead_out": getattr(info, "overread_lead_out", None),
         "gap_detection": getattr(info, "gap_detection", "") or None,
@@ -2308,6 +2335,13 @@ def _issues(
             "list is a floor — tracks it omits may have been ripped and "
             "verified",
         )
+
+    # THE READ OFFSET AGAINST THE ACCURATERIP LIST (v39): a `warning` when it
+    # differs, an `info` when the drive is not listed, nothing when it could not
+    # be checked. Worded by `read_offset_check`, which built the block.
+    offset_issue = read_offset_issue((rip or {}).get("read_offset_check"))
+    if offset_issue is not None:
+        add(*offset_issue)
 
     # The RIPPER's own verdict on its own log (v18). Ranked ERROR alongside the
     # truncation check and for the same reason: it does not add to the other
@@ -2919,6 +2953,7 @@ def write_report(
     #: — an independent witness, unlike our own SHA-256 footer check. Typed
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
+    offset_lookup: OffsetLookup | None = None,  # v39; see `build_report`
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -2983,6 +3018,7 @@ def write_report(
             disc_track_total=disc_track_total,
             artifacts=artifacts,
             ripper_log_verification=ripper_log_verification,
+            offset_lookup=offset_lookup,
         )
         # Run the audit over the report we just built and embed the result, so
         # EVERY rip carries its own verdict and nobody has to remember to run

@@ -163,21 +163,38 @@ class OffsetDatabase:
 
         Never raises — an unknown drive is a normal outcome the caller
         handles by falling back to disc-based detection or manual entry.
+        A thin view of :meth:`lookup_entry`, so the offset the app APPLIES and
+        the offset the report CHECKS the rip against come from one rule.
+        """
+        entry = self.lookup_entry(vendor, model)
+        return entry[1] if entry is not None else None
+
+    def lookup_entry(self, vendor: str, model: str) -> tuple[str, int] | None:
+        """``(entry name, offset)`` for this drive, or None if unknown.
+
+        THE one matching rule (:meth:`lookup` delegates here). It also names the
+        entry it matched, because a report that says "+667 matches the database"
+        has to say *which* database row it means, so a reader can see when the
+        drive was matched to a row they would not have picked.
         """
         if not vendor and not model:
             return None
         key = normalize_drive_name(vendor, model)
         if key in self._entries:
-            return self._entries[key]
+            return key, self._entries[key]
         # Fallback: AccurateRip sometimes omits/duplicates the vendor token.
         # Try matching on the model tail (everything after the first token)
         # against keys' tails, but only when it's an unambiguous single hit,
-        # so we never guess between two different drives.
+        # so we never guess between two different drives. "Unambiguous" is about
+        # the OFFSET: several rows that agree on the value are one answer, and
+        # the name reported is the first of them in sorted order, with a count.
         model_key = normalize_drive_name("", model)
         if model_key:
-            matches = {v for k, v in self._entries.items() if k.endswith(model_key)}
-            if len(matches) == 1:
-                return next(iter(matches))
+            hits = {k: v for k, v in self._entries.items() if k.endswith(model_key)}
+            if len(set(hits.values())) == 1:
+                names = sorted(hits)
+                more = f" (and {len(names) - 1} more)" if len(names) > 1 else ""
+                return names[0] + more, hits[names[0]]
         return None
 
 

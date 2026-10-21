@@ -2032,6 +2032,10 @@ class RipMixin(MainWindowShared):
                     # stronger analogue of EAC's Key-Disc offset check). Record
                     # that so the offset's provenance is promoted to CONFIRMED.
                     self._confirm_offset_from_accuraterip(rip_log)
+                    # And SAY whether the applied offset is the AccurateRip list's,
+                    # by the report's own check (`read_offset_check`), so the
+                    # results pane and `.platterpus.json` cannot disagree.
+                    self._announce_read_offset_check(rip_log)
                 # WAS THIS THE DISC THE TAGS WERE LOOKED UP FOR? Asked of the one
                 # predicate the report and the audit use (`disc_identity`), and
                 # said on every surface a user reads: the banner, the status line
@@ -3764,6 +3768,30 @@ class RipMixin(MainWindowShared):
         except Exception:  # noqa: BLE001 — provenance is a courtesy, never load-bearing
             log.warning("could not confirm offset from AccurateRip", exc_info=True)
 
+    def _announce_read_offset_check(self, rip_log: object) -> None:
+        """Show and log the applied read offset against the AccurateRip list.
+
+        The same block the report writes (``read_offset_check``), worded by the
+        same module, so the window and the record cannot say different things.
+        Best-effort, never raises: a sentence must not break the finish handler.
+        """
+        try:
+            from platterpus import read_offset_check
+
+            info = getattr(rip_log, "ripping_info", None)
+            block = read_offset_check.check_read_offset(
+                drive_banner=getattr(info, "drive", ""),
+                applied=getattr(info, "read_offset_correction", None),
+                lookup=self._offset_db,
+                tracks=getattr(rip_log, "tracks", None),
+            )
+            line = read_offset_check.results_line(block)
+            differs = block["state"] == read_offset_check.OFFSET_DIFFERS
+            (log.warning if differs else log.info)("read offset check: %s", line)
+            self._rip_progress.append_log_line(line)
+        except Exception:  # noqa: BLE001 — a status sentence is never load-bearing
+            log.warning("could not check the read offset", exc_info=True)
+
     def _inject_measured_cache_defeat(self, rip_log: RipLog) -> RipLog:
         """Fold a MEASURED cache-defeat verdict into a parsed ``RipLog``.
 
@@ -4361,6 +4389,9 @@ class RipMixin(MainWindowShared):
             ),
             # The one verdict in the report that is not ours (round 7 lap 10, J3).
             ripper_log_verification=record.ripper_log_verification,
+            # The AccurateRip drive list, read-only, so the report can check the
+            # applied offset against it (v39, `read_offset_check`).
+            offset_lookup=getattr(self, "_offset_db", None),
             # v7 process/settings/provenance blocks — ALL of them off the record.
             #
             # This comment used to say `settings`/`gates` "come from the persistent
@@ -4539,6 +4570,7 @@ class RipMixin(MainWindowShared):
                 artifacts=self._failure_artifacts(),
                 debug_log=self._build_rip_debug_log(),
                 generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+                offset_lookup=getattr(self, "_offset_db", None),
             )
             if written is not None:
                 # WARNING, not INFO. `log.txt` is INFO-only by default so this did

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
 
@@ -31,6 +32,9 @@ class RipBlock(TypedDict):
     drive: str | None
     extraction_engine: str | None
     read_offset_correction: int | None
+    #: v39: that offset against the AccurateRip drive list, and KDD-31's
+    #: re-confirmation by this rip's matches (`read_offset_check.py`).
+    read_offset_check: ReadOffsetCheckBlock
     defeat_audio_cache: bool | None
     overread_lead_out: bool | None
     gap_detection: str | None
