@@ -12,6 +12,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.112] — 2026-10-21
+
+The release your next Full run goes through. It names the fork's `.26` (`ca0f097`) as the build
+under review and adds a section to the Full run that times `.25` against `.26`, which round 36
+closes on. And it carries the known fixes ranked on 2026-10-21 toward EAC parity: when the kept
+read fails AccurateRip, a track is read again until one read AccurateRip verifies, where EAC
+keeps the majority; CTDB is compared per track and over ±5879 offsets; the report says where a
+track was doubtful, whether the read offset is AccurateRip's for the drive, and which checks
+actually ran; a data track no longer counts as a failed audio track; and the verdict stops
+saying "No errors occurred" over an unclean read or "not in the database" for a disc AccurateRip
+holds. `.25` is still installed by default. Released on the owner's word of 2026-10-20.
+
 ### Added
 
 - **Our round 36 lap 3, held until its pull request is green and merged.** It accepts the fork's lap 4 S11 to S13 (`--prefer-accuraterip-match`, the footer's `not written whole:` lines with `isrc_disc_read` at `/11`, and `Kept read began:`), records `.26` under review, lists the known fixes since lap 2, proposes three EAC-layout wordings (error positions, `There were errors`, the read-offset note), and corrects lap 2: 0.7.112, not 0.7.111, names `.26`.
@@ -19267,7 +19279,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...HEAD
+[0.7.112]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...v0.7.112
 [0.7.111]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...v0.7.111
 [0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
 [0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
@@ -19349,4 +19362,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.111.*
+*Last updated for Platterpus v0.7.112.*
