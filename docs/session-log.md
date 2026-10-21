@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-21 (small hours) — the known fixes; 0.7.111 and 0.7.112; `.26` under review; lap 3
+
+- **The owner's direction:** *"we need to reach EAC parity or better (better please). and fix know problems and open issues."* The claude-code-skills session ranked the known fixes; eight agents built them in parallel, each integrated by cherry-pick onto `main` (PR #375, `43fb0a16`): R7 (keep a read AccurateRip verifies over a rejected majority, `022c1cb6`), R43 (CTDB per track and over ±5879 offsets, `a5e11284`, `819435d8`), R44 (error positions, `bfedfee7`), R13 (a data track is not a failed one, `08860fae`), items 3 and 12 (verdict honesty, `3581d9e3`), item 5 (gates from results, `d27b2401`), item 11 (the read offset checked against the drive list, `2f902dc5`), and the timed `.25`-vs-`.26` section (`62f321eb`). Item 20, the MP3 ReplayGain, by hand (`1e2bf78f`).
+- **Released:** 0.7.111 at 04:50 UTC from `cb82d620` (the second read in users' hands, `.25` by default), on the skills note to ship it before `.26`; lap 2 released on the standing word. The fork released `.26` at `ca0f097` with its lap 4; `.26` is under review (`8db6e666`). Our lap 3 written, held for its PR. 0.7.112 names `.26`.
+- **Not built:** CTDB sample localisation needs `numpy` or a native extension, asked of the owner.
+- **Learned.** A cherry-pick of a branch cut before a release puts its changelog bullet inside the released section with no conflict; compare the released section with its tag after integrating (graduated to `docs/architecture.md` §6.3). And merges of parallel branches double the size ledger's keys silently; merge each key to one entry at its real count.
+
 ## 2026-10-21 (night) — round 36 opens; the reader for `.26`, held lap 2
 
 - **The fork opened round 36** with lap 1 (`cyanrip@088557c`): `.26` carries upstream's `7dbe56a` and three new log lines, and is released once our reader takes them. Our reader takes them (`7a3817a3`, verified word for word against their source), and our lap 2 accepts the wordings and their timed-rip design and names 0.7.111 as the release that reads them. It is held: round 36 has no standing word yet.
@@ -10968,4 +10975,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.111.*
+*Last updated for Platterpus v0.7.112.*

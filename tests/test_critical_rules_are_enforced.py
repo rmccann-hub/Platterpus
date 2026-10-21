@@ -3036,7 +3036,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # with its dated reason beside the constant, as 6, 7 and 8 were.
     # **4548 -> 4552** (2026-10-15): `DECLARED_PROTOCOL` moves to 9, the same way.
     # **4552 -> 4559** (2026-10-21): the opener floor accepts an LSL `TERM set` as the close condition (the fork's round 36 lap 1), with its pattern as a module literal the regex sweep can time, and `CURRENT_ROUND` 36.
-    "scripts/handshake.py": 4559,
+    # **4559 -> 4564** (2026-10-21): `_QUOTATION_OR_CODE` bounded at 4000 characters a span, with five lines saying why (the regex timing sweep measured the unbounded form growing faster than its input).
+    "scripts/handshake.py": 4564,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.

@@ -12,7 +12,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.112] — 2026-10-21
+
+The release your next Full run goes through. It names the fork's `.26` (`ca0f097`) as the build
+under review and adds a section to the Full run that times `.25` against `.26`, which round 36
+closes on. And it carries the known fixes ranked on 2026-10-21 toward EAC parity: when the kept
+read fails AccurateRip, a track is read again until one read AccurateRip verifies, where EAC
+keeps the majority; CTDB is compared per track and over ±5879 offsets; the report says where a
+track was doubtful, whether the read offset is AccurateRip's for the drive, and which checks
+actually ran; a data track no longer counts as a failed audio track; and the verdict stops
+saying "No errors occurred" over an unclean read or "not in the database" for a disc AccurateRip
+holds. `.25` is still installed by default. Released on the owner's word of 2026-10-20.
+
 ### Added
+
+- **Our round 36 lap 3, held until its pull request is green and merged.** It accepts the fork's lap 4 S11 to S13 (`--prefer-accuraterip-match`, the footer's `not written whole:` lines with `isrc_disc_read` at `/11`, and `Kept read began:`), records `.26` under review, lists the known fixes since lap 2, proposes three EAC-layout wordings (error positions, `There were errors`, the read-offset note), and corrects lap 2: 0.7.112, not 0.7.111, names `.26`.
 
 - **CTDB now reports each track, not only the whole disc** (TASKS R43). CTDB keeps a CRC
   for every track of every entry, and Platterpus now compares each of ours with them, the
@@ -99,6 +113,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the build installed by default until round 36 closes.
 
 ### Fixed
+
+- **The handshake checker's quotation pattern is bounded** (contributor-facing). `scripts/handshake.py`'s `_QUOTATION_OR_CODE` let a `“` that never closes scan to the end of its paragraph on every search attempt, which the regex timing sweep measured growing faster than the input (PR #376, `test (py3.13)`). Each span is now at most 4000 characters, far above any quotation a lap carries.
+
+- **The round-digest check records round 36's two out-of-order laps** (contributor-facing). Round 36's lap 4 was written before lap 3, on both operators' word, so `tests/test_round_digest.py`, which takes "the laps before" a lap by its number, read the fork's lap 4 and our lap 3 each against the wrong set. Both are listed with that reason beside the three earlier known mismatches; each declaration reproduces over the laps on disk when it was written.
 
 - **The rip report no longer says a check ran when it didn't** (the owner's known-fixes list of 2026-10-21, item 5; TASKS P2 #4 and #5). With `flac` missing, the FLAC check aborted with "not found", and `verification.gates.flac_integrity` still read `"ran"`, because the gate came from the settings. Each gate now comes from the check's result: `"ran — passed"`, `"ran — failed"`, or `"not run — <the checker's reason>"`. The same goes for the derived-format check, and for a CTDB check that had no decoder or whose lookup failed. And when an unattended run gives up waiting for post-rip checks and quits, the report it leaves behind now says so. Before, it read `"No errors occurred"` and `completeness.complete: true` with `cover_art: null`. Before the app quits, the report is rewritten with `completeness.verification` (which checks did not run, which left no result, and which steps were cut short), a `"cut short"` gate for each check still running, and a `verification_cut_short` warning. Report schema 39: one field narrows (`gates.*`), and the rest are additions.
 
@@ -19265,7 +19283,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...HEAD
+[0.7.112]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...v0.7.112
 [0.7.111]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...v0.7.111
 [0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
 [0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
@@ -19347,4 +19366,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.111.*
+*Last updated for Platterpus v0.7.112.*

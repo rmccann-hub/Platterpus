@@ -117,4 +117,4 @@ command on any in-CTDB disc and expect a `✅ MATCH` at `offset=+0`.
 
 ---
 
-*Last updated for Platterpus v0.7.111.*
+*Last updated for Platterpus v0.7.112.*

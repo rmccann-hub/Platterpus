@@ -15,7 +15,7 @@
           "type": "application",
           "group": "platterpus",
           "name": "scripts/emit_bom.py",
-          "version": "0.7.111"
+          "version": "0.7.112"
         }
       ]
     },
@@ -23,14 +23,14 @@
       "type": "application",
       "bom-ref": "platterpus",
       "name": "platterpus",
-      "version": "0.7.111",
+      "version": "0.7.112",
       "description": "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
       "licenses": [
         {
           "expression": "GPL-3.0-only"
         }
       ],
-      "purl": "pkg:pypi/platterpus@0.7.111",
+      "purl": "pkg:pypi/platterpus@0.7.112",
       "externalReferences": [
         {
           "type": "vcs",
