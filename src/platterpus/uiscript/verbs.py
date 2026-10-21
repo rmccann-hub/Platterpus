@@ -466,7 +466,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         # assert the work was *requested*.
         #
         # Floor, so it cannot pass by finding nothing: at least one gate must
-        # read `"ran"`. A rip with every check disabled would otherwise satisfy
+        # say its check ran (`verification_gates.gate_claims_ran`). A rip with every check disabled would otherwise satisfy
         # "no gate failed to produce a result" by having no gates.
         "expect-verification",
         0,

@@ -3193,7 +3193,37 @@ class RipMixin(MainWindowShared):
         return replace(pending, album_dir=new_dir)
 
     def _post_rip_still_running(self) -> str:
-        """Comma-joined names of the post-rip threads that are still alive.
+        """:meth:`_post_rip_steps_running`, comma-joined for a log line."""
+        return ", ".join(self._post_rip_steps_running())
+
+    def _record_post_rip_cut_short(self) -> str:
+        """The unattended quit is giving up: say so in the album's report FIRST.
+
+        Returns what was still running, comma-joined, for the give-up log line.
+
+        Before this the process ended with checks outstanding and the
+        ``.platterpus.json`` read complete — ``"No errors occurred"``,
+        ``completeness.complete: true``, ``cover_art: null`` (TASKS.md P2 #5). The
+        record is sealed (:meth:`PostRipRecord.seal_cut_short`) and the report is
+        written with a bounded wait, the same one ``closeEvent`` makes, because
+        the next thing that happens is ``app.quit()``. Bounded, on an unattended
+        exit path: nobody is clicking, and a wedged disk costs 5 s, not a hang.
+        """
+        steps = tuple(self._post_rip_steps_running())
+        record = self._post_rip_record()
+        if record is not None and record.log_file is not None:
+            gates = record.seal_cut_short(steps)
+            log.warning(
+                "unattended quit: recording post-rip verification as cut short "
+                "in the report (steps: %s; checks: %s)",
+                ", ".join(record.cut_short_steps) or "none",
+                ", ".join(sorted(gates)) or "none",
+            )
+            self._flush_rip_report(wait=True)
+        return ", ".join(steps)
+
+    def _post_rip_steps_running(self) -> list[str]:
+        """Names of the post-rip threads that are still alive.
 
         Derived from the same attribute list :meth:`_post_rip_work_settled` walks,
         so the manifest can say *which* step it gave up on instead of "something".
@@ -3218,7 +3248,7 @@ class RipMixin(MainWindowShared):
                 alive.append(attr.strip("_").removesuffix("_thread"))
         if self._pending_library_move is not None:
             alive.append("library move (queued)")
-        return ", ".join(alive)
+        return alive
 
     def _launch_evidence_bundle(
         self, pending: _PendingBundle, facts: dict[str, str]
@@ -4183,6 +4213,9 @@ class RipMixin(MainWindowShared):
             superseded=sorted(record.superseded),
             rip_status=status if isinstance(status, str) else None,
             launched=sorted(record.launched),
+            # Only while the result is still missing: one landing during the
+            # exit flush is a result, not a cut-short check.
+            cut_short=sorted(record.cut_short_without_result()),
         )
 
     def _record_post_rip_result(
@@ -4449,6 +4482,8 @@ class RipMixin(MainWindowShared):
             disc=record.disc,
             environment=environment,
             gates=self._gates_for(record),
+            # Set only by the unattended quit's give-up (`_record_post_rip_cut_short`).
+            verification_cut_short=record.cut_short_steps or None,
         )
         # Newest-wins: a job still sitting unstarted is replaced, which is
         # lossless because every write carries ALL accumulated results — the same

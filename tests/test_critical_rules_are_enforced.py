@@ -1280,7 +1280,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1560 -> 1568** (2026-10-05): `app.main` runs the exit check (`exit_work.audit`) after the exit work is joined, so the next session's log says whether a close let go of the drive (operator, 2026-10-05).
     # **1568 -> 1573** (2026-10-19): the fatal-error box takes the active window as its parent, with the comment saying why (operator, 2026-10-19: a prompt never opens as a window of its own).
     # **1573 -> 1482** (2026-10-21, the timed rip): lowered: the `--install-ripper` body moved to `deps/ripper_install.py`, so the `install-ripper` script verb and the flag are two thin callers of one function.
-    "app.py": 1482,
+    # **1573 -> 1581** (2026-10-21, TASKS P2 #5): the unattended quit's give-up asks the window to record the cut-short verification in the report before `app.quit()`.
+    # **-> 1490** (2026-10-21): the entries above landed together on one branch.
+    "app.py": 1490,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -2024,7 +2026,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 961** (2026-10-21): the entries above landed together on one branch.
     # **835 -> 838** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 964** (2026-10-21): the entries above landed together on one branch.
-    "report_types.py": 964,
+    # **815 -> 835** (2026-10-21, TASKS P2 #5): `VerificationCompletenessBlock` and the `completeness.verification` key that carries it.
+    # **-> 984** (2026-10-21): the entries above landed together on one branch.
+    "report_types.py": 984,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2137,7 +2141,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3172** (2026-10-21): the entries above landed together on one branch.
     # **2948 -> 2968** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 3192** (2026-10-21): the entries above landed together on one branch.
-    "rip_report.py": 3192,
+    # **2911 -> 3009** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #4/#5): the schema-39 note that `gates.*` narrows, `build_gates` taking the cut-short ledger, `_build` correcting the gates from the results and writing `completeness.verification`, and the `verification_cut_short` issue. The rules and wording live in `verification_gates.py`; this is the one place the report is assembled.
+    # **-> 3290** (2026-10-21): the entries above landed together on one branch.
+    "rip_report.py": 3290,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2529,7 +2535,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5000 -> 5023** (2026-10-21, TASKS R7, the verified-read chase): `_merge_shipped_track` gives a chase read its own read count and no re-read verdict, so the EAC-layout log never pairs a single read as Test and Copy CRC; the merge rule lives here.
     # **5023 -> 5031** (2026-10-21, TASKS R7, same day): the merge moves the kept-read clause with the verdict it describes, never the first pass's under the re-rip's verdict.
     # **-> 5069** (2026-10-21): the entries above landed together on one branch.
-    "ui/main_window_rip.py": 5069,
+    # **5000 -> 5035** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #5): `_record_post_rip_cut_short`, which seals the album's record and writes the report before the unattended quit, beside `_post_rip_steps_running` it reads; `_gates_for` and `_write_rip_report` pass the seal to the report. The seal itself is `PostRipRecord.seal_cut_short`.
+    # **-> 5104** (2026-10-21): the entries above landed together on one branch.
+    "ui/main_window_rip.py": 5104,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2762,7 +2770,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4792 -> 4808** (2026-10-20): `expect-exit refused`, which asks `ripper_exit.refusal_exit_code` for the build's own refusal code (the 2026-10-20 Full run, section P2).
     # **4808 -> 4809** (2026-10-20, round 35 lap 17 S10): the build-tag latch reads only a banner line, via `ripper_identity.version_banner_in`, so a refused rip's summary is not taken as a build tag.
     # **4809 -> 4823** (2026-10-21, the timed rip, the fork's round 36 lap 1 S15): two verb mixins in the class list and their imports, the two pieces of timing state with their reset, and the one dispatch line that marks a section N/A when it has nothing to compare. The handlers live in `install_verbs.py` and `timing_verbs.py`.
-    "uiscript/runner.py": 4823,
+    # **4809 -> 4815** (2026-10-21, TASKS P2 #4): `expect-verification`'s floor asks `verification_gates.gate_claims_ran`, since a gate with a result now says "ran — passed" or "ran — failed".
+    # **-> 4829** (2026-10-21): the entries above landed together on one branch.
+    "uiscript/runner.py": 4829,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.

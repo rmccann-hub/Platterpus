@@ -713,11 +713,19 @@ def _arm_unattended_quit(
         waited = time.monotonic() - (grace_began[0] or time.monotonic())
         if waited >= budget_s:
             timer.stop()
+            # WRITE THE GIVE-UP INTO THE REPORT BEFORE QUITTING (TASKS.md P2 #5):
+            # the record left behind read complete with checks still running. A
+            # stand-in window without the recorder only names what was running.
             still = ""
+            recorder = getattr(window, "_record_post_rip_cut_short", None)
             try:
-                still = window._post_rip_still_running()
-            except Exception:  # noqa: BLE001 — a shutdown message must never stop the exit
-                pass
+                still = (
+                    recorder()
+                    if callable(recorder)
+                    else window._post_rip_still_running()
+                )
+            except Exception:  # noqa: BLE001 — a shutdown step must never stop the exit
+                log.exception("could not record the cut-short verification")
             # The ELAPSED wait, not the budget. The old message printed the
             # constant, so a give-up 0.55 s into the grace period reported itself
             # as "after 900s" — the one line explaining why results are missing,

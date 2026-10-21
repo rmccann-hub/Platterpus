@@ -949,6 +949,23 @@ class SelfCheckBlock(TypedDict):
     findings: list[SelfCheckFindingBlock]
 
 
+class VerificationCompletenessBlock(TypedDict):
+    """Did every post-rip check the rip asked for leave a result (schema v39)?
+
+    Built by :func:`platterpus.verification_gates.verification_completeness` from
+    the corrected gates and the result blocks, never from the settings. Added for
+    the unattended give-up, whose report read complete while its CTDB, FLAC and
+    cover-art steps were still running when the process ended (TASKS.md P2 #5).
+    """
+
+    complete: bool | None
+    not_run: list[str]
+    without_result: list[str]
+    cut_short: bool
+    cut_short_steps: list[str]
+    note: str
+
+
 class CompletenessBlock(TypedDict):
     """The verdict's denominator, as a number rather than English prose.
 
@@ -962,3 +979,6 @@ class CompletenessBlock(TypedDict):
     tracks_in_report: int
     complete: bool | None
     note: str
+    #: The post-rip checks, beside the tracks: ``complete`` above is about tracks
+    #: only, and a reader of this block needs both answers in one place.
+    verification: VerificationCompletenessBlock

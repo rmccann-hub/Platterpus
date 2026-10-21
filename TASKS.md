@@ -120,8 +120,8 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 | # | What | Row |
 |---|---|---|
 | 3 | **[x] 2026-10-21 (our side):** error lines are checked against the `Ripping errors: 0` summary. The parser keeps them (`RipLog.ripper_error_lines`, the worker's matcher, now `ripper_error_lines.py`); `rip_health.effective_health_status` stops the report's `health_status` and the status line reading clean, and `issues` gains `ripper_error_lines_under_zero_summary`. The EAC-layout disc line waits for round 36 (wording on the row) | *A summary field and the error lines above it are two claims about one* |
-| 4 | `gates.flac_integrity` reads `ran` from config even when the checker aborts on a missing binary. This is CLAUDE.md's *completeness field derived from config*. The acceptance run also only screenshots the dependencies dialog | *The dependency dialog is unchecked…* |
-| 5 | Post-rip verification cut short (the unattended give-up path, `app.py`) writes nothing to `.platterpus.json`, and `build_gates` has no cover-art or completeness block, so the record reads as complete | *An archival record must say when its post-rip verification was cut short* |
+| 4 | ~~`gates.flac_integrity` reads `ran` from config even when the checker aborts on a missing binary.~~ **Fixed 2026-10-21** (`verification_gates.py`, `tests/test_verification_gates.py`): every gate with a result block is read from it (`ran — passed` / `ran — failed` / `not run — <reason>`), CTDB's `no_decoder` / `lookup_error` included. Still open: the acceptance run only screenshots the dependencies dialog | *The dependency dialog is unchecked…* (G7) |
+| 5 | ~~Post-rip verification cut short (the unattended give-up path, `app.py`) writes nothing to `.platterpus.json`.~~ **Fixed 2026-10-21**: the give-up writes `completeness.verification`, a `cut short` gate per running check and a `verification_cut_short` warning before `app.quit()` (`MainWindow._record_post_rip_cut_short`) | *An archival record must say when its post-rip verification was cut short* |
 | 6 | The log and report never assert the read offset is *correct*: only the number applied is written, never compared with the AccurateRip drive database (the UI alone says "two independent sources agree"). **Report and results-pane half shipped 2026-10-21** (`rip.read_offset_check`, schema 39, `read_offset_check.py`; the owner's known-fixes item 11); the EAC-layout line is proposed for our next round-36 lap | *Assert the read offset is CORRECT, not merely applied* |
 | 7 | **[x] 2026-10-21 (our side):** the report's `issues` code `unverified_paranoia_skips`, and the EAC-layout `Read stability` line names the track. The disc-level "No errors occurred" waits for round 36 (wording on the row) | *The EAC-layout log and the report for a track with unverified skips* |
 | 8 | **[x] Fixed 2026-10-21** (re-measured on the MP3, `adapters/mp3_replaygain.py`). Was: a derived MP3 carries the FLAC's `REPLAYGAIN_*` tags, measured before the lossy encode | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
@@ -3667,6 +3667,9 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"§B's archival claim is that settings reach cyanrip's argv, and every"*, which stays open.
 - [ ] **G7. Two verification-leg gaps** — the dependency dialog is screenshotted, never
   asserted; an absent checker graded `ran` is untested (r23 lap 1 §H2/§H3).
+  - *2026-10-21:* the second half is done: an absent `flac` now grades the gate
+    `not run — <reason>`, tested through the real runner
+    (`tests/test_verification_gates.py`). The dependency-dialog half stays open.
 - [x] **G8. Evidence transport** — raw invocations only in the transcript, raw-verb
   outputs do not travel, app-log timestamps carry no UTC offset (:781); the auto-bundle
   has no rip folders; sleep inhibit, `~/Downloads`, rig scripts in the AppImage, retire
@@ -8734,7 +8737,7 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       hand-built corpus would be a fixture carrying my assumptions about their control
       flow — the §4d failure again (`docs/testing.md` §5.ac).
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Send the A7/G2/H12 forced-error corpus. Hardware-gated and deliberately not"* (merged 2026-09-30 into **G10. Our never-exercised list is stale**, which stays open).
-- **[~] An archival record must say when its post-rip verification was cut short.**
+- **[x] An archival record must say when its post-rip verification was cut short.**
       The half of the 2026-08-23 unattended-quit defect that is NOT fixed. The grace
       clock now starts at the right moment, so the common case is closed — but a
       genuinely wedged step past the budget still ends the process with checks
@@ -8750,6 +8753,7 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       because a schema field with no writer is worse than none. This is the
       "confident pass over an incomplete record" shape, which is the worst kind.
   - *Audit 2026-09-25: partly done.* The verification_result_missing backstop (rip_report.py) covers four checks. The give-up path writes nothing before app.quit(), and cover art is not covered.
+  - *2026-10-21: done* (the owner's known-fixes list, item 5). Before `app.quit()` the give-up seals the album's record (`PostRipRecord.seal_cut_short`) and writes the report with the same bounded wait `closeEvent` uses: `completeness.verification` (tri-state `complete`, `not_run`, `without_result`, `cut_short_steps`, which names tagging and cover art too), `"cut short"` on each gate still running, and a `verification_cut_short` warning, which `VERIFICATION_DROPPED_CODES` now holds. `health_status` is left as it is: it is cyanrip's sentence about the read, not about the checks after it. Tests: `tests/test_verification_gates.py`, revert-probed.
 - **[x] AccurateRip: record the DB's MAX confidence beside each track's OWN confidence.**
       **Done 2026-08-24.** `verdict.accuraterip_db_max_confidence` +
       `accuraterip_confidence_text` (one predicate, two callers), rendered as

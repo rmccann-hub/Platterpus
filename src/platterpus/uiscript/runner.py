@@ -2861,7 +2861,8 @@ class ScriptRunner(
         them 8.0s, 4.4s and 3.6s of grace nothing had promised them.
 
         Floor, so it cannot pass by finding nothing: **at least one gate must
-        read "ran"**. A rip with every check turned off carries no gate that
+        say its check ran** (``"ran"``, ``"ran — passed"`` or ``"ran — failed"``,
+        `verification_gates.gate_claims_ran`). A rip with every check turned off carries no gate that
         could be superseded, and would otherwise satisfy "nothing was dropped"
         by having had nothing to drop.
 
@@ -2931,9 +2932,14 @@ class ScriptRunner(
             gates = (
                 verification.get("gates") if isinstance(verification, dict) else None
             )
-            # The floor: nothing ran, so nothing is being claimed.
+            # The floor: nothing ran, so nothing is being claimed. Asked through
+            # `gate_claims_ran`, not `== "ran"`: since schema v39 a gate with a
+            # result says "ran — passed" or "ran — failed", and a bare equality
+            # would read every finished check as one that never ran.
+            from platterpus.verification_gates import gate_claims_ran
+
             return isinstance(gates, dict) and any(
-                gate == "ran" for gate in gates.values()
+                gate_claims_ran(gate) for gate in gates.values()
             )
 
         self._arm_deadline(step, seconds, _every_gate_left_a_result)

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import Final
 
@@ -64,6 +64,13 @@ from platterpus.verdict import (
     accuraterip_verdict,
     apply_downgrades,
     reads_agree_without_accuraterip,
+)
+from platterpus.verification_gates import (
+    CUT_SHORT_GATE,
+    ISSUE_VERIFICATION_CUT_SHORT,
+    cut_short_issue_message,
+    gates_from_results,
+    verification_completeness,
 )
 
 log = logging.getLogger(__name__)
@@ -468,6 +475,22 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      0 aligned, null without a match); a MATCH's `confidence` now sums every
 #      entry matched at any offset, as CUETools' `Confidence` does. Additions only,
 #      and `confidence` widened from one entry to the matched entries.
+#      Same unreleased version (TASKS P2 #4 and #5, the owner's known-fixes list
+#      of 2026-10-21, item 5: "the record says checks ran that didn't"). **One
+#      field's meaning NARROWS:** `verification.gates.*` is now read from the
+#      result wherever a result block exists (`verification_gates.py`).
+#      `flac_integrity` and `derived` say `"ran — passed"`, `"ran — failed"` or
+#      `"not run — <the checker's reason>"` (e.g. `flac` not found) instead of a
+#      settings-derived `"ran"`; `ctdb` says `"not run — <message>"` for the
+#      `no_decoder` and `lookup_error` verdicts and keeps `"ran"` for a lookup
+#      that compared something. A bare `"ran"` now means only "asked for, no
+#      result recorded", which the backstop files as
+#      `verification_result_missing`. Additions: the gate state
+#      `"cut short — the app quit before this check finished"`;
+#      `completeness.verification` (`complete` tri-state, `not_run`,
+#      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
+#      the gates and the result blocks; and the `verification_cut_short` warning,
+#      written by the unattended quit before the process ends.
 REPORT_SCHEMA_VERSION: int = 39
 
 
@@ -558,6 +581,10 @@ def build_report(
     #: say whether the applied read offset is the list's (`read_offset_check`).
     #: A Protocol, because this pure builder must not import an adapter.
     offset_lookup: OffsetLookup | None = None,
+    #: v39: the post-rip steps still running when the unattended quit gave up
+    #: waiting and ended the process (`app._arm_unattended_quit`). Empty or None
+    #: on every other write. See `verification_gates`.
+    verification_cut_short: Sequence[str] | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -608,6 +635,7 @@ def build_report(
             artifacts=artifacts,
             ripper_log_verification=ripper_log_verification,
             offset_lookup=offset_lookup,
+            verification_cut_short=verification_cut_short,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -1192,9 +1220,16 @@ UNFINISHED_RIP_STATUSES: Final[frozenset[str]] = frozenset({"failed", "cancelled
 ISSUE_VERIFICATION_SUPERSEDED: Final[str] = "verification_superseded"
 ISSUE_VERIFICATION_RESULT_MISSING: Final[str] = "verification_result_missing"
 #: Both of the above, for a caller that treats them the same — an absent result,
-#: however it came to be absent, is not a passed one.
+#: however it came to be absent, is not a passed one. **And the third way (v39):**
+#: the unattended quit ended the process with checks still running
+#: (`verification_gates.ISSUE_VERIFICATION_CUT_SHORT`). Its record is final but
+#: incomplete, so `artifact_grading.settle_state` never reads it as settled.
 VERIFICATION_DROPPED_CODES: Final[frozenset[str]] = frozenset(
-    {ISSUE_VERIFICATION_SUPERSEDED, ISSUE_VERIFICATION_RESULT_MISSING}
+    {
+        ISSUE_VERIFICATION_SUPERSEDED,
+        ISSUE_VERIFICATION_RESULT_MISSING,
+        ISSUE_VERIFICATION_CUT_SHORT,
+    }
 )
 
 #: Report companions whose ABSENCE is the healthy answer, so a reader is not told
@@ -1217,6 +1252,7 @@ def build_gates(
     superseded: Collection[str] = (),
     rip_status: str | None = None,
     launched: Collection[str] | None = None,
+    cut_short: Collection[str] = (),
 ) -> dict:
     """Build ``verification.gates``: WHY each verification sub-block is or isn't
     populated.
@@ -1244,6 +1280,16 @@ def build_gates(
     newer rip cut it short (``superseded``, which is applied first for that
     reason). ``None`` means the caller keeps no ledger, and every claimed
     ``"ran"`` on an unfinished rip is replaced, as before.
+
+    ``cut_short`` names the gate keys whose check was still running when the
+    unattended quit gave up waiting and ended the process (v39). Like
+    ``superseded`` it is a fact about what happened, so it replaces a claimed
+    ``"ran"`` with :data:`~platterpus.verification_gates.CUT_SHORT_GATE`.
+
+    Every state built here is still derived from the request or the ledger.
+    The result-derived correction (``"ran"`` to passed, failed or not run) is
+    made in :func:`_build`, where the result is in hand
+    (:func:`~platterpus.verification_gates.gates_from_results`).
     """
     if not flac_verify_enabled:
         flac_gate = "disabled"
@@ -1266,6 +1312,9 @@ def build_gates(
     for key in superseded:
         if gates.get(key) == "ran":
             gates[key] = SUPERSEDED_GATE
+    for key in cut_short:
+        if gates.get(key) == "ran":
+            gates[key] = CUT_SHORT_GATE
     if rip_status in UNFINISHED_RIP_STATUSES:
         began = set(launched) if launched is not None else set()
         for key, state in gates.items():
@@ -1415,6 +1464,7 @@ def _build(
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
     offset_lookup: OffsetLookup | None = None,  # v39; see `build_report`
+    verification_cut_short: Sequence[str] | None = None,
 ) -> dict:
     # The JSON's verdict must be the SAME claim the window makes, so it is given
     # the same two extra facts: the disc's own track count (the only denominator a
@@ -1453,6 +1503,16 @@ def _build(
         and gates.get("ctdb") == "ran"
     ):
         gates = {**gates, "ctdb": NOT_WHOLE_DISC_GATE}
+    # The same correction for every gate with a result block, and the reason the
+    # FLAC one exists: `flac` missing aborted the checker with "not found" and the
+    # gate still said "ran" (TASKS P2 #4). Each "ran" with a block beside it now
+    # says what the block says — passed, failed, or not run and why. Here, before
+    # `issues` and the `verification` block read the gates, for the same reason
+    # as the CTDB correction above. See `verification_gates`.
+    gates = gates_from_results(
+        gates, flac_integrity=flac_integrity, derived=derived, ctdb=ctdb
+    )
+    cut_short_steps = [str(step) for step in (verification_cut_short or ())]
     cover_art = _cover_art(cover_art_result)
     # Tagging feeds `issues` ONLY — it deliberately gets no block of its own. The
     # severity-tagged `issues` list is already the report's declared home for
@@ -1492,7 +1552,17 @@ def _build(
             "tracks_expected is what the rip was ASKED for — the disc's track "
             "count, or fewer when the user ticked a subset in the Rip? column. "
             "null means it wasn't known to this writer (an in-progress write, "
-            "or a log parsed offline); it is NOT a claim that the rip was whole."
+            "or a log parsed offline); it is NOT a claim that the rip was whole. "
+            "`complete` is about TRACKS; whether the post-rip checks finished is "
+            "`verification`, beside it."
+        ),
+        # v39: the post-rip checks, computed from the corrected gates and the
+        # result blocks. The give-up path's report read `complete: true` here
+        # with three checks still running when the process ended (TASKS P2 #5).
+        "verification": verification_completeness(
+            gates,
+            blocks={"ctdb": ctdb, "flac_integrity": flac_integrity, "derived": derived},
+            cut_short_steps=cut_short_steps,
         ),
     }
     # The `rip` and `log_parse` blocks are built HERE, into locals, for the same
@@ -1543,6 +1613,7 @@ def _build(
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
         gates=gates,
+        cut_short_steps=cut_short_steps,
         eac_log_requested=_setting_was_on(settings, "write_eac_log_after_rip"),
         # Only a log that parsed and was not cut off can say it holds no track: a
         # missing log, one we could not read, or a truncated one (whose track list
@@ -2369,6 +2440,9 @@ def _issues(
     # checked against what it actually holds. Passed as the serialized dict for
     # the same reason as every other block here: read what the report shows.
     gates: dict | None = None,
+    # v39: the post-rip steps still running when the unattended quit ended the
+    # process. Non-empty only on that path.
+    cut_short_steps: Sequence[str] = (),
     # How many tracks the log records, so "nothing matched AccurateRip" is never
     # said of a rip that read nothing: there, nothing was there to match.
     tracks_in_log: int | None = None,
@@ -2798,8 +2872,11 @@ def _issues(
     # each of these was a silent failure with its evidence sitting two blocks away.
 
     # A VERIFICATION STEP THAT COULD NOT RUN was silent: `ran: false` skipped every
-    # check above, while `verification.gates` still said "ran" (the gate is derived
+    # check above, while `verification.gates` still said "ran" (the gate was derived
     # from config, not from the result). "We did not check" is not "it passed".
+    # Since v39 the gate itself reads "not run — <reason>" here too
+    # (`verification_gates.gates_from_results`); this issue stays, because
+    # `issues` is the list a triager opens first.
     for label, block in (
         ("FLAC integrity", flac_integrity),
         ("derived-format verification", derived),
@@ -2842,6 +2919,10 @@ def _issues(
                 f"a newer rip began — this record carries no {label} result, and "
                 f"an absent result is not a passed one",
             )
+        elif state == CUT_SHORT_GATE:
+            # Filed once, below, with every step that was cut short — not once
+            # per gate, which would split one event into several findings.
+            continue
         elif state == "ran":
             add(
                 "warning",
@@ -2850,6 +2931,21 @@ def _issues(
                 f"result for it — the two disagree, and the gate is the weaker "
                 f"evidence because it is derived from the settings, not the work",
             )
+
+    # POST-RIP VERIFICATION CUT SHORT BY THE UNATTENDED QUIT (v39). The process
+    # ended with these steps still running, so the record is final and
+    # incomplete: the report used to read "No errors occurred" with
+    # `completeness.complete: true` and `cover_art: null` (TASKS P2 #5). Read from
+    # BOTH the steps the window named and the gates it sealed, so either one alone
+    # still files it — a caller that passed one and forgot the other is not a
+    # record that reads complete.
+    cut_gates = [key for key, state in (gates or {}).items() if state == CUT_SHORT_GATE]
+    if cut_short_steps or cut_gates:
+        add(
+            "warning",
+            ISSUE_VERIFICATION_CUT_SHORT,
+            cut_short_issue_message(list(cut_short_steps), cut_gates),
+        )
 
     # DERIVED INCOMPLETE with no per-file failure: fewer derived files than masters
     # slipped past the mismatch/failure checks entirely.
@@ -3074,6 +3170,7 @@ def write_report(
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
     offset_lookup: OffsetLookup | None = None,  # v39; see `build_report`
+    verification_cut_short: Sequence[str] | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -3139,6 +3236,7 @@ def write_report(
             artifacts=artifacts,
             ripper_log_verification=ripper_log_verification,
             offset_lookup=offset_lookup,
+            verification_cut_short=verification_cut_short,
         )
         # Run the audit over the report we just built and embed the result, so
         # EVERY rip carries its own verdict and nobody has to remember to run
