@@ -14,6 +14,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **CTDB now reports each track, not only the whole disc** (TASKS R43). CTDB keeps a CRC
+  for every track of every entry, and Platterpus now compares each of ours with them, the
+  way CUETools does: a track agrees with an entry when its CRC equals the entry's at that
+  entry's offset or within AccurateRip's ±2,939 samples, and its confidence is the
+  submissions behind every entry that agrees. An entry's offset is read from where most
+  of its tracks agree with ours (CUETools reads it from parity data). A no-match or a
+  minority match now says which tracks differ, for example "Per track: 13 of 14 agree
+  with CTDB; track 3 differs from every entry", and the report carries a row per track
+  (`ctdb.tracks`, schema v39). All the CRCs come from one streamed pass over the disc
+  (`ctdb/sweep.py`), one track in memory at a time, on the verify's own thread. The
+  definition and the counting were checked against measured data: the live CTDB answer
+  for the reference disc (now `tests/fixtures/ctdb_lookup_police_classics.xml`) holds
+  EAC's Copy CRCs for the middle tracks, and fed those CRCs our counting marks as
+  differing exactly the tracks EAC's CTDB plugin did, and counts the same 2 submissions
+  for its minority read of track 5. Not built: naming how many samples differ and where,
+  which needs CTDB's parity data. Also fixed on the way: one unreadable per-track CRC in
+  a CTDB answer was skipped, which slid every later CRC onto the wrong track; the whole
+  list is now dropped instead.
+
 - **When the read Platterpus keeps fails AccurateRip, it now reads the track again, one read at a time, and keeps the first read AccurateRip verifies** (TASKS R7). On the 2026-10-12 hardware run the securing pass read track 5 of the reference disc once as `C96464AB`, the value AccurateRip verifies, and twice as `4065BECC`; cyanrip keeps the majority at its repeat limit, so the verified read was lost. Agreeing reads are the drive agreeing with itself; an AccurateRip match is other people's discs agreeing with ours. Now, after the securing pass, a track whose kept read AccurateRip did not verify, on a disc AccurateRip holds, and whose reads showed more than one value, is read singly with no `-Z`, up to the user's `-r` (at most 5) times. The first read AccurateRip verifies replaces the file; if none does, the album keeps what it had and says so. Every read goes through the same argv checks and is stopped by Cancel like any other pass. The report records which read the album keeps (`read_speed.retried_tracks[].kept_read`) and every single read with its EAC CRC32, AccurateRip confidence and exit status (`verified_read_chase`, report schema 39, additions only); each read's own ripper log is kept as `<Album>.platterpus-verified-read.txt`; the EAC-layout log shows such a track as one read (no Test/Copy pair) with a `Verified re-read` status line of our own. Not yet run on hardware. This is the path for cyanrip builds without the fork's proposed `--prefer-accuraterip-match` (round 36 lap 4 S11), which would keep the matching read at the repeat limit with no extra reads; Platterpus already reads that option's proposed limit-line clause into the report (`tracks[].secure_rerip_kept_read`) and does not send the option yet.
 
 - **The rip report says where a track was doubtful, not only how often** (TASKS R44).

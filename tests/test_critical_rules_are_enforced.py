@@ -1078,7 +1078,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # two files.
     # **336 -> 345** (2026-10-20): a CTDB no-match now carries the entries' weights, which the 2026-10-20 Full run's report showed it dropping.
     # **345 -> 370** (2026-10-21, TASKS R13): the not-whole-disc refusal names an Enhanced CD's data track instead of calling the rip partial. It is that refusal's own sentence, so it stays with it.
-    "ctdb/verify.py": 370,
+    # **345 -> 350** (2026-10-21, TASKS R43): per-track CTDB results. The new logic lives in its own modules (`ctdb/sweep.py`, `ctdb/matching.py`, `ctdb/track_wording.py`); this file only carries the result to its readers.
+    # **-> 375** (2026-10-21): the entries above landed together on one branch.
+    "ctdb/verify.py": 375,
     # 299 -> 306 on 2026-10-20, crossing the heuristic. **One job, kept as one
     # module**: replacing home paths at export. The 2026-10-20 Full run left the
     # owner's username in a filed bundle, because a JSON ``\n`` escape sits
@@ -1147,7 +1149,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "adapters/cover_art.py": 567,
     # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
-    "adapters/ctdb_client.py": 339,
+    # **339 -> 358** (2026-10-21, TASKS R43): `parse_track_crcs`, all-or-nothing, so one unreadable token no longer slides later per-track CRCs onto the wrong track; parsing the response belongs in the adapter.
+    "adapters/ctdb_client.py": 358,
     # --- The 2026-09-09 log-verification race: eight files, one defect ------
     #
     # A cancelled rip's log was read 6.1 s before the ripper finished writing
@@ -2013,7 +2016,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **815 -> 855** (2026-10-21, TASKS R7, the verified-read chase): `ChaseAttemptBlock`, `VerifiedReadChaseBlock`, and the two retried-track keys and the `verified_rereads` key that carry them, each with what it means.
     # **855 -> 869** (2026-10-21, TASKS R7, same day): `KeptReadBlock` and the per-track `secure_rerip_kept_read` key, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it.
     # **-> 941** (2026-10-21): the entries above landed together on one branch.
-    "report_types.py": 941,
+    # **815 -> 835** (2026-10-21, TASKS R43): per-track CTDB results. The new logic lives in its own modules (`ctdb/sweep.py`, `ctdb/matching.py`, `ctdb/track_wording.py`); this file only carries the result to its readers.
+    # **-> 961** (2026-10-21): the entries above landed together on one branch.
+    "report_types.py": 961,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2122,7 +2127,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2911 -> 2922** (2026-10-21, TASKS R7, the verified-read chase): the schema-39 note for `kept_read`, `verified_read_chase` and `verified_rereads`.
     # **2922 -> 2950** (2026-10-21, TASKS R7, same day): `_kept_read_block` and the per-track key, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it.
     # **-> 3135** (2026-10-21): the entries above landed together on one branch.
-    "rip_report.py": 3135,
+    # **2911 -> 2948** (2026-10-21, TASKS R43): per-track CTDB results. The new logic lives in its own modules (`ctdb/sweep.py`, `ctdb/matching.py`, `ctdb/track_wording.py`); this file only carries the result to its readers.
+    # **-> 3172** (2026-10-21): the entries above landed together on one branch.
+    "rip_report.py": 3172,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2561,7 +2568,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
     # **1681 -> 1676** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): lowered: the downgrade assembly moved to `verdict.apply_downgrades`.
     # **1676 -> 1696** (2026-10-19, P1): the CTDB line says "matched N of M submissions; K disagree" for an outvoted match, and the colour takes the rip log so a match beside a track AccurateRip rejected is amber.
-    "ui/rip_progress.py": 1696,
+    # **1696 -> 1703** (2026-10-21, TASKS R43): per-track CTDB results. The new logic lives in its own modules (`ctdb/sweep.py`, `ctdb/matching.py`, `ctdb/track_wording.py`); this file only carries the result to its readers.
+    "ui/rip_progress.py": 1703,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,

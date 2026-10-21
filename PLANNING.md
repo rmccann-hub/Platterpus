@@ -353,6 +353,9 @@ Platterpus/
         │   ├── calibrate.py             # CRC offset-sweep calibration against a real in-CTDB disc (KDD-16)
         │   ├── diagnose.py              # shared engine behind scripts/ctdb_verify.py + --ctdb-calibrate
         │   ├── coverage.py              # how many tracks the DISC has, so a partial rip is never looked up
+        │   ├── sweep.py                 # every CTDB CRC (whole disc + per track, every offset) from one streamed pass
+        │   ├── matching.py              # which CTDB entries agree with the disc and with each track (CUETools' rules)
+        │   ├── track_wording.py         # the one per-track sentence and table every surface shows
         │   └── verify.py                # verify_rip() orchestration + Verdict enum
         │
         ├── deps/                        # dependency self-management subsystem (brief P0 #11)
@@ -626,6 +629,9 @@ Clean-room CTDB verify support (KDD-16), kept as a standalone library so the det
 - **`coverage.py`** — `disc_track_count()`: how many tracks the disc has, from the ripper's own `Rip completed: … N of M tracks` footer first and the disc probe's `Disc tracks:` second, range-checked, `None` when neither says. Also holds the `not_whole_disc` verdict's wire value, spelled once, so the adapter-free `rip_report` can compare against it.
 - **`calibrate.py`** — the CRC offset-sweep calibration that pinned the algorithm against a real in-CTDB disc (KDD-16); kept so the vector can be re-derived on new hardware.
 - **`diagnose.py`** — the shared engine behind `scripts/ctdb_verify.py` and `platterpus --ctdb-calibrate`: run a CTDB verify (+ optional calibration) over an existing rip folder, no re-rip needed.
+- **`sweep.py`** — every CRC a verify compares, from one streamed pass over the disc's PCM (one track resident at a time): the whole-disc CTDB CRC and each track's CTDB CRC (CUETools' `TrackCRC`: track 1 loses the front guard band, the last track the back one), each over the offsets asked for. Prefix CRCs plus one GF(2) "append zeros" operator per window, so ~165,000 offset CRCs cost one pass and table lookups (TASKS R43, 2026-10-21).
+- **`matching.py`** — compares the sweep with the lookup the way CUETools' `GenerateLog` does: entries the whole disc matches (any offset) vouch for every track; otherwise a track agrees with an entry at that entry's offset (placed by the consensus of its tracks, standing in for the parity-based `FindOffset`) or within ±2939. Tri-state per track: `match` / `differs` / `not_determined`, with the summed confidence and a per-track `outvoted` (TASKS R43).
+- **`track_wording.py`** — `per_track_sentence` and `per_track_lines`, the one wording the verdict message, the results pane and `--ctdb-calibrate` share; worded as ours, not as EAC's plugin.
 
 ### Dependency self-management subsystem (`deps/`)
 

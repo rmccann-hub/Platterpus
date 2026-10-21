@@ -113,6 +113,16 @@ def _gf2_combine_operator(len2: int) -> list[int]:
     return op
 
 
+def combine_operator(len2: int) -> list[int]:
+    """The 32×32 GF(2) matrix that "appends ``len2`` zero bytes" to a CRC-32.
+
+    Public name for :func:`_gf2_combine_operator`, so :mod:`platterpus.ctdb.sweep`
+    reuses this module's tested algebra instead of keeping a second copy of it.
+    Column ``n`` of the matrix is the image of bit ``n``.
+    """
+    return _gf2_combine_operator(len2)
+
+
 def crc32_combine(crc1: int, crc2: int, len2: int) -> int:
     """Standard zlib ``crc32_combine``: the CRC of ``A ‖ B`` given ``crc1`` =
     CRC(A), ``crc2`` = CRC(B), and ``len2`` = len(B) in bytes. Bit-identical to

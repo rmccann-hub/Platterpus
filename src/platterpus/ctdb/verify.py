@@ -43,12 +43,14 @@ from platterpus.build_info import self_invocation
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
-from platterpus.ctdb.toc import (
-    LEAD_IN_SECTORS,
-    SAMPLES_PER_SECTOR,
-    SamplesProbe,
-    disc_toc_from_files,
+from platterpus.ctdb.matching import (
+    CtdbTrackResult,
+    match_disc,
+    match_tracks,
 )
+from platterpus.ctdb.sweep import SweepResult, sweep_disc
+from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
+from platterpus.ctdb.track_wording import per_track_sentence
 
 log = logging.getLogger(__name__)
 
@@ -97,6 +99,10 @@ class CtdbVerifyResult:
     # confidence, and every entry's confidence summed.
     best_confidence: int = 0
     total_confidence: int = 0
+    # **Per track** (TASKS R43, 2026-10-21): what CTDB's per-track CRCs say about
+    # each track, in disc order (`ctdb/matching.py`). Empty when the check never
+    # got as far as computing our CRCs (not in the database, no decoder, ...).
+    tracks: tuple[CtdbTrackResult, ...] = ()
 
     @property
     def outvoted(self) -> bool:
@@ -236,49 +242,45 @@ def verify_rip(
             Verdict.NOT_IN_DATABASE, message="this disc is not in CTDB"
         )
 
-    # 3) decode + CRC compare. Stream each track's PCM through the running CRC
-    #    (one track resident at a time) rather than buffering the whole disc plus
-    #    a b"".join copy — that spiked ~1.5 GB on the verify daemon thread (#39).
-    #    The offset-0 CTDB CRC needs the whole-disc frame count up front (the back
-    #    trim is length-dependent), which the TOC gives us before decoding.
-    total_frames = (toc.leadout - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR
+    # 3) decode + CRC compare. Stream each track's PCM through ONE pass that
+    #    measures every CRC we compare (`ctdb/sweep.py`), one track resident at a
+    #    time rather than the whole disc plus a b"".join copy — that spiked
+    #    ~1.5 GB on the verify daemon thread (#39). The windows need the disc's
+    #    frame count and track starts up front (the back trim is length-dependent),
+    #    which the TOC gives us before decoding.
     try:
-        our_crc = _crc_all(flac_paths, decoder, total_frames)
+        measured = sweep_disc((decoder(Path(p)) for p in flac_paths), toc)
     except decode.DecoderUnavailable as exc:
         return _db_only_result(result, Verdict.DECODER_UNAVAILABLE, str(exc))
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         # BUG-4: include TimeoutExpired here too — a wedged decoder during the
         # CRC pass must classify as a decode error, not escape uncaught.
         return _db_only_result(result, Verdict.LOOKUP_ERROR, f"decode error: {exc}")
+    our_crc = measured.disc.get(0)
     if our_crc is None:
         # A disc too short to hold the guard band — no meaningful CTDB CRC.
         return _db_only_result(
             result, Verdict.LOOKUP_ERROR, "disc too short for the CTDB CRC guard band"
         )
-
-    return _match_verdict(result, our_crc)
-
-
-def _crc_all(
-    flac_paths: Sequence[Path], decoder: PcmDecoder, total_frames: int
-) -> int | None:
-    """Whole-disc offset-0 CTDB CRC over every track (in track order), streamed.
-
-    Each track is decoded, folded into the running CRC, then released — so peak
-    memory is a single track's PCM, not the whole album twice (#39). `total_frames`
-    (from the TOC) sizes the length-dependent back trim. A decoder error
-    propagates (caught by the caller); ``None`` for a degenerate short disc. The
-    result equals ``ctdb_crc(whole_disc_pcm, 0)``.
-    """
-    return crc_mod.ctdb_crc_offset0_streaming(
-        (decoder(Path(p)) for p in flac_paths), total_frames
-    )
+    return _match_verdict(result, our_crc, measured)
 
 
-def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
+def _match_verdict(
+    result: CtdbLookupResult, our_crc: int, measured: SweepResult | None = None
+) -> CtdbVerifyResult:
     db_crcs = tuple(e.crc for e in result.entries if e.crc is not None)
     best = max((e.confidence for e in result.entries), default=0)
     total = sum(max(0, e.confidence) for e in result.entries)
+    # Without a measurement (a caller holding only the whole-disc CRC) there is
+    # no per-track result to give, and the messages say nothing about tracks.
+    tracks = (
+        match_tracks(
+            result.entries, measured.tracks, match_disc(result.entries, {0: our_crc})
+        )
+        if measured is not None
+        else ()
+    )
+    per_track = f" {per_track_sentence(tracks, total)}" if tracks else ""
     for entry in result.entries:
         if entry.crc is not None and entry.crc == our_crc:
             if not crc_mod.CRC_VALIDATED:
@@ -288,6 +290,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
                 )
             elif entry.confidence < best:
                 message = minority_match_sentence(entry.confidence, total)
+                message += f".{per_track}" if per_track else ""
             else:
                 message = f"verified against CTDB (confidence {entry.confidence})"
             return CtdbVerifyResult(
@@ -300,6 +303,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
                 message=message,
                 best_confidence=best,
                 total_confidence=total,
+                tracks=tracks,
             )
     n = len(result.entries)
     # The message MUST depend on whether our CRC algorithm is trustworthy. While
@@ -314,7 +318,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
             "entries at the standard alignment. CTDB also holds offset-shifted "
             "pressings, which this check does not sweep, so a non-match here is "
             "not evidence the rip is wrong — AccurateRip is the per-track "
-            "authority."
+            f"authority.{per_track}"
         )
     else:
         message = (
@@ -337,6 +341,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
         message=message,
         best_confidence=best,
         total_confidence=total,
+        tracks=tracks,
     )
 
 

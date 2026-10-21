@@ -456,6 +456,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      fork's PROPOSED limit-line clause "kept X, read N times, which AccurateRip
 #      matches at confidence C" (round 36 lap 4 S11), null without it, which is
 #      every released build. Additions only.
+#      Same unreleased version (TASKS R43, 2026-10-21): `ctdb.tracks`, one row per
+#      track from CTDB's per-track CRCs (`ctdb/matching.py`): `verdict` (`match`,
+#      `differs`, `not_determined`), `confidence` (submissions agreeing),
+#      `disagreeing_confidence` and `strongest_disagreeing`, `outvoted`, `our_crc`
+#      (the track's CTDB CRC at offset 0), `offset` (where the strongest agreeing
+#      entry agreed) and `reason` (why a track is not determined). Null when no
+#      CRC of ours was computed. Additions only.
 REPORT_SCHEMA_VERSION: int = 39
 
 
@@ -2184,7 +2191,37 @@ def _ctdb(result: object | None) -> dict | None:
         "entry_count": len(db_crcs),
         "db_crcs": [_hex_crc(c) for c in db_crcs],
         "message": getattr(result, "message", "") or None,
+        # Per track (v39, TASKS R43): what CTDB's per-track CRCs say about each
+        # track. Null when the check never computed our CRCs.
+        "tracks": _ctdb_tracks(getattr(result, "tracks", ())),
     }
+
+
+def _ctdb_tracks(tracks: object) -> list[dict[str, object]] | None:
+    """Serialize ``CtdbVerifyResult.tracks`` (``ctdb/matching.py``); never raises.
+
+    Duck-typed like the rest of this module, so the builder stays free of the
+    adapter types. ``offset`` is where the strongest agreeing entry agreed (0 is
+    aligned); ``reason`` is set only for a track that is not determined.
+    """
+    rows: list[dict[str, object]] = []
+    for track in tracks if isinstance(tracks, (list, tuple)) else ():
+        rows.append(
+            {
+                "track": getattr(track, "track", None),
+                "verdict": getattr(getattr(track, "verdict", None), "value", None),
+                "confidence": getattr(track, "confidence", None),
+                "disagreeing_confidence": getattr(
+                    track, "disagreeing_confidence", None
+                ),
+                "strongest_disagreeing": getattr(track, "strongest_disagreeing", None),
+                "outvoted": getattr(track, "outvoted", None),
+                "our_crc": _hex_crc(getattr(track, "our_crc", None)),
+                "offset": getattr(track, "offset", None),
+                "reason": getattr(track, "reason", "") or None,
+            }
+        )
+    return rows or None
 
 
 def _cover_art(result: object | None) -> dict | None:

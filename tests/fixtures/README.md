@@ -68,6 +68,22 @@ the per-track `error_positions`, `error_positions_dropped` and `paranoia_all_rea
 a track read with nothing reported, and tracks never read, all three null. Its
 `invocation` line is the fork's build path, not anyone's home folder. Do not edit it.
 
+## ctdb_lookup_police_classics.xml (added 2026-10-21)
+
+**The live CTDB answer for the reference disc**, byte for byte: the body of
+`http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0:14487:28067:49920:72570:90642:109175:128757:145662:159237:178332:200862:224510:246527:268707`,
+fetched 2026-10-21 02:41 UTC. The TOC is the one every Full-run log of the disc
+looks up (the cyanrip fork report in `output_reference/cyanrip_fork_flac/` quotes
+the same URL). 102 entries, 1,518 submissions, the strongest at 1,416, each with
+14 per-track CRCs (`trackcrcs`). It holds CRCs and parity syndromes only, no
+metadata (`metadata=none`) and no audio (rule #8).
+
+`tests/test_ctdb_per_track.py` reads it beside EAC's three logs of the same disc
+(`output_reference/EAC_*`) to check the per-track CRC definition and the counting
+against measured data (TASKS R43). The database grows; this file is the state of
+2026-10-21, so a test that counts submissions counts these, and a refetch is a
+deliberate change that re-reads those numbers.
+
 ## Handshake artifacts are NOT copied in here (note added 2026-08-21)
 
 A test that needs a real cyanrip log from a handshake round reads it **from

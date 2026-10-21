@@ -27,6 +27,7 @@ from platterpus.ctdb.calibrate import calibrate, crc_at_offset
 from platterpus.ctdb.coverage import disc_track_count
 from platterpus.ctdb.crc import CTDB_OFFSET_RANGE, ctdb_trims
 from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
+from platterpus.ctdb.track_wording import per_track_lines
 from platterpus.ctdb.verify import PcmDecoder, Verdict, verify_rip
 from platterpus.data_tracks import data_track_numbers
 
@@ -134,6 +135,11 @@ def run_diagnostics(
     if result.db_crcs:
         out(f"DB CRC(s):  {_fmt_crcs(set(result.db_crcs))}")
     out(f"Detail:     {result.message}")
+    if result.tracks:
+        # Per track (TASKS R43), as a table beside EAC's `Track | CTDB Status`.
+        out("\nTrack | CTDB per-track result")
+        for line in per_track_lines(result.tracks, result.total_confidence):
+            out(line)
     if result.verdict is Verdict.MATCH and result.outvoted:
         out(
             f"\nNOTE: the matched entry has confidence {result.confidence}; the "

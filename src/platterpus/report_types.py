@@ -420,16 +420,36 @@ class VerificationBlock(TypedDict):
     derived: DerivedBlock | None
 
 
+class CtdbTrackBlock(TypedDict):
+    """One row of ``ctdb.tracks`` (v39, TASKS R43; ``ctdb/matching.py``)."""
+
+    track: int | None
+    verdict: str | None
+    confidence: int | None
+    disagreeing_confidence: int | None
+    strongest_disagreeing: int | None
+    outvoted: bool | None
+    our_crc: str | None
+    offset: int | None
+    reason: str | None
+
+
 class CtdbBlock(TypedDict):
     verdict: str | None
     confidence: int | None
     trustworthy: bool | None
+    # v38: the weight behind the verdict (TASKS R34). Written since v38 and
+    # declared here from 2026-10-21, when this block joined the completeness sweep.
+    best_confidence: int | None
+    total_confidence: int | None
+    outvoted: bool | None
     crc_validated: bool | None
     our_crc: str | None
     matched_crc: str | None
     entry_count: int
     db_crcs: list[str | None]
     message: str | None
+    tracks: list[CtdbTrackBlock] | None
 
 
 class CoverArtBlock(TypedDict):
