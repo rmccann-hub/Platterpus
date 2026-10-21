@@ -953,8 +953,13 @@ _OUR_LAP_NUMBER: Final[re.Pattern[str]] = re.compile(
 #: lap 3: "> **Our next lap is `GO` unless the hardware session fails …"). A code
 #: span is matched first and kept as it is, so a `"` inside backticks opens no
 #: quotation.
+#: Each span is bounded at 4000 characters (2026-10-21): unbounded, a `“` that
+#: never closes made every search attempt scan to the end of the paragraph, which
+#: `tests/test_regex_bounded_time.py` measured growing faster than the input. A
+#: real quotation in a lap is a few hundred characters; the paragraph split below
+#: already ends every span at a blank line.
 _QUOTATION_OR_CODE: Final[re.Pattern[str]] = re.compile(
-    r"(?P<code>`[^`\n]*`)|\"[^\"]*\"|“[^”]*”"
+    r"(?P<code>`[^`\n]{0,4000}`)|\"[^\"]{0,4000}\"|“[^”]{0,4000}”"
 )
 
 #: A blank line: where a paragraph ends. No quotation runs past one, so a stray
