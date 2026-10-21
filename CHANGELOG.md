@@ -12,6 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The build under review is the fork's `.26` (`ca0f097`).** The fork released it on beta
+  on 2026-10-21 with their round 36 lap 4 (`cyanrip@32d17db`), and round 36's pin moves to it
+  on the owner's word of that day ("Yes: once .26 is released, move round 36's pin to
+  .26."). Their lap 4 is filed, `.26`'s provider contract is filed, the message inventory is
+  regenerated from it (142 refusal messages, line numbers only), and the acceptance run's
+  first check, the setup wizard and the build picker now name `.26`. `.25` (`5f1d036`) stays
+  the build installed by default until round 36 closes.
+
 ## [0.7.111] — 2026-10-21
 
 The release that puts the second read in users' hands. A disc AccurateRip can't vouch for is

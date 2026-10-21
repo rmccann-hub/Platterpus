@@ -1554,7 +1554,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2826 -> 2840** (2026-10-20): the roll to `5f1d036` on round 35's close, recorded beside `FORK_PIN`, `FORK_EXPECTED_VERSION` and the production target's reason, as each roll is.
     # **2840 -> 2844** (2026-10-20): `.23` listed by name in the `--verify-log` set, which the roll off `891c79e` would otherwise drop while it is still the fork's stable channel.
     # **2844 -> 2846** (2026-10-21): `PIN_UNDER_REVIEW_ROUND` 36, its history line beside it, as each round's is.
-    "deps/fork_source.py": 2846,
+    # **2846 -> 2887** (2026-10-21, round 36's pin moves to `.26` on the owner's word, the fork's lap 4): `PIN_UNDER_REVIEW` `ca0f097`, its release sequence 37, its consumer-flag and `--prefer-disc-isrc` rows, its version, `.25` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 2887,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

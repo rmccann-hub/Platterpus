@@ -303,6 +303,14 @@ FORK_PIN: Final[str] = "5f1d036"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 36's subject from 2026-10-21, on BETA only: `release_seq` 37,
+    # `handshake_round` 36, `round_closed: false`, version `0.9.4-rc3+platterpus.26`.
+    # Read off their `release-manifest.json` at `a085d19` (the commit that published
+    # it; unchanged at the merge of their PR #57, `32d17db`), filed byte-exact as
+    # `tests/fixtures/fork_release_manifest_a085d19.json`. Round 36's pin moves here
+    # on the owner's word of 2026-10-21, "once .26 is released, move round 36's pin
+    # to .26" (their lap 4's PIN-POLICY).
+    "ca0f097": 37,
     # Round 35's subject from 2026-10-19, on BETA only: `release_seq` 36,
     # `handshake_round` 35, `round_closed: false`, version `0.9.4-rc3+platterpus.25`.
     # Read off their `release-manifest.json` at `44d3cf3` (the commit that published
@@ -876,7 +884,19 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: as `round-35-lap-15-provider-contract-g3e978f9.md`; P1 keeps `--consumer`,
 #: `--prefer-disc-isrc` and `-Y`. **`FORK_PIN` stays `891c79e` until round 35
 #: closes.**
-PIN_UNDER_REVIEW: Final[str] = "5f1d036"
+#: **Round 35 closed on 2026-10-20** and `FORK_PIN` rolled to `5f1d036`, so the two
+#: pins coincided while round 36's lap 1 opened on `.25`, the newest released pair.
+#: **Moved `5f1d036` -> `ca0f097` on 2026-10-21, still round 36**, on the owner's
+#: word of that day, *"Yes: once .26 is released, move round 36's pin to .26."*, which
+#: their lap 4's PIN-POLICY quotes too. `.26` is published on beta at `a085d19`
+#: (`release_seq` 37, `round_closed: false`;
+#: `tests/fixtures/fork_release_manifest_a085d19.json`), merged at `32d17db` (their
+#: PR #57), and `meson.build` line 21 at `ca0f097` declares the version. Its
+#: `PROVIDER-CONTRACT.md` (built at `ge2b52b1`, whose `src/` and `meson.build` equal
+#: `ca0f097`'s) is filed as `round-36-lap-04-provider-contract-ge2b52b1.md`; P1 keeps
+#: `--consumer` (line 58), `--prefer-disc-isrc` (line 60) and `-Y` (line 109).
+#: **`FORK_PIN` stays `5f1d036` until round 36 closes.**
+PIN_UNDER_REVIEW: Final[str] = "ca0f097"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -909,6 +929,8 @@ PIN_UNDER_REVIEW: Final[str] = "5f1d036"
 #: **35 from 2026-10-16**: `.24` is round 35's subject, as their lap 1 names it.
 #: **36 from 2026-10-21**: their lap 1 opens round 36 on `.25` (the newest released
 #: pair); the pin moves to `.26` when it is released, on the owner's word of that day.
+#: **Still 36 for `.26` from 2026-10-21**: published on beta inside round 36 while it
+#: is open (`round_closed: false`), so its review is round 36's closing run.
 PIN_UNDER_REVIEW_ROUND: Final[int] = 36
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
@@ -1378,6 +1400,10 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # `PROVIDER-CONTRACT.md` at `5f1d036` (built at `g3e978f9`, same `src/` and
         # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
         "platterpus-fork-g5f1d036",
+        # Round 36's subject from 2026-10-21, `+platterpus.26`. Its
+        # `PROVIDER-CONTRACT.md` at `ca0f097` (built at `ge2b52b1`, same `src/` and
+        # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-gca0f097",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1531,6 +1557,12 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # stable channel until their gate reads round 35 closed. Listed by name for
         # the same reason as `.22`. Its `PROVIDER-CONTRACT.md` carries `-Y` in P1.
         f"{FORK_BRANCH}-g891c79e",
+        # `.25`, `FORK_PIN` since round 35's close (so `FORK_EXPECTED_BUILD_TAG`
+        # covers it today). Listed by name because round 36 moved the pin under
+        # review to `.26` on 2026-10-21 and `FORK_PIN` follows only when round 36
+        # closes: the same defect as `.22` above, one build along. Its
+        # `PROVIDER-CONTRACT.md` (built at `g3e978f9`) carries `-Y` in P1 at line 109.
+        f"{FORK_BRANCH}-g5f1d036",
     }
 )
 
@@ -1582,9 +1614,14 @@ def accepts_consumer_flag(build_tag: str) -> bool:
 #: ``.24`` is the first (its ``PROVIDER-CONTRACT.md`` at ``93afa15``, built at
 #: ``g16b9469``, line 60; round 35, TASKS R20). A later build joins when its own
 #: contract is filed and still lists the option: ``.25`` (``5f1d036``, built at
-#: ``g3e978f9``, line 60) on 2026-10-19.
+#: ``g3e978f9``, line 60) on 2026-10-19; ``.26`` (``ca0f097``, built at
+#: ``ge2b52b1``, line 60) on 2026-10-21.
 BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
-    {"platterpus-fork-g93afa15", "platterpus-fork-g5f1d036"}
+    {
+        "platterpus-fork-g93afa15",
+        "platterpus-fork-g5f1d036",
+        "platterpus-fork-gca0f097",
+    }
 )
 
 
@@ -2109,7 +2146,11 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # **Moved to `.25` on 2026-10-19 (their lap 15's R4 override), from their
     # manifest's beta entry at `44d3cf3`**: `commit` `5f1d036`, `version`
     # `0.9.4-rc3+platterpus.25`, as `meson.build` there declares.
-    version="0.9.4-rc3+platterpus.25",
+    # **Round 36's subject from 2026-10-21 (the owner's word to move round 36's pin
+    # to `.26` once released), from their manifest's beta entry at `a085d19`**:
+    # `commit` `ca0f097`, `version` `0.9.4-rc3+platterpus.26`, as `meson.build` line
+    # 21 there declares.
+    version="0.9.4-rc3+platterpus.26",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`
