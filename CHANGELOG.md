@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Round 36: our lap 2 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
+
 - **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
   re-derives every accuracy number from the raw logs: the three committed EAC sessions
   and the 262 rip logs on the `evidence` branch. It grades each area better, equal or
