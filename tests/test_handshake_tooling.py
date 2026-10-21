@@ -4616,6 +4616,29 @@ def test_announce_is_not_blocked_by_a_peer_lap_that_is_still_HELD(
     assert hs.announce_lap(lap, on="2026-09-23") == 0
 
 
+def test_announce_is_not_blocked_by_a_HIGHER_number_the_peer_released(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """K1 claims a number, not every number above it: round 36's operators numbered
+    the fork's lap 4 to come before our lap 3, and two released laps with DIFFERENT
+    numbers are not ambiguous (§2 rule 3). Our lap 2 must release past their lap 3."""
+    lap = tmp_path / "verified" / "round-19-lap-02.md"
+    _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs="yes — released")
+    (tmp_path / "inbound" / "round-19-lap-03.md").write_text(
+        _closing(
+            **{
+                "HANDSHAKE-ROUND": "19",
+                "HANDSHAKE-LAP": "3",
+                "HANDSHAKE-PROTOCOL": "4",
+                "HANDSHAKE-FROM": "cyanrip-fork",
+            }
+        )
+        + "HANDSHAKE-READY-TO-READ: yes — released\n",
+        encoding="utf-8",
+    )
+    assert hs.announce_lap(lap, on="2026-10-21") == 0
+
+
 def test_wire_fields_is_cached_but_never_shares_its_result() -> None:
     """The parse is cached by text (2026-09-26: 9,389 calls, 3.3 s per `--status`),
     so the one thing that must not happen is two callers getting the same dict.

@@ -12,6 +12,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Round 36: our lap 3 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
+
+### Fixed
+
+- **Our handshake tool no longer refuses a lap whose number the peer has not taken** (contributor-facing). `--announce` refused any lap numbered at or below the peer's newest released lap, which is stricter than K1 (protocol §4a: a number is claimed by the lap released first under it). It refused round 36's lap 3, which both operators had numbered to come after the fork's lap 4. It now refuses only the same number; `tests/test_handshake_tooling.py` holds both halves.
+
 ## [0.7.112] — 2026-10-21
 
 The release your next Full run goes through. It names the fork's `.26` (`ca0f097`) as the build
