@@ -1,33 +1,44 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Full EAC parity, proven against two committed artifacts of the same physical disc.
+"""One committed rip checked against a genuine EAC log of the same physical disc.
 
-**This is the file that closes the parity question, and it does it by reading
-artifacts rather than by asserting.** Both sides are committed text:
+**What this file checks: that the committed artifacts still say what they said when
+they were filed.** It reads two committed artifacts rather than asserting:
 
 * `output_reference/EAC_flac/eac_baseline_police_classics.log` — a genuine Exact
-  Audio Copy 1.8 log (UTF-16, verbatim).
+  Audio Copy 1.8 log (UTF-16, verbatim), EAC's 2026-06-11 session.
 * `output_reference/cyanrip_fork_flac/` — a real rip of **the same disc, in the same
   drive** (Pioneer BDR-209D, offset +667) by Platterpus 0.6.4b3 +
   `cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-g9003e6f)`, 2026-08-04.
 
+**What it does NOT do: close the parity question.** This docstring once said it did
+(corrected 2026-10-20, P6 of the claude-code-skills check of the EAC audit). Matching
+one EAC session is agreement, not correctness. EAC's track 5, `E0036697`, is not
+AccurateRip's value (EAC's own log says the track "could not be verified"); the
+AccurateRip-verified read is `C96464AB`, which our drive read once, on 2026-10-07.
+Part A's bottom line in `docs/eac-parity.md` and the status note in
+`docs/test-plan.md` already say EAC's track 5 is not the right target, and Part E
+§E2 shows both tools' re-reads converging on wrong values on this drive.
+
 Two results, both measured here rather than remembered:
 
-1. **14 of 14 tracks are bit-identical to EAC** (`Copy CRC` equal, track for track).
-   That closes the `output_reference/README.md` parity goal.
-2. **All ten of EAC's `Pre-gap length` rows match ours to the hundredth of a
+1. **14 of 14 tracks equal EAC's 2026-06-11 session** (`Copy CRC` equal, track for
+   track), EAC's unverified track 5 included. Equal to EAC, not verified on 14.
+2. **All ten of EAC's `Pre-gap length` rows match this rip's to the hundredth of a
    second, in order.** The KDD-32 / `INDEX 00` capability gap — cyanrip 0.9.3 could
-   not see the pregaps EAC detects, which `eac_log_export._gap_handling` documented as
-   our one measurable archival shortfall — is **closed for the fork**.
+   not see the pregaps EAC detects — is closed for the fork in the sense that the
+   fork sees them. It does not see them identically every time: across the 26
+   shipped rips on record, track 9 reads `0:00:01.26` in three, one frame longer
+   than EAC's `0:00:01.25` (`docs/eac-parity.md` Part E §E4, TASKS R10).
 
-Track 5 is the interesting one and is asserted separately: its first read pass
-produced a CRC that does **not** match EAC, and the auto-fix re-rip is what brought
-it to bit-identical. So this file is also the proof that the secure-re-rip feature
-does the thing it exists for.
+Track 5 is asserted separately: its first read pass produced a CRC that does **not**
+match EAC, and the auto-fix re-rip is what brought it to EAC's value. That proves the
+re-rip swaps in the read it kept. It does not prove that read is right: the value it
+reached is EAC's unverified one.
 
 **Why a test and not a note in the session log.** A remembered measurement has no
 provenance you can re-check, and it silently drops its qualifier (CLAUDE.md: *"am I
 answering from the artifact, or from my memory of the artifact?"*). These artifacts
-can settle the question, so the test reads them.
+can settle what they contain, so the test reads them.
 """
 
 from __future__ import annotations
@@ -77,7 +88,7 @@ def _copy_crcs(text: str) -> dict[int, str]:
 
 
 def test_every_track_is_bit_identical_to_the_eac_baseline() -> None:
-    """14 of 14 `Copy CRC`s equal. The parity goal, measured.
+    """14 of 14 `Copy CRC`s equal EAC's 2026-06-11 session. Agreement, measured.
 
     A matching `Copy CRC` on the same physical disc means the two rips decoded to
     the same PCM — that is what "bit-perfect" means here, and it is why this project
@@ -98,13 +109,16 @@ def test_every_track_is_bit_identical_to_the_eac_baseline() -> None:
 
 
 def test_track_5_reached_parity_only_via_the_auto_fix_rerip() -> None:
-    """The secure re-rip is what closed the last track. Proof, not a claim.
+    """The secure re-rip is what brought track 5 to EAC's value. Proof, not a claim.
 
     Track 5 matched no AccurateRip v1/v2 entry on the first pass — only the `+450`
     offset-variant — so the auto-fix re-ripped it and swapped the better read in. The
     whole-disc log records the FIRST pass's CRC; the addendum records the SHIPPED
     file's. EAC's value agrees with the addendum and *disagrees* with the first pass,
-    which is exactly the feature working.
+    so the re-rip did swap the kept read. It converged on EAC's `E0036697`, which
+    AccurateRip does not verify (it verifies `C96464AB`), so this shows the swap
+    working, not the re-read reaching the right bytes (`docs/eac-parity.md` Part E
+    §E2: agreement is not correctness).
     """
     whole_disc = _FORK_LOG.read_text(encoding="utf-8")
     eac_crc = _copy_crcs(_eac_text())[5]
@@ -134,12 +148,14 @@ def test_track_5_reached_parity_only_via_the_auto_fix_rerip() -> None:
 
 
 def test_the_pregap_rows_match_eac_to_the_hundredth() -> None:
-    """All ten, in order. The KDD-32 archival shortfall, closed for the fork.
+    """All ten, in order, on this rip. The fork sees the pregaps EAC sees.
 
     `eac_log_export._gap_handling` documented cyanrip 0.9.3's inability to see these
     as *"our one measurable archival shortfall against EAC"*. The fork reads them from
-    the sub-channel and finds precisely EAC's ten. Asserted against EAC's own file so
-    this cannot pass by matching a number we chose.
+    the sub-channel and, on this rip, finds precisely EAC's ten. Asserted against
+    EAC's own file so this cannot pass by matching a number we chose. Not every rip
+    does: track 9 reads one frame longer than EAC's in 3 of the 26 shipped rips on
+    record (`docs/eac-parity.md` Part E §E4, TASKS R10).
     """
     theirs = _PREGAP.findall(_eac_text())[:_PREGAP_COUNT]
     ours = _PREGAP.findall(_FORK_EAC_STYLE.read_text(encoding="utf-8"))

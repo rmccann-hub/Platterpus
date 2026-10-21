@@ -820,3 +820,87 @@ def test_a_fake_application_exec_closes_the_window_as_the_real_one_does() -> Non
     # Floor: `test_app_smoke` and `test_script_console` both fake it today.
     assert found >= 2, f"found {found} fake exec(s); the sweep is blind"
     assert not offenders, f"a fake exec() returns without closing a window: {offenders}"
+
+
+def test_a_progress_dialog_left_armed_is_named_and_disarmed(
+    qapp, process_until
+) -> None:
+    """The 2026-10-20 CI failure on PR #369, reproduced in under a second.
+
+    A `QProgressDialog` that is built, never shown and only `deleteLater()`'d
+    shows ITSELF once a later pump runs past its `minimumDuration`: Qt starts
+    that timer in the constructor, and a deferred delete posted outside an event
+    loop is not run by `processEvents()`. It comes up untitled and active, and
+    every `rip` step on the worker then refused *"a dialog is waiting for an
+    answer: ''"*. The shared fixture must name it at the test that left it and
+    stop the timer, so it never reaches the test it would have ambushed.
+    """
+    from conftest import put_away_leftover_dialogs
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QProgressDialog
+
+    def _short_fuse(label: str) -> QProgressDialog:
+        """Armed like the leaked one, on a 50 ms fuse instead of Qt's 4 s.
+
+        Measured on PySide6 6.11.2: `setMinimumDuration` alone does not restart
+        a fresh dialog's timer (its value is -1, not the minimum); after
+        `setValue(0)` it does.
+        """
+        dialog = QProgressDialog(label, "Cancel", 0, 100)
+        dialog.setValue(0)
+        dialog.setMinimumDuration(50)
+        return dialog
+
+    # FLOOR: Qt really does show an unshown progress dialog on its own. Without
+    # this, "it stayed hidden" below would pass on a Qt that no longer does.
+    premise = _short_fuse("premise")
+    try:
+        assert process_until(premise.isVisible, timeout=3.0), (
+            "premise failed: this Qt no longer shows an unshown progress dialog "
+            "by itself, so the armed check below is guarding nothing"
+        )
+    finally:
+        premise.close()
+        premise.deleteLater()
+
+    # The exact shape that leaked: constructed, nothing else, Qt's own 4 s fuse.
+    as_leaked = QProgressDialog("Downloading Platterpus 0.7.100b12…", "Cancel", 0, 100)
+    try:
+        found = put_away_leftover_dialogs()
+        assert found == ["QProgressDialog '' (armed to show itself)"], found
+        assert not any(t.isActive() for t in as_leaked.findChildren(QTimer)), (
+            "named, but its force-show timer is still running"
+        )
+    finally:
+        as_leaked.close()
+        as_leaked.deleteLater()
+
+    # And put away means it STAYS away once a pump runs past its fuse.
+    armed = _short_fuse("left behind")
+    try:
+        assert put_away_leftover_dialogs() == [
+            "QProgressDialog '' (armed to show itself)"
+        ]
+        process_until(armed.isVisible, timeout=0.5)
+        assert not armed.isVisible(), "the put-away left its force-show timer running"
+    finally:
+        armed.close()
+        armed.deleteLater()
+
+
+def test_a_dialog_left_on_screen_is_named_and_hidden(qapp) -> None:
+    """The other shape: `deleteLater()` without `close()` leaves it up."""
+    from conftest import put_away_leftover_dialogs
+    from PySide6.QtWidgets import QDialog
+
+    dialog = QDialog()
+    dialog.setWindowTitle("left on screen")
+    dialog.show()
+    try:
+        assert dialog.isVisible(), "premise: the dialog is on screen"
+        assert put_away_leftover_dialogs() == ["QDialog 'left on screen' (on screen)"]
+        assert not dialog.isVisible()
+        assert put_away_leftover_dialogs() == [], "a clean state reported a leftover"
+    finally:
+        dialog.close()
+        dialog.deleteLater()

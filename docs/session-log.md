@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-20 (evening) — the orphaned EAC audit branch taken over and its review applied
+
+- **The branch.** `ccr-3c66e173-5708ow` (one docs commit, `69641172`, Part E of `docs/eac-parity.md`) had no pull request and no longer merged (P7 of the claude-code-skills check of the audit). Taken over as `eac-audit-takeover`: `main` merged in with a merge commit, not a rebase, so `69641172` stays the commit the check cites. Its TASKS rows R32 to R34 collided with `main`'s and are now R42 (disc wear, one fresh EAC rip), R43 (CTDB depth) and R44 (error positions); `main`'s R34 points at R43.
+- **The review applied.** P3: E1 and E5 said our log "refuses" `Copy OK` and `No errors occurred` over unverified tracks; `round32fullwholedisceac.log:123-125` and `:253` print both, so the claim is narrowed to where re-reads disagree. P5: re-derived over all 26 rips, rounds 33 and 34 fetched by hash into a scratch bare repository (evidence commits `f57cdc2b`, `fe13de0c`, the round-33 export's SHA-256 matching its manifest row): track 9's pre-gap is EAC's `1.25` in 23 and `1.26` in 3, and a `1.26` rip's cue puts `INDEX 00` one frame early. Noted in R10 (the fork's `subchannel-pregap-varies`), not a new row. P6: `tests/test_fork_rip_eac_parity.py`'s docstrings no longer say it closes the parity question. P8: the oct06 rip's time is given in UTC with the export's own stamp, EAC's session times are marked as zoneless, and E2 quotes the whole 06-25 CTDB row for track 5, whose `(2/1443) Accurately ripped` half is the evidence for R34.
+- **Part E caught up with `main`.** E1, E3, E4 and E7 now say the second read is built (R38, next release) and decided from the lookup's own answer (`accuraterip_standing.py`); E5's CTDB row records the minority-match fix (R34, 0.7.110) and its cite moved with the code (`ctdb/verify.py:286-292`). The grades as first written stay visible beside the new ones.
+- **Checked, not taken on trust.** The check's citations held where opened: the CTDB submission at `EAC_flac/…log:258` sits under the `CUETools DB Plugin` header (`:255`), not the AcoustID one above it (`:248-252`).
+- **Learned.** A takeover of someone else's branch is two jobs: making it merge, and making it true against the `main` it merges into. The second is where the work was: four of Part E's grades had been overtaken by `main` within a day.
+
 ## 2026-10-20 (evening) — round 35 closes; the release word, and fixes first
 
 - **The fork's lap 17 (`GO`) and our lap 18 (`GO`) close round 35.** Lap 17 also found a second defect of ours: the acceptance runner took `(no read exceeded 10s)` from a refused rip's summary as the build tag, so the deemphasis rip sent no `--consumer`. Fixed (`813ecfd4`). `FORK_PIN` rolls to `5f1d036` with the approval record (round 35, 0.7.110).
@@ -43,6 +51,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 - **CTDB's green over a minority entry (P1, TASKS R34).** 8 of 26 reference-disc rips showed "CTDB: verified ✓ (confidence 1)": the matched entry had one submission, the strongest about 1,405, and each rip had a track AccurateRip rejected. A match now records the strongest entry's confidence and the total; an outvoted match is not `trustworthy`, its line says "matched 1 of N submissions; K disagree", and a match beside a track AccurateRip rejected is amber (report schema 38). The 2026-07-28 entry's "independent whole-disc corroboration" is corrected in place.
 - **Round 35 moved to `.25`, and 0.7.110 reviews it.** The fork's lap 15 (7:30 PM EDT, 23:30 UTC) moved the round's pin from `.24` to `.25` (`5f1d036`) on the operator's override of R4 and the run with it; 0.7.110 had been built against `.24` and was caught before merging by reading that lap. `PIN_UNDER_REVIEW` moved, `.25`'s contract filed and the inventory regenerated; our lap 16 accepts the direct-reading rule and the fork's time format (both now in `CLAUDE.md`).
 - **Learned.** A database match is evidence in proportion to the weight behind the entry and the independence of whoever submitted it; a count of one, from the same drive and disc, is our own read echoed back.
+
+## 2026-10-19 (late afternoon) — an independent audit against EAC
+
+**Asked:** a complete third-party audit of Platterpus against EAC, better or worse with reasons
+and evidence. **Built:** `docs/eac-parity.md` Part E, two inline corrections to Part A, TASKS
+rows R42 to R44 (first numbered R32 to R34 on the branch; renumbered when it merged `main`, which had taken those numbers), and a measured note on the *First-rip proof* item. No code changed.
+
+**Method, so the numbers can be re-derived.** The 262 `.log` files under
+`docs/handshake/artifactsround26/` to `artifactsround34/` were fetched blobless into a
+separate bare repository (evidence commits `c737fb6b`, `f57cdc2b`, `fe13de0c`). Each
+14-track EAC-layout export (`*eac.log`, plus `output_reference/cyanrip_fork_flac/`) was
+split at `^Track N$`, and its `Copy CRC` and AccurateRip line were read per track: 26
+rips. First-pass values came from each raw `*wholedisc.log` (`EAC CRC32:`, `Paranoia
+status counts:`, `Ripping errors:`). EAC's three sessions were read the same way from
+`output_reference/EAC_*/` (UTF-16). Every Part A TL;DR number re-derived exactly.
+
+**Learned.** (1) EAC's own logs disagree with each other on this disc. Two of its three
+sessions misread track 3, and two of its wrong values match values our ripper read, so
+comparing against one EAC session overstated what EAC achieves. (2) The exports show
+what *shipped*, after the securing pass. The raw first pass is much worse on track 3:
+1 of 12 right, all with `Ripping errors: 0`. That is the evidence for the gap the
+maintainer named on 2026-07-30: a disc AccurateRip does not know gets one read.
+(3) The four audit helpers stopped on the session's usage limit; the audit was finished
+by hand from their partial evidence fetch.
 
 ## 2026-10-19 (afternoon) — the fork's lap 12, the operator's review, and stock cyanrip's argv
 

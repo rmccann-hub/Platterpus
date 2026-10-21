@@ -366,6 +366,15 @@ def test_a_plain_dialog_is_only_ever_made_smaller(qapp) -> None:
         assert dialog.width() <= 800 - 2 * fit.SIDE_MARGIN_PX
         assert dialog.height() <= 600 - MARGIN
     finally:
+        # `close()` first, and it is load-bearing. Qt starts a progress dialog's
+        # force-show timer in its constructor, so one that is never shown and
+        # only `deleteLater()`'d (which a test's pump does not run) shows ITSELF
+        # 4 s later in whatever test is pumping events then, untitled and
+        # active, and every `rip` step on the worker refuses to start behind it.
+        # The 2026-10-20 CI failure on PR #369. Closing cancels it, which stops
+        # the timer; `conftest._no_test_leaves_a_dialog_behind` fails a test
+        # that leaves one armed.
+        dialog.close()
         dialog.deleteLater()
 
 
