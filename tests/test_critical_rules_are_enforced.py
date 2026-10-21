@@ -1652,6 +1652,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rewrites metadata shaped like EAC's or XLD's first line (`EAC extraction logfile
     # from`), which OPS's checker accepts a log on, found anywhere in it.
     "eac_log_export.py": 1924,
+    # NEW (2026-10-21, TASKS R44, the fork's `.25`): where paranoia reported read
+    # errors and skips, one job: the three `/10` fields of a `track_state` row read
+    # tri-state and bounded (head and tail, every drop counted), the report block
+    # with the drop counts beside each list, and the two findings' wording. The
+    # long docstring is the fork citations behind each field's meaning; splitting
+    # the findings off would separate a sentence from the rows it reads, as in
+    # `isrc_provenance.py`.
+    "error_positions.py": 400,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1817,7 +1825,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # option went. Splitting the findings off would separate a sentence from the
     # rows it reads.
     # **324 -> 337** (2026-10-17, round 35 lap 6): `well_formed` reads the code as written, as cyanrip's `.25` check does, and the malformed finding quotes the ripper's reason.
-    "isrc_provenance.py": 337,
+    # **337 -> 347** (2026-10-21, TASKS R44): the one reader of `track_state` hands each row to `error_positions.parse_reads`, so the record is read once for both; `TrackIsrc.reads` and the docstring paragraph saying so.
+    "isrc_provenance.py": 347,
     # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
     # **651 -> 661** (2026-10-20, the owner's word "yes, read twice by default"): the User Guide entry for the second-read setting, saying what 'reads agree' does and does not prove.
     "help_content.py": 661,
@@ -1966,7 +1975,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **807 -> 815** (2026-10-20, round 35, the fork's exit classes from release 36): `OutcomeBlock.ripper_exit_class` and `ripper_exit_build_tag`, schema 39 additions; the vocabulary is `ripper_exit_class.ExitClass`.
     # **815 -> 825** (2026-10-21, round 36 lap 1 S4 to S6): `RipBlock.accurate_stream` / `recordable` and their reasons, and `TrackBlock.pregap_search_frames`, schema 39 (unreleased, additions only).
     # **825 -> 837** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): `Mp3ReplayGainBlock` and `TranscodeBlock.replaygain`, the report shape beside the other blocks.
-    "report_types.py": 837,
+    # **825 -> 871** (2026-10-21, TASKS R44): `ErrorPositionEntry`, `TrackErrorPositionsBlock`, `ErrorPositionsBlock` and `DiscBlock.error_positions`, schema 39 (unreleased, additions only).
+    # **-> 883** (2026-10-21): both of the above landed together, the MP3 ReplayGain block and R44's error positions.
+    "report_types.py": 883,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2066,7 +2077,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2889 -> 2911** (2026-10-20, round 35, the fork's exit classes from release 36): `build_outcome` records `ripper_exit_class` and the tag it was read against, and the schema-39 note says so; the classification lives in `ripper_exit_class.py`.
     # **2911 -> 2991** (2026-10-21, round 36 lap 1 S4 to S6): schema 39's note for `.26`'s three lines, the four `rip` keys, the per-track `pregap_search_frames` with its pair check, and the `recordable_disc` and `pregap_searches_disagree` info issues, in the one place that assembles `issues`.
     # **2991 -> 3004** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): `transcode.replaygain` in `_transcode` with its v39 history entry, beside the block it extends.
-    "rip_report.py": 3004,
+    # **2991 -> 3023** (2026-10-21, TASKS R44): schema 39's note for `disc.error_positions`, and the loop raising `error_positions_reported` (warning) and `error_positions_count_disagrees` (info). Reading and wording live in `error_positions.py`; this is the one place that assembles `issues`.
+    # **-> 3036** (2026-10-21): both of the above landed together, the MP3 ReplayGain block and R44's error positions.
+    "rip_report.py": 3036,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2448,7 +2461,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4974 -> 4987** (2026-10-16, TASKS R20 part 2, round 35): what we passed and the argv, handed to the ISRC block.
     # **4987 -> 4996** (2026-10-19, P4): the auto-fix merge recounts the AccurateRip summary from the tracks it ships.
     # **4996 -> 5000** (2026-10-20, round 35, the fork's exit classes from release 36): the outcome snapshot passes the worker's album-pass build tag to `build_outcome`.
-    "ui/main_window_rip.py": 5000,
+    # **5000 -> 5006** (2026-10-21, TASKS R44): `_last_disc` carries `error_positions`, built by `error_positions.report_block` from the same worker reading as `isrc_provenance`.
+    "ui/main_window_rip.py": 5006,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

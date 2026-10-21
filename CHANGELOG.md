@@ -29,6 +29,17 @@ the owner's word of 2026-10-20.
 
 - **A derived MP3's ReplayGain is measured on the MP3.** It used to carry the FLAC's figures, measured before the lossy encode, so its peak described another file. The encode now drops the FLAC's nine loudness tags, each MP3 is measured with ffmpeg's `ebur128` (true peak), and its `REPLAYGAIN_*` tags are written in cyanrip's format; album figures only when every track became an MP3, and no `R128_*` tags, which are for Opus. The report records the outcome as `transcode.replaygain` (schema v39, an addition). `PLANNING.md` maps the new module, `adapters/mp3_replaygain.py`.
 
+- **The rip report says where a track was doubtful, not only how often** (TASKS R44).
+  From the fork's `.25`, cyanrip's `-j` record lists, per track, the disc sectors where
+  cdparanoia reported a hard read error or a skip, how many of those it did not keep
+  (it keeps the first and last 500), and paranoia's counters over every read. The report
+  now carries them in `disc.error_positions` (schema 39, additions only): the positions,
+  the counts of read errors and skips, both drop counts beside the list so a shortened
+  list never reads as complete, and whether the list agrees with the counters. A track
+  with any position raises the `error_positions_reported` warning, naming the track, the
+  counts and the first sectors. A track never read says `null`, never an empty list, and
+  a build before `.25` says `not_present`. The EAC-layout log is unchanged until its
+  wording is agreed with the fork.
 - **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
   re-derives every accuracy number from the raw logs: the three committed EAC sessions
   and the 262 rip logs on the `evidence` branch. It grades each area better, equal or

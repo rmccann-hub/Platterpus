@@ -228,6 +228,49 @@ class TagFixEntry(TypedDict):
     replaced: int
 
 
+class ErrorPositionEntry(TypedDict):
+    """One position paranoia reported (v39, R44): a disc sector and its kind."""
+
+    lsn: int
+    #: ``read_error`` or ``skip`` (``cyanrip@5f1d036:src/diagnostics.c:306``).
+    kind: str
+
+
+class TrackErrorPositionsBlock(TypedDict):
+    """One track's row of ``disc.error_positions`` (v39, ``error_positions``)."""
+
+    number: int
+    audio_ripped: bool | None
+    #: ``read`` / ``track_not_read`` / ``not_present`` / ``not_determined``.
+    state: str
+    #: Null unless ``state`` is ``read``: ``[]`` is the claim "none reported".
+    positions: list[ErrorPositionEntry] | None
+    read_errors: int | None
+    skips: int | None
+    #: The fork's own count of positions it did not keep; null when unread.
+    error_positions_dropped: int | None
+    #: Positions WE did not keep: past our bound, or unreadable entries.
+    error_positions_not_kept: int
+    complete: bool | None
+    count_agrees_with_counters: bool | None
+    paranoia_all_reads_state: str
+    paranoia_all_reads: dict[str, int] | None
+    paranoia_all_reads_not_read: int
+
+
+class ErrorPositionsBlock(TypedDict):
+    """``disc.error_positions`` (v39, TASKS R44), from the album pass's ``-j`` record."""
+
+    describes: str
+    #: The record's reading state (``ripper_ending.STATE_*``).
+    state: str
+    detail: str | None
+    #: Says what an empty list does not mean.
+    note: str
+    tracks: list[TrackErrorPositionsBlock]
+    rows_not_read: int
+
+
 class DiscBlock(TypedDict):
     unknown: bool | None
     musicbrainz_release_id: str | None
@@ -257,6 +300,9 @@ class DiscBlock(TypedDict):
     #: v34: that ID compared with the rip log's own (`disc_identity`), tri-state.
     #: Written by the report builder, so absent from the block the window hands it.
     identity_check: NotRequired[DiscIdentityBlock]
+    #: v39: where paranoia reported read errors and skips, per track, with the
+    #: drop counts beside each list (`error_positions`, TASKS R44).
+    error_positions: NotRequired[ErrorPositionsBlock]
 
 
 class DependencyEntry(TypedDict):

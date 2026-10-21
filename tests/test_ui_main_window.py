@@ -48,6 +48,7 @@ from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_access import DriveAccessDiagnosis
 from platterpus.drive_profiles import OffsetSource, compute_fingerprint
+from platterpus.error_positions import NOTE
 from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
@@ -6254,6 +6255,16 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
             "tracks": [],
             "rows_not_read": 0,
             "prefer_disc_isrc_sent": None,
+        },
+        # v39 (R44): the same reading, the same "not read"; the note rides with
+        # the block so an empty list is never read as a verified track.
+        "error_positions": {
+            "describes": "album pass",
+            "state": "not_read",
+            "detail": None,
+            "note": NOTE,
+            "tracks": [],
+            "rows_not_read": 0,
         },
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}

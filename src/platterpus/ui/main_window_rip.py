@@ -66,6 +66,7 @@ from platterpus.adapters.transcode import (
 )
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
+from platterpus.error_positions import report_block as error_positions_block
 from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -1886,6 +1887,11 @@ class RipMixin(MainWindowShared):
                     or getattr(self._rip_worker, "ripper_argv", ())
                     or ()
                 ),
+            ),
+            # Where paranoia reported read errors and skips, per track, from the
+            # same reading of the same record (v39, TASKS R44).
+            "error_positions": error_positions_block(
+                getattr(self._rip_worker, "isrc_reading", None)
             ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the

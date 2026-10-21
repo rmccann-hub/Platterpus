@@ -57,6 +57,17 @@ It is text (rule #8: logs and CRCs travel, audio never does) and carries no home
 paths — its `Invoked as:` line names the in-container `/usr/local/bin/cyanrip`.
 Do not "tidy" it: it is evidence, and a hand-edited log proves nothing.
 
+## cyanrip_fork_diagnostics10_interrupted.json (added 2026-10-21)
+
+**The fork's interrupted-rip `-j` record for `.25`** (`cyanrip-diagnostics/10`),
+byte for byte from `cyanrip@5f1d036:docs/sample-interrupted.diagnostics.json`
+(sha256 `b3c2c9fc691614905b4d8742e4963c0f1b0b92cb5b8e3cbca0a894bb035e9598`). It is a
+copy because no `/10` record is committed under `docs/handshake/inbound/artifacts/`
+(the note below), so the one place to read it from is the fork's own tree. `tests/test_error_positions.py` reads it for the two states a real run gives
+the per-track `error_positions`, `error_positions_dropped` and `paranoia_all_reads`:
+a track read with nothing reported, and tracks never read, all three null. Its
+`invocation` line is the fork's build path, not anyone's home folder. Do not edit it.
+
 ## Handshake artifacts are NOT copied in here (note added 2026-08-21)
 
 A test that needs a real cyanrip log from a handshake round reads it **from

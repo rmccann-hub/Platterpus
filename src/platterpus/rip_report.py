@@ -26,6 +26,8 @@ from platterpus import __version__, album_loudness, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
+from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
+from platterpus.error_positions import findings as error_position_findings
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -402,6 +404,22 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      ReplayGain tags measured on the MP3s themselves (`tracks_tagged`,
 #      `tracks_total`, `album_tagged`, `reasons`), because the FLAC's figures were
 #      measured before the lossy encode and are no longer copied; null otherwise.
+#      Also in v39, still unreleased, so additions only (TASKS R44, the fork's
+#      `.25`, `cyanrip-diagnostics/10`): `disc.error_positions`, read from the
+#      album pass's `-j` record by the same reader as `isrc_provenance`. Per
+#      track: `state` (`read` / `track_not_read` / `not_present` on a build
+#      before `/10` / `not_determined`), `positions` ([{`lsn`, `kind`}], disc
+#      sectors where paranoia reported a `read_error` or a `skip`,
+#      `cyanrip@5f1d036:src/diagnostics.c:302-307`; null unless read),
+#      `read_errors`, `skips`, `error_positions_dropped` (the fork's count of the
+#      middle it did not keep past its first and last 500) and
+#      `error_positions_not_kept` (ours) BESIDE the list, `complete`,
+#      `count_agrees_with_counters` (the list against READERR + SKIP), and
+#      `paranoia_all_reads` with its `_state`, the counters over every read. A
+#      track with any position raises the `error_positions_reported` warning, and
+#      a list that disagrees with its counters `error_positions_count_disagrees`
+#      (info). The EAC-layout log is unchanged: its wording goes through the
+#      handshake (`error_positions`).
 REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -2356,6 +2374,20 @@ def _issues(
     # failed rip. Both values are named in the sentence.
     for isrc_code, sentence in isrc_findings((disc or {}).get("isrc_provenance")):
         add("info", isrc_code, sentence)
+
+    # WHERE PARANOIA REPORTED READ ERRORS AND SKIPS (v39, TASKS R44). A warning:
+    # it is what EAC calls a suspicious position, and the sentence says that
+    # AccurateRip and CTDB, not this list, say whether the audio is right. A
+    # list that disagrees with its own counters is the record contradicting
+    # itself, said as information. Wording lives in `error_positions`.
+    for found_code, sentence in error_position_findings(
+        (disc or {}).get("error_positions")
+    ):
+        add(
+            "warning" if found_code == ERROR_POSITIONS_REPORTED else "info",
+            found_code,
+            sentence,
+        )
 
     # FRAMES OUTSIDE THE DISC THE DRIVE REFUSED (v37, TASKS R26). Under `-O`,
     # `.24` reads each frame past the disc's edge once and writes a refused one
