@@ -907,7 +907,9 @@ PIN_UNDER_REVIEW: Final[str] = "5f1d036"
 #: **34 from 2026-10-15**: `.23`, published on beta after round 33 closed, is round
 #: 34's subject; 0.7.106 ships with it under review before their lap 1 opens it.
 #: **35 from 2026-10-16**: `.24` is round 35's subject, as their lap 1 names it.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 35
+#: **36 from 2026-10-21**: their lap 1 opens round 36 on `.25` (the newest released
+#: pair); the pin moves to `.26` when it is released, on the owner's word of that day.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 36
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:

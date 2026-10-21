@@ -1538,7 +1538,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2820 -> 2826** (2026-10-19): `.24` (`93afa15`) named in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` by commit, with its reason, now that `.25` is under review and `.24` is no longer covered by being the pin under review.
     # **2826 -> 2840** (2026-10-20): the roll to `5f1d036` on round 35's close, recorded beside `FORK_PIN`, `FORK_EXPECTED_VERSION` and the production target's reason, as each roll is.
     # **2840 -> 2844** (2026-10-20): `.23` listed by name in the `--verify-log` set, which the roll off `891c79e` would otherwise drop while it is still the fork's stable channel.
-    "deps/fork_source.py": 2844,
+    # **2844 -> 2846** (2026-10-21): `PIN_UNDER_REVIEW_ROUND` 36, its history line beside it, as each round's is.
+    "deps/fork_source.py": 2846,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2923,7 +2924,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4544 -> 4548** (2026-10-14, HR-2 order C): `PROTOCOL_VERSION` moves to 9,
     # with its dated reason beside the constant, as 6, 7 and 8 were.
     # **4548 -> 4552** (2026-10-15): `DECLARED_PROTOCOL` moves to 9, the same way.
-    "scripts/handshake.py": 4552,
+    # **4552 -> 4559** (2026-10-21): the opener floor accepts an LSL `TERM set` as the close condition (the fork's round 36 lap 1), with its pattern as a module literal the regex sweep can time, and `CURRENT_ROUND` 36.
+    "scripts/handshake.py": 4559,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.
