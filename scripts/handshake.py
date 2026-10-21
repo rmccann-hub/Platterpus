@@ -4127,6 +4127,21 @@ def close_by_lines(root: Path | None = None) -> list[str]:
             out.append(
                 f"round {num:2d} close-by: set in lap {lap}, not lap 1 -- R2 says lap 1"
             )
+        # EVERY LATER LAP, EITHER SIDE'S, AGAINST THE FIRST (2026-10-21). R2 sets
+        # the field in lap 1 and never extends it, so a later lap declaring another
+        # instant is reported. Until now only the first declaration was read, and
+        # our own round 36 laps 2 and 3 declared 2026-11-30 against the fork's
+        # lap 1's 2026-11-20 unremarked; the fork found it (their round 36 lap 5
+        # S15) after finding the same blindness in their own gate (S16, a check
+        # across both sides' laps that read one side's). Advisory, like the rest.
+        for path, other, other_lap in declared[1:]:
+            other_value = other.split()[0] if other.split() else other
+            if other_value != value:
+                out.append(
+                    f"round {num:2d} close-by: lap {other_lap} ({path.name}) "
+                    f"declares {other_value}, not the {value} lap {lap} set -- R2: "
+                    "set once, never extended"
+                )
     return out
 
 

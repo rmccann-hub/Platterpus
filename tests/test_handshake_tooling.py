@@ -4255,6 +4255,25 @@ def test_close_by_is_attributed_to_the_earliest_lap_across_every_directory() -> 
     ), "round 19's CLOSE-BY was set in lap 3 and the reporter must still report it"
 
 
+def test_a_later_lap_declaring_another_close_by_is_reported_whichever_side() -> None:
+    """The fork's round 36 lap 5 S15: our laps 2 and 3 declared 2026-11-30 against
+    their lap 1's 2026-11-20, and R2 sets the field once. Our report read only the
+    first declaration, so it said nothing. Asserted against the real record: both
+    of our laps are reported, and a lap that repeats lap 1's instant is not."""
+    hs = _load()
+    lines = [
+        line for line in hs.close_by_lines() if line.startswith("round 36 close-by:")
+    ]
+    differing = [line for line in lines if "never extended" in line]
+    assert any("round-36-lap-02.md" in line for line in differing), lines
+    assert any("round-36-lap-03.md" in line for line in differing), lines
+    # Their lap 4 and lap 5 carry lap 1's own instant, so neither may be reported.
+    assert not any(
+        "round-36-lap-04.md" in line or "round-36-lap-05.md" in line
+        for line in differing
+    ), lines
+
+
 def test_a_laps_number_is_read_from_its_declaration_not_its_filename() -> None:
     """The filename is a SECOND description of the lap number, so it needs a check.
 
