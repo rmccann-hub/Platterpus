@@ -132,6 +132,8 @@ def run_diagnostics(
         out(f"Our CRC:    {result.our_crc:08x}")
     if result.matched_crc is not None:
         out(f"Matched CRC:{result.matched_crc:08x}")
+    if result.matched_offset is not None:
+        out(f"Offset:     {result.matched_offset:+d} (swept ±{result.offset_range})")
     if result.db_crcs:
         out(f"DB CRC(s):  {_fmt_crcs(set(result.db_crcs))}")
     out(f"Detail:     {result.message}")

@@ -462,7 +462,12 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `disagreeing_confidence` and `strongest_disagreeing`, `outvoted`, `our_crc`
 #      (the track's CTDB CRC at offset 0), `offset` (where the strongest agreeing
 #      entry agreed) and `reason` (why a track is not determined). Null when no
-#      CRC of ours was computed. Additions only.
+#      CRC of ours was computed. And `ctdb.offset_range` (how far either side
+#      the whole-disc CRC was compared; 0 for the aligned CRC alone) with
+#      `ctdb.matched_offset` (where the strongest matched entry's pressing sits,
+#      0 aligned, null without a match); a MATCH's `confidence` now sums every
+#      entry matched at any offset, as CUETools' `Confidence` does. Additions only,
+#      and `confidence` widened from one entry to the matched entries.
 REPORT_SCHEMA_VERSION: int = 39
 
 
@@ -2179,6 +2184,11 @@ def _ctdb(result: object | None) -> dict | None:
         "best_confidence": getattr(result, "best_confidence", None),
         "total_confidence": getattr(result, "total_confidence", None),
         "outvoted": getattr(result, "outvoted", None),
+        # The offset sweep (v39, TASKS R43): how far either side our whole-disc
+        # CRC was compared (0: aligned only), and where the strongest matched
+        # entry's pressing sits from ours (0 aligned, null without a match).
+        "offset_range": getattr(result, "offset_range", None),
+        "matched_offset": getattr(result, "matched_offset", None),
         "crc_validated": getattr(result, "crc_validated", None),
         # Include the CRCs + message so a consumer can audit a match, not just
         # see the verdict (hex to match the per-track AccurateRip CRC style).
@@ -2643,7 +2653,17 @@ def _issues(
     # the database" — reached the report and left `issues` empty.
     if ctdb:
         ctdb_verdict = ctdb.get("verdict")
-        if ctdb_verdict == "no_match" and ctdb.get("crc_validated"):
+        swept = ctdb.get("offset_range")
+        if ctdb_verdict == "no_match" and ctdb.get("crc_validated") and swept:
+            add(
+                "warning",
+                "ctdb_no_match",
+                "the whole-disc CTDB checksum matched no database entry at any "
+                f"alignment within ±{swept:,} samples, so the audio differs from "
+                "every entry CTDB holds (`ctdb.tracks` says which tracks); "
+                "AccurateRip remains the primary proof",
+            )
+        elif ctdb_verdict == "no_match" and ctdb.get("crc_validated"):
             add(
                 "warning",
                 "ctdb_no_match",

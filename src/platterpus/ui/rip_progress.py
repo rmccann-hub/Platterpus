@@ -63,6 +63,7 @@ from platterpus.ctdb.verify import (
     CtdbVerifyResult,
     Verdict,
     minority_match_sentence,
+    shifted_pressing_phrase,
 )
 from platterpus.parsers.rip_log import (
     RipLog,
@@ -1297,7 +1298,12 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     per_track = f" {per_track}" if per_track else ""
     if verdict is Verdict.MATCH:
         if result.trustworthy:
-            return f"CTDB: verified ✓ (confidence {result.confidence})"
+            shifted = (
+                f", {shifted_pressing_phrase(result.matched_offset)}"
+                if result.matched_offset
+                else ""
+            )
+            return f"CTDB: verified ✓ (confidence {result.confidence}{shifted})"
         if result.crc_validated and result.outvoted:
             sentence = minority_match_sentence(
                 result.confidence, result.total_confidence
@@ -1315,8 +1321,17 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
         # differs is a false alarm (the real-disc Police report showed exactly
         # this against an AccurateRip-verified rip). Mirror the MATCH path, which
         # already spells itself out as experimental until validated.
+        if result.crc_validated and result.offset_range:
+            # Every alignment CTDB accepts was tried (TASKS R43), so this line
+            # may say what the earlier one below could not: no entry equals ours.
+            return (
+                "CTDB: no match — our audio differs from every entry CTDB holds "
+                f"for this disc, at every alignment within ±{result.offset_range:,} "
+                f"samples. AccurateRip remains the primary proof.{per_track}"
+            )
         if result.crc_validated:
-            # We compute ONE checksum, at the standard alignment. CTDB itself
+            # Without a sweep (a result built from the aligned CRC alone) the
+            # line claims only that alignment, as it did before R43. CTDB itself
             # sweeps ±5879 samples because offset-shifted pressings are routine
             # (see ctdb/crc.py CTDB_OFFSET_RANGE), and our sweep lives only in
             # `--ctdb-calibrate`. So "differs from the database" was a positive

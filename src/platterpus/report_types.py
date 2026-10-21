@@ -443,6 +443,9 @@ class CtdbBlock(TypedDict):
     best_confidence: int | None
     total_confidence: int | None
     outvoted: bool | None
+    # v39 (TASKS R43): the whole-disc offset sweep.
+    offset_range: int | None
+    matched_offset: int | None
     crc_validated: bool | None
     our_crc: str | None
     matched_crc: str | None

@@ -105,9 +105,12 @@ track verified on a guess. If you enabled **Verify with CTDB**, its result
 appears on the **Details** tab, marked the same way by symbol and text: a CTDB
 match shows green — verified, because our CTDB checksum has been
 confirmed correct on real hardware.
-It is a *whole-disc* check, so AccurateRip stays the per-track authority. No
-match shows grey — "couldn't confirm", not "failed": CTDB also holds
-offset-shifted pressings, and this check only tests the standard alignment.
+It checks the whole disc at every alignment CTDB accepts (±5,879 samples, so a
+pressing that sits a little early or late still matches), and then each track
+against CTDB's per-track checksums, naming any track that differs.
+AccurateRip stays the primary proof. No match shows grey: it means our audio
+differs from every entry CTDB holds for the disc, which could be our read or
+theirs; the per-track line says which tracks.
 
 Alongside the rip, two records are saved next to your music: the backend's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same

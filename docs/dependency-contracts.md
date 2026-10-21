@@ -689,6 +689,18 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
   because an unknown count is not evidence of a partial rip. The report's
   `verification.gates.ctdb` then reads `rip_report.NOT_WHOLE_DISC_GATE`, never
   `"ran"`, and `ctdb.trustworthy` is `null` (no claim was made).
+- **Output we parse, per `<entry>`** (`parse_lookup_response`): `crc32` (hex,
+  the whole-disc CRC), `confidence`, `npar`, `id`, `hasparity` (a URL), and
+  `trackcrcs`, space-separated 32-bit hex, one per track
+  (`parse_track_crcs`). **`trackcrcs` is all or nothing**: one token that is not
+  1 to 8 hex digits drops the whole list, because the list is lined up with our
+  tracks by position and skipping a token would put every later CRC on the wrong
+  track. A list whose length is not the disc's track count is ignored for
+  per-track purposes (`ctdb/matching.py`), as CUETools' `DBEntry` ignores it. The
+  live answer for the reference disc is committed as
+  `tests/fixtures/ctdb_lookup_police_classics.xml` (2026-10-21). `syndrome` and
+  `stride` are present on the wire and not read: they serve parity repair and
+  localisation, not built (TASKS R43, KDD-14).
 
 ## Version probes — the "is it installed?" contract (`deps/checks.py`)
 

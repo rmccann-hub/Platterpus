@@ -19,7 +19,12 @@ from platterpus.adapters.ctdb_client import (
 )
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb.toc import SAMPLES_PER_SECTOR, DiscToc
-from platterpus.ctdb.verify import CtdbVerifyResult, Verdict, verify_rip
+from platterpus.ctdb.verify import (
+    CtdbVerifyResult,
+    Verdict,
+    _match_verdict,
+    verify_rip,
+)
 
 # --- crc -------------------------------------------------------------------
 
@@ -217,24 +222,28 @@ def test_no_match_message_does_not_blame_the_rip_while_unvalidated(monkeypatch) 
 
 
 def test_no_match_is_scoped_to_the_alignment_we_actually_tested() -> None:
-    """A validated no-match must not be stated as "your rip differs".
+    """A validated no-match claims only the alignments it tried.
 
-    We compute ONE checksum, at the standard alignment; CTDB itself sweeps
-    ±5879 samples because offset-shifted pressings are routine (see
-    ``ctdb/crc.py`` ``CTDB_OFFSET_RANGE``), and our sweep lives only in
-    ``--ctdb-calibrate``. Asserting the audio differs from the database was
-    therefore a positive inaccuracy claim derived from testing 1 of ~11,759
-    valid alignments — the same false-alarm shape KDD-16 was written for
-    (audit finding, 2026-07-28).
+    Until 2026-10-21 we computed ONE checksum, at the standard alignment, while
+    CTDB places pressings anywhere in ±5879 samples, so "the rip differs from the
+    database" would have been a claim from 1 of ~11,759 alignments (audit
+    finding, 2026-07-28). The verify now sweeps them all (TASKS R43), so the
+    message may say our audio differs from every entry, and says over what range;
+    a result built from the aligned CRC alone keeps the narrow wording.
     """
     entry = CtdbEntry(crc=0xDEADBEEF, confidence=1347)
     client = _FakeClient(CtdbLookupResult(entries=(entry,)))
     res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
     assert res.crc_validated is True
-    assert "at the standard alignment" in res.message
-    assert "offset-shifted pressings" in res.message
-    # The claim we must never make again.
+    assert res.offset_range == crc_mod.CTDB_OFFSET_RANGE
+    assert "at any alignment within ±5,879 samples" in res.message
+    assert "differs from every entry CTDB holds" in res.message
+    # The claim we must never make: a verdict about the rip, not about CTDB.
     assert "this rip differs from the database" not in res.message
+    unswept = _match_verdict(CtdbLookupResult(entries=(entry,)), 0x1234)
+    assert unswept.offset_range == 0
+    assert "at the standard alignment" in unswept.message
+    assert "offset-shifted pressings" in unswept.message
 
 
 def test_lookup_error_is_a_verdict_not_a_raise() -> None:

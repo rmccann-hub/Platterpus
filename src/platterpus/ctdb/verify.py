@@ -48,7 +48,7 @@ from platterpus.ctdb.matching import (
     match_disc,
     match_tracks,
 )
-from platterpus.ctdb.sweep import SweepResult, sweep_disc
+from platterpus.ctdb.sweep import DISC_OFFSET_RANGE, SweepResult, sweep_disc
 from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
 from platterpus.ctdb.track_wording import per_track_sentence
 
@@ -103,6 +103,13 @@ class CtdbVerifyResult:
     # each track, in disc order (`ctdb/matching.py`). Empty when the check never
     # got as far as computing our CRCs (not in the database, no decoder, ...).
     tracks: tuple[CtdbTrackResult, ...] = ()
+    # **The offset sweep** (TASKS R43): how far, in samples either side, our
+    # whole-disc CRC was compared (0: the aligned CRC only), and where the
+    # strongest matched entry's pressing sits from ours (0 aligned, None without
+    # a match). A MATCH sums every entry matched at any offset, as CUETools'
+    # `Confidence` does.
+    offset_range: int = 0
+    matched_offset: int | None = None
 
     @property
     def outvoted(self) -> bool:
@@ -249,7 +256,9 @@ def verify_rip(
     #    frame count and track starts up front (the back trim is length-dependent),
     #    which the TOC gives us before decoding.
     try:
-        measured = sweep_disc((decoder(Path(p)) for p in flac_paths), toc)
+        measured = sweep_disc(
+            (decoder(Path(p)) for p in flac_paths), toc, disc_range=DISC_OFFSET_RANGE
+        )
     except decode.DecoderUnavailable as exc:
         return _db_only_result(result, Verdict.DECODER_UNAVAILABLE, str(exc))
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
@@ -271,40 +280,47 @@ def _match_verdict(
     db_crcs = tuple(e.crc for e in result.entries if e.crc is not None)
     best = max((e.confidence for e in result.entries), default=0)
     total = sum(max(0, e.confidence) for e in result.entries)
-    # Without a measurement (a caller holding only the whole-disc CRC) there is
-    # no per-track result to give, and the messages say nothing about tracks.
+    # Without a measurement (a caller holding only the aligned CRC) there is no
+    # sweep and no per-track result, and the messages claim neither.
+    disc_crcs = dict(measured.disc) if measured is not None else {0: our_crc}
+    swept = max((abs(o) for o in disc_crcs), default=0)
+    disc_matched = match_disc(result.entries, disc_crcs)
     tracks = (
-        match_tracks(
-            result.entries, measured.tracks, match_disc(result.entries, {0: our_crc})
-        )
+        match_tracks(result.entries, measured.tracks, disc_matched)
         if measured is not None
         else ()
     )
     per_track = f" {per_track_sentence(tracks, total)}" if tracks else ""
-    for entry in result.entries:
-        if entry.crc is not None and entry.crc == our_crc:
-            if not crc_mod.CRC_VALIDATED:
-                message = (
-                    "CRC matched, but the CRC algorithm is UNVERIFIED "
-                    "(KDD-16) — treat as experimental"
-                )
-            elif entry.confidence < best:
-                message = minority_match_sentence(entry.confidence, total)
-                message += f".{per_track}" if per_track else ""
-            else:
-                message = f"verified against CTDB (confidence {entry.confidence})"
-            return CtdbVerifyResult(
-                Verdict.MATCH,
-                confidence=entry.confidence,
-                our_crc=our_crc,
-                matched_crc=entry.crc,
-                db_crcs=db_crcs,
-                crc_validated=crc_mod.CRC_VALIDATED,
-                message=message,
-                best_confidence=best,
-                total_confidence=total,
-                tracks=tracks,
+    if disc_matched:
+        matched = [(result.entries[i], o) for i, o in disc_matched.items()]
+        confidence = sum(max(0, e.confidence) for e, _ in matched)
+        lead, offset = min(matched, key=lambda m: (-m[0].confidence, abs(m[1]), m[1]))
+        if not crc_mod.CRC_VALIDATED:
+            message = (
+                "CRC matched, but the CRC algorithm is UNVERIFIED "
+                "(KDD-16) — treat as experimental"
             )
+        elif confidence < best:
+            message = minority_match_sentence(confidence, total)
+            message += f".{per_track}" if per_track else ""
+        else:
+            message = f"verified against CTDB (confidence {confidence})"
+            if offset:
+                message += f", {shifted_pressing_phrase(offset)}"
+        return CtdbVerifyResult(
+            Verdict.MATCH,
+            confidence=confidence,
+            our_crc=our_crc,
+            matched_crc=lead.crc,
+            db_crcs=db_crcs,
+            crc_validated=crc_mod.CRC_VALIDATED,
+            message=message,
+            best_confidence=best,
+            total_confidence=total,
+            tracks=tracks,
+            offset_range=swept,
+            matched_offset=offset,
+        )
     n = len(result.entries)
     # The message MUST depend on whether our CRC algorithm is trustworthy. While
     # CRC_VALIDATED is False (KDD-16), our_crc is a known-placeholder value that
@@ -312,7 +328,16 @@ def _match_verdict(
     # the rip — claiming "the rip differs" here is the false alarm the real-disc
     # Police report exposed. Only once the algorithm is hardware-validated does a
     # no-match actually mean the audio differs from the database.
-    if crc_mod.CRC_VALIDATED:
+    if crc_mod.CRC_VALIDATED and swept:
+        # Every alignment CTDB itself would accept was tried, so this is now a
+        # finding about the audio, scoped to what CTDB holds: no entry equals it.
+        message = (
+            f"disc is in CTDB, but our CRC matched none of its {n} entries at any "
+            f"alignment within ±{swept:,} samples, so our audio differs from every "
+            "entry CTDB holds for this disc. AccurateRip remains the primary "
+            f"proof.{per_track}"
+        )
+    elif crc_mod.CRC_VALIDATED:
         message = (
             f"disc is in CTDB but our CRC didn't match any of the {n} "
             "entries at the standard alignment. CTDB also holds offset-shifted "
@@ -342,7 +367,13 @@ def _match_verdict(
         best_confidence=best,
         total_confidence=total,
         tracks=tracks,
+        offset_range=swept,
     )
+
+
+def shifted_pressing_phrase(offset: int) -> str:
+    """The one wording for a match found away from alignment (verdict and screen)."""
+    return f"a pressing {offset:+,d} samples from ours"
 
 
 def minority_match_sentence(matched: int, total: int) -> str:
