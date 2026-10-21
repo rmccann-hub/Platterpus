@@ -1190,6 +1190,12 @@ def _status_report(
         else:
             out.append("Some tracks could not be verified as accurate")
         out.append("")
+    # The ripper's own health sentence, VERBATIM, even where `rip_health` would
+    # not call the rip clean (an error line under `Ripping errors: 0`, or a track
+    # with unverified skips). This disc-level line is a surface the cyanrip fork
+    # diffs against, so it changes only through the handshake; the replacement
+    # wording is proposed in TASKS.md for our round 36 lap. The report's
+    # `health_status` and the window already say it (2026-10-21).
     if rip_log.health_status:
         out.append(rip_log.health_status)
         out.append("")
@@ -1253,7 +1259,7 @@ def _status_report(
 
 
 def _read_stability_line(rip_log: RipLog) -> list[str]:
-    """A whole-disc read-stability line when any track's re-reads disagreed.
+    """Whole-disc read-stability lines: re-reads that disagreed, and unverified skips.
 
     The backend's own health line reports *unrecoverable read errors*, and it
     stays "No errors occurred" even when a track never read the same way twice
@@ -1263,28 +1269,55 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     says it too: the summary a human reads must not be more reassuring than the
     verdict the app gave.
 
-    Measured only — it names the tracks whose ``secure_rerip_converged`` is
-    explicitly ``False``. No such track (or a log that never recorded the field)
+    **Two lines, one per kind of evidence, each only when it has a track.**
+
+    * Re-reads that did not converge: the tracks whose ``secure_rerip_converged``
+      is explicitly ``False``.
+    * **Skips paranoia could not verify** (the owner's known-fixes list,
+      2026-10-21, item 3): the tracks :func:`track_has_unverified_skips` names.
+      Their own block already reads ``Copy NOT confirmed``, but this line named
+      only the re-reads, so a reader of the status report alone saw "No errors
+      occurred" and no caveat over track 18 of the 2026-10-04 rig run. Its own
+      line rather than a clause of the first, because "did not read the same
+      way twice" and "a read paranoia gave up verifying" are different findings.
+
+    Measured only: no such track (or a log that never recorded the field)
     renders nothing, so a clean rip's conclusive report is unchanged.
     """
+    lines: list[str] = []
     unstable = [
         track.number
         for track in rip_log.tracks
         if track.secure_rerip_converged is False
     ]
-    if not unstable:
-        return []
-    # Sort on a total order that tolerates a malformed number: mixing str/int/None
-    # in `sorted()` raises TypeError, and one bad track would take the whole log
-    # down to the stub (review finding, 2026-07-28).
-    listed = ", ".join(
-        str(number)
-        for number in sorted(unstable, key=lambda n: (not isinstance(n, int), str(n)))
-    )
-    return [
-        f"Read stability      : track(s) {listed} did not read identically across "
-        "re-reads — not confirmed reproducible"
+    if unstable:
+        lines.append(
+            f"Read stability      : track(s) {_listed_tracks(unstable)} did not read "
+            "identically across re-reads — not confirmed reproducible"
+        )
+    skipped = [
+        track.number for track in rip_log.tracks if track_has_unverified_skips(track)
     ]
+    if skipped:
+        lines.append(
+            f"Read stability      : track(s) {_listed_tracks(skipped)} had reads "
+            "paranoia could not verify (skips) and AccurateRip did not confirm the "
+            "audio — not confirmed"
+        )
+    return lines
+
+
+def _listed_tracks(numbers: list[int]) -> str:
+    """``"3, 5, 18"``: track numbers in order, tolerant of a malformed number.
+
+    Sorted on a total order: mixing str/int/None in ``sorted()`` raises TypeError,
+    and one bad track would take the whole log down to the stub (review finding,
+    2026-07-28).
+    """
+    return ", ".join(
+        str(number)
+        for number in sorted(numbers, key=lambda n: (not isinstance(n, int), str(n)))
+    )
 
 
 def _appended_silence_line(rip_log: RipLog) -> list[str]:

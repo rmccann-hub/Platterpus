@@ -24,6 +24,11 @@ from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.rip_health import (
+    CLEAN_HEALTH,
+    effective_health_status,
+    error_lines_contradicting_summary,
+)
 from platterpus.verdict import track_has_unverified_skips
 
 log = logging.getLogger(__name__)
@@ -520,9 +525,19 @@ def fidelity_summary(
             for t in tracks
             if getattr(t, "status", "") == "ripped successfully" and t not in skipped
         )
-        no_errors = getattr(rip_log, "health_status", "") == "No errors occurred"
+        # Health by the one function the report also asks (`rip_health`), so an
+        # error line the ripper printed under its own "Ripping errors: 0" cannot
+        # read clean here while the report says otherwise.
+        no_errors = effective_health_status(rip_log) == CLEAN_HEALTH
+        contradicting = error_lines_contradicting_summary(rip_log)
         if clean == total and no_errors:
             summary = lead(f"all {total} tracks ripped cleanly, no read errors.")
+        elif contradicting:
+            summary = lead(
+                f"{clean}/{total} tracks ripped, but the ripper printed an error its "
+                f"own count of 0 errors leaves out: “{contradicting[0].strip()}”. "
+                "See the Rip log tab."
+            )
         elif skipped:
             listed = ", ".join(str(getattr(t, "number", "?")) for t in skipped)
             summary = lead(

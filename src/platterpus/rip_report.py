@@ -52,6 +52,7 @@ from platterpus.report_types import (
     SecureReripBlock,
     TimingBlock,
 )
+from platterpus.rip_health import effective_health_status, health_findings
 from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_exit_class import classify_exit
@@ -430,6 +431,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      offset (KDD-31). `differs` raises the `read_offset_differs_from_accuraterip`
 #      warning and `drive_not_listed` the `read_offset_drive_not_listed` info
 #      issue (`read_offset_check.py`). Additions only.
+#      Same unreleased version, 2026-10-21 (the owner's known-fixes list, items 3
+#      and 12): `issues` gains `unverified_paranoia_skips` (a track paranoia
+#      skipped on that AccurateRip did not confirm) and
+#      `ripper_error_lines_under_zero_summary` (an error line the ripper printed
+#      under `Ripping errors: 0`), both warnings; `health_status` names that
+#      disagreement instead of reading "No errors occurred"; and
+#      `verdict.message` names a track that differs from AccurateRip's entry for
+#      a disc in the database, where it said "aren't in the database or didn't
+#      match". Additions only.
 REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -1476,6 +1486,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
+        health_findings=health_findings(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
         log_parse=log_parse_block,
         completeness=completeness,
@@ -1620,7 +1631,10 @@ def _build(
         # whatever audio was read, so on a `-l` or interrupted rip they are not the
         # album's (the fork, round 26 lap 4). Derived from the log's own footer.
         "album_loudness_covers": album_loudness.coverage(rip_log),
-        "health_status": getattr(rip_log, "health_status", "") or None,
+        # Never "No errors occurred" over an error line the ripper's own zero
+        # count leaves out (`rip_health`, 2026-10-21); the same function the
+        # window's status line asks.
+        "health_status": effective_health_status(rip_log) or None,
         "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
         # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
         # signed log checksum, the one archival-forensic field we were dropping.
@@ -2237,6 +2251,9 @@ def _issues(
     read_speed: dict | None,
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
+    # `rip_health.health_findings`: a skipped track AccurateRip did not confirm,
+    # and error lines under a zero summary. Computed there, added here as-is.
+    health_findings: list[tuple[str, str, str]] | None = None,
     log_truncated: bool = False,
     # ADDED after an audit found each of these could be true while `issues` stayed
     # empty — i.e. the one list a triager opens first said "nothing to flag" about a
@@ -2609,6 +2626,13 @@ def _issues(
             f"track(s) {listed} needed unusually heavy re-reading — a sign the "
             "read may not be reproducible; consider re-ripping to confirm",
         )
+
+    # THE TWO WAYS "No errors occurred" COULD SIT OVER A RIP THAT WAS NOT CLEAN
+    # (the owner's known-fixes list, 2026-10-21, item 3): a track paranoia skipped
+    # on that AccurateRip did not confirm, and a ripper error line under its own
+    # summary of zero. Both are `rip_health`'s, worded there.
+    for finding_severity, finding_code, finding_message in health_findings or ():
+        add(finding_severity, finding_code, finding_message)
 
     if flac_integrity and flac_integrity.get("ran") and not flac_integrity.get("ok"):
         add(

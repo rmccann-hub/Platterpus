@@ -66,11 +66,12 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
-from platterpus import diagnostics
+from platterpus import diagnostics, ripper_error_lines
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
@@ -555,6 +556,24 @@ def is_secure_rerip_verdict(line: str) -> bool:
     reported two ways, and neither is a failure of the ripper.
     """
     return secure_rerip_verdict_converged(line) is not None
+
+
+def is_ripper_error_line(line: str) -> bool:
+    """True when ``line`` is one of the ripper's diagnostics, as both readers judge it.
+
+    The one definition shared by the rip worker (each streamed line) and this
+    parser (each line of a finished log): the published-inventory matcher
+    (:data:`~platterpus.ripper_error_lines.RIPPER_ERROR_RE`), minus the secure
+    re-read verdicts, which it also matches (``Done; (no matches found, but hit
+    repeat limit of 3)``) and which are a fact about the disc, not a ripper
+    failure (see :func:`is_secure_rerip_verdict`). Never raises.
+    """
+    # Read through the module, not imported by name: a compiled pattern in this
+    # module's namespace would join the "every pattern here is a parse rule" sweep
+    # (`test_rule_tables_are_a_complete_enumeration_of_this_module`), and this one
+    # is not a parse rule of ours, it is the shared diagnostic matcher.
+    matcher = ripper_error_lines.RIPPER_ERROR_RE
+    return bool(matcher.match(line)) and not is_secure_rerip_verdict(line)
 
 
 def secure_rerip_verdict_converged(line: str) -> bool | None:
@@ -3200,6 +3219,11 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
 )
 
+# How many of the ripper's diagnostic lines to keep from each end of a log (head
+# and tail), and how long each may be. The full count is kept beside them.
+_ERROR_LINE_KEEP: Final[int] = 10
+_ERROR_LINE_CHARS: Final[int] = 400
+
 # How many unclaimed top-level lines to keep as evidence for the debug log. A
 # corrupt or enormous input must not turn diagnostics into unbounded memory use.
 _UNCLAIMED_SAMPLE_LIMIT = 10
@@ -3354,6 +3378,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # turn diagnostics into unbounded memory use.
     unclaimed_sample: list[str] = []
     unclaimed_total = 0
+    # The ripper's own diagnostic lines (`is_ripper_error_line`), for `rip_health`
+    # to compare with the `Ripping errors:` summary. Head and tail, bounded, with
+    # the full count beside them so an elision is visible (CLAUDE.md: a silent
+    # truncation reads as completeness).
+    error_head: list[str] = []
+    error_tail: deque[str] = deque(maxlen=_ERROR_LINE_KEEP)
+    error_total = 0
 
     # The track block currently being read; flushed into `disc.tracks` when the
     # next block (or the end of input) is reached.
@@ -3494,6 +3525,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
         current = None
 
     for line in _fold_continuations(text):
+        # Offered to the diagnostic matcher BEFORE any rule, and never consumed:
+        # a line can be both a fact a rule reads and a diagnostic, and recording
+        # it here changes nothing about how the rest of the loop parses it.
+        if is_ripper_error_line(line):
+            error_total += 1
+            kept = line.rstrip()[:_ERROR_LINE_CHARS]
+            if len(error_head) < _ERROR_LINE_KEEP:
+                error_head.append(kept)
+            else:
+                error_tail.append(kept)
         # Are we inside a track block? Read once per line, for the rows that only
         # count in the disc-level report. Nothing between here and the last table
         # dispatch can change it without also skipping to the next line, so a
@@ -4173,4 +4214,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         release_id=disc.release_id,
         log_truncated=truncated,
         last_track_incomplete=last_incomplete,
+        ripper_error_lines=(*error_head, *error_tail),
+        ripper_error_lines_total=error_total,
     )

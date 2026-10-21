@@ -119,11 +119,11 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 
 | # | What | Row |
 |---|---|---|
-| 3 | Error lines are not checked against the `Ripping errors: 0` summary. A `ripper.fatal_message` diagnostic is recorded, but nothing amends health from it | *Check ripper error lines against the summary* |
+| 3 | **[x] 2026-10-21 (our side):** error lines are checked against the `Ripping errors: 0` summary. The parser keeps them (`RipLog.ripper_error_lines`, the worker's matcher, now `ripper_error_lines.py`); `rip_health.effective_health_status` stops the report's `health_status` and the status line reading clean, and `issues` gains `ripper_error_lines_under_zero_summary`. The EAC-layout disc line waits for round 36 (wording on the row) | *A summary field and the error lines above it are two claims about one* |
 | 4 | `gates.flac_integrity` reads `ran` from config even when the checker aborts on a missing binary. This is CLAUDE.md's *completeness field derived from config*. The acceptance run also only screenshots the dependencies dialog | *The dependency dialog is unchecked…* |
 | 5 | Post-rip verification cut short (the unattended give-up path, `app.py`) writes nothing to `.platterpus.json`, and `build_gates` has no cover-art or completeness block, so the record reads as complete | *An archival record must say when its post-rip verification was cut short* |
 | 6 | The log and report never assert the read offset is *correct*: only the number applied is written, never compared with the AccurateRip drive database (the UI alone says "two independent sources agree"). **Report and results-pane half shipped 2026-10-21** (`rip.read_offset_check`, schema 39, `read_offset_check.py`; the owner's known-fixes item 11); the EAC-layout line is proposed for our next round-36 lap | *Assert the read offset is CORRECT, not merely applied* |
-| 7 | The report has no `issues` code for a track with unverified paranoia skips (the EAC-layout half shipped in `1e118482`) | *The EAC-layout log and the report for a track with unverified skips* |
+| 7 | **[x] 2026-10-21 (our side):** the report's `issues` code `unverified_paranoia_skips`, and the EAC-layout `Read stability` line names the track. The disc-level "No errors occurred" waits for round 36 (wording on the row) | *The EAC-layout log and the report for a track with unverified skips* |
 | 8 | **[x] Fixed 2026-10-21** (re-measured on the MP3, `adapters/mp3_replaygain.py`). Was: a derived MP3 carries the FLAC's `REPLAYGAIN_*` tags, measured before the lossy encode | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
 | 9 | Embed the full `-j` record in `.platterpus.json`. Do this before round 32's new `-j` fields arrive (pre-emphasis, ISRC, CD-TEXT, `-f`) | *Embed the full -j diagnostics record* |
 | 10 | Embed the discarded auto re-rip's cyanrip log in the report (D11 A, decided, not built) | *Embed the discarded auto re-rip's log* |
@@ -277,7 +277,7 @@ artifact?* was the question to ask before answering, not after.
 | # | What | Why | Time | Row |
 |---|---|---|---|---|
 | B1 | **Answered by their lap 13 S9 to S11**; K2's divergence put to round 31 in our lap 14 S6. C13a's release effect, K2's `-OBSERVED`, C23 on their gate | Owed since 2026-09-25 and never sent; NEXT-ROUND | 30 min in the lap | *Our next released lap says our gate implements 6* (a) to (c) |
-| B2 | Round 31: the disc-level "No errors occurred", and the report's `issues` code, for a track with unverified skips | Proposed in our lap 8; the EAC-layout half shipped in `1e118482` | 2 h, plus the lap | *The EAC-layout log and the report for a track with unverified skips* |
+| B2 | Round 31: the disc-level "No errors occurred", and the report's `issues` code, for a track with unverified skips | Proposed in our lap 8; the EAC-layout half shipped in `1e118482`; the `issues` code shipped 2026-10-21, and the disc-level wording is proposed for round 36 on the row | 2 h, plus the lap | *The EAC-layout log and the report for a track with unverified skips* |
 | B3 | Round 31: ReplayGain on a derived MP3 describes the FLAC | Our lap 6 S15. Recommended: re-measure on the MP3 | 3–5 h | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
 | B4 | Their lap checker's no-final-newline fix | Accepted in their lap 1 S20, theirs to land; ask where it stands | One line | *Both lap checkers cannot cite the last line of a file with no final newline* |
 | B5 | **Regenerated 2026-10-06** (`5b32edfd`); the declaration is in our lap 14 (S10, S13). A1's rewrite regenerates our consumer contract | The patterns are published, so the change is declared | With A1 | *Found while integrating* (4) |
@@ -1287,6 +1287,47 @@ Open:
     AccurateRip did not confirm gets its own EAC-layout verdict"*): track 18 renders
     "Copy NOT confirmed". Still open, for round 31: the disc-level "No errors
     occurred" for such a disc, and the report's `issues` code.
+  - *2026-10-21 (the owner's known-fixes list, items 3 and 12): our side is done.*
+    The report raises `unverified_paranoia_skips` (warning) and, for an error line
+    the ripper printed under `Ripping errors: 0`, `ripper_error_lines_under_zero_summary`
+    (warning); its `health_status` and the window's status line stop reading clean
+    over the second (`rip_health.py`). The EAC-layout `Read stability` line now names
+    skipped tracks: `Read stability      : track(s) 18 had reads paranoia could not
+    verify (skips) and AccurateRip did not confirm the audio — not confirmed`. Held by
+    `tests/test_verdict_honesty.py`.
+  - **Still open, PROPOSED FOR OUR ROUND 36 LAP: the disc-level sentence.** The
+    EAC-layout log still prints cyanrip's "No errors occurred" verbatim
+    (`eac_log_export._status_report`), because the fork diffs that line. Proposed
+    replacement, exactly. When a track has unverified skips, or the ripper printed
+    an error line under `Ripping errors: 0`, print EAC's own sentence for a rip with
+    errors in place of "No errors occurred", followed by one line of ours naming
+    what the ripper's count left out:
+
+        There were errors
+        Ripper's own count  : Ripping errors: 0 — not counted: paranoia skips on track(s) 18 that AccurateRip did not confirm
+
+    and, for an error line (each quoted line verbatim, the first three, then
+    "and N more"):
+
+        There were errors
+        Ripper's own count  : Ripping errors: 0 — not counted: 1 error line the ripper printed ("Error writing trailer: File too large!")
+
+    When both apply, one `Ripper's own count` line names both, joined by `; `. A
+    disc with neither keeps "No errors occurred" unchanged. "There were errors" is
+    EAC's wording, not ours, so a log checker reads it as EAC means it; the second
+    line is ours and says so by its label.
+- [x] **The verdict blamed "not in the database" for a disc that is in it** (the owner's
+  known-fixes list, 2026-10-21, item 12). For 12 of 14 verified, the headline read "the
+  rest aren't in the database or didn't match", though the parser reads cyanrip's
+  disc-level `AccurateRip:` line (R38). When `accuraterip_standing` says the disc is in
+  the database and every failing track's row records a comparison, the headline now
+  names each one: "track 5 differs from AccurateRip's entry (confidence 200): most
+  likely a misread" (`verdict.tracks_differing_from_entry` and
+  `differing_tracks_phrase`). The results pane and the report's `verdict.message` both
+  come from `accuraterip_verdict`, and the CTDB reconciliation line uses the same
+  phrase. A disc in the database where no track matched is amber, not grey. A track
+  with no comparison on record keeps the old wording. The EAC-layout log does not show
+  this headline. Held by `tests/test_verdict_honesty.py`.
 - [x] **Stopping a run from the console leaves the rip it started running.** Run 3's
   section N rip was still reading when the session restored the settings and wrote its
   bundle. Decided: cancel it. A run that stops early (Stop, `abort`, a `wait-for-rip`
@@ -5315,6 +5356,7 @@ get right twice.
       contract in hand. `ripper_messages.build_matcher` is the right input: it is
       derived from the fork's published format strings rather than a hand list.
   - *Audit 2026-09-25: partly done.* Encode failures now amend health through `Encoder errors:` (66e228d). Error lines are still not checked against the summary.
+  - *2026-10-21: done on our side* (the owner's known-fixes list, item 3). The parser keeps every line `ripper_error_lines.RIPPER_ERROR_RE` matches (secure re-read verdicts excluded, by the predicate the worker uses, `cyanrip_log.is_ripper_error_line`), and `rip_health` compares them with the summary: the report's `issues` gains `ripper_error_lines_under_zero_summary`, and `health_status` and the status line stop reading clean. Measured first: across the 246 cyanrip logs under `tests/fixtures`, the matcher fires only on `Stopping, ripping incomplete!`, always under a non-zero count, so no committed clean rip trips it. The EAC-layout disc line is the round-36 proposal on *The EAC-layout log and the report for a track with unverified skips*.
 - [x] **No sweep exists for "a check that agrees for the wrong reason".** Raised
       in our round-20 verification §E as an open problem, not a solved one. Our
       close-by reporter agreed with the fork's on three of four rounds while

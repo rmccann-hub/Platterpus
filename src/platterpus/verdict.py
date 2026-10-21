@@ -18,6 +18,10 @@ import re
 from collections.abc import Sequence
 from typing import Final
 
+from platterpus.accuraterip_standing import (
+    AR_STANDING_IN_DATABASE,
+    accuraterip_standing,
+)
 from platterpus.data_tracks import (
     audio_track_totals,
     data_track_numbers,
@@ -475,6 +479,72 @@ def _unconverged_clause(audio: list[object]) -> str:
     )
 
 
+def tracks_differing_from_entry(rip_log: object) -> list[tuple[int, int | None]]:
+    """``(track, database confidence)`` for each track that differs from AccurateRip.
+
+    **The question the old headline answered wrongly** (the owner's known-fixes
+    list, 2026-10-21, item 12). For 12 of 14 verified, the headline said the rest
+    "aren't in the database or didn't match", though the parser reads cyanrip's
+    disc-level ``AccurateRip:`` line and the disc was in the database. When
+    :func:`~platterpus.accuraterip_standing.accuraterip_standing` says the disc
+    is in the database, a track that matched nothing (not even one frame) and
+    whose own row records a comparison (:data:`AR_STATE_NO_MATCH`) differs from
+    AccurateRip's entry: a finding about our read, not about the database.
+
+    The confidence is the database's best for that track (the ``max confidence``
+    on its ``Accurip:`` row), or None where the row does not give one.
+
+    Returns ``[]`` unless the standing is in the database AND every unverified,
+    non-one-frame track is such a mismatch: a track with no comparison on record
+    is not named as differing, and then the old wording, which allows for it,
+    stays. Pure; never raises.
+    """
+    try:
+        if accuraterip_standing(rip_log) != AR_STANDING_IN_DATABASE:
+            return []
+        differing: list[tuple[int, int | None]] = []
+        for track in _audio_tracks(rip_log):
+            if track_accuraterip_verified(track) or track_accuraterip_partial(track):
+                continue
+            lookup = getattr(track, "accuraterip_lookup", None)
+            offset = getattr(track, "accuraterip_offset", None)
+            states = {
+                accuraterip_state(getattr(track, name, None), offset, lookup)
+                for name in ("accuraterip_v1", "accuraterip_v2")
+            }
+            number = getattr(track, "number", None)
+            if AR_STATE_NO_MATCH not in states or not isinstance(number, int):
+                return []
+            differing.append((number, accuraterip_db_max_confidence(lookup)))
+        return differing
+    except (AttributeError, TypeError, ValueError):
+        return []
+
+
+def differing_tracks_phrase(differing: Sequence[tuple[int, int | None]]) -> str:
+    """The words for :func:`tracks_differing_from_entry`'s list, or ``""``.
+
+    ``track 5 differs from AccurateRip's entry (confidence 200): most likely a
+    misread``, or the plural. One wording, shared by the headline and the CTDB
+    reconciliation line, so the two cannot describe one track two ways.
+    """
+    if not differing:
+        return ""
+    if len(differing) == 1:
+        number, confidence = differing[0]
+        conf = f" (confidence {confidence})" if confidence else ""
+        return (
+            f"track {number} differs from AccurateRip's entry{conf}: most likely "
+            "a misread"
+        )
+    names = [
+        f"{number} (confidence {confidence})" if confidence else str(number)
+        for number, confidence in differing
+    ]
+    joined = ", ".join(names[:-1]) + f" and {names[-1]}"
+    return f"tracks {joined} differ from AccurateRip's entry: most likely misreads"
+
+
 #: The report's ``verdict.basis`` for :func:`reads_agree_without_accuraterip`: its
 #: own name, so no reader can take a consistent read for a verified one.
 VERDICT_BASIS_READS_AGREE: Final[str] = "reads_agree"
@@ -633,6 +703,15 @@ def _accuraterip_verdict(
             if partial
             else ""
         )
+        # A disc AccurateRip holds: name each failing track as differing from its
+        # entry, never "not in the database" (item 12, 2026-10-21).
+        differing = differing_tracks_phrase(tracks_differing_from_entry(rip_log))
+        if differing:
+            return (
+                f"⚠ {verified} of {total} tracks verified against AccurateRip; "
+                f"{differing}{tail}{unconverged} (see the table)",
+                "warn",
+            )
         return (
             f"⚠ {verified} of {total} tracks verified against AccurateRip — "
             f"the rest aren't in the database or didn't match{tail}{unconverged} "
@@ -666,6 +745,18 @@ def _accuraterip_verdict(
             "the same audio each time; they cannot show that the audio is right, "
             "because a drive can misread a scratch the same way twice.",
             "neutral",
+        )
+    # Nothing matched, and AccurateRip HOLDS this disc (cyanrip's disc-level
+    # `AccurateRip: found`): the database had an answer and every track differs
+    # from it. That is evidence against the read, so amber, and the sentence
+    # below, which blames a missing entry or an unreachable database, would be
+    # false (item 12, 2026-10-21).
+    if accuraterip_standing(rip_log) == AR_STANDING_IN_DATABASE:
+        return (
+            "⚠ Not verified: AccurateRip has an entry for this disc and none of "
+            f"the {total} tracks matched it. A wrong read offset or misreads look "
+            "like this (see the table).",
+            "warn",
         )
     # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
     # text, never colour alone — colour-blind and screen-reader users get the
@@ -750,6 +841,15 @@ def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
                 "AccurateRip verified every track, but CTDB has no matching "
                 "whole-disc entry — most likely this exact pressing just hasn't "
                 "been submitted to CTDB. AccurateRip is the authority here."
+            )
+        # The disc is in AccurateRip and the rest differ from its entry: the same
+        # finding as the headline, by the same function (item 12, 2026-10-21).
+        differing = differing_tracks_phrase(tracks_differing_from_entry(rip_log))
+        if differing:
+            return (
+                f"Why this and AccurateRip seem to disagree: {differing}, so the "
+                "whole-disc CTDB CRC cannot match either — this is the SAME finding "
+                "as AccurateRip above, not a separate problem."
             )
         # verified > 0 and the rest are NOT in AccurateRip at all (not even one
         # frame matched). AccurateRip made no finding about those tracks, so

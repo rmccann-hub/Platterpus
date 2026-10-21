@@ -636,6 +636,13 @@ class RipLog:
     # is present but incomplete, which is a different problem from a track that
     # is missing outright, and a consumer counting "verified" tracks should know.
     last_track_incomplete: bool = False
+    # Every line of the log the ripper's diagnostic matcher recognises
+    # (`ripper_error_lines.RIPPER_ERROR_RE`, secure re-read verdicts excluded),
+    # verbatim: head and tail kept when there are many, `ripper_error_lines_total`
+    # counting all of them so an elision is never silent. Read by `rip_health`,
+    # which compares them with the `Ripping errors:` summary (2026-10-21).
+    ripper_error_lines: tuple[str, ...] = ()
+    ripper_error_lines_total: int = 0
 
     @property
     def drive_read_errors(self) -> int | None:
