@@ -1,0 +1,777 @@
+================================================================
+Platterpus UI script run — 2026-10-21T21:45:10+00:00
+app: 0.7.112
+run size: full
+Run estimate (full): at least 5h 45m, up to 16h 20m if reads disagree and tracks need re-reading at the retry ceiling: 13 rip(s) about 5h 30m at 1.0x (the speed the project's rig measured for this drive model), and the other steps 13m (measured on the 2026-10-05 Full run, plus this script's waits); NOT counted, so the figure is a floor: section(s) E2, J2, O, P4, P5, never measured on a filed run.
+saved to: ~/platterpus-rig/platterpustestsession20261021t214509z/evidence/run
+  (transcript.txt, report.json, and any screenshots)
+================================================================
+[  ok  ] L197  log =============================================================
+           =============================================================
+[  ok  ] L198  log FULL ACCEPTANCE RUN - end to end, one pass
+           FULL ACCEPTANCE RUN - end to end, one pass
+[  ok  ] L199  log order: cheapest and least likely to fail first
+           order: cheapest and least likely to fail first
+[  ok  ] L200  log the first rip is section F; the long one is section N
+           the first rip is section F; the long one is section N
+[  ok  ] L201  log =============================================================
+           =============================================================
+[  ok  ] L210  set rip_goal fast_verified
+           rip_goal = 'fast_verified'
+[  ok  ] L211  set track_template %A/%d/%t - %n
+           track_template = '%A/%d/%t - %n'
+[  ok  ] L212  set disc_template %A/%d/%d
+           disc_template = '%A/%d/%d'
+[  ok  ] L213  set track_template_unknown Unknown Artist/Unknown Album/%t - Track %t
+           track_template_unknown = 'Unknown Artist/Unknown Album/%t - Track %t'
+[  ok  ] L214  set disc_template_unknown Unknown Artist/Unknown Album/Unknown Album
+           disc_template_unknown = 'Unknown Artist/Unknown Album/Unknown Album'
+[  ok  ] L215  set auto_launch_picard off
+           auto_launch_picard = False
+[  ok  ] L216  set auto_eject_after_rip off
+           auto_eject_after_rip = False
+[  ok  ] L217  set notify_on_completion on
+           notify_on_completion = True
+[  ok  ] L218  set cover_art embed
+           cover_art = 'embed'
+[  ok  ] L219  set save_additional_art on
+           save_additional_art = True
+[  ok  ] L220  set max_retries 5
+           max_retries = 5
+[  ok  ] L221  set force_overread off
+           force_overread = False
+[  ok  ] L222  set prefer_disc_isrc on
+           prefer_disc_isrc = True
+[  ok  ] L223  set secure_rerip_matches 2
+           secure_rerip_matches = 2
+[  ok  ] L224  set secure_rerip_dynamic on
+           secure_rerip_dynamic = True
+[  ok  ] L225  set rerip_offset_variant on
+           rerip_offset_variant = True
+[  ok  ] L226  set second_read_without_accuraterip on
+           second_read_without_accuraterip = True
+[  ok  ] L227  set read_speed_mode auto_ladder
+           read_speed_mode = 'auto_ladder'
+[  ok  ] L228  set read_speed 0
+           read_speed = 0
+[  ok  ] L229  set ctdb_verify_after_rip on
+           ctdb_verify_after_rip = True
+[  ok  ] L230  set verify_flac_after_rip on
+           verify_flac_after_rip = True
+[  ok  ] L231  set write_eac_log_after_rip off
+           write_eac_log_after_rip = False
+[  ok  ] L232  set output_format flac
+           output_format = 'flac'
+[  ok  ] L233  set mp3_vbr_quality 0
+           mp3_vbr_quality = 0
+[  ok  ] L234  set update_channel stable
+           update_channel = 'stable'
+[  ok  ] L235  set ripper_channel stable
+           ripper_channel = 'stable'
+[  ok  ] L237  keep output_dir
+           kept: output_dir = '~/platterpus-rig/platterpustestsession20261021t214509z/rips'
+[  ok  ] L239  keep library_dir
+           kept: library_dir = ''
+[  ok  ] L241  keep read_offset
+           kept: read_offset = 667
+[  ok  ] L242  keep override_read_offset
+           kept: override_read_offset = True
+[  ok  ] L244  keep metaflac_path
+           kept: metaflac_path = 'metaflac'
+[  ok  ] L246  keep test_script_path
+           kept: test_script_path = ''
+[  ok  ] L247  keep test_script_autorun
+           kept: test_script_autorun = False
+[  ok  ] L253  set debug_logging on
+           debug_logging = True
+[  ok  ] L254  expect debug_logging on
+           debug_logging is True
+[  ok  ] L255  snapshot atstart
+           snapshot 'atstart':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L289  log --- A. identity: which ripper is installed ---
+           --- A. identity: which ripper is installed ---
+[  ok  ] L290  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L291  cyanrip --version   (0.4s)
+           argv: ~/.local/bin/cyanrip --version
+           cwd: ~/platterpus-rig/platterpustestsession20261021t214509z/rips
+           exit: 0
+           cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+[  ok  ] L292  expect-exit 0
+           exit was 0
+[  ok  ] L293  expect-cyanrip platterpus-fork
+           found 'platterpus-fork'
+[  ok  ] L294  expect-ripper-under-review
+           installed build is platterpus-fork-gca0f097 — the build under review (a handshake round is reviewing it)
+[  ok  ] L295  expect-newest-pair   (0.5s)
+           the newest pair: 0.9.4-rc3+platterpus.26 at ca0f097 (release 37, beta) with Platterpus 0.7.112
+[  ok  ] L296  snapshot identity
+           snapshot 'identity':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L304  log A4 (TASKS "Cold-container start"): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+           A4 (TASKS Cold-container start ): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+[ info ] L305  app-log for the first container command
+           lines containing 'for the first container command' (67 line(s) logged since launch, every other line kept):
+           2026-10-21 17:43:51,049 INFO platterpus.container_gate: ripper info probe waits for the first container command of this session to finish, so the container is not started twice at once
+[ info ] L318  probe-ripper-wrapper   (1.3s)
+           exits: The host export exited in 0.26s. The 2026-08-27 hang does not reproduce here.
+           Ripper wrapper exit probe
+             verdict: exits
+             decided by: host export, stdin open
+             summary: The host export exited in 0.26s. The 2026-08-27 hang does not reproduce here.
+             blames the wrapper: False
+           
+             [host export, stdin open] exits
+               argv: ['~/.local/bin/cyanrip', '--version']
+               exit: 0   elapsed: 0.265s
+               output: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+             [host export, stdin closed] exits
+               argv: ['~/.local/bin/cyanrip', '--version']
+               exit: 0   elapsed: 0.482s
+               output: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+             [wrapper alone] exits
+               argv: ['distrobox-enter', '-n', 'ripping', '--', 'true']
+               exit: 0   elapsed: 0.207s
+               output: (nothing)
+           
+             [in-container binary] exits
+               argv: ['distrobox-enter', '-n', 'ripping', '--', '/usr/local/bin/cyanrip', '--version']
+               exit: 0   elapsed: 0.263s
+               output: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+[  ok  ] L331  abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
+           no failures in the 11 step(s) of 'A. identity: which ripper is installed' — continuing
+[  ok  ] L373  log --- B. settings: validated round-trips ---
+           --- B. settings: validated round-trips ---
+[  ok  ] L374  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L381  set-drive-offset
+           read offset +667, from the offset this machine is already set to
+[  ok  ] L382  expect-drive-offset
+           read offset +667, override on
+[  ok  ] L383  expect override_read_offset on
+           override_read_offset is True
+[  ok  ] L384  abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+           no failures in the 5 step(s) of 'B. settings: validated round-trips' — continuing
+[  ok  ] L385  set max_retries 3
+           max_retries = 3
+[  ok  ] L386  expect max_retries 3
+           max_retries is 3
+[  ok  ] L397  set max_retries 5
+           max_retries = 5
+[  ok  ] L398  expect max_retries 5
+           max_retries is 5
+[  ok  ] L399  set output_format flac
+           output_format = 'flac'
+[  ok  ] L400  expect output_format flac
+           output_format is 'flac'
+[  ok  ] L401  set force_overread off
+           force_overread = False
+[  ok  ] L402  expect force_overread off
+           force_overread is False
+[  ok  ] L403  set prefer_disc_isrc on
+           prefer_disc_isrc = True
+[  ok  ] L404  expect prefer_disc_isrc on
+           prefer_disc_isrc is True
+[  ok  ] L413  set auto_eject_after_rip on
+           auto_eject_after_rip = True
+[  ok  ] L414  expect auto_eject_after_rip on
+           auto_eject_after_rip is True
+[  ok  ] L415  set auto_eject_after_rip off
+           auto_eject_after_rip = False
+[  ok  ] L416  expect auto_eject_after_rip off
+           auto_eject_after_rip is False
+[  ok  ] L417  set auto_launch_picard on
+           auto_launch_picard = True
+[  ok  ] L418  expect auto_launch_picard on
+           auto_launch_picard is True
+[  ok  ] L419  set auto_launch_picard off
+           auto_launch_picard = False
+[  ok  ] L420  expect auto_launch_picard off
+           auto_launch_picard is False
+[  ok  ] L421  set update_channel beta
+           update_channel = 'beta'
+[  ok  ] L422  expect update_channel beta
+           update_channel is 'beta'
+[  ok  ] L423  set update_channel stable
+           update_channel = 'stable'
+[  ok  ] L424  expect update_channel stable
+           update_channel is 'stable'
+[  ok  ] L425  set ripper_channel beta
+           ripper_channel = 'beta'
+[  ok  ] L426  expect ripper_channel beta
+           ripper_channel is 'beta'
+[  ok  ] L427  snapshot settingsafter
+           snapshot 'settingsafter':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L440  log --- C. validation: every guard must refuse and not write ---
+           --- C. validation: every guard must refuse and not write ---
+[  ok  ] L441  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L442  expect-refused read_offset 99999
+           refused, and read_offset is still 667 — Read offset must be between -5000 and 5000.
+[  ok  ] L443  expect-refused read_offset -99999
+           refused, and read_offset is still 667 — Read offset must be between -5000 and 5000.
+[  ok  ] L444  expect-refused max_retries 101
+           refused, and max_retries is still 5 — Max retries must be between 0 and 100.
+[  ok  ] L445  expect-refused secure_rerip_matches 11
+           refused, and secure_rerip_matches is still 2 — Extra matching reads to trust a track must be between 0 and 10.
+[  ok  ] L446  expect-refused mp3_vbr_quality 10
+           refused, and mp3_vbr_quality is still 0 — MP3 VBR quality must be between 0 and 9.
+[  ok  ] L451  expect-refused max_retries 2
+           refused, and max_retries is still 5 — Max retries (2) must be more than Extra matching reads to trust a track (2). A track is trusted once 3 of its reads are identical, and Max retries lets cyanrip read it only 2 times, so no track could ever be verified. Raise Max retries to at least 3, or lower Extra matching reads to trust a track.
+[  ok  ] L454  expect-drive-offset
+           read offset +667, override on
+[  ok  ] L455  expect max_retries 5
+           max_retries is 5
+[  ok  ] L456  snapshot validationdone
+           snapshot 'validationdone':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L467  log --- D. dialogs: open, close, and prove none is left up ---
+           --- D. dialogs: open, close, and prove none is left up ---
+[  ok  ] L468  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L469  open drive
+           opening drive
+[  ok  ] L470  screenshot dialogdrive
+           examined 9 window(s); 3 on screen, wrote 3 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=768,61 1000x888 on_a_screen=True -> dialogdrive.png
+             DriveSetupDialog 'Set up drive' visible=True platform_window=yes exposed=True modal=True geom=937,212 661x586 on_a_screen=True -> dialogdrive-1-Set-up-drive.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=888,121 760x740 on_a_screen=True -> dialogdrive-2-Run-test-script.png
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=1057,164 320x78 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=809,112 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261021t214509z/evidence/run/dialogdrive.png
+[  ok  ] L471  cancel
+           cancelled 'Set up drive'
+[  ok  ] L472  open settings
+           opening settings
+[  ok  ] L473  screenshot dialogsettings
+           examined 14 window(s); 3 on screen, wrote 3 PNG(s); 11 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=768,61 1000x888 on_a_screen=True -> dialogsettings.png
+             SettingsDialog 'Settings' visible=True platform_window=yes exposed=True modal=True geom=877,0 781x1044 on_a_screen=True -> dialogsettings-1-Settings.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=888,121 760x740 on_a_screen=True -> dialogsettings-2-Run-test-script.png
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=809,112 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=1057,164 320x78 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261021t214509z/evidence/run/dialogsettings.png
+[  ok  ] L474  cancel
+           cancelled 'Settings'
+[  ok  ] L475  open dependencies   (1.1s)
+           the dependency check finished; 'Dependency check complete' is up
+[  ok  ] L476  screenshot dialogdependencies
+           examined 9 window(s); 3 on screen, wrote 3 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=768,61 1000x888 on_a_screen=True -> dialogdependencies.png
+             QMessageBox 'Dependency check complete' visible=True platform_window=yes exposed=True modal=True geom=1018,421 500x168 on_a_screen=True -> dialogdependencies-1-Dependency-check-complete.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=888,121 760x740 on_a_screen=True -> dialogdependencies-2-Run-test-script.png
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=809,112 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=1057,164 320x78 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261021t214509z/evidence/run/dialogdependencies.png
+[  ok  ] L477  cancel
+           cancelled 'Dependency check complete'
+[  ok  ] L478  open about
+           opening about
+[  ok  ] L479  cancel
+           cancelled 'About Platterpus'
+[  ok  ] L480  open diagnostics
+           opening diagnostics
+[  ok  ] L481  screenshot dialogdiagnostics
+           examined 9 window(s); 3 on screen, wrote 3 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=768,61 1000x888 on_a_screen=True -> dialogdiagnostics.png
+             DiagnosticsDialog 'Diagnostics' visible=True platform_window=yes exposed=True modal=True geom=888,197 760x588 on_a_screen=True -> dialogdiagnostics-1-Diagnostics.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=888,121 760x740 on_a_screen=True -> dialogdiagnostics-2-Run-test-script.png
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=809,112 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=1057,164 320x78 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261021t214509z/evidence/run/dialogdiagnostics.png
+[  ok  ] L482  cancel
+           cancelled 'Diagnostics'
+[  ok  ] L483  open guide
+           opening guide
+[  ok  ] L484  cancel
+           cancelled 'Platterpus — User Guide'
+[  ok  ] L485  open setup
+           opening setup
+[  ok  ] L486  cancel
+           cancelled 'Set up Platterpus'
+[  ok  ] L487  snapshot dialogsdone
+           snapshot 'dialogsdone':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L507  log --- E. disc: scan and identify ---
+           --- E. disc: scan and identify ---
+[  ok  ] L508  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L509  rescan
+           rescanning /dev/sr0
+[  ok  ] L510  pick-release 1 120   (39.5s)
+           no picker appeared and 18 track(s) are loaded for release 53d0f596-95a3-4e60-b4aa-09f5f7532b1e — the disc identified unambiguously, so there was nothing to pick
+[  ok  ] L511  expect-dialog none
+           no dialog, as expected
+[  ok  ] L512  expect-tracks 2+
+           18 track rows (at least 2)
+[  ok  ] L520  expect-identified
+           identified as release 53d0f596-95a3-4e60-b4aa-09f5f7532b1e; 18 track row(s)
+[  ok  ] L521  snapshot discidentified
+           snapshot 'discidentified':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L539  abort-if-failed the disc was never identified — the picker did not resolve or no tracks loaded, so every rip after this would be about an unknown release
+           no failures in the 8 step(s) of 'E. disc: scan and identify' — continuing
+[ info ] L547  run-estimate
+           for the rest of this run: Run estimate (full): at least 5h 45m, up to 16h 20m if reads disagree and tracks need re-reading at the retry ceiling: 13 rip(s) about 5h 30m at 1.0x (the speed the project's rig measured for this drive model), and the other steps 12m (measured on the 2026-10-05 Full run, plus this script's waits); NOT counted, so the figure is a floor: section(s) E2, J2, O, P4, P5, never measured on a filed run.
+[  ok  ] L569  log --- E2. offset override off: a drive the AccurateRip list does not carry is refused ---
+           --- E2. offset override off: a drive the AccurateRip list does not carry is refused ---
+[  ok  ] L570  run-size quick
+           run size: quick (and every larger run)
+[N/A   ] L571  expect-offset-refusal
+           not run on this equipment: PIONEER BD-RW   BDR-209D is in the AccurateRip drive list (+667). With the override off the app applies that offset and rips instead of refusing, which would also rewrite the offset set-drive-offset set for every later section. The refusal can only be reached on a drive the list does not carry. Nothing was changed. This is not a pass (TASKS: Permutations the acceptance test still does not run, (a)).
+[  ok  ] L572  expect-drive-offset
+           read offset +667, override on
+[  ok  ] L573  expect override_read_offset on
+           override_read_offset is True
+[  ok  ] L643  log --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
+           --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
+[  ok  ] L644  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L645  set rip_goal fast_verified
+           rip_goal = 'fast_verified'
+[  ok  ] L646  expect rip_goal fast_verified
+           rip_goal is 'fast_verified'
+[  ok  ] L647  expect secure_rerip_dynamic on
+           secure_rerip_dynamic is True
+[  ok  ] L648  set cover_art embed
+           cover_art = 'embed'
+[  ok  ] L649  expect cover_art embed
+           cover_art is 'embed'
+[  ok  ] L650  set save_additional_art on
+           save_additional_art = True
+[  ok  ] L651  set ctdb_verify_after_rip on
+           ctdb_verify_after_rip = True
+[  ok  ] L652  set verify_flac_after_rip on
+           verify_flac_after_rip = True
+[  ok  ] L653  set write_eac_log_after_rip on
+           write_eac_log_after_rip = True
+[  ok  ] L654  expect write_eac_log_after_rip on
+           write_eac_log_after_rip is True
+[  ok  ] L659  expect output_format flac
+           output_format is 'flac'
+[  ok  ] L660  select-tracks all
+           all 18 tracks selected
+[  ok  ] L661  album full acceptance: angle<bracket (run) (ripper)
+           album title set to 'full acceptance: angle<bracket 20261021t214510 platterpus-fork-gca0f097'
+[  ok  ] L662  album-artist Platterpus Acceptance
+           album artist set to 'Platterpus Acceptance'
+[  ok  ] L663  rip
+           start requested
+[ FAIL ] L664  wait-for-rip 21600   (21600.0s)
+           still not finished after 21600s
+[ info ] L663  rip
+           the run ended while the rip this step started was still reading (`wait-for-rip 21600` (L664) ran out with the rip still reading, so no later step could be graded against a finished rip; the run ends here); it was cancelled, so it does not outlive the run
+[BLOCK ] L665  snapshot afterfullrip
+[BLOCK ] L666  log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+[BLOCK ] L667  screenshot afterfullrip
+[BLOCK ] L690  expect-rip-complete
+[BLOCK ] L700  expect-verification
+[BLOCK ] L705  expect-rip-argv with --prefer-disc-isrc
+[BLOCK ] L726  expect-album-audit
+[BLOCK ] L727  expect-accuraterip
+[BLOCK ] L728  expect-ctdb whole
+[BLOCK ] L729  expect-tags
+[BLOCK ] L730  expect-cover-art
+[BLOCK ] L748  log --- G. post-rip: the seam check, and the rip's own log ---
+[BLOCK ] L749  run-size standard
+[BLOCK ] L750  rig-check
+[BLOCK ] L751  snapshot afterrigcheck
+[BLOCK ] L780  log --- H. re-rip the same title: the overwrite prompt must fire ---
+[BLOCK ] L781  run-size standard
+[BLOCK ] L782  select-tracks 1-2
+[BLOCK ] L783  album full acceptance: angle<bracket (run) (ripper)
+[BLOCK ] L791  track-title 1 E=MC2: Rock 'n' Roll \ Part 2
+[BLOCK ] L792  rip
+[BLOCK ] L793  answer-dialog click=new 120 Album already ripped
+[BLOCK ] L794  wait-for-rip 3600
+[BLOCK ] L795  snapshot afteroverwrite
+[BLOCK ] L796  log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+[BLOCK ] L797  screenshot afteroverwrite
+[BLOCK ] L798  expect-rip-complete
+[BLOCK ] L802  expect-verification
+[BLOCK ] L803  expect-album-audit
+[BLOCK ] L804  expect-ctdb partial
+[BLOCK ] L805  expect-tags
+[BLOCK ] L823  log --- I. cancel a rip in flight ---
+[BLOCK ] L824  run-size standard
+[BLOCK ] L825  select-tracks 1-3
+[BLOCK ] L826  album cancel me (run) (ripper)
+[BLOCK ] L827  rip
+[BLOCK ] L828  log reading for 90s so the cancel lands mid-track
+[BLOCK ] L829  wait 90
+[BLOCK ] L830  snapshot beforecancel
+[BLOCK ] L831  cancel-rip
+[BLOCK ] L832  log cancel issued; giving the escalation its full window
+[BLOCK ] L839  wait 135
+[BLOCK ] L841  expect-status cancelled
+[BLOCK ] L859  log A4 (TASKS "S25 on hardware"): the next two steps grade the footer and cyanrip -Y on a cancelled rip's log; the window-close trigger itself is not scriptable
+[BLOCK ] L860  expect-log-well-formed
+[BLOCK ] L864  expect-album-audit ripper_log_integrity argv_agreement
+[BLOCK ] L872  log A4 (TASKS "If a podman ever forwards the wrapper's SIGTERM"): which SIGTERM world this rig is in
+[BLOCK ] L873  sigterm-world
+[BLOCK ] L874  snapshot aftercancel
+[BLOCK ] L875  screenshot aftercancel
+[BLOCK ] L876  rig-check
+[BLOCK ] L877  snapshot aftercancelrigcheck
+[BLOCK ] L890  log --- J. drive-open proof: identify and rip again after the cancel ---
+[BLOCK ] L891  run-size standard
+[BLOCK ] L892  rescan
+[BLOCK ] L893  pick-release 1 120
+[BLOCK ] L894  expect-tracks 2+
+[BLOCK ] L895  select-tracks 1-2
+[BLOCK ] L896  album after cancel (run) (ripper)
+[BLOCK ] L897  rip
+[BLOCK ] L898  wait-for-rip 3600
+[BLOCK ] L899  snapshot afterrecovery
+[BLOCK ] L900  log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+[BLOCK ] L901  screenshot afterrecovery
+[BLOCK ] L902  expect-rip-complete
+[BLOCK ] L905  expect-verification
+[BLOCK ] L906  expect-album-audit
+[BLOCK ] L907  expect-accuraterip
+[BLOCK ] L908  expect-ctdb partial
+[BLOCK ] L909  expect-tags
+[BLOCK ] L910  expect-cover-art
+[BLOCK ] L911  rig-check
+[BLOCK ] L948  log --- J2. permutations: no -r, no -Z, a fixed speed, filed into a library ---
+[BLOCK ] L949  run-size standard
+[BLOCK ] L950  set secure_rerip_dynamic off
+[BLOCK ] L951  expect secure_rerip_dynamic off
+[BLOCK ] L952  set secure_rerip_matches 0
+[BLOCK ] L953  expect secure_rerip_matches 0
+[BLOCK ] L954  set max_retries 0
+[BLOCK ] L955  expect max_retries 0
+[BLOCK ] L956  set read_speed_mode fixed
+[BLOCK ] L957  expect read_speed_mode fixed
+[BLOCK ] L958  expect read_speed 0
+[BLOCK ] L959  set prefer_disc_isrc off
+[BLOCK ] L960  expect prefer_disc_isrc off
+[BLOCK ] L961  set-library-scratch
+[BLOCK ] L962  expect-contains library_dir libraryscratch
+[BLOCK ] L963  select-tracks 1
+[BLOCK ] L964  album permutations (run) (ripper)
+[BLOCK ] L965  rip
+[BLOCK ] L966  wait-for-rip 3600
+[BLOCK ] L967  expect-library-move
+[BLOCK ] L968  expect-rip-complete
+[BLOCK ] L969  expect-verification
+[BLOCK ] L970  expect-rip-argv without -r
+[BLOCK ] L971  expect-rip-argv without -Z
+[BLOCK ] L972  expect-rip-argv without -S
+[BLOCK ] L973  expect-rip-argv without --prefer-disc-isrc
+[BLOCK ] L974  expect-album-audit argv_agreement
+[BLOCK ] L976  set library_dir ""
+[BLOCK ] L977  expect library_dir ""
+[BLOCK ] L978  set read_speed_mode auto_ladder
+[BLOCK ] L979  expect read_speed_mode auto_ladder
+[BLOCK ] L980  set max_retries 5
+[BLOCK ] L981  expect max_retries 5
+[BLOCK ] L982  set secure_rerip_matches 2
+[BLOCK ] L983  expect secure_rerip_matches 2
+[BLOCK ] L984  set secure_rerip_dynamic on
+[BLOCK ] L985  expect secure_rerip_dynamic on
+[BLOCK ] L986  set prefer_disc_isrc on
+[BLOCK ] L987  expect prefer_disc_isrc on
+[BLOCK ] L1037 log --- K1. MP3: the lossy derived output, with a real VBR quality ---
+[BLOCK ] L1038 run-size quick
+[BLOCK ] L1039 set output_format mp3
+[BLOCK ] L1040 expect output_format mp3
+[BLOCK ] L1041 set mp3_vbr_quality 2
+[BLOCK ] L1042 expect mp3_vbr_quality 2
+[BLOCK ] L1043 select-tracks 1-2
+[BLOCK ] L1044 album derived mp3 (run) (ripper)
+[BLOCK ] L1045 rip
+[BLOCK ] L1046 wait-for-rip 3600
+[BLOCK ] L1047 snapshot aftermp3
+[BLOCK ] L1048 screenshot aftermp3
+[BLOCK ] L1049 expect-rip-complete
+[BLOCK ] L1050 expect-derived-output mp3
+[BLOCK ] L1054 expect-verification
+[BLOCK ] L1055 expect-album-audit
+[BLOCK ] L1056 expect-accuraterip
+[BLOCK ] L1057 expect-ctdb partial
+[BLOCK ] L1058 expect-tags
+[BLOCK ] L1059 expect-cover-art
+[BLOCK ] L1060 rig-check
+[BLOCK ] L1062 log --- K2. WavPack: the second lossless format ---
+[BLOCK ] L1063 run-size full
+[BLOCK ] L1064 set output_format wavpack
+[BLOCK ] L1065 expect output_format wavpack
+[BLOCK ] L1069 set cover_art file
+[BLOCK ] L1070 expect cover_art file
+[BLOCK ] L1071 select-tracks 1-2
+[BLOCK ] L1072 album derived wavpack (run) (ripper)
+[BLOCK ] L1073 rip
+[BLOCK ] L1074 wait-for-rip 3600
+[BLOCK ] L1075 snapshot afterwavpack
+[BLOCK ] L1076 expect-rip-complete
+[BLOCK ] L1077 expect-derived-output wavpack
+[BLOCK ] L1081 expect-verification
+[BLOCK ] L1082 expect-album-audit
+[BLOCK ] L1083 expect-accuraterip
+[BLOCK ] L1084 expect-ctdb partial
+[BLOCK ] L1085 expect-tags
+[BLOCK ] L1086 expect-cover-art
+[BLOCK ] L1087 rig-check
+[BLOCK ] L1089 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
+[BLOCK ] L1090 run-size full
+[BLOCK ] L1091 set output_format wav
+[BLOCK ] L1092 expect output_format wav
+[BLOCK ] L1094 set cover_art complete
+[BLOCK ] L1095 expect cover_art complete
+[BLOCK ] L1096 select-tracks 1-2
+[BLOCK ] L1097 album derived wav (run) (ripper)
+[BLOCK ] L1098 rip
+[BLOCK ] L1099 wait-for-rip 3600
+[BLOCK ] L1100 snapshot afterwav
+[BLOCK ] L1101 log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+[BLOCK ] L1102 screenshot afterwav
+[BLOCK ] L1103 expect-rip-complete
+[BLOCK ] L1104 expect-derived-output wav
+[BLOCK ] L1108 expect-verification
+[BLOCK ] L1109 expect-album-audit
+[BLOCK ] L1110 expect-accuraterip
+[BLOCK ] L1111 expect-ctdb partial
+[BLOCK ] L1112 expect-tags
+[BLOCK ] L1113 expect-cover-art
+[BLOCK ] L1114 rig-check
+[BLOCK ] L1133 log --- K4. restore the output format K1-K3 changed ---
+[BLOCK ] L1134 run-size quick
+[BLOCK ] L1135 set output_format flac
+[BLOCK ] L1136 expect output_format flac
+[BLOCK ] L1139 set cover_art embed
+[BLOCK ] L1140 expect cover_art embed
+[BLOCK ] L1152 log --- L. goal presets: selecting a goal applies all of it ---
+[BLOCK ] L1153 run-size quick
+[BLOCK ] L1154 set rip_goal archival
+[BLOCK ] L1155 expect rip_goal archival
+[BLOCK ] L1156 expect secure_rerip_dynamic off
+[BLOCK ] L1157 expect rerip_offset_variant on
+[BLOCK ] L1160 expect output_format flac
+[BLOCK ] L1161 set rip_goal portable
+[BLOCK ] L1162 expect rip_goal portable
+[BLOCK ] L1163 expect output_format mp3
+[BLOCK ] L1166 expect rerip_offset_variant on
+[BLOCK ] L1167 set rip_goal fast_verified
+[BLOCK ] L1168 expect rip_goal fast_verified
+[BLOCK ] L1169 expect secure_rerip_dynamic on
+[BLOCK ] L1170 expect rerip_offset_variant on
+[BLOCK ] L1171 expect output_format flac
+[BLOCK ] L1172 snapshot goalsdone
+[BLOCK ] L1179 log --- M. naming templates round-trip through the validator ---
+[BLOCK ] L1180 run-size quick
+[BLOCK ] L1181 set track_template %A/%d/%t - %n
+[BLOCK ] L1182 expect track_template %A/%d/%t - %n
+[BLOCK ] L1183 set disc_template %A/%d/%d
+[BLOCK ] L1184 expect disc_template %A/%d/%d
+[BLOCK ] L1185 snapshot templatesdone
+[BLOCK ] L1224 log --- N. T1: uniform secure re-read, WHOLE DISC, so the counters actually move ---
+[BLOCK ] L1225 run-size full
+[BLOCK ] L1226 set rip_goal archival
+[BLOCK ] L1227 expect secure_rerip_dynamic off
+[BLOCK ] L1228 expect rerip_offset_variant on
+[BLOCK ] L1238 expect output_format flac
+[BLOCK ] L1239 set secure_rerip_matches 2
+[BLOCK ] L1240 expect secure_rerip_matches 2
+[BLOCK ] L1241 rescan
+[BLOCK ] L1242 pick-release 1 120
+[BLOCK ] L1243 expect-tracks 2+
+[BLOCK ] L1244 select-tracks all
+[BLOCK ] L1245 album secure reread (run) (ripper)
+[BLOCK ] L1246 rip
+[BLOCK ] L1247 wait-for-rip 21600
+[BLOCK ] L1248 snapshot aftersecurereread
+[BLOCK ] L1249 log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+[BLOCK ] L1250 screenshot aftersecurereread
+[BLOCK ] L1259 expect-rip-complete
+[BLOCK ] L1268 expect-secure-rerip
+[BLOCK ] L1273 expect-verification
+[BLOCK ] L1274 expect-album-audit
+[BLOCK ] L1275 expect-accuraterip
+[BLOCK ] L1276 expect-ctdb whole
+[BLOCK ] L1277 expect-tags
+[BLOCK ] L1278 expect-cover-art
+[BLOCK ] L1279 rig-check
+[BLOCK ] L1299 log --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
+[BLOCK ] L1300 run-size standard
+[BLOCK ] L1301 cyanrip -N -f
+[BLOCK ] L1302 expect-exit 0
+[BLOCK ] L1303 expect-found-offset
+[BLOCK ] L1357 log --- P. T3: the fork's cache probe, probe-only ---
+[BLOCK ] L1358 run-size standard
+[BLOCK ] L1359 cyanrip -N --cache-probe -I
+[BLOCK ] L1360 expect-exit 0
+[BLOCK ] L1361 expect-cyanrip Cache probe
+[BLOCK ] L1362 cache-probe
+[BLOCK ] L1363 snapshot aftercacheprobe
+[BLOCK ] L1412 log --- P2. C1: does a no-offset refusal hang the drive? ---
+[BLOCK ] L1413 run-size standard
+[BLOCK ] L1414 cyanrip -N -l 1
+[BLOCK ] L1415 expect-exit refused
+[BLOCK ] L1416 expect-cyanrip Offset is unset
+[BLOCK ] L1417 snapshot afterc1
+[BLOCK ] L1543 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
+[BLOCK ] L1544 run-size full
+[BLOCK ] L1545 cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
+[BLOCK ] L1546 expect-exit 0
+[BLOCK ] L1547 snapshot afterdeemphon
+[BLOCK ] L1549 log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
+[BLOCK ] L1550 run-size full
+[BLOCK ] L1551 cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
+[BLOCK ] L1552 expect-exit 0
+[BLOCK ] L1553 snapshot afterdeemphoff
+[BLOCK ] L1572 log --- P4. every rip of this disc: do their pregap lists agree? ---
+[BLOCK ] L1573 run-size standard
+[BLOCK ] L1574 expect-pregaps-agree
+[BLOCK ] L1612 log --- P5. S15: timed rip, the approved build against the one under review ---
+[BLOCK ] L1613 run-size full
+[BLOCK ] L1614 skip-if-same-build (fork-pin) (under-review)
+[BLOCK ] L1615 log P5 rips tracks 1-3, offset as set, no securing pass (-Z off), fixed read speed 0, shipped retries: it measures plain read speed
+[BLOCK ] L1616 set secure_rerip_dynamic off
+[BLOCK ] L1617 expect secure_rerip_dynamic off
+[BLOCK ] L1618 set secure_rerip_matches 0
+[BLOCK ] L1619 expect secure_rerip_matches 0
+[BLOCK ] L1620 set second_read_without_accuraterip off
+[BLOCK ] L1621 expect second_read_without_accuraterip off
+[BLOCK ] L1622 set read_speed_mode fixed
+[BLOCK ] L1623 expect read_speed_mode fixed
+[BLOCK ] L1624 expect read_speed 0
+[BLOCK ] L1625 expect max_retries 5
+[BLOCK ] L1626 expect output_format flac
+[BLOCK ] L1627 select-tracks 1-3
+[BLOCK ] L1628 install-ripper (fork-pin)
+[BLOCK ] L1629 album timing A1 (run) (ripper)
+[BLOCK ] L1630 rip
+[BLOCK ] L1631 wait-for-rip 1800
+[BLOCK ] L1632 expect-rip-complete
+[BLOCK ] L1633 expect-verification
+[BLOCK ] L1634 record-timing A1
+[BLOCK ] L1635 install-ripper (under-review)
+[BLOCK ] L1636 album timing B1 (run) (ripper)
+[BLOCK ] L1637 rip
+[BLOCK ] L1638 wait-for-rip 1800
+[BLOCK ] L1639 expect-rip-complete
+[BLOCK ] L1640 expect-verification
+[BLOCK ] L1641 record-timing B1
+[BLOCK ] L1642 install-ripper (fork-pin)
+[BLOCK ] L1643 album timing A2 (run) (ripper)
+[BLOCK ] L1644 rip
+[BLOCK ] L1645 wait-for-rip 1800
+[BLOCK ] L1646 expect-rip-complete
+[BLOCK ] L1647 expect-verification
+[BLOCK ] L1648 record-timing A2
+[BLOCK ] L1649 install-ripper (under-review)
+[BLOCK ] L1650 album timing B2 (run) (ripper)
+[BLOCK ] L1651 rip
+[BLOCK ] L1652 wait-for-rip 1800
+[BLOCK ] L1653 expect-rip-complete
+[BLOCK ] L1654 expect-verification
+[BLOCK ] L1655 record-timing B2
+[BLOCK ] L1656 compare-timings A1 B1 A2 B2
+[BLOCK ] L1657 install-ripper (pin)
+[BLOCK ] L1658 set read_speed_mode auto_ladder
+[BLOCK ] L1659 expect read_speed_mode auto_ladder
+[BLOCK ] L1660 set second_read_without_accuraterip on
+[BLOCK ] L1661 expect second_read_without_accuraterip on
+[BLOCK ] L1662 set secure_rerip_matches 2
+[BLOCK ] L1663 expect secure_rerip_matches 2
+[BLOCK ] L1664 set secure_rerip_dynamic on
+[BLOCK ] L1665 expect secure_rerip_dynamic on
+[BLOCK ] L1707 log --- Q. leaving the rig on the shipped defaults ---
+[BLOCK ] L1708 run-size quick
+[BLOCK ] L1709 set rip_goal fast_verified
+[BLOCK ] L1710 expect rip_goal fast_verified
+[BLOCK ] L1711 expect secure_rerip_dynamic on
+[BLOCK ] L1712 set output_format flac
+[BLOCK ] L1713 expect output_format flac
+[BLOCK ] L1714 set mp3_vbr_quality 0
+[BLOCK ] L1715 set write_eac_log_after_rip off
+[BLOCK ] L1719 set max_retries 5
+[BLOCK ] L1720 expect max_retries 5
+[BLOCK ] L1721 set ripper_channel stable
+[BLOCK ] L1722 expect ripper_channel stable
+[BLOCK ] L1723 set debug_logging off
+[BLOCK ] L1724 expect debug_logging off
+[BLOCK ] L1725 expect force_overread off
+[BLOCK ] L1726 expect-drive-offset
+[BLOCK ] L1730 expect override_read_offset on
+[BLOCK ] L1731 expect-dialog none
+[BLOCK ] L1732 snapshot atend
+[BLOCK ] L1734 log =============================================================
+[BLOCK ] L1735 log DONE. There is nothing left for you to run.
+[BLOCK ] L1736 log Everything this run made is in ONE session folder under
+[BLOCK ] L1737 log ~/platterpus-rig/ - the rips, the transcript, the screenshots
+[BLOCK ] L1738 log and ONE .tar.gz, which a dialog names when the window comes
+[BLOCK ] L1739 log back, with a button that opens the folder. Send that file. It
+[BLOCK ] L1740 log carries the transcript, the app
+[BLOCK ] L1741 log log, the settings, the screenshots and every rip folder's text
+[BLOCK ] L1742 log artifacts (logs, cue sheets, reports, checksums). No audio.
+[BLOCK ] L1743 log If the dialog is gone, the same path is on the SEND THIS ONE FILE
+[BLOCK ] L1744 log line in the app log.
+[BLOCK ] L1745 log =============================================================
+================================================================
+pass=144  fail=1  error=0  skipped=0  blocked=348  unreachable=1  info=4
+ENDED EARLY: `wait-for-rip 21600` (L664) ran out with the rip still reading, so no later step could be graded against a finished rip; the run ends here
+RESULT: see failures above
+================================================================

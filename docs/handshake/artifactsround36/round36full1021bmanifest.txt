@@ -1,0 +1,182 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            20261021T214509Z
+platterpus         0.7.112
+build              9bf0cd3
+rip outcome        acceptance test session
+ripper build wanted platterpus-fork-gca0f097 ONLY — the build under review
+album folder       ~/platterpus-rig/platterpustestsession20261021t214509z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  acceptance script      /tmp/.mount_platteJpIKgH/opt/python3.12/lib/python3.12/site-packages/platterpus/rig_scripts/fullacceptance.txt
+  album folders          1
+  album folders dropped  0
+  album folders examined 1
+  rip at the end of the run a rip was still reading when the run ended; the session waited 11s for it to stop before packing
+  ripper -j records      2 found in the rips folders
+  ripper -j records missing none named by 1 rip report(s)
+  ripper processes when packed none
+  run ended              `wait-for-rip 21600` (L664) ran out with the rip still reading, so no later step could be graded against a finished rip; the run ends here
+  run outcome            ⚠ The run DID NOT COMPLETE — `wait-for-rip 21600` (L664) ran out with the rip still reading, so no later step could be graded against a finished rip; the run ends here. 144 of 494 step(s) passed, 349 failed, 0 never ran. The steps after the stop measured nothing.
+  run size               full
+  run verdict            pass 144, fail 1, error 0, skipped 0, blocked 348, unreachable 1, info 4
+  screen lock            ✓ Screen lock: held (screensaver (no blanking, no lock)) — The desktop agreed to keep the screen on, with no blanking and no lock, for this run; that is its promise, not a measurement, and each screenshot step reports whether the display was showing the app. It is released when the run ends, or if Platterpus exits.
+  session folder         ~/platterpus-rig/platterpustestsession20261021t214509z
+  sleep lock             ✓ Sleep lock: held (idle:sleep:handle-lid-switch) — Idle, sleep and lid suspend are held off for this run (idle:sleep:handle-lid-switch). The lock is released automatically when the run ends — there is nothing to undo.
+  sources absent         0
+  sources collected      15
+  sources failed         0
+  your settings          restored after the run; it had changed output_dir, auto_launch_picard, force_overread, secure_rerip_dynamic, rip_goal, update_channel
+
+INCLUDED (35 file(s))
+----------------------------------------
+  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1 (EAC-compatible).log      13525 B
+  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.cue       3541 B
+  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.log      55668 B
+  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.platterpus-securing-pass.txt      29013 B
+  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.platterpus.json    2353237 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T214611Z.json     194674 B
+  ripperdiagnostics/cyanrip-diagnostics-20261022T001928Z-securingpass.json     173580 B
+  session/artifacts/02platterpus/log.txt                  1769365 B
+  session/artifacts/13platterpus/config.toml                 1192 B
+  session/run/dialogdependencies-1-Dependency-check-complete.png      28308 B
+  session/run/dialogdependencies-2-Run-test-script.png     126902 B
+  session/run/dialogdependencies.png                       107574 B
+  session/run/dialogdiagnostics-1-Diagnostics.png           89735 B
+  session/run/dialogdiagnostics-2-Run-test-script.png      115964 B
+  session/run/dialogdiagnostics.png                        107574 B
+  session/run/dialogdrive-1-Set-up-drive.png                66542 B
+  session/run/dialogdrive-2-Run-test-script.png            122746 B
+  session/run/dialogdrive.png                              103010 B
+  session/run/dialogsettings-1-Settings.png                167994 B
+  session/run/dialogsettings-2-Run-test-script.png         123921 B
+  session/run/dialogsettings.png                           103010 B
+  session/run/report.json                                  266482 B
+  session/run/transcript.txt                                43499 B
+  session/transcript.txt                                    43499 B
+  session/zz-applog-rotations/03platterpus/log.txt.1      8378716 B
+  session/zz-applog-rotations/04platterpus/log.txt.2      8386136 B
+  session/zz-applog-rotations/05platterpus/log.txt.3      8386839 B
+  session/zz-applog-rotations/06platterpus/log.txt.4      8386167 B
+  session/zz-applog-rotations/07platterpus/log.txt.5      8387135 B
+  session/zz-applog-rotations/08platterpus/log.txt.6      8387500 B
+  session/zz-applog-rotations/09platterpus/log.txt.7      8385616 B
+  COMPONENTS.json                                            1508 B
+  DIAGNOSTICS.txt                                            3294 B
+  SETTINGS.json                                              2618 B
+  SOURCES.txt                                                2372 B
+
+NOT INCLUDED (21 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  album/01 - Tennessee Mountain Fox Chase.flac         excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/02 - Banjo Picking Girl.flac                   excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/03 - Old Corn Liquor.flac                      excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/04 - Rain and Snow.flac                        excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/05 - The Orphan Child.flac                     excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/06 - Working on a Building.flac                excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/07 - You Better Mind.flac                      excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/08 - Dry Bones.flac                            excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/09 - Did You Hear John Hurt？.flac              excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/10 - One‐Dime Blues.flac                       excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/11 - All the Way From East St. Louis.flac      excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/12 - Juke Medley.flac                          excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/13 - Black’s Ball.flac                         excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/14 - Just a Little While to Stay Here.flac     excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/15 - Iko, Iko.flac                             excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/16 - Mai Kai No Kauai.flac                     excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/17 - Texas Cowboy.flac                         excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/18 - Streets of Laredo.flac                    excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  session/zz-applog-rotations/10platterpus/log.txt.8   excluded: the bundle's 67108864-byte total budget was already spent (64908664 bytes) and this file is 8388168 bytes. Nothing is dropped silently — this line IS the record that it was.
+  session/zz-applog-rotations/11platterpus/log.txt.9   excluded: the bundle's 67108864-byte total budget was already spent (64908664 bytes) and this file is 8384957 bytes. Nothing is dropped silently — this line IS the record that it was.
+  session/zz-applog-rotations/12platterpus/log.txt.10  excluded: the bundle's 67108864-byte total budget was already spent (64908664 bytes) and this file is 8388546 bytes. Nothing is dropped silently — this line IS the record that it was.
+
+SHA-256 OF EVERY INCLUDED MEMBER (35), of the bytes written into this archive
+----------------------------------------
+  Each line is in sha256sum's format, so after extracting the archive:
+    grep -E '^\\?[0-9a-f]{64}  ' MANIFEST.txt | sha256sum -c
+  Computed from the bytes written, so a file kept head+tail is hashed
+  with its elision marker. MANIFEST.txt cannot hash itself; the
+  archive's own hash covers it.
+442e1e00045128070da56660854438fdcb54b78e166754cb174132c1d62925d1  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1 (EAC-compatible).log
+bc4797b5f5377f089d3d9f19433756c2ff8ed075a0c3577643f04ba09f1376c8  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.cue
+b4a44c935f94496d3a670b7624e93e8ab56e365c0b2d884083810201fe9935af  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.log
+ba2844d7040d07a467335e3337ab2314768db119bbe4f9482928c9629c45d45b  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.platterpus-securing-pass.txt
+895b1719301f7356283ff80159c1f5230be5b7bd7a5bd9eefa448cb2d1512fc8  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.platterpus.json
+bc1b6eeea375819d9fd8baf9a00b61f5d6ebe4ce36dd127c5971a5da5156f561  ripperdiagnostics/cyanrip-diagnostics-20261021T214611Z.json
+4132c6876ad393602a775cc80b9255dfe92910036793705aaaad7180d8cfb9fc  ripperdiagnostics/cyanrip-diagnostics-20261022T001928Z-securingpass.json
+20674030362ebc1ab8cfa17696c02c51f6edf4619597997173b5903915d8dacd  session/artifacts/02platterpus/log.txt
+c291232cdec7e9b193db18562c54daa971a1e125abcffa1858a0373f3ef16122  session/artifacts/13platterpus/config.toml
+13b69c105e09d169ece7d27becf2a9156ede6b5ed5703ce014d599e69f5b48d7  session/run/dialogdependencies-1-Dependency-check-complete.png
+c6ecd6c3f137dc05544a96ef90a2e06b5812930c58f8c854c84fa13fe7eeaef6  session/run/dialogdependencies-2-Run-test-script.png
+a07d40ee638a928c8d1e5d3403d3b4f3a95b4e8303aad160c6c29ed3f534e247  session/run/dialogdependencies.png
+70ab420f3d03fbc853c532bc6190b6c3394756c256275fa55b9cb881603f268e  session/run/dialogdiagnostics-1-Diagnostics.png
+5c8e2f54bcf46ddede87373776808001f54a2301a7f5df4b9d18c8676027f456  session/run/dialogdiagnostics-2-Run-test-script.png
+a07d40ee638a928c8d1e5d3403d3b4f3a95b4e8303aad160c6c29ed3f534e247  session/run/dialogdiagnostics.png
+72394a8b576ea0ff60500c64685236c246151fd5ed44cffd51179c415ca67be7  session/run/dialogdrive-1-Set-up-drive.png
+8db9e830d3fc6239c134002c6b35245db7782b98ae06ba1b296c107424850a7a  session/run/dialogdrive-2-Run-test-script.png
+7c3343d51666987f27e2bf6b6e25f0dd9847ce30448b7706f0a27ad051c4a358  session/run/dialogdrive.png
+7c08548524a3d422c1763a2ccb417367d55cc4fc6156c117eec1d508ebc8476d  session/run/dialogsettings-1-Settings.png
+02fae75e28bdea530fbc041bf6ae41621e95f71e41ee4c72c6be6082f35801fc  session/run/dialogsettings-2-Run-test-script.png
+7c3343d51666987f27e2bf6b6e25f0dd9847ce30448b7706f0a27ad051c4a358  session/run/dialogsettings.png
+2ad9c3da7d4b7fb60f9468de49e8e8f7771e9ad2a2c605e7f49885f4033d70f2  session/run/report.json
+ab3ccc70c4741869306c691c9200a04886145f2ab01caee1de553c7cc8d9b3ed  session/run/transcript.txt
+ab3ccc70c4741869306c691c9200a04886145f2ab01caee1de553c7cc8d9b3ed  session/transcript.txt
+88f6de712a36d259cec1d9c81fa4c8b8af811f00fd98eeca6344be01b20c7aac  session/zz-applog-rotations/03platterpus/log.txt.1
+59bb509c11e9cf6e37343444e07c79b60bdaf49369d081ea861376f6268b3a94  session/zz-applog-rotations/04platterpus/log.txt.2
+9bb97725cc0ee579fc8f0adff254019185821153043342237a99bb748ed90a6c  session/zz-applog-rotations/05platterpus/log.txt.3
+4fcac41fa0cb0a064509e62bd96d67682a87be55063cb935b6558f636d82ebcc  session/zz-applog-rotations/06platterpus/log.txt.4
+a2266b57b8875d5e91063a55405ea64820274b41fdcb348553bcea7d477f83e3  session/zz-applog-rotations/07platterpus/log.txt.5
+24f0f09530eba5ff0889a54ca6b0631601253a8e5a4ececa89e6cf3dc30afdba  session/zz-applog-rotations/08platterpus/log.txt.6
+8d6e84e2d9e8199d2e93c93ac244f9f87af71ce82233357e4dbedfd271bd323a  session/zz-applog-rotations/09platterpus/log.txt.7
+8d2a9f335226f2e8bb99a1494c5856bf6d067187a26fa3cbfce63b032211a4cb  COMPONENTS.json
+45abcd15b3a5e2cb24c36267ba00791b97fa7c463bfde14e51747156e1e9e7f1  DIAGNOSTICS.txt
+c7ae21619c4731ab510a2c1e27927d983d567ef477137458d32c003aeff56103  SETTINGS.json
+9a4e233233a98a310a1d0b8f706eb3708bc39a5842237ff0b12488c89a0ec257  SOURCES.txt
+
+HOME FOLDERS REPLACED WITH ~
+----------------------------------------
+  Home-folder paths (/home/<name>, /var/home/<name>, /Users/<name>,
+  C:\Users\<name>, and this machine's own home) in every text member
+  were replaced with ~ as it was written, so the hashes above are of the
+  replaced bytes. Hostnames (this machine's, and any a uname line or a
+  host: field names) became `host`; the owner's names, from a list kept
+  outside the repository, became `the owner` (TASKS R16).
+  replaced: 2317 home path(s), 0 hostname(s), names not checked (no list) in 17 member(s), and 2 in this manifest's own text
+  album/full acceptance∶ angle‹bracket 20261021t214510 platterpus-fork-gca0f097 CD1.platterpus.json 96 replaced, 0 hostname(s), 0 name(s); sha256 before replacement fc2a143d7d3f404be542447f8891bd40bb70b5f25453916188dee64ac094d82a
+  session/artifacts/02platterpus/log.txt               357 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 9eaa1a27fd5843aefb3e39afb0564157b9c4188314510e5f22d5a4b10d8f952c
+  session/artifacts/13platterpus/config.toml           1 replaced, 0 hostname(s), 0 name(s); sha256 before replacement e96c60d910d6072155afca81c1691e1a9533734513f68bb77805ee7726731dc5
+  session/run/report.json                              10 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 6f89a867f622eba3fd059ae0e06e0a26a53a198d39fa20fa1325e07e2043fd65
+  session/run/transcript.txt                           10 replaced, 0 hostname(s), 0 name(s); sha256 before replacement a480d1ea821a9d673fa9ef5cfc44253ccaa0413e6b09a8567c34022ea36f1372
+  session/transcript.txt                               10 replaced, 0 hostname(s), 0 name(s); sha256 before replacement a480d1ea821a9d673fa9ef5cfc44253ccaa0413e6b09a8567c34022ea36f1372
+  session/zz-applog-rotations/03platterpus/log.txt.1   814 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 45d6cd6eb8bea4ee6a7c5f65a55aee9e168840c6e5408db542da852d8f9fe31e
+  session/zz-applog-rotations/04platterpus/log.txt.2   203 replaced, 0 hostname(s), 0 name(s); sha256 before replacement d1f2411da959727aa3d52b44e579fd981b669f693ae9e26937e1005fc3111e39
+  session/zz-applog-rotations/05platterpus/log.txt.3   144 replaced, 0 hostname(s), 0 name(s); sha256 before replacement aabb1798a5ea8f8f76aa03cc3bd29381634d25ca00a164fbb5447ef6839183ce
+  session/zz-applog-rotations/06platterpus/log.txt.4   199 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 57b4355616d1f8fe9c40b20b748acd20e6811b3fca880d4f7a5b6dd81ae7440c
+  session/zz-applog-rotations/07platterpus/log.txt.5   120 replaced, 0 hostname(s), 0 name(s); sha256 before replacement e508c078da2a7ebb4632912a51ca537b30a3fb89a54d9ab9964c0974a1a27c6d
+  session/zz-applog-rotations/08platterpus/log.txt.6   90 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 00cd85b00599c80d4cf203c3fb1f27a788e00a1bc58e90f4c0c4daf8dd954f97
+  session/zz-applog-rotations/09platterpus/log.txt.7   239 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 3d222415131b0a3f06021604b4d5123274cf5f77b68ef631df1eb36ce83676fb
+  COMPONENTS.json                                      4 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 193d531a084532a8263aaa2daf3926dc97b061266cb3f975cf7f8fc82118fa1e
+  DIAGNOSTICS.txt                                      1 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 6576e29ca5226eb7884e9efd9b68384faa4ad4d4f7298eeca2776080d7b5a1a3
+  SETTINGS.json                                        2 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 16305e81c4a834dfc4e6fbe6e4e1d46fa591e90d704f9ece8b95a6ba39e205a9
+  SOURCES.txt                                          17 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 58ce13c2af49a971f062187a2909add4cda8393c14fe2bc59766c291783de8fb
+  kept as written: 0 member(s), 0 home path(s) left in them
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.
