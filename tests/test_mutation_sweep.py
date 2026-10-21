@@ -25,6 +25,10 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import mutation_sweep as ms  # noqa: E402
 
+# These tests run the sweep, which takes the working-tree lock; wait for this
+# checkout's other lock-taking tests instead of colliding with them (conftest).
+pytestmark = pytest.mark.usefixtures("tree_lock_turn")
+
 
 def test_it_finds_the_mutable_sites_it_claims_to(tmp_path: Path) -> None:
     """Comparisons, booleans and small constants — and nothing else."""

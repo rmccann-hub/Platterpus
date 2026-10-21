@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+- **The mutation-sweep tests wait their turn instead of failing a CI leg** (contributor-facing). They run `scripts/mutation_sweep.py`, which refuses while another run holds the working-tree lock, and on PR #375 two xdist workers reached it at once: five tests failed on `test (py3.12)` with "already held by mutation_sweep pid=11541". A `tree_lock_turn` fixture (`tests/conftest.py`) now queues those tests on an OS file lock every worker of the checkout shares; the tool's own lock, and its refusal, are unchanged.
+
 ### Changed
 
 - **The build under review is the fork's `.26` (`ca0f097`).** The fork released it on beta
