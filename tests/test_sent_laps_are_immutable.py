@@ -229,6 +229,8 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-36-lap-02.md": "8bfcfd16aaacd77b076cc2cf760d0ea355745360dbf0b9035a9ea164fe374f0c",
     # Released 2026-10-21 on the owner's standing word for round 36, 14,229 bytes.
     "outbound/round-36-lap-03.md": "056d10f8f8d76b7f4a3a6e7e469f0c1ae2e4521cc50af915db598f71bf167d01",
+    # Released 2026-10-21 on the owner's standing word for round 36, 10,108 bytes.
+    "outbound/round-36-lap-06.md": "d961150058bb28cd7d802f0b8f6bf80c13cce5b2dafb6b191bba3bce5a5de1d7",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
