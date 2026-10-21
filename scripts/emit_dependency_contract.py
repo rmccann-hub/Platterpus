@@ -156,6 +156,15 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         "track_paranoia_scope",
         "secure_rerip_converged",
         "rip_completed",
+        # The fork's `.26` lines (round 36 lap 1 S4 to S6), declared from their
+        # draft at `cyanrip@cef0f629`: the two disc-header lines at
+        # `src/cyanrip_log.c:967` and `:969-970`, and the two-search form of
+        # `Pregap source:` at `:439-440`. Fork-only by source: none of the three
+        # strings is in `cyanrip@b40c1f0`, the fork repository's `master`, which
+        # carries upstream's history.
+        "accurate_stream",
+        "recordable",
+        "track_pregap_source_two_searches",
     }
 )
 

@@ -37,6 +37,13 @@ class RipBlock(TypedDict):
     cd_r_detected: bool | None
     speed_changeable: bool | None
     c2_pointers: bool | None
+    #: v39: the fork's `.26` `Accurate stream:` and `Recordable:` lines, each a
+    #: state (`parsers.rip_log.ACCURATE_STREAM_STATES` / `RECORDABLE_STATES`,
+    #: `"not_present"` when the line was not printed) and the ripper's reason.
+    accurate_stream: str
+    accurate_stream_reason: str | None
+    recordable: str
+    recordable_reason: str | None
     paranoia_level: str | None
     overread_mode: str | None
     ripper_build: str | None
@@ -439,6 +446,9 @@ class TrackBlock(TypedDict):
     #: turned on — and all four shipped undeclared here.
     pregap_length_frames: int | None
     pregap_source: str | None
+    #: v39: `.26`'s two disagreeing sub-channel searches of the pre-gap, first
+    #: first; None when the log printed no disagreement.
+    pregap_search_frames: list[int] | None
     pregap_state: str | None
     pregap_unknown_reason: str | None
     replaygain: dict[str, str] | None

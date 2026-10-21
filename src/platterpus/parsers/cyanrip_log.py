@@ -73,6 +73,15 @@ from typing import Final
 from platterpus import diagnostics
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
+    ACCURATE_STREAM_DECLARED_SUPPORTED,
+    ACCURATE_STREAM_DECLARED_UNSUPPORTED,
+    ACCURATE_STREAM_UNKNOWN,
+    DRIVE_FACT_NOT_PRESENT,
+    DRIVE_FACT_UNRECOGNISED,
+    RECORDABLE_CDR,
+    RECORDABLE_CDROM,
+    RECORDABLE_CDRW,
+    RECORDABLE_UNKNOWN,
     AccurateRipResult,
     RereadAgreement,
     RipLog,
@@ -195,6 +204,44 @@ _ALBUM_ARTIST = re.compile(r"^Album artist:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$
 # "Make use of C2 pointers" row. Only an explicit positive counts as Yes — an
 # unsupported or unrecognised value is No/unknown, never an invented Yes.
 _C2 = re.compile(r"^C2 errors:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
+# FORK-ONLY, from `.26`: two drive facts printed directly below `C2 errors:`
+# (round 36 lap 1 S4 and S5), at `cyanrip@cef0f629:src/cyanrip_log.c:967` and
+# `:969-970`. Upstream prints neither: its `src/` has no such string
+# (`cyanrip@b40c1f0`, the fork repository's `master`, which carries upstream's
+# history). Every wording comes from
+# `cyanrip@cef0f629:src/drive_caps.c:59-97`:
+#
+#     Accurate stream: declared supported by drive (capabilities page, not measured)
+#     Accurate stream: declared unsupported by drive
+#     Accurate stream: unknown (capabilities page not readable)
+#     Accurate stream: unknown (image)
+#     Recordable:     no, CD-ROM (drive's current profile)
+#     Recordable:     yes, CD-R (drive's current profile)
+#     Recordable:     yes, CD-RW (drive's current profile)
+#     Recordable:     unknown (profile 0x%04x is not a CD profile)
+#     Recordable:     unknown (profile not readable)
+#     Recordable:     unknown (image)
+#
+# The LINE pattern captures the whole value; the VALUE pattern beside it, applied
+# to that capture, decides which state it is (see `accurate_stream_state` and
+# `recordable_state`). Split that way so a reworded value still claims its line
+# (the completeness sweep stays quiet) while being recorded as `unrecognised`
+# rather than squeezed into a state it does not say.
+_ACCURATE_STREAM = re.compile(r"^Accurate stream:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
+_RECORDABLE = re.compile(r"^Recordable:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
+# The claim, then an optional parenthetical, and nothing else. Bounded: no
+# wording the fork prints has a parenthetical near 120 characters.
+_ACCURATE_STREAM_VALUE = re.compile(
+    r"^(?P<claim>declared supported by drive|declared unsupported by drive|unknown)"
+    r"(?:\s\((?P<reason>[^()\n]{1,120})\))?$"
+)
+# `yes`/`no` with the profile name, or `unknown`; then an optional parenthetical.
+# `CD-RW` is listed before `CD-R` only for the reader: the `$` anchor makes the
+# order irrelevant to what matches.
+_RECORDABLE_VALUE = re.compile(
+    r"^(?:(?P<answer>yes|no),\s(?P<profile>CD-ROM|CD-RW|CD-R)|(?P<unknown>unknown))"
+    r"(?:\s\((?P<reason>[^()\n]{1,120})\))?$"
+)
 # "Paranoia level: max" → EAC's "Read mode" (Secure vs Burst).
 _PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # cyanrip's "Gaps:" section, whose single indented line answers EAC's
@@ -750,9 +797,34 @@ _PREGAP_LENGTH = re.compile(r"^\s{1,8}Pregap length:\s+(?P<frames>\d{1,9})\s+fra
 # Fork-only provenance. `sub-channel` is the PR #115 payoff — a gap the TOC does
 # not declare. Left as free text after the keyword so a future source name is
 # recorded rather than dropped.
+#
+# **Bound raised from 64 to 200 characters for `.26`.** The fork's two-search form
+# (below) is 87 characters of value, and under the old bound it matched NOTHING:
+# the line fell out of the track block unread, which is the "recorded rather than
+# dropped" promise above broken by its own bound. 200 is the bound the other
+# free-text track rows use (`_DATA_SECTOR_EDC`).
 _PREGAP_SOURCE = re.compile(
-    r"^\s{1,8}Pregap source:\s+(?P<source>\S(?:.{0,62}\S)?)\s*$"
+    r"^\s{1,8}Pregap source:\s+(?P<source>\S(?:.{0,198}\S)?)\s*$"
 )
+# FORK-ONLY, from `.26` (round 36 lap 1 S6): a sub-channel pre-gap is searched a
+# second time, and when the two searches DISAGREE the provenance line carries both
+# counts (`cyanrip@cef0f629:src/cyanrip_log.c:432-440`, format string
+# `Pregap source: sub-channel (not signalled by TOC; two searches read %i and %i
+# frames, the first is used)`). Checked BEFORE `_PREGAP_SOURCE`, which would
+# otherwise take the whole value as a source name. Spelled out word for word, so a
+# reworded trailer (say, a build that used the second search) does not match here
+# and falls through to `_PREGAP_SOURCE`, where it is kept verbatim instead of being
+# read as "the first is used". `-?`: the counts are `%i` of an LSN difference, and
+# a sign the ripper prints is read, not refused.
+_PREGAP_SOURCE_TWO_SEARCHES = re.compile(
+    r"^\s{1,8}Pregap source:\s+sub-channel \(not signalled by TOC; two searches "
+    r"read (?P<first>-?\d{1,9}) and (?P<second>-?\d{1,9}) frames, the first is "
+    r"used\)\s*$"
+)
+#: What `TrackResult.pregap_source` reads when the two-search form was printed:
+#: the provenance part of the line, which is the agreeing form's whole value
+#: (`cyanrip@cef0f629:src/cyanrip_log.c:443`). The counts go to their own field.
+PREGAP_SOURCE_SUB_CHANNEL: Final[str] = "sub-channel (not signalled by TOC)"
 
 
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
@@ -1604,6 +1676,12 @@ class _Disc:
     album: str = ""
     album_artist: str = ""
     c2_pointers: bool | None = None
+    # `.26`'s two drive-header facts, as a state and the ripper's reason. See
+    # `accurate_stream_state` / `recordable_state` and the constants in rip_log.
+    accurate_stream: str = DRIVE_FACT_NOT_PRESENT
+    accurate_stream_reason: str = ""
+    recordable: str = DRIVE_FACT_NOT_PRESENT
+    recordable_reason: str = ""
     paranoia_level: str = ""
     gap_detection: str = ""
     output_formats: str = ""
@@ -1820,6 +1898,9 @@ class _TrackAcc:
     pregap_unknown_reason: str = ""
     pregap_length_frames: int | None = None
     pregap_source: str = ""
+    # `.26`'s two disagreeing sub-channel searches, first search first. See
+    # TrackResult.pregap_search_frames for why None is not "they agreed".
+    pregap_search_frames: tuple[int, int] | None = None
     replaygain: dict[str, str] = field(default_factory=dict)
     # The three new per-track facts. All default to None — "the ripper did not say"
     # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
@@ -1949,6 +2030,129 @@ def _take_c2(disc: _Disc, match: re.Match[str]) -> bool:
     else:
         disc.c2_pointers = None
     return True
+
+
+#: How much of an unrecognised drive-fact value is kept as its reason: the head
+#: and the tail, with the gap counted. A wording we do not know is exactly the
+#: case where the ripper's own words are the evidence, so they are kept, bounded.
+_UNRECOGNISED_VALUE_HEAD: Final[int] = 100
+_UNRECOGNISED_VALUE_TAIL: Final[int] = 60
+
+
+def _unrecognised_drive_fact(label: str, value: str) -> tuple[str, str]:
+    """``(unrecognised, the value bounded)``, and a warning naming the line.
+
+    Shared by the two `.26` header lines so a reword of either is reported the
+    same way: to the log file (Code conventions: an unexpected dependency output
+    is logged) and into the report, where the state says we could not read it.
+    """
+    bounded = diagnostics.bounded_chars(
+        value, head=_UNRECOGNISED_VALUE_HEAD, tail=_UNRECOGNISED_VALUE_TAIL
+    )
+    log.warning(
+        "cyanrip's %s line reads %r, a wording this build does not recognise; "
+        "recorded as unrecognised with the value kept",
+        label,
+        bounded,
+    )
+    return DRIVE_FACT_UNRECOGNISED, bounded
+
+
+def accurate_stream_state(value: str) -> tuple[str, str]:
+    """Read the value of `.26`'s `Accurate stream:` line as ``(state, reason)``.
+
+    ``state`` is one of ``rip_log.ACCURATE_STREAM_STATES`` except
+    ``not_present`` (that is the absence of the line, decided by the caller), and
+    ``reason`` is the ripper's parenthetical verbatim, "" when there is none:
+
+    * ``declared supported by drive (capabilities page, not measured)`` →
+      ``declared_supported``, reason ``capabilities page, not measured``. The
+      reason is kept because it is the ripper saying this is a declaration and
+      not a measurement, which is the honest reading of the state.
+    * ``declared unsupported by drive`` → ``declared_unsupported``.
+    * ``unknown (capabilities page not readable)`` / ``unknown (image)`` →
+      ``unknown`` with that reason. The drive was not asked, or could not answer:
+      not a "no".
+    * anything else → ``unrecognised``, the value kept (bounded) as the reason.
+
+    Pure and never raises (a parser of external output; the hypothesis test in
+    `tests/test_drive_header_and_pregap_searches.py` holds it).
+    """
+    text = value.strip()
+    match = _ACCURATE_STREAM_VALUE.match(text)
+    if match is None:
+        return _unrecognised_drive_fact("Accurate stream:", text)
+    reason = match.group("reason") or ""
+    claim = match.group("claim")
+    if claim == "declared supported by drive":
+        return ACCURATE_STREAM_DECLARED_SUPPORTED, reason
+    if claim == "declared unsupported by drive":
+        return ACCURATE_STREAM_DECLARED_UNSUPPORTED, reason
+    return ACCURATE_STREAM_UNKNOWN, reason
+
+
+#: `Recordable:`'s profile names → our states, each with the ONLY answer word
+#: the fork pairs it with (`cyanrip@cef0f629:src/drive_caps.c:68-76`).
+_RECORDABLE_PROFILES: Final[dict[str, tuple[str, str]]] = {
+    "CD-ROM": (RECORDABLE_CDROM, "no"),
+    "CD-R": (RECORDABLE_CDR, "yes"),
+    "CD-RW": (RECORDABLE_CDRW, "yes"),
+}
+
+
+def recordable_state(value: str) -> tuple[str, str]:
+    """Read the value of `.26`'s `Recordable:` line as ``(state, reason)``.
+
+    * ``no, CD-ROM (drive's current profile)`` → ``cdrom``;
+      ``yes, CD-R (…)`` → ``cdr``; ``yes, CD-RW (…)`` → ``cdrw``; the reason is
+      the parenthetical, which says WHERE the answer came from.
+    * ``unknown (image)`` / ``unknown (profile not readable)`` / ``unknown
+      (profile 0x0010 is not a CD profile)`` → ``unknown`` with that reason.
+    * a ``yes``/``no`` that contradicts its profile (``yes, CD-ROM``), or any
+      other wording → ``unrecognised``, the value kept. A contradiction is not
+      resolved in either direction: picking the answer word or the profile would
+      be us deciding what the ripper meant.
+
+    Pure and never raises.
+    """
+    text = value.strip()
+    match = _RECORDABLE_VALUE.match(text)
+    if match is None:
+        return _unrecognised_drive_fact("Recordable:", text)
+    reason = match.group("reason") or ""
+    if match.group("unknown"):
+        return RECORDABLE_UNKNOWN, reason
+    state, answer = _RECORDABLE_PROFILES[match.group("profile")]
+    if match.group("answer") != answer:
+        return _unrecognised_drive_fact("Recordable:", text)
+    return state, reason
+
+
+def _take_accurate_stream(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.accurate_stream, disc.accurate_stream_reason = accurate_stream_state(
+        match.group("value")
+    )
+    return True
+
+
+def _take_recordable(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.recordable, disc.recordable_reason = recordable_state(match.group("value"))
+    return True
+
+
+def _pregap_search_pair(match: re.Match[str]) -> tuple[int, int] | None:
+    """The two counts of `.26`'s two-search `Pregap source:` line, first first.
+
+    None when either count does not convert (`int_or_none` refuses, and says
+    so in the log): a pair with one side missing is not a pair, and a half-read
+    measurement must not be reported as a disagreement it may not be. Never
+    raises.
+    """
+    first = int_or_none(match.group("first"), field="cyanrip first pregap search")
+    second = int_or_none(match.group("second"), field="cyanrip second pregap search")
+    if first is None or second is None:
+        return None
+    return (first, second)
 
 
 def _take_paranoia_level(disc: _Disc, match: re.Match[str]) -> bool:
@@ -2521,6 +2725,12 @@ _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
     _LineRule("album", _ALBUM, _take_album, disc_level_only=True),
     _LineRule("album_artist", _ALBUM_ARTIST, _take_album_artist, disc_level_only=True),
     _LineRule("c2_errors", _C2, _take_c2),
+    # `.26` onward, directly below `C2 errors:`; absent means `not_present` on
+    # every older build. Disc-level only: header rows, never a track's.
+    _LineRule(
+        "accurate_stream", _ACCURATE_STREAM, _take_accurate_stream, disc_level_only=True
+    ),
+    _LineRule("recordable", _RECORDABLE, _take_recordable, disc_level_only=True),
     _LineRule("paranoia_level", _PARANOIA_LEVEL, _take_paranoia_level),
 )
 
@@ -2666,6 +2876,11 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # The count inside the fork's limit-hit wording, applied by
     # `secure_rerip_limit_agreement` to a line `_SECURE_DONE_FAIL` claimed.
     ("secure_rerip_limit_agreed", _SECURE_LIMIT_AGREED),
+    # The value shapes of `.26`'s two drive-header lines, applied by
+    # `accurate_stream_state` / `recordable_state` to the `value` group the
+    # `accurate_stream` and `recordable` rules captured.
+    ("accurate_stream_value", _ACCURATE_STREAM_VALUE),
+    ("recordable_value", _RECORDABLE_VALUE),
 )
 
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -2688,6 +2903,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_end_lsn", _END_LSN),
     ("track_pregap_lsn", _PREGAP_LSN),
     ("track_pregap_length", _PREGAP_LENGTH),
+    # `.26`: the two-search form, read before the general row below.
+    ("track_pregap_source_two_searches", _PREGAP_SOURCE_TWO_SEARCHES),
     ("track_pregap_source", _PREGAP_SOURCE),
     ("track_preemphasis", _PREEMPHASIS),
     # `+platterpus.24`: the disc's own ISRC, beside the metadata's (R20).
@@ -3235,6 +3452,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 pregap_unknown_reason=current.pregap_unknown_reason,
                 pregap_length_frames=current.pregap_length_frames,
                 pregap_source=current.pregap_source,
+                pregap_search_frames=current.pregap_search_frames,
                 filename=current.filename,
                 pre_emphasis=current.pre_emphasis,
                 copy_crc=current.copy_crc,
@@ -3572,6 +3790,14 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 )
                 continue
 
+            # `.26`'s two-search form FIRST: the general row below would take
+            # its whole value as a source name.
+            match = _PREGAP_SOURCE_TWO_SEARCHES.match(line)
+            if match:
+                current.pregap_source = PREGAP_SOURCE_SUB_CHANNEL
+                current.pregap_search_frames = _pregap_search_pair(match)
+                continue
+
             match = _PREGAP_SOURCE.match(line)
             if match:
                 current.pregap_source = match.group("source")
@@ -3902,6 +4128,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
             overread_mode=disc.overread_mode,
             gap_detection=disc.gap_detection,
             output_formats=disc.output_formats,
+            accurate_stream=disc.accurate_stream,
+            accurate_stream_reason=disc.accurate_stream_reason,
+            recordable=disc.recordable,
+            recordable_reason=disc.recordable_reason,
         ),
         tracks=tuple(tracks),
         accuraterip_summary=disc.accuraterip_summary,

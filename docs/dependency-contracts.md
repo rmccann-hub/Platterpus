@@ -258,6 +258,9 @@ per row: [`cyanrip-upstream.md`](cyanrip-upstream.md).
 | `Secure re-read: converged (2 out of 2 matches)` / `did NOT converge (…)` / `not attempted`; or the existing `Done; (…)` text routed through the log so it arrives **indented** | `secure_rerip_converged` (True / False / left alone) | drives the `Test CRC`/`Copy CRC` pair vs the "not confirmed reproducible" caveat (worded by `secure_rerip_agreement` since 2026-10-05) | §2.4 |
 | `C2 errors:  supported by drive, not used` (column 0) | `c2_pointers` = `False` | `Make use of C2 pointers` | §2.5 |
 | `Beyond disc: N of M frames refused (written as silence)` (`.24`+, printed only under `-O`, after `Appended:`; `cyanrip@93afa15:src/cyanrip_log.c:481`). Read as a pair or not at all; N above M is logged and left unstated | `beyond_disc_frames_refused` / `beyond_disc_frames` (report schema v37; a positive N raises the `beyond_disc_frames_refused` info issue) | *none* | round 35 lap 1 S11, TASKS R26 |
+| `Accurate stream: declared supported by drive (capabilities page, not measured)` / `declared unsupported by drive` / `unknown (capabilities page not readable)` / `unknown (image)` (column 0, below `C2 errors:`, `.26`+; `cyanrip@cef0f629:src/cyanrip_log.c:967`, wordings `src/drive_caps.c:85-97`). Any other wording is `unrecognised`, the value kept and logged | `RippingInfo.accurate_stream` (`declared_supported` / `declared_unsupported` / `unknown` / `unrecognised`, or `not_present` when absent) and `accurate_stream_reason` (report `rip.*`, schema v39) | *none* | round 36 lap 1 S4 (read from their draft, to be confirmed against the lap) |
+| `Recordable:     no, CD-ROM` / `yes, CD-R` / `yes, CD-RW`, each `(drive's current profile)`, or `unknown (image)` / `unknown (profile not readable)` / `unknown (profile 0x%04x is not a CD profile)` (column 0, below `Accurate stream:`, `.26`+; `cyanrip@cef0f629:src/cyanrip_log.c:969-970`, wordings `src/drive_caps.c:59-83`). An answer that contradicts its profile is `unrecognised` | `RippingInfo.recordable` (`cdrom` / `cdr` / `cdrw` / `unknown` / `unrecognised` / `not_present`) and `recordable_reason` (report `rip.*`, schema v39; CD-R or CD-RW raises the `recordable_disc` info issue). Not `cd_r_detected`, which is the legacy format's own verdict | *none* | round 36 lap 1 S5 (our F9) |
+| `Pregap source: sub-channel (not signalled by TOC; two searches read N and M frames, the first is used)` (indented, `.26`+, only when two searches disagree; `cyanrip@cef0f629:src/cyanrip_log.c:432-440`) | `pregap_search_frames` = `(N, M)`, and `pregap_source` = `sub-channel (not signalled by TOC)` (report schema v39; raises the `pregap_searches_disagree` info issue). A reworded trailer is kept whole as `pregap_source`, with no pair | *none* | round 36 lap 1 S6 (`subchannel-pregap-varies`) |
 
 The examples above are the shapes we proposed. The pinned fork (`.23`) prints all
 four, in these words: `    Sample peak level: %.1f%% (%.1f dBFS)`, which the
@@ -780,4 +783,4 @@ SIGKILL only if the drive is still held or fuser cannot say — see
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.110.*

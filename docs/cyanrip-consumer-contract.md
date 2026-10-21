@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (71)
+## 1. Log lines we parse (74)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -60,6 +60,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `album` | disc | `^Album:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `album_artist` | disc | `^Album artist:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `c2_errors` | disc | `^C2 errors:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `accurate_stream` **(fork-only)** | disc | `^Accurate stream:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `recordable` **(fork-only)** | disc | `^Recordable:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `paranoia_level` | disc | `^Paranoia level:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `outputs` | disc | `^Outputs:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
@@ -107,7 +109,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_end_lsn` | indented | `^\\s+End LSN:\\s+(?P<value>\\d+)` |
 | `track_pregap_lsn` | indented | `^\\s{1,8}Pregap LSN:\\s+(?P<value>\\d{1,9}\|none\|unknown)(?:\\s+\\((?P<reason>[^)]{0,64})\\))?` |
 | `track_pregap_length` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<frames>\\d{1,9})\\s+frames?\\b` |
-| `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,62}\\S)?)\\s*$` |
+| `track_pregap_source_two_searches` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+sub-channel \\(not signalled by TOC; two searches read (?P<first>-?\\d{1,9}) and (?P<second>-?\\d{1,9}) frames, the first is used\\)\\s*$` |
+| `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,198}\\S)?)\\s*$` |
 | `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<unused>[^\\s()][^()\\n]{0,39}?) \\((?P<unused_reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
@@ -124,10 +127,12 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 
-Of these, **21 exist only in the fork** and match nothing in
+Of these, **24 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
+- `accurate_stream`
+- `recordable`
 - `handshake_note`
 - `consumer`
 - `album_integrated_loudness`
@@ -141,6 +146,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `secure_rerip_converged`
 - `track_paranoia_scope`
 - `track_pregap_length`
+- `track_pregap_source_two_searches`
 - `track_pregap_source`
 - `track_peak_kind_header`
 - `track_sample_peak`

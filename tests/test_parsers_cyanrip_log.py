@@ -1175,7 +1175,12 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
     # the fork's two published `Interrupted at:` values. Both are applied only by
     # `interruption_point`, to the `where` group `_INTERRUPTED_AT` already captured,
     # never to a line (the Full run's F5/F6 fixes).
-    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 8, (
+    # 8 -> 10 on 2026-10-21: `accurate_stream_value` and `recordable_value`, the
+    # value shapes of the fork's `.26` header lines. Each is applied only by its
+    # reader (`accurate_stream_state` / `recordable_state`) to the `value` group the
+    # line rule already captured, never to a line; split so a reworded value still
+    # claims its line and is recorded as `unrecognised`.
+    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 10, (
         "the fragment group is growing; check each entry really is matched against a "
         "captured fragment rather than a whole line"
     )
