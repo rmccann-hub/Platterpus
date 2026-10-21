@@ -1090,6 +1090,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # answer back out of the reports. Split, the states and the sentences a
     # reader sees would live in one file and the code that writes them in another.
     "record_fate.py": 352,
+    # 422 lines on arrival (2026-10-21, the timed rip). **One job, kept as one
+    # module**: install one cyanrip fork build, for the two callers that do it
+    # (`--install-ripper` and the `install-ripper` script verb). Resolving what
+    # a caller asked for, the preamble, driving the step engine, recording each
+    # command and the closing sentence are the steps of that one job, moved out
+    # of `app.main` together so neither caller restates any of them; most of
+    # the length is the reasoning each decision carried with it from there.
+    "deps/ripper_install.py": 422,
     # 333 lines on arrival (2026-10-14, TASKS R10). **One job, kept as one module**:
     # read each cyanrip log's `Gaps:` block and compare the rips of one disc. The
     # parse, the comparison and the one sentence that names each differing track
@@ -1263,7 +1271,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1555 -> 1560** (2026-09-30): `app.main` joins `exit_work` after `app.exec()` returns and before `hard_exit` decides how to leave; the exit path is where that join belongs.
     # **1560 -> 1568** (2026-10-05): `app.main` runs the exit check (`exit_work.audit`) after the exit work is joined, so the next session's log says whether a close let go of the drive (operator, 2026-10-05).
     # **1568 -> 1573** (2026-10-19): the fatal-error box takes the active window as its parent, with the comment saying why (operator, 2026-10-19: a prompt never opens as a window of its own).
-    "app.py": 1573,
+    # **1573 -> 1482** (2026-10-21, the timed rip): lowered: the `--install-ripper` body moved to `deps/ripper_install.py`, so the `install-ripper` script verb and the flag are two thin callers of one function.
+    "app.py": 1482,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -2692,7 +2701,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4767 -> 4792** (2026-10-16, round 35, `overreadprobe`): the `(lasttrack)` expansion in the `cyanrip` verb and its reader, beside `(offset)`'s.
     # **4792 -> 4808** (2026-10-20): `expect-exit refused`, which asks `ripper_exit.refusal_exit_code` for the build's own refusal code (the 2026-10-20 Full run, section P2).
     # **4808 -> 4809** (2026-10-20, round 35 lap 17 S10): the build-tag latch reads only a banner line, via `ripper_identity.version_banner_in`, so a refused rip's summary is not taken as a build tag.
-    "uiscript/runner.py": 4809,
+    # **4809 -> 4823** (2026-10-21, the timed rip, the fork's round 36 lap 1 S15): two verb mixins in the class list and their imports, the two pieces of timing state with their reset, and the one dispatch line that marks a section N/A when it has nothing to compare. The handlers live in `install_verbs.py` and `timing_verbs.py`.
+    "uiscript/runner.py": 4823,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2734,7 +2744,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **995 -> 997** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
     # **997 -> 998** (2026-10-16, round 35, `overreadprobe`): the `cyanrip` verb's help names `(lasttrack)`.
     # **998 -> 999** (2026-10-20): the `refused` word in `expect-exit`'s help line.
-    "uiscript/verbs.py": 999,
+    # **999 -> 1045** (2026-10-21, the timed rip): the `install-ripper`, `skip-if-same-build`, `record-timing` and `compare-timings` declarations, and the module docstring naming `install-ripper` as the one argued exception to "no verb installs a dependency". The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 1045,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

@@ -13,6 +13,14 @@ them belongs in a batch that runs while nobody is watching, because the failure
 mode of an unattended destructive action is unbounded. A script that needs one of
 those is a script that needs a person.
 
+**One argued exception: ``install-ripper``** (2026-10-21). The owner's timed
+rip compares two cyanrip fork builds in the Full run (the fork's round 36 lap 1
+S15), which cannot be done without installing each in turn. It installs only a
+build our record knows (a numbered fork release, the approved pin, the build
+under review), through the same function as ``--install-ripper <commit>`` and
+the setup wizard's step engine; ``uiscript/install_verbs.py`` carries the full
+argument. Nothing else on this list moved.
+
 **cyanrip is passed through for real, not simulated.** The maintainer's
 instruction: *"it needs to be an independent test, but have full access to every
 surface exposed by the application and also cyanrip. the passthrough should be
@@ -846,6 +854,44 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         "run-size <quick|standard|full> — the steps after this run in that size and "
         "every larger one; a smaller run DECLINES them (recorded, never dropped)",
+    ),
+    # --- Timed rips: two fork builds compared (round 36 lap 1 S15) ------------
+    # `install_verbs.py` and `timing_verbs.py`; section P5 of the full script.
+    Verb(
+        "install-ripper",
+        1,
+        1,
+        "install-ripper <commit|(pin)|(under-review)|(fork-pin)> — build and "
+        "install that cyanrip fork build with the step engine --install-ripper "
+        "uses, then read the host export's banner back; only a build our record "
+        "knows (a numbered fork release, the approved pin, the build under "
+        "review). (pin) is the build section A accepts",
+    ),
+    Verb(
+        "skip-if-same-build",
+        2,
+        2,
+        "skip-if-same-build <A> <B> — when A and B (as install-ripper reads "
+        "them) name one build, say 'nothing to compare' (info) and mark the "
+        "rest of this section N/A instead of running it",
+    ),
+    Verb(
+        "record-timing",
+        1,
+        1,
+        "record-timing <label> — record the last rip's per-track Elapsed: "
+        "seconds and the build its log names, under <label> (info; an "
+        "untimed track or an unnamed build is an error, not determined)",
+    ),
+    Verb(
+        "compare-timings",
+        2,
+        4,
+        "compare-timings <base> <candidate> [<base2> <candidate2>] — the "
+        "ratio of candidate's summed Elapsed: to base's over the same tracks; "
+        "with four labels, both ratios and whether they agree within 0.05 "
+        "(info, a measurement; refused as not determined when the tracks, the "
+        "read counts or the builds do not allow it)",
     ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(

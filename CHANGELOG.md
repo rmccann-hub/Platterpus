@@ -40,6 +40,16 @@ the owner's word of 2026-10-20.
   counts and the first sectors. A track never read says `null`, never an empty list, and
   a build before `.25` says `not_present`. The EAC-layout log is unchanged until its
   wording is agreed with the fork.
+- **The Full acceptance run times the approved cyanrip build against the one under
+  review** (section P5; the owner's ask, the fork's round 36 lap 1 S15). It installs
+  each build in turn, alternating twice so drive warm-up favours neither, rips tracks
+  1-3 with no securing pass and a fixed read speed, sums each rip's per-track
+  `Elapsed:` seconds from its own log, and prints the two ratios and whether they
+  agree within 0.05. It is a measurement, graded `info`; between rounds, when the two
+  builds are one, it says "nothing to compare" and runs nothing. Four new script verbs
+  carry it: `install-ripper` (only a build our record knows, through the same function
+  as `--install-ripper`, now `deps/ripper_install.py`, on a helper thread), and
+  `skip-if-same-build`, `record-timing` and `compare-timings`.
 - **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
   re-derives every accuracy number from the raw logs: the three committed EAC sessions
   and the 262 rip logs on the `evidence` branch. It grades each area better, equal or

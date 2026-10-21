@@ -293,7 +293,15 @@ def test_no_drive_selected_is_a_failure_not_a_skip(
 #: Every module allowed to emit `Outcome.UNREACHABLE`. **A ratchet**: `ok`
 #: forgives the outcome, so a new producer is a new way for a run to be ok
 #: without checking something, and it has to be argued for here, by name.
-_UNREACHABLE_PRODUCERS: frozenset[str] = frozenset({"uiscript/offset_verbs.py"})
+#:
+#: `uiscript/timing_verbs.py` (2026-10-21): the steps of a timed rip (section
+#: P5) when the approved build and the build under review are one commit. The
+#: comparison cannot happen on that record state, which is neither a pass nor a
+#: failure; `SKIPPED` would fail the run and `INFO` would claim a step gathered
+#: something it never ran. The `skip-if-same-build` row says why, as INFO.
+_UNREACHABLE_PRODUCERS: frozenset[str] = frozenset(
+    {"uiscript/offset_verbs.py", "uiscript/timing_verbs.py"}
+)
 
 #: Modules that only read the outcome (the report defines and renders it).
 _UNREACHABLE_READERS: frozenset[str] = frozenset({"uiscript/report.py"})
