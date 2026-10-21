@@ -20,7 +20,8 @@ docs/archive/mp3-wav-support-2026-06.md §3):
     highest VBR, ~245 kbps), joint-stereo left on (ffmpeg default). The LAME
     ``-q4`` noise-shaping bug is CBR/ABR-only, so VBR is unaffected. Tags **and**
     embedded cover art carry over (``-map_metadata 0`` + copying the
-    attached-picture stream → ID3 APIC).
+    attached-picture stream → ID3 APIC), except the FLAC's ReplayGain figures,
+    which are measured again on the finished MP3 (``mp3_replaygain``).
   * **WavPack** (``.wv``, lossless) — ``-c:a wavpack`` (lossless by default;
     verified bit-identical PCM round-trip). Text tags carry over to APEv2
     (``-map_metadata 0``), but ffmpeg's WavPack muxer can hold **only the audio
@@ -46,6 +47,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus.adapters import mp3_replaygain
 from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
 from platterpus.tool_paths import resolve_tool
 
@@ -140,6 +142,10 @@ class TranscodeResult:
     failures: tuple[Path, ...] = ()
     error: str = ""
     failure_details: tuple[TranscodeFailure, ...] = field(default=())
+    #: MP3 only: the ReplayGain tags measured on the MP3s (the FLAC's figures are
+    #: dropped at the encode; :mod:`platterpus.adapters.mp3_replaygain`). ``None``
+    #: for the other formats and when nothing was written.
+    replaygain: mp3_replaygain.Mp3ReplayGain | None = None
 
     @property
     def ran(self) -> bool:
@@ -172,7 +178,10 @@ def _build_argv(
     if fmt == "mp3":
         return base + [
             "-map_metadata",
-            "0",  # carry the Vorbis tags into ID3
+            "0",  # carry the Vorbis tags into ID3 ...
+            # ... except the FLAC's loudness figures, measured before the lossy
+            # encode: they are re-measured on the MP3 after it is written.
+            *mp3_replaygain.drop_args(),
             "-id3v2_version",
             "3",  # widest player compatibility
             "-c:v",
@@ -239,6 +248,7 @@ def transcode_files(
     failures: list[Path] = []
     details: list[TranscodeFailure] = []
     transcoded = 0
+    written: list[Path] = []
     ext = _FORMAT_EXT[fmt]
     for src in paths:
         dest = src.with_suffix(f".{ext}")
@@ -298,8 +308,17 @@ def transcode_files(
             details.append(TranscodeFailure(path=src, stage_error=reason))
             continue
         transcoded += 1
+        written.append(dest)
+    replaygain = None
+    if fmt == "mp3" and written:
+        # Album figures only when every FLAC of the rip became an MP3: an album
+        # loudness over part of the album describes a different album.
+        replaygain = mp3_replaygain.apply(
+            written, whole_album=not failures, binary=binary, runner=runner
+        )
     return TranscodeResult(
         transcoded=transcoded,
         failures=tuple(failures),
         failure_details=tuple(details),
+        replaygain=replaygain,
     )

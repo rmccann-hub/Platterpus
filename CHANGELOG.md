@@ -12,7 +12,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.111] — 2026-10-21
+
+The release that puts the second read in users' hands. A disc AccurateRip can't vouch for is
+now read twice by default, and a disc it knows whose every track failed is re-read toward the
+database's entry, where 0.7.110 read such discs once. It is the first release that installs the
+fork's `.25` (`5f1d036`) by default, approved by round 35, so the disc's own ISRCs are preferred
+over MusicBrainz's where the drive reads them. A derived MP3's ReplayGain is measured on the MP3.
+It reads the three lines the fork's `.26` adds (`Accurate stream:`, `Recordable:`, and a pre-gap
+searched twice), and still reviews `.25`: 0.7.112 names `.26` once it is released. Released on
+the owner's word of 2026-10-20.
+
 ### Added
+
+- **Round 36: our lap 2 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
+
+- **A derived MP3's ReplayGain is measured on the MP3.** It used to carry the FLAC's figures, measured before the lossy encode, so its peak described another file. The encode now drops the FLAC's nine loudness tags, each MP3 is measured with ffmpeg's `ebur128` (true peak), and its `REPLAYGAIN_*` tags are written in cyanrip's format; album figures only when every track became an MP3, and no `R128_*` tags, which are for Opus. The report records the outcome as `transcode.replaygain` (schema v39, an addition). `PLANNING.md` maps the new module, `adapters/mp3_replaygain.py`.
 
 - **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
   re-derives every accuracy number from the raw logs: the three committed EAC sessions
@@ -19140,7 +19155,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...HEAD
+[0.7.111]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...v0.7.111
 [0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
 [0.7.109]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.108...v0.7.109
 [0.7.108]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.107...v0.7.108
@@ -19221,4 +19237,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.110.*
+*Last updated for Platterpus v0.7.111.*

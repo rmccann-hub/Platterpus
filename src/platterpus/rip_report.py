@@ -398,6 +398,10 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      the two counts when two sub-channel searches of one pre-gap disagreed
 #      (`:432-440`), else null. A CD-R or CD-RW raises the `recordable_disc`
 #      info issue, and a disagreement the `pregap_searches_disagree` info issue.
+#      Also in v39, additions only: `transcode.replaygain`, for a derived MP3, the
+#      ReplayGain tags measured on the MP3s themselves (`tracks_tagged`,
+#      `tracks_total`, `album_tagged`, `reasons`), because the FLAC's figures were
+#      measured before the lossy encode and are no longer copied; null otherwise.
 REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -2008,7 +2012,16 @@ def _transcode(result: object | None) -> dict | None:
         # ffmpeg's own exit code, argv and output per failed file.
         "failure_details": _failure_details(result),
         "error": getattr(result, "error", "") or None,
+        # v39: MP3 only, the ReplayGain measured on the MP3s; null otherwise.
+        "replaygain": _transcode_replaygain(result),
     }
+
+
+def _transcode_replaygain(result: object) -> dict[str, object] | None:
+    """The MP3s' re-measured ReplayGain block, or None (not MP3, or nothing written)."""
+    replaygain = getattr(result, "replaygain", None)
+    to_json = getattr(replaygain, "to_json", None)
+    return to_json() if callable(to_json) else None
 
 
 def _derived_verify(result: object | None) -> dict | None:
