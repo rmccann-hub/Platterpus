@@ -43,12 +43,14 @@ from platterpus.build_info import self_invocation
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
-from platterpus.ctdb.toc import (
-    LEAD_IN_SECTORS,
-    SAMPLES_PER_SECTOR,
-    SamplesProbe,
-    disc_toc_from_files,
+from platterpus.ctdb.matching import (
+    CtdbTrackResult,
+    match_disc,
+    match_tracks,
 )
+from platterpus.ctdb.sweep import DISC_OFFSET_RANGE, SweepResult, sweep_disc
+from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
+from platterpus.ctdb.track_wording import per_track_sentence
 
 log = logging.getLogger(__name__)
 
@@ -97,6 +99,17 @@ class CtdbVerifyResult:
     # confidence, and every entry's confidence summed.
     best_confidence: int = 0
     total_confidence: int = 0
+    # **Per track** (TASKS R43, 2026-10-21): what CTDB's per-track CRCs say about
+    # each track, in disc order (`ctdb/matching.py`). Empty when the check never
+    # got as far as computing our CRCs (not in the database, no decoder, ...).
+    tracks: tuple[CtdbTrackResult, ...] = ()
+    # **The offset sweep** (TASKS R43): how far, in samples either side, our
+    # whole-disc CRC was compared (0: the aligned CRC only), and where the
+    # strongest matched entry's pressing sits from ours (0 aligned, None without
+    # a match). A MATCH sums every entry matched at any offset, as CUETools'
+    # `Confidence` does.
+    offset_range: int = 0
+    matched_offset: int | None = None
 
     @property
     def outvoted(self) -> bool:
@@ -136,7 +149,9 @@ class CtdbVerifyResult:
 PcmDecoder = Callable[[Path], bytes]
 
 
-def not_whole_disc_result(covered: int, disc_tracks: int) -> CtdbVerifyResult:
+def not_whole_disc_result(
+    covered: int, disc_tracks: int, data_tracks: Sequence[int] = ()
+) -> CtdbVerifyResult:
     """The verdict for a file list that does not cover the disc. No lookup made.
 
     The message is the one sentence every surface shows (the Details tab reads
@@ -144,7 +159,27 @@ def not_whole_disc_result(covered: int, disc_tracks: int) -> CtdbVerifyResult:
     ``not run — <why>`` shape. It names both numbers, because "not run" alone
     would leave a reader guessing whether the check was skipped, dropped, or
     broken.
+
+    ``data_tracks`` are the numbers of the disc's DATA tracks the rip's log holds
+    (TASKS R13). When they make up the whole shortfall, the rip left nothing out:
+    the disc is an Enhanced CD, and the TOC built from the audio files cannot hold
+    its data track. "this rip has 2 of the disc's 3 tracks" said the rip was
+    partial when it was not, so that case gets its own sentence. The verdict stays
+    NOT_WHOLE_DISC, because the TOC we can build still is not the disc's.
     """
+    if data_tracks and covered + len(data_tracks) >= disc_tracks:
+        if len(data_tracks) == 1:
+            which = f"its data track (track {data_tracks[0]})"
+        else:
+            named = ", ".join(str(n) for n in data_tracks[:-1])
+            which = f"its data tracks (tracks {named} and {data_tracks[-1]})"
+        return CtdbVerifyResult(
+            Verdict.NOT_WHOLE_DISC,
+            message=(
+                "not run — CTDB verifies whole discs, and the table of contents "
+                f"built from this rip's audio files cannot include {which}"
+            ),
+        )
     return CtdbVerifyResult(
         Verdict.NOT_WHOLE_DISC,
         message=(
@@ -159,6 +194,7 @@ def verify_rip(
     client: CTDBClient,
     *,
     disc_tracks: int | None = None,
+    data_tracks: Sequence[int] = (),
     decoder: PcmDecoder | None = None,
     samples_probe: SamplesProbe | None = None,
 ) -> CtdbVerifyResult:
@@ -171,6 +207,8 @@ def verify_rip(
     tracks, nothing is probed, decoded or looked up: the result is
     :attr:`Verdict.NOT_WHOLE_DISC`. ``None`` keeps the old behaviour, because a
     count we do not have is not evidence that the rip is partial.
+    ``data_tracks`` (the log's data-track numbers) only words that refusal: see
+    :func:`not_whole_disc_result`.
 
     `decoder`/`samples_probe` are injected in tests; production defaults use
     the host `flac`/`metaflac`.
@@ -188,7 +226,7 @@ def verify_rip(
     #    the folder-scan fallback that can is already logged at WARNING by
     #    `rip_files` as the reduced-confidence case it is.
     if disc_tracks is not None and len(flac_paths) < disc_tracks:
-        return not_whole_disc_result(len(flac_paths), disc_tracks)
+        return not_whole_disc_result(len(flac_paths), disc_tracks, data_tracks)
 
     # 1) TOC → 2) lookup.
     try:
@@ -211,71 +249,78 @@ def verify_rip(
             Verdict.NOT_IN_DATABASE, message="this disc is not in CTDB"
         )
 
-    # 3) decode + CRC compare. Stream each track's PCM through the running CRC
-    #    (one track resident at a time) rather than buffering the whole disc plus
-    #    a b"".join copy — that spiked ~1.5 GB on the verify daemon thread (#39).
-    #    The offset-0 CTDB CRC needs the whole-disc frame count up front (the back
-    #    trim is length-dependent), which the TOC gives us before decoding.
-    total_frames = (toc.leadout - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR
+    # 3) decode + CRC compare. Stream each track's PCM through ONE pass that
+    #    measures every CRC we compare (`ctdb/sweep.py`), one track resident at a
+    #    time rather than the whole disc plus a b"".join copy — that spiked
+    #    ~1.5 GB on the verify daemon thread (#39). The windows need the disc's
+    #    frame count and track starts up front (the back trim is length-dependent),
+    #    which the TOC gives us before decoding.
     try:
-        our_crc = _crc_all(flac_paths, decoder, total_frames)
+        measured = sweep_disc(
+            (decoder(Path(p)) for p in flac_paths), toc, disc_range=DISC_OFFSET_RANGE
+        )
     except decode.DecoderUnavailable as exc:
         return _db_only_result(result, Verdict.DECODER_UNAVAILABLE, str(exc))
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         # BUG-4: include TimeoutExpired here too — a wedged decoder during the
         # CRC pass must classify as a decode error, not escape uncaught.
         return _db_only_result(result, Verdict.LOOKUP_ERROR, f"decode error: {exc}")
+    our_crc = measured.disc.get(0)
     if our_crc is None:
         # A disc too short to hold the guard band — no meaningful CTDB CRC.
         return _db_only_result(
             result, Verdict.LOOKUP_ERROR, "disc too short for the CTDB CRC guard band"
         )
-
-    return _match_verdict(result, our_crc)
-
-
-def _crc_all(
-    flac_paths: Sequence[Path], decoder: PcmDecoder, total_frames: int
-) -> int | None:
-    """Whole-disc offset-0 CTDB CRC over every track (in track order), streamed.
-
-    Each track is decoded, folded into the running CRC, then released — so peak
-    memory is a single track's PCM, not the whole album twice (#39). `total_frames`
-    (from the TOC) sizes the length-dependent back trim. A decoder error
-    propagates (caught by the caller); ``None`` for a degenerate short disc. The
-    result equals ``ctdb_crc(whole_disc_pcm, 0)``.
-    """
-    return crc_mod.ctdb_crc_offset0_streaming(
-        (decoder(Path(p)) for p in flac_paths), total_frames
-    )
+    return _match_verdict(result, our_crc, measured)
 
 
-def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
+def _match_verdict(
+    result: CtdbLookupResult, our_crc: int, measured: SweepResult | None = None
+) -> CtdbVerifyResult:
     db_crcs = tuple(e.crc for e in result.entries if e.crc is not None)
     best = max((e.confidence for e in result.entries), default=0)
     total = sum(max(0, e.confidence) for e in result.entries)
-    for entry in result.entries:
-        if entry.crc is not None and entry.crc == our_crc:
-            if not crc_mod.CRC_VALIDATED:
-                message = (
-                    "CRC matched, but the CRC algorithm is UNVERIFIED "
-                    "(KDD-16) — treat as experimental"
-                )
-            elif entry.confidence < best:
-                message = minority_match_sentence(entry.confidence, total)
-            else:
-                message = f"verified against CTDB (confidence {entry.confidence})"
-            return CtdbVerifyResult(
-                Verdict.MATCH,
-                confidence=entry.confidence,
-                our_crc=our_crc,
-                matched_crc=entry.crc,
-                db_crcs=db_crcs,
-                crc_validated=crc_mod.CRC_VALIDATED,
-                message=message,
-                best_confidence=best,
-                total_confidence=total,
+    # Without a measurement (a caller holding only the aligned CRC) there is no
+    # sweep and no per-track result, and the messages claim neither.
+    disc_crcs = dict(measured.disc) if measured is not None else {0: our_crc}
+    swept = max((abs(o) for o in disc_crcs), default=0)
+    disc_matched = match_disc(result.entries, disc_crcs)
+    tracks = (
+        match_tracks(result.entries, measured.tracks, disc_matched)
+        if measured is not None
+        else ()
+    )
+    per_track = f" {per_track_sentence(tracks, total)}" if tracks else ""
+    if disc_matched:
+        matched = [(result.entries[i], o) for i, o in disc_matched.items()]
+        confidence = sum(max(0, e.confidence) for e, _ in matched)
+        lead, offset = min(matched, key=lambda m: (-m[0].confidence, abs(m[1]), m[1]))
+        if not crc_mod.CRC_VALIDATED:
+            message = (
+                "CRC matched, but the CRC algorithm is UNVERIFIED "
+                "(KDD-16) — treat as experimental"
             )
+        elif confidence < best:
+            message = minority_match_sentence(confidence, total)
+            message += f".{per_track}" if per_track else ""
+        else:
+            message = f"verified against CTDB (confidence {confidence})"
+            if offset:
+                message += f", {shifted_pressing_phrase(offset)}"
+        return CtdbVerifyResult(
+            Verdict.MATCH,
+            confidence=confidence,
+            our_crc=our_crc,
+            matched_crc=lead.crc,
+            db_crcs=db_crcs,
+            crc_validated=crc_mod.CRC_VALIDATED,
+            message=message,
+            best_confidence=best,
+            total_confidence=total,
+            tracks=tracks,
+            offset_range=swept,
+            matched_offset=offset,
+        )
     n = len(result.entries)
     # The message MUST depend on whether our CRC algorithm is trustworthy. While
     # CRC_VALIDATED is False (KDD-16), our_crc is a known-placeholder value that
@@ -283,13 +328,22 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
     # the rip — claiming "the rip differs" here is the false alarm the real-disc
     # Police report exposed. Only once the algorithm is hardware-validated does a
     # no-match actually mean the audio differs from the database.
-    if crc_mod.CRC_VALIDATED:
+    if crc_mod.CRC_VALIDATED and swept:
+        # Every alignment CTDB itself would accept was tried, so this is now a
+        # finding about the audio, scoped to what CTDB holds: no entry equals it.
+        message = (
+            f"disc is in CTDB, but our CRC matched none of its {n} entries at any "
+            f"alignment within ±{swept:,} samples, so our audio differs from every "
+            "entry CTDB holds for this disc. AccurateRip remains the primary "
+            f"proof.{per_track}"
+        )
+    elif crc_mod.CRC_VALIDATED:
         message = (
             f"disc is in CTDB but our CRC didn't match any of the {n} "
             "entries at the standard alignment. CTDB also holds offset-shifted "
             "pressings, which this check does not sweep, so a non-match here is "
             "not evidence the rip is wrong — AccurateRip is the per-track "
-            "authority."
+            f"authority.{per_track}"
         )
     else:
         message = (
@@ -312,7 +366,14 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
         message=message,
         best_confidence=best,
         total_confidence=total,
+        tracks=tracks,
+        offset_range=swept,
     )
+
+
+def shifted_pressing_phrase(offset: int) -> str:
+    """The one wording for a match found away from alignment (verdict and screen)."""
+    return f"a pressing {offset:+,d} samples from ours"
 
 
 def minority_match_sentence(matched: int, total: int) -> str:

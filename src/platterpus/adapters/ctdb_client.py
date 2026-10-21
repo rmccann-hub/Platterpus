@@ -18,6 +18,7 @@ The XML parsing is unit-tested against fixtures for *what we expect*.
 from __future__ import annotations
 
 import logging
+import re
 import socket
 import time
 import urllib.error
@@ -62,7 +63,8 @@ _RETRY_BACKOFFS_S: tuple[float, ...] = (0.0, 1.5, 3.0)  # len = number of attemp
 class CtdbEntry:
     """One CTDB database entry for a queried TOC.
 
-    `crc`/`confidence` drive the verify verdict; `trackcrcs` is per-track.
+    `crc`/`confidence` drive the whole-disc verdict; `track_crcs` (the
+    `trackcrcs` attribute, one CRC per track or empty) drives the per-track one.
     `npar`/`has_parity`/`syndrome`/`entry_id` are Phase-2 (repair) parity
     fields — parsed but unused by verify.
     """
@@ -274,6 +276,29 @@ def _to_int(value: str | None, *, base: int = 10) -> int | None:
         return None
 
 
+_TRACK_CRC_TOKEN = re.compile(r"(?P<crc>[0-9A-Fa-f]{1,8})")
+
+
+def parse_track_crcs(text: str | None) -> tuple[int, ...]:
+    """An entry's ``trackcrcs`` attribute: one 32-bit hex CRC per track, or ``()``.
+
+    ALL OR NOTHING. The list is lined up with our tracks by position, so one
+    unreadable token must not be skipped: dropping it would slide every later
+    CRC onto the wrong track and report a good track as differing (the parser
+    before 2026-10-21 did exactly that). CUETools' ``DBEntry`` keeps the list
+    only when it has one CRC per track; the length half of that rule is checked
+    where the track count is known (``ctdb/matching.py``). Never raises.
+    """
+    if not text:
+        return ()
+    values: list[int] = []
+    for token in text.split():
+        if _TRACK_CRC_TOKEN.fullmatch(token) is None:
+            return ()
+        values.append(int(token, 16))
+    return tuple(values)
+
+
 def parse_lookup_response(raw: bytes) -> CtdbLookupResult:
     """Parse a CTDB `lookup2.php` XML body into a `CtdbLookupResult`.
 
@@ -319,13 +344,7 @@ def parse_lookup_response(raw: bytes) -> CtdbLookupResult:
             "false",
             "no",
         }
-        track_crcs = tuple(
-            v
-            for v in (
-                _to_int(tok, base=16) for tok in (el.get("trackcrcs") or "").split()
-            )
-            if v is not None
-        )
+        track_crcs = parse_track_crcs(el.get("trackcrcs"))
         entries.append(
             CtdbEntry(
                 crc=crc,

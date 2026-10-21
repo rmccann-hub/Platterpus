@@ -1295,3 +1295,34 @@ def _no_test_opens_run_evidence(
             f"@pytest.mark.{TREE_WALK_MARKER}):\n  {shown}",
             pytrace=False,
         )
+
+
+@pytest.fixture
+def tree_lock_turn() -> Generator[None, None, None]:
+    """Wait for this test's turn at the working-tree lock, across xdist workers.
+
+    ``scripts/mutation_sweep.py`` and ``scripts/revert_probe.py`` refuse to run
+    while another holds ``.mutation-sweep.lock`` (``scripts/tree_lock.py``), which
+    is right for the tools: two runs mutating ``src/`` at once corrupt each other.
+    But the tests that drive those tools, in-process and as subprocesses, run on
+    different xdist workers, and two of them reaching the lock at once made the
+    second REFUSE, failing a CI leg for nothing (PR #375, 2026-10-21, five tests
+    on ``test (py3.12)``: "already held by mutation_sweep pid=11541").
+
+    So the tests that take the lock wait their turn here first, on an OS file lock
+    (``fcntl.flock``) every worker of this checkout shares: they queue instead of
+    colliding, whatever xdist's distribution mode. The tool's own lock is
+    untouched, so its refusal is still what the tests exercise. Use it with
+    ``pytestmark = pytest.mark.usefixtures("tree_lock_turn")``.
+    """
+    import fcntl
+    import hashlib
+
+    key = hashlib.sha256(str(Path(__file__).resolve().parent).encode()).hexdigest()
+    turn = Path(tempfile.gettempdir()) / f"platterpus-tree-lock-turn-{key[:16]}"
+    with open(turn, "a+", encoding="utf-8") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)

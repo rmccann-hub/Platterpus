@@ -66,6 +66,7 @@ from platterpus.adapters.transcode import (
 )
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
+from platterpus.error_positions import report_block as error_positions_block
 from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -98,6 +99,7 @@ from platterpus.ui.unknown_album import (
     launch_picard_for,
 )
 from platterpus.verdict import expected_track_total, recount_accuraterip_summary
+from platterpus.verified_read_chase import KEPT_VERIFIED_REREAD, kept_read
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
 from platterpus.workers.derived_verify_worker import (
@@ -317,6 +319,7 @@ def _merge_shipped_track(
     shipped: TrackResult | None,
     verdicts: dict[int, bool],
     agreements: dict[int, RereadAgreement] | None = None,
+    single_read: bool = False,
 ) -> TrackResult:
     """One track's first-pass record, corrected to describe the shipped file.
 
@@ -334,6 +337,11 @@ def _merge_shipped_track(
     ``agreements`` is the worker's ``reread_agreements``: how many reads agreed in
     each re-read, from the re-rip's own log, swapped in or not. It is applied
     with the verdict, never without it.
+
+    ``single_read`` is True when ``shipped`` is a verified-read chase read
+    (TASKS R7): one read with no ``-Z``. No re-read verdict, agreement or read
+    count describes it, so all three are its own, even when unreported; the
+    first pass's ``(after 3 rips)`` would render a Test/Copy pair for one read.
     """
     from dataclasses import replace
 
@@ -382,6 +390,14 @@ def _merge_shipped_track(
             ),
             replaygain=_reported(shipped.replaygain, track.replaygain),
         )
+    if single_read and shipped is not None:
+        return replace(
+            track,
+            rip_count=shipped.rip_count,
+            secure_rerip_converged=None,
+            secure_rerip_agreement=None,
+            secure_rerip_kept_read=None,
+        )
     verdict = verdicts.get(track.number)
     if verdict is not None:
         # The convergence verdict is ours, from the auto-fix history — it wins
@@ -396,7 +412,14 @@ def _merge_shipped_track(
         if reread is None and shipped is not None:
             reread = shipped.secure_rerip_agreement
         track = replace(
-            track, secure_rerip_converged=verdict, secure_rerip_agreement=reread
+            track,
+            secure_rerip_converged=verdict,
+            secure_rerip_agreement=reread,
+            # The kept-read clause describes the same reads (TASKS R7): the
+            # shipped read's own, never the first pass's under the re-rip's verdict.
+            secure_rerip_kept_read=(
+                shipped.secure_rerip_kept_read if shipped is not None else None
+            ),
         )
     return track
 
@@ -1887,6 +1910,11 @@ class RipMixin(MainWindowShared):
                     or ()
                 ),
             ),
+            # Where paranoia reported read errors and skips, per track, from the
+            # same reading of the same record (v39, TASKS R44).
+            "error_positions": error_positions_block(
+                getattr(self._rip_worker, "isrc_reading", None)
+            ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
@@ -2026,6 +2054,10 @@ class RipMixin(MainWindowShared):
                     # stronger analogue of EAC's Key-Disc offset check). Record
                     # that so the offset's provenance is promoted to CONFIRMED.
                     self._confirm_offset_from_accuraterip(rip_log)
+                    # And SAY whether the applied offset is the AccurateRip list's,
+                    # by the report's own check (`read_offset_check`), so the
+                    # results pane and `.platterpus.json` cannot disagree.
+                    self._announce_read_offset_check(rip_log)
                 # WAS THIS THE DISC THE TAGS WERE LOOKED UP FOR? Asked of the one
                 # predicate the report and the audit use (`disc_identity`), and
                 # said on every surface a user reads: the banner, the status line
@@ -3161,7 +3193,37 @@ class RipMixin(MainWindowShared):
         return replace(pending, album_dir=new_dir)
 
     def _post_rip_still_running(self) -> str:
-        """Comma-joined names of the post-rip threads that are still alive.
+        """:meth:`_post_rip_steps_running`, comma-joined for a log line."""
+        return ", ".join(self._post_rip_steps_running())
+
+    def _record_post_rip_cut_short(self) -> str:
+        """The unattended quit is giving up: say so in the album's report FIRST.
+
+        Returns what was still running, comma-joined, for the give-up log line.
+
+        Before this the process ended with checks outstanding and the
+        ``.platterpus.json`` read complete — ``"No errors occurred"``,
+        ``completeness.complete: true``, ``cover_art: null`` (TASKS.md P2 #5). The
+        record is sealed (:meth:`PostRipRecord.seal_cut_short`) and the report is
+        written with a bounded wait, the same one ``closeEvent`` makes, because
+        the next thing that happens is ``app.quit()``. Bounded, on an unattended
+        exit path: nobody is clicking, and a wedged disk costs 5 s, not a hang.
+        """
+        steps = tuple(self._post_rip_steps_running())
+        record = self._post_rip_record()
+        if record is not None and record.log_file is not None:
+            gates = record.seal_cut_short(steps)
+            log.warning(
+                "unattended quit: recording post-rip verification as cut short "
+                "in the report (steps: %s; checks: %s)",
+                ", ".join(record.cut_short_steps) or "none",
+                ", ".join(sorted(gates)) or "none",
+            )
+            self._flush_rip_report(wait=True)
+        return ", ".join(steps)
+
+    def _post_rip_steps_running(self) -> list[str]:
+        """Names of the post-rip threads that are still alive.
 
         Derived from the same attribute list :meth:`_post_rip_work_settled` walks,
         so the manifest can say *which* step it gave up on instead of "something".
@@ -3186,7 +3248,7 @@ class RipMixin(MainWindowShared):
                 alive.append(attr.strip("_").removesuffix("_thread"))
         if self._pending_library_move is not None:
             alive.append("library move (queued)")
-        return ", ".join(alive)
+        return alive
 
     def _launch_evidence_bundle(
         self, pending: _PendingBundle, facts: dict[str, str]
@@ -3758,6 +3820,30 @@ class RipMixin(MainWindowShared):
         except Exception:  # noqa: BLE001 — provenance is a courtesy, never load-bearing
             log.warning("could not confirm offset from AccurateRip", exc_info=True)
 
+    def _announce_read_offset_check(self, rip_log: object) -> None:
+        """Show and log the applied read offset against the AccurateRip list.
+
+        The same block the report writes (``read_offset_check``), worded by the
+        same module, so the window and the record cannot say different things.
+        Best-effort, never raises: a sentence must not break the finish handler.
+        """
+        try:
+            from platterpus import read_offset_check
+
+            info = getattr(rip_log, "ripping_info", None)
+            block = read_offset_check.check_read_offset(
+                drive_banner=getattr(info, "drive", ""),
+                applied=getattr(info, "read_offset_correction", None),
+                lookup=self._offset_db,
+                tracks=getattr(rip_log, "tracks", None),
+            )
+            line = read_offset_check.results_line(block)
+            differs = block["state"] == read_offset_check.OFFSET_DIFFERS
+            (log.warning if differs else log.info)("read offset check: %s", line)
+            self._rip_progress.append_log_line(line)
+        except Exception:  # noqa: BLE001 — a status sentence is never load-bearing
+            log.warning("could not check the read offset", exc_info=True)
+
     def _inject_measured_cache_defeat(self, rip_log: RipLog) -> RipLog:
         """Fold a MEASURED cache-defeat verdict into a parsed ``RipLog``.
 
@@ -3885,11 +3971,16 @@ class RipMixin(MainWindowShared):
             # `_last_retried_tracks` is the worker's own record of what it
             # re-ripped (mirrored into the report as read_speed.retried_tracks).
             verdicts: dict[int, bool] = {}
+            # Tracks whose file is a verified-read chase read (TASKS R7): the
+            # securing pass's verdict is about reads that did not ship.
+            single: set[int] = set()
             for entry in getattr(self, "_last_retried_tracks", []) or []:
                 number = entry.get("track")
                 if not isinstance(number, int):
                     continue
-                if entry.get("converged"):
+                if kept_read(entry) == KEPT_VERIFIED_REREAD:
+                    single.add(number)
+                elif entry.get("converged"):
                     # Only a re-read that actually replaced the album's file
                     # proves anything about the file that's there now.
                     if entry.get("replaced"):
@@ -3910,7 +4001,11 @@ class RipMixin(MainWindowShared):
             )
             tracks = tuple(
                 _merge_shipped_track(
-                    track, shipped.get(track.number), verdicts, agreements
+                    track,
+                    shipped.get(track.number),
+                    verdicts,
+                    agreements,
+                    single_read=track.number in single,
                 )
                 for track in rip_log.tracks
             )
@@ -4118,6 +4213,9 @@ class RipMixin(MainWindowShared):
             superseded=sorted(record.superseded),
             rip_status=status if isinstance(status, str) else None,
             launched=sorted(record.launched),
+            # Only while the result is still missing: one landing during the
+            # exit flush is a result, not a cut-short check.
+            cut_short=sorted(record.cut_short_without_result()),
         )
 
     def _record_post_rip_result(
@@ -4355,6 +4453,9 @@ class RipMixin(MainWindowShared):
             ),
             # The one verdict in the report that is not ours (round 7 lap 10, J3).
             ripper_log_verification=record.ripper_log_verification,
+            # The AccurateRip drive list, read-only, so the report can check the
+            # applied offset against it (v39, `read_offset_check`).
+            offset_lookup=getattr(self, "_offset_db", None),
             # v7 process/settings/provenance blocks — ALL of them off the record.
             #
             # This comment used to say `settings`/`gates` "come from the persistent
@@ -4381,6 +4482,8 @@ class RipMixin(MainWindowShared):
             disc=record.disc,
             environment=environment,
             gates=self._gates_for(record),
+            # Set only by the unattended quit's give-up (`_record_post_rip_cut_short`).
+            verification_cut_short=record.cut_short_steps or None,
         )
         # Newest-wins: a job still sitting unstarted is replaced, which is
         # lossless because every write carries ALL accumulated results — the same
@@ -4533,6 +4636,7 @@ class RipMixin(MainWindowShared):
                 artifacts=self._failure_artifacts(),
                 debug_log=self._build_rip_debug_log(),
                 generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+                offset_lookup=getattr(self, "_offset_db", None),
             )
             if written is not None:
                 # WARNING, not INFO. `log.txt` is INFO-only by default so this did

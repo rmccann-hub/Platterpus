@@ -86,9 +86,12 @@ strip has focus.
   archival gold standard: other people's rips of the same disc produced the
   exact same audio.
 - 🟡 **Amber — "M of N tracks verified"** — some tracks matched and some didn't.
-  The unmatched ones either aren't in the database or read differently this
-  time; check the per-track table and consider re-ripping (the **Max reads to
-  confirm a shaky track** setting helps marginal discs).
+  When some tracks matched, the disc is in AccurateRip, so the banner names each
+  track that differs from AccurateRip's entry: most likely a misread this time.
+  Check the per-track table and consider re-ripping (the **Max reads to confirm
+  a shaky track** setting helps marginal discs). If AccurateRip has an entry for
+  the disc and *no* track matched it, the banner is amber too: a wrong read
+  offset or misreads look like that.
 - ⚪ **Grey — "no tracks matched the database"** — normal for a disc nobody has
   submitted (a home-burned CD-R, or an obscure pressing). It does *not*
   automatically mean a bad rip — AccurateRip simply has nothing to compare
@@ -102,9 +105,12 @@ track verified on a guess. If you enabled **Verify with CTDB**, its result
 appears on the **Details** tab, marked the same way by symbol and text: a CTDB
 match shows green — verified, because our CTDB checksum has been
 confirmed correct on real hardware.
-It is a *whole-disc* check, so AccurateRip stays the per-track authority. No
-match shows grey — "couldn't confirm", not "failed": CTDB also holds
-offset-shifted pressings, and this check only tests the standard alignment.
+It checks the whole disc at every alignment CTDB accepts (±5,879 samples, so a
+pressing that sits a little early or late still matches), and then each track
+against CTDB's per-track checksums, naming any track that differs.
+AccurateRip stays the primary proof. No match shows grey: it means our audio
+differs from every entry CTDB holds for the disc, which could be our read or
+theirs; the per-track line says which tracks.
 
 Alongside the rip, two records are saved next to your music: the backend's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same

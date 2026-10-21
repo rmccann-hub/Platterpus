@@ -1941,7 +1941,11 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
     # 15's R4 override): `git diff --shortstat 3952c03 5f1d036 -- src meson.build`
     # in a clone of the fork is 30 files, 3997 insertions, 701 deletions. Different
     # programs, so False.
-    DECLARED_FOR: tuple[str, str, bool] = ("5f1d036", "3952c03", False)
+    # Re-derived 2026-10-21 when round 36's pin moved to `.26` (`ca0f097`, on the
+    # owner's word of that day): `git diff --shortstat 3952c03 ca0f097 -- src
+    # meson.build` in a clone of the fork is 33 files, 4681 insertions, 848
+    # deletions. Different programs, so False.
+    DECLARED_FOR: tuple[str, str, bool] = ("ca0f097", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (

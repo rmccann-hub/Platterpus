@@ -22,7 +22,13 @@ from pathlib import Path
 from platterpus import diagnostics, naming
 from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
+from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.rip_health import (
+    CLEAN_HEALTH,
+    effective_health_status,
+    error_lines_contradicting_summary,
+)
 from platterpus.verdict import track_has_unverified_skips
 
 log = logging.getLogger(__name__)
@@ -479,7 +485,7 @@ def fidelity_summary(
     wording the verdict around what that ripper actually verifies — don't
     claim a Test/Copy match a ripper didn't perform.
     """
-    tracks = getattr(rip_log, "tracks", ()) or ()
+    every_track = getattr(rip_log, "tracks", ()) or ()
     # `expected_track_total` is the number of tracks this rip was ASKED for; the
     # log only contains the ones it got to. Using the log's own count made a
     # cancelled 2-of-14 rip announce "all 2 tracks ripped cleanly" — the same
@@ -487,7 +493,14 @@ def fidelity_summary(
     # the desktop notification. The banner was given this fact and this function
     # was not, six lines apart, which is how a fix reaches three surfaces out of
     # four (audit finding, 2026-07-30).
-    total = expected_track_total if expected_track_total else len(tracks)
+    #
+    # AUDIO tracks, with the banner's own key (TASKS R13). The total counts an
+    # Enhanced CD's data track and a data track is never "ripped successfully", so
+    # a mixed disc whose audio was flawless read "2/3 tracks ripped cleanly".
+    # `audio_track_totals` takes each logged data track out of both sides.
+    tracks = [t for t in every_track if not is_data_track(t)]
+    total, _logged = audio_track_totals(rip_log, expected_track_total)
+    # No audio track logged (none, or a disc of data only): nothing to grade.
     if not tracks:
         return "Rip cancelled." if cancelled else "Done."
 
@@ -512,9 +525,19 @@ def fidelity_summary(
             for t in tracks
             if getattr(t, "status", "") == "ripped successfully" and t not in skipped
         )
-        no_errors = getattr(rip_log, "health_status", "") == "No errors occurred"
+        # Health by the one function the report also asks (`rip_health`), so an
+        # error line the ripper printed under its own "Ripping errors: 0" cannot
+        # read clean here while the report says otherwise.
+        no_errors = effective_health_status(rip_log) == CLEAN_HEALTH
+        contradicting = error_lines_contradicting_summary(rip_log)
         if clean == total and no_errors:
             summary = lead(f"all {total} tracks ripped cleanly, no read errors.")
+        elif contradicting:
+            summary = lead(
+                f"{clean}/{total} tracks ripped, but the ripper printed an error its "
+                f"own count of 0 errors leaves out: “{contradicting[0].strip()}”. "
+                "See the Rip log tab."
+            )
         elif skipped:
             listed = ", ".join(str(getattr(t, "number", "?")) for t in skipped)
             summary = lead(
@@ -601,7 +624,10 @@ def _accuraterip_clause(rip_log: object) -> str | None:
       non-confirmation).
     * ``" AccurateRip: …"`` — the verified count, worded like the banner.
     """
-    tracks = getattr(rip_log, "tracks", ()) or ()
+    # Audio tracks only, as the banner counts them (TASKS R13): a data track has
+    # no AccurateRip result, so with it in `total` a mixed disc whose every audio
+    # track verified read "AccurateRip: 2/3 verified".
+    tracks = [t for t in getattr(rip_log, "tracks", ()) or () if not is_data_track(t)]
     has_ar = any(
         getattr(t, "accuraterip_v1", None) is not None
         or getattr(t, "accuraterip_v2", None) is not None

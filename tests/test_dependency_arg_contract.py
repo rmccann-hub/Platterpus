@@ -97,7 +97,7 @@ def test_the_rippers_own_fatal_error_is_recognised_as_a_hint() -> None:
     instead of swallowing it — this is that rule reaching the line the user
     actually reads.
     """
-    from platterpus.workers.rip_worker import _RIPPER_ERROR_RE
+    from platterpus.ripper_error_lines import RIPPER_ERROR_RE as _RIPPER_ERROR_RE
 
     fatal = [
         "Invalid track number 17, list has 16 tracks!",
@@ -113,7 +113,7 @@ def test_the_rippers_own_fatal_error_is_recognised_as_a_hint() -> None:
 def test_ordinary_rip_output_is_not_mistaken_for_a_fatal_error() -> None:
     """A hint that fires on normal output is worse than none — it would
     replace "Done." with a random log line on every successful rip."""
-    from platterpus.workers.rip_worker import _RIPPER_ERROR_RE
+    from platterpus.ripper_error_lines import RIPPER_ERROR_RE as _RIPPER_ERROR_RE
 
     ordinary = [
         "Ripping and encoding track 4, progress - 11.63%",

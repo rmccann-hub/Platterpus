@@ -29,7 +29,10 @@ from typing import Final
 
 import pytest
 
-from platterpus.workers.rip_worker import _RIPPER_ERROR_PREFIXES, _RIPPER_ERROR_RE
+from platterpus.ripper_error_lines import (
+    RIPPER_ERROR_PREFIXES as _RIPPER_ERROR_PREFIXES,
+)
+from platterpus.ripper_error_lines import RIPPER_ERROR_RE as _RIPPER_ERROR_RE
 
 # Real cyanrip fatal lines. Every one of these ends a rip before or during
 # audio extraction, so surfacing it verbatim is strictly better than "Rip
@@ -302,7 +305,9 @@ def test_every_string_the_ripper_can_print_is_surfaced() -> None:
     # A ratchet, and the direction matters: it may shrink to empty, and it may
     # not regrow silently. A new entry is a message a user can only receive as a
     # bare "Rip failed", which needs a decision rather than a passing test.
-    from platterpus.workers.rip_worker import _UNMATCHABLE_RIPPER_FORMATS
+    from platterpus.ripper_error_lines import (
+        UNMATCHABLE_RIPPER_FORMATS as _UNMATCHABLE_RIPPER_FORMATS,
+    )
 
     assert _UNMATCHABLE_RIPPER_FORMATS == [], (
         f"the set of unpatternable formats grew to {_UNMATCHABLE_RIPPER_FORMATS} "
@@ -858,8 +863,10 @@ def test_the_option_parser_regression_is_not_carried_by_the_prefixes() -> None:
     passes, the prefixes have been widened into the thing the inventory is for and
     the next stale round will hide behind them again.
     """
+    from platterpus.ripper_error_lines import (
+        RIPPER_ERROR_PREFIXES as _RIPPER_ERROR_PREFIXES,
+    )
     from platterpus.ripper_messages import build_matcher
-    from platterpus.workers.rip_worker import _RIPPER_ERROR_PREFIXES
 
     prefixes_only, _ = build_matcher([], extra_prefixes=_RIPPER_ERROR_PREFIXES)
     for line in (
@@ -1062,7 +1069,7 @@ def test_the_two_19_convergence_refusals_are_surfaced_as_written() -> None:
     """`.19` (cyanrip@174a134) added two fatal `-Z`/`-r` refusals our round-28
     inventory does not list. The `-Z` fallback prefix carries them until `.19`'s
     contract is filed; an ordinary line and a `-Z`-free sentence still do not match."""
-    from platterpus.workers import rip_worker
+    from platterpus import ripper_error_lines
 
     refusals = [
         "-Z 2 can never converge with -r 2: it needs 3 reads to agree, and -r 2 "
@@ -1071,6 +1078,6 @@ def test_the_two_19_convergence_refusals_are_surfaced_as_written() -> None:
         "any -r allows. Use a smaller -Z!",
     ]
     for line in refusals:
-        assert rip_worker._RIPPER_ERROR_RE.search(line), line
+        assert ripper_error_lines.RIPPER_ERROR_RE.search(line), line
     for line in ("Ripping track 1, progress - 12.34%", "Zero errors so far"):
-        assert not rip_worker._RIPPER_ERROR_RE.search(line), line
+        assert not ripper_error_lines.RIPPER_ERROR_RE.search(line), line

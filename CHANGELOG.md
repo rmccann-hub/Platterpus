@@ -12,6 +12,116 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **CTDB now reports each track, not only the whole disc** (TASKS R43). CTDB keeps a CRC
+  for every track of every entry, and Platterpus now compares each of ours with them, the
+  way CUETools does: a track agrees with an entry when its CRC equals the entry's at that
+  entry's offset or within AccurateRip's ±2,939 samples, and its confidence is the
+  submissions behind every entry that agrees. An entry's offset is read from where most
+  of its tracks agree with ours (CUETools reads it from parity data). A no-match or a
+  minority match now says which tracks differ, for example "Per track: 13 of 14 agree
+  with CTDB; track 3 differs from every entry", and the report carries a row per track
+  (`ctdb.tracks`, schema v39). All the CRCs come from one streamed pass over the disc
+  (`ctdb/sweep.py`), one track in memory at a time, on the verify's own thread. The
+  definition and the counting were checked against measured data: the live CTDB answer
+  for the reference disc (now `tests/fixtures/ctdb_lookup_police_classics.xml`) holds
+  EAC's Copy CRCs for the middle tracks, and fed those CRCs our counting marks as
+  differing exactly the tracks EAC's CTDB plugin did, and counts the same 2 submissions
+  for its minority read of track 5. Not built: naming how many samples differ and where,
+  which needs CTDB's parity data. Also fixed on the way: one unreadable per-track CRC in
+  a CTDB answer was skipped, which slid every later CRC onto the wrong track; the whole
+  list is now dropped instead.
+- **CTDB now finds a pressing that sits up to 5,879 samples from ours** (TASKS R43).
+  CTDB matches a disc at any alignment in that range, and Platterpus compared one. A
+  disc whose pressing was offset by a few samples read "no match at the standard
+  alignment", and the line could only add that this said nothing. Every alignment is now
+  compared in the same pass, a match names its offset ("verified ✓ (confidence 40, a
+  pressing +1,234 samples from ours)"), and a match's confidence sums every entry matched
+  at any offset, as CUETools counts it. A no-match now says what it is: our audio differs
+  from every entry CTDB holds for the disc, at every alignment it accepts, with the
+  per-track line saying which tracks. The report adds `ctdb.offset_range` and
+  `ctdb.matched_offset` (schema v39).
+- **Why CTDB still cannot say where a track differs is written down** (TASKS R43, and
+  `docs/eac-parity.md` Part E updated to the per-track and offset work). Naming the
+  differing samples, as EAC's plugin does, needs Reed-Solomon syndromes over every
+  sample of the disc, about 5 × 10^9 operations, which pure Python cannot do in a
+  reasonable time; it waits on the maintainer's word on `numpy` or a native extension.
+
+- **When the read Platterpus keeps fails AccurateRip, it now reads the track again, one read at a time, and keeps the first read AccurateRip verifies** (TASKS R7). On the 2026-10-12 hardware run the securing pass read track 5 of the reference disc once as `C96464AB`, the value AccurateRip verifies, and twice as `4065BECC`; cyanrip keeps the majority at its repeat limit, so the verified read was lost. Agreeing reads are the drive agreeing with itself; an AccurateRip match is other people's discs agreeing with ours. Now, after the securing pass, a track whose kept read AccurateRip did not verify, on a disc AccurateRip holds, and whose reads showed more than one value, is read singly with no `-Z`, up to the user's `-r` (at most 5) times. The first read AccurateRip verifies replaces the file; if none does, the album keeps what it had and says so. Every read goes through the same argv checks and is stopped by Cancel like any other pass. The report records which read the album keeps (`read_speed.retried_tracks[].kept_read`) and every single read with its EAC CRC32, AccurateRip confidence and exit status (`verified_read_chase`, report schema 39, additions only); each read's own ripper log is kept as `<Album>.platterpus-verified-read.txt`; the EAC-layout log shows such a track as one read (no Test/Copy pair) with a `Verified re-read` status line of our own. Not yet run on hardware. This is the path for cyanrip builds without the fork's proposed `--prefer-accuraterip-match` (round 36 lap 4 S11), which would keep the matching read at the repeat limit with no extra reads; Platterpus already reads that option's proposed limit-line clause into the report (`tracks[].secure_rerip_kept_read`) and does not send the option yet.
+
+- **The rip report says where a track was doubtful, not only how often** (TASKS R44).
+  From the fork's `.25`, cyanrip's `-j` record lists, per track, the disc sectors where
+  cdparanoia reported a hard read error or a skip, how many of those it did not keep
+  (it keeps the first and last 500), and paranoia's counters over every read. The report
+  now carries them in `disc.error_positions` (schema 39, additions only): the positions,
+  the counts of read errors and skips, both drop counts beside the list so a shortened
+  list never reads as complete, and whether the list agrees with the counters. A track
+  with any position raises the `error_positions_reported` warning, naming the track, the
+  counts and the first sectors. A track never read says `null`, never an empty list, and
+  a build before `.25` says `not_present`. The EAC-layout log is unchanged until its
+  wording is agreed with the fork.
+
+- **The Full acceptance run times the approved cyanrip build against the one under
+  review** (section P5; the owner's ask, the fork's round 36 lap 1 S15). It installs
+  each build in turn, alternating twice so drive warm-up favours neither, rips tracks
+  1-3 with no securing pass and a fixed read speed, sums each rip's per-track
+  `Elapsed:` seconds from its own log, and prints the two ratios and whether they
+  agree within 0.05. It is a measurement, graded `info`; between rounds, when the two
+  builds are one, it says "nothing to compare" and runs nothing. Four new script verbs
+  carry it: `install-ripper` (only a build our record knows, through the same function
+  as `--install-ripper`, now `deps/ripper_install.py`, on a helper thread), and
+  `skip-if-same-build`, `record-timing` and `compare-timings`.
+
+- **The report and the results pane now say whether the read offset is right, not
+  only which one was applied** (the owner's known-fixes list of 2026-10-21, item 11;
+  TASKS P2 #6). The drive the rip's own log names is looked up in the same AccurateRip
+  drive-offset list the app picks offsets from, by the same rule
+  (`OffsetDatabase.lookup_entry`, which `lookup` now delegates to). Four answers: the
+  offset matches, naming the list's row (`+667, matches the AccurateRip drive database
+  for PIONEER BD-RW BDR-209D`); it differs, naming both values, with a new
+  `read_offset_differs_from_accuraterip` warning issue; the drive is not in the list,
+  with a `read_offset_drive_not_listed` info issue; or it could not be checked (no drive
+  named, no list, no offset stated), which is never written as a pass. Beside it sits
+  KDD-31's evidence: whether this rip's AccurateRip matches re-confirm the offset. The
+  report records both as `rip.read_offset_check`, an addition to the unreleased schema 39
+  (`read_offset_check.py`). The EAC-layout log is unchanged, because the fork diffs it; a
+  wording for it is proposed in TASKS P2 #6 for the next round-36 lap.
+
+### Changed
+
+- **The build under review is the fork's `.26` (`ca0f097`).** The fork released it on beta
+  on 2026-10-21 with their round 36 lap 4 (`cyanrip@32d17db`), and round 36's pin moves to it
+  on the owner's word of that day ("Yes: once .26 is released, move round 36's pin to
+  .26."). Their lap 4 is filed, `.26`'s provider contract is filed, the message inventory is
+  regenerated from it (142 refusal messages, line numbers only), and the acceptance run's
+  first check, the setup wizard and the build picker now name `.26`. `.25` (`5f1d036`) stays
+  the build installed by default until round 36 closes.
+
+### Fixed
+
+- **The rip report no longer says a check ran when it didn't** (the owner's known-fixes list of 2026-10-21, item 5; TASKS P2 #4 and #5). With `flac` missing, the FLAC check aborted with "not found", and `verification.gates.flac_integrity` still read `"ran"`, because the gate came from the settings. Each gate now comes from the check's result: `"ran — passed"`, `"ran — failed"`, or `"not run — <the checker's reason>"`. The same goes for the derived-format check, and for a CTDB check that had no decoder or whose lookup failed. And when an unattended run gives up waiting for post-rip checks and quits, the report it leaves behind now says so. Before, it read `"No errors occurred"` and `completeness.complete: true` with `cover_art: null`. Before the app quits, the report is rewritten with `completeness.verification` (which checks did not run, which left no result, and which steps were cut short), a `"cut short"` gate for each check still running, and a `verification_cut_short` warning. Report schema 39: one field narrows (`gates.*`), and the rest are additions.
+
+- **"No errors occurred" no longer sits over a rip that was not clean** (the owner's known-fixes list of 2026-10-21, item 3). cyanrip can print one of its own error lines above `Ripping errors: 0`. The parser now keeps every such line, using the matcher the rip worker uses on the live output (moved to `ripper_error_lines.py`, so there is one matcher for both). When the summary says 0 and an error line is there, the report's `health_status` and the window's status line say so instead of reading clean, and the report's `issues` gains `ripper_error_lines_under_zero_summary`. A track paranoia skipped on that AccurateRip did not confirm now raises `unverified_paranoia_skips` (track 18 of the 2026-10-04 rig run), and the EAC-layout log's `Read stability` line names it. Both codes are warnings (report schema 39, additions only). The EAC-layout log's disc-level "No errors occurred" is unchanged, because the fork diffs that line; the replacement wording is proposed in `TASKS.md` for our round 36 lap.
+
+- **The verdict no longer says "not in the database" about a disc AccurateRip holds** (item 12). For 12 of 14 verified, the headline read "the rest aren't in the database or didn't match". When the disc is in AccurateRip, it now names each failing track as differing from AccurateRip's entry, with the database's confidence for it ("track 5 differs from AccurateRip's entry (confidence 200): most likely a misread"). The results pane, the report's `verdict.message` and the CTDB reconciliation line all get the same wording from one function. A disc AccurateRip holds where no track matched is now amber ("AccurateRip has an entry for this disc and none of the tracks matched it") instead of grey. When the log does not say whether the disc is in the database, the old wording stays.
+
+- **The mutation-sweep tests wait their turn instead of failing a CI leg** (contributor-facing). They run `scripts/mutation_sweep.py`, which refuses while another run holds the working-tree lock, and on PR #375 two xdist workers reached it at once: five tests failed on `test (py3.12)` with "already held by mutation_sweep pid=11541". A `tree_lock_turn` fixture (`tests/conftest.py`) now queues those tests on an OS file lock every worker of the checkout shares; the tool's own lock, and its refusal, are unchanged.
+
+- **A data track no longer counts as an audio track with no result** (TASKS R13). On an
+  Enhanced CD whose every audio track verified, the verdict read "⚠ 2 of 3 tracks verified
+  … 1 track produced no result", the EAC-layout log printed "Track not present in
+  AccurateRip database" in the data track's block and closed "Some tracks could not be
+  verified as accurate", the status line said "2/3 tracks ripped cleanly", the disc panel
+  "2 of 3 tracks matched", and CTDB said the rip had "2 of the disc's 3 tracks". The disc
+  total is cyanrip's `Disc tracks:`, which counts data tracks, and a data track has no
+  AccurateRip result. One predicate and one key, in the new `data_tracks.py`, now serve
+  every one of those surfaces: they count audio tracks only, the verdict names the data
+  track it leaves out, the EAC-layout log gives it no AccurateRip line, and CTDB says its
+  table of contents cannot hold the data track. A mixed disc whose audio reads agreed can
+  now earn the "reads agree" verdict, which a data track used to block.
+  `tests/test_cyanrip_rc3_readiness.py` section 2b holds it.
+
 ## [0.7.111] — 2026-10-21
 
 The release that puts the second read in users' hands. A disc AccurateRip can't vouch for is

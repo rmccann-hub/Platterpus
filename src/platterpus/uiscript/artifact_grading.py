@@ -234,13 +234,12 @@ def grade_accuraterip(rip_log: object, report: Mapping[str, Any]) -> Grade:
     and it is rendered from a parse of the log that can be stale (the 2026-09-09
     defect `_rip_log_from_disk` exists for).
     """
+    from platterpus.data_tracks import is_data_track
     from platterpus.parsers.rip_log import track_accuraterip_verified
 
-    tracks = [
-        t
-        for t in (getattr(rip_log, "tracks", ()) or ())
-        if "data track" not in (getattr(t, "status", "") or "")
-    ]
+    # The shared predicate the verdict asks, so the grade and the banner leave out
+    # the same tracks (TASKS R13 replaced a restated substring check here).
+    tracks = [t for t in (getattr(rip_log, "tracks", ()) or ()) if not is_data_track(t)]
     if not tracks:
         return Grade(
             False,

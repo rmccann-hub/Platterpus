@@ -364,6 +364,9 @@ def test_read_speed_block_records_auto_fix_retries() -> None:
             "converged": True,
             "replaced": True,
             "replaced_because": None,
+            # Schema 39 (TASKS R7): derived, and null when no chase applied.
+            "kept_read": "securing_pass",
+            "verified_read_chase": None,
         }
     ]
     # An auto-fixed-and-clean rip is not "unresolved".
@@ -395,7 +398,61 @@ def test_read_speed_block_keeps_why_each_track_was_reread() -> None:
             [SpeedAttempt(1, 0, 2, clean=True)], unstable=[], retried=[worker_record]
         ),
     )
-    assert report["read_speed"]["retried_tracks"] == [worker_record]
+    assert report["read_speed"]["retried_tracks"] == [
+        {**worker_record, "kept_read": "securing_pass", "verified_read_chase": None}
+    ]
+
+
+def test_read_speed_block_carries_the_verified_read_chase() -> None:
+    """Schema 39 (TASKS R7): the chase's record reaches the report whole, as a
+    copy, and `kept_read` says the album keeps the chase's read."""
+    from platterpus.read_speed_ladder import SpeedAttempt, attempts_to_report
+
+    chase = {
+        "outcome": "kept_verified_read",
+        "attempt_limit": 5,
+        "distinct_reads_seen": 2,
+        "attempts": [
+            {
+                "attempt": 1,
+                "eac_crc": "4065BECC",
+                "accuraterip_verified": False,
+                "accuraterip_v1_confidence": None,
+                "accuraterip_v2_confidence": None,
+                "exit_code": 0,
+                "kept": False,
+            },
+            {
+                "attempt": 2,
+                "eac_crc": "C96464AB",
+                "accuraterip_verified": True,
+                "accuraterip_v1_confidence": 129,
+                "accuraterip_v2_confidence": 200,
+                "exit_code": 0,
+                "kept": True,
+            },
+        ],
+        "kept_attempt": 2,
+    }
+    worker_record = {
+        "track": 5,
+        "trigger": "accuraterip",
+        "reripped_z": 2,
+        "converged": False,
+        "replaced": True,
+        "replaced_because": "accuraterip",
+        "verified_read_chase": chase,
+    }
+    report = build_report(
+        _sample_log(),
+        read_speed=attempts_to_report(
+            [SpeedAttempt(1, 0, 2, clean=True)], unstable=[], retried=[worker_record]
+        ),
+    )
+    (entry,) = report["read_speed"]["retried_tracks"]
+    assert entry["kept_read"] == "verified_reread"
+    assert entry["verified_read_chase"] == chase
+    assert entry["verified_read_chase"] is not chase
 
 
 def test_eta_trace_block_serialized_and_labeled() -> None:

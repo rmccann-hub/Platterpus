@@ -61,6 +61,12 @@ def test_no_destructive_verb_exists() -> None:
     uninstaller or install a dependency — the failure mode of an unattended
     destructive action is unbounded. Asserting the *words* are absent is crude
     and it is exactly the check that fails loudly if someone adds one.
+
+    **One argued exception exists, by a different name: `install-ripper`**
+    (2026-10-21, the owner's timed rip of two fork builds). It installs only a
+    build our record knows, through the one install function; its refusal of
+    anything else is held by `tests/test_ripper_install.py` and
+    `tests/test_uiscript_timing_verbs.py`. Nothing on this list moved.
     """
     forbidden = {
         "eject",

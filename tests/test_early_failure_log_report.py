@@ -28,7 +28,7 @@ from evidence_paths import evidence
 
 from platterpus import rip_report
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from platterpus.workers.rip_worker import _RIPPER_ERROR_RE
+from platterpus.ripper_error_lines import RIPPER_ERROR_RE as _RIPPER_ERROR_RE
 
 #: The shape `.17` writes when a rip fails before its first track: the banner and
 #: identity lines first (fork's `tests/rip_images.py`, `sc_early_log`, at

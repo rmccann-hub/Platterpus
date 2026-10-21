@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import Final
 
@@ -26,6 +26,8 @@ from platterpus import __version__, album_loudness, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
+from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
+from platterpus.error_positions import findings as error_position_findings
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -39,15 +41,19 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.read_offset_check import OffsetLookup, check_read_offset
+from platterpus.read_offset_check import issue_for as read_offset_issue
 from platterpus.record_fate import RecordFate, missing_issue, outcome_block
 from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
     EnvironmentBlock,
+    KeptReadBlock,
     ReportReadSpeedBlock,
     SecureReripBlock,
     TimingBlock,
 )
+from platterpus.rip_health import effective_health_status, health_findings
 from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_exit_class import classify_exit
@@ -58,6 +64,13 @@ from platterpus.verdict import (
     accuraterip_verdict,
     apply_downgrades,
     reads_agree_without_accuraterip,
+)
+from platterpus.verification_gates import (
+    CUT_SHORT_GATE,
+    ISSUE_VERIFICATION_CUT_SHORT,
+    cut_short_issue_message,
+    gates_from_results,
+    verification_completeness,
 )
 
 log = logging.getLogger(__name__)
@@ -402,7 +415,101 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      ReplayGain tags measured on the MP3s themselves (`tracks_tagged`,
 #      `tracks_total`, `album_tagged`, `reasons`), because the FLAC's figures were
 #      measured before the lossy encode and are no longer copied; null otherwise.
+#      Also in v39, still unreleased, so additions only (TASKS R44, the fork's
+#      `.25`, `cyanrip-diagnostics/10`): `disc.error_positions`, read from the
+#      album pass's `-j` record by the same reader as `isrc_provenance`. Per
+#      track: `state` (`read` / `track_not_read` / `not_present` on a build
+#      before `/10` / `not_determined`), `positions` ([{`lsn`, `kind`}], disc
+#      sectors where paranoia reported a `read_error` or a `skip`,
+#      `cyanrip@5f1d036:src/diagnostics.c:302-307`; null unless read),
+#      `read_errors`, `skips`, `error_positions_dropped` (the fork's count of the
+#      middle it did not keep past its first and last 500) and
+#      `error_positions_not_kept` (ours) BESIDE the list, `complete`,
+#      `count_agrees_with_counters` (the list against READERR + SKIP), and
+#      `paranoia_all_reads` with its `_state`, the counters over every read. A
+#      track with any position raises the `error_positions_reported` warning, and
+#      a list that disagrees with its counters `error_positions_count_disagrees`
+#      (info). The EAC-layout log is unchanged: its wording goes through the
+#      handshake (`error_positions`).
+#      Same unreleased version (TASKS P2 #6, the owner's known-fixes item 11):
+#      `rip.read_offset_check` says whether the offset the log applied is the
+#      AccurateRip drive list's for the drive the log names (`matches`,
+#      `differs`, `drive_not_listed`, `not_determined`), names the list's row and
+#      value, and records whether this rip's AccurateRip matches re-confirm the
+#      offset (KDD-31). `differs` raises the `read_offset_differs_from_accuraterip`
+#      warning and `drive_not_listed` the `read_offset_drive_not_listed` info
+#      issue (`read_offset_check.py`). Additions only.
+#      Same unreleased version, 2026-10-21 (the owner's known-fixes list, items 3
+#      and 12): `issues` gains `unverified_paranoia_skips` (a track paranoia
+#      skipped on that AccurateRip did not confirm) and
+#      `ripper_error_lines_under_zero_summary` (an error line the ripper printed
+#      under `Ripping errors: 0`), both warnings; `health_status` names that
+#      disagreement instead of reading "No errors occurred"; and
+#      `verdict.message` names a track that differs from AccurateRip's entry for
+#      a disc in the database, where it said "aren't in the database or didn't
+#      match". Additions only.
+#      Same unreleased version, TASKS R7 (the verified-read chase,
+#      `verified_read_chase.py`): `read_speed.retried_tracks[].kept_read` says
+#      which read the album keeps (`first_read`, `securing_pass`,
+#      `verified_reread`), and `retried_tracks[].verified_read_chase` records the
+#      single reads taken when the kept read failed AccurateRip on a disc it
+#      holds (`outcome`, `attempt_limit`, `distinct_reads_seen`, `attempts[]`
+#      with each read's `eac_crc`, `accuraterip_verified`, v1/v2 confidence,
+#      `exit_code` and `kept`, and `kept_attempt`), null when it did not apply.
+#      `read_speed.secure_rerip.verified_rereads` lists the tracks whose file is
+#      such a read, present only when there is one; a kept read's
+#      `replaced_because` is `accuraterip`. Per track, `secure_rerip_kept_read`
+#      (`crc`, `reads`, `accuraterip_confidence`, `last_read_crc`) reads the
+#      fork's PROPOSED limit-line clause "kept X, read N times, which AccurateRip
+#      matches at confidence C" (round 36 lap 4 S11), null without it, which is
+#      every released build. Additions only.
+#      Same unreleased version (TASKS R43, 2026-10-21): `ctdb.tracks`, one row per
+#      track from CTDB's per-track CRCs (`ctdb/matching.py`): `verdict` (`match`,
+#      `differs`, `not_determined`), `confidence` (submissions agreeing),
+#      `disagreeing_confidence` and `strongest_disagreeing`, `outvoted`, `our_crc`
+#      (the track's CTDB CRC at offset 0), `offset` (where the strongest agreeing
+#      entry agreed) and `reason` (why a track is not determined). Null when no
+#      CRC of ours was computed. And `ctdb.offset_range` (how far either side
+#      the whole-disc CRC was compared; 0 for the aligned CRC alone) with
+#      `ctdb.matched_offset` (where the strongest matched entry's pressing sits,
+#      0 aligned, null without a match); a MATCH's `confidence` now sums every
+#      entry matched at any offset, as CUETools' `Confidence` does. Additions only,
+#      and `confidence` widened from one entry to the matched entries.
+#      Same unreleased version (TASKS P2 #4 and #5, the owner's known-fixes list
+#      of 2026-10-21, item 5: "the record says checks ran that didn't"). **One
+#      field's meaning NARROWS:** `verification.gates.*` is now read from the
+#      result wherever a result block exists (`verification_gates.py`).
+#      `flac_integrity` and `derived` say `"ran — passed"`, `"ran — failed"` or
+#      `"not run — <the checker's reason>"` (e.g. `flac` not found) instead of a
+#      settings-derived `"ran"`; `ctdb` says `"not run — <message>"` for the
+#      `no_decoder` and `lookup_error` verdicts and keeps `"ran"` for a lookup
+#      that compared something. A bare `"ran"` now means only "asked for, no
+#      result recorded", which the backstop files as
+#      `verification_result_missing`. Additions: the gate state
+#      `"cut short — the app quit before this check finished"`;
+#      `completeness.verification` (`complete` tri-state, `not_run`,
+#      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
+#      the gates and the result blocks; and the `verification_cut_short` warning,
+#      written by the unattended quit before the process ends.
 REPORT_SCHEMA_VERSION: int = 39
+
+
+def _kept_read_block(kept: object) -> KeptReadBlock | None:
+    """A track's `secure_rerip_kept_read` for the report, or None. Never raises."""
+    crc = getattr(kept, "crc", None)
+    reads = getattr(kept, "reads", None)
+    confidence = getattr(kept, "accuraterip_confidence", None)
+    if not (
+        isinstance(crc, str) and isinstance(reads, int) and isinstance(confidence, int)
+    ):
+        return None
+    return {
+        "crc": crc,
+        "reads": reads,
+        "accuraterip_confidence": confidence,
+        "last_read_crc": str(getattr(kept, "last_read_crc", "") or "") or None,
+    }
+
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -470,6 +577,14 @@ def build_report(
     #: — an independent witness, unlike our own SHA-256 footer check. Typed
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
+    #: v39 (an addition): the AccurateRip drive-offset list, so the report can
+    #: say whether the applied read offset is the list's (`read_offset_check`).
+    #: A Protocol, because this pure builder must not import an adapter.
+    offset_lookup: OffsetLookup | None = None,
+    #: v39: the post-rip steps still running when the unattended quit gave up
+    #: waiting and ended the process (`app._arm_unattended_quit`). Empty or None
+    #: on every other write. See `verification_gates`.
+    verification_cut_short: Sequence[str] | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -519,6 +634,8 @@ def build_report(
             disc_track_total=disc_track_total,
             artifacts=artifacts,
             ripper_log_verification=ripper_log_verification,
+            offset_lookup=offset_lookup,
+            verification_cut_short=verification_cut_short,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -1103,9 +1220,16 @@ UNFINISHED_RIP_STATUSES: Final[frozenset[str]] = frozenset({"failed", "cancelled
 ISSUE_VERIFICATION_SUPERSEDED: Final[str] = "verification_superseded"
 ISSUE_VERIFICATION_RESULT_MISSING: Final[str] = "verification_result_missing"
 #: Both of the above, for a caller that treats them the same — an absent result,
-#: however it came to be absent, is not a passed one.
+#: however it came to be absent, is not a passed one. **And the third way (v39):**
+#: the unattended quit ended the process with checks still running
+#: (`verification_gates.ISSUE_VERIFICATION_CUT_SHORT`). Its record is final but
+#: incomplete, so `artifact_grading.settle_state` never reads it as settled.
 VERIFICATION_DROPPED_CODES: Final[frozenset[str]] = frozenset(
-    {ISSUE_VERIFICATION_SUPERSEDED, ISSUE_VERIFICATION_RESULT_MISSING}
+    {
+        ISSUE_VERIFICATION_SUPERSEDED,
+        ISSUE_VERIFICATION_RESULT_MISSING,
+        ISSUE_VERIFICATION_CUT_SHORT,
+    }
 )
 
 #: Report companions whose ABSENCE is the healthy answer, so a reader is not told
@@ -1128,6 +1252,7 @@ def build_gates(
     superseded: Collection[str] = (),
     rip_status: str | None = None,
     launched: Collection[str] | None = None,
+    cut_short: Collection[str] = (),
 ) -> dict:
     """Build ``verification.gates``: WHY each verification sub-block is or isn't
     populated.
@@ -1155,6 +1280,16 @@ def build_gates(
     newer rip cut it short (``superseded``, which is applied first for that
     reason). ``None`` means the caller keeps no ledger, and every claimed
     ``"ran"`` on an unfinished rip is replaced, as before.
+
+    ``cut_short`` names the gate keys whose check was still running when the
+    unattended quit gave up waiting and ended the process (v39). Like
+    ``superseded`` it is a fact about what happened, so it replaces a claimed
+    ``"ran"`` with :data:`~platterpus.verification_gates.CUT_SHORT_GATE`.
+
+    Every state built here is still derived from the request or the ledger.
+    The result-derived correction (``"ran"`` to passed, failed or not run) is
+    made in :func:`_build`, where the result is in hand
+    (:func:`~platterpus.verification_gates.gates_from_results`).
     """
     if not flac_verify_enabled:
         flac_gate = "disabled"
@@ -1177,6 +1312,9 @@ def build_gates(
     for key in superseded:
         if gates.get(key) == "ran":
             gates[key] = SUPERSEDED_GATE
+    for key in cut_short:
+        if gates.get(key) == "ran":
+            gates[key] = CUT_SHORT_GATE
     if rip_status in UNFINISHED_RIP_STATUSES:
         began = set(launched) if launched is not None else set()
         for key, state in gates.items():
@@ -1325,6 +1463,8 @@ def _build(
     #: — an independent witness, unlike our own SHA-256 footer check. Typed
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
+    offset_lookup: OffsetLookup | None = None,  # v39; see `build_report`
+    verification_cut_short: Sequence[str] | None = None,
 ) -> dict:
     # The JSON's verdict must be the SAME claim the window makes, so it is given
     # the same two extra facts: the disc's own track count (the only denominator a
@@ -1363,6 +1503,16 @@ def _build(
         and gates.get("ctdb") == "ran"
     ):
         gates = {**gates, "ctdb": NOT_WHOLE_DISC_GATE}
+    # The same correction for every gate with a result block, and the reason the
+    # FLAC one exists: `flac` missing aborted the checker with "not found" and the
+    # gate still said "ran" (TASKS P2 #4). Each "ran" with a block beside it now
+    # says what the block says — passed, failed, or not run and why. Here, before
+    # `issues` and the `verification` block read the gates, for the same reason
+    # as the CTDB correction above. See `verification_gates`.
+    gates = gates_from_results(
+        gates, flac_integrity=flac_integrity, derived=derived, ctdb=ctdb
+    )
+    cut_short_steps = [str(step) for step in (verification_cut_short or ())]
     cover_art = _cover_art(cover_art_result)
     # Tagging feeds `issues` ONLY — it deliberately gets no block of its own. The
     # severity-tagged `issues` list is already the report's declared home for
@@ -1402,7 +1552,17 @@ def _build(
             "tracks_expected is what the rip was ASKED for — the disc's track "
             "count, or fewer when the user ticked a subset in the Rip? column. "
             "null means it wasn't known to this writer (an in-progress write, "
-            "or a log parsed offline); it is NOT a claim that the rip was whole."
+            "or a log parsed offline); it is NOT a claim that the rip was whole. "
+            "`complete` is about TRACKS; whether the post-rip checks finished is "
+            "`verification`, beside it."
+        ),
+        # v39: the post-rip checks, computed from the corrected gates and the
+        # result blocks. The give-up path's report read `complete: true` here
+        # with three checks still running when the process ended (TASKS P2 #5).
+        "verification": verification_completeness(
+            gates,
+            blocks={"ctdb": ctdb, "flac_integrity": flac_integrity, "derived": derived},
+            cut_short_steps=cut_short_steps,
         ),
     }
     # The `rip` and `log_parse` blocks are built HERE, into locals, for the same
@@ -1411,7 +1571,7 @@ def _build(
     # and the block it claims to summarise disagree. They are serialised into the
     # returned dict below by name, never rebuilt.
     log_parse_block = _log_parse(rip_log, log_parse)
-    rip_block = _rip_block(rip_log, info)
+    rip_block = _rip_block(rip_log, info, offset_lookup)
     # WAS THE DISC RIPPED THE DISC THE TAGS WERE LOOKED UP FOR (v34)? Written into
     # the `disc` block, which `issues` then reads, so the list and the block it
     # summarises cannot disagree. Only when a disc block was supplied: a report
@@ -1442,6 +1602,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
+        health_findings=health_findings(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
         log_parse=log_parse_block,
         completeness=completeness,
@@ -1452,6 +1613,7 @@ def _build(
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
         gates=gates,
+        cut_short_steps=cut_short_steps,
         eac_log_requested=_setting_was_on(settings, "write_eac_log_after_rip"),
         # Only a log that parsed and was not cut off can say it holds no track: a
         # missing log, one we could not read, or a truncated one (whose track list
@@ -1586,7 +1748,10 @@ def _build(
         # whatever audio was read, so on a `-l` or interrupted rip they are not the
         # album's (the fork, round 26 lap 4). Derived from the log's own footer.
         "album_loudness_covers": album_loudness.coverage(rip_log),
-        "health_status": getattr(rip_log, "health_status", "") or None,
+        # Never "No errors occurred" over an error line the ripper's own zero
+        # count leaves out (`rip_health`, 2026-10-21); the same function the
+        # window's status line asks.
+        "health_status": effective_health_status(rip_log) or None,
         "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
         # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
         # signed log checksum, the one archival-forensic field we were dropping.
@@ -1684,7 +1849,9 @@ def _ordered_for_reading(report: dict) -> dict:
     return {k: report[k] for k in (*lead, *middle, *bulk)}
 
 
-def _rip_block(rip_log: object, info: object) -> dict:
+def _rip_block(
+    rip_log: object, info: object, offset_lookup: OffsetLookup | None = None
+) -> dict:
     """The ``rip`` block: what the drive and the ripper binary actually did.
 
     Built by its own function rather than inline in :func:`_build`'s dict literal
@@ -1697,6 +1864,15 @@ def _rip_block(rip_log: object, info: object) -> dict:
         "drive": getattr(info, "drive", "") or None,
         "extraction_engine": getattr(info, "extraction_engine", "") or None,
         "read_offset_correction": getattr(info, "read_offset_correction", None),
+        # v39 (an addition): whether that offset is the AccurateRip list's for
+        # the drive the log names, and whether this rip's AccurateRip matches
+        # re-confirm it (KDD-31): the two pieces of evidence side by side.
+        "read_offset_check": check_read_offset(
+            drive_banner=getattr(info, "drive", ""),
+            applied=getattr(info, "read_offset_correction", None),
+            lookup=offset_lookup,
+            tracks=getattr(rip_log, "tracks", None),
+        ),
         "defeat_audio_cache": getattr(info, "defeat_audio_cache", None),
         "overread_lead_out": getattr(info, "overread_lead_out", None),
         "gap_detection": getattr(info, "gap_detection", "") or None,
@@ -1835,6 +2011,11 @@ def _track(track: object) -> dict:
         # per-track read-instability flag); None = -Z off / older log. Was parsed
         # but not serialized before v9 — the read-effort signal in machine form.
         "secure_rerip_converged": getattr(track, "secure_rerip_converged", None),
+        # Schema 39 (TASKS R7): the read kept at the limit on AccurateRip's word,
+        # from the fork's proposed clause; None on every build released so far.
+        "secure_rerip_kept_read": _kept_read_block(
+            getattr(track, "secure_rerip_kept_read", None)
+        ),
         # Per-track extraction diagnostics cyanrip logs (None on legacy-format logs):
         # the drive speed this track read at (×), the extraction quality (%),
         # whether pre-emphasis was flagged, and the sample peak level. Surfaced
@@ -2074,6 +2255,11 @@ def _ctdb(result: object | None) -> dict | None:
         "best_confidence": getattr(result, "best_confidence", None),
         "total_confidence": getattr(result, "total_confidence", None),
         "outvoted": getattr(result, "outvoted", None),
+        # The offset sweep (v39, TASKS R43): how far either side our whole-disc
+        # CRC was compared (0: aligned only), and where the strongest matched
+        # entry's pressing sits from ours (0 aligned, null without a match).
+        "offset_range": getattr(result, "offset_range", None),
+        "matched_offset": getattr(result, "matched_offset", None),
         "crc_validated": getattr(result, "crc_validated", None),
         # Include the CRCs + message so a consumer can audit a match, not just
         # see the verdict (hex to match the per-track AccurateRip CRC style).
@@ -2086,7 +2272,37 @@ def _ctdb(result: object | None) -> dict | None:
         "entry_count": len(db_crcs),
         "db_crcs": [_hex_crc(c) for c in db_crcs],
         "message": getattr(result, "message", "") or None,
+        # Per track (v39, TASKS R43): what CTDB's per-track CRCs say about each
+        # track. Null when the check never computed our CRCs.
+        "tracks": _ctdb_tracks(getattr(result, "tracks", ())),
     }
+
+
+def _ctdb_tracks(tracks: object) -> list[dict[str, object]] | None:
+    """Serialize ``CtdbVerifyResult.tracks`` (``ctdb/matching.py``); never raises.
+
+    Duck-typed like the rest of this module, so the builder stays free of the
+    adapter types. ``offset`` is where the strongest agreeing entry agreed (0 is
+    aligned); ``reason`` is set only for a track that is not determined.
+    """
+    rows: list[dict[str, object]] = []
+    for track in tracks if isinstance(tracks, (list, tuple)) else ():
+        rows.append(
+            {
+                "track": getattr(track, "track", None),
+                "verdict": getattr(getattr(track, "verdict", None), "value", None),
+                "confidence": getattr(track, "confidence", None),
+                "disagreeing_confidence": getattr(
+                    track, "disagreeing_confidence", None
+                ),
+                "strongest_disagreeing": getattr(track, "strongest_disagreeing", None),
+                "outvoted": getattr(track, "outvoted", None),
+                "our_crc": _hex_crc(getattr(track, "our_crc", None)),
+                "offset": getattr(track, "offset", None),
+                "reason": getattr(track, "reason", "") or None,
+            }
+        )
+    return rows or None
 
 
 def _cover_art(result: object | None) -> dict | None:
@@ -2192,6 +2408,9 @@ def _issues(
     read_speed: dict | None,
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
+    # `rip_health.health_findings`: a skipped track AccurateRip did not confirm,
+    # and error lines under a zero summary. Computed there, added here as-is.
+    health_findings: list[tuple[str, str, str]] | None = None,
     log_truncated: bool = False,
     # ADDED after an audit found each of these could be true while `issues` stayed
     # empty — i.e. the one list a triager opens first said "nothing to flag" about a
@@ -2221,6 +2440,9 @@ def _issues(
     # checked against what it actually holds. Passed as the serialized dict for
     # the same reason as every other block here: read what the report shows.
     gates: dict | None = None,
+    # v39: the post-rip steps still running when the unattended quit ended the
+    # process. Non-empty only on that path.
+    cut_short_steps: Sequence[str] = (),
     # How many tracks the log records, so "nothing matched AccurateRip" is never
     # said of a rip that read nothing: there, nothing was there to match.
     tracks_in_log: int | None = None,
@@ -2291,6 +2513,13 @@ def _issues(
             "verified",
         )
 
+    # THE READ OFFSET AGAINST THE ACCURATERIP LIST (v39): a `warning` when it
+    # differs, an `info` when the drive is not listed, nothing when it could not
+    # be checked. Worded by `read_offset_check`, which built the block.
+    offset_issue = read_offset_issue((rip or {}).get("read_offset_check"))
+    if offset_issue is not None:
+        add(*offset_issue)
+
     # The RIPPER's own verdict on its own log (v18). Ranked ERROR alongside the
     # truncation check and for the same reason: it does not add to the other
     # entries, it undermines them. Every archival claim in this report is read out
@@ -2356,6 +2585,20 @@ def _issues(
     # failed rip. Both values are named in the sentence.
     for isrc_code, sentence in isrc_findings((disc or {}).get("isrc_provenance")):
         add("info", isrc_code, sentence)
+
+    # WHERE PARANOIA REPORTED READ ERRORS AND SKIPS (v39, TASKS R44). A warning:
+    # it is what EAC calls a suspicious position, and the sentence says that
+    # AccurateRip and CTDB, not this list, say whether the audio is right. A
+    # list that disagrees with its own counters is the record contradicting
+    # itself, said as information. Wording lives in `error_positions`.
+    for found_code, sentence in error_position_findings(
+        (disc or {}).get("error_positions")
+    ):
+        add(
+            "warning" if found_code == ERROR_POSITIONS_REPORTED else "info",
+            found_code,
+            sentence,
+        )
 
     # FRAMES OUTSIDE THE DISC THE DRIVE REFUSED (v37, TASKS R26). Under `-O`,
     # `.24` reads each frame past the disc's edge once and writes a refused one
@@ -2484,7 +2727,17 @@ def _issues(
     # the database" — reached the report and left `issues` empty.
     if ctdb:
         ctdb_verdict = ctdb.get("verdict")
-        if ctdb_verdict == "no_match" and ctdb.get("crc_validated"):
+        swept = ctdb.get("offset_range")
+        if ctdb_verdict == "no_match" and ctdb.get("crc_validated") and swept:
+            add(
+                "warning",
+                "ctdb_no_match",
+                "the whole-disc CTDB checksum matched no database entry at any "
+                f"alignment within ±{swept:,} samples, so the audio differs from "
+                "every entry CTDB holds (`ctdb.tracks` says which tracks); "
+                "AccurateRip remains the primary proof",
+            )
+        elif ctdb_verdict == "no_match" and ctdb.get("crc_validated"):
             add(
                 "warning",
                 "ctdb_no_match",
@@ -2543,6 +2796,13 @@ def _issues(
             f"track(s) {listed} needed unusually heavy re-reading — a sign the "
             "read may not be reproducible; consider re-ripping to confirm",
         )
+
+    # THE TWO WAYS "No errors occurred" COULD SIT OVER A RIP THAT WAS NOT CLEAN
+    # (the owner's known-fixes list, 2026-10-21, item 3): a track paranoia skipped
+    # on that AccurateRip did not confirm, and a ripper error line under its own
+    # summary of zero. Both are `rip_health`'s, worded there.
+    for finding_severity, finding_code, finding_message in health_findings or ():
+        add(finding_severity, finding_code, finding_message)
 
     if flac_integrity and flac_integrity.get("ran") and not flac_integrity.get("ok"):
         add(
@@ -2612,8 +2872,11 @@ def _issues(
     # each of these was a silent failure with its evidence sitting two blocks away.
 
     # A VERIFICATION STEP THAT COULD NOT RUN was silent: `ran: false` skipped every
-    # check above, while `verification.gates` still said "ran" (the gate is derived
+    # check above, while `verification.gates` still said "ran" (the gate was derived
     # from config, not from the result). "We did not check" is not "it passed".
+    # Since v39 the gate itself reads "not run — <reason>" here too
+    # (`verification_gates.gates_from_results`); this issue stays, because
+    # `issues` is the list a triager opens first.
     for label, block in (
         ("FLAC integrity", flac_integrity),
         ("derived-format verification", derived),
@@ -2656,6 +2919,10 @@ def _issues(
                 f"a newer rip began — this record carries no {label} result, and "
                 f"an absent result is not a passed one",
             )
+        elif state == CUT_SHORT_GATE:
+            # Filed once, below, with every step that was cut short — not once
+            # per gate, which would split one event into several findings.
+            continue
         elif state == "ran":
             add(
                 "warning",
@@ -2664,6 +2931,21 @@ def _issues(
                 f"result for it — the two disagree, and the gate is the weaker "
                 f"evidence because it is derived from the settings, not the work",
             )
+
+    # POST-RIP VERIFICATION CUT SHORT BY THE UNATTENDED QUIT (v39). The process
+    # ended with these steps still running, so the record is final and
+    # incomplete: the report used to read "No errors occurred" with
+    # `completeness.complete: true` and `cover_art: null` (TASKS P2 #5). Read from
+    # BOTH the steps the window named and the gates it sealed, so either one alone
+    # still files it — a caller that passed one and forgot the other is not a
+    # record that reads complete.
+    cut_gates = [key for key, state in (gates or {}).items() if state == CUT_SHORT_GATE]
+    if cut_short_steps or cut_gates:
+        add(
+            "warning",
+            ISSUE_VERIFICATION_CUT_SHORT,
+            cut_short_issue_message(list(cut_short_steps), cut_gates),
+        )
 
     # DERIVED INCOMPLETE with no per-file failure: fewer derived files than masters
     # slipped past the mismatch/failure checks entirely.
@@ -2887,6 +3169,8 @@ def write_report(
     #: — an independent witness, unlike our own SHA-256 footer check. Typed
     #: `object` because this pure builder must not import an adapter.
     ripper_log_verification: object | None = None,
+    offset_lookup: OffsetLookup | None = None,  # v39; see `build_report`
+    verification_cut_short: Sequence[str] | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -2951,6 +3235,8 @@ def write_report(
             disc_track_total=disc_track_total,
             artifacts=artifacts,
             ripper_log_verification=ripper_log_verification,
+            offset_lookup=offset_lookup,
+            verification_cut_short=verification_cut_short,
         )
         # Run the audit over the report we just built and embed the result, so
         # EVERY rip carries its own verdict and nobody has to remember to run

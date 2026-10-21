@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
 
@@ -31,6 +32,9 @@ class RipBlock(TypedDict):
     drive: str | None
     extraction_engine: str | None
     read_offset_correction: int | None
+    #: v39: that offset against the AccurateRip drive list, and KDD-31's
+    #: re-confirmation by this rip's matches (`read_offset_check.py`).
+    read_offset_check: ReadOffsetCheckBlock
     defeat_audio_cache: bool | None
     overread_lead_out: bool | None
     gap_detection: str | None
@@ -228,6 +232,49 @@ class TagFixEntry(TypedDict):
     replaced: int
 
 
+class ErrorPositionEntry(TypedDict):
+    """One position paranoia reported (v39, R44): a disc sector and its kind."""
+
+    lsn: int
+    #: ``read_error`` or ``skip`` (``cyanrip@5f1d036:src/diagnostics.c:306``).
+    kind: str
+
+
+class TrackErrorPositionsBlock(TypedDict):
+    """One track's row of ``disc.error_positions`` (v39, ``error_positions``)."""
+
+    number: int
+    audio_ripped: bool | None
+    #: ``read`` / ``track_not_read`` / ``not_present`` / ``not_determined``.
+    state: str
+    #: Null unless ``state`` is ``read``: ``[]`` is the claim "none reported".
+    positions: list[ErrorPositionEntry] | None
+    read_errors: int | None
+    skips: int | None
+    #: The fork's own count of positions it did not keep; null when unread.
+    error_positions_dropped: int | None
+    #: Positions WE did not keep: past our bound, or unreadable entries.
+    error_positions_not_kept: int
+    complete: bool | None
+    count_agrees_with_counters: bool | None
+    paranoia_all_reads_state: str
+    paranoia_all_reads: dict[str, int] | None
+    paranoia_all_reads_not_read: int
+
+
+class ErrorPositionsBlock(TypedDict):
+    """``disc.error_positions`` (v39, TASKS R44), from the album pass's ``-j`` record."""
+
+    describes: str
+    #: The record's reading state (``ripper_ending.STATE_*``).
+    state: str
+    detail: str | None
+    #: Says what an empty list does not mean.
+    note: str
+    tracks: list[TrackErrorPositionsBlock]
+    rows_not_read: int
+
+
 class DiscBlock(TypedDict):
     unknown: bool | None
     musicbrainz_release_id: str | None
@@ -257,6 +304,9 @@ class DiscBlock(TypedDict):
     #: v34: that ID compared with the rip log's own (`disc_identity`), tri-state.
     #: Written by the report builder, so absent from the block the window hands it.
     identity_check: NotRequired[DiscIdentityBlock]
+    #: v39: where paranoia reported read errors and skips, per track, with the
+    #: drop counts beside each list (`error_positions`, TASKS R44).
+    error_positions: NotRequired[ErrorPositionsBlock]
 
 
 class DependencyEntry(TypedDict):
@@ -370,16 +420,39 @@ class VerificationBlock(TypedDict):
     derived: DerivedBlock | None
 
 
+class CtdbTrackBlock(TypedDict):
+    """One row of ``ctdb.tracks`` (v39, TASKS R43; ``ctdb/matching.py``)."""
+
+    track: int | None
+    verdict: str | None
+    confidence: int | None
+    disagreeing_confidence: int | None
+    strongest_disagreeing: int | None
+    outvoted: bool | None
+    our_crc: str | None
+    offset: int | None
+    reason: str | None
+
+
 class CtdbBlock(TypedDict):
     verdict: str | None
     confidence: int | None
     trustworthy: bool | None
+    # v38: the weight behind the verdict (TASKS R34). Written since v38 and
+    # declared here from 2026-10-21, when this block joined the completeness sweep.
+    best_confidence: int | None
+    total_confidence: int | None
+    outvoted: bool | None
+    # v39 (TASKS R43): the whole-disc offset sweep.
+    offset_range: int | None
+    matched_offset: int | None
     crc_validated: bool | None
     our_crc: str | None
     matched_crc: str | None
     entry_count: int
     db_crcs: list[str | None]
     message: str | None
+    tracks: list[CtdbTrackBlock] | None
 
 
 class CoverArtBlock(TypedDict):
@@ -419,6 +492,16 @@ class TrackAccurateRipBlock(TypedDict):
     offset_450: ArResultBlock | None
 
 
+class KeptReadBlock(TypedDict):
+    """The read cyanrip kept at the limit on AccurateRip's word (TASKS R7)."""
+
+    crc: str
+    reads: int
+    accuraterip_confidence: int
+    # The last read's value when it was not the one kept; None when it was.
+    last_read_crc: str | None
+
+
 class TrackBlock(TypedDict):
     number: int | None
     filename: str | None
@@ -427,6 +510,10 @@ class TrackBlock(TypedDict):
     status: str | None
     rip_count: int | None
     secure_rerip_converged: bool | None
+    # Schema 39 (TASKS R7): the fork's proposed kept-read clause on the limit
+    # line, "kept X, read N times, which AccurateRip matches at confidence C".
+    # None on every build so far.
+    secure_rerip_kept_read: KeptReadBlock | None
     extraction_speed: float | None
     extraction_quality: float | None
     pre_emphasis: bool | None
@@ -486,6 +573,36 @@ class SpeedPassBlock(TypedDict):
     clean: bool
 
 
+class ChaseAttemptBlock(TypedDict):
+    """One single re-read of the verified-read chase (TASKS R7, schema 39)."""
+
+    attempt: int
+    # The read's EAC CRC32, from its own log's track block; None when it had none.
+    eac_crc: str | None
+    # `parsers.rip_log.track_accuraterip_verified` of this read: either version
+    # matched at confidence >= 1, the one definition of verified.
+    accuraterip_verified: bool
+    accuraterip_v1_confidence: int | None
+    accuraterip_v2_confidence: int | None
+    # The read's exit status; None when it was never reaped.
+    exit_code: int | None
+    kept: bool
+
+
+class VerifiedReadChaseBlock(TypedDict):
+    """The verified-read chase of one track (`verified_read_chase.py`, TASKS R7)."""
+
+    # `verified_read_chase.CHASE_*`: kept a verified read, none verified, stopped,
+    # or skipped because the reads did not vary (or could not be compared).
+    outcome: str
+    attempt_limit: int
+    # How many different values the drive returned for this track, as far as
+    # the logs show (a floor); None when no two values could be compared.
+    distinct_reads_seen: int | None
+    attempts: list[ChaseAttemptBlock]
+    kept_attempt: int | None
+
+
 class RetriedTrackBlock(TypedDict):
     track: int
     # Why the track was re-read: "accuraterip" or "instability"
@@ -498,6 +615,13 @@ class RetriedTrackBlock(TypedDict):
     # Why the re-read was kept, when it was: "accuraterip" or "converged"
     # (verdict.REREAD_KEPT_FOR_*). None when it was not kept. Schema v30.
     replaced_because: str | None
+    # Which read the album keeps: "first_read", "securing_pass" or
+    # "verified_reread" (`verified_read_chase.kept_read`). The worker's record
+    # leaves it out; the report always carries it. Schema 39 (TASKS R7).
+    kept_read: NotRequired[str]
+    # The verified-read chase, when it applied to this track (the kept read was
+    # not verified and the disc is in AccurateRip); absent or None otherwise.
+    verified_read_chase: NotRequired[VerifiedReadChaseBlock | None]
 
 
 class SecureReripBlock(TypedDict):
@@ -510,6 +634,9 @@ class SecureReripBlock(TypedDict):
     # in the database, not in it, the lookup failed, or not determined. None when
     # it was not asked (uniform mode, or a refused pass). Report schema 39.
     accuraterip_standing: str | None
+    # The tracks whose file is a verified re-read the chase kept (TASKS R7,
+    # schema 39), for the EAC-layout log's status line. Empty when none.
+    verified_rereads: NotRequired[list[int]]
 
 
 class ReportReadSpeedBlock(TypedDict, total=False):
@@ -822,6 +949,23 @@ class SelfCheckBlock(TypedDict):
     findings: list[SelfCheckFindingBlock]
 
 
+class VerificationCompletenessBlock(TypedDict):
+    """Did every post-rip check the rip asked for leave a result (schema v39)?
+
+    Built by :func:`platterpus.verification_gates.verification_completeness` from
+    the corrected gates and the result blocks, never from the settings. Added for
+    the unattended give-up, whose report read complete while its CTDB, FLAC and
+    cover-art steps were still running when the process ended (TASKS.md P2 #5).
+    """
+
+    complete: bool | None
+    not_run: list[str]
+    without_result: list[str]
+    cut_short: bool
+    cut_short_steps: list[str]
+    note: str
+
+
 class CompletenessBlock(TypedDict):
     """The verdict's denominator, as a number rather than English prose.
 
@@ -835,3 +979,6 @@ class CompletenessBlock(TypedDict):
     tracks_in_report: int
     complete: bool | None
     note: str
+    #: The post-rip checks, beside the tracks: ``complete`` above is about tracks
+    #: only, and a reader of this block needs both answers in one place.
+    verification: VerificationCompletenessBlock

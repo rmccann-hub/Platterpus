@@ -54,7 +54,9 @@ from platterpus.parsers.cyanrip_log import (
     looks_like_cyanrip_log,
     parse_cyanrip_log,
     secure_rerip_limit_agreement,
+    secure_rerip_limit_kept_read,
     secure_rerip_progress,
+    secure_rerip_read_checksum,
     secure_rerip_verdict_converged,
 )
 from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
@@ -65,6 +67,7 @@ from platterpus.parsers.eac_log import (
     parse_eac_copy_crcs,
 )
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
+from platterpus.verified_read_chase import securing_pass_read_checksums
 
 # `deadline=None`: the parsers are fast, but CI runners are noisy and we
 # don't want a timing blip to fail a correctness test.
@@ -91,6 +94,12 @@ _FRAGMENTS = st.sampled_from(
         "Disc duration: 01:02:08.026, 16 audio tracks",
         "Disc duration: ?, audio tracks",  # no number
         "Tracks:",
+        # The `-Z` loop's lines and the line that ends a track's reads (TASKS R7).
+        "Repeating ripping (0 out of 2 matches for current checksum C96464AB)",
+        "Done; (2 out of 2 matches for current checksum E0036697)",
+        "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "Track 5 read successfully!",
+        "Track 99999999999999999999 read with errors.",
         # --- v0.5.12 EAC-layout fields. Without these the fuzzer cannot steer
         # into the new branches at all: st.text() will never emit "Start LSN:"
         # by chance, so the never-raises property was silently not covering them
@@ -264,6 +273,64 @@ def test_secure_rerip_progress_never_raises(text: str) -> None:
         and len(result) == 2
         and all(isinstance(n, int) and n >= 0 for n in result)
     )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "{}{} ({} out of {} matches for current checksum {}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            st.sampled_from(["Repeating ripping", "Done;", "Done; (no matches"]),
+            _digits,
+            _digits,
+            st.text(max_size=40),
+        ),
+    )
+)
+def test_secure_rerip_read_checksum_never_raises(text: str) -> None:
+    """The checksum of one `-Z` read (TASKS R7): eight hex digits or None."""
+    result = secure_rerip_read_checksum(text)
+    assert result is None or (
+        len(result) == 8 and result == result.upper() and int(result, 16) >= 0
+    )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "Done; (repeat limit of 3 reads reached; kept {}, read {} time{}, which "
+            "AccurateRip matches at confidence {}{}".format,
+            st.text(alphabet="0123456789ABCDEFabcdefg", max_size=10),
+            _digits,
+            st.sampled_from(["", "s"]),
+            _digits,
+            st.text(max_size=60),
+        ),
+    )
+)
+def test_secure_rerip_limit_kept_read_never_raises(text: str) -> None:
+    """The fork's proposed kept-read clause (round 36 lap 4 S11, TASKS R7)."""
+    result = secure_rerip_limit_kept_read(text)
+    assert result is None or (
+        len(result.crc) == 8
+        and result.reads >= 1
+        and result.accuraterip_confidence >= 1
+    )
+
+
+@_SETTINGS
+@given(_any_text)
+def test_securing_pass_read_checksums_never_raises(text: str) -> None:
+    """The per-track `-Z` read values over any log text (TASKS R7)."""
+    result = securing_pass_read_checksums(text)
+    assert isinstance(result, dict)
+    for number, values in result.items():
+        assert isinstance(number, int)
+        assert values and all(len(v) == 8 for v in values)
 
 
 @_SETTINGS

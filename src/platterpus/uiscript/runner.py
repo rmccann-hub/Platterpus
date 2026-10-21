@@ -49,6 +49,7 @@ from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
+from platterpus.uiscript.install_verbs import InstallVerbsMixin
 from platterpus.uiscript.offset_grading import drive_in_offset_list
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
@@ -79,6 +80,7 @@ from platterpus.uiscript.script_values import (
     parse_track_spec as _parse_track_spec,
 )
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
+from platterpus.uiscript.timing_verbs import TimingVerbsMixin
 from platterpus.uiscript.unknown_disc_verbs import UnknownDiscVerbsMixin
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 from platterpus.uiscript.walkthrough_verbs import WalkthroughVerbsMixin
@@ -89,6 +91,7 @@ if TYPE_CHECKING:  # pragma: no cover — types only
     # dependency on the parsers while still giving mypy a real type.
     from platterpus.deps.ripper_wrapper_probe import WrapperReport
     from platterpus.parsers.rip_log import RipLog
+    from platterpus.uiscript.timing_grading import TimingRecord
 
 #: Verbs that declare the run's SHAPE rather than testing anything. They are
 #: exempt from pruning — pruning them would erase the record of what the pruned
@@ -377,6 +380,8 @@ class ScriptRunner(
     EstimateVerbsMixin,
     WalkthroughVerbsMixin,
     BurstVerbsMixin,
+    InstallVerbsMixin,
+    TimingVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -417,6 +422,11 @@ class ScriptRunner(
         #: The read offset `set-drive-offset` set in this run, for
         #: `expect-drive-offset` and the `(offset)` placeholder. ``None`` until set.
         self._drive_offset: int | None = None
+        #: `record-timing` results by label, and why the current section's
+        #: steps are not run once `skip-if-same-build` found one build (""
+        #: while they run). Both are `timing_verbs.py`'s; `start` resets them.
+        self._timings: dict[str, TimingRecord] = {}
+        self._same_build_skip: str = ""
         self._artifact_dir: Path | None = None
         #: Set by :meth:`contain_in`: the folder this run writes into instead of
         #: its own stamped one, and whether it still builds a bundle of its own.
@@ -546,6 +556,8 @@ class ScriptRunner(
         # final section.
         self._declared_size = None
         self._drive_offset = None
+        self._timings = {}
+        self._same_build_skip = ""
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
@@ -954,6 +966,8 @@ class ScriptRunner(
                 declined_by_size=True,
             )
             return
+        if self._skip_for_same_build(step):
+            return  # nothing to compare in this section; recorded N/A there
         handler = getattr(self, f"_do_{step.verb.replace('-', '_')}", None)
         if handler is None:
             self._record(step, Outcome.ERROR, f"'{step.verb}' is not implemented yet")
@@ -2847,7 +2861,8 @@ class ScriptRunner(
         them 8.0s, 4.4s and 3.6s of grace nothing had promised them.
 
         Floor, so it cannot pass by finding nothing: **at least one gate must
-        read "ran"**. A rip with every check turned off carries no gate that
+        say its check ran** (``"ran"``, ``"ran — passed"`` or ``"ran — failed"``,
+        `verification_gates.gate_claims_ran`). A rip with every check turned off carries no gate that
         could be superseded, and would otherwise satisfy "nothing was dropped"
         by having had nothing to drop.
 
@@ -2917,9 +2932,14 @@ class ScriptRunner(
             gates = (
                 verification.get("gates") if isinstance(verification, dict) else None
             )
-            # The floor: nothing ran, so nothing is being claimed.
+            # The floor: nothing ran, so nothing is being claimed. Asked through
+            # `gate_claims_ran`, not `== "ran"`: since schema v39 a gate with a
+            # result says "ran — passed" or "ran — failed", and a bare equality
+            # would read every finished check as one that never ran.
+            from platterpus.verification_gates import gate_claims_ran
+
             return isinstance(gates, dict) and any(
-                gate == "ran" for gate in gates.values()
+                gate_claims_ran(gate) for gate in gates.values()
             )
 
         self._arm_deadline(step, seconds, _every_gate_left_a_result)

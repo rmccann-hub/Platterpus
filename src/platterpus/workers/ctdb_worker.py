@@ -35,6 +35,7 @@ from platterpus.ctdb.verify import (
     Verdict,
     verify_rip,
 )
+from platterpus.data_tracks import data_track_numbers
 
 log = logging.getLogger(__name__)
 
@@ -102,19 +103,25 @@ def verify_rip_dir(
     # A 2-of-14 rip then stops here instead of asking CTDB about a two-track disc
     # that does not exist (the 2026-09-28 Full run: five "not in CTDB" reports).
     disc_tracks = disc_track_count(file_set.rip_log, fallback=disc_tracks_hint)
+    # The disc's data tracks, read off the same log, so the refusal below can say
+    # the TOC cannot hold them rather than call an Enhanced CD a partial rip.
+    data_tracks = data_track_numbers(file_set.rip_log)
     if disc_tracks is not None and len(flac_paths) < disc_tracks:
         log.info(
-            "CTDB verify of %s not run: the rip covers %d of the disc's %d "
-            "tracks, and CTDB verifies whole discs",
+            "CTDB verify of %s not run: the rip has audio files for %d of the "
+            "disc's %d tracks (data tracks in its log: %s), and CTDB verifies "
+            "whole discs",
             rip_dir,
             len(flac_paths),
             disc_tracks,
+            ", ".join(str(n) for n in data_tracks) or "none",
         )
     try:
         return verify_rip(
             flac_paths,
             client,
             disc_tracks=disc_tracks,
+            data_tracks=data_tracks,
             decoder=decoder,
             samples_probe=samples_probe,
         )

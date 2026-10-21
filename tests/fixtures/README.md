@@ -57,6 +57,33 @@ It is text (rule #8: logs and CRCs travel, audio never does) and carries no home
 paths — its `Invoked as:` line names the in-container `/usr/local/bin/cyanrip`.
 Do not "tidy" it: it is evidence, and a hand-edited log proves nothing.
 
+## cyanrip_fork_diagnostics10_interrupted.json (added 2026-10-21)
+
+**The fork's interrupted-rip `-j` record for `.25`** (`cyanrip-diagnostics/10`),
+byte for byte from `cyanrip@5f1d036:docs/sample-interrupted.diagnostics.json`
+(sha256 `b3c2c9fc691614905b4d8742e4963c0f1b0b92cb5b8e3cbca0a894bb035e9598`). It is a
+copy because no `/10` record is committed under `docs/handshake/inbound/artifacts/`
+(the note below), so the one place to read it from is the fork's own tree. `tests/test_error_positions.py` reads it for the two states a real run gives
+the per-track `error_positions`, `error_positions_dropped` and `paranoia_all_reads`:
+a track read with nothing reported, and tracks never read, all three null. Its
+`invocation` line is the fork's build path, not anyone's home folder. Do not edit it.
+
+## ctdb_lookup_police_classics.xml (added 2026-10-21)
+
+**The live CTDB answer for the reference disc**, byte for byte: the body of
+`http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0:14487:28067:49920:72570:90642:109175:128757:145662:159237:178332:200862:224510:246527:268707`,
+fetched 2026-10-21 02:41 UTC. The TOC is the one every Full-run log of the disc
+looks up (the cyanrip fork report in `output_reference/cyanrip_fork_flac/` quotes
+the same URL). 102 entries, 1,518 submissions, the strongest at 1,416, each with
+14 per-track CRCs (`trackcrcs`). It holds CRCs and parity syndromes only, no
+metadata (`metadata=none`) and no audio (rule #8).
+
+`tests/test_ctdb_per_track.py` reads it beside EAC's three logs of the same disc
+(`output_reference/EAC_*`) to check the per-track CRC definition and the counting
+against measured data (TASKS R43). The database grows; this file is the state of
+2026-10-21, so a test that counts submissions counts these, and a refetch is a
+deliberate change that re-reads those numbers.
+
 ## Handshake artifacts are NOT copied in here (note added 2026-08-21)
 
 A test that needs a real cyanrip log from a handshake round reads it **from
@@ -76,7 +103,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.7.110.*
+*Last updated for Platterpus v0.7.111.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 
@@ -126,6 +153,16 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 `174a134` (`.19`). It names `.20` as the build round 30's closing run reviews; the
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
+
+## fork_release_manifest_a085d19.json (added 2026-10-21)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@a085d19`, the commit that published `.26` (unchanged at the merge of their
+PR #57, `32d17db`): sha256 `5176d2d4…`, 1,135 bytes, pinned by
+`tests/test_handshake_pin_under_review.py`. Beta names `ca0f097` (`.26`, `release_seq`
+37, `handshake_round` 36, `round_closed: false`); stable names `891c79e` (`.23`,
+`release_seq` 34, round 34 closed). Round 36's subject, to which the round's pin moves
+on the owner's word of 2026-10-21. Not edited.
 
 ## fork_release_manifest_44d3cf3.json (added 2026-10-19)
 

@@ -28,6 +28,8 @@ import sys
 from pathlib import Path
 from typing import Final
 
+import pytest
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 WORKFLOW: Final[Path] = REPO_ROOT / ".github" / "workflows" / "mutation.yml"
 SWEEP: Final[Path] = REPO_ROOT / "scripts" / "mutation_sweep.py"
@@ -35,6 +37,10 @@ SWEEP: Final[Path] = REPO_ROOT / "scripts" / "mutation_sweep.py"
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import mutation_sweep as ms  # noqa: E402
+
+# These tests run the sweep, which takes the working-tree lock; wait for this
+# checkout's other lock-taking tests instead of colliding with them (conftest).
+pytestmark = pytest.mark.usefixtures("tree_lock_turn")
 
 
 def test_the_audit_script_exists_and_the_workflow_calls_it() -> None:

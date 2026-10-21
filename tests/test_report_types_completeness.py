@@ -37,6 +37,10 @@ _BLOCKS: dict[str, str] = {
     "RipBlock": "extraction_engine",
     "OutcomeBlock": "failure_hint",
     "TimingBlock": "elapsed_human",
+    # Joined 2026-10-21 (TASKS R43): `CtdbBlock` had not declared v38's three
+    # weight fields, unnoticed because no sweep read it.
+    "CtdbBlock": "total_confidence",
+    "CtdbTrackBlock": "strongest_disagreeing",
 }
 
 

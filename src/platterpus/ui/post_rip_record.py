@@ -147,6 +147,26 @@ class PostRipRecord:
     #: genuinely launched AND produced no result — both halves matter, in both
     #: directions (see :meth:`seal_superseded`).
     superseded: set[str] = field(default_factory=set)
+    #: Checks still running when the unattended quit gave up waiting and ended
+    #: the process, by gate key. Same both-halves rule as ``superseded`` (see
+    #: :meth:`seal_cut_short`).
+    cut_short: set[str] = field(default_factory=set)
+    #: Every post-rip STEP still running at that moment, as the report names it —
+    #: including the steps with no gate (tagging and cover art, the checksums).
+    #: Empty on every rip the process waited for.
+    cut_short_steps: tuple[str, ...] = ()
+
+    def _launched_without_result(self) -> set[str]:
+        """Gate keys launched for this album whose result never arrived.
+
+        One rule for both ways a check can be dropped (a newer rip, or the app
+        quitting), so the two cannot disagree about what "dropped" means.
+        """
+        return {
+            gate
+            for gate, attr in GATE_RESULTS.items()
+            if gate in self.pending and getattr(self, attr, None) is None
+        }
 
     def seal_superseded(self) -> set[str]:
         """Mark the checks that were begun for this album and never came back.
@@ -160,13 +180,41 @@ class PostRipRecord:
         before the next Start from being labelled dropped when its result is
         sitting right here.
         """
-        dropped = {
-            gate
-            for gate, attr in GATE_RESULTS.items()
-            if gate in self.pending and getattr(self, attr, None) is None
-        }
+        dropped = self._launched_without_result()
         self.superseded |= dropped
         return dropped
+
+    def seal_cut_short(self, steps: tuple[str, ...]) -> set[str]:
+        """Record that the app is quitting with ``steps`` still running.
+
+        ``steps`` are the window's post-rip thread names (``"ctdb"``,
+        ``"post_rip"``…). They are kept as the report's readable labels
+        (:data:`STEP_LABELS`), and the gate keys are sealed by the rule
+        :meth:`seal_superseded` uses — launched and no result — so a check that
+        landed just before the give-up is not called cut short. Returns the
+        newly-sealed gate keys.
+
+        Only sets fields. The report write that carries them is the caller's.
+        """
+        self.cut_short_steps = tuple(
+            STEP_LABELS[step] for step in steps if step in STEP_LABELS
+        )
+        dropped = self._launched_without_result()
+        self.cut_short |= dropped
+        return dropped
+
+    def cut_short_without_result(self) -> set[str]:
+        """The cut-short gate keys whose result has still not arrived.
+
+        A check can land during the exit flush, after it was sealed. Its result
+        is then in the record, and calling it cut short beside that result would
+        be the gate and its block disagreeing again.
+        """
+        return {
+            gate
+            for gate in self.cut_short
+            if getattr(self, GATE_RESULTS.get(gate, ""), None) is None
+        }
 
     def missing_results(self) -> set[str]:
         """Gate keys whose check was meant to run and holds no result.
@@ -181,6 +229,21 @@ class PostRipRecord:
             if self.gate_inputs.get(_GATE_INPUT_FOR[gate], False)
             and getattr(self, attr, None) is None
         }
+
+
+#: The window's post-rip thread names (``MainWindow._post_rip_steps_running``),
+#: as the report names them. Only steps that VERIFY or complete the record are
+#: here. The library move is left out: it moves finished files and checks
+#: nothing, so a record called unverified because a move was pending would be
+#: false.
+STEP_LABELS: Final[dict[str, str]] = {
+    "post_rip": "tagging, cover art and format conversion",
+    "ctdb": "CTDB verify",
+    "flac_verify": "FLAC integrity",
+    "derived_verify": "derived-format verification",
+    "checksums": "SHA-256 checksums",
+    "comparison": "re-rip comparison",
+}
 
 
 #: Which ``gate_inputs`` flag decides whether each gate's check was requested.

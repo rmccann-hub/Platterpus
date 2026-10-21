@@ -231,6 +231,7 @@ def test_secure_rerip_report_marks_an_interrupted_pass() -> None:
     worker._disc_in_accuraterip = True
     worker._secure_rerip_skipped_reason = None
     worker._accuraterip_standing = None
+    worker._verified_rereads = []  # no verified-read chase kept a read (TASKS R7)
 
     # Mid-pass: the flag is up.
     worker._secure_rerip_interrupted = True
@@ -476,3 +477,95 @@ def test_a_summary_in_another_shape_is_left_alone() -> None:
         "Disc not present in database"
     )
     assert recount_accuraterip_summary(None, ()) is None
+
+
+# --- the verified-read chase (TASKS R7) --------------------------------------
+
+
+def _chased_window() -> SimpleNamespace:
+    """Track 5: the securing pass converged on an unverified read and was swapped
+    in; then the chase kept single read 2, which AccurateRip verifies. The first
+    pass's record says it was read three times and converged."""
+    shipped = TrackResult(
+        number=5,
+        filename="tmp/05.flac",
+        copy_crc="C96464AB",
+        rip_count=None,  # a single read prints no "(after N rips)"
+        accuraterip_v2=AccurateRipResult(
+            version=2,
+            result="accurately ripped, confidence 200",
+            confidence=200,
+            local_crc="BCF4E815",
+        ),
+    )
+    return _window(
+        [
+            {
+                "track": 5,
+                "reripped_z": 2,
+                "converged": True,
+                "replaced": True,
+                "replaced_because": "accuraterip",
+                "verified_read_chase": {"kept_attempt": 2},
+            }
+        ],
+        {5: shipped},
+    )
+
+
+def _first_pass_read_three_times() -> RipLog:
+    return RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=5,
+                filename="05.flac",
+                copy_crc="E0036697",
+                rip_count=3,
+                secure_rerip_converged=True,
+            ),
+        ),
+    )
+
+
+def test_a_chase_read_carries_no_convergence_it_did_not_have() -> None:
+    """The securing pass's `converged: True` is about reads that did not ship, and
+    the first pass's "(after 3 rips)" is about another read. The shipped file is
+    one read with no -Z, so neither verdict nor count may describe it."""
+    out = RipMixin._apply_auto_fix_results(
+        _chased_window(), _first_pass_read_three_times()
+    )
+    track = _by_number(out, 5)
+    assert track.copy_crc == "C96464AB"
+    assert track.secure_rerip_converged is None
+    assert track.secure_rerip_agreement is None
+    assert track.rip_count is None
+
+
+def test_the_eac_layout_log_shows_a_chase_read_as_one_verified_read() -> None:
+    """No Test/Copy pair (that would claim reads agreed), the AccurateRip match,
+    and our own status line saying the file is a verified single re-read."""
+    out = RipMixin._apply_auto_fix_results(
+        _chased_window(), _first_pass_read_three_times()
+    )
+    text = render_eac_style_log(
+        out,
+        secure_rerip={
+            "mode": "dynamic",
+            "engaged": True,
+            "disc_in_accuraterip": True,
+            "skipped_reason": None,
+            "interrupted": False,
+            "accuraterip_standing": "in_database",
+            "verified_rereads": [5],
+        },
+    )
+    assert "Copy CRC C96464AB" in text
+    assert "Test CRC" not in text, text
+    assert "Accurately ripped" in text
+    assert "Verified re-read    : track(s) 5" in text
+
+
+def test_no_status_line_without_a_chase_read() -> None:
+    text = render_eac_style_log(_log(), secure_rerip=None)
+    assert "Verified re-read" not in text

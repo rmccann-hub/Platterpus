@@ -1180,7 +1180,13 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
     # reader (`accurate_stream_state` / `recordable_state`) to the `value` group the
     # line rule already captured, never to a line; split so a reworded value still
     # claims its line and is recorded as `unrecognised`.
-    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 10, (
+    # 8 -> 9 on 2026-10-21 (TASKS R7): `secure_rerip_read_checksum`, searched only in
+    # a line `_SECURE_PROGRESS` or `_SECURE_DONE_MATCH` already matched.
+    # 9 -> 10 the same day: `secure_rerip_limit_kept`, the fork's proposed
+    # kept-read clause, searched only in a line `_SECURE_DONE_FAIL` matched.
+    # 10 -> 12 when both halves above landed on one branch (2026-10-21): the two
+    # `.26` value shapes and the two R7 read-checksum fragments.
+    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 12, (
         "the fragment group is growing; check each entry really is matched against a "
         "captured fragment rather than a whole line"
     )

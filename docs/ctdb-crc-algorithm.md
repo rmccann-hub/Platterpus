@@ -57,9 +57,32 @@ CueTools C# source):
 
 ## How Platterpus uses it
 
-- **Verify** (`ctdb/verify.py`): computes `CTDBCRC(0)` streamed track-by-track
-  (`crc.ctdb_crc_offset0_streaming`, one track resident at a time — #39 memory
-  fix) using `total_frames` from the TOC, and compares to the DB entries.
+- **Verify** (`ctdb/verify.py`, since 2026-10-21 through `ctdb/sweep.py`):
+  one pass over the decoded tracks, one track resident at a time (#39), measures
+  `CTDBCRC(o)` for every `o` in ±5879 and every track's CRC over the same range,
+  with the windows read from the TOC. `CTDBCRC(0)` from that pass equals
+  `crc.ctdb_crc_offset0_streaming` (`tests/test_ctdb_sweep.py`). An entry matched
+  at any offset is a match, and the result names the offset (TASKS R43).
+
+### The per-track CRC (`trackcrcs`)
+
+Each entry also carries one CRC per track. CUETools computes it as
+`AccurateRipVerify.CTDBCRC(iTrack, oi, stride/2, laststride/2)` (LGPL,
+`CUETools.AccurateRip/AccurateRip.cs`, called from `CDRepairEncode.TrackCRC`
+in `CDRepair.cs`): the same zlib CRC-32 over the track's PCM, where **track 1
+starts `stride/2` frames in and the last track stops `laststride/2` frames
+before the lead-out**, the whole-disc trims, and every other track is whole. So a
+middle track's value is the plain CRC-32 of the track, EAC's "Copy CRC" with null
+samples counted. That half is measured, not only read: the live CTDB answer for
+the reference disc (`tests/fixtures/ctdb_lookup_police_classics.xml`) holds EAC's
+Copy CRCs for its middle tracks (`tests/test_ctdb_per_track.py`). The first and
+last track's trims rest on the source and on the whole-disc vector below, which
+uses the same two trims.
+
+How the per-track values are compared (an entry's offset, ±2939, the summed
+confidence) is CUETools' `CUEToolsDB.GenerateLog`, implemented in
+`ctdb/matching.py`; its docstring says where ours differs (no parity, so the
+entry's offset comes from the consensus of its tracks).
 - **Calibrate** (`ctdb/calibrate.py`, `platterpus --ctdb-calibrate`): sweeps the
   full ±5879 offset window and reports which offset reproduces a DB CRC. Uses the
   zlib `crc32_combine` (GF(2) "append N zero bytes") operator so the whole sweep
@@ -94,4 +117,4 @@ command on any in-CTDB disc and expect a `✅ MATCH` at `offset=+0`.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.7.111.*

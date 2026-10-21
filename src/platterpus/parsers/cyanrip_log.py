@@ -66,11 +66,13 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
-from platterpus import diagnostics
+from platterpus import diagnostics, ripper_error_lines
+from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
     ACCURATE_STREAM_DECLARED_SUPPORTED,
@@ -83,6 +85,7 @@ from platterpus.parsers.rip_log import (
     RECORDABLE_CDRW,
     RECORDABLE_UNKNOWN,
     AccurateRipResult,
+    LimitKeptRead,
     RereadAgreement,
     RipLog,
     RippingInfo,
@@ -516,9 +519,12 @@ _SECURE_LIMIT_AGREED = re.compile(r"\bat most (?P<agreed>\d{1,6}) reads? agreed\
 # all of them (cyanrip@e5a4ddf:src/cyanrip_main.c:999-1001), and `target` is the
 # `-Z` value. Read since 2026-10-05 for one fact: under the old limit-hit wording,
 # which states no count, these lines are the only record of whether any reads
-# agreed. The checksum is NOT read: before cyanrip 9669d84 it printed the
-# complement of the track block's EAC CRC32 (round 29 lap 1 S34), so its meaning
-# depends on the build. The fork lists this line as stable (P2 of their round 30
+# agreed. Its checksum is read since 2026-10-21 (TASKS R7) for ONE question only,
+# *did the drive return more than one value for this track?*
+# (`secure_rerip_read_checksum`), and never compared with anything outside the
+# loop: before cyanrip 9669d84 it printed the complement of the track block's EAC
+# CRC32 (round 29 lap 1 S34), so its meaning depends on the build, but within one
+# loop every read is printed the same way, so equal values are equal reads. The fork lists this line as stable (P2 of their round 30
 # provider contract). `\s*` for the same reason as the `Done;` lines: these come
 # from the repeat loop before the track opens, whatever their indentation.
 _SECURE_PROGRESS = re.compile(
@@ -554,6 +560,24 @@ def is_secure_rerip_verdict(line: str) -> bool:
     reported two ways, and neither is a failure of the ripper.
     """
     return secure_rerip_verdict_converged(line) is not None
+
+
+def is_ripper_error_line(line: str) -> bool:
+    """True when ``line`` is one of the ripper's diagnostics, as both readers judge it.
+
+    The one definition shared by the rip worker (each streamed line) and this
+    parser (each line of a finished log): the published-inventory matcher
+    (:data:`~platterpus.ripper_error_lines.RIPPER_ERROR_RE`), minus the secure
+    re-read verdicts, which it also matches (``Done; (no matches found, but hit
+    repeat limit of 3)``) and which are a fact about the disc, not a ripper
+    failure (see :func:`is_secure_rerip_verdict`). Never raises.
+    """
+    # Read through the module, not imported by name: a compiled pattern in this
+    # module's namespace would join the "every pattern here is a parse rule" sweep
+    # (`test_rule_tables_are_a_complete_enumeration_of_this_module`), and this one
+    # is not a parse rule of ours, it is the shared diagnostic matcher.
+    matcher = ripper_error_lines.RIPPER_ERROR_RE
+    return bool(matcher.match(line)) and not is_secure_rerip_verdict(line)
 
 
 def secure_rerip_verdict_converged(line: str) -> bool | None:
@@ -609,6 +633,71 @@ def secure_rerip_progress(line: str) -> tuple[int, int] | None:
     if matches is None or target is None:
         return None
     return matches, target
+
+
+# The checksum at the end of a `-Z` loop line, `… for current checksum 1FFC9968)`,
+# on a `Repeating ripping` line or a converged `Done;` line. A FRAGMENT pattern:
+# it is searched only in a line `_SECURE_PROGRESS` or `_SECURE_DONE_MATCH` already
+# claimed (see `secure_rerip_read_checksum`).
+_SECURE_READ_CHECKSUM = re.compile(r"\bcurrent checksum\s+(?P<crc>[0-9A-Fa-f]{8})\b")
+
+
+def secure_rerip_read_checksum(line: str) -> str | None:
+    """The checksum one ``-Z`` read printed, uppercase, or ``None``.
+
+    Only for a line the loop's own patterns claim: a ``Repeating ripping (k out
+    of N matches for current checksum X)`` line, or a converged ``Done; (N out of
+    N matches for current checksum X)`` line. The limit-hit ``Done;`` line prints
+    no checksum in either wording, so the last read of a loop that hit the limit
+    has none here; its value is the track block's EAC CRC32.
+
+    **What the value may be used for** (TASKS R7, 2026-10-21): comparing the
+    reads of ONE loop with each other, to tell a drive that returned one value
+    every time from one that returned several. It is not the track's EAC CRC32 on
+    every build (see the note above ``_SECURE_PROGRESS``), so it is never compared
+    with a track block's CRC, with AccurateRip, or across logs. Pure; never raises.
+    """
+    if _SECURE_PROGRESS.match(line) is None and _SECURE_DONE_MATCH.match(line) is None:
+        return None
+    match = _SECURE_READ_CHECKSUM.search(line)
+    return match.group("crc").upper() if match else None
+
+
+# The fork's PROPOSED kept-read clause on the limit-hit line (round 36 lap 4 S11):
+# `…; kept 1FFC9968, read 2 times, which AccurateRip matches at confidence 200`,
+# optionally followed by `; last read 0A0B0C0D, not kept`. A FRAGMENT pattern,
+# searched only in a line `_SECURE_DONE_FAIL` claimed.
+_SECURE_LIMIT_KEPT = re.compile(
+    r"\bkept (?P<crc>[0-9A-Fa-f]{8}), read (?P<reads>\d{1,6}) times?, which "
+    r"AccurateRip matches at confidence (?P<confidence>\d{1,6})"
+    r"(?:; last read (?P<last>[0-9A-Fa-f]{8}), not kept)?"
+)
+
+
+def secure_rerip_limit_kept_read(done_line: str) -> LimitKeptRead | None:
+    """The read kept on AccurateRip's word, from a limit-hit line, or ``None``.
+
+    Tri-state by construction: ``None`` for a line that is not a limit-hit verdict
+    and for one without the clause, which is every build released so far, so no
+    absence is read as "AccurateRip matched nothing". A clause with a zero read
+    count or a zero confidence is not a match and gives ``None``. Pure; never
+    raises (every number is bounded to six digits by the pattern).
+    """
+    if not _SECURE_DONE_FAIL.match(done_line):
+        return None
+    match = _SECURE_LIMIT_KEPT.search(done_line)
+    if match is None:
+        return None
+    reads = int_or_none(match.group("reads"), field="cyanrip kept read count")
+    confidence = int_or_none(match.group("confidence"), field="cyanrip kept read AR")
+    if not reads or not confidence:
+        return None
+    return LimitKeptRead(
+        crc=match.group("crc").upper(),
+        reads=reads,
+        accuraterip_confidence=confidence,
+        last_read_crc=(match.group("last") or "").upper(),
+    )
 
 
 def secure_rerip_limit_agreement(
@@ -1814,10 +1903,10 @@ class _Disc:
 
 
 #: A data track's ``TrackResult.status``. Every one contains ``"data track"``,
-#: because that substring is what every consumer keys on to leave a data track out
-#: of AccurateRip, the read-speed ladder and the artifact grading
-#: (``read_speed_ladder``, ``uiscript.artifact_grading``); a new status that lost it
-#: would put a data track into the audio tallies. Four, because from
+#: because that substring is what ``data_tracks.is_data_track`` keys on, and every
+#: consumer asks it to leave a data track out of AccurateRip, the verdict, the
+#: EAC-layout log, the read-speed ladder and the artifact grading; a new status
+#: that lost it would put a data track into the audio tallies. Four, because from
 #: ``+platterpus.23`` a data track is copied by default and the log says how that went:
 #:
 #: * ``skipped`` — ``Track N is data, skipping:`` (``-X``), or an older build's
@@ -1833,10 +1922,14 @@ class _Disc:
 #:   open the ``.bin``, whose message is the cue writer's wording too, so it is not
 #:   claimed as evidence) also reads as ``skipped``; the footer's ``Rip completed:
 #:   no (aborted, …)`` is what says that rip failed.
-DATA_TRACK_SKIPPED: Final[str] = "data track (skipped)"
-DATA_TRACK_COPIED: Final[str] = "data track (copied)"
-DATA_TRACK_COPIED_WITH_ERRORS: Final[str] = "data track (copied with errors)"
-DATA_TRACK_COPY_NOT_COMPLETED: Final[str] = "data track (copy not completed)"
+#:
+#: Built from ``data_tracks.DATA_TRACK_MARKER``, the substring
+#: :func:`~platterpus.data_tracks.is_data_track` keys on, so a status written
+#: here is a data track to every consumer by construction (TASKS R13).
+DATA_TRACK_SKIPPED: Final[str] = f"{DATA_TRACK_MARKER} (skipped)"
+DATA_TRACK_COPIED: Final[str] = f"{DATA_TRACK_MARKER} (copied)"
+DATA_TRACK_COPIED_WITH_ERRORS: Final[str] = f"{DATA_TRACK_MARKER} (copied with errors)"
+DATA_TRACK_COPY_NOT_COMPLETED: Final[str] = f"{DATA_TRACK_MARKER} (copy not completed)"
 DATA_TRACK_STATUSES: Final[frozenset[str]] = frozenset(
     {
         DATA_TRACK_SKIPPED,
@@ -1869,6 +1962,7 @@ class _TrackAcc:
     secure_rerip_converged: bool | None
     # How many of those reads agreed, buffered the same way (see TrackResult).
     secure_rerip_agreement: RereadAgreement | None = None
+    secure_rerip_kept_read: LimitKeptRead | None = None
     filename: str = ""
     pre_emphasis: bool | None = None
     copy_crc: str = ""
@@ -2881,6 +2975,12 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # `accurate_stream` and `recordable` rules captured.
     ("accurate_stream_value", _ACCURATE_STREAM_VALUE),
     ("recordable_value", _RECORDABLE_VALUE),
+    # The checksum one `-Z` read printed, applied by `secure_rerip_read_checksum`
+    # to a line `_SECURE_PROGRESS` or `_SECURE_DONE_MATCH` claimed (TASKS R7).
+    ("secure_rerip_read_checksum", _SECURE_READ_CHECKSUM),
+    # The fork's proposed kept-read clause, applied by `secure_rerip_limit_kept_read`
+    # to a line `_SECURE_DONE_FAIL` claimed (round 36 lap 4 S11, TASKS R7).
+    ("secure_rerip_limit_kept", _SECURE_LIMIT_KEPT),
 )
 
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -3195,6 +3295,11 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
 )
 
+# How many of the ripper's diagnostic lines to keep from each end of a log (head
+# and tail), and how long each may be. The full count is kept beside them.
+_ERROR_LINE_KEEP: Final[int] = 10
+_ERROR_LINE_CHARS: Final[int] = 400
+
 # How many unclaimed top-level lines to keep as evidence for the debug log. A
 # corrupt or enormous input must not turn diagnostics into unbounded memory use.
 _UNCLAIMED_SAMPLE_LIMIT = 10
@@ -3334,6 +3439,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # they and the verdict line add up to (`secure_rerip_limit_agreement`).
     pending_progress: list[tuple[int, int]] = []
     pending_agreement: RereadAgreement | None = None
+    pending_kept: LimitKeptRead | None = None
     # Which peak the NEXT indented "Peak:  N dBFS" line reports: "true", "sample",
     # or "" for no header seen. cyanrip prints its peaks as a sub-header plus a
     # value line, and a FORK adding the sample peak is likely to do the same — so
@@ -3349,6 +3455,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # turn diagnostics into unbounded memory use.
     unclaimed_sample: list[str] = []
     unclaimed_total = 0
+    # The ripper's own diagnostic lines (`is_ripper_error_line`), for `rip_health`
+    # to compare with the `Ripping errors:` summary. Head and tail, bounded, with
+    # the full count beside them so an elision is visible (CLAUDE.md: a silent
+    # truncation reads as completeness).
+    error_head: list[str] = []
+    error_tail: deque[str] = deque(maxlen=_ERROR_LINE_KEEP)
+    error_total = 0
 
     # The track block currently being read; flushed into `disc.tracks` when the
     # next block (or the end of input) is reached.
@@ -3466,6 +3579,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 rip_count=current.rip_count,
                 secure_rerip_converged=current.secure_rerip_converged,
                 secure_rerip_agreement=current.secure_rerip_agreement,
+                secure_rerip_kept_read=current.secure_rerip_kept_read,
                 start_sector=current.start_sector,
                 end_sector=current.end_sector,
                 pregap_sectors=current.pregap_sectors,
@@ -3489,6 +3603,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
         current = None
 
     for line in _fold_continuations(text):
+        # Offered to the diagnostic matcher BEFORE any rule, and never consumed:
+        # a line can be both a fact a rule reads and a diagnostic, and recording
+        # it here changes nothing about how the rest of the loop parses it.
+        if is_ripper_error_line(line):
+            error_total += 1
+            kept = line.rstrip()[:_ERROR_LINE_CHARS]
+            if len(error_head) < _ERROR_LINE_KEEP:
+                error_head.append(kept)
+            else:
+                error_tail.append(kept)
         # Are we inside a track block? Read once per line, for the rows that only
         # count in the disc-level report. Nothing between here and the last table
         # dispatch can change it without also skipping to the next line, so a
@@ -3622,6 +3746,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if verdict is not None:
             pending_converged = verdict
             pending_agreement = secure_rerip_limit_agreement(line, pending_progress)
+            pending_kept = secure_rerip_limit_kept_read(line)
             pending_progress = []
             continue
         # A progress line from the same repeat loop, buffered for the same track.
@@ -3672,9 +3797,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # consumed so the next track starts fresh (None if -Z was off).
                 secure_rerip_converged=pending_converged,
                 secure_rerip_agreement=pending_agreement,
+                secure_rerip_kept_read=pending_kept,
             )
             pending_converged = None
             pending_agreement = None
+            pending_kept = None
             # Progress lines with no verdict after them (a cancelled re-read stops
             # without one) describe nothing this track can claim.
             pending_progress = []
@@ -4168,4 +4295,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         release_id=disc.release_id,
         log_truncated=truncated,
         last_track_incomplete=last_incomplete,
+        ripper_error_lines=(*error_head, *error_tail),
+        ripper_error_lines_total=error_total,
     )

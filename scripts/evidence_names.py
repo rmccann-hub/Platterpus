@@ -42,6 +42,8 @@ ALBUMS: tuple[tuple[str, str], ...] = (
 ALBUM_FILES: tuple[tuple[str, str], ...] = (
     (" (EAC-compatible).log", "eac.log"),
     (".platterpus-securing-pass.txt", "securingpass.txt"),
+    # The verified-read chase's single reads (TASKS R7).
+    (".platterpus-verified-read.txt", "verifiedread.txt"),
     (".platterpus-addendum.txt", "addendum.txt"),
     (".platterpus.json", "report.json"),
     (".log", ".log"),

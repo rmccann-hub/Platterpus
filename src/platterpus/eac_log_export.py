@@ -50,6 +50,7 @@ import re
 from datetime import datetime
 
 from platterpus import diagnostics, one_frame_match
+from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.cyanrip_log import (
     INTERRUPTED_MID_READ,
     INTERRUPTED_NOT_DETERMINED,
@@ -310,8 +311,9 @@ def render_eac_style_log_and_defused(
     * ``encoder_versions`` — ``{dep_id: version}`` for the FLAC encoder
       (``flac``/``metaflac``) and, when a derived format was produced,
       ``ffmpeg``; from :func:`platterpus.build_info.encoder_versions`.
-    * ``secure_rerip`` — :attr:`RipWorker.secure_rerip_report`. Only its
-      ``interrupted`` flag is read: an auto-fix securing pass cut short (the app
+    * ``secure_rerip`` — :attr:`RipWorker.secure_rerip_report`. Its
+      ``verified_rereads`` names the tracks the verified-read chase kept a read
+      for (TASKS R7); otherwise only its ``interrupted`` flag is read: an auto-fix securing pass cut short (the app
       was closed mid-pass) is a fact the JSON report carried and the durable log
       did not, so the archival artifact was the more reassuring of the two —
       the exact asymmetry this module exists to prevent (audit, 2026-07-28).
@@ -529,7 +531,8 @@ def _render(
             rip_log,
             _read_stability_line(rip_log)
             + _appended_silence_line(rip_log)
-            + _interrupted_securing_line(secure_rerip, outcome_status),
+            + _interrupted_securing_line(secure_rerip, outcome_status)
+            + _verified_reread_line(secure_rerip),
             disc_track_total=disc_track_total,
         )
     )
@@ -1137,8 +1140,13 @@ def _status_report(
         # This is the fourth place the log's own track list was used as the
         # denominator for a completeness claim. A stopped rip can shrink that
         # list; it cannot shrink the disc.
-        expected = disc_track_total or len(rip_log.tracks)
-        attempted = len(rip_log.tracks)
+        #
+        # AUDIO tracks, on both sides (TASKS R13). `total` above counts audio only,
+        # and a data track is in both the log's track list and cyanrip's `Disc
+        # tracks:`, so with it in `attempted` a mixed disc whose every audio track
+        # verified closed "Some tracks could not be verified as accurate". The
+        # verdict banner takes the same two numbers from the same function.
+        expected, attempted = audio_track_totals(rip_log, disc_track_total)
         # `not_verified`, NOT `neither`. An offset-variant match is not an exact
         # match, so a disc where every track matched only the +450 pressing must
         # never announce "All tracks accurately ripped" — which is exactly what
@@ -1184,6 +1192,12 @@ def _status_report(
         else:
             out.append("Some tracks could not be verified as accurate")
         out.append("")
+    # The ripper's own health sentence, VERBATIM, even where `rip_health` would
+    # not call the rip clean (an error line under `Ripping errors: 0`, or a track
+    # with unverified skips). This disc-level line is a surface the cyanrip fork
+    # diffs against, so it changes only through the handshake; the replacement
+    # wording is proposed in TASKS.md for our round 36 lap. The report's
+    # `health_status` and the window already say it (2026-10-21).
     if rip_log.health_status:
         out.append(rip_log.health_status)
         out.append("")
@@ -1247,7 +1261,7 @@ def _status_report(
 
 
 def _read_stability_line(rip_log: RipLog) -> list[str]:
-    """A whole-disc read-stability line when any track's re-reads disagreed.
+    """Whole-disc read-stability lines: re-reads that disagreed, and unverified skips.
 
     The backend's own health line reports *unrecoverable read errors*, and it
     stays "No errors occurred" even when a track never read the same way twice
@@ -1257,28 +1271,55 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     says it too: the summary a human reads must not be more reassuring than the
     verdict the app gave.
 
-    Measured only — it names the tracks whose ``secure_rerip_converged`` is
-    explicitly ``False``. No such track (or a log that never recorded the field)
+    **Two lines, one per kind of evidence, each only when it has a track.**
+
+    * Re-reads that did not converge: the tracks whose ``secure_rerip_converged``
+      is explicitly ``False``.
+    * **Skips paranoia could not verify** (the owner's known-fixes list,
+      2026-10-21, item 3): the tracks :func:`track_has_unverified_skips` names.
+      Their own block already reads ``Copy NOT confirmed``, but this line named
+      only the re-reads, so a reader of the status report alone saw "No errors
+      occurred" and no caveat over track 18 of the 2026-10-04 rig run. Its own
+      line rather than a clause of the first, because "did not read the same
+      way twice" and "a read paranoia gave up verifying" are different findings.
+
+    Measured only: no such track (or a log that never recorded the field)
     renders nothing, so a clean rip's conclusive report is unchanged.
     """
+    lines: list[str] = []
     unstable = [
         track.number
         for track in rip_log.tracks
         if track.secure_rerip_converged is False
     ]
-    if not unstable:
-        return []
-    # Sort on a total order that tolerates a malformed number: mixing str/int/None
-    # in `sorted()` raises TypeError, and one bad track would take the whole log
-    # down to the stub (review finding, 2026-07-28).
-    listed = ", ".join(
-        str(number)
-        for number in sorted(unstable, key=lambda n: (not isinstance(n, int), str(n)))
-    )
-    return [
-        f"Read stability      : track(s) {listed} did not read identically across "
-        "re-reads — not confirmed reproducible"
+    if unstable:
+        lines.append(
+            f"Read stability      : track(s) {_listed_tracks(unstable)} did not read "
+            "identically across re-reads — not confirmed reproducible"
+        )
+    skipped = [
+        track.number for track in rip_log.tracks if track_has_unverified_skips(track)
     ]
+    if skipped:
+        lines.append(
+            f"Read stability      : track(s) {_listed_tracks(skipped)} had reads "
+            "paranoia could not verify (skips) and AccurateRip did not confirm the "
+            "audio — not confirmed"
+        )
+    return lines
+
+
+def _listed_tracks(numbers: list[int]) -> str:
+    """``"3, 5, 18"``: track numbers in order, tolerant of a malformed number.
+
+    Sorted on a total order: mixing str/int/None in ``sorted()`` raises TypeError,
+    and one bad track would take the whole log down to the stub (review finding,
+    2026-07-28).
+    """
+    return ", ".join(
+        str(number)
+        for number in sorted(numbers, key=lambda n: (not isinstance(n, int), str(n)))
+    )
 
 
 def _appended_silence_line(rip_log: RipLog) -> list[str]:
@@ -1365,6 +1406,32 @@ def _interrupted_securing_line(
     return [
         f"Secure re-read      : the securing pass was INTERRUPTED{cause} before it "
         "finished — any track it had not yet re-read carries only its first read"
+    ]
+
+
+def _verified_reread_line(secure_rerip: SecureReripBlock | None) -> list[str]:
+    """A line naming each track whose file is a verified-read chase read (TASKS R7).
+
+    EAC has no such read, so this is our own line, in the status report beside
+    the other caveats we state in our words. The track's own block already shows
+    what was measured of the shipped read (its Copy CRC alone, since it is one
+    read, and its AccurateRip result); without this line nothing says that the
+    securing pass's own read was not the one kept. Reads defensively, like
+    :func:`_interrupted_securing_line`.
+    """
+    if not isinstance(secure_rerip, dict):
+        return []
+    tracks = [
+        n
+        for n in secure_rerip.get("verified_rereads") or []
+        if isinstance(n, int) and not isinstance(n, bool)
+    ]
+    if not tracks:
+        return []
+    listed = ", ".join(str(n) for n in sorted(tracks))
+    return [
+        f"Verified re-read    : track(s) {listed} — the file is a single re-read "
+        "that AccurateRip verifies, kept in place of a read it did not verify"
     ]
 
 
@@ -1661,7 +1728,16 @@ def _track_block(track: TrackResult) -> list[str]:
         )
     )
     out.extend(_crc_lines(track))
-    out.append(f"     {_accuraterip_line(track)}")
+    # No AccurateRip line for a DATA track (TASKS R13). AccurateRip covers audio
+    # only, and cyanrip prints no `Accurip` row for a data track
+    # (`cyanrip@eca33dc7:src/cyanrip_log.c:560-590` returns before them). EAC never
+    # extracts a data track, so it has no per-track sentence for one to follow;
+    # borrowing an audio sentence ("Track not present in AccurateRip database",
+    # which this printed) states a database lookup that was never made for a track
+    # the database cannot hold. Close to EAC, never forged (KDD-24): the row is left
+    # out and the block's own status line, below, says what the track is.
+    if not is_data_track(track):
+        out.append(f"     {_accuraterip_line(track)}")
     if track.status:
         verdict = _status_line(
             track.status,

@@ -29,6 +29,11 @@ module is the *recording* half, which needs nothing from the fork: it states
 both values and whether they agree. The *preferring* half needs a cyanrip
 option and log line, and is round 35's (TASKS R20).
 
+**The one reader of ``rip.track_state``.** Since ``.25`` (``cyanrip-diagnostics/10``)
+each row also says where paranoia reported read errors and skips, and this reader
+hands the row to :func:`platterpus.error_positions.parse_reads` (TASKS R44), so
+the record is opened, bounded and parsed once for both: :attr:`TrackIsrc.reads`.
+
 **Tri-state throughout**: an absent or foreign record is *not determined*, and a
 track with a field missing or mistyped compares as ``not_determined``. Pure
 except :func:`read_isrcs`, which reads one file and never raises. Qt-free.
@@ -45,6 +50,7 @@ from pathlib import Path
 from typing import Final
 
 from platterpus import inbound_text
+from platterpus.error_positions import TrackReads, parse_reads
 from platterpus.ripper_ending import (
     DESCRIBES,
     MAX_RECORD_BYTES,
@@ -97,6 +103,9 @@ class TrackIsrc:
     #: False when a field was missing or of the wrong type: the track then
     #: compares as ``not_determined`` rather than as whatever the gap implied.
     complete: bool = True
+    #: The row's error positions and all-reads counters (``/10``, R44); a row
+    #: from an earlier build reads as ``not_present`` in both.
+    reads: TrackReads = TrackReads()
 
 
 @dataclass(frozen=True)
@@ -321,6 +330,7 @@ def _track(row: object) -> TrackIsrc | None:
         reason,
         ripped=ripped if isinstance(ripped, bool) else None,
         complete=complete,
+        reads=parse_reads(row),
     )
 
 

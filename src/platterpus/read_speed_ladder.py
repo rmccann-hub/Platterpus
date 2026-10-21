@@ -54,6 +54,7 @@ from platterpus.cyanrip_cli import (
     highest_convergeable_repeat_rips,
     retries_flag_value,
 )
+from platterpus.data_tracks import is_data_track
 from platterpus.parsers.rip_log import (
     accuraterip_is_match,
     track_accuraterip_verified,
@@ -68,6 +69,7 @@ from platterpus.report_types import (
     RetriedTrackBlock,
     SpeedPassBlock,
 )
+from platterpus.verified_read_chase import copy_chase_block, kept_read
 
 log = logging.getLogger(__name__)
 
@@ -382,7 +384,9 @@ def tracks_failing_accuraterip(
                 getattr(track, "accuraterip_offset", None)
             ):
                 continue
-            if "data track" in (getattr(track, "status", "") or "").lower():
+            # The shared predicate, so this list and the verdict leave out the same
+            # tracks (TASKS R13 replaced a restated substring check here).
+            if is_data_track(track):
                 continue
             number = getattr(track, "number", None)
             if isinstance(number, int):
@@ -458,6 +462,10 @@ def attempts_to_report(
                     # `.get`, not `[]`: a record written before schema v30
                     # has no reason, and "not recorded" is what None says.
                     replaced_because=r.get("replaced_because"),
+                    # Schema 39 (TASKS R7): which read the album keeps, derived
+                    # in one place, and the verified-read chase, copied.
+                    kept_read=kept_read(r),
+                    verified_read_chase=copy_chase_block(r.get("verified_read_chase")),
                 )
                 for r in (retried or [])
             ],

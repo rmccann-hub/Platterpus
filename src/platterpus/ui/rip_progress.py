@@ -58,10 +58,12 @@ from PySide6.QtWidgets import (
 
 from platterpus import album_loudness, one_frame_match
 from platterpus.build_info import self_invocation
+from platterpus.ctdb.track_wording import per_track_sentence
 from platterpus.ctdb.verify import (
     CtdbVerifyResult,
     Verdict,
     minority_match_sentence,
+    shifted_pressing_phrase,
 )
 from platterpus.parsers.rip_log import (
     RipLog,
@@ -1289,13 +1291,24 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     run" rule.
     """
     verdict = result.verdict
+    # Per track (TASKS R43): the same sentence the verdict's message carries,
+    # added where the whole-disc line alone leaves the reader asking "which
+    # track?" — a minority match and a no-match. Empty with no per-track result.
+    per_track = per_track_sentence(result.tracks, result.total_confidence)
+    per_track = f" {per_track}" if per_track else ""
     if verdict is Verdict.MATCH:
         if result.trustworthy:
-            return f"CTDB: verified ✓ (confidence {result.confidence})"
+            shifted = (
+                f", {shifted_pressing_phrase(result.matched_offset)}"
+                if result.matched_offset
+                else ""
+            )
+            return f"CTDB: verified ✓ (confidence {result.confidence}{shifted})"
         if result.crc_validated and result.outvoted:
-            return "CTDB: " + minority_match_sentence(
+            sentence = minority_match_sentence(
                 result.confidence, result.total_confidence
             )
+            return f"CTDB: {sentence}.{per_track}" if per_track else f"CTDB: {sentence}"
         return (
             f"CTDB: CRC matched (confidence {result.confidence}) — "
             "EXPERIMENTAL, pending hardware validation of the CRC algorithm "
@@ -1308,8 +1321,17 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
         # differs is a false alarm (the real-disc Police report showed exactly
         # this against an AccurateRip-verified rip). Mirror the MATCH path, which
         # already spells itself out as experimental until validated.
+        if result.crc_validated and result.offset_range:
+            # Every alignment CTDB accepts was tried (TASKS R43), so this line
+            # may say what the earlier one below could not: no entry equals ours.
+            return (
+                "CTDB: no match — our audio differs from every entry CTDB holds "
+                f"for this disc, at every alignment within ±{result.offset_range:,} "
+                f"samples. AccurateRip remains the primary proof.{per_track}"
+            )
         if result.crc_validated:
-            # We compute ONE checksum, at the standard alignment. CTDB itself
+            # Without a sweep (a result built from the aligned CRC alone) the
+            # line claims only that alignment, as it did before R43. CTDB itself
             # sweeps ±5879 samples because offset-shifted pressings are routine
             # (see ctdb/crc.py CTDB_OFFSET_RANGE), and our sweep lives only in
             # `--ctdb-calibrate`. So "differs from the database" was a positive
@@ -1319,7 +1341,7 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
                 "CTDB: no match at the standard alignment — CTDB also holds "
                 "offset-shifted pressings and this check only tests the "
                 "standard one, so it isn’t evidence your rip is wrong. "
-                "AccurateRip is the per-track authority."
+                f"AccurateRip is the per-track authority.{per_track}"
             )
         return (
             "CTDB: not confirmed — the CRC check is still experimental (pending "

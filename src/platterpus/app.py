@@ -713,11 +713,19 @@ def _arm_unattended_quit(
         waited = time.monotonic() - (grace_began[0] or time.monotonic())
         if waited >= budget_s:
             timer.stop()
+            # WRITE THE GIVE-UP INTO THE REPORT BEFORE QUITTING (TASKS.md P2 #5):
+            # the record left behind read complete with checks still running. A
+            # stand-in window without the recorder only names what was running.
             still = ""
+            recorder = getattr(window, "_record_post_rip_cut_short", None)
             try:
-                still = window._post_rip_still_running()
-            except Exception:  # noqa: BLE001 — a shutdown message must never stop the exit
-                pass
+                still = (
+                    recorder()
+                    if callable(recorder)
+                    else window._post_rip_still_running()
+                )
+            except Exception:  # noqa: BLE001 — a shutdown step must never stop the exit
+                log.exception("could not record the cut-short verification")
             # The ELAPSED wait, not the budget. The old message printed the
             # constant, so a give-up 0.55 s into the grace period reported itself
             # as "after 900s" — the one line explaining why results are missing,
@@ -1033,22 +1041,14 @@ def main(argv: list[str] | None = None) -> int:
     # hand-copied shell snippet in the docs would be a second description of the
     # install that drifts the first time the pin or a build dep changes.
     if args.install_ripper is not None:
-        from platterpus.deps import fork_source
-        from platterpus.deps.fork_source import (
-            PRODUCTION_TARGET,
-            WIZARD_TARGET,
-            ripper_choices,
-            same_commit,
-            target_for_commit,
-        )
-        from platterpus.deps.host_setup import HostSetup
-        from platterpus.deps.step_engine import StepResult, StepStatus, SubprocessRunner
+        from platterpus.deps import ripper_install
+        from platterpus.deps.fork_source import ripper_choices
 
         # `--install-ripper list` shows the menu instead of installing. A
         # literal, because the flag already takes an optional COMMIT and a
         # separate --list-ripper-builds would be a second surface for one
-        # question. "list" is not a valid abbreviated SHA — git requires at
-        # least 4 hex characters — so it cannot collide with a real commit.
+        # question. "list" is not a valid abbreviated SHA (at least 4 hex
+        # characters), so it cannot collide with a real commit.
         if args.install_ripper.strip().lower() == "list":
             print(
                 f"Platterpus {__version__} — cyanrip builds this version can install\n"
@@ -1065,114 +1065,31 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
 
-        # An operator-supplied commit wins over the pinned one. Resolved HERE, once, so
-        # every line below — the banner we print, the build, and the verify — reads the
-        # same target; the whole reason `ForkTarget` bundles the pin with the tag it must
-        # print is that "build X, verify Y" was once two independent edits.
-        # `latest` / `latest-beta` resolve to a commit from the fork's manifest and are
-        # then exactly `--install-ripper <commit>`. Opt-in only: an unreadable manifest
-        # is a refusal, never the approved build instead (`deps/ripper_latest.py`).
-        from platterpus.deps.ripper_latest import resolve_keyword
-
-        latest = resolve_keyword(args.install_ripper)
-        if latest is not None:
-            print(f"{latest.detail}\n")
-            if latest.target is None:
-                return 1
-            target = latest.target
-        elif args.install_ripper:
-            target = target_for_commit(args.install_ripper)
-        else:
-            target = WIZARD_TARGET
-        # Name the build being installed AND, when it is not the approved one, say so
-        # here — before minutes of dnf and meson, not in the rip report afterwards.
-        # A test pin is installed on purpose during a session and reports
-        # `unapproved` on every rip; the install is the honest place to set that
-        # expectation, because a surprise in a rip report reads as a defect.
-        print(
-            f"Platterpus {__version__} (build {build_fingerprint()}) — installing "
-            f"the ripping stack\n"
-            f"cyanrip build: {target.pin} — {target.why}\n"
-            f"expects banner: {target.expectation}\n"
+        # EVERYTHING BELOW IS `deps/ripper_install.py`; this block only prints it.
+        # The acceptance run's `install-ripper` script verb drives the same
+        # functions (`CLAUDE.md`: a verb and a flag doing one job are two thin
+        # callers of ONE function, never two implementations). The target is
+        # resolved once, so the banner, the build and the verify read the same
+        # one, and a `latest` the manifest cannot answer is a refusal, never the
+        # approved build instead.
+        target, preamble = ripper_install.resolve_cli_target(args.install_ripper)
+        if preamble:
+            print(f"{preamble}\n")
+        if target is None:
+            return 1
+        # Named BEFORE minutes of dnf and meson, with the note when the build is
+        # not the approved one: a surprise in a rip report reads as a defect.
+        print(ripper_install.install_preamble(target))
+        # Each step's result is printed as it lands, so a long step (an image
+        # pull, a meson build) looks like progress instead of a hang — the
+        # terminal equivalent of the wizard's live row updates.
+        outcome = ripper_install.run_install(
+            target,
+            progress=lambda result: print(ripper_install.step_line(result), flush=True),
         )
-        # Compare the PIN, not the whole ForkTarget. `target_for_commit` builds a
-        # target whose `version` and `why` differ by construction, so `!=` was
-        # true even when the operator asked for the approved pin by name — and
-        # the note then announced "no round has approved it" while installing the
-        # build round 7 approved, contradicting what `--rig-check` reports for
-        # the same binary minutes later (measured on the rig, 2026-08-14).
-        # Approval is a property of the commit; only the commit may decide it.
-        if not same_commit(target.pin, PRODUCTION_TARGET.pin):
-            # **THE REASON IS DERIVED, NOT ASSERTED.** This used to end "the round
-            # is open and no round has approved a test pin" — unconditionally,
-            # which is false whenever no round is open, and *between* rounds is
-            # exactly when an operator reaches for a newer build by hand. It was
-            # one of three surfaces carrying its own sentence about round state,
-            # two of which were wrong within an hour on 2026-08-27. One predicate
-            # now, in `fork_source`, and every surface delegates to it.
-            if fork_source.a_round_is_reviewing_a_build():
-                because = (
-                    f"a round is open and is reviewing "
-                    f"{fork_source.PIN_UNDER_REVIEW}; nothing has approved this "
-                    f"build yet"
-                )
-            else:
-                because = (
-                    f"no round is open, so {PRODUCTION_TARGET.pin} is the newest "
-                    f"build our record approves; this one is ahead of it and "
-                    f"unreviewed"
-                )
-            print(
-                f"NOTE: this is not the handshake-approved build "
-                f"({PRODUCTION_TARGET.pin}). Every rip will report\n"
-                f"      'ripper handshake approval: unapproved' — that is correct, "
-                f"not a fault:\n"
-                f"      {because}.\n"
-            )
-        # A step can take minutes (an image pull, a dnf transaction, a meson
-        # build). Print each result as it lands rather than batching at the end,
-        # so a long step looks like progress instead of a hang — the terminal
-        # equivalent of the wizard's live row updates.
-        _MARK: dict[StepStatus, str] = {
-            StepStatus.DONE: "  ok  ",
-            StepStatus.RAN: " done ",
-            StepStatus.FAILED: " FAIL ",
-            StepStatus.WOULD_RUN: " plan ",
-            StepStatus.CANCELLED: "  --  ",
-            StepStatus.RUNNING: "  ..  ",
-        }
-
-        def _show(result: StepResult) -> None:
-            line = f"[{_MARK[result.status]}] {result.title}"
-            if result.detail:
-                line += f" — {result.detail}"
-            print(line, flush=True)
-
-        setup = HostSetup(runner=SubprocessRunner(), fork_target=target)
-        # `step_results`, not `results`: the --doctor block above binds that name
-        # to a list of preflight CheckResults, and reusing it here would make the
-        # two blocks' types collide for no reader benefit.
-        step_results = setup.run(progress=_show)
-        # Report against the ripper being usable, not against every step passing:
-        # cd-paranoia is optional and deliberately last (KDD-29), so its failure
-        # must not read as "the ripper is not installed".
-        failed = [r for r in step_results if r.status is StepStatus.FAILED]
         print()
-        if setup.is_ready():
-            print("Ripping stack is ready. Launch Platterpus and insert a disc.")
-            if failed:
-                names = ", ".join(r.title for r in failed)
-                print(f"Optional step(s) did not complete: {names}")
-            return 0
-        names = ", ".join(r.title for r in failed) or "unknown"
-        print(f"Setup did not complete. Failed step(s): {names}")
-        # Every command's argv and its combined output went to the log via
-        # SubprocessRunner — say where, so the failure is diagnosable without
-        # re-running anything (the diagnostic-completeness rule).
-        from platterpus.paths import LOG_PATH
-
-        print(f"The full command output is in the log: {LOG_PATH}")
-        return 1
+        print(ripper_install.outcome_text(outcome))
+        return outcome.exit_code
 
     # Rig-session mode: the unattended hardware-session harness. A terminal
     # diagnostic like --doctor, so it runs before QApplication and exits.

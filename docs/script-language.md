@@ -110,6 +110,10 @@ text is taken verbatim as one value.
 | `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
 | `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
+| `install-ripper` | 1 | ready | install-ripper <commit|(pin)|(under-review)|(fork-pin)> — build and install that cyanrip fork build with the step engine --install-ripper uses, then read the host export's banner back; only a build our record knows (a numbered fork release, the approved pin, the build under review). (pin) is the build section A accepts |
+| `skip-if-same-build` | 2 | ready | skip-if-same-build <A> <B> — when A and B (as install-ripper reads them) name one build, say 'nothing to compare' (info) and mark the rest of this section N/A instead of running it |
+| `record-timing` | 1 | ready | record-timing <label> — record the last rip's per-track Elapsed: seconds and the build its log names, under <label> (info; an untimed track or an unnamed build is an error, not determined) |
+| `compare-timings` | 2–4 | ready | compare-timings <base> <candidate> [<base2> <candidate2>] — the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05 (info, a measurement; refused as not determined when the tracks, the read counts or the builds do not allow it) |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code|refused> — assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25) |
@@ -880,6 +884,38 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "run-size <quick|standard|full> \u2014 the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped)"
+    },
+    {
+      "name": "install-ripper",
+      "min_args": 1,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "install-ripper <commit|(pin)|(under-review)|(fork-pin)> \u2014 build and install that cyanrip fork build with the step engine --install-ripper uses, then read the host export's banner back; only a build our record knows (a numbered fork release, the approved pin, the build under review). (pin) is the build section A accepts"
+    },
+    {
+      "name": "skip-if-same-build",
+      "min_args": 2,
+      "max_args": 2,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "skip-if-same-build <A> <B> \u2014 when A and B (as install-ripper reads them) name one build, say 'nothing to compare' (info) and mark the rest of this section N/A instead of running it"
+    },
+    {
+      "name": "record-timing",
+      "min_args": 1,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "record-timing <label> \u2014 record the last rip's per-track Elapsed: seconds and the build its log names, under <label> (info; an untimed track or an unnamed build is an error, not determined)"
+    },
+    {
+      "name": "compare-timings",
+      "min_args": 2,
+      "max_args": 4,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "compare-timings <base> <candidate> [<base2> <candidate2>] \u2014 the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05 (info, a measurement; refused as not determined when the tracks, the read counts or the builds do not allow it)"
     },
     {
       "name": "cyanrip",
