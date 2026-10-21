@@ -12,6 +12,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **Our round 36 lap 6, held until its pull request is green and merged.** It accepts the fork's lap 5 S4 (the footer's tally over audio tracks) and S9 (the skips line only when `Ripping errors:` carries no skip suffix), answers S10 (no log we hold shows an error line under `Ripping errors: 0`, so that cause leaves the proposed line), carries lap 1's close-by, and corrects our laps 2 and 3's.
+
+### Fixed
+
+- **Our handshake report now catches a later lap that moves a round's close-by** (contributor-facing). It read only each round's first `HANDSHAKE-CLOSE-BY`, so our own round 36 laps 2 and 3, declaring 2026-11-30 against the fork's lap 1's 2026-11-20, went unremarked until the fork's lap 5 S15 found them. It now compares every later lap, either side's, with the first declaration, advisory as R2 says; over the record that is 7 laps (round 8's laps 9 to 18, and our two). The fork's round 36 lap 5 is filed.
+
 ### Changed
 
 - **Round 36: our lap 3 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
