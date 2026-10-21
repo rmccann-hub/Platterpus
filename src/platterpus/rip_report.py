@@ -48,6 +48,7 @@ from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
     EnvironmentBlock,
+    KeptReadBlock,
     ReportReadSpeedBlock,
     SecureReripBlock,
     TimingBlock,
@@ -440,7 +441,40 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `verdict.message` names a track that differs from AccurateRip's entry for
 #      a disc in the database, where it said "aren't in the database or didn't
 #      match". Additions only.
+#      Same unreleased version, TASKS R7 (the verified-read chase,
+#      `verified_read_chase.py`): `read_speed.retried_tracks[].kept_read` says
+#      which read the album keeps (`first_read`, `securing_pass`,
+#      `verified_reread`), and `retried_tracks[].verified_read_chase` records the
+#      single reads taken when the kept read failed AccurateRip on a disc it
+#      holds (`outcome`, `attempt_limit`, `distinct_reads_seen`, `attempts[]`
+#      with each read's `eac_crc`, `accuraterip_verified`, v1/v2 confidence,
+#      `exit_code` and `kept`, and `kept_attempt`), null when it did not apply.
+#      `read_speed.secure_rerip.verified_rereads` lists the tracks whose file is
+#      such a read, present only when there is one; a kept read's
+#      `replaced_because` is `accuraterip`. Per track, `secure_rerip_kept_read`
+#      (`crc`, `reads`, `accuraterip_confidence`, `last_read_crc`) reads the
+#      fork's PROPOSED limit-line clause "kept X, read N times, which AccurateRip
+#      matches at confidence C" (round 36 lap 4 S11), null without it, which is
+#      every released build. Additions only.
 REPORT_SCHEMA_VERSION: int = 39
+
+
+def _kept_read_block(kept: object) -> KeptReadBlock | None:
+    """A track's `secure_rerip_kept_read` for the report, or None. Never raises."""
+    crc = getattr(kept, "crc", None)
+    reads = getattr(kept, "reads", None)
+    confidence = getattr(kept, "accuraterip_confidence", None)
+    if not (
+        isinstance(crc, str) and isinstance(reads, int) and isinstance(confidence, int)
+    ):
+        return None
+    return {
+        "crc": crc,
+        "reads": reads,
+        "accuraterip_confidence": confidence,
+        "last_read_crc": str(getattr(kept, "last_read_crc", "") or "") or None,
+    }
+
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1894,6 +1928,11 @@ def _track(track: object) -> dict:
         # per-track read-instability flag); None = -Z off / older log. Was parsed
         # but not serialized before v9 — the read-effort signal in machine form.
         "secure_rerip_converged": getattr(track, "secure_rerip_converged", None),
+        # Schema 39 (TASKS R7): the read kept at the limit on AccurateRip's word,
+        # from the fork's proposed clause; None on every build released so far.
+        "secure_rerip_kept_read": _kept_read_block(
+            getattr(track, "secure_rerip_kept_read", None)
+        ),
         # Per-track extraction diagnostics cyanrip logs (None on legacy-format logs):
         # the drive speed this track read at (×), the extraction quality (%),
         # whether pre-emphasis was flagged, and the sample peak level. Surfaced

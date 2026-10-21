@@ -1675,7 +1675,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "error_positions.py": 400,
     # **1924 -> 1957** the 2026-10-21 known-fixes item 3: the `Read stability` line names skipped tracks AccurateRip did not confirm (`_listed_tracks` shared by both lines), and the comment on why the disc-level health sentence stays verbatim until the round 36 handshake.
     # **-> 1972** (2026-10-21): the entries above landed together on one branch.
-    "eac_log_export.py": 1972,
+    # **1924 -> 1952** (2026-10-21, TASKS R7, the verified-read chase): `_verified_reread_line`, the status-report line naming each track whose file is a single re-read AccurateRip verifies, beside the interrupted-pass line it mirrors. The decision and the reads live in `verified_read_chase.py` and `workers/verified_read_run.py`.
+    # **-> 2000** (2026-10-21): the entries above landed together on one branch.
+    "eac_log_export.py": 2000,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1926,7 +1928,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4171 -> 4176** (2026-10-21, TASKS R13): the four data-track statuses are built from `data_tracks.DATA_TRACK_MARKER`, and say so.
     # **3941 -> 3983** the 2026-10-21 known-fixes item 3: `is_ripper_error_line`, the one predicate the worker and the parser share, and the bounded head-and-tail collection of the ripper's error lines into `RipLog.ripper_error_lines`.
     # **-> 4218** (2026-10-21): the entries above landed together on one branch.
-    "parsers/cyanrip_log.py": 4219,
+    # **3941 -> 3975** (2026-10-21, TASKS R7, the verified-read chase): `secure_rerip_read_checksum`, the checksum each `-Z` read prints, as a fragment pattern applied only to lines the loop's own patterns claim, and why it may only be compared within one loop.
+    # **3975 -> 4022** (2026-10-21, TASKS R7, same day): `secure_rerip_read_checksum`, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it, buffered for the track like the agreement count.
+    # **-> 4300** (2026-10-21): the entries above landed together on one branch.
+    "parsers/cyanrip_log.py": 4300,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1950,8 +1955,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1023 -> 1032** (2026-10-19, TASKS R26, round 35): two `TrackResult` fields for the `Beyond disc:` line.
     # **1032 -> 1037** (2026-10-20, the owner's word "yes, read twice by default"): the `accuraterip_disc_status` field the parser fills.
     # **1037 -> 1138** (2026-10-21, round 36 lap 1 S4 to S6): the state constants for `.26`'s two drive-header lines (with why `not_present` and `unrecognised` exist), the four `RippingInfo` fields, and `TrackResult.pregap_search_frames` with why None is not "the searches agreed".
-    "parsers/rip_log.py": 1145,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **1037 -> 1044** `RipLog.ripper_error_lines` and `ripper_error_lines_total` (2026-10-21, known-fixes item 3), the parsed fields `rip_health` compares with the summary.
+    # **1037 -> 1062** (2026-10-21, TASKS R7): `LimitKeptRead` and `TrackResult.secure_rerip_kept_read`, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it.
+    # **-> 1170** (2026-10-21): the entries above landed together on one branch.
+    "parsers/rip_log.py": 1170,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1971,7 +1978,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **450 -> 465** (2026-10-05, the fork's round 30 lap 9 S12): `read_errors_present` reads `RipLog.drive_read_errors` first, so `.20`'s paranoia skips leave the whole-disc step-down, and the module docstring says a step also needs the pass to have finished. The decision itself went to a new focused module, `ladder_trigger.py`, rather than here.
     # **465 -> 467** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the retried-track copy carries `trigger` again (schema v36); it had been dropped since v0.6.19.
     # **467 -> 470** (2026-10-21, TASKS R13): the retry list asks `data_tracks.is_data_track`.
-    "read_speed_ladder.py": 470,
+    # **467 -> 472** (2026-10-21, TASKS R7, the verified-read chase): the retried-track copy carries `kept_read` and a copy of `verified_read_chase` (schema 39); both are derived and copied by `verified_read_chase.py`.
+    # **-> 475** (2026-10-21): the entries above landed together on one branch.
+    "read_speed_ladder.py": 475,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -2001,7 +2010,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 883** (2026-10-21): both of the above landed together, the MP3 ReplayGain block and R44's error positions.
     # **815 -> 819** (2026-10-21, TASKS P2 #6): `RipBlock.read_offset_check`, typed by `read_offset_check.ReadOffsetCheckBlock`.
     # **-> 887** (2026-10-21): the entries above landed together on one branch.
-    "report_types.py": 887,
+    # **815 -> 855** (2026-10-21, TASKS R7, the verified-read chase): `ChaseAttemptBlock`, `VerifiedReadChaseBlock`, and the two retried-track keys and the `verified_rereads` key that carry them, each with what it means.
+    # **855 -> 869** (2026-10-21, TASKS R7, same day): `KeptReadBlock` and the per-track `secure_rerip_kept_read` key, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it.
+    # **-> 941** (2026-10-21): the entries above landed together on one branch.
+    "report_types.py": 941,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2107,7 +2119,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3072** (2026-10-21): the entries above landed together on one branch.
     # **2911 -> 2935** the 2026-10-21 known-fixes items 3 and 12: the v39 history note, the `health_findings` parameter and the loop that adds them to `issues`, and `health_status` read through `rip_health.effective_health_status`. The findings themselves are worded in `rip_health.py`.
     # **-> 3096** (2026-10-21): the entries above landed together on one branch.
-    "rip_report.py": 3096,
+    # **2911 -> 2922** (2026-10-21, TASKS R7, the verified-read chase): the schema-39 note for `kept_read`, `verified_read_chase` and `verified_rereads`.
+    # **2922 -> 2950** (2026-10-21, TASKS R7, same day): `_kept_read_block` and the per-track key, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it.
+    # **-> 3135** (2026-10-21): the entries above landed together on one branch.
+    "rip_report.py": 3135,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2496,7 +2511,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5000 -> 5006** (2026-10-21, TASKS R44): `_last_disc` carries `error_positions`, built by `error_positions.report_block` from the same worker reading as `isrc_provenance`.
     # **5000 -> 5032** (2026-10-21, TASKS P2 #6, the owner's known-fixes item 11): `_announce_read_offset_check` puts the report's read-offset sentence in the results pane, and both report writes hand the writer the AccurateRip list. The check and its wording live in `read_offset_check.py`.
     # **-> 5038** (2026-10-21): the entries above landed together on one branch.
-    "ui/main_window_rip.py": 5038,
+    # **5000 -> 5023** (2026-10-21, TASKS R7, the verified-read chase): `_merge_shipped_track` gives a chase read its own read count and no re-read verdict, so the EAC-layout log never pairs a single read as Test and Copy CRC; the merge rule lives here.
+    # **5023 -> 5031** (2026-10-21, TASKS R7, same day): the merge moves the kept-read clause with the verdict it describes, never the first pass's under the re-rip's verdict.
+    # **-> 5069** (2026-10-21): the entries above landed together on one branch.
+    "ui/main_window_rip.py": 5069,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2848,7 +2866,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4239 -> 4284** (2026-10-20, the owner's word "yes, read twice by default"): the second read's log lines, status wording and report field.
     # **4284 -> 4307** (2026-10-20, round 35, the fork's exit classes from release 36): the album pass's build tag kept off the handle, its property, and the failed-exit sentence asked of `ripper_exit_class.explain_failed_exit`; the wording lives there.
     # **4307 -> 4162** SHRANK (2026-10-21): the diagnostic-line matcher moved to `ripper_error_lines.py` so the log parser shares it.
-    "workers/rip_worker.py": 4162,
+    # **4307 -> 4425** (2026-10-21, TASKS R7, the verified-read chase): `_rip_once` keeps a chase read's exit status off the securing pass's field (`verified_reread`), `_auto_fix_tracks` calls the chase before the unstable list and the addendum, and `_chase_verified_reads` / `_read_once_for_chase` apply what it kept. The decision is `verified_read_chase.py` and the loop `workers/verified_read_run.py`; only the worker owns `_rip_once` and the swap records.
+    # **-> 4280** (2026-10-21): the entries above landed together on one branch.
+    "workers/rip_worker.py": 4280,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

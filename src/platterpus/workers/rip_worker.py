@@ -99,6 +99,11 @@ from platterpus.verdict import (
     REREAD_KEPT_FOR_CONVERGENCE,
     reread_supersedes,
 )
+from platterpus.workers.verified_read_run import (
+    SingleRead,
+    chase_tracks,
+    keep_chase_logs,
+)
 
 log = logging.getLogger(__name__)
 
@@ -895,6 +900,11 @@ class RipWorker(QObject):
         # `_securing_pass_started`; otherwise the pass never ran.
         self._securing_pass_started: bool = False
         self._securing_pass_exit_code: int | None = None
+        # The last verified-read chase read's exit status (TASKS R7), its own
+        # field so a chase read is never reported as the securing pass's.
+        self._chase_exit_code: int | None = None
+        # The tracks whose file is a chase read (`secure_rerip_report`).
+        self._verified_rereads: list[int] = []
         # The build tag of the ALBUM pass's ripper, as its banner read at spawn
         # (`RipHandle.build_tag`). What its exit code means depends on it: from fork
         # release 36 a 64 is a refused argument and a 74 the disc or drive, before
@@ -1698,7 +1708,7 @@ class RipWorker(QObject):
         skipped_reason}``. The GUI reads this at finish."""
         if self._secure_rerip_mode == "off":
             return None
-        return {
+        block: SecureReripBlock = {
             "mode": self._secure_rerip_mode,
             "engaged": self._secure_rerip_engaged,
             "disc_in_accuraterip": self._disc_in_accuraterip,
@@ -1706,6 +1716,11 @@ class RipWorker(QObject):
             "interrupted": self._secure_rerip_interrupted,
             "accuraterip_standing": self._accuraterip_standing,
         }
+        # Only when a chase kept a read (TASKS R7), so a rip without one is
+        # unchanged. A chase needs a -Z pass first, so the mode is never "off".
+        if self._verified_rereads:
+            block["verified_rereads"] = list(self._verified_rereads)
+        return block
 
     # --- Slots ---
 
@@ -2162,6 +2177,7 @@ class RipWorker(QObject):
         output_dir: Path | None = None,
         only_tracks: tuple[int, ...] = (),
         pass_kind: str = _PASS_ALBUM,
+        verified_reread: bool = False,
     ) -> tuple[bool, str] | None:
         """Run ONE rip pass at the given speed/``-Z``; stream its output.
 
@@ -2188,12 +2204,20 @@ class RipWorker(QObject):
         calling in), so a new call site cannot start a pass that never declared
         what kind it is — it would simply inherit the previous pass's model, which
         is precisely the bug.
+
+        ``verified_reread`` marks a ``_PASS_REFIX`` read that is one read of the
+        verified-read chase (TASKS R7), not the securing pass: it is shown like
+        the securing pass, but its exit status and ``-j`` record are not that
+        pass's, so it writes neither of the securing pass's fields.
         """
         self._reset_pass_progress(kind=pass_kind, tracks=tuple(only_tracks))
         # An error the securing pass hits says so: the window keeps the last error
         # as the reason a FAILED rip failed, and since ruling C1 a failed album
         # pass can be followed by a securing pass.
         said_by = "the securing pass: " if pass_kind == _PASS_REFIX else ""
+        if verified_reread:
+            said_by = "the verified re-read: "
+        securing = pass_kind == _PASS_REFIX and not verified_reread
         out_dir = output_dir or self._params.output_dir
         # Only the MAIN rip passes snapshot an incremental report — never the
         # throwaway auto-fix temp rip (output_dir set). See _write_incremental_report.
@@ -2237,7 +2261,7 @@ class RipWorker(QObject):
                 self._ripper_argv_first_pass = self._ripper_argv
             # The securing pass ran from here on: its process exists. Its exit
             # status, `None` until reaped, is only meaningful beside this.
-            if pass_kind == _PASS_REFIX:
+            if securing:
                 self._securing_pass_started = True
             # Where this pass's `-j` record goes, read off the argv as spawned and
             # the directory it ran in. An album pass's stays where cyanrip wrote
@@ -2248,7 +2272,7 @@ class RipWorker(QObject):
             record = diagnostics_record.record_path_from_argv(
                 self._ripper_argv, out_dir
             )
-            if pass_kind == _PASS_REFIX:
+            if securing:
                 self._securing_record_source = record
             if incremental:
                 # The LAST album pass's record is the one whose ending the rip's
@@ -2554,12 +2578,14 @@ class RipWorker(QObject):
         # ONE FIELD PER PASS. `_ripper_exit_code` is the album pass's (the last
         # whole-disc or `-l` pass, the one the rip's status describes); the
         # securing pass, which since ruling C1 also follows an album pass that
-        # exited 1, has its own, so neither is reported as the other's.
-        securing = pass_kind == _PASS_REFIX
+        # exited 1, has its own, so neither is reported as the other's; and a
+        # verified-read chase read has its own again (TASKS R7).
         # The build that ran, read off the handle (`getattr`: a stand-in handle
         # without the attribute reads as "no banner", i.e. not determined).
         build_tag = str(getattr(self._handle, "build_tag", "") or "")
-        if securing:
+        if verified_reread:
+            self._chase_exit_code = exit_code
+        elif securing:
             self._securing_pass_exit_code = exit_code
         else:
             self._ripper_exit_code = exit_code
@@ -2598,7 +2624,7 @@ class RipWorker(QObject):
                 exit_code,
                 self.captured_stdout,
                 message=(
-                    f"the {'securing' if securing else 'album'} pass's ripper "
+                    f"{said_by.removesuffix(': ') or 'the album pass'}'s ripper "
                     f"exited {exit_code}"
                     + (f" — {self._failure_hint}" if self._failure_hint else "")
                 ),
@@ -3155,6 +3181,7 @@ class RipWorker(QObject):
                 # Bare return: the enclosing `try` has a `finally` that removes
                 # `tmp_root`, and every other early exit here leaves the same way.
                 return
+            pass_start = len(self._retried_tracks)
             for track in getattr(rerip_log, "tracks", ()) or ():
                 number = getattr(track, "number", None)
                 if number not in tracks:
@@ -3197,6 +3224,22 @@ class RipWorker(QObject):
                         "replaced_because": reason if replaced else None,
                     }
                 )
+            # TASKS R7: a track whose kept read AccurateRip did not verify, on a
+            # disc it holds, is read again singly until a read it verifies comes
+            # (`verified_read_chase.py`). Before the unstable list and the
+            # addendum below, so both describe the file the chase leaves.
+            for number in self._chase_verified_reads(
+                self._retried_tracks[pass_start:],
+                rerip_log,
+                rerip_log_path,
+                first_pass_crcs or {},
+                first_pass_tracks or {},
+                swapped,
+                album_log_path,
+            ):
+                if number not in fixed:
+                    fixed.append(number)
+                kept_for[number] = REREAD_KEPT_FOR_ACCURATERIP
             # Whatever we kept no better read for stays flagged as unstable (a
             # genuinely unreadable-consistently track — dynamic mode adds these,
             # the -Z path narrows its set). A converged read — even one that still
@@ -3246,6 +3289,75 @@ class RipWorker(QObject):
                 # nothing swapped, stopped, or failed (TASKS R9).
                 self._keep_securing_pass_record()
                 shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _chase_verified_reads(
+        self,
+        entries: list[RetriedTrackBlock],
+        rerip_log: object,
+        rerip_log_path: str,
+        first_pass_crcs: dict[int, str],
+        first_pass_tracks: dict[int, object],
+        swapped: list[SupersededTrack],
+        album_log_path: str,
+    ) -> list[int]:
+        """Run the verified-read chase over the securing pass's tracks (TASKS R7).
+
+        The loop is ``verified_read_run.chase_tracks``; this applies what it kept:
+        a kept read replaces the track's row in ``swapped`` (the addendum
+        describes the file on disk) and its record in ``_swapped_track_records``,
+        and every attempt's own log is kept beside the album's. Returns the
+        tracks whose file is now a chase read. Never raises.
+        """
+        kept, sections = chase_tracks(
+            entries,
+            rerip_log=rerip_log,
+            rerip_log_text=read_log_with_addendum(rerip_log_path),
+            first_pass_tracks=first_pass_tracks,
+            shipped=self._swapped_track_records,
+            max_retries=self._params.max_retries,
+            read_once=self._read_once_for_chase,
+            parse_log=self._parse_log,
+            swap_in=self._swap_in_reripped_track,
+            cancelled=lambda: self._cancelled,
+            say=self.log_line.emit,
+            status=self.status.emit,
+        )
+        for number, track in kept.items():
+            self._swapped_track_records[number] = track
+            swapped[:] = [row for row in swapped if row.number != number]
+            swapped.append(
+                self._superseded_record(
+                    track, first_pass_crcs.get(number, ""), REREAD_KEPT_FOR_ACCURATERIP
+                )
+            )
+            self._verified_rereads.append(number)
+        target = keep_chase_logs(album_log_path, sections)
+        if target is not None:
+            self.log_line.emit(
+                f"[verified read] each single read's own ripper log is kept as "
+                f"{target.name}"
+            )
+        return list(kept)
+
+    def _read_once_for_chase(self, number: int, folder: Path) -> SingleRead | None:
+        """One single read of ``number`` into ``folder``, for the chase (TASKS R7).
+
+        No ``-Z`` (``secure_rerip_matches=0``), no speed change, through
+        ``_rip_once`` like every other pass, so the backend's argv chokepoint and
+        ``cancel()`` cover it. None when the read could not start.
+        """
+        outcome = self._rip_once(
+            read_speed=0,
+            secure_rerip_matches=0,
+            output_dir=folder,
+            only_tracks=(number,),
+            pass_kind=_PASS_REFIX,
+            verified_reread=True,
+        )
+        if outcome is None:
+            return None
+        success, log_path = outcome
+        return SingleRead(success, log_path, self._chase_exit_code, self._ripper_argv)
 
     def _keep_securing_pass_record(self) -> None:
         """Keep the securing pass's ``--diagnostics`` record, or say why not.
@@ -3486,6 +3598,12 @@ class RipWorker(QObject):
                 "first read did not"
                 if reason == REREAD_KEPT_FOR_ACCURATERIP
                 else "did not converge"
+            )
+        elif reason == REREAD_KEPT_FOR_ACCURATERIP:
+            # The verified-read chase's single read (TASKS R7): no -Z ran on it.
+            reread = (
+                "a single read with no -Z; kept because it matches AccurateRip "
+                "and the read it replaces did not"
             )
         else:
             reread = ""

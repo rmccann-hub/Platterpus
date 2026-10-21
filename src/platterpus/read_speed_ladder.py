@@ -69,6 +69,7 @@ from platterpus.report_types import (
     RetriedTrackBlock,
     SpeedPassBlock,
 )
+from platterpus.verified_read_chase import copy_chase_block, kept_read
 
 log = logging.getLogger(__name__)
 
@@ -461,6 +462,10 @@ def attempts_to_report(
                     # `.get`, not `[]`: a record written before schema v30
                     # has no reason, and "not recorded" is what None says.
                     replaced_because=r.get("replaced_because"),
+                    # Schema 39 (TASKS R7): which read the album keeps, derived
+                    # in one place, and the verified-read chase, copied.
+                    kept_read=kept_read(r),
+                    verified_read_chase=copy_chase_block(r.get("verified_read_chase")),
                 )
                 for r in (retried or [])
             ],

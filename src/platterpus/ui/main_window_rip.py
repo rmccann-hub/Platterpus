@@ -99,6 +99,7 @@ from platterpus.ui.unknown_album import (
     launch_picard_for,
 )
 from platterpus.verdict import expected_track_total, recount_accuraterip_summary
+from platterpus.verified_read_chase import KEPT_VERIFIED_REREAD, kept_read
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
 from platterpus.workers.derived_verify_worker import (
@@ -318,6 +319,7 @@ def _merge_shipped_track(
     shipped: TrackResult | None,
     verdicts: dict[int, bool],
     agreements: dict[int, RereadAgreement] | None = None,
+    single_read: bool = False,
 ) -> TrackResult:
     """One track's first-pass record, corrected to describe the shipped file.
 
@@ -335,6 +337,11 @@ def _merge_shipped_track(
     ``agreements`` is the worker's ``reread_agreements``: how many reads agreed in
     each re-read, from the re-rip's own log, swapped in or not. It is applied
     with the verdict, never without it.
+
+    ``single_read`` is True when ``shipped`` is a verified-read chase read
+    (TASKS R7): one read with no ``-Z``. No re-read verdict, agreement or read
+    count describes it, so all three are its own, even when unreported; the
+    first pass's ``(after 3 rips)`` would render a Test/Copy pair for one read.
     """
     from dataclasses import replace
 
@@ -383,6 +390,14 @@ def _merge_shipped_track(
             ),
             replaygain=_reported(shipped.replaygain, track.replaygain),
         )
+    if single_read and shipped is not None:
+        return replace(
+            track,
+            rip_count=shipped.rip_count,
+            secure_rerip_converged=None,
+            secure_rerip_agreement=None,
+            secure_rerip_kept_read=None,
+        )
     verdict = verdicts.get(track.number)
     if verdict is not None:
         # The convergence verdict is ours, from the auto-fix history — it wins
@@ -397,7 +412,14 @@ def _merge_shipped_track(
         if reread is None and shipped is not None:
             reread = shipped.secure_rerip_agreement
         track = replace(
-            track, secure_rerip_converged=verdict, secure_rerip_agreement=reread
+            track,
+            secure_rerip_converged=verdict,
+            secure_rerip_agreement=reread,
+            # The kept-read clause describes the same reads (TASKS R7): the
+            # shipped read's own, never the first pass's under the re-rip's verdict.
+            secure_rerip_kept_read=(
+                shipped.secure_rerip_kept_read if shipped is not None else None
+            ),
         )
     return track
 
@@ -3919,11 +3941,16 @@ class RipMixin(MainWindowShared):
             # `_last_retried_tracks` is the worker's own record of what it
             # re-ripped (mirrored into the report as read_speed.retried_tracks).
             verdicts: dict[int, bool] = {}
+            # Tracks whose file is a verified-read chase read (TASKS R7): the
+            # securing pass's verdict is about reads that did not ship.
+            single: set[int] = set()
             for entry in getattr(self, "_last_retried_tracks", []) or []:
                 number = entry.get("track")
                 if not isinstance(number, int):
                     continue
-                if entry.get("converged"):
+                if kept_read(entry) == KEPT_VERIFIED_REREAD:
+                    single.add(number)
+                elif entry.get("converged"):
                     # Only a re-read that actually replaced the album's file
                     # proves anything about the file that's there now.
                     if entry.get("replaced"):
@@ -3944,7 +3971,11 @@ class RipMixin(MainWindowShared):
             )
             tracks = tuple(
                 _merge_shipped_track(
-                    track, shipped.get(track.number), verdicts, agreements
+                    track,
+                    shipped.get(track.number),
+                    verdicts,
+                    agreements,
+                    single_read=track.number in single,
                 )
                 for track in rip_log.tracks
             )

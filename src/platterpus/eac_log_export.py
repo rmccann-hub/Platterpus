@@ -311,8 +311,9 @@ def render_eac_style_log_and_defused(
     * ``encoder_versions`` — ``{dep_id: version}`` for the FLAC encoder
       (``flac``/``metaflac``) and, when a derived format was produced,
       ``ffmpeg``; from :func:`platterpus.build_info.encoder_versions`.
-    * ``secure_rerip`` — :attr:`RipWorker.secure_rerip_report`. Only its
-      ``interrupted`` flag is read: an auto-fix securing pass cut short (the app
+    * ``secure_rerip`` — :attr:`RipWorker.secure_rerip_report`. Its
+      ``verified_rereads`` names the tracks the verified-read chase kept a read
+      for (TASKS R7); otherwise only its ``interrupted`` flag is read: an auto-fix securing pass cut short (the app
       was closed mid-pass) is a fact the JSON report carried and the durable log
       did not, so the archival artifact was the more reassuring of the two —
       the exact asymmetry this module exists to prevent (audit, 2026-07-28).
@@ -530,7 +531,8 @@ def _render(
             rip_log,
             _read_stability_line(rip_log)
             + _appended_silence_line(rip_log)
-            + _interrupted_securing_line(secure_rerip, outcome_status),
+            + _interrupted_securing_line(secure_rerip, outcome_status)
+            + _verified_reread_line(secure_rerip),
             disc_track_total=disc_track_total,
         )
     )
@@ -1404,6 +1406,32 @@ def _interrupted_securing_line(
     return [
         f"Secure re-read      : the securing pass was INTERRUPTED{cause} before it "
         "finished — any track it had not yet re-read carries only its first read"
+    ]
+
+
+def _verified_reread_line(secure_rerip: SecureReripBlock | None) -> list[str]:
+    """A line naming each track whose file is a verified-read chase read (TASKS R7).
+
+    EAC has no such read, so this is our own line, in the status report beside
+    the other caveats we state in our words. The track's own block already shows
+    what was measured of the shipped read (its Copy CRC alone, since it is one
+    read, and its AccurateRip result); without this line nothing says that the
+    securing pass's own read was not the one kept. Reads defensively, like
+    :func:`_interrupted_securing_line`.
+    """
+    if not isinstance(secure_rerip, dict):
+        return []
+    tracks = [
+        n
+        for n in secure_rerip.get("verified_rereads") or []
+        if isinstance(n, int) and not isinstance(n, bool)
+    ]
+    if not tracks:
+        return []
+    listed = ", ".join(str(n) for n in sorted(tracks))
+    return [
+        f"Verified re-read    : track(s) {listed} — the file is a single re-read "
+        "that AccurateRip verifies, kept in place of a read it did not verify"
     ]
 
 

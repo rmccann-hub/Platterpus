@@ -265,6 +265,27 @@ class RereadAgreement:
 
 
 @dataclass(frozen=True)
+class LimitKeptRead:
+    """The read cyanrip kept at the repeat limit because AccurateRip matches it.
+
+    PROPOSED by the fork (round 36 lap 4 S11, ``cyanrip@32d17db:docs/handshake/
+    round-36-lap-04.md``), behind a long-only ``--prefer-accuraterip-match`` that no
+    released build accepts yet: at the limit, on a disc in AccurateRip, cyanrip
+    keeps the highest-confidence read whose v1/v2 checksum matches, and says so on
+    the limit line. ``crc`` is that read's value as the line prints it, ``reads``
+    how many reads gave it, ``accuraterip_confidence`` the match's confidence, and
+    ``last_read_crc`` the last read's value when it was not the one kept ("" when
+    it was). Read so a release of ours can take the line before a build emits it
+    (TASKS R7); Platterpus does not send the option.
+    """
+
+    crc: str
+    reads: int
+    accuraterip_confidence: int
+    last_read_crc: str = ""
+
+
+@dataclass(frozen=True)
 class TrackResult:
     """One track's results from the rip log."""
 
@@ -326,6 +347,10 @@ class TrackResult:
     # `secure_rerip_converged`, so anything that replaces that verdict must
     # replace this too (`ui/main_window_rip._merge_shipped_track`).
     secure_rerip_agreement: RereadAgreement | None = None
+    # The read cyanrip kept at the limit on AccurateRip's word, from the fork's
+    # PROPOSED limit-line clause (`LimitKeptRead`); None when the line has none,
+    # which is every build so far. Describes the same reads as the two above.
+    secure_rerip_kept_read: LimitKeptRead | None = None
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without
