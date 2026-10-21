@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Our round 36 lap 3, held until its pull request is green and merged.** It accepts the fork's lap 4 S11 to S13 (`--prefer-accuraterip-match`, the footer's `not written whole:` lines with `isrc_disc_read` at `/11`, and `Kept read began:`), records `.26` under review, lists the known fixes since lap 2, proposes three EAC-layout wordings (error positions, `There were errors`, the read-offset note), and corrects lap 2: 0.7.112, not 0.7.111, names `.26`.
+
 - **CTDB now reports each track, not only the whole disc** (TASKS R43). CTDB keeps a CRC
   for every track of every entry, and Platterpus now compares each of ours with them, the
   way CUETools does: a track agrees with an entry when its CRC equals the entry's at that
