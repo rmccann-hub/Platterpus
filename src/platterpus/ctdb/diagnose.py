@@ -28,6 +28,7 @@ from platterpus.ctdb.coverage import disc_track_count
 from platterpus.ctdb.crc import CTDB_OFFSET_RANGE, ctdb_trims
 from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
 from platterpus.ctdb.verify import PcmDecoder, Verdict, verify_rip
+from platterpus.data_tracks import data_track_numbers
 
 # A line sink — defaults to print(); tests capture into a list.
 Out = Callable[[str], None]
@@ -120,6 +121,7 @@ def run_diagnostics(
         flacs,
         client,
         disc_tracks=disc_tracks,
+        data_tracks=data_track_numbers(file_set.rip_log),
         decoder=decode_pcm,
         samples_probe=probe,
     )

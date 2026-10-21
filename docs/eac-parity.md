@@ -1112,7 +1112,7 @@ every earlier release still read such a disc once (E3).
 | CTDB | **Worse** | Whole-disc check at offset 0 only; EAC's plugin reports per track, locates the bad samples, and submits. A match against a minority entry is amber, not green, from 0.7.110 (E5, TASKS R34) |
 | Error location | **Worse** today | Skip counts per track, no positions, in the build users get; the fork's tip adds positions |
 | Cue sheet | **Worse** today | Pregaps match EAC in 23 of 26 rips, track 9 one frame off in 3 (E4); ISRCs are MusicBrainz's, not the disc's (TASKS R20) |
-| Odd discs (HTOA, Enhanced CD, image + cue) | **Worse** | HTOA and image mode absent; data tracks mishandled (R12, R13) |
+| Odd discs (HTOA, Enhanced CD, image + cue) | **Worse** | HTOA and image mode absent; data tracks copied by default (R12; the verdict's miscount, R13, fixed 2026-10-21) |
 | Contributing back (AccurateRip, CTDB) | **Worse** | AccurateRip submission is impossible from Linux; CTDB submission not built |
 | Tracker acceptance | **Worse, by design** | Logcheckers accept EAC and XLD by name (Part D); not chased |
 | Diagnostics in the record | **Better** | Paranoia counts, loudness, per-track speed, JSON report, session log |
@@ -1264,7 +1264,7 @@ more than double. No disc AccurateRip lacks has yet been ripped this way on hard
 | Pregaps, `INDEX 00` | Matches all ten of EAC's pregap rows in 23 of the 26 rips, the 2026-08-04 one included (`tests/test_fork_rip_eac_parity.py`); the 2026-10-07 cue's `INDEX 00` lines equal EAC's. In three, track 9 reads `0:00:01.26`, one frame longer than the `0:00:01.25` EAC read in all three sessions: `round30oct05fullsecurereread`, `round32fullwholedisc` and `round33fullwholedisc` (the last at evidence commit `f57cdc2b`). The cue follows: track 9's `INDEX 00` is `03:44:10` in `round32fullwholedisc.cue:69` where EAC's is `03:44:11` (`EAC_flac/eac_baseline_police_classics.cue:74`). The sub-channel read varies from rip to rip; it is the fork's `subchannel-pregap-varies` (TASKS R10) | Equal in 23 of 26; one frame off on track 9 in 3 |
 | Hidden track one audio (HTOA) | Not supported (out of scope, TASKS.md) | Worse (rare discs) |
 | Pre-emphasis | Kept as the disc stores it (`-W`) with `FLAGS PRE` in the cue, from 0.7.102; never ripped on hardware | Equal, but not shown on a real disc |
-| Data tracks (Enhanced CD) | `.23` copies them by default, and the verdict counts a data track as a missing audio track (TASKS R12, R13) | Worse |
+| Data tracks (Enhanced CD) | `.23` copies them by default (TASKS R12). The verdict counted a data track as a missing audio track until 2026-10-21 (R13): every surface now counts audio tracks only, and the EAC-layout log prints no AccurateRip line for a data track | Worse |
 | Single-file image + cue | Not supported (Part A P5) | Worse |
 
 ### E5. Verification, output and record
@@ -1313,7 +1313,7 @@ other.**
 4. **Deepen CTDB:** per-track results, then the offset-shifted sweep, then localisation
    of bad samples, then submission (TASKS R43). Repair stays deferred under KDD-14.
    Weighing a match against the entries that disagree is done (TASKS R34, 0.7.110).
-5. **Ship disc ISRCs** with `.24` (R20) and **data-track handling** (R12, R13).
+5. **Ship disc ISRCs** with `.24` (R20) and **data-track handling** (R12; R13 is done).
 6. **Show error positions** once the fork releases them. They need EAC-layout wording
    agreed through the handshake, since the fork diffs that log (TASKS R44).
 7. HTOA and image + cue: low, only if users ask.

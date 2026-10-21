@@ -54,6 +54,7 @@ from platterpus.cyanrip_cli import (
     highest_convergeable_repeat_rips,
     retries_flag_value,
 )
+from platterpus.data_tracks import is_data_track
 from platterpus.parsers.rip_log import (
     accuraterip_is_match,
     track_accuraterip_verified,
@@ -382,7 +383,9 @@ def tracks_failing_accuraterip(
                 getattr(track, "accuraterip_offset", None)
             ):
                 continue
-            if "data track" in (getattr(track, "status", "") or "").lower():
+            # The shared predicate, so this list and the verdict leave out the same
+            # tracks (TASKS R13 replaced a restated substring check here).
+            if is_data_track(track):
                 continue
             number = getattr(track, "number", None)
             if isinstance(number, int):

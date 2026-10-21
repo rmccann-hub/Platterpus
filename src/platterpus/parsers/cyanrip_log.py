@@ -71,6 +71,7 @@ from dataclasses import dataclass, field, replace
 from typing import Final
 
 from platterpus import diagnostics
+from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
     ACCURATE_STREAM_DECLARED_SUPPORTED,
@@ -1814,10 +1815,10 @@ class _Disc:
 
 
 #: A data track's ``TrackResult.status``. Every one contains ``"data track"``,
-#: because that substring is what every consumer keys on to leave a data track out
-#: of AccurateRip, the read-speed ladder and the artifact grading
-#: (``read_speed_ladder``, ``uiscript.artifact_grading``); a new status that lost it
-#: would put a data track into the audio tallies. Four, because from
+#: because that substring is what ``data_tracks.is_data_track`` keys on, and every
+#: consumer asks it to leave a data track out of AccurateRip, the verdict, the
+#: EAC-layout log, the read-speed ladder and the artifact grading; a new status
+#: that lost it would put a data track into the audio tallies. Four, because from
 #: ``+platterpus.23`` a data track is copied by default and the log says how that went:
 #:
 #: * ``skipped`` — ``Track N is data, skipping:`` (``-X``), or an older build's
@@ -1833,10 +1834,14 @@ class _Disc:
 #:   open the ``.bin``, whose message is the cue writer's wording too, so it is not
 #:   claimed as evidence) also reads as ``skipped``; the footer's ``Rip completed:
 #:   no (aborted, …)`` is what says that rip failed.
-DATA_TRACK_SKIPPED: Final[str] = "data track (skipped)"
-DATA_TRACK_COPIED: Final[str] = "data track (copied)"
-DATA_TRACK_COPIED_WITH_ERRORS: Final[str] = "data track (copied with errors)"
-DATA_TRACK_COPY_NOT_COMPLETED: Final[str] = "data track (copy not completed)"
+#:
+#: Built from ``data_tracks.DATA_TRACK_MARKER``, the substring
+#: :func:`~platterpus.data_tracks.is_data_track` keys on, so a status written
+#: here is a data track to every consumer by construction (TASKS R13).
+DATA_TRACK_SKIPPED: Final[str] = f"{DATA_TRACK_MARKER} (skipped)"
+DATA_TRACK_COPIED: Final[str] = f"{DATA_TRACK_MARKER} (copied)"
+DATA_TRACK_COPIED_WITH_ERRORS: Final[str] = f"{DATA_TRACK_MARKER} (copied with errors)"
+DATA_TRACK_COPY_NOT_COMPLETED: Final[str] = f"{DATA_TRACK_MARKER} (copy not completed)"
 DATA_TRACK_STATUSES: Final[frozenset[str]] = frozenset(
     {
         DATA_TRACK_SKIPPED,

@@ -34,6 +34,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QFormLayout, QLabel, QMenu, QWidget
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
+from platterpus.data_tracks import is_data_track
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import track_accuraterip_verified
@@ -219,7 +220,12 @@ class DiscInfoPanel(QWidget):
         here would silently miss every cyanrip match ("accurately ripped,
         confidence N" has no "exact match" substring).
         """
-        tracks = getattr(rip_log, "tracks", ()) or ()
+        # Audio tracks only, the banner's population (TASKS R13): a data track has
+        # no AccurateRip result, so counting it made a mixed disc whose every audio
+        # track verified read "2 of 3 tracks matched".
+        tracks = [
+            t for t in getattr(rip_log, "tracks", ()) or () if not is_data_track(t)
+        ]
         total = len(tracks)
         if total == 0:
             self._accuraterip_value.setText(_PLACEHOLDER)

@@ -547,6 +547,236 @@ def test_the_eac_layout_log_gives_a_data_track_no_audio_verdict() -> None:
     assert "1A2B3C4D" not in text
 
 
+# --- 2b. a data track is not an audio track (TASKS R13) -------------------------
+#
+# The defect, reproduced on `_mixed_disc()` before the fix (2026-10-21): every audio
+# track verified, and the trust banner read "⚠ 2 of 3 tracks verified against
+# AccurateRip — 1 track produced no result at all", the EAC-layout log printed
+# "Track not present in AccurateRip database" in the data track's block and closed
+# with "Some tracks could not be verified as accurate". The disc total every caller
+# passes in is cyanrip's `Disc tracks:`, which is `cdio_cddap_tracks()` and counts
+# data tracks (`cyanrip@eca33dc7:src/cyanrip_main.c:405`, printed at
+# `src/cyanrip_log.c:1015`), and a data track's block carries no `Accurip` row at
+# all (`cyanrip_log_track_end()` returns before them for a data track,
+# `cyanrip@eca33dc7:src/cyanrip_log.c:560-590`). So the data track was both in
+# the denominator and, having no result, counted as the audio track that "produced
+# no result".
+
+
+def _converged_unmatched_disc() -> str:
+    """The mixed disc again, its audio read twice to agreement and not in AccurateRip.
+
+    The `Done;` verdict line precedes each audio track's opener, which is where the
+    repeat loop prints it; the `Accurip` rows are the `not found` shape, which
+    prints the checksums with no parenthetical (`src/cyanrip_log.c:669-690`).
+    """
+    audio = (
+        _AUDIO_BLOCK.replace("disc found in database (max confidence: 5)", "not found")
+        .replace(" (accurately ripped, confidence 5)", "")
+        .replace(
+            "Track {n} read successfully!",
+            "Done; (2 out of 2 matches for current checksum 0000000{n})\n"
+            "Track {n} read successfully!",
+        )
+    )
+    return (
+        _RC3_START_REPORT
+        + "\nTracks:\n\n"
+        + _DATA_BLOCK.format(n=1, start=0, end=149)
+        + audio.format(n=2, start=150, end=299)
+        + audio.format(n=3, start=300, end=449)
+        + _FOOTER.replace("Tracks ripped accurately: 2/3\n", "")
+    )
+
+
+def test_a_mixed_disc_whose_every_audio_track_verified_is_bit_perfect() -> None:
+    """The headline R13 names: green, over the audio tracks, the data track named."""
+    from platterpus.verdict import accuraterip_verdict
+
+    parsed = parse_cyanrip_log(_mixed_disc())
+    message, level = accuraterip_verdict(parsed, disc_track_total=3)
+    assert level == "ok", message
+    assert message.startswith("✓ Bit-perfect: all 2 tracks verified"), message
+    assert "produced no result" not in message
+    # Said, not hidden: the reader can see why "all 2" stands beside a 3-track TOC.
+    assert "Track 1 is a data track, which AccurateRip does not cover." in message
+
+
+def test_a_data_track_is_never_a_track_that_produced_no_result() -> None:
+    """A real audio failure on a mixed disc is still counted: only data leaves."""
+    from platterpus.verdict import accuraterip_verdict
+
+    failed_audio = "Track 3 read with errors.\n  Preemphasis:   none detected\n\n"
+    text = _mixed_disc().replace(
+        _AUDIO_BLOCK.format(n=3, start=300, end=449), failed_audio
+    )
+    message, level = accuraterip_verdict(parse_cyanrip_log(text), disc_track_total=3)
+    assert level == "warn"
+    assert message.startswith("⚠ 1 of 2 tracks verified"), message
+    assert "1 track produced no result at all" in message
+
+
+def test_a_stopped_mixed_disc_still_reports_the_audio_it_never_reached() -> None:
+    """The residue, held: a track the log never reached cannot be told to be data.
+
+    The data track is in the log here, so it leaves the total; track 3 is absent,
+    and absent tracks stay counted as never ripped, which a cancel makes true.
+    """
+    from platterpus.verdict import accuraterip_verdict
+
+    text = _mixed_disc().replace(_AUDIO_BLOCK.format(n=3, start=300, end=449), "")
+    message, level = accuraterip_verdict(
+        parse_cyanrip_log(text), disc_track_total=3, outcome_status="cancelled"
+    )
+    assert level == "warn"
+    assert message.startswith("⚠ 1 of 2 tracks verified"), message
+    assert "the rip was cancelled so 1 track was never ripped" in message
+
+
+def test_a_mixed_disc_whose_audio_reads_agreed_gets_the_reads_agree_verdict() -> None:
+    """`reads_agree_without_accuraterip` counted the data track as a track never
+    re-read, so a mixed disc could never earn the named verdict."""
+    from platterpus.verdict import accuraterip_verdict, reads_agree_without_accuraterip
+
+    parsed = parse_cyanrip_log(_converged_unmatched_disc())
+    assert [t.secure_rerip_converged for t in parsed.tracks] == [None, True, True]
+    assert reads_agree_without_accuraterip(parsed, disc_track_total=3)
+    message, level = accuraterip_verdict(parsed, disc_track_total=3)
+    assert level == "neutral"
+    assert message.startswith("ⓘ Reads agree: all 2 tracks"), message
+
+
+def test_the_eac_layout_log_gives_a_data_track_no_accuraterip_line() -> None:
+    """No AccurateRip sentence in the data track's block, and a clean close.
+
+    EAC never extracts a data track, so it has no per-track wording for one to
+    borrow; an audio sentence there would be a false statement about a track
+    AccurateRip does not cover (KDD-24: close to EAC, never forged). The status
+    report's counts then partition the audio tracks, and say so.
+    """
+    from platterpus.eac_log_export import render_eac_style_log
+
+    text = render_eac_style_log(parse_cyanrip_log(_mixed_disc()), disc_track_total=3)
+    data_block = text[text.index("Track  1\n") : text.index("Track  2\n")]
+    assert "AccurateRip" not in data_block
+    assert "Accurately ripped" not in data_block
+    assert DATA_TRACK_COPIED in data_block
+    assert text.count("Track not present in AccurateRip database") == 0
+    assert " 2 track(s) accurately ripped" in text
+    assert "All tracks accurately ripped" in text
+    assert "Some tracks could not be verified as accurate" not in text
+
+
+def test_every_surface_counts_the_same_two_audio_tracks_on_a_mixed_disc() -> None:
+    """The relation, not one surface: banner, JSON verdict, status line and EAC log
+    agree on the audio count, and none of them counts the data track as audio."""
+    from platterpus.eac_log_export import render_eac_style_log
+    from platterpus.rip_report import build_report
+    from platterpus.ui.main_window_helpers import fidelity_summary
+    from platterpus.verdict import accuraterip_verdict
+
+    parsed = parse_cyanrip_log(_mixed_disc())
+    banner, _ = accuraterip_verdict(parsed, disc_track_total=3)
+    report = build_report(parsed, disc_track_total=3)
+    status = fidelity_summary(parsed, expected_track_total=3)
+    eac = render_eac_style_log(parsed, disc_track_total=3)
+    assert "all 2 tracks" in banner
+    assert report["verdict"]["message"] == banner
+    assert "all 2 tracks ripped cleanly" in status, status
+    assert "AccurateRip: all 2 verified." in status, status
+    assert "2/3" not in status
+    assert " 2 track(s) accurately ripped" in eac
+    # The completeness block counts TRACKS, data included, against the same total.
+    assert report["completeness"]["tracks_in_report"] == 3
+    assert report["completeness"]["complete"] is True
+
+
+def test_the_disc_info_panel_counts_audio_tracks_only(qapp: object) -> None:
+    from platterpus.ui.disc_info_panel import DiscInfoPanel
+
+    panel = DiscInfoPanel()
+    panel.set_accuraterip_result(parse_cyanrip_log(_mixed_disc()))
+    assert panel._accuraterip_value.text() == "verified — all 2 tracks matched"
+
+
+def test_is_data_track_is_the_one_predicate_and_nothing_restates_it() -> None:
+    """One predicate, N callers: every data status satisfies it, no audio status
+    does, and no module under `src/` restates the substring check beside it.
+
+    Floored, so the sweep cannot pass by reading nothing.
+    """
+    import re as _re
+    from pathlib import Path
+
+    from platterpus.data_tracks import is_data_track
+
+    class _T:
+        def __init__(self, status: object) -> None:
+            self.status = status
+
+    assert all(is_data_track(_T(status)) for status in DATA_TRACK_STATUSES)
+    for status in ("ripped successfully", "ripped with errors", "", None, 3):
+        assert not is_data_track(_T(status))
+    src = Path(__file__).resolve().parents[1] / "src" / "platterpus"
+    sources = sorted(src.rglob("*.py"))
+    assert len(sources) >= 100, len(sources)
+    restated = _re.compile(r"""["']data track["']\s+(?:not\s+)?in\b""")
+    offenders = [
+        str(path.relative_to(src))
+        for path in sources
+        if restated.search(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+def test_a_data_track_never_enters_the_accuraterip_tally_whatever_it_carries() -> None:
+    """Belt and braces: even a data track a future shape gave an AccurateRip result
+    stays out of `accuraterip_counts`, so it can never be "verified" audio."""
+    from types import SimpleNamespace
+
+    from platterpus.parsers.rip_log import AccurateRipResult
+    from platterpus.verdict import accuraterip_counts
+
+    match = AccurateRipResult(version=1, confidence=5, local_crc="11111111")
+    data = SimpleNamespace(
+        number=1, status=DATA_TRACK_COPIED, copy_crc="", accuraterip_v1=match
+    )
+    assert accuraterip_counts(SimpleNamespace(tracks=[data])) == (0, 0, 0)
+
+
+def test_ctdb_names_the_data_track_rather_than_a_partial_rip(tmp_path: object) -> None:
+    """CTDB's TOC is built from the FLACs, so a disc with a data track cannot be
+    looked up from them; the refusal must say that, not "2 of 3 tracks", which
+    claims the rip left a track out."""
+    from pathlib import Path
+
+    from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
+    from platterpus.ctdb.toc import DiscToc
+    from platterpus.ctdb.verify import Verdict
+    from platterpus.workers.ctdb_worker import verify_rip_dir
+
+    class _Refuse(CTDBClient):
+        def lookup(self, toc: DiscToc) -> CtdbLookupResult:
+            raise AssertionError("CTDB was asked about a TOC without its data track")
+
+    def _never(path: Path) -> bytes:
+        raise AssertionError(f"{path} was decoded")
+
+    assert isinstance(tmp_path, Path)
+    album = tmp_path / "o"
+    album.mkdir()
+    (album / "rip.log").write_text(_mixed_disc(), encoding="utf-8")
+    for name in ("1.bin", "2.flac", "3.flac"):
+        (album / name).write_bytes(b"")
+    result = verify_rip_dir(
+        _Refuse(), album, samples_probe=lambda _p: 150, decoder=_never
+    )
+    assert result is not None
+    assert result.verdict is Verdict.NOT_WHOLE_DISC
+    assert "data track" in result.message, result.message
+    assert "2 of the disc's 3 tracks" not in result.message
+
+
 # --- 3. the `Speed:` line ------------------------------------------------------
 
 

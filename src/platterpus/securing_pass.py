@@ -257,8 +257,9 @@ def tracks_read(rip_log: object) -> list[int]:
     """The track numbers the album pass read and wrote, sorted. Never raises.
 
     "Wrote" is a CRC on the track's record: a track listed but never ripped has
-    no read to compare a second one against. A data track has no record in
-    cyanrip's log, so it is never in this list.
+    no read to compare a second one against. A data track has a block in the log
+    from the fork's ``.23`` but never a Copy CRC (its ``CRC32:`` is filed as
+    ``data_crc32``), so it is never in this list.
     """
     crcs, _records = first_pass_records(rip_log)
     return sorted(crcs)

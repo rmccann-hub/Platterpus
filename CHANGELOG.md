@@ -89,6 +89,19 @@ the owner's word of 2026-10-20.
 
 ### Fixed
 
+- **A data track no longer counts as an audio track with no result** (TASKS R13). On an
+  Enhanced CD whose every audio track verified, the verdict read "⚠ 2 of 3 tracks verified
+  … 1 track produced no result", the EAC-layout log printed "Track not present in
+  AccurateRip database" in the data track's block and closed "Some tracks could not be
+  verified as accurate", the status line said "2/3 tracks ripped cleanly", the disc panel
+  "2 of 3 tracks matched", and CTDB said the rip had "2 of the disc's 3 tracks". The disc
+  total is cyanrip's `Disc tracks:`, which counts data tracks, and a data track has no
+  AccurateRip result. One predicate and one key, in the new `data_tracks.py`, now serve
+  every one of those surfaces: they count audio tracks only, the verdict names the data
+  track it leaves out, the EAC-layout log gives it no AccurateRip line, and CTDB says its
+  table of contents cannot hold the data track. A mixed disc whose audio reads agreed can
+  now earn the "reads agree" verdict, which a data track used to block.
+  `tests/test_cyanrip_rc3_readiness.py` section 2b holds it.
 - **Our handshake checker accepts an opener whose close condition is an LSL `TERM set` statement.** The fork's round 36 lap 1 fixed its close as `S18 TERM set:` under "## The close" without the words "close condition", and our opener floor, which matched only the phrase, refused it.
 - **The joint script's SECTION C expects `.25`'s exit class for six argument refusals** (`-c /`, `-c //`, `-p =`, `-p ==`, `-l 1-2`, an unknown flag): `expect-exit refused`, which answers 64 from fork release 36 and 1 before it, landed as the fork's round 36 lap 1 S13 gave them. Opening round 36 also moves the round named in the generated `bom.cdx.json` and the `DEPENDENCIES.md` map, regenerated with `scripts/emit_bom.py`.
 - **`CLAUDE.md` records the owner's word for the next release, and `docs/handshake/README.md` no longer says an open round blocks releases.** The owner's word of 2026-10-20 covers the next release (the second read and the fixes since 0.7.110) and puts the timed `.25`-vs-`.26` rip inside the Full run; the README line still described the rule protocol v8 §6b retired in round 31.

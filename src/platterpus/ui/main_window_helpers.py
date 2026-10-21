@@ -22,6 +22,7 @@ from pathlib import Path
 from platterpus import diagnostics, naming
 from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
+from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.verdict import track_has_unverified_skips
 
@@ -479,7 +480,7 @@ def fidelity_summary(
     wording the verdict around what that ripper actually verifies — don't
     claim a Test/Copy match a ripper didn't perform.
     """
-    tracks = getattr(rip_log, "tracks", ()) or ()
+    every_track = getattr(rip_log, "tracks", ()) or ()
     # `expected_track_total` is the number of tracks this rip was ASKED for; the
     # log only contains the ones it got to. Using the log's own count made a
     # cancelled 2-of-14 rip announce "all 2 tracks ripped cleanly" — the same
@@ -487,7 +488,14 @@ def fidelity_summary(
     # the desktop notification. The banner was given this fact and this function
     # was not, six lines apart, which is how a fix reaches three surfaces out of
     # four (audit finding, 2026-07-30).
-    total = expected_track_total if expected_track_total else len(tracks)
+    #
+    # AUDIO tracks, with the banner's own key (TASKS R13). The total counts an
+    # Enhanced CD's data track and a data track is never "ripped successfully", so
+    # a mixed disc whose audio was flawless read "2/3 tracks ripped cleanly".
+    # `audio_track_totals` takes each logged data track out of both sides.
+    tracks = [t for t in every_track if not is_data_track(t)]
+    total, _logged = audio_track_totals(rip_log, expected_track_total)
+    # No audio track logged (none, or a disc of data only): nothing to grade.
     if not tracks:
         return "Rip cancelled." if cancelled else "Done."
 
@@ -601,7 +609,10 @@ def _accuraterip_clause(rip_log: object) -> str | None:
       non-confirmation).
     * ``" AccurateRip: …"`` — the verified count, worded like the banner.
     """
-    tracks = getattr(rip_log, "tracks", ()) or ()
+    # Audio tracks only, as the banner counts them (TASKS R13): a data track has
+    # no AccurateRip result, so with it in `total` a mixed disc whose every audio
+    # track verified read "AccurateRip: 2/3 verified".
+    tracks = [t for t in getattr(rip_log, "tracks", ()) or () if not is_data_track(t)]
     has_ar = any(
         getattr(t, "accuraterip_v1", None) is not None
         or getattr(t, "accuraterip_v2", None) is not None

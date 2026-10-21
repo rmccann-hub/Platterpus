@@ -136,7 +136,9 @@ class CtdbVerifyResult:
 PcmDecoder = Callable[[Path], bytes]
 
 
-def not_whole_disc_result(covered: int, disc_tracks: int) -> CtdbVerifyResult:
+def not_whole_disc_result(
+    covered: int, disc_tracks: int, data_tracks: Sequence[int] = ()
+) -> CtdbVerifyResult:
     """The verdict for a file list that does not cover the disc. No lookup made.
 
     The message is the one sentence every surface shows (the Details tab reads
@@ -144,7 +146,27 @@ def not_whole_disc_result(covered: int, disc_tracks: int) -> CtdbVerifyResult:
     ``not run — <why>`` shape. It names both numbers, because "not run" alone
     would leave a reader guessing whether the check was skipped, dropped, or
     broken.
+
+    ``data_tracks`` are the numbers of the disc's DATA tracks the rip's log holds
+    (TASKS R13). When they make up the whole shortfall, the rip left nothing out:
+    the disc is an Enhanced CD, and the TOC built from the audio files cannot hold
+    its data track. "this rip has 2 of the disc's 3 tracks" said the rip was
+    partial when it was not, so that case gets its own sentence. The verdict stays
+    NOT_WHOLE_DISC, because the TOC we can build still is not the disc's.
     """
+    if data_tracks and covered + len(data_tracks) >= disc_tracks:
+        if len(data_tracks) == 1:
+            which = f"its data track (track {data_tracks[0]})"
+        else:
+            named = ", ".join(str(n) for n in data_tracks[:-1])
+            which = f"its data tracks (tracks {named} and {data_tracks[-1]})"
+        return CtdbVerifyResult(
+            Verdict.NOT_WHOLE_DISC,
+            message=(
+                "not run — CTDB verifies whole discs, and the table of contents "
+                f"built from this rip's audio files cannot include {which}"
+            ),
+        )
     return CtdbVerifyResult(
         Verdict.NOT_WHOLE_DISC,
         message=(
@@ -159,6 +181,7 @@ def verify_rip(
     client: CTDBClient,
     *,
     disc_tracks: int | None = None,
+    data_tracks: Sequence[int] = (),
     decoder: PcmDecoder | None = None,
     samples_probe: SamplesProbe | None = None,
 ) -> CtdbVerifyResult:
@@ -171,6 +194,8 @@ def verify_rip(
     tracks, nothing is probed, decoded or looked up: the result is
     :attr:`Verdict.NOT_WHOLE_DISC`. ``None`` keeps the old behaviour, because a
     count we do not have is not evidence that the rip is partial.
+    ``data_tracks`` (the log's data-track numbers) only words that refusal: see
+    :func:`not_whole_disc_result`.
 
     `decoder`/`samples_probe` are injected in tests; production defaults use
     the host `flac`/`metaflac`.
@@ -188,7 +213,7 @@ def verify_rip(
     #    the folder-scan fallback that can is already logged at WARNING by
     #    `rip_files` as the reduced-confidence case it is.
     if disc_tracks is not None and len(flac_paths) < disc_tracks:
-        return not_whole_disc_result(len(flac_paths), disc_tracks)
+        return not_whole_disc_result(len(flac_paths), disc_tracks, data_tracks)
 
     # 1) TOC → 2) lookup.
     try:

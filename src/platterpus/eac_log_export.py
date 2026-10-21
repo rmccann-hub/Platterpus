@@ -50,6 +50,7 @@ import re
 from datetime import datetime
 
 from platterpus import diagnostics, one_frame_match
+from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.cyanrip_log import (
     INTERRUPTED_MID_READ,
     INTERRUPTED_NOT_DETERMINED,
@@ -1137,8 +1138,13 @@ def _status_report(
         # This is the fourth place the log's own track list was used as the
         # denominator for a completeness claim. A stopped rip can shrink that
         # list; it cannot shrink the disc.
-        expected = disc_track_total or len(rip_log.tracks)
-        attempted = len(rip_log.tracks)
+        #
+        # AUDIO tracks, on both sides (TASKS R13). `total` above counts audio only,
+        # and a data track is in both the log's track list and cyanrip's `Disc
+        # tracks:`, so with it in `attempted` a mixed disc whose every audio track
+        # verified closed "Some tracks could not be verified as accurate". The
+        # verdict banner takes the same two numbers from the same function.
+        expected, attempted = audio_track_totals(rip_log, disc_track_total)
         # `not_verified`, NOT `neither`. An offset-variant match is not an exact
         # match, so a disc where every track matched only the +450 pressing must
         # never announce "All tracks accurately ripped" — which is exactly what
@@ -1661,7 +1667,16 @@ def _track_block(track: TrackResult) -> list[str]:
         )
     )
     out.extend(_crc_lines(track))
-    out.append(f"     {_accuraterip_line(track)}")
+    # No AccurateRip line for a DATA track (TASKS R13). AccurateRip covers audio
+    # only, and cyanrip prints no `Accurip` row for a data track
+    # (`cyanrip@eca33dc7:src/cyanrip_log.c:560-590` returns before them). EAC never
+    # extracts a data track, so it has no per-track sentence for one to follow;
+    # borrowing an audio sentence ("Track not present in AccurateRip database",
+    # which this printed) states a database lookup that was never made for a track
+    # the database cannot hold. Close to EAC, never forged (KDD-24): the row is left
+    # out and the block's own status line, below, says what the track is.
+    if not is_data_track(track):
+        out.append(f"     {_accuraterip_line(track)}")
     if track.status:
         verdict = _status_line(
             track.status,
