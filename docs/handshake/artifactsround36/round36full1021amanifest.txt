@@ -1,0 +1,364 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            20261021T113505Z
+platterpus         0.7.112
+build              9bf0cd3
+rip outcome        acceptance test session
+ripper build wanted platterpus-fork-gca0f097 ONLY — the build under review
+album folders      9, each archived under album/ unless marked otherwise:
+  timing B2 20261021t113505 platterpus-fork-gca0f097 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/The Police/timing B2 20261021t113505 platterpus-fork-gca0f097
+  timing A2 20261021t113505 platterpus-fork-g5f1d036 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/The Police/timing A2 20261021t113505 platterpus-fork-g5f1d036
+  timing B1 20261021t113505 platterpus-fork-gca0f097 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/The Police/timing B1 20261021t113505 platterpus-fork-gca0f097
+  timing A1 20261021t113505 platterpus-fork-g5f1d036 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/The Police/timing A1 20261021t113505 platterpus-fork-g5f1d036
+  secure reread 20261021t113505 platterpus-fork-gca0f097 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/The Police/secure reread 20261021t113505 platterpus-fork-gca0f097
+  r16deemphoff         ~/platterpus-rig/platterpustestsession20261021t113505z/rips/r16deemphoff
+  r16deemphon          ~/platterpus-rig/platterpustestsession20261021t113505z/rips/r16deemphon
+  derived wav 20261021t113505 platterpus-fork-gca0f097 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/The Police/derived wav 20261021t113505 platterpus-fork-gca0f097
+  full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097 ~/platterpus-rig/platterpustestsession20261021t113505z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  acceptance script      /tmp/.mount_platteDjjfGD/opt/python3.12/lib/python3.12/site-packages/platterpus/rig_scripts/fullacceptance.txt
+  album folders          9
+  album folders dropped  0
+  album folders examined 9
+  rip at the end of the run no rip was reading when the run ended
+  ripper -j records      10 found in the rips folders
+  ripper -j records missing none named by 7 rip report(s); 2 folder(s) have no rip report (a script's cyanrip verb), so their invocations are not covered here
+  ripper processes when packed none
+  run ended              reached the last step
+  run outcome            ⚠ The run finished with 60 FAILURE(S) — 424 of 485 step(s) passed. Send the file anyway: the failures are the point.
+  run size               full
+  run verdict            pass 424, fail 60, error 0, skipped 0, blocked 0, unreachable 1, info 12
+  screen lock            ✓ Screen lock: held (screensaver (no blanking, no lock)) — The desktop agreed to keep the screen on, with no blanking and no lock, for this run; that is its promise, not a measurement, and each screenshot step reports whether the display was showing the app. It is released when the run ends, or if Platterpus exits.
+  session folder         ~/platterpus-rig/platterpustestsession20261021t113505z
+  sleep lock             ✓ Sleep lock: held (idle:sleep:handle-lid-switch) — Idle, sleep and lid suspend are held off for this run (idle:sleep:handle-lid-switch). The lock is released automatically when the run ends — there is nothing to undo.
+  sources absent         0
+  sources collected      15
+  sources failed         0
+  your settings          restored after the run; it had changed output_dir, auto_launch_picard, debug_logging, force_overread, secure_rerip_dynamic, write_eac_log_after_rip, rip_goal, update_channel, ripper_channel
+
+INCLUDED (100 file(s))
+----------------------------------------
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log       3855 B
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.cue        844 B
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.log      12127 B
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.platterpus.json     361227 B
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036 (EAC-compatible).log       3751 B
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.cue        844 B
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.log      11862 B
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.platterpus.json     385932 B
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log       3855 B
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.cue        844 B
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.log      12127 B
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.platterpus.json     331448 B
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036 (EAC-compatible).log       3751 B
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.cue        844 B
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.log      11820 B
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.platterpus.json     335746 B
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log      10196 B
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.cue       2956 B
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.log      43901 B
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.platterpus.json     718479 B
+  album/r16deemphoff/Unknown disc (PNTI).cue                  284 B
+  album/r16deemphoff/Unknown disc (PNTI).log                 5266 B
+  album/r16deemphon/Unknown disc (PNTI).cue                   284 B
+  album/r16deemphon/Unknown disc (PNTI).log                  5284 B
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log       3392 B
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.cue        684 B
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.log       9459 B
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.platterpus.json     223230 B
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log       9577 B
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.cue       3127 B
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.log      40729 B
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus-addendum.txt       2325 B
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus-securing-pass.txt      10749 B
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus.json     586973 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T113543Z.json      57011 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T115304Z-securingpass.json      22628 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T120851Z.json      20869 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T121155Z.json      61777 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T130747Z.json      14863 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T130913Z.json      14847 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T131047Z.json      23634 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T132257Z.json      23954 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T132730Z.json      23691 B
+  ripperdiagnostics/cyanrip-diagnostics-20261021T133941Z.json      23954 B
+  session/artifacts/02platterpus/log.txt                   723683 B
+  session/artifacts/13platterpus/config.toml                 1192 B
+  session/run/aftercancel-1-Pick-a-MusicBrainz-release.png      59031 B
+  session/run/aftercancel-2-Run-test-script.png            141318 B
+  session/run/aftercancel.png                              125683 B
+  session/run/afterfullrip-1-Run-test-script.png           152173 B
+  session/run/afterfullrip.png                             171249 B
+  session/run/aftermp3-1-Run-test-script.png               141626 B
+  session/run/aftermp3.png                                 149849 B
+  session/run/afteroverwrite-1-Pick-a-MusicBrainz-release.png      59031 B
+  session/run/afteroverwrite-2-Run-test-script.png         149957 B
+  session/run/afteroverwrite.png                           127307 B
+  session/run/afterrecovery-1-Run-test-script.png          150078 B
+  session/run/afterrecovery.png                            149407 B
+  session/run/aftersecurereread-1-Run-test-script.png      152267 B
+  session/run/aftersecurereread.png                        175011 B
+  session/run/afterwav-1-Run-test-script.png               152722 B
+  session/run/afterwav.png                                 158160 B
+  session/run/cacheprobe1362.txt                            19691 B
+  session/run/dialogdependencies-1-Dependency-check-complete.png      38174 B
+  session/run/dialogdependencies-2-Run-test-script.png     141284 B
+  session/run/dialogdependencies.png                       112787 B
+  session/run/dialogdiagnostics-1-Diagnostics.png           99459 B
+  session/run/dialogdiagnostics-2-Run-test-script.png      128945 B
+  session/run/dialogdiagnostics.png                        112787 B
+  session/run/dialogdrive-1-Set-up-drive.png                73966 B
+  session/run/dialogdrive-2-Run-test-script.png            136457 B
+  session/run/dialogdrive.png                              112925 B
+  session/run/dialogsettings-1-Settings.png                185532 B
+  session/run/dialogsettings-2-Run-test-script.png         140204 B
+  session/run/dialogsettings.png                           112925 B
+  session/run/installripper1628.txt                         14370 B
+  session/run/installripper1635.txt                         14335 B
+  session/run/installripper1642.txt                         14370 B
+  session/run/installripper1649.txt                         14335 B
+  session/run/installripper1657.txt                           939 B
+  session/run/report.json                                  376890 B
+  session/run/rig-check/MANIFEST.txt                        16326 B
+  session/run/rig-check/argv-probe-output.txt                 479 B
+  session/run/rig-check/argv-probe.json                      1679 B
+  session/run/rig-check/ripper-version.txt                     58 B
+  session/run/tags0729.txt                                    847 B
+  session/run/tags1112.txt                                    806 B
+  session/run/tags1277.txt                                    808 B
+  session/run/transcript.txt                               168673 B
+  session/transcript.txt                                   168673 B
+  session/zz-applog-rotations/03platterpus/log.txt.1      8378716 B
+  session/zz-applog-rotations/04platterpus/log.txt.2      8386136 B
+  session/zz-applog-rotations/05platterpus/log.txt.3      8386839 B
+  session/zz-applog-rotations/06platterpus/log.txt.4      8386167 B
+  session/zz-applog-rotations/07platterpus/log.txt.5      8387135 B
+  session/zz-applog-rotations/08platterpus/log.txt.6      8387500 B
+  COMPONENTS.json                                            1508 B
+  DIAGNOSTICS.txt                                            5673 B
+  SETTINGS.json                                              2696 B
+  SOURCES.txt                                                2372 B
+
+NOT INCLUDED (51 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/04 - Walking on the Moon.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/05 - Don’t Stand So Close to Me.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/06 - De Do Do Do, De Da Da Da.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/07 - Every Little Thing She Does Is Magic.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/08 - Invisible Sun.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/09 - Spirits in the Material World.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/10 - Every Breath You Take.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/11 - King of Pain.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/12 - Wrapped Around Your Finger.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/13 - Don’t Stand So Close to Me ’86.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/14 - Message in a Bottle (new classic rock mix).flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/r16deemphoff/01 - Unknown track.flac           excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/r16deemphon/01 - Unknown track.flac            excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/01 - Roxanne.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/02 - Can’t Stand Losing You.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/cover.jpg excluded: '.jpg' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/04 - Walking on the Moon.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/05 - Don’t Stand So Close to Me.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/06 - De Do Do Do, De Da Da Da.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/07 - Every Little Thing She Does Is Magic.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/08 - Invisible Sun.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/09 - Spirits in the Material World.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/10 - Every Breath You Take.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/11 - King of Pain.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/12 - Wrapped Around Your Finger.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/13 - Don’t Stand So Close to Me ’86.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/14 - Message in a Bottle (new classic rock mix).flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  session/zz-applog-rotations/09platterpus/log.txt.7   excluded: the bundle's 67108864-byte total budget was already spent (58905961 bytes) and this file is 8385616 bytes. Nothing is dropped silently — this line IS the record that it was.
+  session/zz-applog-rotations/10platterpus/log.txt.8   excluded: the bundle's 67108864-byte total budget was already spent (58905961 bytes) and this file is 8388168 bytes. Nothing is dropped silently — this line IS the record that it was.
+  session/zz-applog-rotations/11platterpus/log.txt.9   excluded: the bundle's 67108864-byte total budget was already spent (58905961 bytes) and this file is 8384957 bytes. Nothing is dropped silently — this line IS the record that it was.
+  session/zz-applog-rotations/12platterpus/log.txt.10  excluded: the bundle's 67108864-byte total budget was already spent (58905961 bytes) and this file is 8388546 bytes. Nothing is dropped silently — this line IS the record that it was.
+
+SHA-256 OF EVERY INCLUDED MEMBER (100), of the bytes written into this archive
+----------------------------------------
+  Each line is in sha256sum's format, so after extracting the archive:
+    grep -E '^\\?[0-9a-f]{64}  ' MANIFEST.txt | sha256sum -c
+  Computed from the bytes written, so a file kept head+tail is hashed
+  with its elision marker. MANIFEST.txt cannot hash itself; the
+  archive's own hash covers it.
+c99612768ed69c38556c4586cb07f43fd516efbba72013341b28974b99367c4c  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log
+a799782162b292d855d69d2d77f10a4b5fbcd9137ceaf8b41fc2bdf1becf9787  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.cue
+74740de6072f1c7ef3f5b86731b1d5d8f20b63c6384ecd53fa794d27756f6a20  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.log
+0b993a47712255b2b4ea40d9e42fa0efe957d2f1731def4276cd23f9ebc8b420  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.platterpus.json
+9eff2acf92c4faba5946a7475b243a62a532cb510d389838ad42bbe6145529ba  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036 (EAC-compatible).log
+2ad123290982be81448d0d7290daf084dcb897d8f932902fa2da66c0e9c893bd  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.cue
+8747b4c6bb3738c1c6cc4cd40c8273f1d4795b5003f38d2bd7a576b9e9999907  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.log
+66f4831fd6fe5d9d27e11f238d1338b33facce8444d7197dc07837c0e0217c54  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.platterpus.json
+6ac930267de603655c1a5ba13c8524c58530b2ac67fb7e04d50a830266efc187  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log
+5ed187f44c7746fae887750a23570e95695fcba465e0279e36cbba40edbbb0f1  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.cue
+8a2bc69cae8362f366d035f0ac4447a55d70fe4efc5032310c24681d901198f6  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.log
+539b695591ec3ed228f9ce8d1498707eae9e1681d9118a98ee32c89124669043  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.platterpus.json
+18ea13d3e52c3ff2f964249f77e5162e81c6a39a35025cebbb15109d87654f3e  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036 (EAC-compatible).log
+a61987d5cdb907c3b87b96207fed14105d3c2a54c3a4c74eb084f9d9727549a2  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.cue
+1712452f4f8f926d7b609f2ecace049701404747281a5108b0dcb9e5870b9862  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.log
+b5cd59f439d666ec4f2cc8448a25a76ae6e2f7dbe2360a78b550d2b2ab11bbee  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.platterpus.json
+c5c4685f31436c1666ea02dd2eec18bfdc12f7f0559e60bd57d8828aa4ada365  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log
+6357e2c61a1a91701f6f1b3ea928e53c66a2054b85b566fc851b3051fcb45770  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.cue
+e6b02d3782d23e60c2b99ccba52b6d32ffe9a95d15acef12ac55cc7908b95146  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.log
+c1056139a83674d30ea7f6021bbf5f495959aa8714135ba86f0472d18577ac83  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.platterpus.json
+60904104c7a9c4c8c14ba02f0ff33b37913e8f178f77abac3679daea3af00d38  album/r16deemphoff/Unknown disc (PNTI).cue
+26885a04c1bd1127c34c5073579cf49130cc951287f573ad68476be37bba02a5  album/r16deemphoff/Unknown disc (PNTI).log
+60904104c7a9c4c8c14ba02f0ff33b37913e8f178f77abac3679daea3af00d38  album/r16deemphon/Unknown disc (PNTI).cue
+ca5580681ab0b222e6a8999e641a009d0b71ca6cc59e98fc6a5c29e0177b9362  album/r16deemphon/Unknown disc (PNTI).log
+e69bf44653823a95aa4dad88e54bedfffdccc75d184c7d498ed45ea7940fb792  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log
+64878430edd453f053df3a35965363d64a09da8a06194768eb8e7b070395920d  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.cue
+9c7caf88995228cd8f89c5d3072c131356838c9c76b02b4780302352085cbf7b  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.log
+f0c4b470b0be3a02447e3035328bcfe0d5914cdd015e7cc242896dcd4f073032  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.platterpus.json
+640eaab364c09621b0bb11eb9484b8ed9267ed1542fb81c0eca2fe4886f79676  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097 (EAC-compatible).log
+2547f6cf5adf086d88ba69c08f44f39507ad2f160fb45bfb971efc030ca4f7bd  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.cue
+3454607f86619fe3c32abf681ef38fbe264d4a23f0a57206b3f73e9cffc12440  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.log
+3bf9d2e8ba8993a5e8f1be99032b51235bf70395450ed807aac8b117d25f3dd9  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus-addendum.txt
+00754f0f1edb1d12fadc92f8bcc476273f25828f0345d1b714c6ce61eb83db4a  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus-securing-pass.txt
+23e2c179a6830379bca986e9b201ed2da2aa59364d6c90e3a52b8b55b3d8ca5d  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus.json
+b560c33f18160d84195fa4021edf8bbdbc0210485506f3f05a30cf1cd777aef2  ripperdiagnostics/cyanrip-diagnostics-20261021T113543Z.json
+5046c3d3a400bc2cdde1dd6f2b589ec2a4ddfbb444beb1475a75ab27d188f24e  ripperdiagnostics/cyanrip-diagnostics-20261021T115304Z-securingpass.json
+4d40d2fbb8dc653d08e3ce84250f56b5cc31cb7086bf4163c4fc29750b6cdf4d  ripperdiagnostics/cyanrip-diagnostics-20261021T120851Z.json
+19c69b2804553c30593fbc7325ad420126bb7ae67a19d6cba2280bee7be738f4  ripperdiagnostics/cyanrip-diagnostics-20261021T121155Z.json
+d643206bd203ee448115c90df20370a33d22e51e5e92c90ee1797a23c882a9f8  ripperdiagnostics/cyanrip-diagnostics-20261021T130747Z.json
+657d267533bfbdbe68761bf4381628a6e115edfa46acd6de2f78bd99f9a2f5d8  ripperdiagnostics/cyanrip-diagnostics-20261021T130913Z.json
+728171a4ea23700fcc36b7c33920ce447805440cbae42e95881daf0d88b0529c  ripperdiagnostics/cyanrip-diagnostics-20261021T131047Z.json
+b87a1cf789ca0bc00a63c8e0ecf7f6b00994b7c3fa50533d4dc9ccc9e28e0e35  ripperdiagnostics/cyanrip-diagnostics-20261021T132257Z.json
+aadc4480dbe0c5c5e85274333c67d15900d2d089b2affbfee546ec28eb05b02e  ripperdiagnostics/cyanrip-diagnostics-20261021T132730Z.json
+cd4415ea761468b8544026e76a928b28cf09eeea16b2de046e29f3afd083ce84  ripperdiagnostics/cyanrip-diagnostics-20261021T133941Z.json
+3849c9626e1c07d78dc874031f64b1225986edb5b246df3448cb3b343ace1f99  session/artifacts/02platterpus/log.txt
+c291232cdec7e9b193db18562c54daa971a1e125abcffa1858a0373f3ef16122  session/artifacts/13platterpus/config.toml
+06c07f9ed95fa477193d3f5c2e01334dc37df571a62fda0e3abf1df722eaf1d7  session/run/aftercancel-1-Pick-a-MusicBrainz-release.png
+7991c736aaa5938206f6855897ad390c6a62b010b016e25239dad361b6d7e5c8  session/run/aftercancel-2-Run-test-script.png
+f2f0888c53867ff8ec1d3ac69e7e5d9a1ef21f7c521178ed6f0f2fdd4a07b786  session/run/aftercancel.png
+49289666ef379301f892bdf7ef72451a68e307e115f59e4612a275d416982338  session/run/afterfullrip-1-Run-test-script.png
+6087886c6cafb40e3a3ccef5b7e2257dca1b6e8a615290fc2d9838aaceba80ed  session/run/afterfullrip.png
+24096a2fa4cc2f0c6301f014258ce3bc67bc55df05051cc51d456ed41deba575  session/run/aftermp3-1-Run-test-script.png
+25c5bb7577423dc071d637146d5ef2485b76ac03d060c7993930a1f36162ad5d  session/run/aftermp3.png
+06c07f9ed95fa477193d3f5c2e01334dc37df571a62fda0e3abf1df722eaf1d7  session/run/afteroverwrite-1-Pick-a-MusicBrainz-release.png
+b16779a6776ea9e0e6b1db2155b90767c06a410f9fcb0f39ab5a4eff1d216586  session/run/afteroverwrite-2-Run-test-script.png
+85cbf7a2b2d7ecf94a0e3e710127bef43044e7870813b9385290bceae4c2909a  session/run/afteroverwrite.png
+575e9733373178c33bd214cea30c52b000159ac048f476087030f9d9143be533  session/run/afterrecovery-1-Run-test-script.png
+4f6ceed073d2dd239e2c0c603ffb1d298c5cedbd6d8be0225d895a37450c9420  session/run/afterrecovery.png
+40e6258962e52cdb3db9d14614acb511565c0689337443115679f02d8226d623  session/run/aftersecurereread-1-Run-test-script.png
+c2b06ca8bac5385881583286858a7cfd3345459cdf1deedf3b6163f9c65eae2c  session/run/aftersecurereread.png
+33e81cd6badf455e5084381f37fdf47f282ecc5c4cb764cb72205f0321e96511  session/run/afterwav-1-Run-test-script.png
+dc9531d242b413170bddde16adb100c0c03567674b93c7d46145fa0af7fe80c1  session/run/afterwav.png
+eb4fc5c9ccdfd27eceeff330d618ec26a3015d1008db9290d9989077b31726f8  session/run/cacheprobe1362.txt
+dc2cda8356903094cb91681a29ba411bc40c3051aba00373f4abb15585f4dcd2  session/run/dialogdependencies-1-Dependency-check-complete.png
+5e47d1d25aa4ec6c4f4a25e4348452446d06fac87b018d80c634b38b8fad8610  session/run/dialogdependencies-2-Run-test-script.png
+f803bf5a559511ceaa00cb411bea9e9157529b14d26a6913d0e73da26438714e  session/run/dialogdependencies.png
+c81cfb9cae087f6d6135836b49f6b5442257b47a7ebf83f50ab008d1c7591696  session/run/dialogdiagnostics-1-Diagnostics.png
+50b4725af52203de62a00d862958e2caf1971ec27d1cbeb36ba9effce3ec6f3e  session/run/dialogdiagnostics-2-Run-test-script.png
+f803bf5a559511ceaa00cb411bea9e9157529b14d26a6913d0e73da26438714e  session/run/dialogdiagnostics.png
+94766adac4a3aeac2b1c7554faf26489806eca8a63c132a79db19c2339c5b1e9  session/run/dialogdrive-1-Set-up-drive.png
+48de5b44b68731ac06164af8a67160058859136eb42d1d5d25ca2680a21e7edd  session/run/dialogdrive-2-Run-test-script.png
+c944f3e0c133aaa12b9231ec8b9dfd874f438a0c4662c0e3fa8459a577abb120  session/run/dialogdrive.png
+4708ade4a25400a5e7f103e29a6fc10227ad2ea37c0452cd6c8272e7e71a2b43  session/run/dialogsettings-1-Settings.png
+0d08e2c3c5c15318dbd15f9e97f031897f15d78e90c3b3b53b727c4669004c10  session/run/dialogsettings-2-Run-test-script.png
+c944f3e0c133aaa12b9231ec8b9dfd874f438a0c4662c0e3fa8459a577abb120  session/run/dialogsettings.png
+923bfe13830d1cf68d54037c56f94b6aae5b5ab91a1c5291a9f2cd6d09cb4134  session/run/installripper1628.txt
+d168b021bcdddafc3cac26e41acb6361233733d72969ac9f9f611b6ae21e974a  session/run/installripper1635.txt
+f212f14fb651eb26a2cc428ccf4bf287ab7a0740b3dae5fb09e2c6d9717181c4  session/run/installripper1642.txt
+f1489c17f8dc5e286bf352faa232a11df4fd3a6050b430469d3308da4d9fe943  session/run/installripper1649.txt
+143eff8788fcd125c8d7aeb1fe2df5411992bd3cb99177236dc35b999f2943eb  session/run/installripper1657.txt
+7df49cfaa9ab0001f7477be832bc8a368fd1d5d3de7dec711ec69a555ad5721a  session/run/report.json
+808cbb215d5a8916a19b1f7d2af7d1cf1fb03af12237749e8dced2ea2f2c9abb  session/run/rig-check/MANIFEST.txt
+72b1841437a8d8572588061670c096b5c4762a99a95bc055b5d9bda275d60b56  session/run/rig-check/argv-probe-output.txt
+3493acca38a21e99c77ff5a4e870f342797896b62a4160fd63539f71b70eaad6  session/run/rig-check/argv-probe.json
+3f94e77ba4c489560da438d1668fac4f24ed2af609ca416befa6ce30800838a9  session/run/rig-check/ripper-version.txt
+280b3520fb1f45015cbeea105386b35de71a2865b8e665dfed59888321a250ea  session/run/tags0729.txt
+c78c5a8044bb037f31939d8d45038a314d0d94b301afc8ba2025103980c653b0  session/run/tags1112.txt
+22945821a499718884e579a9d501d8e881425564a724c60edcb55b8c0b93b125  session/run/tags1277.txt
+4a4e247ecf546709ad2724f7cc29b6515eb19dc6abafca5b0c0d1eb118fe142c  session/run/transcript.txt
+4a4e247ecf546709ad2724f7cc29b6515eb19dc6abafca5b0c0d1eb118fe142c  session/transcript.txt
+88f6de712a36d259cec1d9c81fa4c8b8af811f00fd98eeca6344be01b20c7aac  session/zz-applog-rotations/03platterpus/log.txt.1
+59bb509c11e9cf6e37343444e07c79b60bdaf49369d081ea861376f6268b3a94  session/zz-applog-rotations/04platterpus/log.txt.2
+9bb97725cc0ee579fc8f0adff254019185821153043342237a99bb748ed90a6c  session/zz-applog-rotations/05platterpus/log.txt.3
+4fcac41fa0cb0a064509e62bd96d67682a87be55063cb935b6558f636d82ebcc  session/zz-applog-rotations/06platterpus/log.txt.4
+a2266b57b8875d5e91063a55405ea64820274b41fdcb348553bcea7d477f83e3  session/zz-applog-rotations/07platterpus/log.txt.5
+24f0f09530eba5ff0889a54ca6b0631601253a8e5a4ececa89e6cf3dc30afdba  session/zz-applog-rotations/08platterpus/log.txt.6
+75e825afeb290a634b7ce4887a1b64ba2d6d570a7836d7d96802fe7dfac7bc1b  COMPONENTS.json
+4ee6416d4046cd9963a969d434022033e569286bf3dd8bf65726bd55f018d0c2  DIAGNOSTICS.txt
+e408569cc4ef8a4665342ddcfe73acc9e6bba1f339d1a4d50c02522f2a1355d1  SETTINGS.json
+0e029a1e12fdaeae2a80865680508cb825b72c0cd84e57d7ecfbc2bb3b7ca281  SOURCES.txt
+
+HOME FOLDERS REPLACED WITH ~
+----------------------------------------
+  Home-folder paths (/home/<name>, /var/home/<name>, /Users/<name>,
+  C:\Users\<name>, and this machine's own home) in every text member
+  were replaced with ~ as it was written, so the hashes above are of the
+  replaced bytes. Hostnames (this machine's, and any a uname line or a
+  host: field names) became `host`; the owner's names, from a list kept
+  outside the repository, became `the owner` (TASKS R16).
+  replaced: 3715 home path(s), 0 hostname(s), names not checked (no list) in 30 member(s), and 10 in this manifest's own text
+  album/timing B2 20261021t113505 platterpus-fork-gca0f097/timing B2 20261021t113505 platterpus-fork-gca0f097.platterpus.json 311 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 16daee80acd00247cb36980a62055ae19eb365dfcc7a4304e952940e8e2ad6c1
+  album/timing A2 20261021t113505 platterpus-fork-g5f1d036/timing A2 20261021t113505 platterpus-fork-g5f1d036.platterpus.json 296 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 31bf3083810c8453c33ca6d47eca7e3a94abf2ad6c152076cb96e4211514b3b4
+  album/timing B1 20261021t113505 platterpus-fork-gca0f097/timing B1 20261021t113505 platterpus-fork-gca0f097.platterpus.json 267 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 3b23021705e25ff64dd6fc794a2bad41c27d6bfa9d69c39620b729c76d7c3701
+  album/timing A1 20261021t113505 platterpus-fork-g5f1d036/timing A1 20261021t113505 platterpus-fork-g5f1d036.platterpus.json 237 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 551c4ae26b1a0354d8689be533dcb6dcf1001df5af79623d9a0645c7bcc0def4
+  album/secure reread 20261021t113505 platterpus-fork-gca0f097/secure reread 20261021t113505 platterpus-fork-gca0f097.platterpus.json 208 replaced, 0 hostname(s), 0 name(s); sha256 before replacement b2ac786e411812b4cf64965501cff641baca7abccf682679718045d7177e526a
+  album/derived wav 20261021t113505 platterpus-fork-gca0f097/derived wav 20261021t113505 platterpus-fork-gca0f097.platterpus.json 165 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 2894f19ef06aacf25efeee0b158603f1e1bb7c1a2029a8d0c5637783c0cbbf66
+  album/full acceptance_ angle_bracket 20261021t11__terpus-fork-gca0f097/full acceptance∶ angle‹bracket 20261021t113505 platterpus-fork-gca0f097.platterpus.json 136 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 374b3e0a98980242a930deda8b8efbd3d707369774bdbcea34067cccade61fb3
+  session/artifacts/02platterpus/log.txt               268 replaced, 0 hostname(s), 0 name(s); sha256 before replacement be2d19129f9f41d4038404f7aa62bb917c5eb18c6b64b4d682e7673e64ee38f2
+  session/artifacts/13platterpus/config.toml           1 replaced, 0 hostname(s), 0 name(s); sha256 before replacement e96c60d910d6072155afca81c1691e1a9533734513f68bb77805ee7726731dc5
+  session/run/installripper1628.txt                    11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 4b60e835f19038125bba5a7322fad498268ccd878d78c3a04c103ee9f40f8890
+  session/run/installripper1635.txt                    11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 3d44ef66fc674b16bbbc70055d2a0d3896af56e88a8b9c4454e4f919567c83a6
+  session/run/installripper1642.txt                    11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 6f8b812033310ff96d81590d89aeda6c196d450731b81960d425b1993a5f06ad
+  session/run/installripper1649.txt                    11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement b746a8fc767a25e2b88513b157ef01215554d078d952ad1a185d104c22c74eb3
+  session/run/installripper1657.txt                    3 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 58fbc12596eca14ccbe9241e2b5d5bf9e98c3f70c5878c2dbf9052cb3effee0c
+  session/run/report.json                              58 replaced, 0 hostname(s), 0 name(s); sha256 before replacement b709d144259a862258ab1eaa4533b23b9fe7ca3a0e98997ffa6eb8b0e5ebd13a
+  session/run/rig-check/MANIFEST.txt                   7 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 4907a437313adffe45f7595bb7bc5be469a8d46a6045ca09e0579fbf885ca50d
+  session/run/rig-check/argv-probe-output.txt          2 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 23bdb0bdd5bf5c14984b3072b896fc56e08b1f3ee0181573a5bccaa784f341f7
+  session/run/rig-check/argv-probe.json                1 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 23c20fb90b549ee8b499ffbf4d74f9b87520429f7b4a31b32f7ed32d16c42330
+  session/run/transcript.txt                           58 replaced, 0 hostname(s), 0 name(s); sha256 before replacement c76ca676c0e3510a773314abe5c86ed75d34845176eb056fc38c8b2c428c7a9e
+  session/transcript.txt                               58 replaced, 0 hostname(s), 0 name(s); sha256 before replacement c76ca676c0e3510a773314abe5c86ed75d34845176eb056fc38c8b2c428c7a9e
+  session/zz-applog-rotations/03platterpus/log.txt.1   814 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 45d6cd6eb8bea4ee6a7c5f65a55aee9e168840c6e5408db542da852d8f9fe31e
+  session/zz-applog-rotations/04platterpus/log.txt.2   203 replaced, 0 hostname(s), 0 name(s); sha256 before replacement d1f2411da959727aa3d52b44e579fd981b669f693ae9e26937e1005fc3111e39
+  session/zz-applog-rotations/05platterpus/log.txt.3   144 replaced, 0 hostname(s), 0 name(s); sha256 before replacement aabb1798a5ea8f8f76aa03cc3bd29381634d25ca00a164fbb5447ef6839183ce
+  session/zz-applog-rotations/06platterpus/log.txt.4   199 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 57b4355616d1f8fe9c40b20b748acd20e6811b3fca880d4f7a5b6dd81ae7440c
+  session/zz-applog-rotations/07platterpus/log.txt.5   120 replaced, 0 hostname(s), 0 name(s); sha256 before replacement e508c078da2a7ebb4632912a51ca537b30a3fb89a54d9ab9964c0974a1a27c6d
+  session/zz-applog-rotations/08platterpus/log.txt.6   90 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 00cd85b00599c80d4cf203c3fb1f27a788e00a1bc58e90f4c0c4daf8dd954f97
+  COMPONENTS.json                                      4 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 23b54d5122b7f40c705bf6d00e39d95ace19de2495f8f5a3d59c7c900670c18f
+  DIAGNOSTICS.txt                                      2 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 953d24e980730b71062ba257c50933a24ca44b74357656d6a672277ad2265ac6
+  SETTINGS.json                                        2 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 3af63305982311c61ef65499ca2889165750b0188e3cae881c9a037c09ca70e7
+  SOURCES.txt                                          17 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 1084f2d63bed1b7cfbf490ce9c7bf394a2733b503bf66810fb36b31479f4df60
+  kept as written: 0 member(s), 0 home path(s) left in them
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.
