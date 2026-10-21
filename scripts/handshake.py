@@ -2195,7 +2195,11 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
             for peer in inbound.glob("round-*-lap-*.md")
             if round_number(peer) == ours_round
             and _lap_of(peer) not in (None, AMBIGUOUS_LAP)
-            and _lap_of(peer) >= ours_lap
+            # The SAME number, as K1 says (§4a): "the number belongs to whichever
+            # is released first". A higher peer number takes nothing from ours;
+            # until 2026-10-21 this read `>=` and refused round 36's lap 3, which
+            # both operators had numbered to come after the fork's lap 4.
+            and _lap_of(peer) == ours_lap
             and ready_to_read(_safe_read(peer)) is True
         )
         if claimed:
