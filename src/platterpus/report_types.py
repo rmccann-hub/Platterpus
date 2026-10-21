@@ -329,12 +329,24 @@ class FlacIntegrityBlock(TypedDict):
     error: str | None
 
 
+class Mp3ReplayGainBlock(TypedDict):
+    """v39: ReplayGain measured on the derived MP3s (``adapters/mp3_replaygain.py``)."""
+
+    measured_on: str
+    tracks_tagged: int
+    tracks_total: int
+    album_tagged: bool
+    reasons: list[str]
+
+
 class TranscodeBlock(TypedDict):
     ran: bool
     ok: bool
     transcoded: int
     failures: list[str]
     error: str | None
+    #: v39: MP3 only; null for the other formats.
+    replaygain: Mp3ReplayGainBlock | None
 
 
 class DerivedBlock(TypedDict):

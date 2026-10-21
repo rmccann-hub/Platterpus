@@ -16,6 +16,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **Round 36: our lap 2 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
+- **A derived MP3's ReplayGain is measured on the MP3.** It used to carry the FLAC's figures, measured before the lossy encode, so its peak described another file. The encode now drops the FLAC's nine loudness tags, each MP3 is measured with ffmpeg's `ebur128` (true peak), and its `REPLAYGAIN_*` tags are written in cyanrip's format; album figures only when every track became an MP3, and no `R128_*` tags, which are for Opus. The report records the outcome as `transcode.replaygain` (schema v39, an addition).
+
 - **An independent audit of Platterpus against EAC** (`docs/eac-parity.md` Part E). It
   re-derives every accuracy number from the raw logs: the three committed EAC sessions
   and the 262 rip logs on the `evidence` branch. It grades each area better, equal or

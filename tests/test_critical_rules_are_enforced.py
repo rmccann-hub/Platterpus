@@ -1227,7 +1227,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # questions, not a duplicate.
     # **467 -> 473** (2026-09-25, the property-test batches): exit 127 from the wrapper is a missing ripper, not an altered log (`binary_missing`, as `flac_verify`).
     "adapters/ripper_log_verify.py": 473,
-    "adapters/transcode.py": 305,
+    # **305 -> 324** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): the encode drops the FLAC's loudness tags and `transcode_files` hands every written MP3 to `mp3_replaygain.apply`, with whether the set is the whole album; `TranscodeResult.replaygain` records the outcome. The measuring and retagging live in `mp3_replaygain`; only the hand-off is here.
+    "adapters/transcode.py": 324,
+    # **new at 345** (2026-10-21): `adapters/mp3_replaygain.py` does one job, the ReplayGain of a derived MP3: drop the FLAC's figures, measure the MP3 with ebur128, write the figures in cyanrip's format. Over the heuristic by its docstring, which records why each choice was made (cyanrip's formulae, the 0.1 dB resolution, why no R128 tags, why a failure leaves a file untagged).
+    "adapters/mp3_replaygain.py": 345,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
     # directory moved out of `$HOME` and under the one deletable parent, and the
     # growth is the paragraph saying why plus the import of the shared helper.
@@ -1962,7 +1965,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **800 -> 807** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and `secure_rerip.accuraterip_standing`, report schema 39.
     # **807 -> 815** (2026-10-20, round 35, the fork's exit classes from release 36): `OutcomeBlock.ripper_exit_class` and `ripper_exit_build_tag`, schema 39 additions; the vocabulary is `ripper_exit_class.ExitClass`.
     # **815 -> 825** (2026-10-21, round 36 lap 1 S4 to S6): `RipBlock.accurate_stream` / `recordable` and their reasons, and `TrackBlock.pregap_search_frames`, schema 39 (unreleased, additions only).
-    "report_types.py": 825,
+    # **825 -> 837** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): `Mp3ReplayGainBlock` and `TranscodeBlock.replaygain`, the report shape beside the other blocks.
+    "report_types.py": 837,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2061,7 +2065,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2866 -> 2889** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and the schema-39 history note.
     # **2889 -> 2911** (2026-10-20, round 35, the fork's exit classes from release 36): `build_outcome` records `ripper_exit_class` and the tag it was read against, and the schema-39 note says so; the classification lives in `ripper_exit_class.py`.
     # **2911 -> 2991** (2026-10-21, round 36 lap 1 S4 to S6): schema 39's note for `.26`'s three lines, the four `rip` keys, the per-track `pregap_search_frames` with its pair check, and the `recordable_disc` and `pregap_searches_disagree` info issues, in the one place that assembles `issues`.
-    "rip_report.py": 2991,
+    # **2991 -> 3004** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): `transcode.replaygain` in `_transcode` with its v39 history entry, beside the block it extends.
+    "rip_report.py": 3004,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

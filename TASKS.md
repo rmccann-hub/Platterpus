@@ -123,7 +123,7 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 | 5 | Post-rip verification cut short (the unattended give-up path, `app.py`) writes nothing to `.platterpus.json`, and `build_gates` has no cover-art or completeness block, so the record reads as complete | *An archival record must say when its post-rip verification was cut short* |
 | 6 | The log and report never assert the read offset is *correct*: only the number applied is written, never compared with the AccurateRip drive database (the UI alone says "two independent sources agree") | *Assert the read offset is CORRECT, not merely applied* |
 | 7 | The report has no `issues` code for a track with unverified paranoia skips (the EAC-layout half shipped in `1e118482`) | *The EAC-layout log and the report for a track with unverified skips* |
-| 8 | A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags, measured before the lossy encode | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
+| 8 | **[x] Fixed 2026-10-21** (re-measured on the MP3, `adapters/mp3_replaygain.py`). Was: a derived MP3 carries the FLAC's `REPLAYGAIN_*` tags, measured before the lossy encode | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
 | 9 | Embed the full `-j` record in `.platterpus.json`. Do this before round 32's new `-j` fields arrive (pre-emphasis, ISRC, CD-TEXT, `-f`) | *Embed the full -j diagnostics record* |
 | 10 | Embed the discarded auto re-rip's cyanrip log in the report (D11 A, decided, not built) | *Embed the discarded auto re-rip's log* |
 | 11 | `defeat_audio_cache` sits beside log-derived fields with no provenance field | *Report JSON lacks provenance for defeat_audio_cache* |
@@ -1575,11 +1575,19 @@ each side's reading; and the closing releases named.
   summary line stable?); records S15, our own instance of their S18's shape; discharges our
   lap 4's pre-commit (S25); pre-commits `GO` for lap 8 unless lap 7's texts lack S19 to S22
   (S29). Envelope `round30lap06FROMplatterpusTOcyanrip.md`; SENT_LAPS freezes its bytes.
-- [ ] **A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags** (round 31; our lap 6 S15, the
+- [x] **A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags** (round 31; our lap 6 S15, the
   shape of the fork's round 30 lap 5 S18). `adapters/transcode.py` copies every tag with
   `-map_metadata 0`, so the MP3's figures describe the FLAC, measured before the lossy encode.
   WavPack is lossless, so its copy is exact. Decide: re-measure on the MP3, or drop the tags
   from it and say so.
+  - *2026-10-21, fixed (item 20 of the claude-code-skills known-fixes list):* re-measured
+    on the MP3. The encode drops all nine loudness tags cyanrip writes; each MP3 is
+    measured with ffmpeg's `ebur128` (true peak) and given `REPLAYGAIN_*` figures in
+    cyanrip's format, album figures only when every track became an MP3; no `R128_*`
+    (Opus tags). A failed measurement leaves that MP3 untagged, never with the FLAC's
+    figure. `src/platterpus/adapters/mp3_replaygain.py`; the report's
+    `transcode.replaygain`; `tests/test_mp3_replaygain.py`, revert-probed (3 of 3
+    detected), one test end to end on a real ffmpeg.
 - [x] **O3 on our side** (round 30, before our closing lap): our build-under-review check
   follows a manifest build only while both channels name one commit
   (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would

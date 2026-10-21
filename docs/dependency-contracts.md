@@ -580,6 +580,19 @@ Base: **`ffmpeg -nostdin -y -i <src.flac> … -f <fmt> <tmp>`** (writes to a
 
 - **MP3:** `-map_metadata 0 -id3v2_version 3 -c:v copy -c:a libmp3lame -q:a <N> -f mp3`
   (`-q:a 0` == LAME `-V0`, best VBR; `-c:v copy` carries the embedded cover → APIC).
+  The encode also passes `-metadata KEY=` (empty, which deletes; key matched without
+  regard to case) for each of cyanrip's nine loudness tags, and the MP3's ReplayGain is
+  then measured on the MP3 (`adapters/mp3_replaygain.py`, 2026-10-21):
+  - **Measure:** `ffmpeg -nostdin -hide_banner -i <mp3> -map 0:a -af
+    ebur128=peak=true:framelog=quiet -f null /dev/null`; for the album, every MP3 as an
+    input joined by `-filter_complex "[0:a]…[n-1:a]concat=n=<n>:v=0:a=1,ebur128=…"`.
+    Read: the last `Summary:` block's `I: <x> LUFS`, `LRA: <x> LU`, `Peak: <x|-inf>
+    dBFS`, printed to 0.1 (ffmpeg 6.1, Lavf60.16.100). `framelog=quiet` matters: without
+    it the filter prints a line per 100 ms (about 44,000 for a disc).
+  - **Retag:** `ffmpeg -nostdin -y -i <mp3> -map 0 -c copy -map_metadata 0
+    -id3v2_version 3 -metadata REPLAYGAIN_…=<v> … -f mp3 <tmp>`, then `os.replace`. A
+    stream copy: measured to decode to the same PCM and sample count, so the LAME
+    gapless header survives.
 - **WavPack:** `-map_metadata 0 -map 0:a -c:a wavpack -f wv` — the **muxer is `wv`**,
   not `wavpack` (passing `-f wavpack` aborts ffmpeg); audio-only (its muxer rejects
   a second stream, so no embedded cover).
