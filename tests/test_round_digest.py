@@ -584,6 +584,20 @@ _KNOWN_MISMATCHES: Final[dict[str, str]] = {
         "S17 says so and pins it in their KNOWN_UNREPRODUCIBLE. Their lap 4's digest "
         "covers laps 1 to 3"
     ),
+    # Round 36 numbered its laps out of the order they were written, on both
+    # operators' word of 2026-10-21 ("do lap 4, 2 and 3 will come from
+    # platterpus"): the fork's lap 4 was written before our lap 3. Each digest is
+    # right over the laps on disk when it was written; this checker takes "the laps
+    # before" by number, so it reads each against the wrong set.
+    "inbound/round-36-lap-04.md": (
+        "theirs, over laps 1 and 2 (`953737951ac1418f over 2`), written before our "
+        "lap 3 existed; the checker counts lap 3 in because 3 < 4"
+    ),
+    "outbound/round-36-lap-03.md": (
+        "ours, over laps 1, 2 and 4 (`2866bce69bb4f22a over 3`), written after their "
+        "lap 4; the checker leaves lap 4 out because 4 > 3, and its value over laps 1 "
+        "and 2 is their lap 4's own declaration"
+    ),
 }
 
 
