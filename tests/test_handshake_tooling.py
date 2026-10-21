@@ -5163,3 +5163,17 @@ def test_status_names_the_blocker_that_holds_a_GO_GO_round_open(
     assert len(named) == 1, held
     assert "inbound/round-29-lap-03.md" in named[0] and "row C44" in named[0]
     assert named[0].endswith(")") and not named[0].endswith("OPEN")
+
+
+def test_an_lsl_term_set_counts_as_the_openers_close_condition(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Round 36 lap 1 fixed its close as `S18 TERM set:` without the phrase
+    "close condition"; the statement is the condition (LSL A1). A lap with
+    neither the phrase nor a TERM set still fails: the floor is not lowered."""
+    stated = tmp_path / "stated.md"
+    stated.write_text("## The close\n\nS18 TERM set: the Full run, filed and read.\n")
+    bare = tmp_path / "bare.md"
+    bare.write_text("## The close\n\nS18 NOTE: the Full run, filed and read.\n")
+    assert hs.check_opener(stated) == []
+    assert any("Close conditions" in p for p in hs.check_opener(bare))

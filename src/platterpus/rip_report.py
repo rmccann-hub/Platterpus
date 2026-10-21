@@ -33,6 +33,9 @@ from platterpus.handshake_approval import (
 )
 from platterpus.isrc_provenance import findings as isrc_findings
 from platterpus.parsers.rip_log import (
+    DRIVE_FACT_NOT_PRESENT,
+    RECORDABLE_CDRW,
+    RECORDABLE_DISC_STATES,
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
@@ -385,6 +388,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      with no exit or an unplaceable build; `ripper_exit_class.py`), and
 #      `outcome.ripper_exit_build_tag` names the build tag it was read against,
 #      from the banner read at spawn, null when none was read. Additions only.
+#      Also in v39, still unreleased, so still additions only: the three lines
+#      the fork's `.26` adds (round 36 lap 1 S4 to S6, read from their draft at
+#      `cyanrip@cef0f629`, confirmed word for word against their lap 1 at `cyanrip@088557c`). `rip.accurate_stream`
+#      and `rip.recordable`, each a state with `..._reason` beside it, from the
+#      `Accurate stream:` and `Recordable:` header lines
+#      (`cyanrip@cef0f629:src/cyanrip_log.c:967-970`); `"not_present"` when the
+#      line was not printed, never a negative. Per track `pregap_search_frames`,
+#      the two counts when two sub-channel searches of one pre-gap disagreed
+#      (`:432-440`), else null. A CD-R or CD-RW raises the `recordable_disc`
+#      info issue, and a disagreement the `pregap_searches_disagree` info issue.
 REPORT_SCHEMA_VERSION: int = 39
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -1695,6 +1708,16 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # change exists to fill: None = capability only / nothing stated, False =
         # explicitly not used, which is EAC's "No".
         "c2_pointers": getattr(info, "c2_pointers", None),
+        # v39: the fork's `.26` drive-header lines, as a STATE each, never a
+        # boolean. Copied as the parser left them, `"not_present"` included: a
+        # build that printed no line has told us nothing about the drive, and
+        # the report says so in a word rather than with a null a reader could
+        # take for "no". The reason is the ripper's own parenthetical
+        # (`capabilities page, not measured`, `drive's current profile`, `image`).
+        "accurate_stream": getattr(info, "accurate_stream", DRIVE_FACT_NOT_PRESENT),
+        "accurate_stream_reason": getattr(info, "accurate_stream_reason", "") or None,
+        "recordable": getattr(info, "recordable", DRIVE_FACT_NOT_PRESENT),
+        "recordable_reason": getattr(info, "recordable_reason", "") or None,
         "paranoia_level": getattr(info, "paranoia_level", "") or None,
         "overread_mode": getattr(info, "overread_mode", "") or None,
         # Which cyanrip BINARY produced this rip ("release", "fork", a git
@@ -1776,6 +1799,22 @@ def _rip_block(rip_log: object, info: object) -> dict:
     }
 
 
+def _search_pair(value: object) -> list[int] | None:
+    """A track's two pre-gap search counts as a JSON list, or None.
+
+    Only a real pair of ints passes: the report is read by other tools, and a
+    malformed value is written as "not stated" rather than as something that
+    looks like a measurement.
+    """
+    if (
+        isinstance(value, tuple)
+        and len(value) == 2
+        and all(isinstance(v, int) and not isinstance(v, bool) for v in value)
+    ):
+        return [value[0], value[1]]
+    return None
+
+
 def _track(track: object) -> dict:
     return {
         "number": getattr(track, "number", None),
@@ -1855,6 +1894,13 @@ def _track(track: object) -> dict:
         "pregap_unknown_reason": getattr(track, "pregap_unknown_reason", "") or None,
         "pregap_length_frames": getattr(track, "pregap_length_frames", None),
         "pregap_source": getattr(track, "pregap_source", "") or None,
+        # v39: `.26`'s two sub-channel searches of this pre-gap, first first, when
+        # they DISAGREED; null otherwise (an older build, agreement, or a second
+        # search that did not complete, which the log does not tell apart). A list
+        # because that is what JSON makes of a pair.
+        "pregap_search_frames": _search_pair(
+            getattr(track, "pregap_search_frames", None)
+        ),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
@@ -2316,6 +2362,40 @@ def _issues(
                 f"{row.get('beyond_disc_frames')} frames read from outside the "
                 "disc, and the ripper wrote them as silence: the track's edge "
                 "holds silence that is not disc audio",
+            )
+
+    # A RECORDABLE DISC (v39, the fork's `.26`, round 36 lap 1 S5). The drive's
+    # current profile says CD-R or CD-RW: a burned disc, not a pressing, so it
+    # may be a copy. Information, not a warning: nothing about the rip is wrong.
+    # But a copy can differ from the pressings whose rips AccurateRip and CTDB
+    # hold, so a reader weighing a "not in database" result should know this
+    # disc is a burn, and should not have to open the log to find out. Only the two recordable
+    # states fire; `unknown`, `unrecognised` and `not_present` say nothing.
+    recordable = (rip or {}).get("recordable")
+    if recordable in RECORDABLE_DISC_STATES:
+        name = "CD-RW" if recordable == RECORDABLE_CDRW else "CD-R"
+        add(
+            "info",
+            "recordable_disc",
+            f"the drive reports a recordable disc ({name}, from its current "
+            "profile): a burned disc, not a pressing, so it may be a copy, and "
+            "a copy can differ from the pressings AccurateRip and CTDB hold",
+        )
+
+    # TWO PRE-GAP SEARCHES DISAGREED (v39, `.26`, round 36 lap 1 S6). The
+    # sub-channel search was run twice and read two lengths; the first is the
+    # one ripped, cued and listed in `Gaps:`. Information: the audio is the
+    # same either way, but the pre-gap the cue states is one reading of a
+    # measurement that varied, and the report says so per track.
+    for row in tracks or ():
+        pair = row.get("pregap_search_frames")
+        if isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1]:
+            add(
+                "info",
+                "pregap_searches_disagree",
+                f"track {row.get('number')}: two sub-channel searches of the "
+                f"pre-gap read {pair[0]} and {pair[1]} frames; the first is the "
+                "one the rip and the cue sheet use",
             )
 
     theirs = (rip or {}).get("ripper_release_id")

@@ -1538,7 +1538,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2820 -> 2826** (2026-10-19): `.24` (`93afa15`) named in `BUILD_TAGS_ACCEPTING_VERIFY_LOG` by commit, with its reason, now that `.25` is under review and `.24` is no longer covered by being the pin under review.
     # **2826 -> 2840** (2026-10-20): the roll to `5f1d036` on round 35's close, recorded beside `FORK_PIN`, `FORK_EXPECTED_VERSION` and the production target's reason, as each roll is.
     # **2840 -> 2844** (2026-10-20): `.23` listed by name in the `--verify-log` set, which the roll off `891c79e` would otherwise drop while it is still the fork's stable channel.
-    "deps/fork_source.py": 2844,
+    # **2844 -> 2846** (2026-10-21): `PIN_UNDER_REVIEW_ROUND` 36, its history line beside it, as each round's is.
+    "deps/fork_source.py": 2846,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1892,7 +1893,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3854 -> 3869** (2026-10-17, round 35 lap 6): the `Disc ISRC:` line's fourth shape, `<code> (<reason>)`, from `.25`.
     # **3869 -> 3928** (2026-10-19, TASKS R26, round 35): the `Beyond disc:` line's pattern, its listing and its handler, beside `Appended:`, with the citation into `cyanrip@93afa15` that derives the shape.
     # **3928 -> 3941** (2026-10-20, the owner's word "yes, read twice by default"): the disc-level `AccurateRip:` line is parsed, because only it tells a failed lookup from a disc not in the database.
-    "parsers/cyanrip_log.py": 3941,
+    # **3941 -> 4171** (2026-10-21, round 36 lap 1 S4 to S6, read from the fork's draft at `cyanrip@cef0f629`): `.26`'s three new lines. The `Accurate stream:` and `Recordable:` line and value patterns with every wording cited into `src/drive_caps.c`, the two pure readers `accurate_stream_state` / `recordable_state` with their docstrings, the shared `unrecognised` path, the two-search `Pregap source:` pattern and its pair reader, and the reason the general row's bound went from 64 to 200. They live here because the completeness sweep and the generated contract read this module's patterns and tables.
+    "parsers/cyanrip_log.py": 4171,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1915,7 +1917,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1022 -> 1023** (2026-10-17, round 35 lap 6): the `not_used` state named in the field's comment.
     # **1023 -> 1032** (2026-10-19, TASKS R26, round 35): two `TrackResult` fields for the `Beyond disc:` line.
     # **1032 -> 1037** (2026-10-20, the owner's word "yes, read twice by default"): the `accuraterip_disc_status` field the parser fills.
-    "parsers/rip_log.py": 1037,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1037 -> 1138** (2026-10-21, round 36 lap 1 S4 to S6): the state constants for `.26`'s two drive-header lines (with why `not_present` and `unrecognised` exist), the four `RippingInfo` fields, and `TrackResult.pregap_search_frames` with why None is not "the searches agreed".
+    "parsers/rip_log.py": 1138,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1958,7 +1961,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **795 -> 800** (2026-10-19, TASKS R26, round 35): the two per-track `beyond_disc` keys.
     # **800 -> 807** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and `secure_rerip.accuraterip_standing`, report schema 39.
     # **807 -> 815** (2026-10-20, round 35, the fork's exit classes from release 36): `OutcomeBlock.ripper_exit_class` and `ripper_exit_build_tag`, schema 39 additions; the vocabulary is `ripper_exit_class.ExitClass`.
-    "report_types.py": 815,
+    # **815 -> 825** (2026-10-21, round 36 lap 1 S4 to S6): `RipBlock.accurate_stream` / `recordable` and their reasons, and `TrackBlock.pregap_search_frames`, schema 39 (unreleased, additions only).
+    "report_types.py": 825,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2056,7 +2060,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2850 -> 2866** (2026-10-19, P1 of the claude-code-skills audit check): schema v38 — the history note and three `ctdb` keys giving the weight behind a match (`best_confidence`, `total_confidence`, `outvoted`).
     # **2866 -> 2889** (2026-10-20, the owner's word "yes, read twice by default"): `verdict.basis` and the schema-39 history note.
     # **2889 -> 2911** (2026-10-20, round 35, the fork's exit classes from release 36): `build_outcome` records `ripper_exit_class` and the tag it was read against, and the schema-39 note says so; the classification lives in `ripper_exit_class.py`.
-    "rip_report.py": 2911,
+    # **2911 -> 2991** (2026-10-21, round 36 lap 1 S4 to S6): schema 39's note for `.26`'s three lines, the four `rip` keys, the per-track `pregap_search_frames` with its pair check, and the `recordable_disc` and `pregap_searches_disagree` info issues, in the one place that assembles `issues`.
+    "rip_report.py": 2991,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2874,7 +2879,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
     "scripts/check.py": 499,
     # **534 -> 560** (2026-10-17, round 35 lap 6): the maximal argv taken over both builds we may drive, so a flag gated on the build under review is in §3.
-    "scripts/emit_dependency_contract.py": 560,
+    # **560 -> 569** (2026-10-21, round 36 lap 1 S4 to S6): `.26`'s three rows declared fork-only, with the citation that shows upstream prints none of them.
+    "scripts/emit_dependency_contract.py": 569,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the
@@ -2923,7 +2929,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4544 -> 4548** (2026-10-14, HR-2 order C): `PROTOCOL_VERSION` moves to 9,
     # with its dated reason beside the constant, as 6, 7 and 8 were.
     # **4548 -> 4552** (2026-10-15): `DECLARED_PROTOCOL` moves to 9, the same way.
-    "scripts/handshake.py": 4552,
+    # **4552 -> 4559** (2026-10-21): the opener floor accepts an LSL `TERM set` as the close condition (the fork's round 36 lap 1), with its pattern as a module literal the regex sweep can time, and `CURRENT_ROUND` 36.
+    "scripts/handshake.py": 4559,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.

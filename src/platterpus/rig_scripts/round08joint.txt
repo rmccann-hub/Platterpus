@@ -256,19 +256,19 @@ log C2 malformed argv: each must refuse with a message, never crash
 
 cyanrip -N -d /dev/sr0 -c /
 expect-cyanrip Missing discnumber
-expect-exit 1
+expect-exit refused
 
 cyanrip -N -d /dev/sr0 -c //
 expect-cyanrip Missing discnumber
-expect-exit 1
+expect-exit refused
 
 cyanrip -N -d /dev/sr0 -p =
 expect-cyanrip Missing track idx for pregap
-expect-exit 1
+expect-exit refused
 
 cyanrip -N -d /dev/sr0 -p ==
 expect-cyanrip Missing track idx for pregap
-expect-exit 1
+expect-exit refused
 
 # -----------------------------------------------------------------------------
 # C3. The -t shape that published process memory into an archival log.
@@ -313,14 +313,14 @@ log C4 genopt fatal messages: emitted for years, in the contract only since roun
 
 cyanrip -N -d /dev/sr0 -l 1-2
 expect-cyanrip Error parsing
-expect-exit 1
+expect-exit refused
 
 # The message that once read to you as "cyanrip is not installed", and the
 # reason this fork restored -V as an alias. It reaches stdout through
 # crip_genopt_log -> cyanrip_vlog, so it lands in the transcript like any other.
 cyanrip -N --no-such-flag-exists
 expect-cyanrip Unable to parse command line argument
-expect-exit 1
+expect-exit refused
 
 # -----------------------------------------------------------------------------
 # C5. -f offset autodetection, asserting the VALUE.

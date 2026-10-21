@@ -58,10 +58,13 @@ _REWRITES: list[tuple[str, str, str]] = [
         "    Secure re-reads:",
     ),
     # The two bounded ones: `\S.{0,N}?` became `\S(?:.{0,N-1}\S)?`.
+    # `_PREGAP_SOURCE`'s bound went from 64 to 200 characters on 2026-10-21 (the
+    # fork's `.26` two-search form is 87); its lazy reference here moved with it,
+    # so the equivalence is still proved at the bound the parser uses.
     ("_INVOKED_AS", r"^Invoked as:\s+(?P<argv>\S.{0,4000}?)\s*$", "Invoked as:"),
     (
         "_PREGAP_SOURCE",
-        r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,63}?)\s*$",
+        r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,199}?)\s*$",
         "    Pregap source:",
     ),
     # `.+?` became `\S(?:.*\S)?|[^\S\n]`: the same shape, found in the same file by
@@ -232,8 +235,8 @@ def test_each_rewrite_agrees_on_the_shapes_written_out(
         ("_INVOKED_AS", r"^Invoked as:\s+(?P<argv>\S.{0,4000}?)\s*$", 4001),
         (
             "_PREGAP_SOURCE",
-            r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,63}?)\s*$",
-            64,
+            r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,199}?)\s*$",
+            200,
         ),
     ],
 )
@@ -274,7 +277,7 @@ _PIN_RUN: int = 20_000
 
 
 #: The timing sweep's population: every rewrite but `_PREGAP_SOURCE`, whose old
-#: form was already linear (its bound is 63), so it has no slow line to time.
+#: form was already linear (its bound is 199), so it has no slow line to time.
 _TIMED: list[tuple[str, str]] = [
     (name, label) for name, _old, label in _REWRITES if name != "_PREGAP_SOURCE"
 ]
@@ -299,8 +302,8 @@ def test_every_rewrite_but_the_linear_one_is_timed() -> None:
 def test_each_rewrite_is_fast_on_a_long_blank_run(name: str, label: str) -> None:
     """Each pattern, by name, on the line that shows the lazy form quadratic.
 
-    `_PREGAP_SOURCE` is not pinned: its old form was bounded at 64 characters, so
-    it cost at most 64 passes over the run, which is linear, and a pin that cannot
+    `_PREGAP_SOURCE` is not pinned: its old form was bounded at 200 characters, so
+    it cost at most 200 passes over the run, which is linear, and a pin that cannot
     fail on a revert would be decoration. It is rewritten for consistency, and the
     equivalence tests above cover it.
 

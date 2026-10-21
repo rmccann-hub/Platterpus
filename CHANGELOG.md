@@ -29,6 +29,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   (it prints both, by design), and graded pre-gaps equal from one rip (track 9 reads a
   frame longer than EAC's in 3 of 26). `tests/test_fork_rip_eac_parity.py` no longer
   says it closes the parity question.
+- **The parser reads the three log lines the fork's `.26` adds, so `.26` can be released.** It
+  reads `.26`'s draft wording from the fork's branch at `cyanrip@cef0f629`, confirmed word for
+  word against the fork's round 36 lap 1 (S4 to S6, `cyanrip@088557c`). `Accurate stream:`, a new disc-header line, is
+  read as `declared_supported`, `declared_unsupported` or `unknown`. `Recordable:`, below it, is
+  read as `cdrom`, `cdr`, `cdrw` or `unknown`. Each keeps the ripper's own parenthetical as its
+  reason. When two sub-channel searches of one pre-gap disagree, `Pregap source:` carries both
+  counts, and they are read per track as `pregap_search_frames`. A build that prints no such line
+  reads as `not_present`, never as a "no". A wording the parser does not know reads as
+  `unrecognised`: the ripper's words are kept and the line is logged. The report carries
+  `rip.accurate_stream`, `rip.recordable` and their reasons, and per track `pregap_search_frames`
+  (schema 39, unreleased, additions only). A CD-R or CD-RW raises the `recordable_disc` info
+  issue, and disagreeing searches raise `pregap_searches_disagree`. The `Pregap source:` bound
+  went up from 64 to 200 characters, because the 87-character two-search form matched nothing
+  under the old bound. The generated consumer contract lists the three rows as fork-only.
 
 ### Changed
 
@@ -39,6 +53,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Our handshake checker accepts an opener whose close condition is an LSL `TERM set` statement.** The fork's round 36 lap 1 fixed its close as `S18 TERM set:` under "## The close" without the words "close condition", and our opener floor, which matched only the phrase, refused it.
+- **The joint script's SECTION C expects `.25`'s exit class for six argument refusals** (`-c /`, `-c //`, `-p =`, `-p ==`, `-l 1-2`, an unknown flag): `expect-exit refused`, which answers 64 from fork release 36 and 1 before it, landed as the fork's round 36 lap 1 S13 gave them. Opening round 36 also moves the round named in the generated `bom.cdx.json` and the `DEPENDENCIES.md` map, regenerated with `scripts/emit_bom.py`.
 - **`CLAUDE.md` records the owner's word for the next release, and `docs/handshake/README.md` no longer says an open round blocks releases.** The owner's word of 2026-10-20 covers the next release (the second read and the fixes since 0.7.110) and puts the timed `.25`-vs-`.26` rip inside the Full run; the README line still described the rule protocol v8 §6b retired in round 31.
 - **The acceptance script no longer takes a refused rip's summary for the ripper's build.** The round-35 Full run's no-offset refusal printed no version banner, but its summary's `(no read exceeded 10s)` was read as the build tag, so the next rip (the deemphasis test) sent no `--consumer` and no `--diagnostics` (the fork's round 35 lap 17 S10, first reported in round 34). The latch now reads only a line shaped like a banner (`ripper_identity.version_banner_in`).
 - **A home folder or hostname right after an escaped newline is now redacted.** The 2026-10-20 Full run's reports held a setup log as one JSON string, `…distrobox\n/home/<name>/.local/bin/flac`. The bundle export and the evidence filing tool both read the `n` of `\n` as part of a word, and left the owner's username in the bundle. All three name boundaries (home folders by shape, this machine's own home, and hostnames and names) now also start after an escaped `\n`, `\r` or `\t`.

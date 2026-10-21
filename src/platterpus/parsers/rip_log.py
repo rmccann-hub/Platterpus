@@ -80,8 +80,79 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Final
 
 from platterpus.safe_int import int_or_none
+
+# --- the two drive facts in cyanrip's disc header, from the fork's `.26` ------
+#
+# `Accurate stream:` and `Recordable:` are printed below `C2 errors:` by the
+# fork's `.26` (round 36 lap 1 S4 and S5; `cyanrip@cef0f629:src/cyanrip_log.c:967`
+# and `:969-970`, worded by `src/drive_caps.c:59-97`). Each becomes a STATE, one
+# of the short words below, plus the ripper's own parenthetical kept as a reason.
+#
+# Two of the states are about OUR reading, not about the drive, and they are why
+# these are words and not booleans:
+#
+# * ``not_present`` — the ripper printed no such line. Every build before `.26`,
+#   every legacy-format log and every EAC log. It says nothing about the drive,
+#   so it must never be read as "unsupported" or "not recordable".
+# * ``unrecognised`` — the line is there, in a wording this build of Platterpus
+#   does not know. The ripper's whole value is kept as the reason, so a reword
+#   is visible in the report instead of quietly becoming one of the known states.
+
+#: The ripper printed no line for this fact (an older build, or another format).
+DRIVE_FACT_NOT_PRESENT: Final[str] = "not_present"
+#: The line is there, in a wording this build does not recognise.
+DRIVE_FACT_UNRECOGNISED: Final[str] = "unrecognised"
+
+#: `Accurate stream: declared supported by drive (capabilities page, not
+#: measured)`. A DECLARATION read off MODE SENSE page 2Ah, byte 5 bit 1; the
+#: ripper says in the line itself that it did not measure it.
+ACCURATE_STREAM_DECLARED_SUPPORTED: Final[str] = "declared_supported"
+#: `Accurate stream: declared unsupported by drive`.
+ACCURATE_STREAM_DECLARED_UNSUPPORTED: Final[str] = "declared_unsupported"
+#: `Accurate stream: unknown (<reason>)`: `capabilities page not readable`, or
+#: `image` for a rip of a disc image, where there is no drive to ask.
+ACCURATE_STREAM_UNKNOWN: Final[str] = "unknown"
+#: Every state `RippingInfo.accurate_stream` can hold.
+ACCURATE_STREAM_STATES: Final[frozenset[str]] = frozenset(
+    {
+        ACCURATE_STREAM_DECLARED_SUPPORTED,
+        ACCURATE_STREAM_DECLARED_UNSUPPORTED,
+        ACCURATE_STREAM_UNKNOWN,
+        DRIVE_FACT_UNRECOGNISED,
+        DRIVE_FACT_NOT_PRESENT,
+    }
+)
+
+#: `Recordable: no, CD-ROM (drive's current profile)`: a pressed disc, by the
+#: profile the drive reports for the disc in it (GET CONFIGURATION, 0x0008).
+RECORDABLE_CDROM: Final[str] = "cdrom"
+#: `Recordable: yes, CD-R (drive's current profile)` (profile 0x0009).
+RECORDABLE_CDR: Final[str] = "cdr"
+#: `Recordable: yes, CD-RW (drive's current profile)` (profile 0x000a).
+RECORDABLE_CDRW: Final[str] = "cdrw"
+#: `Recordable: unknown (<reason>)`: `image`, `profile not readable`, or
+#: `profile 0x%04x is not a CD profile`.
+RECORDABLE_UNKNOWN: Final[str] = "unknown"
+#: Every state `RippingInfo.recordable` can hold.
+RECORDABLE_STATES: Final[frozenset[str]] = frozenset(
+    {
+        RECORDABLE_CDROM,
+        RECORDABLE_CDR,
+        RECORDABLE_CDRW,
+        RECORDABLE_UNKNOWN,
+        DRIVE_FACT_UNRECOGNISED,
+        DRIVE_FACT_NOT_PRESENT,
+    }
+)
+#: The states that say the disc is a RECORDABLE one, burned rather than pressed.
+#: The report raises an info issue for these: a burned disc may be a copy, and a
+#: copy can differ from the pressings whose rips AccurateRip and CTDB hold.
+RECORDABLE_DISC_STATES: Final[frozenset[str]] = frozenset(
+    {RECORDABLE_CDR, RECORDABLE_CDRW}
+)
 
 
 @dataclass(frozen=True)
@@ -132,6 +203,22 @@ class RippingInfo:
     # checksum-attested document for a WavPack/MP3/WAV rip — Platterpus supports
     # all four (review finding, 2026-07-28).
     output_formats: str = ""
+    # The fork's `.26` disc-header lines `Accurate stream:` and `Recordable:`
+    # (see the constants at the top of this module for every state and why
+    # `not_present` and `unrecognised` exist). The reason is the ripper's own
+    # parenthetical, verbatim: `capabilities page, not measured`, `image`,
+    # `drive's current profile`, `profile not readable` and so on; for an
+    # `unrecognised` line it is the line's whole value, bounded. "" when the
+    # line had no parenthetical or was not printed.
+    #
+    # `Recordable:` deliberately does NOT fill `cd_r_detected`. That field is the
+    # legacy format's own "CD-R detected" verdict; this line names the PROFILE
+    # the drive reported and, in the fork's words, "judges nothing about the
+    # disc" (round 36 lap 1 S5). Two facts, two slots.
+    accurate_stream: str = DRIVE_FACT_NOT_PRESENT
+    accurate_stream_reason: str = ""
+    recordable: str = DRIVE_FACT_NOT_PRESENT
+    recordable_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -295,6 +382,20 @@ class TrackResult:
     # NOT declare — the EAC-parity case, and the whole point of upstream PR #115).
     # Provenance we previously had to infer; empty on stock cyanrip.
     pregap_source: str = ""
+    # The two counts, in frames, when the fork's `.26` searched a sub-channel
+    # pre-gap twice and the searches DISAGREED: `Pregap source: sub-channel (not
+    # signalled by TOC; two searches read 94 and 95 frames, the first is used)`
+    # (`cyanrip@cef0f629:src/cyanrip_log.c:432-440`). First search first; the
+    # first is the one ripped, cued and listed in `Gaps:`. `pregap_source` then
+    # still reads `sub-channel (not signalled by TOC)`, because the provenance is
+    # the same and the disagreement is a second fact in its own slot.
+    #
+    # None is "the ripper printed no disagreement", which is three cases the log
+    # cannot tell apart and we must not either: an older build that searched
+    # once; the two searches agreed; or the second search did not complete. The
+    # fork prints nothing in the last two (round 36 lap 1 S6), so None is never
+    # "the searches agreed".
+    pregap_search_frames: tuple[int, int] | None = None
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-upstream.md Part A §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and

@@ -82,6 +82,8 @@ class Section:
     #: OUTBOUND sections, whose headings are human prose rather than a letter.
     #: Empty for inbound sections, which match on their letter key.
     keywords: tuple[str, ...] = ()
+    #: An LSL statement that also counts: a ``TERM set`` IS a close condition (A1).
+    statement: re.Pattern[str] | None = None
 
 
 # What cyanrip must send us (protocol §4). The letters are the section keys the
@@ -231,6 +233,9 @@ INBOUND_SECTIONS: tuple[Section, ...] = (
 # a lap 1 cannot be a lap 1 without. `HANDSHAKE-PIN` is already required of every
 # file by `REQUIRED_WIRE_FIELDS`, so the round's subject is checked without a
 # second, letter-shaped copy of the same requirement here.
+#: An LSL close condition, stated as a statement rather than in prose.
+_TERM_SET_STATEMENT: Final[re.Pattern[str]] = re.compile(r"^S\d{1,3} TERM set:", re.M)
+
 OPENER_SUBJECTS: tuple[Section, ...] = (
     Section(
         "R1",
@@ -238,6 +243,7 @@ OPENER_SUBJECTS: tuple[Section, ...] = (
         "fixed in lap 1 and cannot grow (handshake-protocol.md §6a-bis R1 / S-13) "
         "— a round with no closing condition is round 7 again",
         keywords=("close condition", "close-condition", "acceptance criteri"),
+        statement=_TERM_SET_STATEMENT,  # round 36 lap 1's S18, without the phrase
     ),
 )
 
@@ -410,7 +416,8 @@ def check_opener(*paths: Path) -> list[str]:
         return [f"{paths[0]} is empty"]
     lowered = text.casefold()
     for subject in OPENER_SUBJECTS:
-        if not any(k in lowered for k in subject.keywords):
+        stated = subject.statement is not None and bool(subject.statement.search(text))
+        if not stated and not any(k in lowered for k in subject.keywords):
             problems.append(
                 f"opener is missing its {subject.title} — none of "
                 f"{list(subject.keywords)} appears anywhere in the file "
@@ -1463,7 +1470,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 35
+CURRENT_ROUND: Final[int] = 36
 
 
 # --- The shared wire format (protocol §8) -----------------------------------

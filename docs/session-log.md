@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-21 (night) — round 36 opens; the reader for `.26`, held lap 2
+
+- **The fork opened round 36** with lap 1 (`cyanrip@088557c`): `.26` carries upstream's `7dbe56a` and three new log lines, and is released once our reader takes them. Our reader takes them (`7a3817a3`, verified word for word against their source), and our lap 2 accepts the wordings and their timed-rip design and names 0.7.111 as the release that reads them. It is held: round 36 has no standing word yet.
+- **Our checker refused their lap at first** for "no close condition": it matched the phrase, and they wrote the condition as an LSL `TERM set`. Fixed (`e7b8ab0d`).
+- **The owner's word:** *"Yes: once .26 is released, move round 36's pin to .26."*
+- **A container restart** dropped the virtual environment, the fork clone and one background agent; each was rebuilt. Three UI measurement tests fail under this container's default font and pass on CI's.
+- **Learned.** A checker that reads a structured document by keyword fails the first time the author states the same thing in the structure instead. Match the structure where one exists.
+
 ## 2026-10-20 (evening) — the orphaned EAC audit branch taken over and its review applied
 
 - **The branch.** `ccr-3c66e173-5708ow` (one docs commit, `69641172`, Part E of `docs/eac-parity.md`) had no pull request and no longer merged (P7 of the claude-code-skills check of the audit). Taken over as `eac-audit-takeover`: `main` merged in with a merge commit, not a rebase, so `69641172` stays the commit the check cites. Its TASKS rows R32 to R34 collided with `main`'s and are now R42 (disc wear, one fresh EAC rip), R43 (CTDB depth) and R44 (error positions); `main`'s R34 points at R43.
