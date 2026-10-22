@@ -1,0 +1,255 @@
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 4/4 -a "album=derived mp3 20261022t215702 platterpus-fork-gca0f097:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Frosty:artist=Clarence “Gatemouth” Brown:isrc=USRO28102801" -t "2=title=Funkyard:artist=Walter "Wolfman" Washington & the Roadmasters:isrc=USBU19859902" -t "3=title=Doyne / Freylekhs:artist=The Klezmer Conservatory Band:isrc=USRO29715504" -t "4=title=Somos Boricuas (We Are Puerto Rican):artist=Los Pleneros de la 21" -t "5=title=Hey Little Love:artist=Tish Hinojosa:isrc=USRO20017208" -t "6=title=El Año Viejo:artist=The Blazers:isrc=USRO29404304" -t "7=title=All Just to Get to You:artist=Joe Ely:isrc=USRO20017102" -t "8=title=One Endless Night:artist=Jimmie Dale Gilmore" -t "9=title=Nebraska:artist=The Cash Brothers:isrc=USZO10101903" -t "10=title=Uniform Grey:artist=Sarah Harmer:isrc=USZ010001709" -t "11=title=Broke Down:artist=Slaid Cleaves:isrc=USPH10022501" -t "12=title=Birches:artist=Bill Morrissey:isrc=USPH19315403" -t "13=title=More Than a Paycheck:artist=Sweet Honey in the Rock:isrc=USFF28331705" -t "14=title=Swing Low, Sweet Chariot:artist=IIIrd Tyme Out:isrc=USRO29639311" -t "15=title=Flamenco Fling:artist=Natalie MacMaster:isrc=CAW119901677" -t "16=title=Ashokan Farewell:artist=Fiddle Fever:isrc=USFF29030315" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T221940Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    4
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  1, 2
+DiscID:         rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        D30E6E10
+Album:          derived mp3 20261022t215702 platterpus-fork-gca0f097
+Album artist:   Various Artists
+AccurateRip ID: 0024d7eb-01b5ecd5-d30e6e10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     61:34.30
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    165 frame pregap in track 3, merging into track 2
+    127 frame pregap in track 4, merging into track 3
+    175 frame pregap in track 5, merging into track 4
+    120 frame pregap in track 6, merging into track 5
+    107 frame pregap in track 7, merging into track 6
+    190 frame pregap in track 8, merging into track 7
+    117 frame pregap in track 9, merging into track 8
+    173 frame pregap in track 10, merging into track 9
+    163 frame pregap in track 11, merging into track 10
+    195 frame pregap in track 12, merging into track 11
+    167 frame pregap in track 13, merging into track 12
+    190 frame pregap in track 14, merging into track 13
+    135 frame pregap in track 15, merging into track 14
+    195 frame pregap in track 16, merging into track 15
+
+Tracks:
+Track 1 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -11.0 LUFS
+    Threshold: -21.1 LUFS
+
+  Loudness range:
+    LRA:         5.1 LU
+    Threshold: -31.0 LUFS
+    LRA low:   -13.5 LUFS
+    LRA high:   -8.4 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.2 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO28102801
+
+  Properties:
+    Duration:    03:48.22
+    Samples:     10067736
+    Frames:      17122
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.2 dBFS
+    Integrated loudness (R128): -11.0 LUFS
+    Loudness range (R128):      5.1 LU (-13.5 to -8.4 LUFS)
+    Extraction speed:  6.0x
+    Elapsed:            37.90 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     17121 (with offset: 17123)
+
+  EAC CRC32:     D3D2F271
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  DEB9756F (accurately ripped, confidence 11)
+    Accurip v2:  5A313660 (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         1
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Frosty
+    DISC:                          4
+    ALBUM:                         derived mp3 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Clarence “Gatemouth” Brown
+    ISRC:                          USRO28102801
+    CREATION_TIME:                 2026-10-22T18:19:58-04:00
+    REPLAYGAIN_TRACK_GAIN:         -7.05 dB
+    R128_TRACK_GAIN:               -524
+    REPLAYGAIN_TRACK_RANGE:        5.14 dB
+    REPLAYGAIN_TRACK_PEAK:         1.023459
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1442
+    VERIFY:        99
+    OVERLAP:       21
+
+  File(s):
+    Various Artists/derived mp3 20261022t215702 platterpus-fork-gca0f097/01 - Frosty.flac
+
+Track 2 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.8 LUFS
+    Threshold: -22.9 LUFS
+
+  Loudness range:
+    LRA:         3.7 LU
+    Threshold: -32.9 LUFS
+    LRA low:   -14.8 LUFS
+    LRA high:  -11.1 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        1.1 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USBU19859902
+
+  Properties:
+    Duration:    05:01.25
+    Samples:     13288800
+    Frames:      22600
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   1.1 dBFS
+    Integrated loudness (R128): -12.8 LUFS
+    Loudness range (R128):      3.7 LU (-14.8 to -11.1 LUFS)
+    Extraction speed:  5.8x
+    Elapsed:            51.87 s
+    Pregap LSN:  17122 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   17122 (with offset: 17123)
+    End LSN:     39721 (with offset: 39723)
+
+  EAC CRC32:     53EE628B
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  3D51939F (accurately ripped, confidence 10)
+    Accurip v2:  1EE3478C (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         2
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Funkyard
+    DISC:                          4
+    ALBUM:                         derived mp3 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Walter "Wolfman" Washington & the Roadmasters
+    ISRC:                          USBU19859902
+    CREATION_TIME:                 2026-10-22T18:20:36-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.19 dB
+    R128_TRACK_GAIN:               -48
+    REPLAYGAIN_TRACK_RANGE:        3.68 dB
+    REPLAYGAIN_TRACK_PEAK:         1.136841
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1825
+    VERIFY:        116
+    OVERLAP:       37
+
+  File(s):
+    Various Artists/derived mp3 20261022t215702 platterpus-fork-gca0f097/02 - Funkyard.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -11.9 LUFS
+    Threshold: -22.0 LUFS
+
+  Loudness range:
+    LRA:         4.8 LU
+    Threshold: -32.0 LUFS
+    LRA low:   -14.3 LUFS
+    LRA high:   -9.5 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        1.1 dBFS
+
+Album integrated loudness (R128): -11.9 LUFS
+Album loudness range (R128):      4.8 LU (-14.3 to -9.5 LUFS)
+Album sample peak level:          -0.1 dBFS
+Album true peak level:            1.1 dBFS
+Tracks ripped accurately: 2/16
+
+Paranoia status counts:
+  READ:          3267
+  VERIFY:        215
+  OVERLAP:       58
+
+Ripping errors: 0
+Encoder errors: none; 2 tracks encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (2 of 16 tracks)
+Ripping finished at 2026-10-22T18:21:28-04:00
+Log FUN512: Qp6KmWJlC1SqOebvb.IGuCRcIIInS3iFnCaxVPtmXhSjDrXzQdahm5AWMIxT6dsdBrPY0ucaVzHL.ZXs3p_64g

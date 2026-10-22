@@ -1,0 +1,2300 @@
+================================================================
+Platterpus UI script run — 2026-10-22T21:57:02+00:00
+app: 0.7.112
+run size: full
+Run estimate (full): at least 6h 35m, up to 19h 5m if reads disagree and tracks need re-reading at the retry ceiling: 13 rip(s) about 6h 20m at 1.0x (the speed the project's rig measured for this drive model), and the other steps 13m (measured on the 2026-10-05 Full run, plus this script's waits); NOT counted, so the figure is a floor: section(s) E2, J2, O, P4, P5, never measured on a filed run.
+saved to: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run
+  (transcript.txt, report.json, and any screenshots)
+================================================================
+[  ok  ] L197  log =============================================================
+           =============================================================
+[  ok  ] L198  log FULL ACCEPTANCE RUN - end to end, one pass
+           FULL ACCEPTANCE RUN - end to end, one pass
+[  ok  ] L199  log order: cheapest and least likely to fail first
+           order: cheapest and least likely to fail first
+[  ok  ] L200  log the first rip is section F; the long one is section N
+           the first rip is section F; the long one is section N
+[  ok  ] L201  log =============================================================
+           =============================================================
+[  ok  ] L210  set rip_goal fast_verified
+           rip_goal = 'fast_verified'
+[  ok  ] L211  set track_template %A/%d/%t - %n
+           track_template = '%A/%d/%t - %n'
+[  ok  ] L212  set disc_template %A/%d/%d
+           disc_template = '%A/%d/%d'
+[  ok  ] L213  set track_template_unknown Unknown Artist/Unknown Album/%t - Track %t
+           track_template_unknown = 'Unknown Artist/Unknown Album/%t - Track %t'
+[  ok  ] L214  set disc_template_unknown Unknown Artist/Unknown Album/Unknown Album
+           disc_template_unknown = 'Unknown Artist/Unknown Album/Unknown Album'
+[  ok  ] L215  set auto_launch_picard off
+           auto_launch_picard = False
+[  ok  ] L216  set auto_eject_after_rip off
+           auto_eject_after_rip = False
+[  ok  ] L217  set notify_on_completion on
+           notify_on_completion = True
+[  ok  ] L218  set cover_art embed
+           cover_art = 'embed'
+[  ok  ] L219  set save_additional_art on
+           save_additional_art = True
+[  ok  ] L220  set max_retries 5
+           max_retries = 5
+[  ok  ] L221  set force_overread off
+           force_overread = False
+[  ok  ] L222  set prefer_disc_isrc on
+           prefer_disc_isrc = True
+[  ok  ] L223  set secure_rerip_matches 2
+           secure_rerip_matches = 2
+[  ok  ] L224  set secure_rerip_dynamic on
+           secure_rerip_dynamic = True
+[  ok  ] L225  set rerip_offset_variant on
+           rerip_offset_variant = True
+[  ok  ] L226  set second_read_without_accuraterip on
+           second_read_without_accuraterip = True
+[  ok  ] L227  set read_speed_mode auto_ladder
+           read_speed_mode = 'auto_ladder'
+[  ok  ] L228  set read_speed 0
+           read_speed = 0
+[  ok  ] L229  set ctdb_verify_after_rip on
+           ctdb_verify_after_rip = True
+[  ok  ] L230  set verify_flac_after_rip on
+           verify_flac_after_rip = True
+[  ok  ] L231  set write_eac_log_after_rip off
+           write_eac_log_after_rip = False
+[  ok  ] L232  set output_format flac
+           output_format = 'flac'
+[  ok  ] L233  set mp3_vbr_quality 0
+           mp3_vbr_quality = 0
+[  ok  ] L234  set update_channel stable
+           update_channel = 'stable'
+[  ok  ] L235  set ripper_channel stable
+           ripper_channel = 'stable'
+[  ok  ] L237  keep output_dir
+           kept: output_dir = '~/platterpus-rig/platterpustestsession20261022t215702z/rips'
+[  ok  ] L239  keep library_dir
+           kept: library_dir = ''
+[  ok  ] L241  keep read_offset
+           kept: read_offset = 667
+[  ok  ] L242  keep override_read_offset
+           kept: override_read_offset = True
+[  ok  ] L244  keep metaflac_path
+           kept: metaflac_path = 'metaflac'
+[  ok  ] L246  keep test_script_path
+           kept: test_script_path = ''
+[  ok  ] L247  keep test_script_autorun
+           kept: test_script_autorun = False
+[  ok  ] L253  set debug_logging on
+           debug_logging = True
+[  ok  ] L254  expect debug_logging on
+           debug_logging is True
+[  ok  ] L255  snapshot atstart
+           snapshot 'atstart':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L289  log --- A. identity: which ripper is installed ---
+           --- A. identity: which ripper is installed ---
+[  ok  ] L290  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L291  cyanrip --version   (0.7s)
+           argv: ~/.local/bin/cyanrip --version
+           cwd: ~/platterpus-rig/platterpustestsession20261022t215702z/rips
+           exit: 0
+           cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+[  ok  ] L292  expect-exit 0
+           exit was 0
+[  ok  ] L293  expect-cyanrip platterpus-fork
+           found 'platterpus-fork'
+[  ok  ] L294  expect-ripper-under-review
+           installed build is platterpus-fork-gca0f097 — the build under review (a handshake round is reviewing it)
+[  ok  ] L295  expect-newest-pair   (0.4s)
+           the newest pair: 0.9.4-rc3+platterpus.26 at ca0f097 (release 37, beta) with Platterpus 0.7.112
+[  ok  ] L296  snapshot identity
+           snapshot 'identity':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L304  log A4 (TASKS "Cold-container start"): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+           A4 (TASKS Cold-container start ): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+[ info ] L305  app-log for the first container command
+           lines containing 'for the first container command' (67 line(s) logged since launch, every other line kept):
+           2026-10-22 17:56:12,120 INFO platterpus.container_gate: ripper info probe waits for the first container command of this session to finish, so the container is not started twice at once
+[ info ] L318  probe-ripper-wrapper   (1.1s)
+           exits: The host export exited in 0.27s. The 2026-08-27 hang does not reproduce here.
+           Ripper wrapper exit probe
+             verdict: exits
+             decided by: host export, stdin open
+             summary: The host export exited in 0.27s. The 2026-08-27 hang does not reproduce here.
+             blames the wrapper: False
+           
+             [host export, stdin open] exits
+               argv: ['~/.local/bin/cyanrip', '--version']
+               exit: 0   elapsed: 0.273s
+               output: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+             [host export, stdin closed] exits
+               argv: ['~/.local/bin/cyanrip', '--version']
+               exit: 0   elapsed: 0.265s
+               output: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+             [wrapper alone] exits
+               argv: ['distrobox-enter', '-n', 'ripping', '--', 'true']
+               exit: 0   elapsed: 0.208s
+               output: (nothing)
+           
+             [in-container binary] exits
+               argv: ['distrobox-enter', '-n', 'ripping', '--', '/usr/local/bin/cyanrip', '--version']
+               exit: 0   elapsed: 0.269s
+               output: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+[  ok  ] L331  abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
+           no failures in the 11 step(s) of 'A. identity: which ripper is installed' — continuing
+[  ok  ] L373  log --- B. settings: validated round-trips ---
+           --- B. settings: validated round-trips ---
+[  ok  ] L374  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L381  set-drive-offset
+           read offset +667, from the offset this machine is already set to
+[  ok  ] L382  expect-drive-offset
+           read offset +667, override on
+[  ok  ] L383  expect override_read_offset on
+           override_read_offset is True
+[  ok  ] L384  abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+           no failures in the 5 step(s) of 'B. settings: validated round-trips' — continuing
+[  ok  ] L385  set max_retries 3
+           max_retries = 3
+[  ok  ] L386  expect max_retries 3
+           max_retries is 3
+[  ok  ] L397  set max_retries 5
+           max_retries = 5
+[  ok  ] L398  expect max_retries 5
+           max_retries is 5
+[  ok  ] L399  set output_format flac
+           output_format = 'flac'
+[  ok  ] L400  expect output_format flac
+           output_format is 'flac'
+[  ok  ] L401  set force_overread off
+           force_overread = False
+[  ok  ] L402  expect force_overread off
+           force_overread is False
+[  ok  ] L403  set prefer_disc_isrc on
+           prefer_disc_isrc = True
+[  ok  ] L404  expect prefer_disc_isrc on
+           prefer_disc_isrc is True
+[  ok  ] L413  set auto_eject_after_rip on
+           auto_eject_after_rip = True
+[  ok  ] L414  expect auto_eject_after_rip on
+           auto_eject_after_rip is True
+[  ok  ] L415  set auto_eject_after_rip off
+           auto_eject_after_rip = False
+[  ok  ] L416  expect auto_eject_after_rip off
+           auto_eject_after_rip is False
+[  ok  ] L417  set auto_launch_picard on
+           auto_launch_picard = True
+[  ok  ] L418  expect auto_launch_picard on
+           auto_launch_picard is True
+[  ok  ] L419  set auto_launch_picard off
+           auto_launch_picard = False
+[  ok  ] L420  expect auto_launch_picard off
+           auto_launch_picard is False
+[  ok  ] L421  set update_channel beta
+           update_channel = 'beta'
+[  ok  ] L422  expect update_channel beta
+           update_channel is 'beta'
+[  ok  ] L423  set update_channel stable
+           update_channel = 'stable'
+[  ok  ] L424  expect update_channel stable
+           update_channel is 'stable'
+[  ok  ] L425  set ripper_channel beta
+           ripper_channel = 'beta'
+[  ok  ] L426  expect ripper_channel beta
+           ripper_channel is 'beta'
+[  ok  ] L427  snapshot settingsafter
+           snapshot 'settingsafter':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L440  log --- C. validation: every guard must refuse and not write ---
+           --- C. validation: every guard must refuse and not write ---
+[  ok  ] L441  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L442  expect-refused read_offset 99999
+           refused, and read_offset is still 667 — Read offset must be between -5000 and 5000.
+[  ok  ] L443  expect-refused read_offset -99999
+           refused, and read_offset is still 667 — Read offset must be between -5000 and 5000.
+[  ok  ] L444  expect-refused max_retries 101
+           refused, and max_retries is still 5 — Max retries must be between 0 and 100.
+[  ok  ] L445  expect-refused secure_rerip_matches 11
+           refused, and secure_rerip_matches is still 2 — Extra matching reads to trust a track must be between 0 and 10.
+[  ok  ] L446  expect-refused mp3_vbr_quality 10
+           refused, and mp3_vbr_quality is still 0 — MP3 VBR quality must be between 0 and 9.
+[  ok  ] L451  expect-refused max_retries 2
+           refused, and max_retries is still 5 — Max retries (2) must be more than Extra matching reads to trust a track (2). A track is trusted once 3 of its reads are identical, and Max retries lets cyanrip read it only 2 times, so no track could ever be verified. Raise Max retries to at least 3, or lower Extra matching reads to trust a track.
+[  ok  ] L454  expect-drive-offset
+           read offset +667, override on
+[  ok  ] L455  expect max_retries 5
+           max_retries is 5
+[  ok  ] L456  snapshot validationdone
+           snapshot 'validationdone':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L467  log --- D. dialogs: open, close, and prove none is left up ---
+           --- D. dialogs: open, close, and prove none is left up ---
+[  ok  ] L468  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L469  open drive
+           opening drive
+[  ok  ] L470  screenshot dialogdrive
+           examined 9 window(s); 3 on screen, wrote 3 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> dialogdrive.png
+             DriveSetupDialog 'Set up drive' visible=True platform_window=yes exposed=True modal=True geom=650,303 661x586 on_a_screen=True -> dialogdrive-1-Set-up-drive.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> dialogdrive-2-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/dialogdrive.png
+[  ok  ] L471  cancel
+           cancelled 'Set up drive'
+[  ok  ] L472  open settings
+           opening settings
+[  ok  ] L473  screenshot dialogsettings
+           examined 14 window(s); 3 on screen, wrote 3 PNG(s); 11 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> dialogsettings.png
+             SettingsDialog 'Settings' visible=True platform_window=yes exposed=True modal=True geom=590,36 781x1044 on_a_screen=True -> dialogsettings-1-Settings.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> dialogsettings-2-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/dialogsettings.png
+[  ok  ] L474  cancel
+           cancelled 'Settings'
+[  ok  ] L475  open dependencies   (1.1s)
+           the dependency check finished; 'Dependency check complete' is up
+[  ok  ] L476  screenshot dialogdependencies
+           examined 9 window(s); 3 on screen, wrote 3 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> dialogdependencies.png
+             QMessageBox 'Dependency check complete' visible=True platform_window=yes exposed=True modal=True geom=731,512 500x168 on_a_screen=True -> dialogdependencies-1-Dependency-check-complete.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> dialogdependencies-2-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/dialogdependencies.png
+[  ok  ] L477  cancel
+           cancelled 'Dependency check complete'
+[  ok  ] L478  open about
+           opening about
+[  ok  ] L479  cancel
+           cancelled 'About Platterpus'
+[  ok  ] L480  open diagnostics
+           opening diagnostics
+[  ok  ] L481  screenshot dialogdiagnostics
+           examined 9 window(s); 3 on screen, wrote 3 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> dialogdiagnostics.png
+             DiagnosticsDialog 'Diagnostics' visible=True platform_window=yes exposed=True modal=True geom=601,316 760x560 on_a_screen=True -> dialogdiagnostics-1-Diagnostics.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> dialogdiagnostics-2-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/dialogdiagnostics.png
+[  ok  ] L482  cancel
+           cancelled 'Diagnostics'
+[  ok  ] L483  open guide
+           opening guide
+[  ok  ] L484  cancel
+           cancelled 'Platterpus — User Guide'
+[  ok  ] L485  open setup
+           opening setup
+[  ok  ] L486  cancel
+           cancelled 'Set up Platterpus'
+[  ok  ] L487  snapshot dialogsdone
+           snapshot 'dialogsdone':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L507  log --- E. disc: scan and identify ---
+           --- E. disc: scan and identify ---
+[  ok  ] L508  run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L509  rescan
+           rescanning /dev/sr0
+[  ok  ] L510  pick-release 1 120   (27.0s)
+           no picker appeared and 16 track(s) are loaded for release 53d0f596-95a3-4e60-b4aa-09f5f7532b1e — the disc identified unambiguously, so there was nothing to pick
+[  ok  ] L511  expect-dialog none
+           no dialog, as expected
+[  ok  ] L512  expect-tracks 2+
+           16 track rows (at least 2)
+[  ok  ] L520  expect-identified
+           identified as release 53d0f596-95a3-4e60-b4aa-09f5f7532b1e; 16 track row(s)
+[  ok  ] L521  snapshot discidentified
+           snapshot 'discidentified':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: —
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L539  abort-if-failed the disc was never identified — the picker did not resolve or no tracks loaded, so every rip after this would be about an unknown release
+           no failures in the 8 step(s) of 'E. disc: scan and identify' — continuing
+[ info ] L547  run-estimate
+           for the rest of this run: Run estimate (full): at least 6h 35m, up to 19h 5m if reads disagree and tracks need re-reading at the retry ceiling: 13 rip(s) about 6h 20m at 1.0x (the speed the project's rig measured for this drive model), and the other steps 12m (measured on the 2026-10-05 Full run, plus this script's waits); NOT counted, so the figure is a floor: section(s) E2, J2, O, P4, P5, never measured on a filed run.
+[  ok  ] L569  log --- E2. offset override off: a drive the AccurateRip list does not carry is refused ---
+           --- E2. offset override off: a drive the AccurateRip list does not carry is refused ---
+[  ok  ] L570  run-size quick
+           run size: quick (and every larger run)
+[N/A   ] L571  expect-offset-refusal
+           not run on this equipment: PIONEER BD-RW   BDR-209D is in the AccurateRip drive list (+667). With the override off the app applies that offset and rips instead of refusing, which would also rewrite the offset set-drive-offset set for every later section. The refusal can only be reached on a drive the list does not carry. Nothing was changed. This is not a pass (TASKS: Permutations the acceptance test still does not run, (a)).
+[  ok  ] L572  expect-drive-offset
+           read offset +667, override on
+[  ok  ] L573  expect override_read_offset on
+           override_read_offset is True
+[  ok  ] L643  log --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
+           --- F. the main event: full-disc rip, all tracks, every post-rip check on ---
+[  ok  ] L644  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L645  set rip_goal fast_verified
+           rip_goal = 'fast_verified'
+[  ok  ] L646  expect rip_goal fast_verified
+           rip_goal is 'fast_verified'
+[  ok  ] L647  expect secure_rerip_dynamic on
+           secure_rerip_dynamic is True
+[  ok  ] L648  set cover_art embed
+           cover_art = 'embed'
+[  ok  ] L649  expect cover_art embed
+           cover_art is 'embed'
+[  ok  ] L650  set save_additional_art on
+           save_additional_art = True
+[  ok  ] L651  set ctdb_verify_after_rip on
+           ctdb_verify_after_rip = True
+[  ok  ] L652  set verify_flac_after_rip on
+           verify_flac_after_rip = True
+[  ok  ] L653  set write_eac_log_after_rip on
+           write_eac_log_after_rip = True
+[  ok  ] L654  expect write_eac_log_after_rip on
+           write_eac_log_after_rip is True
+[  ok  ] L659  expect output_format flac
+           output_format is 'flac'
+[  ok  ] L660  select-tracks all
+           all 16 tracks selected
+[  ok  ] L661  album full acceptance: angle<bracket (run) (ripper)
+           album title set to 'full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L662  album-artist Platterpus Acceptance
+           album artist set to 'Platterpus Acceptance'
+[  ok  ] L663  rip
+           start requested
+[  ok  ] L664  wait-for-rip 21600   (512.3s)
+[  ok  ] L665  snapshot afterfullrip
+           snapshot 'afterfullrip':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L666  log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+           A4 (TASKS Three screenshot steps found no window on screen ): the next screenshot records info, not fail, if the display has stopped showing the app
+[  ok  ] L667  screenshot afterfullrip
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> afterfullrip.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> afterfullrip-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/afterfullrip.png
+[  ok  ] L690  expect-rip-complete
+           the ripper's own log records the rip as complete — 16 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L700  expect-verification   (73.1s)
+           every post-rip check this rip started left a result in full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L705  expect-rip-argv with --prefer-disc-isrc   (0.1s)
+           the whole-disc pass sent `--prefer-disc-isrc`, as asked
+[ FAIL ] L726  expect-album-audit   (0.1s)
+           cue_integrity warned: cue sheet — 1 ISRC(s) differ from what we sent: track 10: cue USZO10001709 vs sent USZ010001709
+[  ok  ] L727  expect-accuraterip
+           16 track(s), each with an AccurateRip answer [verified: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+[  ok  ] L728  expect-ctdb whole
+           CTDB was looked up and compared: match, confidence 65, 4 entr(ies)
+[  ok  ] L729  expect-tags
+           16 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[BLOCK ] L730  expect-cover-art
+           cover art was asked for ('embed') but none was fetched: network HTTP 500
+[  ok  ] L748  log --- G. post-rip: the seam check, and the rip's own log ---
+           --- G. post-rip: the seam check, and the rip's own log ---
+[  ok  ] L749  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L750  rig-check   (1.4s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 22633; the disc block totals 22633. Scope: line present on 0 of 16 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+           INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+           OK    parser/log  parsed 16 track(s) from full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L751  snapshot afterrigcheck
+           snapshot 'afterrigcheck':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L780  log --- H. re-rip the same title: the overwrite prompt must fire ---
+           --- H. re-rip the same title: the overwrite prompt must fire ---
+[  ok  ] L781  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L782  select-tracks 1-2
+           selected 2 track(s): [1, 2]
+[  ok  ] L783  album full acceptance: angle<bracket (run) (ripper)
+           album title set to 'full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L791  track-title 1 E=MC2: Rock 'n' Roll \ Part 2
+           track 1 title set to "E=MC2: Rock 'n' Roll \\ Part 2"
+[  ok  ] L792  rip
+           start requested
+[  ok  ] L793  answer-dialog click=new 120 Album already ripped   (0.6s)
+           clicked 'Rip to a new folder' on 'Album already ripped' (matched 'Album already ripped')
+[  ok  ] L794  wait-for-rip 3600   (108.8s)
+[  ok  ] L795  snapshot afteroverwrite
+           snapshot 'afteroverwrite':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L796  log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+           A4 (TASKS Three screenshot steps found no window on screen ): the next screenshot records info, not fail, if the display has stopped showing the app
+[  ok  ] L797  screenshot afteroverwrite
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> afteroverwrite.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> afteroverwrite-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/afteroverwrite.png
+[  ok  ] L798  expect-rip-complete
+           the ripper's own log records the rip as complete — 2 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L802  expect-verification   (49.0s)
+           every post-rip check this rip started left a result in full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097 (2) — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L803  expect-album-audit   (0.1s)
+           all 13 audit check(s) ran, none warned, each reached ok (ripper_build, completion, handshake_note, checksum_inventory, medium, pregap, audio_files, argv_agreement, our_log_integrity, ripper_log_integrity, eac_log_agreement, cue_integrity, disc_identity)
+[  ok  ] L804  expect-ctdb partial   (0.1s)
+           CTDB declined a partial rip, as it must
+[  ok  ] L805  expect-tags
+           2 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[  ok  ] L823  log --- I. cancel a rip in flight ---
+           --- I. cancel a rip in flight ---
+[  ok  ] L824  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L825  select-tracks 1-3
+           selected 3 track(s): [1, 2, 3]
+[  ok  ] L826  album cancel me (run) (ripper)
+           album title set to 'cancel me 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L827  rip
+           start requested
+[  ok  ] L828  log reading for 90s so the cancel lands mid-track
+           reading for 90s so the cancel lands mid-track
+[  ok  ] L829  wait 90   (90.0s)
+[  ok  ] L830  snapshot beforecancel
+           snapshot 'beforecancel':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L831  cancel-rip
+           cancel requested
+[  ok  ] L832  log cancel issued; giving the escalation its full window
+           cancel issued; giving the escalation its full window
+[  ok  ] L839  wait 135   (135.1s)
+[  ok  ] L841  expect-status cancelled
+           status line contains 'cancelled'
+[  ok  ] L859  log A4 (TASKS "S25 on hardware"): the next two steps grade the footer and cyanrip -Y on a cancelled rip's log; the window-close trigger itself is not scriptable
+           A4 (TASKS S25 on hardware ): the next two steps grade the footer and cyanrip -Y on a cancelled rip's log; the window-close trigger itself is not scriptable
+[  ok  ] L860  expect-log-well-formed
+           footer says did not complete; 1 track block(s); signature present; interruption recorded at 'track 2, mid-read'
+[  ok  ] L864  expect-album-audit ripper_log_integrity argv_agreement   (0.1s)
+           all 2 audit check(s) ran, none warned, each reached ok (ripper_log_integrity, argv_agreement)
+[  ok  ] L872  log A4 (TASKS "If a podman ever forwards the wrapper's SIGTERM"): which SIGTERM world this rig is in
+           A4 (TASKS If a podman ever forwards the wrapper's SIGTERM ): which SIGTERM world this rig is in
+[ info ] L873  sigterm-world
+           ONE SIGNAL (podman does not forward the wrapper's SIGTERM): the ripper still held the drive when the rescue fired 5 s after Cancel, and signed its log after the rescue's SIGTERM, so that was its first. Rescue: signalled.
+           2026-10-22 18:11:59,924 INFO platterpus.ui.main_window_rip: post-cancel rescue: device-scoped SIGTERM to whatever holds /dev/sr0 (no eject, no SIGKILL — the log's footer is written from atexit)
+           2026-10-22 18:12:00,166 INFO platterpus.drive_control: fuser -k TERM /dev/sr0 rc=0
+[  ok  ] L874  snapshot aftercancel
+           snapshot 'aftercancel':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 1 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L875  screenshot aftercancel
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> aftercancel.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> aftercancel-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/aftercancel.png
+[  ok  ] L876  rig-check   (0.6s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Platterpus Acceptance/cancel me 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 1442; the disc block totals 2883. Scope: line present on 0 of 1 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes) (disc total is 2.00x the sum on this rip)
+           INFO  parser/interrupted  the ripper recorded where it stopped: 'track 2, mid-read' (rip_completed=False)
+           OK    parser/log  parsed 1 track(s) from cancel me 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L877  snapshot aftercancelrigcheck
+           snapshot 'aftercancelrigcheck':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 1 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L890  log --- J. drive-open proof: identify and rip again after the cancel ---
+           --- J. drive-open proof: identify and rip again after the cancel ---
+[  ok  ] L891  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L892  rescan
+           rescanning /dev/sr0
+[  ok  ] L893  pick-release 1 120   (26.7s)
+           no picker appeared and 16 track(s) are loaded for release 53d0f596-95a3-4e60-b4aa-09f5f7532b1e — the disc identified unambiguously, so there was nothing to pick
+[  ok  ] L894  expect-tracks 2+
+           16 track rows (at least 2)
+[  ok  ] L895  select-tracks 1-2
+           selected 2 track(s): [1, 2]
+[  ok  ] L896  album after cancel (run) (ripper)
+           album title set to 'after cancel 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L897  rip
+           start requested
+[  ok  ] L898  wait-for-rip 3600   (108.0s)
+[  ok  ] L899  snapshot afterrecovery
+           snapshot 'afterrecovery':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L900  log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+           A4 (TASKS Three screenshot steps found no window on screen ): the next screenshot records info, not fail, if the display has stopped showing the app
+[  ok  ] L901  screenshot afterrecovery
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> afterrecovery.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> afterrecovery-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/afterrecovery.png
+[  ok  ] L902  expect-rip-complete
+           the ripper's own log records the rip as complete — 2 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L905  expect-verification   (51.4s)
+           every post-rip check this rip started left a result in after cancel 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L906  expect-album-audit   (0.2s)
+           all 13 audit check(s) ran, none warned, each reached ok (ripper_build, completion, handshake_note, checksum_inventory, medium, pregap, audio_files, argv_agreement, our_log_integrity, ripper_log_integrity, eac_log_agreement, cue_integrity, disc_identity)
+[  ok  ] L907  expect-accuraterip
+           2 track(s), each with an AccurateRip answer [verified: 1, 2]
+[  ok  ] L908  expect-ctdb partial
+           CTDB declined a partial rip, as it must
+[  ok  ] L909  expect-tags
+           2 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[  ok  ] L910  expect-cover-art
+           mode 'embed': front cover embedded in all 2 FLAC(s)
+[  ok  ] L911  rig-check   (1.1s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/after cancel 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 3267; the disc block totals 3267. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+           INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+           OK    parser/log  parsed 2 track(s) from after cancel 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L948  log --- J2. permutations: no -r, no -Z, a fixed speed, filed into a library ---
+           --- J2. permutations: no -r, no -Z, a fixed speed, filed into a library ---
+[  ok  ] L949  run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L950  set secure_rerip_dynamic off
+           secure_rerip_dynamic = False
+[  ok  ] L951  expect secure_rerip_dynamic off
+           secure_rerip_dynamic is False
+[  ok  ] L952  set secure_rerip_matches 0
+           secure_rerip_matches = 0
+[  ok  ] L953  expect secure_rerip_matches 0
+           secure_rerip_matches is 0
+[  ok  ] L954  set max_retries 0
+           max_retries = 0
+[  ok  ] L955  expect max_retries 0
+           max_retries is 0
+[  ok  ] L956  set read_speed_mode fixed
+           read_speed_mode = 'fixed'
+[  ok  ] L957  expect read_speed_mode fixed
+           read_speed_mode is 'fixed'
+[  ok  ] L958  expect read_speed 0
+           read_speed is 0
+[  ok  ] L959  set prefer_disc_isrc off
+           prefer_disc_isrc = False
+[  ok  ] L960  expect prefer_disc_isrc off
+           prefer_disc_isrc is False
+[  ok  ] L961  set-library-scratch
+           library_dir = '~/platterpus-rig/platterpustestsession20261022t215702z/rips/libraryscratch'
+[  ok  ] L962  expect-contains library_dir libraryscratch
+           library_dir contains 'libraryscratch'
+[  ok  ] L963  select-tracks 1
+           selected 1 track(s): [1]
+[  ok  ] L964  album permutations (run) (ripper)
+           album title set to 'permutations 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L965  rip
+           start requested
+[  ok  ] L966  wait-for-rip 3600   (57.0s)
+[  ok  ] L967  expect-library-move   (71.9s)
+           filed in the library as ~/platterpus-rig/platterpustestsession20261022t215702z/rips/libraryscratch/permutations 20261022t215702 platterpus-fork-gca0f097, with its log and report; nothing is left at ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/permutations 20261022t215702 platterpus-fork-gca0f097
+[  ok  ] L968  expect-rip-complete
+           the ripper's own log records the rip as complete — 1 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L969  expect-verification   (0.1s)
+           every post-rip check this rip started left a result in permutations 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L970  expect-rip-argv without -r
+           the whole-disc pass sent no `-r`, as asked
+[  ok  ] L971  expect-rip-argv without -Z
+           the whole-disc pass sent no `-Z`, as asked
+[  ok  ] L972  expect-rip-argv without -S
+           the whole-disc pass sent no `-S`, as asked
+[  ok  ] L973  expect-rip-argv without --prefer-disc-isrc   (0.1s)
+           the whole-disc pass sent no `--prefer-disc-isrc`, as asked
+[  ok  ] L974  expect-album-audit argv_agreement   (0.3s)
+           all 1 audit check(s) ran, none warned, each reached ok (argv_agreement)
+[  ok  ] L976  set library_dir ""
+           library_dir = ''
+[  ok  ] L977  expect library_dir ""
+           library_dir is ''
+[  ok  ] L978  set read_speed_mode auto_ladder
+           read_speed_mode = 'auto_ladder'
+[  ok  ] L979  expect read_speed_mode auto_ladder
+           read_speed_mode is 'auto_ladder'
+[  ok  ] L980  set max_retries 5
+           max_retries = 5
+[  ok  ] L981  expect max_retries 5
+           max_retries is 5
+[  ok  ] L982  set secure_rerip_matches 2
+           secure_rerip_matches = 2
+[  ok  ] L983  expect secure_rerip_matches 2
+           secure_rerip_matches is 2
+[  ok  ] L984  set secure_rerip_dynamic on
+           secure_rerip_dynamic = True
+[  ok  ] L985  expect secure_rerip_dynamic on
+           secure_rerip_dynamic is True
+[  ok  ] L986  set prefer_disc_isrc on
+           prefer_disc_isrc = True
+[  ok  ] L987  expect prefer_disc_isrc on
+           prefer_disc_isrc is True
+[  ok  ] L1037 log --- K1. MP3: the lossy derived output, with a real VBR quality ---
+           --- K1. MP3: the lossy derived output, with a real VBR quality ---
+[  ok  ] L1038 run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L1039 set output_format mp3
+           output_format = 'mp3'
+[  ok  ] L1040 expect output_format mp3
+           output_format is 'mp3'
+[  ok  ] L1041 set mp3_vbr_quality 2
+           mp3_vbr_quality = 2
+[  ok  ] L1042 expect mp3_vbr_quality 2
+           mp3_vbr_quality is 2
+[  ok  ] L1043 select-tracks 1-2
+           selected 2 track(s): [1, 2]
+[  ok  ] L1044 album derived mp3 (run) (ripper)
+           album title set to 'derived mp3 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L1045 rip
+           start requested
+[  ok  ] L1046 wait-for-rip 3600   (109.5s)
+[  ok  ] L1047 snapshot aftermp3
+           snapshot 'aftermp3':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1048 screenshot aftermp3
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> aftermp3.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> aftermp3-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/aftermp3.png
+[  ok  ] L1049 expect-rip-complete
+           the ripper's own log records the rip as complete — 2 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1050 expect-derived-output mp3   (63.9s)
+           2 .mp3 file(s) beside 2 FLAC master(s) in derived mp3 20261022t215702 platterpus-fork-gca0f097 — one per master, as mp3 calls for
+[  ok  ] L1054 expect-verification   (0.1s)
+           every post-rip check this rip started left a result in derived mp3 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L1055 expect-album-audit   (0.1s)
+           all 13 audit check(s) ran, none warned, each reached ok (ripper_build, completion, handshake_note, checksum_inventory, medium, pregap, audio_files, argv_agreement, our_log_integrity, ripper_log_integrity, eac_log_agreement, cue_integrity, disc_identity)
+[  ok  ] L1056 expect-accuraterip   (0.1s)
+           2 track(s), each with an AccurateRip answer [verified: 1, 2]
+[  ok  ] L1057 expect-ctdb partial   (0.1s)
+           CTDB declined a partial rip, as it must
+[  ok  ] L1058 expect-tags   (0.1s)
+           2 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[  ok  ] L1059 expect-cover-art   (0.1s)
+           mode 'embed': front cover embedded in all 2 FLAC(s)
+[  ok  ] L1060 rig-check   (0.6s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/derived mp3 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 3267; the disc block totals 3267. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+           INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+           OK    parser/log  parsed 2 track(s) from derived mp3 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L1062 log --- K2. WavPack: the second lossless format ---
+           --- K2. WavPack: the second lossless format ---
+[  ok  ] L1063 run-size full
+           run size: full (and every larger run)
+[  ok  ] L1064 set output_format wavpack
+           output_format = 'wavpack'
+[  ok  ] L1065 expect output_format wavpack
+           output_format is 'wavpack'
+[  ok  ] L1069 set cover_art file
+           cover_art = 'file'
+[  ok  ] L1070 expect cover_art file
+           cover_art is 'file'
+[  ok  ] L1071 select-tracks 1-2
+           selected 2 track(s): [1, 2]
+[  ok  ] L1072 album derived wavpack (run) (ripper)
+           album title set to 'derived wavpack 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L1073 rip
+           start requested
+[  ok  ] L1074 wait-for-rip 3600   (109.2s)
+[  ok  ] L1075 snapshot afterwavpack
+           snapshot 'afterwavpack':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1076 expect-rip-complete
+           the ripper's own log records the rip as complete — 2 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1077 expect-derived-output wavpack   (51.9s)
+           2 .wv file(s) beside 2 FLAC master(s) in derived wavpack 20261022t215702 platterpus-fork-gca0f097 — one per master, as wavpack calls for
+[  ok  ] L1081 expect-verification   (1.6s)
+           every post-rip check this rip started left a result in derived wavpack 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L1082 expect-album-audit   (0.1s)
+           all 13 audit check(s) ran, none warned, each reached ok (ripper_build, completion, handshake_note, checksum_inventory, medium, pregap, audio_files, argv_agreement, our_log_integrity, ripper_log_integrity, eac_log_agreement, cue_integrity, disc_identity)
+[  ok  ] L1083 expect-accuraterip   (0.1s)
+           2 track(s), each with an AccurateRip answer [verified: 1, 2]
+[  ok  ] L1084 expect-ctdb partial   (0.1s)
+           CTDB declined a partial rip, as it must
+[  ok  ] L1085 expect-tags   (0.1s)
+           2 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[  ok  ] L1086 expect-cover-art
+           mode 'file': nothing embedded; folder copy present
+[  ok  ] L1087 rig-check   (1.1s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/derived wavpack 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 3267; the disc block totals 3267. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+           INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+           OK    parser/log  parsed 2 track(s) from derived wavpack 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L1089 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
+           --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
+[  ok  ] L1090 run-size full
+           run size: full (and every larger run)
+[  ok  ] L1091 set output_format wav
+           output_format = 'wav'
+[  ok  ] L1092 expect output_format wav
+           output_format is 'wav'
+[  ok  ] L1094 set cover_art complete
+           cover_art = 'complete'
+[  ok  ] L1095 expect cover_art complete
+           cover_art is 'complete'
+[  ok  ] L1096 select-tracks 1-2
+           selected 2 track(s): [1, 2]
+[  ok  ] L1097 album derived wav (run) (ripper)
+           album title set to 'derived wav 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L1098 rip
+           start requested
+[  ok  ] L1099 wait-for-rip 3600   (109.6s)
+[  ok  ] L1100 snapshot afterwav
+           snapshot 'afterwav':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1101 log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+           A4 (TASKS Three screenshot steps found no window on screen ): the next screenshot records info, not fail, if the display has stopped showing the app
+[  ok  ] L1102 screenshot afterwav
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> afterwav.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> afterwav-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/afterwav.png
+[  ok  ] L1103 expect-rip-complete
+           the ripper's own log records the rip as complete — 2 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1104 expect-derived-output wav   (52.1s)
+           2 .wav file(s) beside 2 FLAC master(s) in derived wav 20261022t215702 platterpus-fork-gca0f097 — one per master, as wav calls for
+[  ok  ] L1108 expect-verification   (1.7s)
+           every post-rip check this rip started left a result in derived wav 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[  ok  ] L1109 expect-album-audit   (0.1s)
+           all 13 audit check(s) ran, none warned, each reached ok (ripper_build, completion, handshake_note, checksum_inventory, medium, pregap, audio_files, argv_agreement, our_log_integrity, ripper_log_integrity, eac_log_agreement, cue_integrity, disc_identity)
+[  ok  ] L1110 expect-accuraterip
+           2 track(s), each with an AccurateRip answer [verified: 1, 2]
+[  ok  ] L1111 expect-ctdb partial   (0.1s)
+           CTDB declined a partial rip, as it must
+[  ok  ] L1112 expect-tags   (0.1s)
+           2 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[  ok  ] L1113 expect-cover-art
+           mode 'complete': front cover embedded in all 2 FLAC(s); folder copy present
+[  ok  ] L1114 rig-check   (1.1s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/derived wav 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 3267; the disc block totals 3267. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+           INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+           OK    parser/log  parsed 2 track(s) from derived wav 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L1133 log --- K4. restore the output format K1-K3 changed ---
+           --- K4. restore the output format K1-K3 changed ---
+[  ok  ] L1134 run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L1135 set output_format flac
+           output_format = 'flac'
+[  ok  ] L1136 expect output_format flac
+           output_format is 'flac'
+[  ok  ] L1139 set cover_art embed
+           cover_art = 'embed'
+[  ok  ] L1140 expect cover_art embed
+           cover_art is 'embed'
+[  ok  ] L1152 log --- L. goal presets: selecting a goal applies all of it ---
+           --- L. goal presets: selecting a goal applies all of it ---
+[  ok  ] L1153 run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L1154 set rip_goal archival
+           rip_goal = 'archival'
+[  ok  ] L1155 expect rip_goal archival
+           rip_goal is 'archival'
+[  ok  ] L1156 expect secure_rerip_dynamic off
+           secure_rerip_dynamic is False
+[  ok  ] L1157 expect rerip_offset_variant on
+           rerip_offset_variant is True
+[  ok  ] L1160 expect output_format flac
+           output_format is 'flac'
+[  ok  ] L1161 set rip_goal portable
+           rip_goal = 'portable'
+[  ok  ] L1162 expect rip_goal portable
+           rip_goal is 'portable'
+[  ok  ] L1163 expect output_format mp3
+           output_format is 'mp3'
+[  ok  ] L1166 expect rerip_offset_variant on
+           rerip_offset_variant is True
+[  ok  ] L1167 set rip_goal fast_verified
+           rip_goal = 'fast_verified'
+[  ok  ] L1168 expect rip_goal fast_verified
+           rip_goal is 'fast_verified'
+[  ok  ] L1169 expect secure_rerip_dynamic on
+           secure_rerip_dynamic is True
+[  ok  ] L1170 expect rerip_offset_variant on
+           rerip_offset_variant is True
+[  ok  ] L1171 expect output_format flac
+           output_format is 'flac'
+[  ok  ] L1172 snapshot goalsdone
+           snapshot 'goalsdone':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1179 log --- M. naming templates round-trip through the validator ---
+           --- M. naming templates round-trip through the validator ---
+[  ok  ] L1180 run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L1181 set track_template %A/%d/%t - %n
+           track_template = '%A/%d/%t - %n'
+[  ok  ] L1182 expect track_template %A/%d/%t - %n
+           track_template is '%A/%d/%t - %n'
+[  ok  ] L1183 set disc_template %A/%d/%d
+           disc_template = '%A/%d/%d'
+[  ok  ] L1184 expect disc_template %A/%d/%d
+           disc_template is '%A/%d/%d'
+[  ok  ] L1185 snapshot templatesdone
+           snapshot 'templatesdone':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 2 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1224 log --- N. T1: uniform secure re-read, WHOLE DISC, so the counters actually move ---
+           --- N. T1: uniform secure re-read, WHOLE DISC, so the counters actually move ---
+[  ok  ] L1225 run-size full
+           run size: full (and every larger run)
+[  ok  ] L1226 set rip_goal archival
+           rip_goal = 'archival'
+[  ok  ] L1227 expect secure_rerip_dynamic off
+           secure_rerip_dynamic is False
+[  ok  ] L1228 expect rerip_offset_variant on
+           rerip_offset_variant is True
+[  ok  ] L1238 expect output_format flac
+           output_format is 'flac'
+[  ok  ] L1239 set secure_rerip_matches 2
+           secure_rerip_matches = 2
+[  ok  ] L1240 expect secure_rerip_matches 2
+           secure_rerip_matches is 2
+[  ok  ] L1241 rescan
+           rescanning /dev/sr0
+[  ok  ] L1242 pick-release 1 120   (26.6s)
+           no picker appeared and 16 track(s) are loaded for release 53d0f596-95a3-4e60-b4aa-09f5f7532b1e — the disc identified unambiguously, so there was nothing to pick
+[  ok  ] L1243 expect-tracks 2+
+           16 track rows (at least 2)
+[  ok  ] L1244 select-tracks all
+           all 16 tracks selected
+[  ok  ] L1245 album secure reread (run) (ripper)
+           album title set to 'secure reread 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L1246 rip
+           start requested
+[  ok  ] L1247 wait-for-rip 21600   (1600.5s)
+[  ok  ] L1248 snapshot aftersecurereread
+           snapshot 'aftersecurereread':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1249 log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+           A4 (TASKS Three screenshot steps found no window on screen ): the next screenshot records info, not fail, if the display has stopped showing the app
+[  ok  ] L1250 screenshot aftersecurereread
+           examined 8 window(s); 2 on screen, wrote 2 PNG(s); 6 not on screen, named below without a picture
+             MainWindow 'Platterpus 0.7.112' visible=True platform_window=yes exposed=True modal=False geom=481,152 1000x888 on_a_screen=True -> aftersecurereread.png
+             ScriptConsoleDialog 'Run test script' visible=True platform_window=yes exposed=True modal=False geom=601,212 760x740 on_a_screen=True -> aftersecurereread-1-Run-test-script.png
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QFrame '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=NO (never shown) exposed=n/a modal=False geom=0,0 100x30 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=522,203 250x106 on_a_screen=True -> no picture: not on screen
+             QMenu '' visible=False platform_window=yes exposed=False modal=False geom=770,255 320x78 on_a_screen=True -> no picture: not on screen
+           -> ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/aftersecurereread.png
+[  ok  ] L1259 expect-rip-complete
+           the ripper's own log records the rip as complete — 16 track(s) in the log; every measured track converged
+[  ok  ] L1268 expect-secure-rerip
+           Scope: line present on 16 of 16 track(s)
+[  ok  ] L1273 expect-verification   (74.0s)
+           every post-rip check this rip started left a result in secure reread 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[ FAIL ] L1274 expect-album-audit
+           cue_integrity warned: cue sheet — 1 ISRC(s) differ from what we sent: track 10: cue USZO10001709 vs sent USZ010001709
+[  ok  ] L1275 expect-accuraterip
+           16 track(s), each with an AccurateRip answer [verified: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+[  ok  ] L1276 expect-ctdb whole
+           CTDB was looked up and compared: match, confidence 65, 4 entr(ies)
+[  ok  ] L1277 expect-tags   (0.1s)
+           16 FLAC(s): album, album artist, title, artist and track number are each exactly what was chosen
+[  ok  ] L1278 expect-cover-art
+           mode 'embed': front cover embedded in all 16 FLAC(s)
+[  ok  ] L1279 rig-check   (1.5s)
+           exit: 0
+           manifest under ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check
+           INFO  album/discovery  newest rip found: ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/secure reread 20261022t215702 platterpus-fork-gca0f097
+           INFO  platterpus/version  0.7.112 (build 9bf0cd3)
+           INFO  ripper/version  cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)  [ripper-version.txt]
+           INFO  ripper/handshake  unapproved — ripper build platterpus-fork-gca0f097 is NOT the build this Platterpus was verified against (platterpus-fork-g5f1d036, approved by handshake round 35). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. ca0f097 is the build handshake round 36 reviews; no handshake round has approved it yet.
+           INFO  ripper/pin  this Platterpus pins 5f1d036, and accepts ca0f097, the build under review (round 36); the installed banner is above.
+           OK    argv/integrity  all 18 flag token(s) we composed arrived intact (--consumer --diagnostics -F -G -N -T -U -W -Z -a -c -d -l -o -r -s -t) in the binary's own record of the 32 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+           INFO  handshake/note  OPEN: Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+           INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 22213; the disc block totals 67354. Scope: line present on 16 of 16 track(s) — secure re-read genuinely exercised: YES. Also bound-checked, not summed in: FIXUP_ATOM, OVERLAP, VERIFY (they do not scale with the passes) (disc total is 3.03x the sum on this rip)
+           INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+           OK    parser/log  parsed 16 track(s) from secure reread 20261022t215702 platterpus-fork-gca0f097 CD4.log
+           INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `--cache-probe` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+           SKIP  device  no --device given
+           manifest: ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/MANIFEST.txt
+[  ok  ] L1299 log --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
+           --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
+[  ok  ] L1300 run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L1301 cyanrip -N -f   (40.2s)
+           argv: ~/.local/bin/cyanrip -N -f
+           cwd: ~/platterpus-rig/platterpustestsession20261022t215702z/rips
+           exit: 0
+           Searching for drive offset, enabling AccuRip and disabling MusicBrainz and Cover art fetching...
+           Checking /dev/cdrom for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           Loading data for track 1...
+           Data loaded, searching for offsets...
+           Offset of +667 found in track 1, trying to confirm with another track
+           Loading data for track 2...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 2) in track 2, trying to confirm with another track
+           Loading data for track 3...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 3) in track 3, trying to confirm with another track
+           Loading data for track 4...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 4) in track 4, trying to confirm with another track
+           Loading data for track 5...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 5) in track 5, trying to confirm with another track
+           Loading data for track 6...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 6) in track 6, trying to confirm with another track
+           Loading data for track 7...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 7) in track 7, trying to confirm with another track
+           Loading data for track 8...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 8) in track 8, trying to confirm with another track
+           Loading data for track 9...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 9) in track 9, trying to confirm with another track
+           Loading data for track 10...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 10) in track 10, trying to confirm with another track
+           Loading data for track 11...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 11) in track 11, trying to confirm with another track
+           Loading data for track 12...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 12) in track 12, trying to confirm with another track
+           Loading data for track 13...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 13) in track 13, trying to confirm with another track
+           Loading data for track 14...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 14) in track 14, trying to confirm with another track
+           Loading data for track 15...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 15) in track 15, trying to confirm with another track
+           Loading data for track 16...
+           Data loaded, searching for offsets...
+           Offset of +667 confirmed (confidence: 16) in track 16
+           Drive offset of +667 found (confidence: 16)!
+           Tracks ripped accurately: 0/16
+           
+           Paranoia status counts:
+             READ:          1568
+             VERIFY:        345
+             FIXUP_ATOM:    2
+             OVERLAP:       1
+           
+           Ripping errors: 0
+           Encoder errors: not applicable; no track was encoded
+           Read stalls:    none (no read exceeded 10s)
+           Rip completed:  no (offset search only, 0 of 16 tracks)
+           Ripping finished at 2026-10-22T18:57:23-04:00
+[  ok  ] L1302 expect-exit 0
+           exit was 0
+[  ok  ] L1303 expect-found-offset
+           cyanrip -f found +667 (confidence 16), as set
+[  ok  ] L1357 log --- P. T3: the fork's cache probe, probe-only ---
+           --- P. T3: the fork's cache probe, probe-only ---
+[  ok  ] L1358 run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L1359 cyanrip -N --cache-probe -I   (26.4s)
+           argv: ~/.local/bin/cyanrip -N --cache-probe -I
+           cwd: ~/platterpus-rig/platterpustestsession20261022t215702z/rips
+           exit: 0
+           Checking /dev/cdrom for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           MusicBrainz URL:
+           https://musicbrainz.org/cdtoc/attach?toc=1+16+277230+150+17272+39872+60437+76445+89535+109412+128452+145602+162700+179510+193980+209257+226902+241690+258675&tracks=16&id=rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+           No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+           Log(s) will be written to:
+               Unknown disc (RBIN) [FLAC]/Unknown disc (RBIN).log
+           CUE files will be written to:
+               Unknown disc (RBIN) [FLAC]/Unknown disc (RBIN).cue
+           cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           Invoked as:     /usr/local/bin/cyanrip -N --cache-probe -I
+           Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                           (declared at build time, not verified by cyanrip)
+           Consumer:       not identified (no --consumer given)
+           Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+           System device:  /dev/cdrom
+           Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           Offset:         +0 samples
+           Overread:       +0 frames
+           Overread mode:  fill with silence in lead-in/lead-out
+           Speed:          default (unchangeable)
+           C2 errors:      unsupported by drive
+           Accurate stream: declared supported by drive (capabilities page, not measured)
+           Recordable:     unknown (profile 0xffff is not a CD profile)
+           CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+           Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+           Paranoia level: max
+           Retry limit:    10 (per frame, and per whole-track re-read)
+           Cache model:    1200 sectors (drive cache probed separately, see "Cache probe:")
+           HDCD decoding:  disabled
+           Album Art:      none
+           Outputs:        flac
+           Disc tracks:    16
+           Tracks to rip:  all
+           DiscID:         rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+           CDDB ID:        D30E6E10
+           Album:          Unknown disc (RBIN)
+           AccurateRip ID: 0024d7eb-01b5ecd5-d30e6e10
+           AccurateRip:    found
+           AcoustID:       unsupported (built without libchromaprint)
+           Total time:     61:34.30
+           
+           Cache probe:    128 to 255 sectors (294.0 to 585.7 KiB, uncached read 253.6 ms, cached read 1.7 ms, 3 re-reads after a 256-sector run took 34.4 ms or more)
+           Gaps:
+               165 frame pregap in track 3, merging into track 2
+               127 frame pregap in track 4, merging into track 3
+               175 frame pregap in track 5, merging into track 4
+               120 frame pregap in track 6, merging into track 5
+               107 frame pregap in track 7, merging into track 6
+               190 frame pregap in track 8, merging into track 7
+               117 frame pregap in track 9, merging into track 8
+               173 frame pregap in track 10, merging into track 9
+               163 frame pregap in track 11, merging into track 10
+               195 frame pregap in track 12, merging into track 11
+               167 frame pregap in track 13, merging into track 12
+               190 frame pregap in track 14, merging into track 13
+               135 frame pregap in track 15, merging into track 14
+               195 frame pregap in track 16, merging into track 15
+           
+           Tracks:
+           Track 1 info:
+             Preemphasis:   none detected
+             Disc ISRC:     USRO28102801
+           
+             Properties:
+               Duration:    03:48.22
+               Samples:     10067736
+               Frames:      17122
+               Pregap LSN:  0 (duration: 00:02.00)
+               Pregap length: 150 frames
+               Pregap source: lead-in
+               Start LSN:   0
+               End LSN:     17121
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 28)
+           
+             Metadata:
+               TRACK:              1
+               TRACKTOTAL:         16
+               MUSICBRAINZ_DISCID: rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:               D30E6E10
+               MEDIA:              CD
+               COMMENT:            cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:              Unknown disc (RBIN)
+               TITLE:              Unknown track
+               ISRC:               USRO28102801
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (RBIN) [FLAC]/01 - Unknown track.flac
+           
+           Track 2 info:
+             Preemphasis:   none detected
+             Disc ISRC:     USBU19859902
+           
+             Properties:
+               Duration:    05:01.25
+               Samples:     13288800
+               Frames:      22600
+               Pregap LSN:  17122 (dur
+           … [8974 characters omitted] …
+           
+             Accurip:       disc found in database (max confidence: 25)
+           
+             Metadata:
+               TRACK:              12
+               TRACKTOTAL:         16
+               MUSICBRAINZ_DISCID: rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:               D30E6E10
+               MEDIA:              CD
+               COMMENT:            cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:              Unknown disc (RBIN)
+               TITLE:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (RBIN) [FLAC]/12 - Unknown track.flac
+           
+           Track 13 info:
+             Preemphasis:   none detected
+             Disc ISRC:     USFF28331705
+           
+             Properties:
+               Duration:    03:55.20
+               Samples:     10375260
+               Frames:      17645
+               Pregap LSN:  208940 (duration: 00:02.17)
+               Pregap length: 167 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   209107
+               End LSN:     226751
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 26)
+           
+             Metadata:
+               TRACK:              13
+               TRACKTOTAL:         16
+               MUSICBRAINZ_DISCID: rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:               D30E6E10
+               MEDIA:              CD
+               COMMENT:            cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:              Unknown disc (RBIN)
+               TITLE:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (RBIN) [FLAC]/13 - Unknown track.flac
+           
+           Track 14 info:
+             Preemphasis:   none detected
+             Disc ISRC:     USRO29639311
+           
+             Properties:
+               Duration:    03:17.13
+               Samples:     8695344
+               Frames:      14788
+               Pregap LSN:  226562 (duration: 00:02.40)
+               Pregap length: 190 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   226752
+               End LSN:     241539
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 27)
+           
+             Metadata:
+               TRACK:              14
+               TRACKTOTAL:         16
+               MUSICBRAINZ_DISCID: rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:               D30E6E10
+               MEDIA:              CD
+               COMMENT:            cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:              Unknown disc (RBIN)
+               TITLE:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (RBIN) [FLAC]/14 - Unknown track.flac
+           
+           Track 15 info:
+             Preemphasis:   none detected
+             Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+           
+             Properties:
+               Duration:    03:46.35
+               Samples:     9987180
+               Frames:      16985
+               Pregap LSN:  241405 (duration: 00:01.60)
+               Pregap length: 135 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   241540
+               End LSN:     258524
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 27)
+           
+             Metadata:
+               TRACK:              15
+               TRACKTOTAL:         16
+               MUSICBRAINZ_DISCID: rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:               D30E6E10
+               MEDIA:              CD
+               COMMENT:            cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:              Unknown disc (RBIN)
+               TITLE:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (RBIN) [FLAC]/15 - Unknown track.flac
+           
+           Track 16 info:
+             Preemphasis:   none detected
+             Disc ISRC:     USFF29030315
+           
+             Properties:
+               Duration:    04:07.30
+               Samples:     10910340
+               Frames:      18555
+               Pregap LSN:  258330 (duration: 00:02.45)
+               Pregap length: 195 frames
+               Pregap source: sub-channel (not signalled by TOC)
+               Start LSN:   258525
+               End LSN:     277079
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 26)
+           
+             Metadata:
+               TRACK:              16
+               TRACKTOTAL:         16
+               MUSICBRAINZ_DISCID: rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:               D30E6E10
+               MEDIA:              CD
+               COMMENT:            cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:              Unknown disc (RBIN)
+               TITLE:              Unknown track
+           
+             Paranoia status counts:
+               none
+           
+             File(s):
+               Unknown disc (RBIN) [FLAC]/16 - Unknown track.flac
+           
+[  ok  ] L1360 expect-exit 0
+           exit was 0
+[  ok  ] L1361 expect-cyanrip Cache probe
+           found 'Cache probe'
+[ info ] L1362 cache-probe   (75.9s)
+           cd-paranoia -A: cache 137 sectors, defeated, exit 0; output in cacheprobe1362.txt
+[  ok  ] L1363 snapshot aftercacheprobe
+           snapshot 'aftercacheprobe':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1412 log --- P2. C1: does a no-offset refusal hang the drive? ---
+           --- P2. C1: does a no-offset refusal hang the drive? ---
+[  ok  ] L1413 run-size standard
+           run size: standard (and every larger run)
+[  ok  ] L1414 cyanrip -N -l 1   (16.0s)
+           argv: ~/.local/bin/cyanrip -N -l 1
+           cwd: ~/platterpus-rig/platterpustestsession20261022t215702z/rips
+           exit: 64
+           Checking /dev/cdrom for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           Offset is unset! To continue with an offset of 0, run with -s 0!
+           Paranoia status counts:
+             none
+           
+           Ripping errors: 0
+           Encoder errors: not applicable; no track was encoded
+           Read stalls:    none (no read exceeded 10s)
+           Rip completed:  no (aborted, 0 of 16 tracks)
+           Ripping finished at 2026-10-22T18:59:22-04:00
+[  ok  ] L1415 expect-exit refused
+           exit was 64
+[  ok  ] L1416 expect-cyanrip Offset is unset
+           found 'Offset is unset'
+[  ok  ] L1417 snapshot afterc1
+           snapshot 'afterc1':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1543 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
+           --- P3. R16 CC2: -H -E (forced de-emphasis) ---
+[  ok  ] L1544 run-size full
+           run size: full (and every larger run)
+[  ok  ] L1545 cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)   (57.5s)
+           argv: ~/.local/bin/cyanrip -N -s 667 -l 1 -H -E -D r16deemphon --consumer platterpus/0.7.112 --diagnostics cyanrip-diagnostics-20261022T225923Z.json
+           cwd: ~/platterpus-rig/platterpustestsession20261022t215702z/rips
+           exit: 0
+           Checking /dev/cdrom for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+           cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           Invoked as:     /usr/local/bin/cyanrip -N -s 667 -l 1 -H -E -D r16deemphon --consumer platterpus/0.7.112 --diagnostics cyanrip-diagnostics-20261022T225923Z.json
+           Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                           (declared at build time, not verified by cyanrip)
+           Consumer:       platterpus/0.7.112
+                           (reported by the caller, not verified by cyanrip)
+           Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+           System device:  /dev/cdrom
+           Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           Offset:         +667 samples
+           Overread:       +2 frames
+           Overread mode:  fill with silence in lead-in/lead-out
+           Speed:          default (unchangeable)
+           C2 errors:      unsupported by drive
+           Accurate stream: declared supported by drive (capabilities page, not measured)
+           Recordable:     unknown (profile 0xffff is not a CD profile)
+           CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+           Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+           Paranoia level: max
+           Retry limit:    10 (per frame, and per whole-track re-read)
+           Cache model:    1200 sectors (drive cache size not probed)
+           HDCD decoding:  enabled
+           Album Art:      none
+           Outputs:        flac
+           Disc tracks:    16
+           Tracks to rip:  1
+           DiscID:         rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+           CDDB ID:        D30E6E10
+           Album:          Unknown disc (RBIN)
+           AccurateRip ID: 0024d7eb-01b5ecd5-d30e6e10
+           AccurateRip:    found
+           AcoustID:       unsupported (built without libchromaprint)
+           Total time:     61:34.30
+           
+           Gaps:
+               165 frame pregap in track 3, merging into track 2
+               127 frame pregap in track 4, merging into track 3
+               175 frame pregap in track 5, merging into track 4
+               120 frame pregap in track 6, merging into track 5
+               107 frame pregap in track 7, merging into track 6
+               190 frame pregap in track 8, merging into track 7
+               117 frame pregap in track 9, merging into track 8
+               173 frame pregap in track 10, merging into track 9
+               163 frame pregap in track 11, merging into track 10
+               195 frame pregap in track 12, merging into track 11
+               167 frame pregap in track 13, merging into track 12
+               190 frame pregap in track 14, merging into track 13
+               135 frame pregap in track 15, merging into track 14
+               195 frame pregap in track 16, merging into track 15
+           
+           Tracks:
+           Ripping and encoding track 1, progress - 0.01%, ETA - 9h 48m
+           Ripping and encoding track 1, progress - 0.01%, ETA - 4h 55m
+           Ripping and encoding track 1, progress - 0.02%, ETA - 3h 16m
+           Ripping and encoding track 1, progress - 0.02%, ETA - 2h 27m
+           Ripping and encoding track 1, progress - 0.03%, ETA - 1h 58m
+           Ripping and encoding track 1, progress - 0.04%, ETA - 1h 38m
+           Ripping and encoding track 1, progress - 0.04%, ETA - 1h 24m
+           Ripping and encoding track 1, progress - 0.05%, ETA - 1h 13m
+           Ripping and encoding track 1, progress - 0.05%, ETA - 1h 5m 
+           Ripping and encoding track 1, progress - 0.06%, ETA - 59m   
+           Ripping and encoding track 1, progress - 0.06%, ETA - 53m   
+           Ripping and encoding track 1, progress - 0.07%, ETA - 49m   
+           Ripping and encoding track 1, progress - 0.08%, ETA - 45m   
+           Ripping and encoding track 1, progress - 0.08%, ETA - 42m   
+           Ripping and encoding track 1, progress - 0.09%, ETA - 39m   
+           Ripping and encoding track 1, progress - 0.09%, ETA - 36m   
+           Ripping and encoding track 1, progress - 0.10%, ETA - 34m   
+           Ripping and encoding track 1, progress - 0.11%, ETA - 32m   
+           Ripping and encoding track 1, progress - 0.11%, ETA - 31m   
+           Ripping and encoding track 1, progress - 0.12%, ETA - 29m   
+           Ripping and encoding track 1, progress - 0.12%, ETA - 28m   
+           Ripping and encoding track 1, progress - 0.13%, ETA - 26m   
+           Ripping and encoding track 1, progress - 0.13%, ETA - 25m   
+           Ripping and encoding track 1, progress - 0.14%, ETA - 24m
+           … [1042016 characters omitted] …
+           d encoding track 1, progress - 99.91%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.91%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.92%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.92%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.93%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.94%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.94%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.95%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.95%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.96%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.96%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.97%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.98%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.98%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.99%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.99%, ETA - 0s   
+           Ripping and encoding track 1, progress - 100.00%, ETA - 0s  
+           Flushing encoders...
+           Track 1 read successfully!
+           Summary:
+           
+             Integrated loudness:
+               I:         -17.5 LUFS
+               Threshold: -27.6 LUFS
+           
+             Loudness range:
+               LRA:         4.8 LU
+               Threshold: -37.5 LUFS
+               LRA low:   -19.7 LUFS
+               LRA high:  -14.9 LUFS
+           
+             Sample peak:
+               Peak:       -5.9 dBFS
+           
+             True peak:
+               Peak:       -5.9 dBFS
+           
+             HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+             Preemphasis:   none detected (deemphasis forced)
+             Disc ISRC:     USRO28102801
+           
+             Properties:
+               Duration:    03:48.22
+               Samples:     10067736
+               Frames:      17122
+               Sample peak level: 50.7% (-5.9 dBFS)
+               True peak level:   -5.9 dBFS
+               Integrated loudness (R128): -17.5 LUFS
+               Loudness range (R128):      4.8 LU (-19.7 to -14.9 LUFS)
+               Extraction speed:  5.7x
+               Elapsed:            39.82 s
+               Pregap LSN:  0 (duration: 00:02.00)
+               Pregap length: 150 frames
+               Pregap source: lead-in
+               Start LSN:   0 (with offset: 1)
+               End LSN:     17121 (with offset: 17123)
+           
+             EAC CRC32:     D3D2F271
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 28)
+               Accurip v1:  DEB9756F (accurately ripped, confidence 11)
+               Accurip v2:  5A313660 (accurately ripped, confidence 28)
+           
+             Metadata:
+               TRACK:                         1
+               TRACKTOTAL:                    16
+               MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:                          D30E6E10
+               MEDIA:                         CD
+               COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:                         Unknown disc (RBIN)
+               TITLE:                         Unknown track
+               ISRC:                          USRO28102801
+               CREATION_TIME:                 2026-10-22T18:59:40-04:00
+               REPLAYGAIN_TRACK_GAIN:         -0.54 dB
+               R128_TRACK_GAIN:               1142
+               REPLAYGAIN_TRACK_RANGE:        4.81 dB
+               REPLAYGAIN_TRACK_PEAK:         0.507277
+               REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+           
+             Paranoia status counts:
+               READ:          1442
+               VERIFY:        99
+               OVERLAP:       21
+           
+             File(s):
+               r16deemphon/01 - Unknown track.flac
+           
+           Album Loudness Summary:
+           
+             Integrated loudness:
+               I:         -17.5 LUFS
+               Threshold: -27.6 LUFS
+           
+             Loudness range:
+               LRA:         4.8 LU
+               Threshold: -37.5 LUFS
+               LRA low:   -19.7 LUFS
+               LRA high:  -14.9 LUFS
+           
+             Sample peak:
+               Peak:       -5.9 dBFS
+           
+             True peak:
+               Peak:       -5.9 dBFS
+           
+           Album integrated loudness (R128): -17.5 LUFS
+           Album loudness range (R128):      4.8 LU (-19.7 to -14.9 LUFS)
+           Album sample peak level:          -5.9 dBFS
+           Album true peak level:            -5.9 dBFS
+           Tracks ripped accurately: 1/16
+           
+           Paranoia status counts:
+             READ:          1442
+             VERIFY:        99
+             OVERLAP:       21
+           
+           Ripping errors: 0
+           Encoder errors: none; 1 track encoded
+           Read stalls:    none (no read exceeded 10s)
+           Rip completed:  yes (1 of 16 tracks)
+           Ripping finished at 2026-10-22T19:00:21-04:00
+[  ok  ] L1546 expect-exit 0
+           exit was 0
+[  ok  ] L1547 snapshot afterdeemphon
+           snapshot 'afterdeemphon':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1549 log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
+           --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
+[  ok  ] L1550 run-size full
+           run size: full (and every larger run)
+[  ok  ] L1551 cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)   (55.8s)
+           argv: ~/.local/bin/cyanrip -N -s 667 -l 1 -H -W -D r16deemphoff --consumer platterpus/0.7.112 --diagnostics cyanrip-diagnostics-20261022T230021Z.json
+           cwd: ~/platterpus-rig/platterpustestsession20261022t215702z/rips
+           exit: 0
+           Checking /dev/cdrom for cdrom...
+           		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           
+           
+           Opening drive...
+           No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+           cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           Invoked as:     /usr/local/bin/cyanrip -N -s 667 -l 1 -H -W -D r16deemphoff --consumer platterpus/0.7.112 --diagnostics cyanrip-diagnostics-20261022T230021Z.json
+           Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                           (declared at build time, not verified by cyanrip)
+           Consumer:       platterpus/0.7.112
+                           (reported by the caller, not verified by cyanrip)
+           Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+           System device:  /dev/cdrom
+           Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+           Offset:         +667 samples
+           Overread:       +2 frames
+           Overread mode:  fill with silence in lead-in/lead-out
+           Speed:          default (unchangeable)
+           C2 errors:      unsupported by drive
+           Accurate stream: declared supported by drive (capabilities page, not measured)
+           Recordable:     unknown (profile 0xffff is not a CD profile)
+           CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+           Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+           Paranoia level: max
+           Retry limit:    10 (per frame, and per whole-track re-read)
+           Cache model:    1200 sectors (drive cache size not probed)
+           HDCD decoding:  enabled
+           Album Art:      none
+           Outputs:        flac
+           Disc tracks:    16
+           Tracks to rip:  1
+           DiscID:         rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+           CDDB ID:        D30E6E10
+           Album:          Unknown disc (RBIN)
+           AccurateRip ID: 0024d7eb-01b5ecd5-d30e6e10
+           AccurateRip:    found
+           AcoustID:       unsupported (built without libchromaprint)
+           Total time:     61:34.30
+           
+           Gaps:
+               165 frame pregap in track 3, merging into track 2
+               127 frame pregap in track 4, merging into track 3
+               175 frame pregap in track 5, merging into track 4
+               120 frame pregap in track 6, merging into track 5
+               107 frame pregap in track 7, merging into track 6
+               190 frame pregap in track 8, merging into track 7
+               117 frame pregap in track 9, merging into track 8
+               173 frame pregap in track 10, merging into track 9
+               163 frame pregap in track 11, merging into track 10
+               195 frame pregap in track 12, merging into track 11
+               167 frame pregap in track 13, merging into track 12
+               190 frame pregap in track 14, merging into track 13
+               135 frame pregap in track 15, merging into track 14
+               195 frame pregap in track 16, merging into track 15
+           
+           Tracks:
+           Ripping and encoding track 1, progress - 0.01%, ETA - 9h 44m
+           Ripping and encoding track 1, progress - 0.01%, ETA - 4h 53m
+           Ripping and encoding track 1, progress - 0.02%, ETA - 3h 15m
+           Ripping and encoding track 1, progress - 0.02%, ETA - 2h 26m
+           Ripping and encoding track 1, progress - 0.03%, ETA - 1h 57m
+           Ripping and encoding track 1, progress - 0.04%, ETA - 1h 37m
+           Ripping and encoding track 1, progress - 0.04%, ETA - 1h 23m
+           Ripping and encoding track 1, progress - 0.05%, ETA - 1h 13m
+           Ripping and encoding track 1, progress - 0.05%, ETA - 1h 5m 
+           Ripping and encoding track 1, progress - 0.06%, ETA - 58m   
+           Ripping and encoding track 1, progress - 0.06%, ETA - 53m   
+           Ripping and encoding track 1, progress - 0.07%, ETA - 48m   
+           Ripping and encoding track 1, progress - 0.08%, ETA - 45m   
+           Ripping and encoding track 1, progress - 0.08%, ETA - 41m   
+           Ripping and encoding track 1, progress - 0.09%, ETA - 39m   
+           Ripping and encoding track 1, progress - 0.09%, ETA - 36m   
+           Ripping and encoding track 1, progress - 0.10%, ETA - 34m   
+           Ripping and encoding track 1, progress - 0.11%, ETA - 32m   
+           Ripping and encoding track 1, progress - 0.11%, ETA - 30m   
+           Ripping and encoding track 1, progress - 0.12%, ETA - 29m   
+           Ripping and encoding track 1, progress - 0.12%, ETA - 27m   
+           Ripping and encoding track 1, progress - 0.13%, ETA - 26m   
+           Ripping and encoding track 1, progress - 0.13%, ETA - 25m   
+           Ripping and encoding track 1, progress - 0.14%, ETA - 24
+           … [1041998 characters omitted] …
+            - 0s   
+           Ripping and encoding track 1, progress - 99.91%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.91%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.92%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.92%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.93%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.94%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.94%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.95%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.95%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.96%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.96%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.97%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.98%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.98%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.99%, ETA - 0s   
+           Ripping and encoding track 1, progress - 99.99%, ETA - 0s   
+           Ripping and encoding track 1, progress - 100.00%, ETA - 0s  
+           Flushing encoders...
+           Track 1 read successfully!
+           Summary:
+           
+             Integrated loudness:
+               I:         -17.0 LUFS
+               Threshold: -27.1 LUFS
+           
+             Loudness range:
+               LRA:         5.1 LU
+               Threshold: -37.1 LUFS
+               LRA low:   -19.5 LUFS
+               LRA high:  -14.4 LUFS
+           
+             Sample peak:
+               Peak:       -6.1 dBFS
+           
+             True peak:
+               Peak:       -5.8 dBFS
+           
+             HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+             Preemphasis:   none detected
+             Disc ISRC:     USRO28102801
+           
+             Properties:
+               Duration:    03:48.22
+               Samples:     10067736
+               Frames:      17122
+               Sample peak level: 49.4% (-6.1 dBFS)
+               True peak level:   -5.8 dBFS
+               Integrated loudness (R128): -17.0 LUFS
+               Loudness range (R128):      5.1 LU (-19.5 to -14.4 LUFS)
+               Extraction speed:  5.9x
+               Elapsed:            38.54 s
+               Pregap LSN:  0 (duration: 00:02.00)
+               Pregap length: 150 frames
+               Pregap source: lead-in
+               Start LSN:   0 (with offset: 1)
+               End LSN:     17121 (with offset: 17123)
+           
+             EAC CRC32:     D3D2F271
+             Secure re-read:  not attempted
+             Accurip:       disc found in database (max confidence: 28)
+               Accurip v1:  DEB9756F (accurately ripped, confidence 11)
+               Accurip v2:  5A313660 (accurately ripped, confidence 28)
+           
+             Metadata:
+               TRACK:                         1
+               TRACKTOTAL:                    16
+               MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+               CDDB:                          D30E6E10
+               MEDIA:                         CD
+               COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+               ALBUM:                         Unknown disc (RBIN)
+               TITLE:                         Unknown track
+               ISRC:                          USRO28102801
+               CREATION_TIME:                 2026-10-22T19:00:38-04:00
+               REPLAYGAIN_TRACK_GAIN:         -1.03 dB
+               R128_TRACK_GAIN:               1017
+               REPLAYGAIN_TRACK_RANGE:        5.14 dB
+               REPLAYGAIN_TRACK_PEAK:         0.511730
+               REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+           
+             Paranoia status counts:
+               READ:          1442
+               VERIFY:        99
+               OVERLAP:       21
+           
+             File(s):
+               r16deemphoff/01 - Unknown track.flac
+           
+           Album Loudness Summary:
+           
+             Integrated loudness:
+               I:         -17.0 LUFS
+               Threshold: -27.1 LUFS
+           
+             Loudness range:
+               LRA:         5.1 LU
+               Threshold: -37.1 LUFS
+               LRA low:   -19.5 LUFS
+               LRA high:  -14.4 LUFS
+           
+             Sample peak:
+               Peak:       -6.1 dBFS
+           
+             True peak:
+               Peak:       -5.8 dBFS
+           
+           Album integrated loudness (R128): -17.0 LUFS
+           Album loudness range (R128):      5.1 LU (-19.5 to -14.4 LUFS)
+           Album sample peak level:          -6.1 dBFS
+           Album true peak level:            -5.8 dBFS
+           Tracks ripped accurately: 1/16
+           
+           Paranoia status counts:
+             READ:          1442
+             VERIFY:        99
+             OVERLAP:       21
+           
+           Ripping errors: 0
+           Encoder errors: none; 1 track encoded
+           Read stalls:    none (no read exceeded 10s)
+           Rip completed:  yes (1 of 16 tracks)
+           Ripping finished at 2026-10-22T19:01:17-04:00
+[  ok  ] L1552 expect-exit 0
+           exit was 0
+[  ok  ] L1553 snapshot afterdeemphoff
+           snapshot 'afterdeemphoff':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 16 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1572 log --- P4. every rip of this disc: do their pregap lists agree? ---
+           --- P4. every rip of this disc: do their pregap lists agree? ---
+[  ok  ] L1573 run-size standard
+           run size: standard (and every larger run)
+[ info ] L1574 expect-pregaps-agree   (0.1s)
+           ✓ the pregap lists agree: 11 log(s) compared
+           disc rBin7wC6wjdr7ZsrLr.6j6rYAkA-: 11 logs compared, identical
+           9 other .log file(s) from this run were not cyanrip's (the EAC-layout export, chiefly) and were not compared
+[  ok  ] L1612 log --- P5. S15: timed rip, the approved build against the one under review ---
+           --- P5. S15: timed rip, the approved build against the one under review ---
+[  ok  ] L1613 run-size full
+           run size: full (and every larger run)
+[ info ] L1614 skip-if-same-build (fork-pin) (under-review)
+           comparing (fork-pin) = 5f1d036 (0.9.4-rc3+platterpus.25) with (under-review) = ca0f097 (0.9.4-rc3+platterpus.26)
+[  ok  ] L1615 log P5 rips tracks 1-3, offset as set, no securing pass (-Z off), fixed read speed 0, shipped retries: it measures plain read speed
+           P5 rips tracks 1-3, offset as set, no securing pass (-Z off), fixed read speed 0, shipped retries: it measures plain read speed
+[  ok  ] L1616 set secure_rerip_dynamic off
+           secure_rerip_dynamic = False
+[  ok  ] L1617 expect secure_rerip_dynamic off
+           secure_rerip_dynamic is False
+[  ok  ] L1618 set secure_rerip_matches 0
+           secure_rerip_matches = 0
+[  ok  ] L1619 expect secure_rerip_matches 0
+           secure_rerip_matches is 0
+[  ok  ] L1620 set second_read_without_accuraterip off
+           second_read_without_accuraterip = False
+[  ok  ] L1621 expect second_read_without_accuraterip off
+           second_read_without_accuraterip is False
+[  ok  ] L1622 set read_speed_mode fixed
+           read_speed_mode = 'fixed'
+[  ok  ] L1623 expect read_speed_mode fixed
+           read_speed_mode is 'fixed'
+[  ok  ] L1624 expect read_speed 0
+           read_speed is 0
+[  ok  ] L1625 expect max_retries 5
+           max_retries is 5
+[  ok  ] L1626 expect output_format flac
+           output_format is 'flac'
+[  ok  ] L1627 select-tracks 1-3
+           selected 3 track(s): [1, 2, 3]
+[  ok  ] L1628 install-ripper (fork-pin)   (9.0s)
+           install-ripper (fork-pin) -> 5f1d036
+           Platterpus 0.7.112 (build 9bf0cd3) — installing the ripping stack
+           cyanrip build: 5f1d036 — commit 5f1d036, supplied on the command line — and this IS the approved pin (5f1d036), the build a closed round approved. Rips with this installed report ripper_handshake_approval: approved
+           expects banner: cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)
+           [  ok  ] Distrobox — already present
+           [  ok  ] Container backend (podman) — already present
+           [  ok  ] 'ripping' container — already present
+           [  ok  ] flac + metaflac (in container) — already present
+           [  ok  ] cyanrip ripper (in container) — already present
+           [  ok  ] Export tools to ~/.local/bin — already present
+           [ done ] Platterpus fork of cyanrip (build + export) — commit 5f1d036 — installed — built from commit 5f1d036
+           [  ok  ] cd-paranoia cache probe (optional) — already present
+           commands run: 11 (argv, exit code and output of each in installripper1628.txt)
+             exit 0: distrobox list
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v flac
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v cyanrip
+             exit 0: ~/.local/bin/cyanrip -V
+             exit 0: distrobox enter ripping -- sudo dnf install -y git meson ninja-build gcc pkgconfig(libavcodec) pkgconfig(libavformat) pkgconfig(libswresample) pkgconfig(libavfilter) pkgconfig(libavutil) pkgconfig(libcdio) pkgconfig(libcdio_paranoia) pkgconfig(libmusicbrainz5) pkgconfig(libcurl)
+             exit 0: distrobox enter ripping -- sh -c <147-line script, 6710 chars: full text in the log file> build-cyanrip-fork .cache/platterpus/cyanrip-fork https://github.com/rmccann-hub/cyanrip.git platterpus-fork 5f1d036 platterpus-fork-g5f1d036 
+             exit 0: distrobox enter ripping -- sh -c <11-line script, 376 chars: full text in the log file> install-cyanrip-fork .cache/platterpus/cyanrip-fork /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- distrobox-export --bin /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- sh -c <23-line script, 742 chars: full text in the log file> verify-cyanrip-fork /usr/local/bin/cyanrip platterpus-fork-g5f1d036
+           Ripping stack is ready. Launch Platterpus and insert a disc.
+           banner after the install (exit 0): cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)
+           installed and verified: platterpus-fork-g5f1d036
+[  ok  ] L1629 album timing A1 (run) (ripper)
+           album title set to 'timing A1 20261022t215702 platterpus-fork-g5f1d036'
+[  ok  ] L1630 rip
+           start requested
+[  ok  ] L1631 wait-for-rip 1800   (707.0s)
+[  ok  ] L1632 expect-rip-complete
+           the ripper's own log records the rip as complete — 3 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1633 expect-verification   (55.7s)
+           every post-rip check this rip started left a result in timing A1 20261022t215702 platterpus-fork-g5f1d036 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[ info ] L1634 record-timing A1
+           timing A1: build platterpus-fork-g5f1d036; 3 track(s) timed, summed 697.22 s
+             track 1 201.62 s, track 2 260.82 s, track 3 234.78 s
+             from ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/timing A1 20261022t215702 platterpus-fork-g5f1d036/timing A1 20261022t215702 platterpus-fork-g5f1d036 CD4.log
+[  ok  ] L1635 install-ripper (under-review)   (8.4s)
+           install-ripper (under-review) -> ca0f097
+           Platterpus 0.7.112 (build 9bf0cd3) — installing the ripping stack
+           cyanrip build: ca0f097 — commit ca0f097, supplied on the command line — NOT the approved pin (5f1d036), but it IS the pin the open round is REVIEWING. Every rip with this installed reports ripper_handshake_approval: unapproved, which is the correct answer
+           expects banner: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+           NOTE: this is not the handshake-approved build (5f1d036). Every rip will report
+                 'ripper handshake approval: unapproved' — that is correct, not a fault:
+                 a round is open and is reviewing ca0f097; nothing has approved this build yet.
+           [  ok  ] Distrobox — already present
+           [  ok  ] Container backend (podman) — already present
+           [  ok  ] 'ripping' container — already present
+           [  ok  ] flac + metaflac (in container) — already present
+           [  ok  ] cyanrip ripper (in container) — already present
+           [  ok  ] Export tools to ~/.local/bin — already present
+           [ done ] Platterpus fork of cyanrip (build + export) — commit ca0f097 — installed — built from commit ca0f097
+           [  ok  ] cd-paranoia cache probe (optional) — already present
+           commands run: 11 (argv, exit code and output of each in installripper1635.txt)
+             exit 0: distrobox list
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v flac
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v cyanrip
+             exit 0: ~/.local/bin/cyanrip -V
+             exit 0: distrobox enter ripping -- sudo dnf install -y git meson ninja-build gcc pkgconfig(libavcodec) pkgconfig(libavformat) pkgconfig(libswresample) pkgconfig(libavfilter) pkgconfig(libavutil) pkgconfig(libcdio) pkgconfig(libcdio_paranoia) pkgconfig(libmusicbrainz5) pkgconfig(libcurl)
+             exit 0: distrobox enter ripping -- sh -c <147-line script, 6710 chars: full text in the log file> build-cyanrip-fork .cache/platterpus/cyanrip-fork https://github.com/rmccann-hub/cyanrip.git platterpus-fork ca0f097 platterpus-fork-gca0f097 
+             exit 0: distrobox enter ripping -- sh -c <11-line script, 376 chars: full text in the log file> install-cyanrip-fork .cache/platterpus/cyanrip-fork /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- distrobox-export --bin /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- sh -c <23-line script, 742 chars: full text in the log file> verify-cyanrip-fork /usr/local/bin/cyanrip platterpus-fork-gca0f097
+           Ripping stack is ready. Launch Platterpus and insert a disc.
+           banner after the install (exit 0): cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           installed and verified: platterpus-fork-gca0f097
+[  ok  ] L1636 album timing B1 (run) (ripper)
+           album title set to 'timing B1 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L1637 rip
+           start requested
+[  ok  ] L1638 wait-for-rip 1800   (157.1s)
+[  ok  ] L1639 expect-rip-complete
+           the ripper's own log records the rip as complete — 3 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1640 expect-verification   (62.0s)
+           every post-rip check this rip started left a result in timing B1 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[ info ] L1641 record-timing B1
+           timing B1: build platterpus-fork-gca0f097; 3 track(s) timed, summed 137.15 s
+             track 1 38.68 s, track 2 53.31 s, track 3 45.16 s
+             from ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/timing B1 20261022t215702 platterpus-fork-gca0f097/timing B1 20261022t215702 platterpus-fork-gca0f097 CD4.log
+[  ok  ] L1642 install-ripper (fork-pin)   (6.6s)
+           install-ripper (fork-pin) -> 5f1d036
+           Platterpus 0.7.112 (build 9bf0cd3) — installing the ripping stack
+           cyanrip build: 5f1d036 — commit 5f1d036, supplied on the command line — and this IS the approved pin (5f1d036), the build a closed round approved. Rips with this installed report ripper_handshake_approval: approved
+           expects banner: cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)
+           [  ok  ] Distrobox — already present
+           [  ok  ] Container backend (podman) — already present
+           [  ok  ] 'ripping' container — already present
+           [  ok  ] flac + metaflac (in container) — already present
+           [  ok  ] cyanrip ripper (in container) — already present
+           [  ok  ] Export tools to ~/.local/bin — already present
+           [ done ] Platterpus fork of cyanrip (build + export) — commit 5f1d036 — installed — built from commit 5f1d036
+           [  ok  ] cd-paranoia cache probe (optional) — already present
+           commands run: 11 (argv, exit code and output of each in installripper1642.txt)
+             exit 0: distrobox list
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v flac
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v cyanrip
+             exit 0: ~/.local/bin/cyanrip -V
+             exit 0: distrobox enter ripping -- sudo dnf install -y git meson ninja-build gcc pkgconfig(libavcodec) pkgconfig(libavformat) pkgconfig(libswresample) pkgconfig(libavfilter) pkgconfig(libavutil) pkgconfig(libcdio) pkgconfig(libcdio_paranoia) pkgconfig(libmusicbrainz5) pkgconfig(libcurl)
+             exit 0: distrobox enter ripping -- sh -c <147-line script, 6710 chars: full text in the log file> build-cyanrip-fork .cache/platterpus/cyanrip-fork https://github.com/rmccann-hub/cyanrip.git platterpus-fork 5f1d036 platterpus-fork-g5f1d036 
+             exit 0: distrobox enter ripping -- sh -c <11-line script, 376 chars: full text in the log file> install-cyanrip-fork .cache/platterpus/cyanrip-fork /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- distrobox-export --bin /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- sh -c <23-line script, 742 chars: full text in the log file> verify-cyanrip-fork /usr/local/bin/cyanrip platterpus-fork-g5f1d036
+           Ripping stack is ready. Launch Platterpus and insert a disc.
+           banner after the install (exit 0): cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)
+           installed and verified: platterpus-fork-g5f1d036
+[  ok  ] L1643 album timing A2 (run) (ripper)
+           album title set to 'timing A2 20261022t215702 platterpus-fork-g5f1d036'
+[  ok  ] L1644 rip
+           start requested
+[  ok  ] L1645 wait-for-rip 1800   (709.5s)
+[  ok  ] L1646 expect-rip-complete
+           the ripper's own log records the rip as complete — 3 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1647 expect-verification   (51.8s)
+           every post-rip check this rip started left a result in timing A2 20261022t215702 platterpus-fork-g5f1d036 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[ info ] L1648 record-timing A2
+           timing A2: build platterpus-fork-g5f1d036; 3 track(s) timed, summed 698.24 s
+             track 1 202.30 s, track 2 261.10 s, track 3 234.84 s
+             from ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/timing A2 20261022t215702 platterpus-fork-g5f1d036/timing A2 20261022t215702 platterpus-fork-g5f1d036 CD4.log
+[  ok  ] L1649 install-ripper (under-review)   (7.2s)
+           install-ripper (under-review) -> ca0f097
+           Platterpus 0.7.112 (build 9bf0cd3) — installing the ripping stack
+           cyanrip build: ca0f097 — commit ca0f097, supplied on the command line — NOT the approved pin (5f1d036), but it IS the pin the open round is REVIEWING. Every rip with this installed reports ripper_handshake_approval: unapproved, which is the correct answer
+           expects banner: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+           NOTE: this is not the handshake-approved build (5f1d036). Every rip will report
+                 'ripper handshake approval: unapproved' — that is correct, not a fault:
+                 a round is open and is reviewing ca0f097; nothing has approved this build yet.
+           [  ok  ] Distrobox — already present
+           [  ok  ] Container backend (podman) — already present
+           [  ok  ] 'ripping' container — already present
+           [  ok  ] flac + metaflac (in container) — already present
+           [  ok  ] cyanrip ripper (in container) — already present
+           [  ok  ] Export tools to ~/.local/bin — already present
+           [ done ] Platterpus fork of cyanrip (build + export) — commit ca0f097 — installed — built from commit ca0f097
+           [  ok  ] cd-paranoia cache probe (optional) — already present
+           commands run: 11 (argv, exit code and output of each in installripper1649.txt)
+             exit 0: distrobox list
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v flac
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v cyanrip
+             exit 0: ~/.local/bin/cyanrip -V
+             exit 0: distrobox enter ripping -- sudo dnf install -y git meson ninja-build gcc pkgconfig(libavcodec) pkgconfig(libavformat) pkgconfig(libswresample) pkgconfig(libavfilter) pkgconfig(libavutil) pkgconfig(libcdio) pkgconfig(libcdio_paranoia) pkgconfig(libmusicbrainz5) pkgconfig(libcurl)
+             exit 0: distrobox enter ripping -- sh -c <147-line script, 6710 chars: full text in the log file> build-cyanrip-fork .cache/platterpus/cyanrip-fork https://github.com/rmccann-hub/cyanrip.git platterpus-fork ca0f097 platterpus-fork-gca0f097 
+             exit 0: distrobox enter ripping -- sh -c <11-line script, 376 chars: full text in the log file> install-cyanrip-fork .cache/platterpus/cyanrip-fork /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- distrobox-export --bin /usr/local/bin/cyanrip
+             exit 0: distrobox enter ripping -- sh -c <23-line script, 742 chars: full text in the log file> verify-cyanrip-fork /usr/local/bin/cyanrip platterpus-fork-gca0f097
+           Ripping stack is ready. Launch Platterpus and insert a disc.
+           banner after the install (exit 0): cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           installed and verified: platterpus-fork-gca0f097
+[  ok  ] L1650 album timing B2 (run) (ripper)
+           album title set to 'timing B2 20261022t215702 platterpus-fork-gca0f097'
+[  ok  ] L1651 rip
+           start requested
+[  ok  ] L1652 wait-for-rip 1800   (154.5s)
+[  ok  ] L1653 expect-rip-complete
+           the ripper's own log records the rip as complete — 3 track(s) in the log; convergence not measured (no secure re-read in this rip)
+[  ok  ] L1654 expect-verification   (62.1s)
+           every post-rip check this rip started left a result in timing B2 20261022t215702 platterpus-fork-gca0f097 — no gate claims to have run over a missing block, and none was dropped by a later rip
+[ info ] L1655 record-timing B2
+           timing B2: build platterpus-fork-gca0f097; 3 track(s) timed, summed 134.65 s
+             track 1 37.92 s, track 2 51.97 s, track 3 44.76 s
+             from ~/platterpus-rig/platterpustestsession20261022t215702z/rips/Various Artists/timing B2 20261022t215702 platterpus-fork-gca0f097/timing B2 20261022t215702 platterpus-fork-gca0f097 CD4.log
+[ info ] L1656 compare-timings A1 B1 A2 B2
+           B1/A1 = 0.197 (platterpus-fork-gca0f097 137.15 s / platterpus-fork-g5f1d036 697.22 s over track(s) 1, 2, 3)
+           B2/A2 = 0.193 (platterpus-fork-gca0f097 134.65 s / platterpus-fork-g5f1d036 698.24 s over track(s) 1, 2, 3)
+           the two ratios AGREE: 0.197 and 0.193 differ by 0.004 (tolerance 0.05); the comparison is done
+[  ok  ] L1657 install-ripper (pin)   (1.1s)
+           install-ripper (pin) -> ca0f097
+           Platterpus 0.7.112 (build 9bf0cd3) — installing the ripping stack
+           cyanrip build: ca0f097 — commit ca0f097, supplied on the command line — NOT the approved pin (5f1d036), but it IS the pin the open round is REVIEWING. Every rip with this installed reports ripper_handshake_approval: unapproved, which is the correct answer
+           expects banner: cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           
+           NOTE: this is not the handshake-approved build (5f1d036). Every rip will report
+                 'ripper handshake approval: unapproved' — that is correct, not a fault:
+                 a round is open and is reviewing ca0f097; nothing has approved this build yet.
+           [  ok  ] Distrobox — already present
+           [  ok  ] Container backend (podman) — already present
+           [  ok  ] 'ripping' container — already present
+           [  ok  ] flac + metaflac (in container) — already present
+           [  ok  ] cyanrip ripper (in container) — already present
+           [  ok  ] Export tools to ~/.local/bin — already present
+           [  ok  ] Platterpus fork of cyanrip (build + export) — commit ca0f097 — already present — the installed banner names commit ca0f097
+           [  ok  ] cd-paranoia cache probe (optional) — already present
+           commands run: 6 (argv, exit code and output of each in installripper1657.txt)
+             exit 0: distrobox list
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v flac
+             exit 0: distrobox list
+             exit 0: distrobox enter ripping -- command -v cyanrip
+             exit 0: ~/.local/bin/cyanrip -V
+           Ripping stack is ready. Launch Platterpus and insert a disc.
+           banner after the install (exit 0): cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+           installed and verified: platterpus-fork-gca0f097
+[  ok  ] L1658 set read_speed_mode auto_ladder
+           read_speed_mode = 'auto_ladder'
+[  ok  ] L1659 expect read_speed_mode auto_ladder
+           read_speed_mode is 'auto_ladder'
+[  ok  ] L1660 set second_read_without_accuraterip on
+           second_read_without_accuraterip = True
+[  ok  ] L1661 expect second_read_without_accuraterip on
+           second_read_without_accuraterip is True
+[  ok  ] L1662 set secure_rerip_matches 2
+           secure_rerip_matches = 2
+[  ok  ] L1663 expect secure_rerip_matches 2
+           secure_rerip_matches is 2
+[  ok  ] L1664 set secure_rerip_dynamic on
+           secure_rerip_dynamic = True
+[  ok  ] L1665 expect secure_rerip_dynamic on
+           secure_rerip_dynamic is True
+[  ok  ] L1707 log --- Q. leaving the rig on the shipped defaults ---
+           --- Q. leaving the rig on the shipped defaults ---
+[  ok  ] L1708 run-size quick
+           run size: quick (and every larger run)
+[  ok  ] L1709 set rip_goal fast_verified
+           rip_goal = 'fast_verified'
+[  ok  ] L1710 expect rip_goal fast_verified
+           rip_goal is 'fast_verified'
+[  ok  ] L1711 expect secure_rerip_dynamic on
+           secure_rerip_dynamic is True
+[  ok  ] L1712 set output_format flac
+           output_format = 'flac'
+[  ok  ] L1713 expect output_format flac
+           output_format is 'flac'
+[  ok  ] L1714 set mp3_vbr_quality 0
+           mp3_vbr_quality = 0
+[  ok  ] L1715 set write_eac_log_after_rip off
+           write_eac_log_after_rip = False
+[  ok  ] L1719 set max_retries 5
+           max_retries = 5
+[  ok  ] L1720 expect max_retries 5
+           max_retries is 5
+[  ok  ] L1721 set ripper_channel stable
+           ripper_channel = 'stable'
+[  ok  ] L1722 expect ripper_channel stable
+           ripper_channel is 'stable'
+[  ok  ] L1723 set debug_logging off
+           debug_logging = False
+[  ok  ] L1724 expect debug_logging off
+           debug_logging is False
+[  ok  ] L1725 expect force_overread off
+           force_overread is False
+[  ok  ] L1726 expect-drive-offset
+           read offset +667, override on
+[  ok  ] L1730 expect override_read_offset on
+           override_read_offset is True
+[  ok  ] L1731 expect-dialog none
+           no dialog, as expected
+[  ok  ] L1732 snapshot atend
+           snapshot 'atend':
+             dialog on top: (none)
+             window title : Platterpus 0.7.112
+             drive: PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0
+             musicbrainz: using: Various Artists — Roots Music: An American Journey
+             accuraterip: verified — all 3 tracks matched
+             read offset: +667 — confirmed — two independent sources agree (high confidence)
+             cache defeat: Yes — cache defeated on re-read (measured, cd-paranoia)
+[  ok  ] L1734 log =============================================================
+           =============================================================
+[  ok  ] L1735 log DONE. There is nothing left for you to run.
+           DONE. There is nothing left for you to run.
+[  ok  ] L1736 log Everything this run made is in ONE session folder under
+           Everything this run made is in ONE session folder under
+[  ok  ] L1737 log ~/platterpus-rig/ - the rips, the transcript, the screenshots
+           ~/platterpus-rig/ - the rips, the transcript, the screenshots
+[  ok  ] L1738 log and ONE .tar.gz, which a dialog names when the window comes
+           and ONE .tar.gz, which a dialog names when the window comes
+[  ok  ] L1739 log back, with a button that opens the folder. Send that file. It
+           back, with a button that opens the folder. Send that file. It
+[  ok  ] L1740 log carries the transcript, the app
+           carries the transcript, the app
+[  ok  ] L1741 log log, the settings, the screenshots and every rip folder's text
+           log, the settings, the screenshots and every rip folder's text
+[  ok  ] L1742 log artifacts (logs, cue sheets, reports, checksums). No audio.
+           artifacts (logs, cue sheets, reports, checksums). No audio.
+[  ok  ] L1743 log If the dialog is gone, the same path is on the SEND THIS ONE FILE
+           If the dialog is gone, the same path is on the SEND THIS ONE FILE
+[  ok  ] L1744 log line in the app log.
+           line in the app log.
+[  ok  ] L1745 log =============================================================
+           =============================================================
+================================================================
+pass=481  fail=2  error=0  skipped=0  blocked=1  unreachable=1  info=12
+RESULT: see failures above
+================================================================

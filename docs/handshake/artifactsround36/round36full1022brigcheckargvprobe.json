@@ -1,0 +1,36 @@
+{
+  "schema": "cyanrip-diagnostics/10",
+  "cyanrip": {
+    "version": "0.9.4-rc3+platterpus.26",
+    "fork_id": "platterpus-fork",
+    "vcs": "ca0f097",
+    "handshake": "round 36 lap 4 OPEN, verdict OPEN",
+    "released_build_declared": true
+  },
+  "invocation": "/usr/local/bin/cyanrip --diagnostics ~/platterpus-rig/platterpustestsession20261022t215702z/evidence/run/rig-check/argv-probe.json -d /nonexistent-platterpus-rig-check.cue -s 667 -o flac -T unicode -r 5 -Z 2 -l 1,2 -N --consumer platterpus/0.7.112 -c 1/1 -a \"album=Rig Check:album_artist=Platterpus:date=2026\" -t 1=title=One -t 2=title=Two -F \"{track} - {title}\" -G -U -W",
+  "started_at": "2026-10-22T18:56:42-04:00",
+  "finished_at": "2026-10-22T18:56:42-04:00",
+  "exit_code": 74,
+  "cache_probe": {
+    "ran": false
+  },
+  "read_stalls": {
+    "watched": true,
+    "threshold_seconds": 10,
+    "count": 0,
+    "longest_seconds": 0,
+    "longest_track": null, "longest_lsn": null
+  },
+  "rip": null,
+  "cdtext": null,
+  "offset_search": null,
+  "messages_are_classified": false,
+  "messages_note": "cyanrip_log() carries no severity, so no severity is asserted here. Progress lines that were overwritten on the terminal are collapsed to the final state of each line.",
+  "messages_dropped": 0,
+  "messages_scope": "cyanrip_log() only. Output libavfilter writes directly -- the ebur128 loudness blocks -- reaches the logfile and not this array, and is not counted in messages_dropped because it was never seen here.",
+  "messages_complete_within_scope": true,
+  "messages": [
+    "libcdio error: source name /nonexistent-platterpus-rig-check.cue is not recognized as a CUE file"
+  ],
+  "messages_tail": []
+}

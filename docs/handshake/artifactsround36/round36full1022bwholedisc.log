@@ -1,0 +1,1360 @@
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 4/4 -a "album=full acceptance\: angle<bracket 20261022t215702 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Frosty:artist=Platterpus Acceptance:isrc=USRO28102801" -t "2=title=Funkyard:artist=Platterpus Acceptance:isrc=USBU19859902" -t "3=title=Doyne / Freylekhs:artist=Platterpus Acceptance:isrc=USRO29715504" -t "4=title=Somos Boricuas (We Are Puerto Rican):artist=Platterpus Acceptance" -t "5=title=Hey Little Love:artist=Platterpus Acceptance:isrc=USRO20017208" -t "6=title=El Año Viejo:artist=Platterpus Acceptance:isrc=USRO29404304" -t "7=title=All Just to Get to You:artist=Platterpus Acceptance:isrc=USRO20017102" -t "8=title=One Endless Night:artist=Platterpus Acceptance" -t "9=title=Nebraska:artist=Platterpus Acceptance:isrc=USZO10101903" -t "10=title=Uniform Grey:artist=Platterpus Acceptance:isrc=USZ010001709" -t "11=title=Broke Down:artist=Platterpus Acceptance:isrc=USPH10022501" -t "12=title=Birches:artist=Platterpus Acceptance:isrc=USPH19315403" -t "13=title=More Than a Paycheck:artist=Platterpus Acceptance:isrc=USFF28331705" -t "14=title=Swing Low, Sweet Chariot:artist=Platterpus Acceptance:isrc=USRO29639311" -t "15=title=Flamenco Fling:artist=Platterpus Acceptance:isrc=CAW119901677" -t "16=title=Ashokan Farewell:artist=Platterpus Acceptance:isrc=USFF29030315" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T215751Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    4
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  all
+DiscID:         rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        D30E6E10
+Album:          full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+Album artist:   Platterpus Acceptance
+AccurateRip ID: 0024d7eb-01b5ecd5-d30e6e10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     61:34.30
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    165 frame pregap in track 3, merging into track 2
+    127 frame pregap in track 4, merging into track 3
+    175 frame pregap in track 5, merging into track 4
+    120 frame pregap in track 6, merging into track 5
+    107 frame pregap in track 7, merging into track 6
+    190 frame pregap in track 8, merging into track 7
+    117 frame pregap in track 9, merging into track 8
+    173 frame pregap in track 10, merging into track 9
+    163 frame pregap in track 11, merging into track 10
+    195 frame pregap in track 12, merging into track 11
+    167 frame pregap in track 13, merging into track 12
+    190 frame pregap in track 14, merging into track 13
+    135 frame pregap in track 15, merging into track 14
+    195 frame pregap in track 16, merging into track 15
+
+Tracks:
+Track 1 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -11.0 LUFS
+    Threshold: -21.1 LUFS
+
+  Loudness range:
+    LRA:         5.1 LU
+    Threshold: -31.0 LUFS
+    LRA low:   -13.5 LUFS
+    LRA high:   -8.4 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.2 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO28102801
+
+  Properties:
+    Duration:    03:48.22
+    Samples:     10067736
+    Frames:      17122
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.2 dBFS
+    Integrated loudness (R128): -11.0 LUFS
+    Loudness range (R128):      5.1 LU (-13.5 to -8.4 LUFS)
+    Extraction speed:  6.4x
+    Elapsed:            35.77 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     17121 (with offset: 17123)
+
+  EAC CRC32:     D3D2F271
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  DEB9756F (accurately ripped, confidence 11)
+    Accurip v2:  5A313660 (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         1
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Frosty
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO28102801
+    CREATION_TIME:                 2026-10-22T17:58:08-04:00
+    REPLAYGAIN_TRACK_GAIN:         -7.05 dB
+    R128_TRACK_GAIN:               -524
+    REPLAYGAIN_TRACK_RANGE:        5.14 dB
+    REPLAYGAIN_TRACK_PEAK:         1.023459
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1442
+    VERIFY:        99
+    OVERLAP:       21
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/01 - Frosty.flac
+
+Track 2 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.8 LUFS
+    Threshold: -22.9 LUFS
+
+  Loudness range:
+    LRA:         3.7 LU
+    Threshold: -32.9 LUFS
+    LRA low:   -14.8 LUFS
+    LRA high:  -11.1 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        1.1 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USBU19859902
+
+  Properties:
+    Duration:    05:01.25
+    Samples:     13288800
+    Frames:      22600
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   1.1 dBFS
+    Integrated loudness (R128): -12.8 LUFS
+    Loudness range (R128):      3.7 LU (-14.8 to -11.1 LUFS)
+    Extraction speed:  6.5x
+    Elapsed:            46.26 s
+    Pregap LSN:  17122 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   17122 (with offset: 17123)
+    End LSN:     39721 (with offset: 39723)
+
+  EAC CRC32:     53EE628B
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  3D51939F (accurately ripped, confidence 10)
+    Accurip v2:  1EE3478C (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         2
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Funkyard
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USBU19859902
+    CREATION_TIME:                 2026-10-22T17:58:44-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.19 dB
+    R128_TRACK_GAIN:               -48
+    REPLAYGAIN_TRACK_RANGE:        3.68 dB
+    REPLAYGAIN_TRACK_PEAK:         1.136841
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1825
+    VERIFY:        116
+    OVERLAP:       37
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/02 - Funkyard.flac
+
+Track 3 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.4 LUFS
+    Threshold: -24.2 LUFS
+
+  Loudness range:
+    LRA:        14.8 LU
+    Threshold: -34.2 LUFS
+    LRA low:   -24.3 LUFS
+    LRA high:   -9.5 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.4 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO29715504
+
+  Properties:
+    Duration:    04:34.15
+    Samples:     12092220
+    Frames:      20565
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.4 dBFS
+    Integrated loudness (R128): -13.4 LUFS
+    Loudness range (R128):      14.8 LU (-24.3 to -9.5 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            39.67 s
+    Pregap LSN:  39557 (duration: 00:02.15)
+    Pregap length: 165 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   39722 (with offset: 39723)
+    End LSN:     60286 (with offset: 60288)
+
+  EAC CRC32:     9B15A0DD
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  E605C748 (accurately ripped, confidence 11)
+    Accurip v2:  15F209FF (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Doyne / Freylekhs
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO29715504
+    CREATION_TIME:                 2026-10-22T17:59:30-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.56 dB
+    R128_TRACK_GAIN:               112
+    REPLAYGAIN_TRACK_RANGE:        14.83 dB
+    REPLAYGAIN_TRACK_PEAK:         1.052310
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1681
+    VERIFY:        134
+    OVERLAP:       36
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/03 - Doyne ∕ Freylekhs.flac
+
+Track 4 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+    Threshold: -24.0 LUFS
+
+  Loudness range:
+    LRA:         2.6 LU
+    Threshold: -34.0 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -12.5 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.1 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:33.33
+    Samples:     9412704
+    Frames:      16008
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.1 dBFS
+    Integrated loudness (R128): -14.0 LUFS
+    Loudness range (R128):      2.6 LU (-15.1 to -12.5 LUFS)
+    Extraction speed:  7.1x
+    Elapsed:            30.06 s
+    Pregap LSN:  60160 (duration: 00:01.52)
+    Pregap length: 127 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   60287 (with offset: 60288)
+    End LSN:     76294 (with offset: 76296)
+
+  EAC CRC32:     BF70777B
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  EA63B551 (accurately ripped, confidence 10)
+    Accurip v2:  EC2182D4 (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         4
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Somos Boricuas (We Are Puerto Rican)
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    CREATION_TIME:                 2026-10-22T18:00:11-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.01 dB
+    R128_TRACK_GAIN:               253
+    REPLAYGAIN_TRACK_RANGE:        2.64 dB
+    REPLAYGAIN_TRACK_PEAK:         1.016125
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1345
+    VERIFY:        130
+    OVERLAP:       33
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/04 - Somos Boricuas (We Are Puerto Rican).flac
+
+Track 5 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.3 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.9 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -16.0 LUFS
+    LRA high:  -12.1 LUFS
+
+  Sample peak:
+    Peak:       -0.3 dBFS
+
+  True peak:
+    Peak:        0.6 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO20017208
+
+  Properties:
+    Duration:    02:54.40
+    Samples:     7696920
+    Frames:      13090
+    Sample peak level: 96.2% (-0.3 dBFS)
+    True peak level:   0.6 dBFS
+    Integrated loudness (R128): -13.3 LUFS
+    Loudness range (R128):      3.9 LU (-16.0 to -12.1 LUFS)
+    Extraction speed:  7.6x
+    Elapsed:            23.10 s
+    Pregap LSN:  76120 (duration: 00:02.25)
+    Pregap length: 175 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   76295 (with offset: 76296)
+    End LSN:     89384 (with offset: 89386)
+
+  EAC CRC32:     B102D3F2
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  4C4DD75B (accurately ripped, confidence 10)
+    Accurip v2:  F7B39AC3 (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         5
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Hey Little Love
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO20017208
+    CREATION_TIME:                 2026-10-22T18:00:41-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.72 dB
+    R128_TRACK_GAIN:               71
+    REPLAYGAIN_TRACK_RANGE:        3.95 dB
+    REPLAYGAIN_TRACK_PEAK:         1.065778
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1057
+    VERIFY:        68
+    OVERLAP:       21
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/05 - Hey Little Love.flac
+
+Track 6 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -10.9 LUFS
+    Threshold: -20.9 LUFS
+
+  Loudness range:
+    LRA:         3.3 LU
+    Threshold: -30.9 LUFS
+    LRA low:   -12.5 LUFS
+    LRA high:   -9.1 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.9 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO29404304
+
+  Properties:
+    Duration:    04:25.02
+    Samples:     11687676
+    Frames:      19877
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.9 dBFS
+    Integrated loudness (R128): -10.9 LUFS
+    Loudness range (R128):      3.3 LU (-12.5 to -9.1 LUFS)
+    Extraction speed:  7.9x
+    Elapsed:            33.59 s
+    Pregap LSN:  89265 (duration: 00:01.45)
+    Pregap length: 120 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   89385 (with offset: 89386)
+    End LSN:     109261 (with offset: 109263)
+
+  EAC CRC32:     14EC9D0F
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  FB01754B (accurately ripped, confidence 11)
+    Accurip v2:  6C4E3217 (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         6
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         El Año Viejo
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO29404304
+    CREATION_TIME:                 2026-10-22T18:01:04-04:00
+    REPLAYGAIN_TRACK_GAIN:         -7.10 dB
+    R128_TRACK_GAIN:               -537
+    REPLAYGAIN_TRACK_RANGE:        3.32 dB
+    REPLAYGAIN_TRACK_PEAK:         1.112201
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1585
+    VERIFY:        99
+    OVERLAP:       32
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/06 - El Año Viejo.flac
+
+Track 7 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         7.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -17.9 LUFS
+    LRA high:  -10.5 LUFS
+
+  Sample peak:
+    Peak:       -1.4 dBFS
+
+  True peak:
+    Peak:       -0.7 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO20017102
+
+  Properties:
+    Duration:    04:13.65
+    Samples:     11195520
+    Frames:      19040
+    Sample peak level: 85.4% (-1.4 dBFS)
+    True peak level:   -0.7 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      7.5 LU (-17.9 to -10.5 LUFS)
+    Extraction speed:  7.9x
+    Elapsed:            32.01 s
+    Pregap LSN:  109155 (duration: 00:01.32)
+    Pregap length: 107 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   109262 (with offset: 109263)
+    End LSN:     128301 (with offset: 128303)
+
+  EAC CRC32:     7CBA77C8
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  6FC655C7 (accurately ripped, confidence 10)
+    Accurip v2:  D9EE0AE1 (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         7
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         All Just to Get to You
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO20017102
+    CREATION_TIME:                 2026-10-22T18:01:38-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.64 dB
+    R128_TRACK_GAIN:               -163
+    REPLAYGAIN_TRACK_RANGE:        7.47 dB
+    REPLAYGAIN_TRACK_PEAK:         0.926918
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1537
+    VERIFY:        96
+    OVERLAP:       31
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/07 - All Just to Get to You.flac
+
+Track 8 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.2 LUFS
+    Threshold: -23.5 LUFS
+
+  Loudness range:
+    LRA:         5.3 LU
+    Threshold: -33.5 LUFS
+    LRA low:   -16.3 LUFS
+    LRA high:  -11.0 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.1 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:48.50
+    Samples:     10084200
+    Frames:      17150
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.1 dBFS
+    Integrated loudness (R128): -13.2 LUFS
+    Loudness range (R128):      5.3 LU (-16.3 to -11.0 LUFS)
+    Extraction speed:  8.3x
+    Elapsed:            27.45 s
+    Pregap LSN:  128112 (duration: 00:02.40)
+    Pregap length: 190 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   128302 (with offset: 128303)
+    End LSN:     145451 (with offset: 145453)
+
+  EAC CRC32:     D5C9E0C1
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  2B8E1F46 (accurately ripped, confidence 12)
+    Accurip v2:  B2CCD88F (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         8
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         One Endless Night
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    CREATION_TIME:                 2026-10-22T18:02:11-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.80 dB
+    R128_TRACK_GAIN:               52
+    REPLAYGAIN_TRACK_RANGE:        5.34 dB
+    REPLAYGAIN_TRACK_PEAK:         1.012171
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1393
+    VERIFY:        87
+    OVERLAP:       28
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/08 - One Endless Night.flac
+
+Track 9 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -11.4 LUFS
+    Threshold: -21.5 LUFS
+
+  Loudness range:
+    LRA:         6.3 LU
+    Threshold: -31.5 LUFS
+    LRA low:   -15.6 LUFS
+    LRA high:   -9.3 LUFS
+
+  Sample peak:
+    Peak:       -3.2 dBFS
+
+  True peak:
+    Peak:       -2.4 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USZO10101903
+
+  Properties:
+    Duration:    03:47.73
+    Samples:     10053624
+    Frames:      17098
+    Sample peak level: 69.1% (-3.2 dBFS)
+    True peak level:   -2.4 dBFS
+    Integrated loudness (R128): -11.4 LUFS
+    Loudness range (R128):      6.3 LU (-15.6 to -9.3 LUFS)
+    Extraction speed:  8.5x
+    Elapsed:            26.97 s
+    Pregap LSN:  145335 (duration: 00:01.42)
+    Pregap length: 117 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   145452 (with offset: 145453)
+    End LSN:     162549 (with offset: 162551)
+
+  EAC CRC32:     2F808B38
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  951BE947 (accurately ripped, confidence 12)
+    Accurip v2:  69F52EDE (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         9
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Nebraska
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USZO10101903
+    CREATION_TIME:                 2026-10-22T18:02:39-04:00
+    REPLAYGAIN_TRACK_GAIN:         -6.65 dB
+    R128_TRACK_GAIN:               -421
+    REPLAYGAIN_TRACK_RANGE:        6.30 dB
+    REPLAYGAIN_TRACK_PEAK:         0.758603
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1393
+    VERIFY:        87
+    OVERLAP:       28
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/09 - Nebraska.flac
+
+Track 10 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.1 LUFS
+    Threshold: -22.2 LUFS
+
+  Loudness range:
+    LRA:         2.4 LU
+    Threshold: -32.2 LUFS
+    LRA low:   -13.4 LUFS
+    LRA high:  -11.0 LUFS
+
+  Sample peak:
+    Peak:       -2.0 dBFS
+
+  True peak:
+    Peak:       -1.9 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USZO10001709
+
+  Properties:
+    Duration:    03:44.10
+    Samples:     9884280
+    Frames:      16810
+    Sample peak level: 79.1% (-2.0 dBFS)
+    True peak level:   -1.9 dBFS
+    Integrated loudness (R128): -12.1 LUFS
+    Loudness range (R128):      2.4 LU (-13.4 to -11.0 LUFS)
+    Extraction speed:  8.4x
+    Elapsed:            26.74 s
+    Pregap LSN:  162377 (duration: 00:02.23)
+    Pregap length: 173 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   162550 (with offset: 162551)
+    End LSN:     179359 (with offset: 179361)
+
+  EAC CRC32:     008D3496
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  B0D2A229 (accurately ripped, confidence 11)
+    Accurip v2:  4357BCB0 (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         10
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Uniform Grey
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USZO10001709
+    CREATION_TIME:                 2026-10-22T18:03:06-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.86 dB
+    R128_TRACK_GAIN:               -220
+    REPLAYGAIN_TRACK_RANGE:        2.38 dB
+    REPLAYGAIN_TRACK_PEAK:         0.800013
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1393
+    VERIFY:        87
+    OVERLAP:       28
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/10 - Uniform Grey.flac
+
+Track 11 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.8 LUFS
+    Threshold: -23.0 LUFS
+
+  Loudness range:
+    LRA:         2.9 LU
+    Threshold: -33.0 LUFS
+    LRA low:   -14.5 LUFS
+    LRA high:  -11.6 LUFS
+
+  Sample peak:
+    Peak:       -1.9 dBFS
+
+  True peak:
+    Peak:       -1.9 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USPH10022501
+
+  Properties:
+    Duration:    03:12.70
+    Samples:     8508360
+    Frames:      14470
+    Sample peak level: 80.3% (-1.9 dBFS)
+    True peak level:   -1.9 dBFS
+    Integrated loudness (R128): -12.8 LUFS
+    Loudness range (R128):      2.9 LU (-14.5 to -11.6 LUFS)
+    Extraction speed:  7.7x
+    Elapsed:            25.00 s
+    Pregap LSN:  179197 (duration: 00:02.13)
+    Pregap length: 163 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   179360 (with offset: 179361)
+    End LSN:     193829 (with offset: 193831)
+
+  EAC CRC32:     A8BF84B6
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 26)
+    Accurip v1:  B8DA8B13 (accurately ripped, confidence 11)
+    Accurip v2:  4F4E77C2 (accurately ripped, confidence 26)
+
+  Metadata:
+    TRACK:                         11
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Broke Down
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USPH10022501
+    CREATION_TIME:                 2026-10-22T18:03:33-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.16 dB
+    R128_TRACK_GAIN:               -41
+    REPLAYGAIN_TRACK_RANGE:        2.94 dB
+    REPLAYGAIN_TRACK_PEAK:         0.803438
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1201
+    VERIFY:        91
+    OVERLAP:       24
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/11 - Broke Down.flac
+
+Track 12 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -15.5 LUFS
+    Threshold: -25.6 LUFS
+
+  Loudness range:
+    LRA:         2.5 LU
+    Threshold: -35.6 LUFS
+    LRA low:   -16.8 LUFS
+    LRA high:  -14.3 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.4 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USPH19315403
+
+  Properties:
+    Duration:    03:23.52
+    Samples:     8982876
+    Frames:      15277
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.4 dBFS
+    Integrated loudness (R128): -15.5 LUFS
+    Loudness range (R128):      2.5 LU (-16.8 to -14.3 LUFS)
+    Extraction speed:  7.5x
+    Elapsed:            27.16 s
+    Pregap LSN:  193635 (duration: 00:02.45)
+    Pregap length: 195 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   193830 (with offset: 193831)
+    End LSN:     209106 (with offset: 209108)
+
+  EAC CRC32:     C3D32164
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 25)
+    Accurip v1:  6F33FC80 (accurately ripped, confidence 11)
+    Accurip v2:  5E60D848 (accurately ripped, confidence 25)
+
+  Metadata:
+    TRACK:                         12
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Birches
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USPH19315403
+    CREATION_TIME:                 2026-10-22T18:03:58-04:00
+    REPLAYGAIN_TRACK_GAIN:         -2.47 dB
+    R128_TRACK_GAIN:               647
+    REPLAYGAIN_TRACK_RANGE:        2.48 dB
+    REPLAYGAIN_TRACK_PEAK:         1.042110
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1201
+    VERIFY:        77
+    OVERLAP:       24
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/12 - Birches.flac
+
+Track 13 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.1 LUFS
+    Threshold: -24.3 LUFS
+
+  Loudness range:
+    LRA:         4.5 LU
+    Threshold: -34.4 LUFS
+    LRA low:   -16.8 LUFS
+    LRA high:  -12.4 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:       -0.0 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USFF28331705
+
+  Properties:
+    Duration:    03:55.20
+    Samples:     10375260
+    Frames:      17645
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   -0.0 dBFS
+    Integrated loudness (R128): -14.1 LUFS
+    Loudness range (R128):      4.5 LU (-16.8 to -12.4 LUFS)
+    Extraction speed:  7.8x
+    Elapsed:            30.18 s
+    Pregap LSN:  208940 (duration: 00:02.17)
+    Pregap length: 167 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   209107 (with offset: 209108)
+    End LSN:     226751 (with offset: 226753)
+
+  EAC CRC32:     C8895178
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 26)
+    Accurip v1:  24BC1C8E (accurately ripped, confidence 11)
+    Accurip v2:  D3904D03 (accurately ripped, confidence 26)
+
+  Metadata:
+    TRACK:                         13
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         More Than a Paycheck
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USFF28331705
+    CREATION_TIME:                 2026-10-22T18:04:26-04:00
+    REPLAYGAIN_TRACK_GAIN:         -3.90 dB
+    R128_TRACK_GAIN:               281
+    REPLAYGAIN_TRACK_RANGE:        4.45 dB
+    REPLAYGAIN_TRACK_PEAK:         0.998464
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1441
+    VERIFY:        90
+    OVERLAP:       29
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/13 - More Than a Paycheck.flac
+
+Track 14 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.3 LUFS
+    Threshold: -23.7 LUFS
+
+  Loudness range:
+    LRA:        12.6 LU
+    Threshold: -33.7 LUFS
+    LRA low:   -22.1 LUFS
+    LRA high:   -9.5 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:       -0.0 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USRO29639311
+
+  Properties:
+    Duration:    03:17.13
+    Samples:     8695344
+    Frames:      14788
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   -0.0 dBFS
+    Integrated loudness (R128): -13.3 LUFS
+    Loudness range (R128):      12.6 LU (-22.1 to -9.5 LUFS)
+    Extraction speed:  7.8x
+    Elapsed:            25.27 s
+    Pregap LSN:  226562 (duration: 00:02.40)
+    Pregap length: 190 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   226752 (with offset: 226753)
+    End LSN:     241539 (with offset: 241541)
+
+  EAC CRC32:     94464DFF
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  7445EB09 (accurately ripped, confidence 11)
+    Accurip v2:  A16685AE (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         14
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Swing Low, Sweet Chariot
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO29639311
+    CREATION_TIME:                 2026-10-22T18:04:56-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.70 dB
+    R128_TRACK_GAIN:               76
+    REPLAYGAIN_TRACK_RANGE:        12.57 dB
+    REPLAYGAIN_TRACK_PEAK:         0.998375
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1249
+    VERIFY:        117
+    OVERLAP:       29
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/14 - Swing Low, Sweet Chariot.flac
+
+Track 15 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.8 LUFS
+    Threshold: -23.0 LUFS
+
+  Loudness range:
+    LRA:         5.6 LU
+    Threshold: -33.0 LUFS
+    LRA low:   -16.4 LUFS
+    LRA high:  -10.8 LUFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  True peak:
+    Peak:       -0.3 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:46.35
+    Samples:     9987180
+    Frames:      16985
+    Sample peak level: 94.7% (-0.5 dBFS)
+    True peak level:   -0.3 dBFS
+    Integrated loudness (R128): -12.8 LUFS
+    Loudness range (R128):      5.6 LU (-16.4 to -10.8 LUFS)
+    Extraction speed:  7.6x
+    Elapsed:            29.61 s
+    Pregap LSN:  241405 (duration: 00:01.60)
+    Pregap length: 135 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   241540 (with offset: 241541)
+    End LSN:     258524 (with offset: 258526)
+
+  EAC CRC32:     E8D84F4E
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 27)
+    Accurip v1:  C7F7EE83 (accurately ripped, confidence 11)
+    Accurip v2:  87827D38 (accurately ripped, confidence 27)
+
+  Metadata:
+    TRACK:                         15
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Flamenco Fling
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          CAW119901677
+    CREATION_TIME:                 2026-10-22T18:05:22-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.20 dB
+    R128_TRACK_GAIN:               -51
+    REPLAYGAIN_TRACK_RANGE:        5.61 dB
+    REPLAYGAIN_TRACK_PEAK:         0.963200
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1441
+    VERIFY:        139
+    OVERLAP:       35
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/15 - Flamenco Fling.flac
+
+Track 16 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.6 LUFS
+    Threshold: -24.0 LUFS
+
+  Loudness range:
+    LRA:        12.7 LU
+    Threshold: -34.0 LUFS
+    LRA low:   -21.8 LUFS
+    LRA high:   -9.1 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        0.0 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     USFF29030315
+
+  Properties:
+    Duration:    04:07.30
+    Samples:     10910340
+    Frames:      18555
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   0.0 dBFS
+    Integrated loudness (R128): -13.6 LUFS
+    Loudness range (R128):      12.7 LU (-21.8 to -9.1 LUFS)
+    Extraction speed:  8.2x
+    Elapsed:            30.05 s
+    Pregap LSN:  258330 (duration: 00:02.45)
+    Pregap length: 195 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   258525 (with offset: 258526)
+    End LSN:     277079
+    Appended:    2 frames of silence
+
+  EAC CRC32:     AD728F72
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 26)
+    Accurip v1:  D14496FC (accurately ripped, confidence 11)
+    Accurip v2:  D0582F96 (accurately ripped, confidence 26)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            rBin7wC6wjdr7ZsrLr.6j6rYAkA-
+    CDDB:                          D30E6E10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Ashokan Farewell
+    DISC:                          4
+    ALBUM:                         full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USFF29030315
+    CREATION_TIME:                 2026-10-22T18:05:52-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.41 dB
+    R128_TRACK_GAIN:               151
+    REPLAYGAIN_TRACK_RANGE:        12.73 dB
+    REPLAYGAIN_TRACK_PEAK:         1.001622
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1449
+    VERIFY:        95
+    OVERLAP:       30
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t215702 platterpus-fork-gca0f097/16 - Ashokan Farewell.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.7 LUFS
+    Threshold: -22.9 LUFS
+
+  Loudness range:
+    LRA:         8.7 LU
+    Threshold: -33.0 LUFS
+    LRA low:   -18.4 LUFS
+    LRA high:   -9.7 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:        1.1 dBFS
+
+Album integrated loudness (R128): -12.7 LUFS
+Album loudness range (R128):      8.7 LU (-18.4 to -9.7 LUFS)
+Album sample peak level:          -0.1 dBFS
+Album true peak level:            1.1 dBFS
+Tracks ripped accurately: 16/16
+
+Paranoia status counts:
+  READ:          22633
+  VERIFY:        1612
+  OVERLAP:       466
+
+Ripping errors: 0
+Encoder errors: none; 16 tracks encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (16 of 16 tracks)
+Ripping finished at 2026-10-22T18:06:22-04:00
+Log FUN512: 4r5VA5zpMeWCc2uS.F06IGC87N2nnDFrdtEcZIEAiiqE_aLkl5SSP_YYf72ikFdyJRP.D6Fyxl0N_R6A5o4AOg

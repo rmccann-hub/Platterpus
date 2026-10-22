@@ -1,0 +1,26 @@
+REM MUSICBRAINZ_ID "rBin7wC6wjdr7ZsrLr.6j6rYAkA-"
+REM DISCID "D30E6E10"
+REM MEDIA "CD"
+REM COMMENT "cyanrip 0.9.4-rc3+platterpus.26"
+REM TOTALDISCS "4"
+REM DISC "4"
+REM DATE "2001-10-09"
+REM CATALOGNUMBER "11661-0501-2"
+REM BARCODE "011661050129"
+REM LABEL "Rounder"
+REM MUSICBRAINZ_ALBUMID "53d0f596-95a3-4e60-b4aa-09f5f7532b1e"
+REM ARTIST "Platterpus Acceptance"
+PERFORMER "Platterpus Acceptance"
+TITLE "full acceptance: angle<bracket 20261022t215702 platterpus-fork-gca0f097"
+FILE "01 - E=MC2∶ Rock 'n' Roll ⧹ Part 2.flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "E=MC2: Rock 'n' Roll \ Part 2"
+    PERFORMER "Platterpus Acceptance"
+    ISRC USRO28102801
+    INDEX 01 00:00:00
+FILE "02 - Funkyard.flac" WAVE
+  TRACK 02 AUDIO
+    TITLE "Funkyard"
+    PERFORMER "Platterpus Acceptance"
+    ISRC USBU19859902
+    INDEX 01 00:00:00
