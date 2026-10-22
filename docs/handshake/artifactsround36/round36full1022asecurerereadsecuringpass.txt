@@ -1,0 +1,189 @@
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -Z 2 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=secure reread 20261022t114515 platterpus-fork-gca0f097:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Rice, Rice, Hillman & Pedersen:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Alison Krauss & Union Station:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Tony Furtado & Tim O’Brien:isrc=USRO29432307" -t "4=title=Crossfire:artist=Béla Fleck" -t "5=title=You’re in My Heart:artist=Rhonda Vincent:isrc=USRO20046004" -t "6=title=Second Wind:artist=Claire Lynch:isrc=USRO29535501" -t "7=title=Black Dog:artist=Ray Wylie Hubbard" -t "8=title=Don’t Kneel at My Graveside:artist=The Stevens Sisters" -t "9=title=Oh Death:artist=Tarbox Ramblers" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=The Holmes Brothers" -t "11=title=This Time I’m Gone for Good:artist=Johnny Adams" -t "12=title=Down the Road:artist=Marcia Ball" -t "13=title=Think It Over One More Time:artist=Buckwheat Zydeco:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Beau Jocque and the Zydeco Hi-Rollers" -t "15=title=La Danse de Mardi gras:artist=Steve Riley and the Mamou Playboys:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=BeauSoleil:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T134436Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  16
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          secure reread 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Various Artists
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+
+Repeating ripping (0 out of 2 matches for current checksum D01E061C)
+
+Repeating ripping (0 out of 2 matches for current checksum 3DF89F98)
+
+Repeating ripping (0 out of 2 matches for current checksum 6BAE4616)
+
+Repeating ripping (0 out of 2 matches for current checksum D0605223)
+
+Done; (repeat limit of 5 reads reached; at most 1 read agreed)
+Track 16 read with errors.
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:19.30
+    Samples:     8793540
+    Frames:      14955
+    Sample peak level: 72.8% (-2.8 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+    Extraction speed:  0.58x
+    Elapsed:            344.60 s
+    Pregap LSN:  245135 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   245135 (with offset: 245136)
+    End LSN:     260089
+    Appended:    2 frames of silence
+
+  EAC CRC32:     808A9514 (after 5 rips)
+  Secure re-read:  did NOT converge after 5 reads (repeat limit hit)
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  9CC5A50E (not found, either a new pressing, or bad rip)
+    Accurip v2:  30521223 (not found, either a new pressing, or bad rip)
+    Accurip 450: F81ED370 (matches Accurip DB, confidence 24, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Chez Seychelles
+    DISC:                          3
+    ALBUM:                         secure reread 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        BeauSoleil
+    ISRC:                          USRO28601508
+    CREATION_TIME:                 2026-10-22T09:44:47-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.52 dB
+    R128_TRACK_GAIN:               124
+    REPLAYGAIN_TRACK_RANGE:        3.25 dB
+    REPLAYGAIN_TRACK_PEAK:         0.728232
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 5 reads; the disc totals below sum all of them
+    READ:          2129
+    VERIFY:        1038
+    FIXUP_ATOM:    3489
+    OVERLAP:       364
+
+  File(s):
+    Various Artists/secure reread 20261022t114515 platterpus-fork-gca0f097/16 - Chez Seychelles.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+Album sample peak level:          -2.8 dBFS
+Album true peak level:            -2.8 dBFS
+Tracks ripped accurately: 0/16
+Tracks matched on one frame only: 1/16
+
+Paranoia status counts:
+  READ:          10097
+  VERIFY:        4631
+  FIXUP_ATOM:    17272
+  SKIP:          1
+  OVERLAP:       1735
+
+Ripping errors: 1 (including 1 paranoia skip)
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T09:50:32-04:00
+Log FUN512: oqOrwSmpBj49Sq_q0Og7iFHU5_vp83D_.kNtpa2_5qQ3afqYTEDob3R31S3p6gvO7SArUX8upH2NT.ejJvLkWA

@@ -1,0 +1,251 @@
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=derived mp3 20261022t114515 platterpus-fork-gca0f097:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Rice, Rice, Hillman & Pedersen:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Alison Krauss & Union Station:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Tony Furtado & Tim O’Brien:isrc=USRO29432307" -t "4=title=Crossfire:artist=Béla Fleck" -t "5=title=You’re in My Heart:artist=Rhonda Vincent:isrc=USRO20046004" -t "6=title=Second Wind:artist=Claire Lynch:isrc=USRO29535501" -t "7=title=Black Dog:artist=Ray Wylie Hubbard" -t "8=title=Don’t Kneel at My Graveside:artist=The Stevens Sisters" -t "9=title=Oh Death:artist=Tarbox Ramblers" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=The Holmes Brothers" -t "11=title=This Time I’m Gone for Good:artist=Johnny Adams" -t "12=title=Down the Road:artist=Marcia Ball" -t "13=title=Think It Over One More Time:artist=Buckwheat Zydeco:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Beau Jocque and the Zydeco Hi-Rollers" -t "15=title=La Danse de Mardi gras:artist=Steve Riley and the Mamou Playboys:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=BeauSoleil:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T123445Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  1, 2
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          derived mp3 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Various Artists
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+Track 1 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.4 LUFS
+    Threshold: -23.5 LUFS
+
+  Loudness range:
+    LRA:         3.0 LU
+    Threshold: -33.5 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -12.1 LUFS
+
+  Sample peak:
+    Peak:       -1.9 dBFS
+
+  True peak:
+    Peak:       -1.9 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:16.17
+    Samples:     8653596
+    Frames:      14717
+    Sample peak level: 80.5% (-1.9 dBFS)
+    True peak level:   -1.9 dBFS
+    Integrated loudness (R128): -13.4 LUFS
+    Loudness range (R128):      3.0 LU (-15.1 to -12.1 LUFS)
+    Extraction speed:  2.5x
+    Elapsed:            79.45 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14716 (with offset: 14718)
+
+  EAC CRC32:     C2691C02
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  4183B5C9 (accurately ripped, confidence 11)
+    Accurip v2:  E03D140D (accurately ripped, confidence 24)
+
+  Metadata:
+    TRACK:                         1
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Friend of the Devil
+    DISC:                          3
+    ALBUM:                         derived mp3 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Rice, Rice, Hillman & Pedersen
+    ISRC:                          USRO29945005
+    CREATION_TIME:                 2026-10-22T08:34:57-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.62 dB
+    R128_TRACK_GAIN:               98
+    REPLAYGAIN_TRACK_RANGE:        3.00 dB
+    REPLAYGAIN_TRACK_PEAK:         0.805825
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1250
+    VERIFY:        85
+    OVERLAP:       17
+
+  File(s):
+    Various Artists/derived mp3 20261022t114515 platterpus-fork-gca0f097/01 - Friend of the Devil.flac
+
+Track 2 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.7 LUFS
+
+  Loudness range:
+    LRA:         5.1 LU
+    Threshold: -33.7 LUFS
+    LRA low:   -15.9 LUFS
+    LRA high:  -10.8 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:       -0.0 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:17.00
+    Samples:     8687700
+    Frames:      14775
+    Sample peak level: 98.9% (-0.1 dBFS)
+    True peak level:   -0.0 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      5.1 LU (-15.9 to -10.8 LUFS)
+    Extraction speed:  2.6x
+    Elapsed:            76.54 s
+    Pregap LSN:  14717 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   14717 (with offset: 14718)
+    End LSN:     29491 (with offset: 29493)
+
+  EAC CRC32:     446CE3CB
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 23)
+    Accurip v1:  4EA2203C (accurately ripped, confidence 10)
+    Accurip v2:  7BFFC23B (accurately ripped, confidence 23)
+
+  Metadata:
+    TRACK:                         2
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Every Time You Say Goodbye
+    DISC:                          3
+    ALBUM:                         derived mp3 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Alison Krauss & Union Station
+    ISRC:                          USRO29228501
+    CREATION_TIME:                 2026-10-22T08:36:17-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.48 dB
+    R128_TRACK_GAIN:               132
+    REPLAYGAIN_TRACK_RANGE:        5.09 dB
+    REPLAYGAIN_TRACK_PEAK:         0.999794
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1201
+    VERIFY:        77
+    OVERLAP:       24
+
+  File(s):
+    Various Artists/derived mp3 20261022t114515 platterpus-fork-gca0f097/02 - Every Time You Say Goodbye.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         4.3 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.8 LUFS
+    LRA high:  -11.5 LUFS
+
+  Sample peak:
+    Peak:       -0.1 dBFS
+
+  True peak:
+    Peak:       -0.0 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      4.3 LU (-15.8 to -11.5 LUFS)
+Album sample peak level:          -0.1 dBFS
+Album true peak level:            -0.0 dBFS
+Tracks ripped accurately: 2/16
+
+Paranoia status counts:
+  READ:          2451
+  VERIFY:        162
+  OVERLAP:       41
+
+Ripping errors: 0
+Encoder errors: none; 2 tracks encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (2 of 16 tracks)
+Ripping finished at 2026-10-22T08:37:34-04:00
+Log FUN512: d8A0XuaHu6fSGxfZyJvE2XOvRctZID.e0XfS4IKzN1FGK2VypeZ3f_SIzIfk9Hi3ERFs1BQrz22sWAV9_hEL9A

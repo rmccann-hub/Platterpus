@@ -1,0 +1,907 @@
+=== Platterpus verified-read chase: track 16, attempt 1 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e -t 1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005 -t 2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501 -t 3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307 -t 4=title=Crossfire:artist=Platterpus Acceptance -t 5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004 -t 6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501 -t 7=title=Black Dog:artist=Platterpus Acceptance -t 8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance -t 9=title=Oh Death:artist=Platterpus Acceptance -t 10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance -t 11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance -t 12=title=Down the Road:artist=Platterpus Acceptance -t 13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109 -t 14=title=Just One Kiss:artist=Platterpus Acceptance -t 15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811 -t 16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261022T121023Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307" -t "4=title=Crossfire:artist=Platterpus Acceptance" -t "5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004" -t "6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501" -t "7=title=Black Dog:artist=Platterpus Acceptance" -t "8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance" -t "9=title=Oh Death:artist=Platterpus Acceptance" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance" -t "11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance" -t "12=title=Down the Road:artist=Platterpus Acceptance" -t "13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Platterpus Acceptance" -t "15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T121023Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  16
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Platterpus Acceptance
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+Track 16 read with errors.
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:19.30
+    Samples:     8793540
+    Frames:      14955
+    Sample peak level: 72.8% (-2.8 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+    Extraction speed:  3.0x
+    Elapsed:            66.22 s
+    Pregap LSN:  245135 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   245135 (with offset: 245136)
+    End LSN:     260089
+    Appended:    2 frames of silence
+
+  EAC CRC32:     BEE105EE
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  1F5B7842 (not found, either a new pressing, or bad rip)
+    Accurip v2:  B2F35054 (not found, either a new pressing, or bad rip)
+    Accurip 450: F81ED370 (matches Accurip DB, confidence 24, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Chez Seychelles
+    DISC:                          3
+    ALBUM:                         full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO28601508
+    CREATION_TIME:                 2026-10-22T08:10:33-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.52 dB
+    R128_TRACK_GAIN:               124
+    REPLAYGAIN_TRACK_RANGE:        3.25 dB
+    REPLAYGAIN_TRACK_PEAK:         0.728232
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          2030
+    VERIFY:        1004
+    FIXUP_ATOM:    4000
+    SKIP:          1
+    OVERLAP:       390
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t114515 platterpus-fork-gca0f097/16 - Chez Seychelles.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+Album sample peak level:          -2.8 dBFS
+Album true peak level:            -2.8 dBFS
+Tracks ripped accurately: 0/16
+Tracks matched on one frame only: 1/16
+
+Paranoia status counts:
+  READ:          2030
+  VERIFY:        1004
+  FIXUP_ATOM:    4000
+  SKIP:          1
+  OVERLAP:       390
+
+Ripping errors: 1 (including 1 paranoia skip)
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T08:11:39-04:00
+Log FUN512: vNW2IDPr4kAfgi.dnw.T_dRHH.UDxRyL_0w559LFsERwSyNoR2h0gESvEeOs_L1DAGQsQObNH6d87Z4b.xKVWw
+
+=== Platterpus verified-read chase: track 16, attempt 2 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e -t 1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005 -t 2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501 -t 3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307 -t 4=title=Crossfire:artist=Platterpus Acceptance -t 5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004 -t 6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501 -t 7=title=Black Dog:artist=Platterpus Acceptance -t 8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance -t 9=title=Oh Death:artist=Platterpus Acceptance -t 10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance -t 11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance -t 12=title=Down the Road:artist=Platterpus Acceptance -t 13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109 -t 14=title=Just One Kiss:artist=Platterpus Acceptance -t 15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811 -t 16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261022T121140Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307" -t "4=title=Crossfire:artist=Platterpus Acceptance" -t "5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004" -t "6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501" -t "7=title=Black Dog:artist=Platterpus Acceptance" -t "8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance" -t "9=title=Oh Death:artist=Platterpus Acceptance" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance" -t "11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance" -t "12=title=Down the Road:artist=Platterpus Acceptance" -t "13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Platterpus Acceptance" -t "15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T121140Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  16
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Platterpus Acceptance
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+Track 16 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:19.30
+    Samples:     8793540
+    Frames:      14955
+    Sample peak level: 72.8% (-2.8 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+    Extraction speed:  2.9x
+    Elapsed:            68.64 s
+    Pregap LSN:  245135 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   245135 (with offset: 245136)
+    End LSN:     260089
+    Appended:    2 frames of silence
+
+  EAC CRC32:     FC926C4E
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  183C3F7A (not found, either a new pressing, or bad rip)
+    Accurip v2:  ABCC9103 (not found, either a new pressing, or bad rip)
+    Accurip 450: F81ED370 (matches Accurip DB, confidence 24, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Chez Seychelles
+    DISC:                          3
+    ALBUM:                         full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO28601508
+    CREATION_TIME:                 2026-10-22T08:11:51-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.52 dB
+    R128_TRACK_GAIN:               124
+    REPLAYGAIN_TRACK_RANGE:        3.25 dB
+    REPLAYGAIN_TRACK_PEAK:         0.728232
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          2127
+    VERIFY:        1093
+    FIXUP_ATOM:    3991
+    OVERLAP:       380
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t114515 platterpus-fork-gca0f097/16 - Chez Seychelles.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+Album sample peak level:          -2.8 dBFS
+Album true peak level:            -2.8 dBFS
+Tracks ripped accurately: 0/16
+Tracks matched on one frame only: 1/16
+
+Paranoia status counts:
+  READ:          2127
+  VERIFY:        1093
+  FIXUP_ATOM:    3991
+  OVERLAP:       380
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T08:13:00-04:00
+Log FUN512: XtzFGT0i9FZReGHA1Lo9UqG8pLu4oYPKgZ243pqOJCuJqlKbzdKyF8X56bEFl1clbX.nW2d973U2B3OFcOd.Yg
+
+=== Platterpus verified-read chase: track 16, attempt 3 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e -t 1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005 -t 2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501 -t 3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307 -t 4=title=Crossfire:artist=Platterpus Acceptance -t 5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004 -t 6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501 -t 7=title=Black Dog:artist=Platterpus Acceptance -t 8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance -t 9=title=Oh Death:artist=Platterpus Acceptance -t 10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance -t 11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance -t 12=title=Down the Road:artist=Platterpus Acceptance -t 13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109 -t 14=title=Just One Kiss:artist=Platterpus Acceptance -t 15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811 -t 16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261022T121300Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307" -t "4=title=Crossfire:artist=Platterpus Acceptance" -t "5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004" -t "6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501" -t "7=title=Black Dog:artist=Platterpus Acceptance" -t "8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance" -t "9=title=Oh Death:artist=Platterpus Acceptance" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance" -t "11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance" -t "12=title=Down the Road:artist=Platterpus Acceptance" -t "13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Platterpus Acceptance" -t "15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T121300Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  16
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Platterpus Acceptance
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+Track 16 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:19.30
+    Samples:     8793540
+    Frames:      14955
+    Sample peak level: 72.8% (-2.8 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+    Extraction speed:  3.1x
+    Elapsed:            63.74 s
+    Pregap LSN:  245135 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   245135 (with offset: 245136)
+    End LSN:     260089
+    Appended:    2 frames of silence
+
+  EAC CRC32:     E5D00EAC
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  27C1A6F3 (not found, either a new pressing, or bad rip)
+    Accurip v2:  BB318A9E (not found, either a new pressing, or bad rip)
+    Accurip 450: F81ED370 (matches Accurip DB, confidence 24, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Chez Seychelles
+    DISC:                          3
+    ALBUM:                         full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO28601508
+    CREATION_TIME:                 2026-10-22T08:13:11-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.52 dB
+    R128_TRACK_GAIN:               124
+    REPLAYGAIN_TRACK_RANGE:        3.25 dB
+    REPLAYGAIN_TRACK_PEAK:         0.728232
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1942
+    VERIFY:        923
+    FIXUP_ATOM:    3496
+    OVERLAP:       370
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t114515 platterpus-fork-gca0f097/16 - Chez Seychelles.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+Album sample peak level:          -2.8 dBFS
+Album true peak level:            -2.8 dBFS
+Tracks ripped accurately: 0/16
+Tracks matched on one frame only: 1/16
+
+Paranoia status counts:
+  READ:          1942
+  VERIFY:        923
+  FIXUP_ATOM:    3496
+  OVERLAP:       370
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T08:14:15-04:00
+Log FUN512: PSFxTGUBeeRybwucBqGLVqX22tzjXH5s78wPhIptMp0h8GjXQMv.j1li25OL2_h66WDJqdnRBYedd8A9PXgcsg
+
+=== Platterpus verified-read chase: track 16, attempt 4 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e -t 1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005 -t 2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501 -t 3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307 -t 4=title=Crossfire:artist=Platterpus Acceptance -t 5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004 -t 6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501 -t 7=title=Black Dog:artist=Platterpus Acceptance -t 8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance -t 9=title=Oh Death:artist=Platterpus Acceptance -t 10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance -t 11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance -t 12=title=Down the Road:artist=Platterpus Acceptance -t 13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109 -t 14=title=Just One Kiss:artist=Platterpus Acceptance -t 15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811 -t 16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261022T121415Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307" -t "4=title=Crossfire:artist=Platterpus Acceptance" -t "5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004" -t "6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501" -t "7=title=Black Dog:artist=Platterpus Acceptance" -t "8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance" -t "9=title=Oh Death:artist=Platterpus Acceptance" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance" -t "11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance" -t "12=title=Down the Road:artist=Platterpus Acceptance" -t "13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Platterpus Acceptance" -t "15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T121415Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  16
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Platterpus Acceptance
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+Track 16 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:19.30
+    Samples:     8793540
+    Frames:      14955
+    Sample peak level: 72.8% (-2.8 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+    Extraction speed:  2.9x
+    Elapsed:            68.41 s
+    Pregap LSN:  245135 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   245135 (with offset: 245136)
+    End LSN:     260089
+    Appended:    2 frames of silence
+
+  EAC CRC32:     4DE60692
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  4C39C6FA (not found, either a new pressing, or bad rip)
+    Accurip v2:  E053A349 (not found, either a new pressing, or bad rip)
+    Accurip 450: F81ED370 (matches Accurip DB, confidence 24, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Chez Seychelles
+    DISC:                          3
+    ALBUM:                         full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO28601508
+    CREATION_TIME:                 2026-10-22T08:14:25-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.52 dB
+    R128_TRACK_GAIN:               124
+    REPLAYGAIN_TRACK_RANGE:        3.25 dB
+    REPLAYGAIN_TRACK_PEAK:         0.728232
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          2098
+    VERIFY:        1089
+    FIXUP_ATOM:    5025
+    OVERLAP:       451
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t114515 platterpus-fork-gca0f097/16 - Chez Seychelles.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+Album sample peak level:          -2.8 dBFS
+Album true peak level:            -2.8 dBFS
+Tracks ripped accurately: 0/16
+Tracks matched on one frame only: 1/16
+
+Paranoia status counts:
+  READ:          2098
+  VERIFY:        1089
+  FIXUP_ATOM:    5025
+  OVERLAP:       451
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T08:15:34-04:00
+Log FUN512: M6TtJl_tNAa9IjuEKJbJBmH_pos6JP_XGLhQOA7otNL8ayF6soEtMDt5KDdfItVgFLC9ngXmauZYzp6Hx129KQ
+
+=== Platterpus verified-read chase: track 16, attempt 5 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e -t 1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005 -t 2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501 -t 3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307 -t 4=title=Crossfire:artist=Platterpus Acceptance -t 5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004 -t 6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501 -t 7=title=Black Dog:artist=Platterpus Acceptance -t 8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance -t 9=title=Oh Death:artist=Platterpus Acceptance -t 10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance -t 11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance -t 12=title=Down the Road:artist=Platterpus Acceptance -t 13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109 -t 14=title=Just One Kiss:artist=Platterpus Acceptance -t 15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811 -t 16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261022T121534Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 16 -N --consumer platterpus/0.7.112 --prefer-disc-isrc -c 3/4 -a "album=full acceptance\: angle<bracket 20261022t114515 platterpus-fork-gca0f097:album_artist=Platterpus Acceptance:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Friend of the Devil:artist=Platterpus Acceptance:isrc=USRO29945005" -t "2=title=Every Time You Say Goodbye:artist=Platterpus Acceptance:isrc=USRO29228501" -t "3=title=Man of Constant Sorrow:artist=Platterpus Acceptance:isrc=USRO29432307" -t "4=title=Crossfire:artist=Platterpus Acceptance" -t "5=title=You’re in My Heart:artist=Platterpus Acceptance:isrc=USRO20046004" -t "6=title=Second Wind:artist=Platterpus Acceptance:isrc=USRO29535501" -t "7=title=Black Dog:artist=Platterpus Acceptance" -t "8=title=Don’t Kneel at My Graveside:artist=Platterpus Acceptance" -t "9=title=Oh Death:artist=Platterpus Acceptance" -t "10=title=You Can’t Hold on to a Love That’s Gone:artist=Platterpus Acceptance" -t "11=title=This Time I’m Gone for Good:artist=Platterpus Acceptance" -t "12=title=Down the Road:artist=Platterpus Acceptance" -t "13=title=Think It Over One More Time:artist=Platterpus Acceptance:isrc=USRO28805109" -t "14=title=Just One Kiss:artist=Platterpus Acceptance" -t "15=title=La Danse de Mardi gras:artist=Platterpus Acceptance:isrc=USRO29506811" -t "16=title=Chez Seychelles:artist=Platterpus Acceptance:isrc=USRO28601508" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261022T121534Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    3
+Total discs:    4
+Disc tracks:    16
+Tracks to rip:  16
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        F80D8B10
+Album:          full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+Album artist:   Platterpus Acceptance
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+
+Tracks:
+Track 16 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:19.30
+    Samples:     8793540
+    Frames:      14955
+    Sample peak level: 72.8% (-2.8 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -13.5 LUFS
+    Loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+    Extraction speed:  2.9x
+    Elapsed:            68.71 s
+    Pregap LSN:  245135 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   245135 (with offset: 245136)
+    End LSN:     260089
+    Appended:    2 frames of silence
+
+  EAC CRC32:     D34AAD64
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  69163BA9 (not found, either a new pressing, or bad rip)
+    Accurip v2:  FC24CEBF (not found, either a new pressing, or bad rip)
+    Accurip 450: F81ED370 (matches Accurip DB, confidence 24, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         16
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    TOTALDISCS:                    4
+    TITLE:                         Chez Seychelles
+    DISC:                          3
+    ALBUM:                         full acceptance: angle<bracket 20261022t114515 platterpus-fork-gca0f097
+    ALBUM_ARTIST:                  Platterpus Acceptance
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Platterpus Acceptance
+    ISRC:                          USRO28601508
+    CREATION_TIME:                 2026-10-22T08:15:45-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.52 dB
+    R128_TRACK_GAIN:               124
+    REPLAYGAIN_TRACK_RANGE:        3.25 dB
+    REPLAYGAIN_TRACK_PEAK:         0.728232
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          2128
+    VERIFY:        1091
+    FIXUP_ATOM:    4829
+    OVERLAP:       424
+
+  File(s):
+    Platterpus Acceptance/full acceptance∶ angle‹bracket 20261022t114515 platterpus-fork-gca0f097/16 - Chez Seychelles.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.5 LUFS
+    Threshold: -23.6 LUFS
+
+  Loudness range:
+    LRA:         3.2 LU
+    Threshold: -33.6 LUFS
+    LRA low:   -15.1 LUFS
+    LRA high:  -11.8 LUFS
+
+  Sample peak:
+    Peak:       -2.8 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+Album integrated loudness (R128): -13.5 LUFS
+Album loudness range (R128):      3.2 LU (-15.1 to -11.8 LUFS)
+Album sample peak level:          -2.8 dBFS
+Album true peak level:            -2.8 dBFS
+Tracks ripped accurately: 0/16
+Tracks matched on one frame only: 1/16
+
+Paranoia status counts:
+  READ:          2128
+  VERIFY:        1091
+  FIXUP_ATOM:    4829
+  OVERLAP:       424
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T08:16:54-04:00
+Log FUN512: O.aTmAQendoFgTeoPjud9FnAKOKaoUz1_4Wm5S0xFA0SBScAZHWi9Oa6nNwgqDmU6Wkgb1C2WJdQCghv4k2RgQ
+

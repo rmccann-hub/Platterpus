@@ -1,0 +1,26 @@
+argv: distrobox list
+exit: 0
+ID           | NAME                 | STATUS             | IMAGE                         
+2abb8858c807 | ripping              | Up 17 hours        | registry.fedoraproject.org/fedora-toolbox:latest
+
+argv: distrobox list
+exit: 0
+ID           | NAME                 | STATUS             | IMAGE                         
+2abb8858c807 | ripping              | Up 17 hours        | registry.fedoraproject.org/fedora-toolbox:latest
+
+argv: distrobox enter ripping -- command -v flac
+exit: 0
+~/.local/bin/flac
+
+argv: distrobox list
+exit: 0
+ID           | NAME                 | STATUS             | IMAGE                         
+2abb8858c807 | ripping              | Up 17 hours        | registry.fedoraproject.org/fedora-toolbox:latest
+
+argv: distrobox enter ripping -- command -v cyanrip
+exit: 0
+~/.local/bin/cyanrip
+
+argv: ~/.local/bin/cyanrip -V
+exit: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)

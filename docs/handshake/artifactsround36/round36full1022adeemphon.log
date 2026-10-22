@@ -1,0 +1,160 @@
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+Invoked as:     /usr/local/bin/cyanrip -N -s 667 -l 1 -H -E -D r16deemphon --consumer platterpus/0.7.112 --diagnostics cyanrip-diagnostics-20261022T140202Z.json
+Handshake:      round 36 lap 4 OPEN, verdict OPEN -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.7.112
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/cdrom
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     unknown (profile 0xffff is not a CD profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    10 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  enabled
+Album Art:      none
+Outputs:        flac
+Disc tracks:    16
+Tracks to rip:  1
+DiscID:         bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+CDDB ID:        F80D8B10
+Album:          Unknown disc (BKYF)
+AccurateRip ID: 002086bf-0189efd1-f80d8b10
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     57:47.65
+
+--- output before this log was opened ---
+Checking /dev/cdrom for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    75 frame pregap in track 3, merging into track 2
+    110 frame pregap in track 4, merging into track 3
+    157 frame pregap in track 5, merging into track 4
+    132 frame pregap in track 6, merging into track 5
+    140 frame pregap in track 8, merging into track 7
+    110 frame pregap in track 9, merging into track 8
+    140 frame pregap in track 10, merging into track 9
+    178 frame pregap in track 13, merging into track 12
+    183 frame pregap in track 14, merging into track 13
+    108 frame pregap in track 15, merging into track 14
+    pregap of track 16 unknown (sub-channel CRC mismatches)
+
+Tracks:
+Track 1 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -19.3 LUFS
+    Threshold: -29.4 LUFS
+
+  Loudness range:
+    LRA:         2.9 LU
+    Threshold: -39.4 LUFS
+    LRA low:   -20.9 LUFS
+    LRA high:  -18.0 LUFS
+
+  Sample peak:
+    Peak:       -7.8 dBFS
+
+  True peak:
+    Peak:       -7.8 dBFS
+
+  HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+  Preemphasis:   none detected (deemphasis forced)
+  Disc ISRC:     none (libcdio returned none, also after reading 200 Q frames of the track, none an ISRC frame)
+
+  Properties:
+    Duration:    03:16.17
+    Samples:     8653596
+    Frames:      14717
+    Sample peak level: 40.7% (-7.8 dBFS)
+    True peak level:   -7.8 dBFS
+    Integrated loudness (R128): -19.3 LUFS
+    Loudness range (R128):      2.9 LU (-20.9 to -18.0 LUFS)
+    Extraction speed:  2.5x
+    Elapsed:            79.60 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14716 (with offset: 14718)
+
+  EAC CRC32:     C2691C02
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 24)
+    Accurip v1:  4183B5C9 (accurately ripped, confidence 11)
+    Accurip v2:  E03D140D (accurately ripped, confidence 24)
+
+  Metadata:
+    TRACK:                         1
+    TRACKTOTAL:                    16
+    MUSICBRAINZ_DISCID:            bkyFFk2LvIJXMj3E1Is2rA8Rj9U-
+    CDDB:                          F80D8B10
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.26
+    ALBUM:                         Unknown disc (BKYF)
+    TITLE:                         Unknown track
+    CREATION_TIME:                 2026-10-22T10:02:13-04:00
+    REPLAYGAIN_TRACK_GAIN:         1.29 dB
+    R128_TRACK_GAIN:               1611
+    REPLAYGAIN_TRACK_RANGE:        2.88 dB
+    REPLAYGAIN_TRACK_PEAK:         0.406828
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1250
+    VERIFY:        85
+    OVERLAP:       17
+
+  File(s):
+    r16deemphon/01 - Unknown track.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -19.3 LUFS
+    Threshold: -29.4 LUFS
+
+  Loudness range:
+    LRA:         2.9 LU
+    Threshold: -39.4 LUFS
+    LRA low:   -20.9 LUFS
+    LRA high:  -18.0 LUFS
+
+  Sample peak:
+    Peak:       -7.8 dBFS
+
+  True peak:
+    Peak:       -7.8 dBFS
+
+Album integrated loudness (R128): -19.3 LUFS
+Album loudness range (R128):      2.9 LU (-20.9 to -18.0 LUFS)
+Album sample peak level:          -7.8 dBFS
+Album true peak level:            -7.8 dBFS
+Tracks ripped accurately: 1/16
+
+Paranoia status counts:
+  READ:          1250
+  VERIFY:        85
+  OVERLAP:       17
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 16 tracks)
+Ripping finished at 2026-10-22T10:03:33-04:00
+Log FUN512: 2Vi_yAgOMvkTDPyLnU8BQnJFjnhF35K48u8WJj1YDtBUDTxdihzqbagYwcfMVPdqmKAymgzdd8URRR9ppeOHpg
