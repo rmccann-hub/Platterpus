@@ -893,6 +893,27 @@ _VERB_LIST: tuple[Verb, ...] = (
         "(info, a measurement; refused as not determined when the tracks, the "
         "read counts or the builds do not allow it)",
     ),
+    # --- Paired rips: does the build decide a track's accuracy? (P6) ----------
+    # The owner's word of 2026-10-26; `accuracy_verbs.py`, section P6.
+    Verb(
+        "record-accuracy",
+        1,
+        1,
+        "record-accuracy <label> — record the last rip's per-track AccurateRip "
+        "result (verified at confidence N, frame 450 only, mismatch, not in "
+        "database, no lookup), CRC32 and extraction speed, and the build its log "
+        "names, under <label> (info; a log naming no build is an error, not "
+        "determined)",
+    ),
+    Verb(
+        "compare-accuracy",
+        2,
+        16,
+        "compare-accuracy <label> <label>… — per build and per track, right in N "
+        "of M rips, with the distinct CRC32s each build read (info, a "
+        "measurement; refused as not determined when a log names no build, the "
+        "tracks differ, only one build is named, or AccurateRip gave no answer)",
+    ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(
         "cyanrip",

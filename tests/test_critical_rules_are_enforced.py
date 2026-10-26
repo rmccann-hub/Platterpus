@@ -2774,7 +2774,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4809 -> 4823** (2026-10-21, the timed rip, the fork's round 36 lap 1 S15): two verb mixins in the class list and their imports, the two pieces of timing state with their reset, and the one dispatch line that marks a section N/A when it has nothing to compare. The handlers live in `install_verbs.py` and `timing_verbs.py`.
     # **4809 -> 4815** (2026-10-21, TASKS P2 #4): `expect-verification`'s floor asks `verification_gates.gate_claims_ran`, since a gate with a result now says "ran — passed" or "ran — failed".
     # **-> 4829** (2026-10-21): the entries above landed together on one branch.
-    "uiscript/runner.py": 4829,
+    # **4829 -> 4836** (2026-10-26, section P6, the owner's paired rips of track 3): the `AccuracyVerbsMixin` in the class list and its import, and the `record-accuracy` records with their reset, beside the timings. The handlers live in `accuracy_verbs.py`.
+    "uiscript/runner.py": 4836,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2817,7 +2818,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **997 -> 998** (2026-10-16, round 35, `overreadprobe`): the `cyanrip` verb's help names `(lasttrack)`.
     # **998 -> 999** (2026-10-20): the `refused` word in `expect-exit`'s help line.
     # **999 -> 1045** (2026-10-21, the timed rip): the `install-ripper`, `skip-if-same-build`, `record-timing` and `compare-timings` declarations, and the module docstring naming `install-ripper` as the one argued exception to "no verb installs a dependency". The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 1045,
+    # **1045 -> 1066** (2026-10-26, section P6): the `record-accuracy` and `compare-accuracy` declarations, after the timing verbs. The table is the vocabulary's security boundary, so a verb is an entry here by design; the handlers are a new mixin, `accuracy_verbs.py`.
+    "uiscript/verbs.py": 1066,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
@@ -2844,7 +2846,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **791 -> 826** (2026-10-21, TASKS R13): the verdict counts audio tracks only and names the data tracks it left out. The counting itself went to its own module, `data_tracks.py`; what stays is the verdict's use of it.
     # **791 -> 891** `tracks_differing_from_entry` and `differing_tracks_phrase` (the owner's known-fixes list, 2026-10-21, item 12): a disc AccurateRip holds names its failing tracks as differing from the entry, in the headline and the CTDB reconciliation line, instead of "not in the database"; the verdict owns its wording, and the helpers need `accuraterip_state` and `track_accuraterip_partial`, both defined here.
     # **-> 926** (2026-10-21): the entries above landed together on one branch.
-    "verdict.py": 926,
+    # **926 -> 962** (2026-10-26, section P6): `track_accuraterip_state`, the one summary of a track's two AccurateRip columns, beside the per-column `accuraterip_state` it ranks, so the paired-rip tally counts "verified" by the verdict's own word.
+    "verdict.py": 962,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.

@@ -45,6 +45,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info, inbound_text, rip_pass_exit
 from platterpus.uiscript import run_sizes
+from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
@@ -91,6 +92,7 @@ if TYPE_CHECKING:  # pragma: no cover — types only
     # dependency on the parsers while still giving mypy a real type.
     from platterpus.deps.ripper_wrapper_probe import WrapperReport
     from platterpus.parsers.rip_log import RipLog
+    from platterpus.uiscript.accuracy_grading import AccuracyRecord
     from platterpus.uiscript.timing_grading import TimingRecord
 
 #: Verbs that declare the run's SHAPE rather than testing anything. They are
@@ -382,6 +384,7 @@ class ScriptRunner(
     BurstVerbsMixin,
     InstallVerbsMixin,
     TimingVerbsMixin,
+    AccuracyVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -427,6 +430,9 @@ class ScriptRunner(
         #: while they run). Both are `timing_verbs.py`'s; `start` resets them.
         self._timings: dict[str, TimingRecord] = {}
         self._same_build_skip: str = ""
+        #: `record-accuracy` results by label (`accuracy_verbs.py`, section P6);
+        #: `start` resets them, as it does the timings.
+        self._accuracies: dict[str, AccuracyRecord] = {}
         self._artifact_dir: Path | None = None
         #: Set by :meth:`contain_in`: the folder this run writes into instead of
         #: its own stamped one, and whether it still builds a bundle of its own.
@@ -558,6 +564,7 @@ class ScriptRunner(
         self._drive_offset = None
         self._timings = {}
         self._same_build_skip = ""
+        self._accuracies = {}
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,

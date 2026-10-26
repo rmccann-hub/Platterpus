@@ -378,6 +378,42 @@ def accuraterip_state(
     return AR_STATE_ABSENT
 
 
+#: Which of a track's two columns (v1, v2) summarises it: the best one, so an
+#: exact match in either column is a verified track, as
+#: ``track_accuraterip_verified`` says. `no-data` ranks above `not-checked`
+#: because a lookup that left no result is nearer an answer than no lookup.
+_TRACK_STATE_RANK: Final[tuple[str, ...]] = (
+    AR_STATE_VERIFIED,
+    AR_STATE_OFFSET_VARIANT,
+    AR_STATE_NO_MATCH,
+    AR_STATE_ABSENT,
+    AR_STATE_NO_DATA,
+    AR_STATE_NOT_CHECKED,
+)
+
+
+def track_accuraterip_state(track: object) -> str:
+    """One track's AccurateRip state: the best of its v1 and v2 columns.
+
+    The per-column classifier is :func:`accuraterip_state`; this is the one
+    summary of a whole track, for a caller that reports a track rather than a
+    column (the paired rips of section P6, ``uiscript/accuracy_grading.py``).
+    ``uiscript/artifact_grading._track_ar_state`` computes the same ranking and
+    ``tests/test_uiscript_accuracy_verbs.py`` holds the two equal. Pure; never
+    raises (an unexpected shape reads as ``not-checked``).
+    """
+    try:
+        offset = getattr(track, "accuraterip_offset", None)
+        lookup = getattr(track, "accuraterip_lookup", None)
+        states = [
+            accuraterip_state(getattr(track, column, None), offset, lookup)
+            for column in ("accuraterip_v1", "accuraterip_v2")
+        ]
+    except (AttributeError, TypeError, ValueError):
+        return AR_STATE_NOT_CHECKED
+    return min(states, key=_TRACK_STATE_RANK.index)
+
+
 def expected_track_total(
     disc_track_total: int | None, only_tracks: Sequence[int] | None
 ) -> int | None:
