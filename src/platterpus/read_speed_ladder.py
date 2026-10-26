@@ -466,6 +466,10 @@ def attempts_to_report(
                     # in one place, and the verified-read chase, copied.
                     kept_read=kept_read(r),
                     verified_read_chase=copy_chase_block(r.get("verified_read_chase")),
+                    # Schema 40: a stopped pass's verdicts, and why one was
+                    # not swapped in (`unfinished_refix.py`).
+                    pass_unfinished=r.get("pass_unfinished") is True,
+                    not_replaced_because=r.get("not_replaced_because"),
                 )
                 for r in (retried or [])
             ],

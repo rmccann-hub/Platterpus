@@ -106,6 +106,11 @@ class ProvisioningMixin(MainWindowShared):
     #: When the session, its run over, began waiting for a rip still reading to
     #: stop before packing (``time.monotonic()``), or None while not waiting.
     _acceptance_rip_wait_since: float | None = None
+    #: What became of that rip, kept while the session goes on to wait for its
+    #: post-rip checks, so the re-poll does not answer the question again.
+    _acceptance_rip_note: str | None = None
+    #: When the session began waiting for the last rip's post-rip checks.
+    _acceptance_post_rip_wait_since: float | None = None
     #: The sleep-inhibitor holding this session's lock. It owns a **child
     #: process**, so every exit path has to release it; see
     #: :meth:`_release_acceptance_inhibitor`.
@@ -1029,11 +1034,16 @@ class ProvisioningMixin(MainWindowShared):
             return  # not our run, or the session was already ended
         from platterpus import test_session
 
-        rip_note = self._acceptance_rip_at_end()
-        if rip_note is None:
-            # A rip is still reading: come back once it has stopped, so the
-            # settings are not restored under it and the bundle is not packed
-            # around a log still being written.
+        rip_note = self._acceptance_rip_note or self._acceptance_rip_at_end()
+        # A rip still reading, or its post-rip checks still running (run B,
+        # 2026-10-21: packed a second after the rip, a minute before its CTDB
+        # and FLAC results): come back once they are done, so the settings are
+        # not restored under them and the bundle carries their results.
+        self._acceptance_rip_note = rip_note
+        post_rip_note = (
+            self._acceptance_post_rip_at_end() if rip_note is not None else None
+        )
+        if rip_note is None or post_rip_note is None:
             # The window is the timer's context, so a window that closes while
             # it waits takes the pending call with it.
             QTimer.singleShot(
@@ -1042,6 +1052,7 @@ class ProvisioningMixin(MainWindowShared):
                 lambda: self._on_acceptance_run_finished(report),
             )
             return
+        self._acceptance_rip_note = None
         # Clear FIRST: one bundle per session, whatever else happens below.
         self._acceptance_layout = None
 
@@ -1051,6 +1062,7 @@ class ProvisioningMixin(MainWindowShared):
         settings_record = ""
         album_roots: list[Path] = []
         facts["rip at the end of the run"] = rip_note
+        facts["post-rip checks at packing"] = post_rip_note
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
             facts["screen lock"] = self._acceptance_screen_note or "not determined"
@@ -1185,6 +1197,53 @@ class ProvisioningMixin(MainWindowShared):
         return (
             f"a rip was STILL READING when this bundle was packed, {waited:.0f}s "
             "after the run ended; its log may be incomplete"
+        )
+
+    def _acceptance_post_rip_at_end(self) -> str | None:
+        """Whether the last rip's post-rip checks are done, or None to wait.
+
+        The same shape as :meth:`_acceptance_rip_at_end`, one step later: the
+        rip has stopped, and its CTDB, FLAC, derived-file and checksum work may
+        still be running (`_album_folder_settled`, the predicate the per-rip
+        bundle already waits on). Bounded by `test_session.post_rip_wait_s`;
+        past it the bundle is packed and this names what was still running,
+        so a report without those results is not read as one that has them.
+        """
+        from platterpus import test_session
+
+        since = self._acceptance_post_rip_wait_since
+        if self._album_folder_settled():
+            self._acceptance_post_rip_wait_since = None
+            if since is None:
+                return "every post-rip check had finished"
+            return (
+                f"the session waited {time.monotonic() - since:.0f}s for the "
+                "post-rip checks to finish before packing"
+            )
+        now = time.monotonic()
+        if since is None:
+            self._acceptance_post_rip_wait_since = now
+            log.info(
+                "the acceptance run ended with post-rip checks running (%s); "
+                "waiting up to %.0fs for them before packing",
+                self._post_rip_still_running() or "not determined",
+                test_session.post_rip_wait_s(),
+            )
+            return None
+        waited = now - since
+        if waited < test_session.post_rip_wait_s():
+            return None
+        self._acceptance_post_rip_wait_since = None
+        pending = self._post_rip_still_running() or "not determined"
+        log.warning(
+            "post-rip checks still running %.0fs after the run ended (%s); "
+            "packing the bundle without their results",
+            waited,
+            pending,
+        )
+        return (
+            f"STILL RUNNING when this bundle was packed, {waited:.0f}s after the "
+            f"run ended: {pending}. The bundled report has no result for them"
         )
 
     def _announce_run_with_nothing_to_send(

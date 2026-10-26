@@ -250,6 +250,10 @@ def report_block(reading: IsrcReading | None) -> ErrorPositionsBlock:
                     dict(reads.counters) if reads.counters_state == READ else None
                 ),
                 "paranoia_all_reads_not_read": reads.counters_not_read,
+                # v40 (`/11`): when the read the files carry began, as the
+                # record states it (`record_track_v11`), beside the log's copy.
+                "kept_read_began": track.record.kept_read_began,
+                "kept_read_began_state": track.record.kept_read_began_state,
             }
         )
     return {

@@ -68,6 +68,11 @@ class ReleasePickerDialog(CenteredDialog):
     ) -> None:
         super().__init__(parent)
         self._releases: list[ReleaseSummary] = list(releases)
+        # Which disc scan asked this question (the window's read-request count),
+        # and whether a newer scan closed it unanswered. Read by the window and
+        # by the script's `pick-release`, which refuses a superseded picker.
+        self.scan_request: int = 0
+        self.superseded: bool = False
 
         self.setWindowTitle("Pick a MusicBrainz release")
         self.setModal(True)

@@ -33,6 +33,7 @@ from platterpus.adapters.ctdb_client import (
 from platterpus.adapters.ctdb_parity import ParityFetch
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import gf16, localise
+from platterpus.ctdb.diagnose import run_diagnostics
 from platterpus.ctdb.differences import (
     CtdbLocalisation,
     EntryLocalisation,
@@ -40,7 +41,6 @@ from platterpus.ctdb.differences import (
     msf,
     track_differences,
 )
-from platterpus.ctdb.diagnose import run_diagnostics
 from platterpus.ctdb.syndromes import STRIDE, record_syndromes
 from platterpus.ctdb.toc import SAMPLES_PER_SECTOR, DiscToc
 from platterpus.ctdb.track_wording import per_track_lines

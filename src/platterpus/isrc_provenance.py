@@ -33,6 +33,9 @@ option and log line, and is round 35's (TASKS R20).
 each row also says where paranoia reported read errors and skips, and this reader
 hands the row to :func:`platterpus.error_positions.parse_reads` (TASKS R44), so
 the record is opened, bounded and parsed once for both: :attr:`TrackIsrc.reads`.
+From ``/11`` it hands the row to :func:`platterpus.record_track_v11.parse_row` too,
+for ``isrc_disc_read`` (which read found the disc's code, reported here) and
+``kept_read_began`` (reported beside the reads): :attr:`TrackIsrc.record`.
 
 **Tri-state throughout**: an absent or foreign record is *not determined*, and a
 track with a field missing or mistyped compares as ``not_determined``. Pure
@@ -51,6 +54,7 @@ from typing import Final
 
 from platterpus import inbound_text
 from platterpus.error_positions import TrackReads, parse_reads
+from platterpus.record_track_v11 import TrackRecordV11, parse_row
 from platterpus.ripper_ending import (
     DESCRIBES,
     MAX_RECORD_BYTES,
@@ -106,6 +110,9 @@ class TrackIsrc:
     #: The row's error positions and all-reads counters (``/10``, R44); a row
     #: from an earlier build reads as ``not_present`` in both.
     reads: TrackReads = TrackReads()
+    #: The row's two ``/11`` keys; a row from an earlier build reads as
+    #: ``not_present`` in both.
+    record: TrackRecordV11 = TrackRecordV11()
 
 
 @dataclass(frozen=True)
@@ -248,6 +255,10 @@ def report_block(
             "disc": track.disc,
             "disc_reason": track.disc_reason,
             "disc_well_formed": well_formed(track.disc),
+            # v40 (`/11`): which read found the disc's code, and the state beside
+            # it, so a record without the key reads `not_present`, not "unread".
+            "disc_read": track.record.isrc_disc_read,
+            "disc_read_state": track.record.isrc_disc_read_state,
             "agreement": agreement(
                 track, (passed or {}).get(track.number), known=known
             ),
@@ -331,6 +342,7 @@ def _track(row: object) -> TrackIsrc | None:
         ripped=ripped if isinstance(ripped, bool) else None,
         complete=complete,
         reads=parse_reads(row),
+        record=parse_row(row),
     )
 
 

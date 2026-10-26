@@ -691,6 +691,34 @@ def test_every_surface_counts_the_same_two_audio_tracks_on_a_mixed_disc() -> Non
     assert report["completeness"]["complete"] is True
 
 
+def test_27s_audio_track_tally_is_kept_verbatim_and_agrees_with_the_verdict() -> None:
+    """From `.27` the footer's tally divides by AUDIO tracks (the fork's round 36
+    lap 7 S4, `779549a`; `cyanrip@709337a:src/cyanrip_log.c:1182-1187`, which our
+    lap 6 S2 accepted): this mixed disc, every audio track verified, reads `2/2`
+    where `.26` read `2/3`. The report keeps the ripper's own fraction (its M is
+    the ripper's word, whichever build), the recount after a securing pass keeps
+    that M, and our verdict counts the same two audio tracks, so on `.27` the two
+    finally agree. Nothing in our code changed for it; this pins that it did not
+    need to."""
+    from platterpus.rip_report import build_report
+    from platterpus.verdict import accuraterip_counts, recount_accuraterip_summary
+
+    footer_26 = "Tracks ripped accurately: 2/3\n"
+    assert _mixed_disc().count(footer_26) == 1  # floor: the anchor lands
+    text_27 = _mixed_disc().replace(footer_26, "Tracks ripped accurately: 2/2\n")
+    for text, fraction in ((_mixed_disc(), "2/3"), (text_27, "2/2")):
+        parsed = parse_cyanrip_log(text)
+        report = build_report(parsed, disc_track_total=3)
+        summary = f"{fraction} tracks ripped accurately (AccurateRip)"
+        assert report["accuraterip_summary"] == summary
+        assert recount_accuraterip_summary(summary, parsed.tracks) == summary
+        assert report["verdict"]["message"].startswith(
+            "✓ Bit-perfect: all 2 tracks verified"
+        ), report["verdict"]["message"]
+    total, verified, _partial = accuraterip_counts(parse_cyanrip_log(text_27))
+    assert f"{verified}/{total}" == "2/2"  # `.27`'s fraction, by our own count
+
+
 def test_the_disc_info_panel_counts_audio_tracks_only(qapp: object) -> None:
     from platterpus.ui.disc_info_panel import DiscInfoPanel
 
