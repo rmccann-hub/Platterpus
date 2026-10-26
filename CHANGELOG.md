@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **What numpy added to the download, measured:** 0.7.113's AppImage is 274,356,728 bytes, 18.3 MB (7.2 %) more than 0.7.112's; that is the whole release's difference, and the pre-release estimate for numpy alone was 13.8 MB (`DEPENDENCIES.md`).
+
+- **Our round 36 lap 9, held until its pull request is green and merged.** It reads the four Full runs as the fork's lap 8 does (`Recordable:` and track 9's pregap stop `.26`), names 0.7.113 as the release that reads `.27`'s lines, accepts the fork's `Pregap search:`, the `read with no error reported.` rename and the kept read's `Extraction speed:` under `-Z`, asks for their `-Z` time limit, and files their lap 8 byte for byte.
+
 ## [0.7.113] — 2026-10-26
 
 The release your next Full run goes through, and the first built against the EAC parity plan of
