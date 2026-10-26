@@ -16,6 +16,10 @@ in-app updating. This module does it, with the release's published
       must have been built by this repository's ``release.yml`` — anything else
       → abort+delete. Added 2026-09-25; the checksum alone proves the download is
       intact, not who published it.
+  3c. read the version the file was BUILT as, from the commit its attestation
+      names, and refuse one older than the running app or other than the one
+      asked for (``update_version_guard``; 2026-10-26). Step 0 already refused an
+      older version asked for by name, before anything was fetched.
   4. mark executable, then atomically rename over
      ``~/Applications/platterpus-x86_64.AppImage``
 
@@ -37,10 +41,16 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from platterpus import update_attestation, update_signing
+from platterpus import __version__, update_attestation, update_signing
 from platterpus.appimage_integration import (
     APPLICATIONS_DIR,
     CANONICAL_APPIMAGE_NAME,
+)
+from platterpus.update_version_guard import (
+    MAX_SOURCE_BYTES,
+    built_version_refusal,
+    downgrade_refusal,
+    source_url,
 )
 
 log = logging.getLogger(__name__)
@@ -199,6 +209,12 @@ def download_and_install(
         if status is not None:
             status(message)
 
+    # 0a. Never an older version than the one running, whatever the offer said.
+    # Before any request, so a refused downgrade costs nothing and starts nothing.
+    refusal = downgrade_refusal(version, __version__)
+    if refusal is not None:
+        raise UpdateInstallError(refusal)
+
     # 0. Start refreshing Sigstore's trust root now, on a daemon thread, so its
     # network round trip overlaps the download (step 3a waits for it, bounded).
     if trust is None:
@@ -306,6 +322,39 @@ def download_and_install(
             "have been built by the Platterpus release process — not installed "
             f"({attestation.reason})"
         )
+
+    # 3c. The version the file was BUILT as, read from the commit the verified
+    # attestation names: the checks above prove who built it, not which version it
+    # is, so a genuine older build served under a newer name passed them. Fail
+    # closed: an unreadable version is a refusal (`update_version_guard`).
+    _status("Verifying the version the update was built as…")
+    built_from = source_url(attestation.source_commit)
+    if built_from is None:
+        part.unlink(missing_ok=True)
+        raise UpdateInstallError(
+            "the update's build attestation names no full source commit, so the "
+            "version it was built as could not be read — not installed"
+        )
+    try:
+        with open_url(built_from) as response:
+            source_bytes = response.read(MAX_SOURCE_BYTES + 1)
+    except Exception as exc:  # noqa: BLE001 — network/shape errors alike
+        part.unlink(missing_ok=True)
+        raise UpdateInstallError(
+            "couldn't read the version the update was built as, which is required "
+            f"to install it: {exc}"
+        ) from exc
+    refusal = (
+        "the update's version file is larger than any real one — not installed"
+        if len(source_bytes) > MAX_SOURCE_BYTES
+        else built_version_refusal(
+            source_bytes.decode("utf-8", "replace"), version, __version__
+        )
+    )
+    if refusal is not None:
+        part.unlink(missing_ok=True)
+        log.warning("update refused after download: %s", refusal)
+        raise UpdateInstallError(refusal)
 
     # 3b. Authenticity gate (fail-closed) — armed only once a maintainer signing
     # key is baked into update_signing.PUBLIC_KEY_B64. SHA-256 above proves the

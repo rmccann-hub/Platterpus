@@ -20,7 +20,7 @@ built anywhere else, cannot pass.
 **What it does not prove, said plainly.** Anyone who can push to ``main`` can run
 the release workflow, and ``main`` is not protected (a maintainer ruling). The
 check does not stop a genuine older build being served under a newer version
-either; the source commit is logged so such a mix-up is visible afterwards.
+either; ``update_version_guard`` does, from the source commit returned here.
 
 **Adapter.** This is the only module that imports ``sigstore`` (Critical rule #1),
 and it imports it lazily: the library takes about 0.7 s to import and is needed

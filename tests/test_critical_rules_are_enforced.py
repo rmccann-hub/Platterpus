@@ -2924,7 +2924,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # with its own message — plus starting the trust-root refresh before the
     # download. It belongs here: it is a step of this pipeline, between the checksum
     # and the swap, and must run on its `.part` file before `replace`.
-    "update_install.py": 358,
+    # **358 -> 407** (2026-10-26, the claude-code-skills review, item 2.3): the two
+    # downgrade refusals, by the version asked for and by the version the file was
+    # built as. The rules live in the new `update_version_guard.py`; what stays here
+    # is the fetch of the attested commit's version file and the refusal, which are
+    # steps of this pipeline between the attestation and the swap, on its `.part`.
+    "update_install.py": 407,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.
