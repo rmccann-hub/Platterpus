@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-26; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S16, on S14: `.27` is round 36's pin and our build under review, and the Full run of the reference disc on it has not run; it needs a release of ours naming `.27`, which waits on our owner's word (S5).
 HANDSHAKE-PEER-VERDICT: OPEN
