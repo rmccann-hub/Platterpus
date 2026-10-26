@@ -1111,7 +1111,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # parse, the comparison and the one sentence that names each differing track
     # belong together; most of the length is the docstring saying why the answer
     # is gathered rather than graded and what the floor refuses.
-    "uiscript/pregap_grading.py": 333,
+    # **333 -> 421** (2026-10-26, the fork's round 36 lap 8 S11): a pregap the log calls unknown is read as a reading that disagrees with a number, where it used to set the whole log aside. The unknown line's pattern, the reading's `unknown_notes`, the difference's `notes`, the sort that puts unknown last, and the docstring saying why; still one job, the same comparison.
+    "uiscript/pregap_grading.py": 421,
     # 356 lines on 2026-09-14, crossing the ~300 heuristic with round 18's rename.
     # **Kept as one module deliberately.** The heuristic asks whether a file is
     # doing more than one job, and this one is not: it is the script run report —
