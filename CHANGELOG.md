@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Round 36: our lap 9 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
+
 ### Added
 
 - **What numpy added to the download, measured:** 0.7.113's AppImage is 274,356,728 bytes, 18.3 MB (7.2 %) more than 0.7.112's; that is the whole release's difference, and the pre-release estimate for numpy alone was 13.8 MB (`DEPENDENCIES.md`).
