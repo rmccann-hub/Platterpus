@@ -130,6 +130,10 @@ def _probe_ffmpeg() -> ProbeResult:
     return check_ffmpeg()
 
 
+def _probe_numpy() -> ProbeResult:
+    return check_python_pkg("numpy")
+
+
 # --- The registry ----------------------------------------------------------
 
 SPECS: list[DependencySpec] = [
@@ -269,4 +273,28 @@ SPECS: list[DependencySpec] = [
         optional=True,  # absent only leaves the cache verdict unmeasured
         from_setup_wizard=True,
     ),
+    DependencySpec(
+        dep_id="numpy",
+        display_name="numpy (Python package)",
+        probe=_probe_numpy,
+        min_version=(2, 4, 6),
+        tier=Tier.MANUAL,  # bundled in the AppImage, like musicbrainzngs
+        install_command=None,
+        search_string="reinstall platterpus AppImage numpy",
+        description=(
+            "Optional. Locates the samples a rip differs from a CTDB entry in. "
+            "Bundled in the AppImage; if missing, that location is not determined."
+        ),
+        optional=True,  # absent only leaves the CTDB localisation not determined
+    ),
 ]
+
+
+def probe_dependency(dep_id: str) -> ProbeResult | None:
+    """Run the registered probe for ``dep_id`` (``None``: unknown id).
+
+    How code outside this package asks "is it here?" (Critical rule #6): the CTDB
+    localisation asks it of numpy before importing it.
+    """
+    spec = next((s for s in SPECS if s.dep_id == dep_id), None)
+    return spec.probe() if spec is not None else None

@@ -254,6 +254,14 @@ def sweep(
     return SweepResult(disc=disc, tracks=tracks, bytes_seen=consumed)
 
 
+def disc_frames(toc: DiscToc) -> tuple[list[int], int]:
+    """``(track starts, total frames)`` from the TOC: frames from track 1's start."""
+    starts = [
+        (sector - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR for sector in toc.track_offsets
+    ]
+    return starts, (toc.leadout - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR
+
+
 def sweep_disc(
     chunks: Iterable[bytes], toc: DiscToc, *, disc_range: int = 0
 ) -> SweepResult:
@@ -262,10 +270,7 @@ def sweep_disc(
     ``disc[0]`` equals ``crc.ctdb_crc(whole_disc_pcm, 0)``, the value confirmed
     on hardware (KDD-16); ``tests/test_ctdb_per_track.py`` holds the two equal.
     """
-    starts = [
-        (sector - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR for sector in toc.track_offsets
-    ]
-    total_frames = (toc.leadout - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR
+    starts, total_frames = disc_frames(toc)
     measured = sweep(chunks, starts, total_frames, disc_range=disc_range)
     expected = total_frames * BYTES_PER_SAMPLE_FRAME
     if measured.bytes_seen != expected:

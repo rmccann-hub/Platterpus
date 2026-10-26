@@ -1294,7 +1294,10 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     # Per track (TASKS R43): the same sentence the verdict's message carries,
     # added where the whole-disc line alone leaves the reader asking "which
     # track?" — a minority match and a no-match. Empty with no per-track result.
-    per_track = per_track_sentence(result.tracks, result.total_confidence)
+    # It carries where a track differs when the parity located it (R43).
+    per_track = per_track_sentence(
+        result.tracks, result.total_confidence, result.localisation
+    )
     per_track = f" {per_track}" if per_track else ""
     if verdict is Verdict.MATCH:
         if result.trustworthy:

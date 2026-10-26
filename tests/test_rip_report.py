@@ -1380,6 +1380,8 @@ def test_schema_version_is_27() -> None:
     # v40 added `read_speed.retried_tracks[].pass_unfinished` and
     # `not_replaced_because`: a stopped securing pass's AccurateRip-verified
     # re-read is swapped in, and a refused one says why (run B, 2026-10-21).
+    # v40 added `ctdb.localisation` and, per track, `ctdb.tracks[].differences`:
+    # where a rip differs from a CTDB entry, from its parity (TASKS R43).
     assert REPORT_SCHEMA_VERSION == 40
 
 

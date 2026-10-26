@@ -432,6 +432,36 @@ class VerificationBlock(TypedDict):
     derived: DerivedBlock | None
 
 
+class CtdbDifferenceBlock(TypedDict):
+    """One row of ``ctdb.tracks[].differences`` (v40, TASKS R43; ``ctdb/differences.py``)."""
+
+    entry_id: str | None
+    confidence: int | None
+    samples: int | None
+    places: list[str]
+    places_elided: int
+    text: str | None
+
+
+class CtdbLocalisationEntryBlock(TypedDict):
+    """One row of ``ctdb.localisation.entries_tried`` (v40)."""
+
+    entry_id: str | None
+    confidence: int | None
+    status: str | None
+    offset: int | None
+    samples_located: int
+    reason: str | None
+
+
+class CtdbLocalisationBlock(TypedDict):
+    """``ctdb.localisation`` (v40, TASKS R43; ``ctdb/localise.py``)."""
+
+    status: str | None
+    reason: str | None
+    entries_tried: list[CtdbLocalisationEntryBlock]
+
+
 class CtdbTrackBlock(TypedDict):
     """One row of ``ctdb.tracks`` (v39, TASKS R43; ``ctdb/matching.py``)."""
 
@@ -444,6 +474,8 @@ class CtdbTrackBlock(TypedDict):
     our_crc: str | None
     offset: int | None
     reason: str | None
+    # v40 (TASKS R43): where the parity located this track's difference.
+    differences: list[CtdbDifferenceBlock]
 
 
 class CtdbBlock(TypedDict):
@@ -465,6 +497,8 @@ class CtdbBlock(TypedDict):
     db_crcs: list[str | None]
     message: str | None
     tracks: list[CtdbTrackBlock] | None
+    # v40 (TASKS R43): the parity-based localisation's outcome.
+    localisation: CtdbLocalisationBlock | None
 
 
 class CoverArtBlock(TypedDict):

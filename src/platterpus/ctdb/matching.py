@@ -27,11 +27,11 @@ do. Two independent 32-bit CRCs agreeing at the same offset by chance is a
 one-in-10^19 event, so a consensus is a measurement, not a guess; an entry with
 no such consensus keeps offset 0, as CUETools' does when ``FindOffset`` fails.
 
-What CUETools does that this still does not: for an entry it can REPAIR, it
-counts the tracks the repair leaves untouched as agreeing, and it names the
-differing samples ("Differs in 16 samples @04:04:68,..."). That needs the parity
-data itself (TASKS R43). So a track that differs here is reported as differing,
-with no count of samples and no position.
+Where a track differs, :mod:`platterpus.ctdb.localise` names the samples
+("differs in 16 samples @04:04:68,...", TASKS R43) from the entry's parity and
+hangs them on the track as ``differences``; the verdicts here do not change. What
+CUETools does that this still does not: for an entry it can repair, it counts the
+tracks the repair leaves untouched as agreeing, on top of the per-track CRCs.
 """
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from platterpus.adapters.ctdb_client import CtdbEntry
+from platterpus.ctdb.differences import TrackDifference
 
 #: AccurateRip's ±(5·588 − 1) frames: the ``_arOffsetRange`` that
 #: ``CUEToolsDB.GenerateLog`` and ``GetConfidence`` loop over when a track's CRC
@@ -69,6 +70,8 @@ class CtdbTrackResult:
     ``our_crc`` is this track's CTDB CRC at offset 0. ``offset`` is where the
     strongest agreeing entry agreed (0 is aligned; ``None`` without a match).
     ``reason`` says why a track is not determined, and is empty otherwise.
+    ``differences`` says where the track differs from each entry the parity
+    located it against, strongest first (``ctdb/localise.py``); empty otherwise.
     """
 
     track: int
@@ -79,6 +82,7 @@ class CtdbTrackResult:
     our_crc: int | None = None
     offset: int | None = None
     reason: str = ""
+    differences: tuple[TrackDifference, ...] = ()
 
     @property
     def outvoted(self) -> bool:

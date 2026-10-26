@@ -89,6 +89,10 @@ _PYTHON_PURPOSE: Final[dict[str, str]] = {
     "tomli-w": "Writes config.toml (the standard library reads TOML but cannot write it).",
     "cryptography": "Ed25519 verification for the minisign path of the updater.",
     "sigstore": "Verifies each release's build-provenance attestation before an update installs.",
+    "numpy": (
+        "Reed-Solomon syndromes over GF(2^16) that locate where a rip differs from "
+        "a CTDB entry (TASKS R43)."
+    ),
 }
 
 

@@ -142,6 +142,19 @@ def run_diagnostics(
         out("\nTrack | CTDB per-track result")
         for line in per_track_lines(result.tracks, result.total_confidence):
             out(line)
+    if result.localisation is not None:
+        # Where it differs (R43): the line to set beside EAC's "Differs in N
+        # samples @..." on the rig, one row per entry the parity was tried against.
+        located = result.localisation
+        out(f"\nLocalisation: {located.status.value} {located.reason}".rstrip())
+        for entry in located.entries:
+            where = f" at offset {entry.offset:+d}" if entry.offset is not None else ""
+            found = f", {len(entry.words):,} samples" if entry.words else ""
+            note = f" ({entry.reason})" if entry.reason else ""
+            out(
+                f"  entry {entry.entry_id} (confidence {entry.confidence:,}): "
+                f"{entry.status.value}{where}{found}{note}"
+            )
     if result.verdict is Verdict.MATCH and result.outvoted:
         out(
             f"\nNOTE: the matched entry has confidence {result.confidence}; the "

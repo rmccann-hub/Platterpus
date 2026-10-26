@@ -41,6 +41,10 @@ _BLOCKS: dict[str, str] = {
     # weight fields, unnoticed because no sweep read it.
     "CtdbBlock": "total_confidence",
     "CtdbTrackBlock": "strongest_disagreeing",
+    # Joined 2026-10-26 with the blocks themselves (v40, TASKS R43).
+    "CtdbLocalisationBlock": "entries_tried",
+    "CtdbLocalisationEntryBlock": "samples_located",
+    "CtdbDifferenceBlock": "places_elided",
 }
 
 

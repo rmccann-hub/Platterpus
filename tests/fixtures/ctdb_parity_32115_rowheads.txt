@@ -1,0 +1,32 @@
+# The first 8 words of each of the 16 rows of a REAL CTDB parity record.
+#
+# Source: http://p.cuetools.net/32115, the parity record of the 1,416-submission
+# entry for the reference disc (The Police, "Every Breath You Take: The Classics";
+# entry id 32115 in tests/fixtures/ctdb_lookup_police_classics.xml).
+# Fetched 2026-10-26 02:26 UTC with curl through the session proxy:
+#   HTTP 200, content-length 376320 (= 16 rows x 11760 words x 2 bytes),
+#   last-modified Thu, 28 Feb 2013 01:40:03 GMT,
+#   sha256 f3363ddda62b687748a4b0128e1c917a24a369a8119feec5ac4d2facba78a348.
+# Cut with: for row i, bytes [i*23520, i*23520 + 16) of the record, as hex.
+#
+# These are Reed-Solomon syndromes of the disc's audio, not audio (CLAUDE.md rule
+# 8): like a CRC, they cannot be turned back into the music. Only the row heads are
+# kept; the whole record is 376 KB and the test needs column 0.
+#
+# row  first 8 little-endian 16-bit words (16 bytes, hex)
+0  13aac9c425ad743188ec7740333b2fdc
+1  6893143502106474f0f1ede9198cbaf6
+2  6c498cd2647f59d1249e7fec970df8e5
+3  ec04d4cb6f6a3c7f4780196782878c39
+4  16932e5cc347644d169f470717a8d72a
+5  04f00d34d328d1ee2f71178eaf182065
+6  7fd38c922c5070e41123e2fddb38c7d9
+7  ffef197fdddc82e865a58027dc684dea
+8  7ee2eef95d0992ec04b8a37efd29e851
+9  5b5694d5102a4fc94fe4e315f7964a51
+10  edb4121762e477249ae97b0918bb200f
+11  7ad5d89ad7498769ad3e97e5d73ae79a
+12  8d18e29efec7edf93fe665d6a4c69040
+13  bbbd2a9fb3cd6c5b9de495c13fbdba59
+14  cbd8e36e05c00ef8461ff1801a1118a8
+15  e10a41956bf36b9fbfb9971b87867ab0

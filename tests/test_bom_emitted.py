@@ -385,8 +385,9 @@ def test_every_registry_dependency_is_present(committed: dict) -> None:
     purls = {str(c.get("purl", "")) for c in _components(committed)}
     names = {c["name"] for c in _components(committed)}
     for spec in SPECS:
-        if spec.dep_id == "musicbrainzngs":
-            assert any(p.startswith("pkg:pypi/musicbrainzngs") for p in purls)
+        if spec.dep_id in {"musicbrainzngs", "numpy"}:
+            # Python packages: the python-runtime category carries them by purl.
+            assert any(p.startswith(f"pkg:pypi/{spec.dep_id}") for p in purls)
         elif spec.dep_id == "cyanrip":
             assert "cyanrip" in names
         else:

@@ -30,6 +30,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from platterpus import __version__, diagnostics
+from platterpus.adapters.ctdb_parity import (
+    ParityFetch,
+    RangeFetcher,
+    fetch_parity,
+    parity_url,
+    parse_syndrome,
+)
 from platterpus.ctdb.toc import DiscToc
 
 log = logging.getLogger(__name__)
@@ -65,8 +72,11 @@ class CtdbEntry:
 
     `crc`/`confidence` drive the whole-disc verdict; `track_crcs` (the
     `trackcrcs` attribute, one CRC per track or empty) drives the per-track one.
-    `npar`/`has_parity`/`syndrome`/`entry_id` are Phase-2 (repair) parity
-    fields — parsed but unused by verify.
+    The parity fields locate where a rip differs (TASKS R43,
+    `ctdb/localise.py`): `parity_url` is the validated `hasparity` URL (empty
+    when absent or refused, `adapters/ctdb_parity.py`), `syndrome` the
+    `syndrome` attribute as 16-bit words (column 0 of the parity rows), and
+    `stride` the published stride in stereo frames (5880 for every entry seen).
     """
 
     crc: int | None
@@ -75,6 +85,9 @@ class CtdbEntry:
     npar: int = 0
     has_parity: bool = False
     entry_id: str = ""
+    parity_url: str = ""
+    syndrome: tuple[int, ...] = ()
+    stride: int = 0
 
 
 @dataclass(frozen=True)
@@ -105,6 +118,14 @@ class CTDBClient(ABC):
         """Return the CTDB entries for `toc` (empty result if not in the DB)."""
         raise NotImplementedError
 
+    def fetch_parity(self, entry: CtdbEntry, rows: int) -> ParityFetch:
+        """The first `rows` rows of `entry`'s parity record. Never raises.
+
+        Not abstract: a client that cannot fetch parity (every test fake) says so,
+        and the localisation reads "not determined" rather than reaching a network.
+        """
+        return ParityFetch(error="this CTDB client does not fetch parity records")
+
 
 def _default_fetcher(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -124,8 +145,21 @@ def _default_fetcher(url: str) -> bytes:
 class CtdbHttpImpl(CTDBClient):
     """HTTP implementation against `db.cuetools.net`."""
 
-    def __init__(self, fetcher: Fetcher = _default_fetcher) -> None:
+    def __init__(
+        self,
+        fetcher: Fetcher = _default_fetcher,
+        range_fetcher: RangeFetcher | None = None,
+    ) -> None:
         self._fetch = fetcher
+        self._range_fetch = range_fetcher
+
+    def fetch_parity(self, entry: CtdbEntry, rows: int) -> ParityFetch:
+        """Fetch through `adapters/ctdb_parity.py`, the one place that reads the record."""
+        stride_words = entry.stride * 2  # published in frames; the record is in words
+        args = (entry.parity_url, rows, stride_words, entry.npar)
+        if self._range_fetch is None:
+            return fetch_parity(*args)
+        return fetch_parity(*args, fetcher=self._range_fetch)
 
     def build_url(self, toc: DiscToc) -> str:
         """Compose the lookup2.php GET URL for `toc`.
@@ -353,6 +387,9 @@ def parse_lookup_response(raw: bytes) -> CtdbLookupResult:
                 npar=npar,
                 has_parity=has_parity,
                 entry_id=el.get("id") or "",
+                parity_url=parity_url(has_parity_raw) if has_parity else "",
+                syndrome=parse_syndrome(el.get("syndrome")),
+                stride=_to_int(el.get("stride")) or 0,
             )
         )
     return CtdbLookupResult(entries=tuple(entries))
