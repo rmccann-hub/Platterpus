@@ -27,6 +27,8 @@ rips of track 3. `.25` is still installed by default. Released on the owner's wo
 
 ### Fixed
 
+- **The CTDB parity test parses the URL's host, as the adapter does** (contributor-facing). Its never-raises property checked for `cuetools.net` as a substring, which CodeQL flagged on PR #382 and which `http://p.cuetools.net.evil.example/` would have passed; the adapter itself always parsed the host.
+
 - **The EAC-layout log's not-determined `Pre-gap length` row says what the ripper's search saw,** from the fork's `.27` `Pregap search:` line: the reads that failed the CRC and the frames that answered for another sector, the two causes the line exists to tell apart.
 
 - **`PLANNING.md`'s module map lists the CTDB localisation's modules one by one** (contributor-facing). They had one combined paragraph and `ctdb_parity.py` was missing from the tree, so the module-map check failed after the merge.

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import urllib.error
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -112,7 +113,12 @@ def test_parity_url_refuses_anything_else() -> None:
 @given(st.text(max_size=400))
 def test_parity_url_never_raises(text: str) -> None:
     value = parity_url(text)
-    assert value == "" or ".cuetools.net/" in value or "//cuetools.net/" in value
+    if value == "":
+        return
+    # Parse the host, as the adapter does: a substring test would pass
+    # `http://p.cuetools.net.evil.example/`, which the adapter refuses.
+    host = urlsplit(value).hostname or ""
+    assert host == "cuetools.net" or host.endswith(".cuetools.net"), value
 
 
 # --- the syndrome attribute -------------------------------------------------------
