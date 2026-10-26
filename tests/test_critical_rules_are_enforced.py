@@ -1944,7 +1944,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3975 -> 4022** (2026-10-21, TASKS R7, same day): `secure_rerip_read_checksum`, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it, buffered for the track like the agreement count.
     # **-> 4300** (2026-10-21): the entries above landed together on one branch.
     # **4300 -> 4334** (2026-10-26, the fork's `.27`, round 36 lap 7 S5): the `Kept read began:` pattern with its citations, its listing and its handler beside `Elapsed:`; the instant itself is read by `kept_read.py`, which the `-j` record's reader shares.
-    "parsers/cyanrip_log.py": 4334,
+    # **4334 -> 4364** (2026-10-26, `.27`, round 36 lap 7 S6): the `not written whole:` pattern and its rule beside `Encoder errors:`, claimed only below that line. The bounding and the report live in `written_whole.py`.
+    "parsers/cyanrip_log.py": 4364,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1972,7 +1973,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1037 -> 1062** (2026-10-21, TASKS R7): `LimitKeptRead` and `TrackResult.secure_rerip_kept_read`, and the fork's PROPOSED kept-read clause on the limit line (round 36 lap 4 S11, `secure_rerip_limit_kept_read`), read before any build emits it.
     # **-> 1170** (2026-10-21): the entries above landed together on one branch.
     # **1170 -> 1179** (2026-10-26, `.27`, round 36 lap 7 S5): `TrackResult.kept_read_began` and its state, with why "" is not "no read".
-    "parsers/rip_log.py": 1179,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1179 -> 1187** (2026-10-26, `.27`, round 36 lap 7 S6): `RipLog.not_written_whole` and its total, beside the other footer fields.
+    "parsers/rip_log.py": 1187,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2035,7 +2037,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 984** (2026-10-21): the entries above landed together on one branch.
     # **984 -> 989** (2026-10-26, `.27`, round 36 lap 7 S5): `TrackBlock.kept_read_began` and `kept_read_began_state`, schema 40.
     # **989 -> 993** (2026-10-26, TASKS R48, `/11`): `TrackErrorPositionsBlock.kept_read_began` and its state, schema 40.
-    "report_types.py": 993,
+    # **993 -> 998** (2026-10-26, `.27`, round 36 lap 7 S6): `RipBlock.not_written_whole` and `not_written_whole_not_kept`, schema 40.
+    "report_types.py": 998,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2152,7 +2155,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
     # **3290 -> 3307** (2026-10-26, `.27`, round 36 lap 7 S5): the schema-40 note and the two per-track `kept_read_began` keys. The reading lives in `kept_read.py`.
     # **3307 -> 3315** (2026-10-26, TASKS R48, `/11`): the schema-40 note for the record's two keys; the reading is `record_track_v11.py`.
-    "rip_report.py": 3315,
+    # **3315 -> 3332** (2026-10-26, `.27`, round 36 lap 7 S6): the schema-40 note, the two `rip` keys and the warnings added beside `health_findings`; the wording lives in `written_whole.py`.
+    "rip_report.py": 3332,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2411,7 +2415,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **618 -> 629** (2026-10-21, TASKS R13): the status line counts audio tracks only, with the verdict's key.
     # **618 -> 633** the 2026-10-21 known-fixes item 3: `fidelity_summary` reads health through `rip_health` and names an error line the ripper's zero count leaves out.
     # **-> 644** (2026-10-21): the entries above landed together on one branch.
-    "ui/main_window_helpers.py": 644,
+    # **644 -> 652** (2026-10-26, `.27`, round 36 lap 7 S6): the status line names the files the ripper says are not written whole, by `written_whole.status_clause`.
+    "ui/main_window_helpers.py": 652,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2996,7 +3001,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **534 -> 560** (2026-10-17, round 35 lap 6): the maximal argv taken over both builds we may drive, so a flag gated on the build under review is in §3.
     # **560 -> 569** (2026-10-21, round 36 lap 1 S4 to S6): `.26`'s three rows declared fork-only, with the citation that shows upstream prints none of them.
     # **569 -> 575** (2026-10-26, round 36 lap 7 S5): `.27`'s `Kept read began:` declared fork-only, with the citation into their source and their P2.
-    "scripts/emit_dependency_contract.py": 575,
+    # **575 -> 580** (2026-10-26, round 36 lap 7 S6): `.27`'s `not written whole:` declared fork-only, with its citation.
+    "scripts/emit_dependency_contract.py": 580,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the

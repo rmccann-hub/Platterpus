@@ -171,6 +171,11 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # string is not in upstream, whose footer and track block their lap 7 S4
         # compares at `7dbe56a`.
         "track_kept_read_began",
+        # `.27`'s footer line naming each file a failed encoder left (round 36
+        # lap 7 S6), `cyanrip@709337a:src/cyanrip_log.c:342`, their P2 at
+        # `cyanrip@302dba8:PROVIDER-CONTRACT.md:286`. Fork-only: it sits below
+        # `Encoder errors:`, itself fork-only (declared above).
+        "not_written_whole",
     }
 )
 

@@ -61,6 +61,11 @@ class RipBlock(TypedDict):
     #: v34: the disc's AccurateRip ID verbatim (`id1-id2-cddb`, lower-case hex),
     #: from the ripper's `AccurateRip ID:` line. None before the fork's `.23`.
     accuraterip_disc_id: str | None
+    #: v40: the files `.27`'s footer says a failed encoder did not write whole,
+    #: screened; None when the log names none (never "all written whole"), and
+    #: the count of any past the parse's bound.
+    not_written_whole: list[str] | None
+    not_written_whole_not_kept: int
     # v14: the ripper's own completion footer, tri-state. `rip_completed` is
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.

@@ -510,6 +510,12 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
         "(`cyanrip@302dba8:PROVIDER-CONTRACT.md:331`, `Kept read began:    %s`). "
         "Retires when `.27`'s contract is filed"
     ),
+    "not_written_whole": (
+        "the fork's `.27` footer line, built and not released (their round 36 lap "
+        "7 S6), so absent from `.26`'s contract, the newest filed here; `.27`'s "
+        "lists it in P2 (`cyanrip@302dba8:PROVIDER-CONTRACT.md:286`, `not written "
+        "whole: %s`). Retires when `.27`'s contract is filed"
+    ),
 }
 
 

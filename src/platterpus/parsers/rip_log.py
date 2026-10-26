@@ -677,6 +677,14 @@ class RipLog:
     # which compares them with the `Ripping errors:` summary (2026-10-21).
     ripper_error_lines: tuple[str, ...] = ()
     ripper_error_lines_total: int = 0
+    # The files the fork's `.27` footer says a failed encoder did not write
+    # whole (`    not written whole: <path>`, below `Encoder errors:`;
+    # `written_whole.py`). Verbatim paths, each bounded, head and tail kept, with
+    # `not_written_whole_total` counting every line so an elision is never
+    # silent. Empty on a build that prints no such line: "not stated", never
+    # "every file written whole".
+    not_written_whole: tuple[str, ...] = ()
+    not_written_whole_total: int = 0
 
     @property
     def drive_read_errors(self) -> int | None:

@@ -100,6 +100,7 @@ from platterpus.parsers.rip_log import (
 # See safe_int.py's docstring for why the guard exists at all (CPython refuses a
 # digit run longer than 4300 characters, and a `\d+` group is unbounded).
 from platterpus.safe_int import int_or_none
+from platterpus.written_whole import PathSample
 
 log = logging.getLogger(__name__)
 
@@ -1017,6 +1018,13 @@ _ENCODER_ERRORS = re.compile(r"^Encoder errors:\s+(?P<value>\S(?:.*\S)?)\s*$")
 #: external output on a worker thread, and a long line of whitespace would make it
 #: backtrack. A CD holds at most 99 tracks, so four digits is already generous.
 _ENCODER_FAILED_COUNT = re.compile(r"(?P<failed>\d{1,4})\s{1,4}tracks?\s{1,4}failed")
+# `    not written whole: o/2.flac` — the fork's `.27`: one line per file a failed
+# encoder left, directly below `Encoder errors:` when that line names a failed
+# track (`cyanrip@709337a:src/cyanrip_log.c:327-345`, their P2 at
+# `cyanrip@302dba8:PROVIDER-CONTRACT.md:286`). The path is the source's `%s`, so
+# it is taken whole, any length (`written_whole.bound_path` bounds it), and only
+# after the footer's `Encoder errors:` line: see `_take_not_written_whole`.
+_NOT_WRITTEN_WHOLE = re.compile(r"^\s{1,8}not written whole: (?P<path>.+)$")
 # "Interrupted at: track 1, mid-read" / "Interrupted at: between tracks, no read
 # in progress" — added by the fork in round 13 to answer OUR round-12 ask: which
 # track was in progress when a rip was interrupted, which the log could not say.
@@ -1860,6 +1868,8 @@ class _Disc:
     ripping_errors: int | None = None
     ripping_errors_paranoia_skips: int | None = None
     encoder_failed_tracks: int | None = None
+    # `.27`'s `not written whole:` paths, below `Encoder errors:` (bounded).
+    not_written_whole: PathSample = field(default_factory=PathSample)
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
@@ -2785,6 +2795,22 @@ def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_not_written_whole(disc: _Disc, match: re.Match[str]) -> bool:
+    """Collect one file the footer says a failed encoder did not write whole.
+
+    **Claimed only below an `Encoder errors:` line**, which is where the fork
+    prints it and the only place it means "this file on disk is damaged". The
+    position is the discriminator, as for every footer row: the same words
+    anywhere else describe nothing we can attribute. The arm is not checked:
+    a path the ripper names under any arm is still a file it says is damaged, and
+    dropping it would be the silent loss this line exists to end.
+    """
+    if not disc.encoder_errors:
+        return False
+    disc.not_written_whole.add(match.group("path"))
+    return True
+
+
 def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
     disc.creation_date = match.group("when").strip()
     return True
@@ -2905,6 +2931,8 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
     _LineRule("encoder_errors", _ENCODER_ERRORS, _take_encoder_errors),
+    # `.27`: the files a failed encoder left, each below `Encoder errors:`.
+    _LineRule("not_written_whole", _NOT_WRITTEN_WHOLE, _take_not_written_whole),
     _LineRule("interrupted_at", _INTERRUPTED_AT, _take_interrupted_at),
     _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
     _LineRule("read_stalls", _READ_STALLS, _take_read_stalls),
@@ -4331,4 +4359,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         last_track_incomplete=last_incomplete,
         ripper_error_lines=(*error_head, *error_tail),
         ripper_error_lines_total=error_total,
+        not_written_whole=disc.not_written_whole.paths(),
+        not_written_whole_total=disc.not_written_whole.total,
     )

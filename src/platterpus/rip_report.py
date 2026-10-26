@@ -22,7 +22,13 @@ from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import Final
 
-from platterpus import __version__, album_loudness, build_info, diagnostics
+from platterpus import (
+    __version__,
+    album_loudness,
+    build_info,
+    diagnostics,
+    written_whole,
+)
 from platterpus.atomic_write import atomic_write_text
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
@@ -509,6 +515,12 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      and `kept_read_began_state`, the record's copy of the log line above
 #      (`record_track_v11.py`). States `read`, `not_stated` (null),
 #      `unrecognised`, `not_present` (a `/10` record, which reads as before).
+#      Also v40: `rip.not_written_whole`, the files `.27`'s footer names below
+#      `Encoder errors:` as not written whole by a failed encoder
+#      (`cyanrip@709337a:src/cyanrip_log.c:327-345`), screened, null when the
+#      log names none, with `rip.not_written_whole_not_kept` counting any past
+#      the parse's bound; each raises the `file_not_written_whole` warning,
+#      naming the file (`written_whole.py`).
 REPORT_SCHEMA_VERSION: int = 40
 
 
@@ -1620,7 +1632,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
-        health_findings=health_findings(rip_log),
+        health_findings=health_findings(rip_log) + written_whole.findings(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
         log_parse=log_parse_block,
         completeness=completeness,
@@ -1994,6 +2006,11 @@ def _rip_block(
         # v34: the disc's AccurateRip ID as the ripper printed it (`.23`+), the
         # key its AccurateRip lookup was made under. None on any earlier build.
         "accuraterip_disc_id": getattr(rip_log, "accuraterip_disc_id", "") or None,
+        # v40: the files `.27`'s footer says a failed encoder did not write whole,
+        # screened; null when the log names none (an older build says nothing),
+        # with the count of any the parse did not keep beside it.
+        "not_written_whole": written_whole.report_list(rip_log),
+        "not_written_whole_not_kept": written_whole.not_kept(rip_log),
     }
 
 

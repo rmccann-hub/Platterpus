@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from platterpus import diagnostics, naming
+from platterpus import diagnostics, naming, written_whole
 from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.data_tracks import audio_track_totals, is_data_track
@@ -557,7 +557,15 @@ def fidelity_summary(
         if clause is None:  # no per-track AR data → legacy summary-string fallback
             ar = getattr(rip_log, "accuraterip_summary", "") or ""
             clause = f" AccurateRip: {ar}." if ar and not ar.startswith("0/") else ""
-        return summary + clause + _partial_accurate_clause(rip_log)
+        # Which files the ripper says are damaged (`.27`'s `not written whole:`),
+        # named right after the tally: the one thing on this line the user must
+        # act on, and the log is the only other place it is said.
+        return (
+            summary
+            + written_whole.status_clause(rip_log)
+            + clause
+            + _partial_accurate_clause(rip_log)
+        )
     verified = sum(
         1
         for t in tracks

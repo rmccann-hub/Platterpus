@@ -203,6 +203,13 @@ _FRAGMENTS = st.sampled_from(
         "    Kept read began:    2026-13-45T25:61:00Z",  # the shape, not a date
         "    Kept read began:    " + "9" * 4400,  # over the digit ceiling
         "    Kept read began:    yesterday",
+        # And the footer's files a failed encoder left (S6), which count only
+        # below an `Encoder errors:` line that names a failed track.
+        "Encoder errors: 2 tracks failed (2, 3); 1 track encoded",
+        "    not written whole: o/2.flac",
+        "    not written whole: " + "x" * 5000,  # past our path bound
+        "    not written whole: \x00\x1b[31m",  # control characters
+        "    not written whole:",  # no path at all
         # EAC log shapes (exercise the eac_log parser).
         "Exact Audio Copy V1.8 from 15. July 2024",
         # Our EAC-layout export's first line, new wording and the one 0.6.62 and
