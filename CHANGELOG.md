@@ -22,6 +22,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The verified-read chase's record names your home folder as `~` when it is written**, not only when it is exported. Each attempt's command line carried the full path to your home folder in the album folder's `.platterpus-verified-read.txt`; it is now written the way the exported bundle already spells it, and the ripper's own signed logs inside the record are left exactly as written.
+
 - **The cue sheet's ISRC check expects the disc's own codes when you rip with "prefer the disc's ISRC".** With that option the ripper writes the ISRC stored on the disc, and on the 0.7.112 Full runs every cue carried them (on the reference disc, all fourteen match EAC's cue of the same disc), yet the self-audit warned that the ISRCs "differ from what we sent". It now expects the disc's code wherever the disc has one, and a difference from MusicBrainz is a note naming both codes (one run found a MusicBrainz typo, `USZ010001709` for the disc's `USZO10001709`), not a warning.
 
 - **The rip's self-audit no longer warns about ripping errors in a read the album replaced.** On the 0.7.112 Full run the album pass counted 2 ripping errors, both in track 16, and the verified-read chase replaced that track with a read AccurateRip verified; the completion check still warned "completed with 2 ripping errors". It now places each counted error on its track (from the ripper's own record) and grades the reads the album keeps: errors only in replaced, verified reads read as a clean completion that says where they were. When the errors cannot all be placed, the warning stands.
