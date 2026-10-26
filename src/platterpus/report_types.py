@@ -260,6 +260,10 @@ class TrackErrorPositionsBlock(TypedDict):
     paranoia_all_reads_state: str
     paranoia_all_reads: dict[str, int] | None
     paranoia_all_reads_not_read: int
+    #: v40 (`cyanrip-diagnostics/11`): the record's `kept_read_began` in UTC, and
+    #: its state (`record_track_v11.STATES`); `not_present` on `/10` and earlier.
+    kept_read_began: str | None
+    kept_read_began_state: str
 
 
 class ErrorPositionsBlock(TypedDict):

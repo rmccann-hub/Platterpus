@@ -1680,7 +1680,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # long docstring is the fork citations behind each field's meaning; splitting
     # the findings off would separate a sentence from the rows it reads, as in
     # `isrc_provenance.py`.
-    "error_positions.py": 400,
+    # **400 -> 404** (2026-10-26, TASKS R48, `/11`): each row carries the record's `kept_read_began` and its state beside the reads, from `TrackIsrc.record`.
+    "error_positions.py": 404,
     # **1924 -> 1957** the 2026-10-21 known-fixes item 3: the `Read stability` line names skipped tracks AccurateRip did not confirm (`_listed_tracks` shared by both lines), and the comment on why the disc-level health sentence stays verbatim until the round 36 handshake.
     # **-> 1972** (2026-10-21): the entries above landed together on one branch.
     # **1924 -> 1952** (2026-10-21, TASKS R7, the verified-read chase): `_verified_reread_line`, the status-report line naming each track whose file is a single re-read AccurateRip verifies, beside the interrupted-pass line it mirrors. The decision and the reads live in `verified_read_chase.py` and `workers/verified_read_run.py`.
@@ -1852,7 +1853,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rows it reads.
     # **324 -> 337** (2026-10-17, round 35 lap 6): `well_formed` reads the code as written, as cyanrip's `.25` check does, and the malformed finding quotes the ripper's reason.
     # **337 -> 347** (2026-10-21, TASKS R44): the one reader of `track_state` hands each row to `error_positions.parse_reads`, so the record is read once for both; `TrackIsrc.reads` and the docstring paragraph saying so.
-    "isrc_provenance.py": 347,
+    # **347 -> 359** (2026-10-26, TASKS R48, `cyanrip-diagnostics/11`): the reader hands each row to `record_track_v11.parse_row` as well, `TrackIsrc.record`, and the block's rows carry `disc_read` and its state. The reading lives in `record_track_v11.py`.
+    "isrc_provenance.py": 359,
     # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
     # **651 -> 661** (2026-10-20, the owner's word "yes, read twice by default"): the User Guide entry for the second-read setting, saying what 'reads agree' does and does not prove.
     # **661 -> 664** the 2026-10-21 known-fixes item 12: the amber banner's help says a disc with some matches is in AccurateRip and names the tracks that differ.
@@ -2032,7 +2034,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **815 -> 835** (2026-10-21, TASKS P2 #5): `VerificationCompletenessBlock` and the `completeness.verification` key that carries it.
     # **-> 984** (2026-10-21): the entries above landed together on one branch.
     # **984 -> 989** (2026-10-26, `.27`, round 36 lap 7 S5): `TrackBlock.kept_read_began` and `kept_read_began_state`, schema 40.
-    "report_types.py": 989,
+    # **989 -> 993** (2026-10-26, TASKS R48, `/11`): `TrackErrorPositionsBlock.kept_read_began` and its state, schema 40.
+    "report_types.py": 993,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2148,7 +2151,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2911 -> 3009** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #4/#5): the schema-39 note that `gates.*` narrows, `build_gates` taking the cut-short ledger, `_build` correcting the gates from the results and writing `completeness.verification`, and the `verification_cut_short` issue. The rules and wording live in `verification_gates.py`; this is the one place the report is assembled.
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
     # **3290 -> 3307** (2026-10-26, `.27`, round 36 lap 7 S5): the schema-40 note and the two per-track `kept_read_began` keys. The reading lives in `kept_read.py`.
-    "rip_report.py": 3307,
+    # **3307 -> 3315** (2026-10-26, TASKS R48, `/11`): the schema-40 note for the record's two keys; the reading is `record_track_v11.py`.
+    "rip_report.py": 3315,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

@@ -501,6 +501,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      (`read`, `unrecognised`, `not_present`; `kept_read.py`). `not_present` is
 #      an older build, a data track or a time the ripper could not convert, never
 #      "no read".
+#      Also v40, the `-j` record's schema `cyanrip-diagnostics/11` (their lap 7
+#      S15, proposed in their lap 4 S12; not built yet): per
+#      `disc.isrc_provenance` row `disc_read` (which read found the disc's code:
+#      `read sub-channel`, `q frames`, `read sub-channel, again`) and
+#      `disc_read_state`, and per `disc.error_positions` row `kept_read_began`
+#      and `kept_read_began_state`, the record's copy of the log line above
+#      (`record_track_v11.py`). States `read`, `not_stated` (null),
+#      `unrecognised`, `not_present` (a `/10` record, which reads as before).
 REPORT_SCHEMA_VERSION: int = 40
 
 

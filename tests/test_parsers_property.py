@@ -69,6 +69,8 @@ from platterpus.parsers.eac_log import (
     parse_eac_copy_crcs,
 )
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
+from platterpus.record_track_v11 import STATES as RECORD_V11_STATES
+from platterpus.record_track_v11 import parse_row as parse_record_v11_row
 from platterpus.verified_read_chase import securing_pass_read_checksums
 
 # `deadline=None`: the parsers are fast, but CI runners are noisy and we
@@ -809,3 +811,28 @@ def test_the_kept_read_instant_reader_never_raises(
     assert instant == "" or re.fullmatch(
         r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", instant
     ), instant
+
+
+# --- The `-j` record's `/11` keys (`record_track_v11`) -------------------------------
+
+
+@given(
+    st.dictionaries(
+        st.sampled_from(["kept_read_began", "isrc_disc_read", "number"]),
+        st.one_of(
+            st.none(),
+            st.booleans(),
+            st.integers(),
+            st.floats(),
+            st.text(max_size=200),
+            st.sampled_from(
+                ["read sub-channel", "q frames", "read sub-channel, again"]
+            ),
+        ),
+    )
+)
+@_SETTINGS
+def test_the_record_v11_row_reader_never_raises(row: dict[str, object]) -> None:
+    record = parse_record_v11_row(row)
+    assert record.kept_read_began_state in RECORD_V11_STATES
+    assert record.isrc_disc_read_state in RECORD_V11_STATES
