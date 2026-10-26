@@ -1206,6 +1206,18 @@ def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
         for number, pairs in sent_tracks.items()
         if pairs.get("isrc")
     }
+    # The disc's own codes, when we asked the ripper to prefer them (runs A and
+    # D, 2026-10-21/22): the log's `Disc ISRC:` row, as the report carries it.
+    from platterpus.isrc_provenance import PREFER_FLAG
+
+    disc_isrcs: dict[int, str] = {}
+    if PREFER_FLAG in [str(part) for part in argv]:
+        for track in report.get("tracks") or []:
+            if not isinstance(track, dict) or track.get("disc_isrc_state") != "code":
+                continue
+            number, code = track.get("number"), track.get("disc_isrc")
+            if isinstance(number, int) and isinstance(code, str) and code.strip():
+                disc_isrcs[number] = code.strip()
     titles = {
         number: real_colons(pairs["title"])
         for number, pairs in sent_tracks.items()
@@ -1260,6 +1272,7 @@ def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
     # two-track cue and warns about twelve of them.
     expected = ExpectedCue(
         isrcs=isrcs,
+        disc_isrcs=disc_isrcs,
         pregap_frames=pregaps,
         track_frames=track_frames,
         track_titles=titles,

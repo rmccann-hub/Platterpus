@@ -1768,3 +1768,46 @@ def test_errors_in_replaced_reads_never_raises_and_declines_garbage() -> None:
         {"health_status": 7, "disc": None, "tracks": "x", "read_speed": []},
     ):
         assert errors_in_replaced_reads(garbage) is None, garbage
+
+
+def _disc_isrc_report(*, prefer_sent: bool) -> dict:
+    """Run D's shape on the 2-track fixture: MusicBrainz gave track 2 the code
+    `USZ010001709` (a zero where the disc has a letter O), the disc's own
+    `Disc ISRC:` row reads `USZO10001709`, and the cue carries the disc's."""
+    report = _healthy()
+    argv = report["outcome"]["ripper_argv"]
+    argv[argv.index("2=title=Two:isrc=GBAAM0000002")] = "2=title=Two:isrc=USZ010001709"
+    if prefer_sent:
+        argv.append("--prefer-disc-isrc")
+    report["tracks"][0].update(disc_isrc="GBAAM0000001", disc_isrc_state="code")
+    report["tracks"][1].update(disc_isrc="USZO10001709", disc_isrc_state="code")
+    cue = _healthy_cue().replace("ISRC GBAAM0000002", "ISRC USZO10001709")
+    report["artifacts"]["cue"]["text"] = cue
+    return report
+
+
+def test_a_cue_carrying_the_discs_isrc_under_prefer_disc_isrc_is_not_a_warning() -> (
+    None
+):
+    """Runs A and D, 2026-10-21/22: we sent `--prefer-disc-isrc`, the cue
+    carried the disc's codes (A's all fourteen equal to EAC's cue), and
+    `cue_integrity` warned "ISRC(s) differ from what we sent". The cue is right;
+    the difference from MusicBrainz is a note naming both codes."""
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_cue_integrity(_disc_isrc_report(prefer_sent=True), album)
+    texts = [(f.level, f.text) for f in album.findings if "ISRC" in f.text]
+    assert not any(level == LEVEL_WARN for level, _ in texts), texts
+    (note,) = [text for level, text in texts if level == LEVEL_NOTE]
+    assert "USZO10001709" in note and "USZ010001709" in note, note
+    assert any(level == LEVEL_OK for level, _ in texts), texts
+
+
+def test_without_prefer_disc_isrc_a_cue_that_differs_from_what_we_sent_warns() -> None:
+    """The other side of the narrowing: without the flag the ripper writes what
+    we sent, so a cue carrying anything else is still the warning it was."""
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_cue_integrity(_disc_isrc_report(prefer_sent=False), album)
+    assert any(
+        f.level == LEVEL_WARN and "differ from what we sent" in f.text
+        for f in album.findings
+    ), [f.text for f in album.findings]

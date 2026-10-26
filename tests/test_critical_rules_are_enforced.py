@@ -1311,7 +1311,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
-    "cue_validate.py": 1264,
+    # **1264 -> 1301** (2026-10-26, runs A and D of the 0.7.112 Full runs): `ExpectedCue.disc_isrcs` and `_check_isrcs` expecting the disc's own ISRC under `--prefer-disc-isrc`, with a difference from MusicBrainz a note naming both; the ISRC check's own home.
+    "cue_validate.py": 1301,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
     # **426 -> 429** (2026-09-28, the argv chokepoint half): the mechanism's hardware citation names the committed round-27 log the new test reads, instead of an uncommitted bundle.
     "cyanrip_cli.py": 429,
@@ -2078,7 +2079,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # released build was cut while a round was open.
     # **1590 -> 1613** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `_audit_disc_identity` asks whether the disc ripped is the disc looked up, of the same predicate the report used, on the report's own fields. The comparison itself lives in `disc_identity.py`.
     # **1613 -> 1628** (2026-10-26, run C of the 0.7.112 Full runs, section N): the completion grade scopes the ripping-error warning to the reads the album keeps. The attribution is `rip_health.errors_in_replaced_reads`; only the grade's wording is here.
-    "rip_audit.py": 1628,
+    # **1628 -> 1641** (2026-10-26, runs A and D): `cue_integrity` hands `validate_cue` the disc's ISRCs from the report when the first-pass argv carried `--prefer-disc-isrc`; the judging is `cue_validate.py`.
+    "rip_audit.py": 1641,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,
