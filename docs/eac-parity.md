@@ -867,34 +867,60 @@ place for the wall to be.
 ### 2. What the checkers deduct for
 
 Recorded because these are the *quality* criteria worth caring about even when the
-score is unreachable. From `heybrochecklog/resources/eac/english.json` +
-`resources/__init__.py`, cross-checked against the PHP:
+score is unreachable. **From OPS's checker, `OPSnet/Logchecker` at `ca56547`
+(2026-05-31, the newest commit on 2026-10-26), `src/Logchecker.php`**, each deduction
+read at the line given (fetched 2026-10-26, sha256 of the file
+`029c8bd8…6514d26`). A score starts at 100. These are the points an EAC log loses,
+with the setting a clean rip uses:
 
-| Log line | Required | Deduction |
+| Log line | Required | Points off otherwise |
 |---|---|---|
-| `Read mode` | Secure | −20 |
-| `Utilize accurate stream` | Yes | −20 |
-| `Defeat audio cache` | Yes | −10 |
-| `Make use of C2 pointers` | No | −20 |
-| `Read offset correction` | matches the drive's AccurateRip value | −5 |
-| `Fill up missing offset samples with silence` | Yes | −5 |
-| `Delete leading and trailing silent blocks` | No | −5 |
-| `Null samples used in CRC calculations` | Yes | −1 |
-| `Gap handling` | Appended to previous track | −10 |
-| `Add ID3 tag` | No | −1 |
-| per-track `Test CRC` on every track | present | −20 |
-| `Test CRC` ≠ `Copy CRC` | — | −30 per track |
-| AccurateRip results | present | −5 |
-| `==== Log checksum … ====` | present | −15 |
+| EAC version | 0.99 or later (1.8 is current) | −30 when the version is 0.95 or older, or unstated (`:480-497`) |
+| `Read mode` | Secure | −20 (`:1512`) |
+| `Utilize accurate stream` | Yes | −20 (`:1734`); −20 when the line is missing from a secure-mode EAC log (`:639-640`) |
+| `Defeat audio cache` | Yes | −10 (`:1757`) |
+| `Make use of C2 pointers` | No | −10 (`:1790`) |
+| `Read offset correction` | the drive's AccurateRip value | −5 (`:1818`) |
+| `Fill up missing offset samples with silence` | Yes | −5 (`:1841`) |
+| `Delete leading and trailing silent blocks` | No | −5 (`:1851`) |
+| `Null samples used in CRC calculations` | Yes | −5 (`:1865`) |
+| `Gap handling` | `Appended to previous track` | −10 for `Not detected` (`:1880-1882`), and −10 for `Appended to next track` or `Left out` (`:1883-1888`) |
+| `Add ID3 tag` | No | −1 (`:1918-1923`) |
+| Test & Copy (`Test CRC` beside `Copy CRC`) | on | −10 (`:1350-1351`); a further −40 when secure mode was not used either (`:1352-1361`) |
+| Range rip | never | −30 (`:990`) |
+| Virtual or null drive | never | −20 (`:1554`, `:1558`) |
+| `Normalize to` | absent | −100 (`:1873`) |
 
-**Automatic zero:** unrecognised ripper; `Copy aborted`; `Normalize to`; `Use
-compression offset`; a virtual/fake drive.
+**Per track:**
 
-**Unscoreable rather than deducted** (thrown out): any of the settings lines *missing*;
-a track missing filename/peak/copy-CRC; track count ≠ TOC count; an unknown version
-string; a non-English log.
+| In the log | Points off |
+|---|---|
+| `Test CRC` ≠ `Copy CRC` | −30 (`:1939`) |
+| A suspicious position | −20 (`:1243`) |
+| A timing problem | −20 (`:1263`) |
+| Missing samples | −20 (`:1273`) |
+| `Copy aborted` | −100 (`:1284`) |
 
-**Not scored at all:** overread into lead-in/lead-out. It is a recommendation.
+**Score set to 0:** an unrecognised ripper (`:121-124`, §1); `Use compression offset`
+(`:800-807`); an undecodable log (`:113-115`); a log with no tracks (`:2085`).
+
+**Not deducted:** AccurateRip's results are only coloured (`:885-912`), so a log with
+no AccurateRip line loses nothing for it. The log checksum is reported beside the score
+as a status (missing, invalid, ok), not taken off it (`:413-433`, `:562`). Overread
+into lead-in and lead-out is only coloured (`:705-706`).
+
+**What this replaced (2026-10-26).** This section's table until 2026-10-26 came
+mostly from [`ligh7s/hey-bro-check-log`](https://github.com/ligh7s/hey-bro-check-log),
+**unmaintained since 2020-03-31** (§1), "cross-checked against the PHP" without line
+numbers. Against OPS's own code it was wrong in six rows: C2 is −10, not −20; null
+samples −5, not −1; a missing Test & Copy −10, not −20; `Not detected` gap handling
+was absent, and is −10; AccurateRip −0, not −5; and the checksum is reported, not
+−15. It also listed a virtual drive as an automatic zero, where OPS takes 20. Its
+"unscoreable rather than deducted" list (a missing settings line, a track missing its
+filename, peak or Copy CRC, a track count unlike the TOC's, an unknown version string,
+a non-English log) is hey-bro-check-log's behaviour and has not been re-checked
+against OPS. Found by the EAC parity plan of record of 2026-10-26 (§6), and each
+line above re-read from the fetched file before it was written.
 
 ---
 
