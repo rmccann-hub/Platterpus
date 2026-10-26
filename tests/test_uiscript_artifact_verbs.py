@@ -10,6 +10,7 @@ same widget a user edits and `track-title` goes through the same edit path.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -376,8 +377,13 @@ def test_expect_cover_art_waits_for_a_cover_result_that_lands_late(
     qapp, process_until, tmp_path, monkeypatch
 ) -> None:
     """The report settles without the cover step, which is not a gate; the verb
-    waits for its result rather than grading the record without it."""
-    from PySide6.QtCore import QTimer
+    waits for its result rather than grading the record without it.
+
+    The late result is written only once the verb has SEEN the cover pending,
+    not on a timer: a timer armed before the step starts can fire before the
+    step's first read on a loaded machine, and the test then proved nothing
+    (it failed that way once in a parallel full-suite run, 2026-10-26)."""
+    from platterpus.uiscript import tag_grading
 
     monkeypatch.setattr(artifact_verbs, "ARTIFACT_WAIT_S", 20.0)
     monkeypatch.setattr(artifact_verbs, "COVER_ART_WAIT_S", 10.0)
@@ -386,10 +392,23 @@ def test_expect_cover_art_waits_for_a_cover_result_that_lands_late(
     del early["cover_art"]
     win = _rip(tmp_path, early)
     (report_file,) = (tmp_path / "album").glob("*.platterpus.json")
-    QTimer.singleShot(300, lambda: report_file.write_text(json.dumps(full), "utf-8"))
+    seen_pending: list[bool] = []
+    real_pending = tag_grading.cover_art_pending
+
+    def pending_then_land(report: Mapping[str, Any], mode: str) -> bool:
+        answer = real_pending(report, mode)
+        seen_pending.append(answer)
+        if answer:
+            # The verb has observed the missing result: now it lands.
+            report_file.write_text(json.dumps(full), "utf-8")
+        return answer
+
+    monkeypatch.setattr(tag_grading, "cover_art_pending", pending_then_land)
     step = _run(win, qapp, process_until, "expect-cover-art")
     assert step.outcome is Outcome.PASS, step.detail
-    assert step.elapsed_s >= 0.2, "graded before the cover result landed"
+    # Floor: the verb saw the result missing, waited, and then saw it present.
+    assert seen_pending[0] is True, seen_pending
+    assert seen_pending[-1] is False, seen_pending
 
 
 def test_expect_cover_art_says_not_determined_when_the_result_never_lands(
