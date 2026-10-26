@@ -219,6 +219,17 @@ what it would actually take.
    would mean **modifying or replacing the C read engine** — treat as
    build-from-scratch.
 
+   > **Correction (2026-10-26, the EAC parity plan of record, §7).** "EAC uses drive
+   > C2 pointers" overstates it: EAC *can* use the drive's C2 pointers, when the user
+   > switches them on. Its secure mode "either reads every audio sector at least twice
+   > or rel[ies] on extended error information that some drives are able to return"
+   > ([EAC: Extraction Technology](https://exactaudiocopy.de/extraction-technology/),
+   > read 2026-10-26), and the log records the choice as `Make use of C2 pointers`
+   > (`No` in all three of our EAC baselines, `output_reference/EAC_*/`). Item 1 above
+   > is also unverified as of 2026-10-26: AccurateRip's own list of compatible
+   > programs names five, not two (PLANNING.md KDD-12's dated correction). The text
+   > above stays as written.
+
 4. **Literal two-full-pass "Test & Copy" of the whole disc — NOT WORTH IT.**
    whipper already does a test read and a copy read *per track* and compares
    CRCs (our fidelity summary reports it). EAC's two *separate whole-disc passes*
@@ -266,4 +277,4 @@ Sources: [whipper](https://github.com/whipper-team/whipper) ·
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.7.112.*

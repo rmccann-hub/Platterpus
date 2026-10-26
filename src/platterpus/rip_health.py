@@ -30,7 +30,10 @@ Pure; no Qt, no I/O; reads with ``getattr`` and never raises.
 
 from __future__ import annotations
 
-from typing import Final
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any, Final
 
 from platterpus.verdict import track_has_unverified_skips
 
@@ -155,3 +158,107 @@ def health_findings(rip_log: object) -> list[tuple[str, str, str]]:
             )
         )
     return findings
+
+
+# --- Errors in reads the album no longer keeps (run C, 2026-10-22) -----------
+
+#: The parser's health sentence for a non-zero ``Ripping errors:`` count
+#: (``parsers/cyanrip_log.py``). Anchored and bounded: the count is 1-9 digits.
+_COUNTED_ERRORS = re.compile(r"^(?P<count>\d{1,9}) ripping errors$")
+#: ``retried_tracks[].kept_read`` values naming a read that replaced the first.
+_REPLACING_READS: Final[frozenset[str]] = frozenset(
+    {"securing_pass", "verified_reread"}
+)
+
+
+@dataclass(frozen=True)
+class ErrorsInReplacedReads:
+    """Where the album pass's counted ripping errors were, read from a report.
+
+    ``counted`` is the ``Ripping errors:`` total; ``in_replaced`` how many of
+    them were in first reads the album replaced with a read AccurateRip
+    verified, and ``tracks`` those tracks. The rest are in reads it keeps.
+    """
+
+    counted: int
+    in_replaced: int
+    tracks: tuple[int, ...]
+
+    @property
+    def in_kept_reads(self) -> int:
+        """The counted errors in reads the album keeps."""
+        return self.counted - self.in_replaced
+
+
+def _int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def errors_in_replaced_reads(
+    report: Mapping[str, Any],
+) -> ErrorsInReplacedReads | None:
+    """Which of a rip's counted errors are in reads the album no longer keeps.
+
+    **Run C, section N, 2026-10-22.** The album pass counted 2 ripping errors,
+    both paranoia skips in track 16, and the verified-read chase replaced track
+    16 with a read AccurateRip verified (v1 confidence 11, v2 24). The
+    completion audit still warned "completed with 2 ripping errors", about bytes
+    no longer in the album. Errors are attributed per track by the album pass's
+    own ``-j`` record (``disc.error_positions``: ``read_errors`` + ``skips``
+    over every read), and a track's first read counts as replaced only when
+    ``retried_tracks`` says the album keeps another read, kept on AccurateRip's
+    word, AND the track's row says AccurateRip verified it (the pair, not the
+    label alone).
+
+    **None, not determined, unless the population is closed**: the per-track
+    counts must be present, complete and agree with their counters for every
+    track read, and must sum to exactly the ``Ripping errors:`` count. An error
+    we cannot place stays in the warning; that is the direction that keeps a
+    clean grade off a read nobody checked. Never raises.
+    """
+    try:
+        match = _COUNTED_ERRORS.match(str(report.get("health_status") or ""))
+        if match is None:
+            return None
+        counted = int(match.group("count"))
+        disc = report.get("disc")
+        block = disc.get("error_positions") if isinstance(disc, Mapping) else None
+        if not isinstance(block, Mapping) or block.get("state") != "read":
+            return None
+        verified = {
+            t.get("number")
+            for t in report.get("tracks") or []
+            if isinstance(t, Mapping) and t.get("accuraterip_verified") is True
+        }
+        speed = report.get("read_speed")
+        retried = speed.get("retried_tracks") if isinstance(speed, Mapping) else None
+        replaced = {
+            r.get("track")
+            for r in retried or []
+            if isinstance(r, Mapping)
+            and r.get("kept_read") in _REPLACING_READS
+            and r.get("replaced_because") == "accuraterip"
+            and r.get("track") in verified
+        }
+        total = in_replaced = 0
+        tracks: list[int] = []
+        for row in block.get("tracks") or []:
+            if not isinstance(row, Mapping) or row.get("state") != "read":
+                continue
+            if row.get("complete") is not True:
+                return None
+            if row.get("count_agrees_with_counters") is not True:
+                return None
+            errors, skips = _int(row.get("read_errors")), _int(row.get("skips"))
+            if errors is None or skips is None:
+                return None
+            total += errors + skips
+            number = row.get("number")
+            if errors + skips and isinstance(number, int) and number in replaced:
+                in_replaced += errors + skips
+                tracks.append(number)
+        if total != counted:
+            return None
+        return ErrorsInReplacedReads(counted, in_replaced, tuple(tracks))
+    except (AttributeError, TypeError, ValueError):
+        return None

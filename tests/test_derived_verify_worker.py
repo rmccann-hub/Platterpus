@@ -112,3 +112,83 @@ def test_worker_wraps_unexpected_verify_crash(
     result = verify_rip_dir(album, "mp3", hasher=lambda p: "x")
     assert result.ran is False
     assert "unexpected error" in result.error
+
+
+def test_the_verify_waits_for_a_transcode_that_outlasts_the_old_60s(
+    tmp_path: Path,
+) -> None:
+    """Run C, 2026-10-22: the MP3/WavPack/WAV transcodes took 86 to 121 s (they
+    wait for cover art) and the verify gave up at a fixed 60 s, found nothing,
+    and recorded "no mp3 files found to verify". It now waits on the post-rip
+    thread's END, under a deadline. At test scale: the transcode writes its
+    files 1.5 s in, longer than a fixed timer of the old kind would wait (the
+    revert probe puts back a 0.5 s fixed join), and the verify still sees both.
+    """
+    import platterpus.workers.derived_verify_worker as mod
+
+    album = _make_album(tmp_path, {})
+
+    def transcode_that_outlasts_a_fixed_timer() -> None:
+        threading.Event().wait(1.5)
+        for stem in ("01", "02"):
+            (album / f"{stem}.mp3").write_bytes(b"derived")
+
+    t = threading.Thread(target=transcode_that_outlasts_a_fixed_timer, daemon=True)
+    t.start()
+    result = verify_rip_dir(
+        album, "mp3", wait_for=t, hasher=lambda p: "pcm", deadline_s=10.0
+    )
+    assert isinstance(result, DerivedVerifyResult)
+    assert result.error == "", result.error
+    assert result.checked == 2 and result.expected == 2
+    assert result.timed_out_waiting_for_transcode is False
+    assert mod.TRANSCODE_DEADLINE_S >= 600.0, "the deadline must not be a guess"
+
+
+def test_a_transcode_past_the_deadline_is_recorded_as_a_timeout_not_no_files(
+    tmp_path: Path,
+) -> None:
+    """When the overall deadline does pass, the record says the wait timed out,
+    distinctly, and reads nothing: the files may still be on their way."""
+    from platterpus.workers.derived_verify_worker import TRANSCODE_WAIT_TIMED_OUT
+
+    album = _make_album(tmp_path, {})
+    stop = threading.Event()
+    t = threading.Thread(target=lambda: stop.wait(5.0), daemon=True)
+    t.start()
+    try:
+        result = verify_rip_dir(
+            album, "mp3", wait_for=t, hasher=lambda p: "pcm", deadline_s=0.2
+        )
+    finally:
+        stop.set()
+    assert isinstance(result, DerivedVerifyResult)
+    assert result.timed_out_waiting_for_transcode is True
+    assert result.error.startswith(TRANSCODE_WAIT_TIMED_OUT)
+    assert "no mp3 files" not in result.error
+    assert result.ran is False
+
+
+def test_a_newer_rip_ends_the_wait_at_once(tmp_path: Path) -> None:
+    """The wait looks up from the join: a newer rip abandons the verify (None)
+    without sitting out the deadline."""
+    import time
+
+    album = _make_album(tmp_path, {})
+    stop = threading.Event()
+    t = threading.Thread(target=lambda: stop.wait(5.0), daemon=True)
+    t.start()
+    started = time.monotonic()
+    try:
+        result = verify_rip_dir(
+            album,
+            "mp3",
+            wait_for=t,
+            still_current=lambda: False,
+            hasher=lambda p: "pcm",
+            deadline_s=30.0,
+        )
+    finally:
+        stop.set()
+    assert result is None
+    assert time.monotonic() - started < 3.0

@@ -22,7 +22,13 @@ from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import Final
 
-from platterpus import __version__, album_loudness, build_info, diagnostics
+from platterpus import (
+    __version__,
+    album_loudness,
+    build_info,
+    diagnostics,
+    written_whole,
+)
 from platterpus.atomic_write import atomic_write_text
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
@@ -34,6 +40,7 @@ from platterpus.handshake_approval import (
     cross_check_note,
 )
 from platterpus.isrc_provenance import findings as isrc_findings
+from platterpus.kept_read import NOT_PRESENT as KEPT_READ_NOT_PRESENT
 from platterpus.parsers.rip_log import (
     DRIVE_FACT_NOT_PRESENT,
     RECORDABLE_CDRW,
@@ -491,7 +498,43 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
 #      the gates and the result blocks; and the `verification_cut_short` warning,
 #      written by the unattended quit before the process ends.
-REPORT_SCHEMA_VERSION: int = 39
+# v40: what the fork's `.27` adds (their round 36 lap 7 S5 to S6, read from
+#      their source at `cyanrip@709337a`). v39 shipped in 0.7.111 and 0.7.112, so
+#      this is a new number. Additions only. Per track `kept_read_began`, the UTC
+#      instant the read the track's files carry began, from the `Kept read
+#      began:` line below `Elapsed:` (`cyanrip@709337a:src/cyanrip_log.c:
+#      670-679`), null unless read, with `kept_read_began_state` beside it
+#      (`read`, `unrecognised`, `not_present`; `kept_read.py`). `not_present` is
+#      an older build, a data track or a time the ripper could not convert, never
+#      "no read".
+#      Also v40, the `-j` record's schema `cyanrip-diagnostics/11` (their lap 7
+#      S15, proposed in their lap 4 S12; not built yet): per
+#      `disc.isrc_provenance` row `disc_read` (which read found the disc's code:
+#      `read sub-channel`, `q frames`, `read sub-channel, again`) and
+#      `disc_read_state`, and per `disc.error_positions` row `kept_read_began`
+#      and `kept_read_began_state`, the record's copy of the log line above
+#      (`record_track_v11.py`). States `read`, `not_stated` (null),
+#      `unrecognised`, `not_present` (a `/10` record, which reads as before).
+#      Also v40: `rip.not_written_whole`, the files `.27`'s footer names below
+#      `Encoder errors:` as not written whole by a failed encoder
+#      (`cyanrip@709337a:src/cyanrip_log.c:327-345`), screened, null when the
+#      log names none, with `rip.not_written_whole_not_kept` counting any past
+#      the parse's bound; each raises the `file_not_written_whole` warning,
+#      naming the file (`written_whole.py`).
+#      Also v40, the fixes from the four Full runs on 0.7.112 (2026-10-21/22). Additions
+#      only. A securing pass that was stopped no longer throws away a re-read
+#      AccurateRip verified (run B, track 11, `unfinished_refix.py`):
+#      `read_speed.retried_tracks[]` gains `pass_unfinished` (the verdict came
+#      from a pass stopped before it finished; False otherwise) and
+#      `not_replaced_because` (`block_incomplete`, `accuraterip_did_not_verify`,
+#      `file_not_whole`, `copy_failed`; null when swapped in, and for a pass
+#      that finished). Such a track's `replaced` is true with
+#      `replaced_because: accuraterip`, and `kept_read` says `securing_pass`.
+#      Same version (run C): `verification.derived.timed_out_waiting_for_transcode`
+#      says the derived-file verify gave up waiting for the transcode, whose
+#      `error` then reads "timed out waiting for the transcode to finish" where a
+#      fixed 60 s wait used to record "no mp3 files found to verify".
+REPORT_SCHEMA_VERSION: int = 40
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -1602,7 +1645,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
-        health_findings=health_findings(rip_log),
+        health_findings=health_findings(rip_log) + written_whole.findings(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
         log_parse=log_parse_block,
         completeness=completeness,
@@ -1976,6 +2019,11 @@ def _rip_block(
         # v34: the disc's AccurateRip ID as the ripper printed it (`.23`+), the
         # key its AccurateRip lookup was made under. None on any earlier build.
         "accuraterip_disc_id": getattr(rip_log, "accuraterip_disc_id", "") or None,
+        # v40: the files `.27`'s footer says a failed encoder did not write whole,
+        # screened; null when the log names none (an older build says nothing),
+        # with the count of any the parse did not keep beside it.
+        "not_written_whole": written_whole.report_list(rip_log),
+        "not_written_whole_not_kept": written_whole.not_kept(rip_log),
     }
 
 
@@ -2035,6 +2083,13 @@ def _track(track: object) -> dict:
         # and a derived multiple would be a guess wearing EAC's label.
         "extraction_elapsed_seconds": getattr(
             track, "extraction_elapsed_seconds", None
+        ),
+        # v40: when the read the files carry began (`.27`'s `Kept read began:`),
+        # and the state beside it, so an absent line reads `not_present` in a
+        # word rather than as a null a reader could take for "never read".
+        "kept_read_began": getattr(track, "kept_read_began", "") or None,
+        "kept_read_began_state": (
+            getattr(track, "kept_read_began_state", "") or KEPT_READ_NOT_PRESENT
         ),
         # Frames of SILENCE the ripper appended because it could not read the
         # disc that far. This one is NOT fork-only — 0.9.3 prints it, on the last
@@ -2236,6 +2291,10 @@ def _derived_verify(result: object | None) -> dict | None:
         "failures": [str(p) for p in failures],
         "mismatches": [str(p) for p in mismatches],
         "error": getattr(result, "error", "") or None,
+        # Schema 40: the verify gave up waiting for the transcode (run C).
+        "timed_out_waiting_for_transcode": bool(
+            getattr(result, "timed_out_waiting_for_transcode", False)
+        ),
     }
 
 

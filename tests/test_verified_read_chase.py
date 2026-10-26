@@ -374,6 +374,26 @@ def test_the_kept_chase_log_carries_argv_exit_status_and_the_log() -> None:
     )
 
 
+def test_the_chase_records_argv_names_the_home_folder_as_a_tilde() -> None:
+    """Run C, 2026-10-22: each attempt's argv line carried the rig's absolute home
+    folder, and only the export's redaction kept it out of the bundle. The line
+    is now written with ``~``, by the export's own function, at creation; the
+    embedded cyanrip log, which is signed, is left exactly as the ripper wrote."""
+    home = "/home/someone"
+    log_text = f"cyanrip 0.9.4 (x)\nOutputs: {home}/Music\nLog FUN512: abc\n"
+    section = chase_log_section(
+        16,
+        5,
+        (f"{home}/.local/bin/cyanrip", "-l", "16", "-D", f"{home}/Music"),
+        0,
+        log_text,
+        homes=[home],
+    )
+    argv_line = next(line for line in section.splitlines() if line.startswith("argv:"))
+    assert argv_line == "argv: ~/.local/bin/cyanrip -l 16 -D ~/Music", argv_line
+    assert log_text in section, "the signed log was altered"
+
+
 # --- The fork's proposed kept-read clause (round 36 lap 4 S11) ----------------
 
 _KEPT_LINE = (

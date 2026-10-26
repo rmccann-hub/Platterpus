@@ -1638,6 +1638,37 @@ def accepts_prefer_disc_isrc(build_tag: str) -> bool:
     return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC}
 
 
+#: Builds whose provider contract lists ``--prefer-accuraterip-match`` in P1.
+#: **EMPTY, on purpose: no released build accepts the option.** The fork built it
+#: in ``.27`` (``6e2ca21``; their round 36 lap 7 S3, which our lap 3 S4 accepted):
+#: at the ``-Z`` repeat limit it keeps first a read AccurateRip matches, by its v1
+#: or v2 checksum at confidence 1 or more, the higher confidence winning
+#: (``cyanrip@709337a:src/cyanrip_main.c:1809-1834``), and P1 of ``.27``'s
+#: regenerated contract lists it (``cyanrip@302dba8:PROVIDER-CONTRACT.md:61``).
+#: ``.27`` is not released, so its build tag is not known yet. **When ``.27`` is
+#: released, add its tag here, after checking that ITS filed contract's P1 still
+#: lists the option**, as ``.24``'s, ``.25``'s and ``.26``'s tags joined
+#: :data:`BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC`. Enumerated, never inferred from a
+#: version, for the reason ``--consumer``'s set gives: cyanrip refuses an option
+#: it does not know, and a refused rip reads as a missing ripper. Until then every
+#: build reaches the verified-read chase instead (``verified_read_chase.py``,
+#: TASKS R7), which stays for every build without the option.
+BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH: Final[frozenset[str]] = frozenset()
+
+
+def accepts_prefer_accuraterip_match(build_tag: str) -> bool:
+    """Whether a build identified by ``build_tag`` accepts ``--prefer-accuraterip-match``.
+
+    Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
+    as :func:`accepts_prefer_disc_isrc`. False for every tag today: the set is
+    empty until ``.27`` is released.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH}
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- Which build the wizard actually installs -------------------------------

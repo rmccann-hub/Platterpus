@@ -3676,6 +3676,60 @@ def test_start_rip_worker_snapshots_track_table_metadata(
     ]
 
 
+def test_the_tags_a_rip_was_handed_are_kept_on_its_record(
+    teardown_threads, monkeypatch
+) -> None:
+    """Run A on 0.7.112: section F graded the files against the track table, and
+    a drive flicker had cleared it. The tags the rip was handed are frozen onto
+    the album's record when its worker starts, and survive the window clearing."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._track_table.set_release(_detail())
+    window._current_release_detail = _detail()
+    seen: list[RipParameters] = []
+
+    class _NoopWorker:
+        def __init__(self, backend, params):
+            seen.append(params)
+
+        def moveToThread(self, thread):
+            pass
+
+        def start_rip(self):
+            pass
+
+        class _Sig:
+            def connect(self, *_a, **_k):
+                pass
+
+        log_line = progress = status = current_track = track_completed = error = (
+            finished
+        ) = _Sig()
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
+    )
+    window._rip_generation += 1
+    record = window._open_post_rip_record()
+    window._start_rip_worker(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="some-mbid",
+            output_dir=Path("/tmp/out"),
+            track_template="t",
+            disc_template="d",
+        )
+    )
+    window._set_rip_lock(False)
+    window._track_table.clear()
+
+    assert record.metadata is not None and record.metadata == seen[0].metadata
+    assert record.metadata.album_title == "Album"
+    assert [t.title for t in record.metadata.tracks] == ["One", "Two"]
+
+
 class _FakeThread:
     """Minimal QThread stand-in: collects connects, never starts."""
 
@@ -6867,6 +6921,25 @@ def test_disc_info_ready_ignores_stale_result_after_drive_switch(
 # --- Disc media auto-detect (cancel→eject→new-disc, and general insert) ----
 
 
+def _poll_clock(window: MainWindow, step: float = 10.0) -> None:
+    """Give the window's media watcher a clock that moves ``step`` s per reading.
+
+    An empty tray is believed only once it has lasted
+    (``drive_media.REMOVAL_CONFIRM_S``), so a removal needs two empty readings at
+    least that far apart. The product's watcher reads the monotonic clock; this
+    is the same class with the polls spaced without sleeping.
+    """
+    from platterpus.drive_media import MediaWatcher
+
+    now = [0.0]
+
+    def clock() -> float:
+        now[0] += step
+        return now[0]
+
+    window._media_watcher = MediaWatcher(clock=clock)
+
+
 def test_poll_disc_media_auto_rescans_when_a_disc_appears(teardown_threads) -> None:
     """A new disc inserted while idle auto-triggers the same rescan as the
     Rescan button — the fix for 'cancel the rip, put a new CD in, nothing
@@ -6900,14 +6973,16 @@ def test_poll_disc_media_resets_view_when_the_disc_leaves(teardown_threads) -> N
     rescanned: list[str] = []
     window._start_disc_info = lambda device: rescanned.append(device)  # type: ignore[assignment]
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
-    window._media_watcher.reset()
+    _poll_clock(window)
 
-    statuses = iter(["disc", "open"])
+    statuses = iter(["disc", "open", "open"])
     window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
 
     window._poll_disc_media()  # baseline: a disc is present
     assert reset_calls == []
-    window._poll_disc_media()  # disc ejected → clear the view, no rescan
+    window._poll_disc_media()  # tray open: not believed until it lasts
+    assert reset_calls == []
+    window._poll_disc_media()  # still open 10 s on → clear the view, no rescan
     assert reset_calls == [1]
     assert rescanned == []
 
@@ -6956,8 +7031,9 @@ def test_a_disc_leaving_the_drive_keeps_the_drives_own_rows(teardown_threads) ->
         ["open", "disc"],
         # The route this test was written for. Since 2026-09-28 the unknown
         # reading is bridged, so it now fires REMOVED first; kept so both orders
-        # are held to the same clean scan.
-        ["disc", "unknown", "empty", "disc"],
+        # are held to the same clean scan. The empty tray is read twice: one
+        # reading is too short to be believed a removal (2026-10-26).
+        ["disc", "unknown", "empty", "empty", "disc"],
     ],
 )
 def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
@@ -6984,7 +7060,7 @@ def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
         )
     )
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
-    window._media_watcher.reset()
+    _poll_clock(window)
     readings = iter(statuses)
     window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
 
@@ -7022,12 +7098,13 @@ def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
     window._rip_thread = None
     window._disc_info_thread = None
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
-    window._media_watcher.reset()
-    readings = iter(["disc", "open", "unavailable", "disc"])
+    _poll_clock(window)
+    # The tray reads open twice, ten seconds apart: long enough to be a removal.
+    readings = iter(["disc", "open", "open", "unavailable", "disc"])
     window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
 
     with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
-        for _ in range(4):
+        for _ in range(5):
             window._poll_disc_media()
 
     shown = process_until(
@@ -7054,6 +7131,136 @@ def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
     ], removed
 
 
+def _window_holding_an_edited_release(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch, back_in_drive: str
+) -> tuple[MainWindow, _FakeBackend, _FakeMb, list[float]]:
+    """A window whose disc ``flicker-disc`` has a chosen release, a title the user
+    edited and a track unticked; the drive reports ``back_in_drive`` when read.
+
+    Returns the window, its backend and MusicBrainz fakes, and the media clock
+    (a one-item list the test sets to each reading's time)."""
+    from platterpus.drive_media import MediaWatcher
+
+    backend = _FakeBackend()
+    backend.disc_info_return = DiscInfo(musicbrainz_disc_id=back_in_drive, num_tracks=2)
+    mb = _FakeMb()
+    window = teardown_threads(backend=backend, mb_client=mb)
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
+    window._rip_thread = None
+    window._disc_info_thread = None
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._current_disc_id = "flicker-disc"
+    window._mb_release_chosen_for = "flicker-disc"
+    window._on_mb_release_detail("flicker-disc", _detail())
+    assert window._track_table.edit_track_title(1, "Edited One") == ""
+    window._track_table.set_only_selected([1])
+    at = [0.0]
+    window._media_watcher = MediaWatcher(clock=lambda: at[0])
+    return window, backend, mb, at
+
+
+def _poll_at(
+    window: MainWindow, at: list[float], timed: list[tuple[float, str]]
+) -> None:
+    """Poll once per ``(seconds, reading)``, the drive answering ``reading``."""
+    for when, reading in timed:
+        at[0] = when
+        window._disc_status_probe = lambda _dev, r=reading: r  # type: ignore[misc]
+        window._poll_disc_media()
+
+
+def _held(window: MainWindow) -> tuple[str, str, list[int]]:
+    """The release id, track 1's title and the ticked tracks, as the window holds them."""
+    tracks = window._track_table.tracks()
+    return (
+        window._current_release_id,
+        tracks[0].title if tracks else "",
+        window._track_table.selected_track_numbers(),
+    )
+
+
+def test_the_run_a_flicker_keeps_the_release_and_edits_and_asks_nothing(
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Run A on 0.7.112 (app log lines 649-705 of bundle
+    platterpusbundle20261021t113505z): the drive read ``disc → open →
+    unavailable → disc`` in 2.5 s with nobody there. The app cleared the chosen
+    release, asked MusicBrainz again and opened the picker over the script; 57
+    of 60 failures followed. Same readings, same times: the view is kept, the
+    disc is re-read to check it, and no lookup runs."""
+    window, backend, mb, at = _window_holding_an_edited_release(
+        teardown_threads, monkeypatch, back_in_drive="flicker-disc"
+    )
+    before = _held(window)
+    assert before == ("some-mbid", "Edited One", [1]), "floor: the edits are in"
+
+    with caplog.at_level(logging.INFO):
+        _poll_at(
+            window,
+            at,
+            [(36.742, "disc"), (39.242, "open"), (39.301, "unavailable")],
+        )
+        assert _held(window) == before, "the view was cleared during the flicker"
+        _poll_at(window, at, [(41.720, "disc")])
+        assert process_until(lambda: window._disc_info_thread is None, timeout=8.0)
+        process_until(lambda: False, timeout=0.3)  # let a lookup land, if one ran
+
+    assert backend.disc_info_calls == ["/dev/sr0"], "the disc was not re-read"
+    assert _held(window) == before
+    assert mb.disc_id_calls == [] and mb.mbid_calls == [], "MusicBrainz was asked"
+    assert window._mb_release_chosen_for == "flicker-disc"
+    messages = [r.getMessage() for r in caplog.records]
+    assert not [m for m in messages if "disc removed" in m], messages
+    assert [m for m in messages if "keeping release some-mbid" in m], messages
+
+
+def test_a_real_removal_then_the_same_disc_back_restores_the_release_and_edits(
+    teardown_threads, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A removal the watcher believes clears the view, as before. The same disc
+    put back is recognised by its disc ID, and the release and edits return."""
+    window, backend, mb, at = _window_holding_an_edited_release(
+        teardown_threads, monkeypatch, back_in_drive="flicker-disc"
+    )
+    _poll_at(window, at, [(0.0, "disc"), (2.5, "open"), (10.0, "open")])
+    assert _held(window) == ("", "", []), "a believed removal clears the view"
+    _poll_at(window, at, [(12.5, "disc")])
+    assert process_until(lambda: window._disc_info_thread is None, timeout=8.0)
+    process_until(lambda: False, timeout=0.3)
+
+    assert _held(window) == ("some-mbid", "Edited One", [1])
+    assert mb.disc_id_calls == [] and mb.mbid_calls == []
+    assert window._rip_controls._release_id == "some-mbid"
+
+
+def test_a_different_disc_after_a_flicker_is_cleared_and_looked_up(
+    teardown_threads, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A quick swap looks like a flicker from the tray: the disc ID decides."""
+    window, backend, mb, at = _window_holding_an_edited_release(
+        teardown_threads, monkeypatch, back_in_drive="another-disc"
+    )
+    _poll_at(window, at, [(0.0, "disc"), (2.5, "open"), (5.0, "disc")])
+    assert process_until(lambda: mb.disc_id_calls == ["another-disc"], timeout=8.0)
+    assert process_until(lambda: window._disc_info_thread is None, timeout=8.0)
+
+    assert window._current_release_id == ""
+    titles = [t.title for t in window._track_table.tracks()]
+    assert "Edited One" not in titles, titles
+
+
+def test_a_rescan_forgets_the_parked_disc(teardown_threads) -> None:
+    """A deliberate Rescan asks MusicBrainz again, so nothing parked comes back."""
+    window = teardown_threads()
+    window._park_disc()
+    assert window._parked_disc is not None
+    window._on_drive_changed("/dev/sr0")
+    assert window._parked_disc is None
+
+
 def test_the_panel_never_shows_only_dashes_after_a_removal_or_an_insertion(
     teardown_threads,
 ) -> None:
@@ -7066,12 +7273,13 @@ def test_the_panel_never_shows_only_dashes_after_a_removal_or_an_insertion(
     started: list[str] = []
     window._start_disc_info = lambda device: started.append(device)  # type: ignore[assignment]
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
-    window._media_watcher.reset()
-    readings = iter(["disc", "open", "disc"])
+    _poll_clock(window)
+    readings = iter(["disc", "open", "open", "disc"])
     window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
     match = window._disc_info_panel._mb_match_value
 
     window._poll_disc_media()  # baseline
+    window._poll_disc_media()  # tray open, not yet believed
     window._poll_disc_media()  # removed
     assert match.text().startswith("the drive reports no disc"), match.text()
     assert "Rescan disc" in match.text()
@@ -7507,9 +7715,11 @@ def test_a_disc_removed_while_a_retry_waits_ends_the_retry_and_the_no_disc_line_
     window._disc_retry_timer.start(200)  # long enough for the eject to land first
     match = window._disc_info_panel._mb_match_value
 
+    _poll_clock(window)
     window._poll_disc_media()  # baseline: the disc is in
     tray[0] = "open"
-    window._poll_disc_media()  # ejected
+    window._poll_disc_media()  # tray open, not yet believed
+    window._poll_disc_media()  # still open 10 s on: ejected
     no_disc = match.text()
     assert no_disc.startswith("the drive reports no disc"), no_disc
     pending_after_removal = window._disc_retries.pending
@@ -14070,3 +14280,53 @@ def test_a_finished_rip_of_the_wrong_disc_says_so_everywhere(
     assert report["disc"]["lookup_disc_id"] == _DISC_B
     assert report["disc"]["identity_check"]["status"] == "mismatch"
     assert "disc_identity_mismatch" in {i["code"] for i in report["issues"]}
+
+
+def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
+    teardown_threads: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Run A on 0.7.112 (app log lines 690-705): a picker opened by the scan the
+    drive flicker started stayed open 338 s; the script's `rescan` started a new
+    scan behind it, and `pick-release` answered the OLD picker. While it stayed
+    open, the new scan's candidates for the same disc were declined (one picker
+    per disc), so the new scan could never ask. A new scan now closes it."""
+    from PySide6.QtCore import QCoreApplication  # noqa: PLC0415
+
+    window = teardown_threads()
+    disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+    window._current_disc_id = disc
+    releases = [
+        ReleaseSummary(
+            mbid=f"aaaaaaaa-0000-0000-0000-00000000000{n}",
+            title=f"Candidate {n}",
+            artist_credit="The Police",
+            date="2003",
+            country="GB",
+            track_count=14,
+        )
+        for n in (1, 2)
+    ]
+    pickers: list[ReleasePickerDialog] = []
+
+    def _fake_exec(self: ReleasePickerDialog) -> int:
+        pickers.append(self)
+        if len(pickers) == 1:  # only the first is shown: it is the one closed
+            self.show()
+            window._start_disc_info("/dev/sr0")  # the rescan, behind the picker
+            QCoreApplication.processEvents()
+        return int(self.result())
+
+    monkeypatch.setattr(ReleasePickerDialog, "exec", _fake_exec)
+    first_scan = window._disc_retries.request
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window"):
+        window._on_mb_releases(disc, releases)
+
+    assert pickers[0].scan_request == first_scan
+    assert pickers[0].superseded and not pickers[0].isVisible()
+    assert "a newer disc scan superseded it" in caplog.text, caplog.text
+    # The new scan's own candidates now open the new scan's own picker.
+    window._current_disc_id = disc
+    window._on_mb_releases(disc, releases)
+    assert len(pickers) == 2 and pickers[1].scan_request == first_scan + 1

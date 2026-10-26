@@ -71,7 +71,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
-from platterpus import diagnostics, ripper_error_lines
+from platterpus import diagnostics, kept_read, ripper_error_lines
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
@@ -100,6 +100,7 @@ from platterpus.parsers.rip_log import (
 # See safe_int.py's docstring for why the guard exists at all (CPython refuses a
 # digit run longer than 4300 characters, and a `\d+` group is unbounded).
 from platterpus.safe_int import int_or_none
+from platterpus.written_whole import PathSample
 
 log = logging.getLogger(__name__)
 
@@ -1017,6 +1018,13 @@ _ENCODER_ERRORS = re.compile(r"^Encoder errors:\s+(?P<value>\S(?:.*\S)?)\s*$")
 #: external output on a worker thread, and a long line of whitespace would make it
 #: backtrack. A CD holds at most 99 tracks, so four digits is already generous.
 _ENCODER_FAILED_COUNT = re.compile(r"(?P<failed>\d{1,4})\s{1,4}tracks?\s{1,4}failed")
+# `    not written whole: o/2.flac` — the fork's `.27`: one line per file a failed
+# encoder left, directly below `Encoder errors:` when that line names a failed
+# track (`cyanrip@709337a:src/cyanrip_log.c:327-345`, their P2 at
+# `cyanrip@302dba8:PROVIDER-CONTRACT.md:286`). The path is the source's `%s`, so
+# it is taken whole, any length (`written_whole.bound_path` bounds it), and only
+# after the footer's `Encoder errors:` line: see `_take_not_written_whole`.
+_NOT_WRITTEN_WHOLE = re.compile(r"^\s{1,8}not written whole: (?P<path>.+)$")
 # "Interrupted at: track 1, mid-read" / "Interrupted at: between tracks, no read
 # in progress" — added by the fork in round 13 to answer OUR round-12 ask: which
 # track was in progress when a rip was interrupted, which the log could not say.
@@ -1484,6 +1492,17 @@ _TRACK_ELAPSED_SECONDS = re.compile(
     r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
     r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
 )
+# `    Kept read began:    2026-10-21T09:23:27Z` — the fork's `.27`, directly below
+# `Elapsed:` in an audio track's block: WHEN the read the track's files carry
+# began, in UTC (`cyanrip@709337a:src/cyanrip_log.c:670-679`, their P2 at
+# `cyanrip@302dba8:PROVIDER-CONTRACT.md:331`). A data track prints none, and so
+# does a track whose time could not be converted. The value is captured whole
+# and judged by `kept_read.instant_state`, the one reader the `-j` record's
+# reader shares, so a value in any other form is `unrecognised` rather than a
+# line that silently falls into the skimmed residue. Unbounded on purpose, and
+# still linear (nothing before `.*` can match what it does): a line of any
+# length is claimed, and `kept_read` refuses a value over 40 characters.
+_KEPT_READ_BEGAN = re.compile(r"^\s{1,8}Kept read began:\s{1,8}(?P<value>\S.*)$")
 
 # --- 3. the -Z convergence verdict as a LABELLED per-track row (§2.4) --------
 #
@@ -1849,6 +1868,8 @@ class _Disc:
     ripping_errors: int | None = None
     ripping_errors_paranoia_skips: int | None = None
     encoder_failed_tracks: int | None = None
+    # `.27`'s `not written whole:` paths, below `Encoder errors:` (bounded).
+    not_written_whole: PathSample = field(default_factory=PathSample)
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
@@ -2001,6 +2022,9 @@ class _TrackAcc:
     peak_level: float | None = None
     extraction_speed: float | None = None
     extraction_elapsed_seconds: float | None = None
+    # `.27`'s `Kept read began:` (see TrackResult): "" with state "" = no line.
+    kept_read_began: str = ""
+    kept_read_began_state: str = ""
     appended_silence_frames: int | None = None
     # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`
     # only for `Track N is data:`, whose meaning depends on what follows (see
@@ -2771,6 +2795,22 @@ def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_not_written_whole(disc: _Disc, match: re.Match[str]) -> bool:
+    """Collect one file the footer says a failed encoder did not write whole.
+
+    **Claimed only below an `Encoder errors:` line**, which is where the fork
+    prints it and the only place it means "this file on disk is damaged". The
+    position is the discriminator, as for every footer row: the same words
+    anywhere else describe nothing we can attribute. The arm is not checked:
+    a path the ripper names under any arm is still a file it says is damaged, and
+    dropping it would be the silent loss this line exists to end.
+    """
+    if not disc.encoder_errors:
+        return False
+    disc.not_written_whole.add(match.group("path"))
+    return True
+
+
 def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
     disc.creation_date = match.group("when").strip()
     return True
@@ -2891,6 +2931,8 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
     _LineRule("encoder_errors", _ENCODER_ERRORS, _take_encoder_errors),
+    # `.27`: the files a failed encoder left, each below `Encoder errors:`.
+    _LineRule("not_written_whole", _NOT_WRITTEN_WHOLE, _take_not_written_whole),
     _LineRule("interrupted_at", _INTERRUPTED_AT, _take_interrupted_at),
     _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
     _LineRule("read_stalls", _READ_STALLS, _take_read_stalls),
@@ -3029,6 +3071,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_sample_peak", _SAMPLE_PEAK),
     ("track_extraction_speed", _TRACK_SPEED),
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
+    # `.27`: when the read the track's files carry began, below `Elapsed:`.
+    ("track_kept_read_began", _KEPT_READ_BEGAN),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
     ("track_accurip_status", _TRACK_ACCURIP_STATUS),
 )
@@ -3590,6 +3634,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 peak_level=current.peak_level,
                 extraction_speed=current.extraction_speed,
                 extraction_elapsed_seconds=current.extraction_elapsed_seconds,
+                kept_read_began=current.kept_read_began,
+                kept_read_began_state=current.kept_read_began_state,
                 appended_silence_frames=current.appended_silence_frames,
                 data_crc32=current.data_crc32,
                 data_sector_edc=current.data_sector_edc,
@@ -4043,6 +4089,26 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.extraction_elapsed_seconds = _float_or_none(match.group("s"))
                 continue
 
+            # When the kept read began (`.27`). Read as an instant or not at all:
+            # a value we cannot read is recorded as `unrecognised` and logged,
+            # never reported as a time we guessed (`kept_read.py`).
+            match = _KEPT_READ_BEGAN.match(line)
+            if match:
+                state, instant = kept_read.instant_state(match.group("value"))
+                current.kept_read_began_state = state
+                current.kept_read_began = instant
+                if state != kept_read.READ:
+                    log.warning(
+                        "cyanrip log: track %s: unrecognised Kept read began: %r",
+                        current.number,
+                        diagnostics.bounded_chars(
+                            match.group("value"),
+                            head=_UNRECOGNISED_VALUE_HEAD,
+                            tail=_UNRECOGNISED_VALUE_TAIL,
+                        ),
+                    )
+                continue
+
             # The -Z convergence verdict as a durable, LABELLED per-track row —
             # the only in-block form. A `Done; (…)` line is never read here, at any
             # indentation: cyanrip emits it from the pre-opener repeat loop, so it
@@ -4297,4 +4363,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         last_track_incomplete=last_incomplete,
         ripper_error_lines=(*error_head, *error_tail),
         ripper_error_lines_total=error_total,
+        not_written_whole=disc.not_written_whole.paths(),
+        not_written_whole_total=disc.not_written_whole.total,
     )

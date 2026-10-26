@@ -94,6 +94,11 @@ from platterpus.securing_pass import (
     plan_securing_pass,
     why_no_securing_pass,
 )
+from platterpus.unfinished_refix import (
+    NOT_REPLACED_COPY_FAILED,
+    salvage_decision,
+    stopped_pass_sentence,
+)
 from platterpus.verdict import (
     REREAD_KEPT_FOR_ACCURATERIP,
     REREAD_KEPT_FOR_CONVERGENCE,
@@ -3135,16 +3140,24 @@ class RipWorker(QObject):
                 return  # re-rip failed to start/stream — originals untouched
             success, rerip_log_path = outcome
             if not success or not rerip_log_path:
-                # Nothing is swapped from a pass that did not finish. But the
-                # tracks it DID finish re-reading carry a verdict, and that verdict
-                # is the work: on the 2026-10-04 rig run a cancel during track 18
+                # The pass as a whole did not finish. But the tracks it DID
+                # finish re-reading carry a verdict, and that verdict is the work
+                # (and since run B of 2026-10-21, a track whose finished re-read
+                # AccurateRip verified is swapped in: `unfinished_refix.py`): on the 2026-10-04 rig run a cancel during track 18
                 # discarded 90 minutes of re-reads of tracks 12 to 17, each read
                 # five times without two reads agreeing, so their EAC-layout log
                 # said "Copy OK" with no caveat. The guard drops the swap, never
                 # the record.
                 if rerip_log_path:
                     self._record_unfinished_refix(
-                        rerip_log_path, tracks, trigger, rerip_z
+                        rerip_log_path,
+                        tracks,
+                        trigger,
+                        rerip_z,
+                        tmp_root=tmp_root,
+                        album_log_path=album_log_path,
+                        first_pass_crcs=first_pass_crcs or {},
+                        first_pass_tracks=first_pass_tracks or {},
                     )
                 return
             rerip_log = self._parse_log(rerip_log_path)
@@ -3426,16 +3439,28 @@ class RipWorker(QObject):
         )
 
     def _record_unfinished_refix(
-        self, rerip_log_path: str, tracks: list[int], trigger: str, rerip_z: int
+        self,
+        rerip_log_path: str,
+        tracks: list[int],
+        trigger: str,
+        rerip_z: int,
+        *,
+        tmp_root: Path | None = None,
+        album_log_path: str = "",
+        first_pass_crcs: dict[int, str] | None = None,
+        first_pass_tracks: dict[int, object] | None = None,
     ) -> None:
-        """Record the verdicts a securing pass reached before it stopped.
+        """Record what a stopped securing pass reached, and keep what it proved.
 
         Called when the re-rip was cancelled or failed. Each track the ripper
-        finished re-reading has its verdict line in the log; those are recorded
-        as ``replaced: False``, because nothing is swapped in from a pass that
-        did not finish. A track with no verdict (the one being read when the pass
-        stopped) is left out, so the report keeps saying the pass was interrupted
-        for it. The securing pass stays marked interrupted.
+        finished re-reading has its verdict line in the log. Each is decided on
+        its own (:func:`unfinished_refix.salvage_decision`: block complete,
+        AccurateRip verifying it by :func:`verdict.reread_supersedes`, FLAC
+        written whole) and a proven read is swapped in as a finished pass's is.
+        **Until run B of 2026-10-21 nothing was swapped from a stopped pass**,
+        and track 11's re-read, verified at confidence 29, was thrown away. A
+        track with no verdict (the one being read when the pass stopped) is left
+        out, so the report keeps saying the pass was interrupted for it.
 
         On a cancel the in-container reader writes its log after we stop reading
         it, so the log is waited for first (:meth:`_await_ripper_log`): the track
@@ -3459,6 +3484,7 @@ class RipWorker(QObject):
                 settled = self._await_ripper_log(rerip_log_path).is_settled
             rerip_log = self._parse_log(rerip_log_path)
             recorded: list[int] = []
+            swapped: list[SupersededTrack] = []
             for track in getattr(rerip_log, "tracks", ()) or ():
                 number = getattr(track, "number", None)
                 verdict = getattr(track, "secure_rerip_converged", None)
@@ -3468,30 +3494,48 @@ class RipWorker(QObject):
                 agreement = getattr(track, "secure_rerip_agreement", None)
                 if isinstance(number, int) and isinstance(agreement, RereadAgreement):
                     self._reread_agreements[number] = agreement
+                name = getattr(track, "filename", "") or ""
+                decision = salvage_decision(
+                    (first_pass_tracks or {}).get(number),
+                    track,
+                    tmp_root / name if tmp_root is not None and name else None,
+                )
+                why_not = decision.not_replaced_because
+                replaced = False
+                if decision.swap and tmp_root is not None:
+                    replaced = self._swap_in_reripped_track(track, tmp_root)
+                    why_not = None if replaced else NOT_REPLACED_COPY_FAILED
+                log.info(
+                    "stopped securing pass, track %s: %s",
+                    number,
+                    why_not or decision.detail,
+                )
+                if replaced and isinstance(number, int):
+                    crc = (first_pass_crcs or {}).get(number, "")
+                    reason = decision.replaced_because
+                    swapped.append(self._superseded_record(track, crc, reason))
+                    self._swapped_track_records[number] = track
                 self._retried_tracks.append(
                     {
                         "track": number,
                         "trigger": trigger,
                         "reripped_z": rerip_z,
                         "converged": verdict is True,
-                        "replaced": False,
-                        "replaced_because": None,
+                        "replaced": replaced,
+                        "replaced_because": decision.replaced_because
+                        if replaced
+                        else None,
+                        "pass_unfinished": True,
+                        "not_replaced_because": why_not,
                     }
                 )
+            kept = [row.number for row in swapped]
+            if kept:
+                unstable = self._last_unstable_tracks
+                self._last_unstable_tracks = [t for t in unstable if t not in kept]
+                self._append_swap_addendum(album_log_path, trigger, swapped)
             if recorded:
-                listed = ", ".join(str(n) for n in recorded)
-                unsigned = (
-                    ""
-                    if settled
-                    else " Its log never reached its footer, so they were read "
-                    "from the lines it had written; each verdict line was "
-                    "followed whole by its track's line."
-                )
-                self.log_line.emit(
-                    f"[auto-fix] the securing pass stopped before it finished; "
-                    f"track(s) {listed} had been re-read and their verdicts are "
-                    f"kept. Their first reads stay in the album.{unsigned}"
-                )
+                self.log_line.emit(stopped_pass_sentence(recorded, kept, settled))
         except Exception:  # noqa: BLE001 — a record must never crash the rip
             log.exception("could not record the stopped securing pass's verdicts")
 

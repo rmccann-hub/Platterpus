@@ -986,6 +986,9 @@ class RipMixin(MainWindowShared):
         params = replace(
             params, only_tracks=only_tracks, metadata=self._rip_metadata_for(params)
         )
+        started = self._post_rip_record()
+        if started is not None:  # the tags it was handed, kept with its record
+            started.metadata = params.metadata
         self._rip_controls.set_rip_active(True)
         self._set_rip_lock(True)  # grey out everything that would conflict mid-rip
         # Keep the window repainting during the rip (Plasma 6 Wayland black-window
