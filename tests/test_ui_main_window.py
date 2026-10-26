@@ -826,6 +826,50 @@ def test_rip_requested_blocked_when_track_table_invalid(
     assert window._rip_worker is None
 
 
+def test_rip_requested_blocked_when_a_track_file_name_is_over_255_bytes(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASKS R88: Start passes the track table the names the rip will need, and
+    an over-long one is refused before any worker exists, naming the track and
+    its byte count. Without `_rip_naming_for` in the Start path the rip would
+    start and cyanrip would fail at file creation after reading the track."""
+    from test_ui_track_table import _detail
+
+    window = teardown_threads()
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
+    )
+    warnings: list[tuple[str, str]] = []
+
+    def fake_warning(parent: Any, title: str, text: str) -> Any:
+        warnings.append((title, text))
+        return QMessageBox.StandardButton.Ok
+
+    monkeypatch.setattr("platterpus.ui.message_boxes.warning", fake_warning)
+    window._track_table.set_release(_detail())
+    window._track_table.edit_track_title(2, "日" * 90)
+    window._on_rip_requested(_known_params(Path("/tmp/unused")))
+
+    assert window._rip_worker is None
+    assert [title for title, _text in warnings] == ["Cannot start rip"]
+    assert warnings[0][1].startswith("Track 2’s file name would be 279 bytes")
+
+
+def test_rip_naming_carries_the_rip_snapshot_and_the_derived_extension(
+    teardown_threads, tmp_path: Path
+) -> None:
+    from test_ui_track_table import _detail
+
+    window = teardown_threads(config=Config(output_format="wavpack"))
+    window._track_table.set_release(_detail())
+    params = _known_params(tmp_path)
+    naming = window._rip_naming_for(params)
+    assert naming.metadata == window._rip_metadata_for(params)
+    assert naming.track_template == params.track_template
+    assert naming.derived_extension == "wv"
+    assert naming.only_tracks == ()
+
+
 def test_rip_requested_in_unknown_mode_skips_validation(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:

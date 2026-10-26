@@ -363,6 +363,21 @@ class CyanripImpl(RipBackend):
             argv += ["-D", folder_scheme]
         if file_scheme is not None:
             argv += ["-F", file_scheme]
+        # NAME_MAX (TASKS R88): refuse a rip whose folder, log or track file name
+        # would be over 255 bytes. cyanrip does not shorten such a name, so the
+        # track was read in full and then could not be created. The track table
+        # says this to the person before Start; this is the backstop for every
+        # other route to the ripper, rendered from the schemes just computed.
+        from platterpus.adapters.cyanrip_name_lengths import (  # noqa: PLC0415
+            assert_names_fit,  # imports this module, so it is imported here
+        )
+
+        assert_names_fit(
+            track_template,
+            metadata,
+            disc_track_total=disc_track_total,
+            only_tracks=only_tracks,
+        )
         # `-G` UNCONDITIONALLY. It used to be `if not cover_art`, which read as
         # "let the ripper embed art when the user wants art" — but nothing else in
         # the program agrees with that reading. `main_window_rip` calls
