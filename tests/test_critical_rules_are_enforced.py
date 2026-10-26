@@ -2353,7 +2353,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1810 -> 1825** (2026-10-07, KDD-42 W6): Help → Getting started, first in the Help menu, its handler beside the other Help slots, and the kept non-modal window it raises rather than duplicates.
     # **1825 -> 1819** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac_recompress_done` signal and its connection.
     # **1819 -> 1821** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the typed `_last_*` working copies.
-    "ui/main_window.py": 1821,
+    # **1821 -> 1833** (2026-10-26, run A on 0.7.112, the drive flicker): `DiscReturnMixin` in the class list and its import, `_parked_disc` initialised beside the disc-id fields it parks, a drive change (Rescan) dropping it, and `_on_disc_info_ready` restoring the same disc's release instead of a new lookup. The logic is in `ui/main_window_disc_return.py`; these are the call sites it needs on the window.
+    "ui/main_window.py": 1833,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2389,7 +2390,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 658 -> 668 on 2026-09-28 (code review R9): a disc removal ends the read a pending automatic retry was for, so its timer cannot replace the no-disc line with an error about the disc that left.
     # **668 -> 670** (2026-10-05): the disc-removal reset keeps the drive rows (2026-10-04 rig runs).
     # **670 -> 742** (2026-10-05): `_read_rate_for_current_drive` and `_learn_read_rate`: the drive's own measured speed (else the rig's for its model) goes to the rip, and each finished first pass folds into the profile (operator's request for an overall rip estimate, 2026-10-05).
-    "ui/main_window_drive.py": 742,
+    # **742 -> 752** (2026-10-26, run A on 0.7.112, the drive flicker): the media poll handles the watcher's new RETURNED event and parks the disc before a believed removal clears it. The poll is the watcher's only reader; the handler itself is in `ui/main_window_disc_return.py`.
+    "ui/main_window_drive.py": 752,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2561,7 +2563,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
     # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
     # **457 -> 458** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the same declarations on the seam.
-    "ui/main_window_shared.py": 458,
+    # **458 -> 469** (2026-10-26, run A on 0.7.112, the drive flicker): `_parked_disc` and the three cross-mixin methods `DiscReturnMixin` and `DriveMixin` call on each other, declared so mypy resolves them.
+    "ui/main_window_shared.py": 469,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2629,7 +2632,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
-    "ui/track_table.py": 867,
+    # **867 -> 889** (2026-10-26, run A on 0.7.112, the drive flicker): `restore_edits`, putting back what `album_metadata`/`tracks`/`selected_track_numbers` returned, so the same disc returned to the drive keeps the user's typing. It writes the widget's own fields, so it lives beside the readers it inverts.
+    "ui/track_table.py": 889,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces

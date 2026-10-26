@@ -462,6 +462,7 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis; reading the disc without a click (media poll, bounded retry of a failed read — policy in `disc_probe_retry.py`) | `main_window_drive.py` (`DriveMixin`) |
+| A disc that leaves the drive and comes back: park its chosen release and edits, re-read a flicker to check the disc ID, restore the same disc without a lookup (the removal bound is `drive_media.REMOVAL_CONFIRM_S`) | `main_window_disc_return.py` (`DiscReturnMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
 | Settings' OK/Apply, and saving one setting from its home control | `main_window_settings.py` (`SettingsMixin`) |
 | Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |

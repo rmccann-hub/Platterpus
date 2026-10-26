@@ -20,6 +20,15 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## 2026-10-26 — run A on 0.7.112: the four defects behind 57 of its 60 failures
+
+From the owner's hardware Full run A (bundle `platterpusbundle20261021t113505z`) and run C (`platterpusbundle20261022t114515z`). One commit per row.
+
+- [x] **The drive flicker clears the view** (app log lines 649-705). An empty tray is a removal only after `drive_media.REMOVAL_CONFIRM_S` (6 s, from the nine measured flickers of 2.39-2.64 s and the one real swap's 25 s); shorter is `RETURNED`, and the disc is re-read. The same disc ID back keeps its release and edits with no lookup (`ui/main_window_disc_return.py`). Held by `tests/test_drive_media.py` and `tests/test_ui_main_window.py` (`test_the_run_a_flicker_keeps_the_release_and_edits_and_asks_nothing` and three more). Hardware-gated: the next Full run is the proof that the flicker no longer reaches the view.
+- [ ] **Section F grades the live window, not the rip's record**: `expect-tags` read the track table and `expect-cover-art` read `_current_release_id`, both cleared by the flicker.
+- [ ] **`expect-cover-art` races a late cover-art result** (run C log lines 17625, 17718): a missing `cover_art` block was read as 0.
+- [ ] **`rescan`, `pick-release` and `rip` race the scan** (run A log lines 690-710).
+
 ## 2026-10-12 — every open row, ranked: close now, close soon, fine open, and what goes to the fork
 
 The maintainer, 2026-10-12, asking both repositories the same question: *"compile all open

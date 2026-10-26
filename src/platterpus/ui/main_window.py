@@ -58,6 +58,7 @@ from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.getting_started_dialog import GettingStartedDialog
 from platterpus.ui.main_window_deps import DependencyMixin
+from platterpus.ui.main_window_disc_return import DiscReturnMixin, ParkedDisc
 from platterpus.ui.main_window_drive import DriveMixin
 
 # fidelity_summary / friendly_disc_scan_error / safe_path_segment are re-exported
@@ -218,6 +219,7 @@ class MainWindow(
     UpdateMixin,
     ProvisioningMixin,
     DriveMixin,
+    DiscReturnMixin,
     DependencyMixin,
     SettingsMixin,
 ):
@@ -373,6 +375,8 @@ class MainWindow(
         # at the start of every new scan.
         self._current_disc_id: str = ""
         self._mb_release_chosen_for: str = ""
+        # A disc that may be leaving the drive, kept so its return restores it.
+        self._parked_disc: ParkedDisc | None = None
         # The disc whose release picker is on screen right now, "" when none is.
         # Lives exactly as long as the picker's `exec()`; see `_on_mb_releases`.
         self._mb_picker_open_for: str = ""
@@ -1281,6 +1285,8 @@ class MainWindow(
         pick up on the GUI thread. The window stays responsive throughout.
         """
         log.info("drive changed: %s", device)
+        # A Rescan or a drive change asks again: nothing parked comes back.
+        self._parked_disc = None
         # New drive → forget the media baseline so the auto-detect re-establishes
         # it on the next poll without mistaking "this drive already has a disc"
         # for a fresh insertion (this manual change already scans it below).
@@ -1392,6 +1398,12 @@ class MainWindow(
         # after the poll read "not ready" made the next poll report a phantom
         # insertion and read the disc again (drive_media.note_disc_present).
         self._media_watcher.note_disc_present()
+        # The same disc back after a removal or a flicker keeps its release and
+        # edits, with no lookup (main_window_disc_return.py).
+        if self._restore_parked_disc(info):
+            self._disc_info_panel.set_disc_info(info)
+            self._current_num_tracks = info.num_tracks
+            return
         self._disc_info_panel.set_disc_info(info)
         # Remember the disc's track count so we can show numbered blank
         # rows if MusicBrainz turns up nothing.

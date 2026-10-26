@@ -400,6 +400,7 @@ Platterpus/
         │   ├── main_window_rip.py       # RipMixin — rip lifecycle, force-stop, eject, cover art, post-processing
         │   ├── main_window_provision.py # ProvisioningMixin — host setup / AppImage integration / uninstall
         │   ├── main_window_drive.py     # DriveMixin — drive setup / read-offset / access diagnostics
+        │   ├── main_window_disc_return.py # DiscReturnMixin — the same disc back keeps its release and edits
         │   ├── main_window_deps.py      # DependencyMixin — dependency check + resolution-routing UI
         │   ├── dependency_check_status.py # what the dependency check says while it runs and when it lands (pure)
         │   ├── main_window_settings.py  # SettingsMixin — Settings' OK/Apply + saving one setting from its home

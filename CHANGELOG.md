@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **A drive that flickers no longer clears the disc you chose a release for.** In run A of the owner's Full test on 0.7.112 the drive reported its tray open for about 2.5 s with nobody near it, 41 s after a rip (nine times across the runs, several overnight). The app cleared the chosen release, asked MusicBrainz again and opened the release picker over the unattended script, and 57 of the run's 60 failures followed. An empty tray now counts as a removal only once it has lasted 6 s, more than twice the longest flicker measured; shorter, and the app keeps the view and re-reads the disc. When the disc read back, after a flicker or a real removal, has the same MusicBrainz disc ID, the chosen release and your edits stay and no lookup runs; a different disc is cleared and looked up. Rescan still asks again.
+
 ### Added
 
 - **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours.

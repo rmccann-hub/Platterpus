@@ -26,6 +26,9 @@ auto-detect on the Bazzite + BDR-209D rig (docs/test-plan.md).
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import Callable
+from typing import Final
 
 log = logging.getLogger(__name__)
 
@@ -71,10 +74,27 @@ _EMPTY_STATES: frozenset[str] = frozenset({EMPTY, OPEN, NOT_READY})
 # rather than remembered — see MediaWatcher.observe_event.
 _KNOWN_STATES: frozenset[str] = _EMPTY_STATES | {DISC}
 
-# The three outcomes of one observation, returned by MediaWatcher.observe_event.
+# The four outcomes of one observation, returned by MediaWatcher.observe_event.
 INSERTED: str = "inserted"  # known-empty → disc: a new disc to scan
-REMOVED: str = "removed"  # disc → known-empty: the disc left; clear the stale view
+REMOVED: str = "removed"  # disc → known-empty, held long enough to be believed
+#: disc → known-empty → disc, the empty part too short to be believed a removal.
+#: Usually the drive flickering with the disc still in, but a quick swap looks
+#: the same from here, so the caller re-reads the disc to find out which.
+RETURNED: str = "returned"
 NO_CHANGE: str = "none"  # steady state, a baseline observation, or an unknown blip
+
+#: How long a disc → empty reading must PERSIST before it counts as a removal.
+#: **Measured** (the owner's Full runs on 0.7.112: the app log in bundle
+#: ``platterpusbundle20261021t113505z`` lines 649-666, and the same log grown in
+#: ``platterpusbundle20261022t114515z`` lines 5735-5768, 14575-14619). With the
+#: disc never touched, several overnight, the Pioneer BDR-209D reported ``disc →
+#: open → unavailable → disc`` nine times, ``open`` to ``disc`` taking 2.39 s to
+#: 2.64 s (longest 04:08:50.244 to 04:08:52.882). The one real swap (line 14616)
+#: read ``open`` for 25 s, then ``not_ready`` for 9 s. Six seconds is over twice
+#: the longest flicker and a quarter of the shortest real removal; a disc that
+#: really left is still seen within one 2.5 s poll of it. A false removal cost
+#: the whole run: the chosen release was cleared and a picker opened over it.
+REMOVAL_CONFIRM_S: Final[float] = 6.0
 
 
 def probe_disc_status(device: str) -> str:
@@ -121,8 +141,11 @@ class MediaWatcher:
         :data:`NOT_READY`) — the "inserted a new disc" (or "re-inserted after the
         cancel/eject") event;
       * fire :data:`REMOVED` exactly once on the reverse transition, :data:`DISC`
-        → a known-empty tray — the "disc left the drive" event, so the GUI can
-        clear the now-stale disc view (an eject or a physical removal);
+        → a known-empty tray, **once the empty tray has persisted for**
+        :data:`REMOVAL_CONFIRM_S` — the "disc left the drive" event, so the GUI
+        can clear the now-stale disc view (an eject or a physical removal). A
+        disc read again before then fires :data:`RETURNED` instead: the empty
+        readings were not believed, and the disc may be the same one;
       * an ``UNAVAILABLE`` reading (or any value this module does not know) is
         never a trigger AND never overwrites the last known state. It is
         "no information", so the next known reading is compared with the last
@@ -146,9 +169,22 @@ class MediaWatcher:
     after :meth:`reset` is still only a baseline.
     """
 
-    def __init__(self) -> None:
-        # The last reading that said something about the tray (never UNAVAILABLE).
+    def __init__(
+        self,
+        clock: Callable[[], float] = time.monotonic,
+        removal_confirm_s: float = REMOVAL_CONFIRM_S,
+    ) -> None:
+        # Injectable so a test replays the rig's timings without sleeping.
+        self._clock: Callable[[], float] = clock
+        self._removal_confirm_s: float = removal_confirm_s
+        # The last reading that said something about the tray (never UNAVAILABLE),
+        # as BELIEVED: while a removal is pending this still says DISC.
         self._last_known: str | None = None
+        # When the pending removal's first empty reading was taken (None: none
+        # pending). Never the last disc reading: the poll is skipped for a whole
+        # rip, so that can be an hour old when a flicker arrives.
+        self._empty_since: float | None = None
+        self._last_gap_s: float = 0.0
         # The last reading of any kind, for the caller's "status changed" log line.
         self._last_status: str | None = None
         # Unknown readings since the last known one, and how many the most recent
@@ -178,6 +214,12 @@ class MediaWatcher:
             return ""
         return f", after {count} unreadable status check{'' if count == 1 else 's'}"
 
+    @property
+    def last_gap_seconds(self) -> float:
+        """How long the last pending removal lasted, from its first empty
+        reading to the reading that ended it (a confirmation or a return)."""
+        return self._last_gap_s
+
     def reset(self) -> None:
         """Forget the baseline (e.g. after switching drives) so the next
         observation re-establishes it without firing."""
@@ -185,6 +227,7 @@ class MediaWatcher:
         self._last_status = None
         self._unknown_streak = 0
         self._bridged = 0
+        self._empty_since = None
 
     def note_disc_present(self) -> None:
         """A disc was just READ from the drive: remember that a disc is in, and
@@ -205,14 +248,14 @@ class MediaWatcher:
         self._last_known = DISC
         self._unknown_streak = 0
         self._bridged = 0
+        self._empty_since = None  # a read outranks a pending removal too
 
     def observe_event(self, status: str) -> str:
-        """Record `status`; return :data:`INSERTED`, :data:`REMOVED`, or
-        :data:`NO_CHANGE`.
+        """Record `status`; return :data:`INSERTED`, :data:`REMOVED`,
+        :data:`RETURNED` or :data:`NO_CHANGE`.
 
         This is the richer form; :meth:`observe` is the insert-only bool wrapper
-        kept for existing callers. Exactly one event can fire per observation
-        (insert and removal are opposite transitions).
+        kept for existing callers. Exactly one event can fire per observation.
         """
         self._last_status = status
         if status not in _KNOWN_STATES:
@@ -221,14 +264,30 @@ class MediaWatcher:
             # it — see the class docstring for the insertion this used to lose.
             self._unknown_streak += 1
             return NO_CHANGE
+        now = self._clock()
         prev = self._last_known
-        self._last_known = status
         self._bridged = self._unknown_streak
         self._unknown_streak = 0
+        if prev == DISC and status in _EMPTY_STATES:
+            # Not believed until it has lasted: the drive may be flickering.
+            if self._empty_since is None:
+                self._empty_since = now
+            elapsed = now - self._empty_since
+            if elapsed < self._removal_confirm_s:
+                return NO_CHANGE
+            self._last_gap_s = elapsed
+            self._empty_since = None
+            self._last_known = status
+            return REMOVED
+        if self._empty_since is not None and status == DISC:
+            # Back before the removal was believed: not an insertion, and not
+            # nothing either. The caller re-reads to learn if it is the same disc.
+            self._last_gap_s = now - self._empty_since
+            self._empty_since = None
+            return RETURNED
+        self._last_known = status
         if prev in _EMPTY_STATES and status == DISC:
             return INSERTED
-        if prev == DISC and status in _EMPTY_STATES:
-            return REMOVED
         return NO_CHANGE
 
     def observe(self, status: str) -> bool:
