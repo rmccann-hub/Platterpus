@@ -109,6 +109,35 @@ def settle_state(report: Mapping[str, Any] | None) -> str:
     return SETTLE_PENDING if codes & VERIFICATION_DROPPED_CODES else SETTLE_SETTLED
 
 
+def derived_verification_refusal(report: Mapping[str, Any] | None) -> str | None:
+    """Why a settled report's derived-file verification did not run, or None.
+
+    **One predicate, shared** by `expect-derived-output` and `expect-verification`
+    (run C, 2026-10-22). The MP3, WavPack and WAV verifies gave up waiting for
+    their transcodes and recorded ``"not run — no mp3 files found to verify"``,
+    and both verbs passed: one counted the files that appeared a minute later,
+    the other needed only *some* gate to have run. A section that asks for a
+    derived format has not verified it when its verification did not run.
+
+    None when the gate says the check ran, was never asked for (``flac-only``),
+    or is absent (an older report, or not a derived rip). Never raises.
+    """
+    from platterpus.verification_gates import CUT_SHORT_GATE, NOT_RUN_PREFIX
+
+    verification = report.get("verification") if report is not None else None
+    gates = verification.get("gates") if isinstance(verification, dict) else None
+    state = gates.get("derived") if isinstance(gates, dict) else None
+    if not isinstance(state, str):
+        return None
+    if state.startswith(NOT_RUN_PREFIX) or state == CUT_SHORT_GATE:
+        return (
+            f"the derived-file verification did not run: its gate reads {state!r}. "
+            "The derived files were asked for, so their verification is owed, and "
+            "an absent result is not a passed one."
+        )
+    return None
+
+
 # --- expect-album-audit -------------------------------------------------------
 
 #: The handshake check's name in :data:`platterpus.rip_audit.CHECKS`.

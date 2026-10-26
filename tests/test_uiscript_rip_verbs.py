@@ -3043,9 +3043,31 @@ def _window_after_a_rip_into(log_file: Path) -> Any:
     return _window(last_rip_log=RipLog(), last_rip_log_file=log_file)
 
 
-def _album_with(tmp_path: Path, masters: int, derived_ext: str, derived: int) -> Path:
+def _album_with(
+    tmp_path: Path,
+    masters: int,
+    derived_ext: str,
+    derived: int,
+    derived_gate: str | None = "ran — passed",
+) -> Path:
+    """An album folder with FLAC masters, derived files and a settled report.
+
+    The report is part of the stand-in because the verb reads it: since run C
+    (2026-10-22) a set of derived files whose verification did not run is a
+    FAIL, so the verb waits for the report's derived gate. ``derived_gate`` None
+    writes no report at all.
+    """
     album = tmp_path / "The Police" / "derived mp3 test"
     album.mkdir(parents=True)
+    if derived_gate is not None:
+        report = {
+            "outcome": {"status": "success"},
+            "verification": {"gates": {"derived": derived_gate}},
+            "issues": [],
+        }
+        (album / "derived mp3 test.platterpus.json").write_text(
+            json.dumps(report), encoding="utf-8"
+        )
     for n in range(1, masters + 1):
         (album / f"{n:02d} - Track.flac").write_text("master", encoding="utf-8")
     for n in range(1, derived + 1):
@@ -3158,6 +3180,46 @@ def test_expect_derived_output_waits_for_a_transcode_that_is_still_running(
         (album / f"{n:02d} - Track.mp3").write_text("derived", encoding="utf-8")
     assert process_until(lambda: bool(emitted)), "the wait never resolved"
     assert emitted[0].steps[-1].outcome is Outcome.PASS
+
+
+def test_expect_derived_output_fails_when_the_derived_verification_did_not_run(
+    qapp, process_until, tmp_path
+) -> None:
+    """Run C, 2026-10-22: every .mp3 was there a minute after the rip, so the
+    verb passed, while the verify had given up at 60 s and recorded "not run —
+    no mp3 files found to verify". Files whose verification did not run are not
+    a verified derived output."""
+    win = _window_after_a_rip_into(
+        _album_with(
+            tmp_path,
+            masters=2,
+            derived_ext="mp3",
+            derived=2,
+            derived_gate="not run — no mp3 files found to verify",
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 5"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "did not run" in step.detail
+    assert "no mp3 files found to verify" in step.detail
+
+
+def test_expect_derived_output_does_not_pass_files_with_no_settled_report(
+    qapp, process_until, tmp_path
+) -> None:
+    """Files with no report to say they were verified: not determined, a FAIL."""
+    win = _window_after_a_rip_into(
+        _album_with(
+            tmp_path, masters=2, derived_ext="mp3", derived=2, derived_gate=None
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 0.2"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "never settled" in step.detail
 
 
 def test_expect_derived_output_will_not_grade_a_previous_sections_album(
@@ -3305,6 +3367,59 @@ def test_expect_verification_fails_when_a_later_rip_superseded_the_checks(
     )
     assert step.outcome is Outcome.FAIL, step.detail
     assert "verification_superseded" in step.detail
+
+
+def test_expect_verification_fails_when_the_derived_verification_did_not_run(
+    qapp, process_until, tmp_path
+) -> None:
+    """Run C, 2026-10-22: the derived gate read "not run — no mp3 files found to
+    verify" beside a passed FLAC check, and the verb passed because SOME gate
+    had run. A derived format that was asked for and not verified is a FAIL."""
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report(
+                {
+                    "ctdb": "not run — CTDB verifies whole discs, and this rip is "
+                    "not the whole disc",
+                    "flac_integrity": "ran — passed",
+                    "derived": "not run — no mp3 files found to verify",
+                },
+                issues=[],
+            ),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 5"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "derived-file verification did not run" in step.detail
+
+
+def test_expect_verification_still_passes_a_rip_whose_derived_check_ran(
+    qapp, process_until, tmp_path
+) -> None:
+    """The narrowing written down: a partial rip's CTDB "not run" is not this
+    verb's FAIL (it is an accurate account of a check that cannot apply), and a
+    derived check that ran passes."""
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report(
+                {
+                    "ctdb": "not run — CTDB verifies whole discs, and this rip is "
+                    "not the whole disc",
+                    "flac_integrity": "ran — passed",
+                    "derived": "ran — passed",
+                },
+                issues=[],
+            ),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 5"
+    )
+    assert step.outcome is Outcome.PASS, step.detail
 
 
 def test_expect_verification_fails_on_a_gate_claiming_to_have_run_over_nothing(

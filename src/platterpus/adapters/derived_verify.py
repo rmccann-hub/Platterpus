@@ -85,6 +85,10 @@ class DerivedVerifyResult:
     failures: tuple[Path, ...] = ()
     mismatches: tuple[Path, ...] = ()
     error: str = ""
+    #: True when the verify gave up waiting for the transcode to finish
+    #: (`workers.derived_verify_worker.TRANSCODE_WAIT_TIMED_OUT`), so ``error``
+    #: says that and not "no files found". Report schema 40.
+    timed_out_waiting_for_transcode: bool = False
 
     @property
     def ran(self) -> bool:

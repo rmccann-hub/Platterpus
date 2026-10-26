@@ -411,6 +411,9 @@ class DerivedBlock(TypedDict):
     failures: list[str]
     mismatches: list[str]
     error: str | None
+    # The verify gave up waiting for the transcode to finish, so `error` says
+    # that rather than "no files found" (run C, 2026-10-22). Schema 40.
+    timed_out_waiting_for_transcode: NotRequired[bool]
 
 
 class VerificationBlock(TypedDict):

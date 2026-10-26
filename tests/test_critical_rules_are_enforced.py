@@ -1069,7 +1069,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # expects. The rule deciding WHEN that warning is expected is a separate
     # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
     # **331 -> 330** (2026-10-21, TASKS R13): the data-track test now asks `data_tracks.is_data_track` instead of restating the substring.
-    "uiscript/artifact_grading.py": 330,
+    # **330 -> 359** (2026-10-26, run C): `derived_verification_refusal`, the one predicate `expect-derived-output` and `expect-verification` share for a derived verification that did not run, beside `settle_state` which both already share.
+    "uiscript/artifact_grading.py": 359,
     # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
     # claude-code-skills audit check. **Kept as one module deliberately**: the
     # weight behind a match (`best_confidence`, `outvoted`) and its one wording
@@ -2031,7 +2032,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **815 -> 835** (2026-10-21, TASKS P2 #5): `VerificationCompletenessBlock` and the `completeness.verification` key that carries it.
     # **-> 984** (2026-10-21): the entries above landed together on one branch.
     # **984 -> 994** (2026-10-26, run B): `RetriedTrackBlock.pass_unfinished` and `not_replaced_because` (schema 40), in the one place the report's shape is declared.
-    "report_types.py": 994,
+    # **994 -> 997** (2026-10-26, run C of the 0.7.112 Full runs): `DerivedBlock.timed_out_waiting_for_transcode` (schema 40).
+    "report_types.py": 997,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2147,7 +2149,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2911 -> 3009** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #4/#5): the schema-39 note that `gates.*` narrows, `build_gates` taking the cut-short ledger, `_build` correcting the gates from the results and writing `completeness.verification`, and the `verification_cut_short` issue. The rules and wording live in `verification_gates.py`; this is the one place the report is assembled.
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
     # **3290 -> 3299** (2026-10-26, run B): the schema-40 history note beside `REPORT_SCHEMA_VERSION`.
-    "rip_report.py": 3299,
+    # **3299 -> 3307** (2026-10-26, run C): the derived block carries `timed_out_waiting_for_transcode`, and its schema-40 note.
+    "rip_report.py": 3307,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2776,7 +2779,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4809 -> 4823** (2026-10-21, the timed rip, the fork's round 36 lap 1 S15): two verb mixins in the class list and their imports, the two pieces of timing state with their reset, and the one dispatch line that marks a section N/A when it has nothing to compare. The handlers live in `install_verbs.py` and `timing_verbs.py`.
     # **4809 -> 4815** (2026-10-21, TASKS P2 #4): `expect-verification`'s floor asks `verification_gates.gate_claims_ran`, since a gate with a result now says "ran — passed" or "ran — failed".
     # **-> 4829** (2026-10-21): the entries above landed together on one branch.
-    "uiscript/runner.py": 4829,
+    # **4829 -> 4857** (2026-10-26, run C): `expect-derived-output` waits for the report to settle and FAILs a derived verification that did not run, and `expect-verification` FAILs it too; the predicate is `artifact_grading.derived_verification_refusal`, only the deadline wiring is here.
+    "uiscript/runner.py": 4857,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2819,7 +2823,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **997 -> 998** (2026-10-16, round 35, `overreadprobe`): the `cyanrip` verb's help names `(lasttrack)`.
     # **998 -> 999** (2026-10-20): the `refused` word in `expect-exit`'s help line.
     # **999 -> 1045** (2026-10-21, the timed rip): the `install-ripper`, `skip-if-same-build`, `record-timing` and `compare-timings` declarations, and the module docstring naming `install-ripper` as the one argued exception to "no verb installs a dependency". The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 1045,
+    # **1045 -> 1047** (2026-10-26, run C): the help of `expect-derived-output` and `expect-verification` says each now fails a derived verification that did not run.
+    "uiscript/verbs.py": 1047,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
