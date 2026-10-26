@@ -48,7 +48,7 @@ _AUDIO_EXTS: frozenset[str] = frozenset(
 # Linux filesystem (ext4/btrfs/xfs) — 255 *bytes*, not characters. A long CJK or
 # accented title is multi-byte in UTF-8 (≈3 bytes/CJK char), so ~85 characters
 # already blows the limit and directory creation would fail. We cap here.
-_NAME_MAX_BYTES: int = 255
+_NAME_MAX_BYTES: int = naming.NAME_MAX_BYTES  # one limit, shared with the R88 check
 
 
 def _dir_has_audio(directory: Path) -> bool:

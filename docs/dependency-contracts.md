@@ -119,9 +119,25 @@ only truly-illegal filename bytes are `/` and NUL, and both are covered: `/` is
 mapped, and NUL can't reach here because MB values are text and the
 Settings/config boundary rejects every control character
 (`settings_validation._has_control_char`). So on the target filesystem the output
-is always writable, and any genuinely-unwritable name (e.g. a component over the
-255-**byte** ext4 limit from a very long multibyte title) fails the rip **loudly**
+is always writable, and any genuinely-unwritable name fails the rip **loudly**
 (captured stderr + log), never silently.
+
+**A name over 255 BYTES is ours to refuse before Start** (TASKS R88, the owner's
+interim of 2026-10-26). Linux limits each path component to 255 bytes
+(`NAME_MAX`), and cyanrip does not shorten a name that is longer (no `NAME_MAX`
+handling in `cyanrip@eca33dc:src/naming.c`): a track title of 90 Japanese
+characters (270 bytes) read the whole track and then failed at file creation.
+`adapters/cyanrip_name_lengths.py` renders every component the rip needs (each
+album-folder level, the `<album>.log`/`.cue` cyanrip writes beside the tracks per
+`cyanrip@eca33dc:src/cyanrip_main.c:2355-2356`, and each track's file with
+`.flac` and any derived extension), from the `-D`/`-F` schemes and tags the argv
+sends, through `naming.render_scheme`, and counts bytes as cyanrip writes them
+(`naming.name_bytes_on_disk`: each substituted character and each `"` is a
+3-byte glyph). The track table shows the first over-long name before Start
+(*"Track 7’s file name would be 280 bytes; the limit is 255 — shorten its
+title."*, the rest counted), and `_build_rip_argv` raises `RipError` on the same
+finding for any other route. This shortens the TAG along with the name; the fork
+shortening only the file name is the long-term fix, to be asked for in a lap.
 
 **`.` and `..` are *ours* to reject, not cyanrip's to map** (audit, 2026-07-31).
 "Writable" was doing too much work in the paragraph above: the two segments POSIX

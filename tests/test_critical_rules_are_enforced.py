@@ -1062,6 +1062,12 @@ _MODULE_LINE_THRESHOLD: Final[int] = 300
 #: this was written. A file may shrink or leave; it may not grow, and no new file
 #: may join.
 _OVERSIZE_MODULES: Final[dict[str, int]] = {
+    # 383 (2026-10-26, TASKS R88, the owner's interim): born over 300. **Kept as one module deliberately**: one job,
+    # predicting every name a rip needs and refusing one over 255 bytes. Most of
+    # its length is the citation for each thing cyanrip adds that the renderer
+    # does not hold (extension, track padding, the log and cue names), which the
+    # code conventions ask to be written beside the code.
+    "adapters/cyanrip_name_lengths.py": 383,
     # 316 (2026-10-26, peer review 2.8): crossed 300 by `_our_release_page`, which
     # takes a release-page URL from the answer only when it is one of ours. One
     # job still: read the releases answer into what the update offer shows.
@@ -1223,7 +1229,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1943 -> 1946** (2026-10-20, round 35, the fork's exit classes from release 36): the banner's build tag is read once in `rip()` and handed to the `RipHandle` as well as the argv gate.
     # **1946 -> 1976** (2026-10-26, round 36 lap 7 S3): `--prefer-accuraterip-match` through the argv chokepoint on every rip, gated on the build tag beside `--prefer-disc-isrc`'s gate.
     # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
-    "adapters/cyanrip_backend.py": 1983,
+    # **1983 -> 1998** (2026-10-26, TASKS R88, the owner's interim): the argv chokepoint calls `cyanrip_name_lengths.assert_names_fit`, so no route to the ripper skips the name-length check; the check itself lives in its own module.
+    "adapters/cyanrip_backend.py": 1998,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     "adapters/musicbrainz_client.py": 618,
@@ -1895,7 +1902,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **359 -> 376** (2026-09-25, D18: `%N`/`%M` work everywhere): the preview fills in `%N`/`%M` and writes a typed brace as the parenthesis the file gets.
     # 376 -> 408 on 2026-09-28 (review R4, R5): `render_scheme` renders a cyanrip `{key}` scheme with the look-alike table this module owns, for the overwrite guard's folder; beside `render_preview`, its %-template twin.
     # 408 -> 414 on 2026-09-28: `render_scheme` trims each path component's edges, as cyanrip's `crip_trim_path_components` does.
-    "naming.py": 414,
+    # **414 -> 475** (2026-10-26, TASKS R88, the owner's interim): `name_bytes_on_disk` and `NAME_MAX_BYTES`, the byte count of a name as cyanrip writes it, beside the look-alike table it counts with, and `scheme_keys`, beside the pattern `render_scheme` substitutes by.
+    "naming.py": 475,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
@@ -2625,7 +2633,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5104 -> 5117** (2026-10-26, the owner's EAC-parity plan of record, Appendix I defect 3): `_merge_shipped_track` takes the shipped read's own speed, elapsed time and paranoia counters, with no fallback to the superseded read's; the merge rule lives here.
     # **-> 5120** (2026-10-26): the entries above landed together on one branch.
     # **5120 -> 5127** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `_merge_shipped_track` carries the limit that stopped the reads with the verdict it describes.
-    "ui/main_window_rip.py": 5127,
+    # **5127 -> 5160** (2026-10-26, TASKS R88, the owner's interim): `_rip_naming_for`, the snapshot the track table checks names against at Start, built from the same `_rip_metadata_for` the rip is handed; `_only_tracks_for_rip` is the selection both now read.
+    "ui/main_window_rip.py": 5160,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2727,7 +2736,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
     # **867 -> 889** (2026-10-26, run A on 0.7.112, the drive flicker): `restore_edits`, putting back what `album_metadata`/`tracks`/`selected_track_numbers` returned, so the same disc returned to the drive keeps the user's typing. It writes the widget's own fields, so it lives beside the readers it inverts.
     # **889 -> 893** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
-    "ui/track_table.py": 893,
+    # **893 -> 914** (2026-10-26, TASKS R88, the owner's interim): `validate` refuses a name over 255 bytes with the specific message, beside the other point-of-entry path checks; the rendering is `cyanrip_name_lengths`.
+    "ui/track_table.py": 914,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
