@@ -243,6 +243,56 @@ def _redact(
     return Redacted("".join(out), homes, hosts, names, wire)
 
 
+#: The verified-read chase's record (``verified_read_chase.chase_log_section``):
+#: per attempt, our header and argv lines, then that attempt's whole cyanrip log.
+#: It holds several signed logs, so :func:`signed_reason` would keep it byte for
+#: byte, our argv lines and their home folder included: the 2026-10-22 11:45 UTC
+#: Full run exported the rig's home folder that way, five times per record. It
+#: is redacted around its embedded logs instead, which stay as written.
+CHASE_RECORD: Final[re.Pattern[str]] = re.compile(
+    r"\A=== Platterpus verified-read chase: track \d{1,2}, attempt \d{1,2} ===\n"
+)
+#: One embedded cyanrip log: its banner line through its ``Log FUN512:`` line.
+EMBEDDED_LOG: Final[re.Pattern[str]] = re.compile(
+    r"^cyanrip \S{1,80} \([^)\n]{1,120}\)\n(?:(?!Log FUN512: )[^\n]*\n){0,20000}"
+    r"Log FUN512: \S{1,200}\n",
+    re.M,
+)
+
+
+def redact_chase_record(
+    text: str,
+    *,
+    homes: Sequence[str] = (),
+    hosts: Sequence[str] = (),
+    names: Sequence[str] | None = None,
+) -> tuple[Redacted, list[str]]:
+    """``text`` redacted everywhere except inside its embedded cyanrip logs.
+
+    Returns the result and the embedded logs, as written, for the caller to
+    verify. One function for the export and the evidence filing tool, so the two
+    cannot redact a chase record differently.
+    """
+    pieces: list[str] = []
+    logs: list[str] = []
+    totals = [0, 0, 0, 0]
+    at = 0
+
+    def around(chunk: str) -> str:
+        done = redact_all(chunk, homes=homes, hosts=hosts, names=names)
+        for i, n in enumerate((done.homes, done.hosts, done.names, done.wire_kept)):
+            totals[i] += n
+        return done.text
+
+    for match in EMBEDDED_LOG.finditer(text):
+        pieces.append(around(text[at : match.start()]))
+        logs.append(match.group(0))
+        pieces.append(match.group(0))
+        at = match.end()
+    pieces.append(around(text[at:]))
+    return Redacted("".join(pieces), *totals), logs
+
+
 def signed_reason(text: str) -> str:
     """Why ``text`` must be kept byte for byte, or ``""`` when it need not be.
 
@@ -274,6 +324,17 @@ def redact_member(
     """
     try:
         text = data.decode("utf-8", errors="surrogateescape")
+        if CHASE_RECORD.match(text):
+            done, _logs = redact_chase_record(
+                text, homes=homes, hosts=hosts, names=names
+            )
+            return Redaction(
+                data=done.text.encode("utf-8", errors="surrogateescape"),
+                replaced=done.homes,
+                wire_lines_kept=done.wire_kept,
+                hosts_replaced=done.hosts,
+                names_replaced=done.names,
+            )
         done = redact_all(text, homes=homes, hosts=hosts, names=names)
         reason = signed_reason(text)
         if reason:

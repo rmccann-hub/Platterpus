@@ -1088,7 +1088,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # owner's username in a filed bundle, because a JSON ``\n`` escape sits
     # directly before the path; the escape-aware start that fixes it is shared by
     # every boundary here and in `export_identity`, and must stay beside them.
-    "export_redaction.py": 306,
+    # **306 -> 367** (2026-10-26, the 2026-10-22 11:45 UTC Full run exported the rig's home folder in the verified-read chase's record): `CHASE_RECORD`, `EMBEDDED_LOG` and `redact_chase_record`, which redact around a record's embedded signed logs, and the branch in `redact_member` that uses it. One redaction for the export and the filing tool, so it lives where both already look.
+    "export_redaction.py": 367,
     # 352 lines on arrival (2026-10-14, TASKS R9). **One job, kept as one module**:
     # what became of each ripper invocation's `--diagnostics` record. Its two
     # halves are one fact seen from two places: the worker keeping the securing
@@ -2999,6 +3000,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # dated "why it moved" note every move of it has carried.
     # **945 -> 952** (2026-10-14): `PARTS` moves to our round 33 lap 2, the same way.
     "scripts/emit_envelope.py": 952,
+    # **new at 341** (2026-10-26): `scripts/evidence_file.py` stages, verifies, redacts and commits a run's evidence; the round 36 runs added the verified-read chase's record, filed by verifying each embedded log. One job, the filing.
+    "scripts/evidence_file.py": 341,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a

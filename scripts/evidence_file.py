@@ -36,13 +36,11 @@ import argparse
 import csv
 import hashlib
 import os
-import re
 import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -56,9 +54,11 @@ from platterpus.export_identity import (  # noqa: E402
     this_machines_hostnames,
 )
 from platterpus.export_redaction import (  # noqa: E402
+    CHASE_RECORD,
     KEPT_CYANRIP_SIGNED,
     KEPT_PLATTERPUS_CHECKSUM,
     redact_all,
+    redact_chase_record,
     signed_reason,
     this_machines_homes,
 )
@@ -129,23 +129,6 @@ def stage(
     return filed, skipped
 
 
-#: The verified-read chase's record (TASKS R7, ``verified_read_chase.py``): per
-#: attempt, a header and our argv line, then that attempt's whole cyanrip log.
-#: Several signed logs in one file verify as none of them, so it is filed as
-#: what it is, a wrapper: each embedded log is verified and kept byte for byte,
-#: and only the lines between them are redacted and counted. Found filing the
-#: 2026-10-22 11:45 UTC run, whose argv lines named the rig's home folder.
-_CHASE_WRAPPER: Final[re.Pattern[str]] = re.compile(
-    r"\A=== Platterpus verified-read chase: track \d{1,2}, attempt \d{1,2} ===\n"
-)
-#: One embedded cyanrip log: its banner line through its `Log FUN512:` line.
-_EMBEDDED_LOG: Final[re.Pattern[str]] = re.compile(
-    r"^cyanrip \S{1,80} \([^)\n]{1,120}\)\n(?:(?!Log FUN512: )[^\n]*\n){0,20000}"
-    r"Log FUN512: \S{1,200}\n",
-    re.M,
-)
-
-
 def _file_chase_wrapper(
     data: bytes,
     text: str,
@@ -156,28 +139,17 @@ def _file_chase_wrapper(
     hosts: Sequence[str],
     names: Sequence[str] | None,
 ) -> Filed:
-    """Verify each embedded log, keep it as written, and redact what is around it."""
+    """Verify each embedded log, keep it as written, and redact what is around it.
+
+    The chase's record (TASKS R7) holds several signed cyanrip logs with our argv
+    lines between them, so it verifies as no single log. The redaction is the
+    export's own (``export_redaction.redact_chase_record``), so filing and export
+    cannot disagree; the verification of each embedded log is this tool's.
+    """
     before = hashlib.sha256(data).hexdigest()
-    pieces: list[str] = []
-    verdicts: list[str] = []
-    counts = [0, 0, 0]
-    at = 0
-
-    def redact(chunk: str) -> str:
-        done = redact_all(chunk, homes=homes, hosts=hosts, names=names)
-        counts[0] += done.homes
-        counts[1] += done.hosts
-        counts[2] += done.names
-        return done.text
-
-    for match in _EMBEDDED_LOG.finditer(text):
-        pieces.append(redact(text[at : match.start()]))
-        segment = match.group(0)
-        verdicts.append(fun512.verify(segment.encode("utf-8", "surrogateescape")))
-        pieces.append(segment)
-        at = match.end()
-    pieces.append(redact(text[at:]))
-    new = "".join(pieces).encode("utf-8", "surrogateescape")
+    done, logs = redact_chase_record(text, homes=homes, hosts=hosts, names=names)
+    verdicts = [fun512.verify(log.encode("utf-8", "surrogateescape")) for log in logs]
+    new = done.text.encode("utf-8", "surrogateescape")
     dest.write_bytes(new)
     valid = sum(1 for v in verdicts if v == "valid")
     verdict = (
@@ -192,9 +164,9 @@ def _file_chase_wrapper(
         before,
         hashlib.sha256(new).hexdigest(),
         verdict,
-        counts[0],
-        counts[1],
-        counts[2],
+        done.homes,
+        done.hosts,
+        done.names,
     )
 
 
@@ -209,7 +181,7 @@ def file_member(
 ) -> Filed:
     """Verify first; then keep a signed log as written, or redact and count."""
     text = data.decode("utf-8", "surrogateescape")
-    if _CHASE_WRAPPER.match(text):
+    if CHASE_RECORD.match(text):
         return _file_chase_wrapper(
             data, text, dest, rel, homes=homes, hosts=hosts, names=names
         )
