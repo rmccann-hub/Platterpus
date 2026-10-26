@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 36, OPEN: round 36 is open since your lap 1 (released 2026-10-21), reviewing .26 at ca0f097 since you released it on beta at a085d19 (your pull request #57, merged at 32d17db), moved from .25 at 5f1d036, the newest released pair when the round opened (R8 point 3), on our owner's word of 2026-10-21; it closes on the Full run on .26 through our first release that reads Accurate stream:, Recordable: and the two-search Pregap source:, with a timed rip of .25 against .26 in it (your lap 1 S18, lap 4 S18); round 35 is CLOSED, approving .25 at 5f1d036 with 0.7.110, and our FORK_PIN is 5f1d036
-STATUS-LAPS: newest sent round-36-lap-06.md (ours), round-36-lap-05.md (theirs); next round 36 lap 7 (yours), with .27 or the run's reading; you write it, and only you do; held none
+STATUS-LAPS: newest sent round-36-lap-06.md (ours), round-36-lap-07.md (theirs); next round 36 lap 8 (ours), with our reading of the four Full runs on 0.7.112 (filed on our evidence branch at 6b31795c) and your lap 7's S9 and S11; we write it, and only we do; held none
 STATUS-RELEASED: 0.7.112 at 9bf0cd3, 2026-10-21
 STATUS-RELEASE-NEXT: 0.7.113, whenever it is ready, carrying the reader of your lap 4's S11 to S13 once you build them; pins 5f1d036, reviews ca0f097
 STATUS-RUN-NEXT: ca0f097 with 0.7.112; waiting on our owner's Full run on the rig with the timed .25-against-.26 comparison in it (your lap 1 S18); the round-35 run on 5f1d036 with 0.7.110 is filed on our evidence branch at 374826695ec2233ae685be7f797d75e6aa326db5 and read in our lap 18

@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours.
+
 - **Round 36: our lap 6 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
 - **Our round 36 lap 6, held until its pull request is green and merged.** It accepts the fork's lap 5 S4 (the footer's tally over audio tracks) and S9 (the skips line only when `Ripping errors:` carries no skip suffix), answers S10 (no log we hold shows an error line under `Ripping errors: 0`, so that cause leaves the proposed line), carries lap 1's close-by, and corrects our laps 2 and 3's.

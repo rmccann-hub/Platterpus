@@ -131,6 +131,7 @@ has no row in §1, §1b or §2.
 | `-h`, `--help` | Print this text | NO: we never print help; our probes read --version (§2) | HAVE |
 | `--stall-secs` | Seconds a frame read must stall before reporting liveness (0 disables) (default: 10) | NO: your default is kept | HAVE |
 | `--cache-probe` | Measure the drive's readback cache before ripping (costs seconds; with -I to measure without ripping) (default: false) | NO: not in a rip; our acceptance script's section P and --rig-check send it with -I, probe-only | HAVE |
+| `--prefer-accuraterip-match` | At the -Z repeat limit, keep the read AccurateRip matches at the highest confidence, where one does (default: false) | ? | HAVE |
 | `--encoder-option` | Pass key=value to every output's encoder, as FFmpeg names its options (repeatable) | NO: our rips write FLAC at your encoder's defaults; other formats are derived from the FLAC master by our own transcoder | HAVE |
 | `-p`, `--pregap` | Track pregap handling: N=default\|drop\|merge\|track (repeatable) | NO: your default pregap handling is kept; a per-track choice is not offered | HAVE |
 | `-P`, `--paranoia` | Paranoia level (0..max, or 'none'/'max') | NO: your default level is kept; a lower level is not offered | HAVE |
