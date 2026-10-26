@@ -44,13 +44,15 @@ AGREEMENT_TOLERANCE: Final[float] = 0.05
 _LABEL_RE: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 
 
-def label_problem(label: str) -> str:
-    """Why ``label`` cannot name a timing, or ``""`` when it can."""
+def label_problem(label: str, what: str = "a timing") -> str:
+    """Why ``label`` cannot name ``what`` (a timing, by default), or ``""``.
+
+    ``what`` lets the accuracy verbs (``accuracy_grading.py``) share the one rule
+    for a script's labels rather than keep a second copy of it.
+    """
     if _LABEL_RE.match(label or ""):
         return ""
-    return (
-        f"{label!r} cannot name a timing: use 1 to 32 letters, digits, '_', '.' or '-'"
-    )
+    return f"{label!r} cannot name {what}: use 1 to 32 letters, digits, '_', '.' or '-'"
 
 
 @dataclass(frozen=True)

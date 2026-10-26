@@ -42,6 +42,16 @@ ALBUMS: tuple[tuple[str, str], ...] = (
     ("timing A2", "timinga2"),
     ("timing B1", "timingb1"),
     ("timing B2", "timingb2"),
+    # Section P6's paired rips of track 3 (2026-10-26): the approved build four
+    # times (A1-A4) and the one under review four times (B1-B4), in ABBA order.
+    ("accuracy A1", "accuracya1"),
+    ("accuracy A2", "accuracya2"),
+    ("accuracy A3", "accuracya3"),
+    ("accuracy A4", "accuracya4"),
+    ("accuracy B1", "accuracyb1"),
+    ("accuracy B2", "accuracyb2"),
+    ("accuracy B3", "accuracyb3"),
+    ("accuracy B4", "accuracyb4"),
 )
 
 #: An album member by how its file name ends.

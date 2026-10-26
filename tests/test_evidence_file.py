@@ -233,6 +233,15 @@ def test_a_tampered_log_inside_a_chase_wrapper_fails_the_filing(
             "timingb2report.json",
         ),
         ("session/run/installripper1628.txt", "installripper1628.txt"),
+        # Section P6's paired rips of track 3, one album folder each (2026-10-26).
+        (
+            "album/accuracy B3 20261026t215702 platterpus-fork-gca0f097/x CD4.log",
+            "accuracyb3.log",
+        ),
+        (
+            "album/accuracy A4 20261026t215702 platterpus-fork-g5f1d036/x CD4.platterpus.json",
+            "accuracya4report.json",
+        ),
         # A rip that never finished leaves its files loose under album/.
         (
             "album/full acceptance x 20261021t214510 CD1 (EAC-compatible).log",
