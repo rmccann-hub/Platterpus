@@ -253,7 +253,7 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
                 _record_mb_failure("MB disc-id lookup failed", exc, disc_id)
             ) from exc
 
-        return _summaries_from_disc_response(response)
+        return _parsed("MB disc-id answer was malformed", disc_id, response)
 
     def releases_by_toc(self, toc: TocSignature) -> list[ReleaseSummary]:
         try:
@@ -276,7 +276,7 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
                 _record_mb_failure("MB TOC lookup failed", exc, toc.to_query())
             ) from exc
 
-        return _summaries_from_disc_response(response)
+        return _parsed("MB TOC answer was malformed", toc.to_query(), response)
 
     def release_by_mbid(
         self,
@@ -311,22 +311,58 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
                 _record_mb_failure("MB release fetch failed", exc, mbid)
             ) from exc
 
-        release = response.get("release", {})
-        choice = select_medium(
-            release.get("medium-list", []),
-            disc_id=disc_id,
-            disc_track_count=disc_track_count,
-        )
-        # Log the basis every time, not just on failure: when a rip later turns
-        # out to carry another disc's titles, this line is the evidence for
-        # which medium was believed and why.
-        if choice.confident:
-            log.debug("MB medium selected (%s): %s", choice.basis, choice.detail)
-        else:
-            log.warning("MB medium NOT determined: %s", choice.detail)
-        summary = _summary_from_release_dict(release, choice=choice)
-        tracks = _tracks_from_medium(choice.medium)
-        return ReleaseDetail(summary=summary, tracks=tracks)
+        try:
+            return _release_detail(response, disc_id, disc_track_count)
+        except _MALFORMED as exc:
+            raise MusicBrainzQueryError(
+                _record_mb_failure("MB release answer was malformed", exc, mbid)
+            ) from exc
+
+
+#: What a payload of the wrong SHAPE raises inside the helpers below: a list where
+#: an object belongs (`AttributeError`), a number where a list belongs
+#: (`TypeError`), a nesting deeper than the interpreter allows. The helpers coerce
+#: every value they hand on, and this is the backstop that keeps a shape they did
+#: not foresee from escaping the adapter as anything but its documented error
+#: (peer review 2.8, 2026-10-26: a hypothesis payload raised both).
+_MALFORMED: tuple[type[Exception], ...] = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    KeyError,
+    IndexError,
+    RecursionError,
+)
+
+
+def _parsed(what: str, detail: str, response: object) -> list[ReleaseSummary]:
+    """The summaries in a disc-id/TOC answer, or :class:`MusicBrainzQueryError`."""
+    try:
+        return _summaries_from_disc_response(_as_dict(response))
+    except _MALFORMED as exc:
+        raise MusicBrainzQueryError(_record_mb_failure(what, exc, detail)) from exc
+
+
+def _release_detail(
+    response: object, disc_id: str, disc_track_count: int | None
+) -> ReleaseDetail:
+    """One release answer, read. May raise one of :data:`_MALFORMED`."""
+    release = _as_dict(_as_dict(response).get("release"))
+    choice = select_medium(
+        _as_list(release.get("medium-list")),
+        disc_id=disc_id,
+        disc_track_count=disc_track_count,
+    )
+    # Log the basis every time, not just on failure: when a rip later turns
+    # out to carry another disc's titles, this line is the evidence for
+    # which medium was believed and why.
+    if choice.confident:
+        log.debug("MB medium selected (%s): %s", choice.basis, choice.detail)
+    else:
+        log.warning("MB medium NOT determined: %s", choice.detail)
+    summary = _summary_from_release_dict(release, choice=choice)
+    tracks = _tracks_from_medium(choice.medium)
+    return ReleaseDetail(summary=summary, tracks=tracks)
 
 
 # --- Response shape helpers (private) --------------------------------------
@@ -353,12 +389,54 @@ def _is_not_found(exc: musicbrainzngs.ResponseError) -> bool:
     return code == 404
 
 
+#: The longest text taken from one MusicBrainz field. MusicBrainz's own longest
+#: titles run to a few hundred characters; this is far above them and far below a
+#: value that would freeze a text widget. A longer one keeps its head and ends in
+#: "…" so the cut is visible, and the cut is logged.
+MAX_TEXT_CHARS: int = 4096
+
+
+def _text(value: object, field: str = "") -> str:
+    """``value`` if it is text, else ``""``; bounded to :data:`MAX_TEXT_CHARS`.
+
+    MusicBrainz's answer is the untrusted boundary of an unmaintained adapter
+    (Critical rule #1). Every field this module hands on is declared ``str``, and a
+    number or a list in its place used to be handed on as it was, to a widget that
+    raises on it. Never raises.
+    """
+    if not isinstance(value, str):
+        return ""
+    if len(value) > MAX_TEXT_CHARS:
+        log.warning(
+            "MusicBrainz %s was %d characters; kept the first %d and marked the cut",
+            field or "value",
+            len(value),
+            MAX_TEXT_CHARS,
+        )
+        return value[:MAX_TEXT_CHARS] + "…"
+    return value
+
+
+def _as_dict(value: object) -> _MbObject:
+    """``value`` if it is a JSON object, else an empty one. Never raises."""
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: object) -> _MbArray:
+    """``value`` if it is a JSON array, else an empty one. Never raises."""
+    return value if isinstance(value, list) else []
+
+
 def _summaries_from_disc_response(
     response: _MbObject,
 ) -> list[ReleaseSummary]:
     """Extract release summaries from `get_releases_by_discid` payload."""
-    disc = response.get("disc") or {}
-    return [_summary_from_release_dict(r) for r in disc.get("release-list", [])]
+    disc = _as_dict(response.get("disc"))
+    return [
+        _summary_from_release_dict(r)
+        for r in _as_list(disc.get("release-list"))
+        if isinstance(r, dict)
+    ]
 
 
 def _summary_from_release_dict(
@@ -372,14 +450,14 @@ def _summary_from_release_dict(
     which is fine there: the picker is choosing a *release*, and the medium is
     resolved on the full fetch that follows.
     """
-    mbid = release.get("id", "")
-    title = release.get("title", "")
-    artist_credit = _artist_credit_string(release.get("artist-credit", []))
-    date = release.get("date", "")
-    country = release.get("country", "")
-    disambiguation = release.get("disambiguation", "")
+    mbid = _text(release.get("id"), "release id")
+    title = _text(release.get("title"), "title")
+    artist_credit = _artist_credit_string(_as_list(release.get("artist-credit")))
+    date = _text(release.get("date"), "date")
+    country = _text(release.get("country"), "country")
+    disambiguation = _text(release.get("disambiguation"), "disambiguation")
 
-    media = release.get("medium-list", [])
+    media = _as_list(release.get("medium-list"))
     if choice is None:
         choice = select_medium(media)
     track_count = _medium_track_count_of(choice.medium)
@@ -387,7 +465,7 @@ def _summary_from_release_dict(
     disc_number = choice.position if choice.index >= 0 else 1
     total_discs = max(choice.total_media, 1)
 
-    label, catalog_number = _first_label_info(release.get("label-info-list", []))
+    label, catalog_number = _first_label_info(_as_list(release.get("label-info-list")))
 
     return ReleaseSummary(
         mbid=mbid,
@@ -398,7 +476,7 @@ def _summary_from_release_dict(
         track_count=track_count,
         label=label,
         catalog_number=catalog_number,
-        barcode=str(release.get("barcode", "") or ""),
+        barcode=_text(release.get("barcode"), "barcode"),
         medium_format=medium_format,
         disambiguation=disambiguation,
         genre=_top_tag_name(release),
@@ -428,8 +506,10 @@ def _tracks_from_medium(medium: _MbObject) -> tuple[TrackSummary, ...]:
     if not isinstance(medium, dict) or not medium:
         return ()
     tracks: list[TrackSummary] = []
-    for track in medium.get("track-list", []):
-        recording = track.get("recording", {})
+    for track in _as_list(medium.get("track-list")):
+        if not isinstance(track, dict):
+            continue
+        recording = _as_dict(track.get("recording"))
         number = _safe_int(track.get("position") or track.get("number"))
         if number is None:
             continue
@@ -437,8 +517,11 @@ def _tracks_from_medium(medium: _MbObject) -> tuple[TrackSummary, ...]:
         tracks.append(
             TrackSummary(
                 number=number,
-                title=recording.get("title", "") or track.get("title", ""),
-                artist_credit=_artist_credit_string(recording.get("artist-credit", [])),
+                title=_text(recording.get("title"), "track title")
+                or _text(track.get("title"), "track title"),
+                artist_credit=_artist_credit_string(
+                    _as_list(recording.get("artist-credit"))
+                ),
                 length_ms=length_ms,
                 isrc=_first_isrc(recording),
             )
@@ -454,13 +537,14 @@ def _artist_credit_string(credit: _MbArray) -> str:
     " feat. " or " & "). The display string is the concatenation.
     """
     parts: list[str] = []
-    for item in credit:
+    for item in _as_list(credit):
         if isinstance(item, dict):
-            artist = item.get("artist") or {}
-            parts.append(item.get("name") or artist.get("name") or "")
+            artist = _as_dict(item.get("artist"))
+            parts.append(_text(item.get("name")) or _text(artist.get("name")))
         else:
-            parts.append(str(item))
-    return "".join(parts).strip()
+            # The joining phrase (" feat. "). Text only: a number here is no phrase.
+            parts.append(_text(item))
+    return _text("".join(parts).strip(), "artist credit")
 
 
 def _medium_track_count_of(medium: _MbObject) -> int | None:
@@ -496,10 +580,10 @@ def _top_tag_name(release: _MbObject) -> str:
     untagged or the "tags" include wasn't requested.
     """
     best_name, best_count = "", -1
-    for tag in release.get("tag-list", []):
+    for tag in _as_list(release.get("tag-list")):
         if not isinstance(tag, dict):
             continue
-        name = tag.get("name", "")
+        name = _text(tag.get("name"), "tag")
         count = _safe_int(tag.get("count")) or 0
         if name and count > best_count:
             best_name, best_count = name, count
@@ -509,19 +593,19 @@ def _top_tag_name(release: _MbObject) -> str:
 def _first_isrc(recording: _MbObject) -> str:
     """First ISRC for a recording, or "". MB returns isrc-list as strings or
     `{"id": ...}` dicts depending on the response shape — handle both."""
-    for item in recording.get("isrc-list", []):
-        isrc = item.get("id", "") if isinstance(item, dict) else str(item)
+    for item in _as_list(recording.get("isrc-list")):
+        isrc = _text(item.get("id")) if isinstance(item, dict) else _text(item)
         if isrc:
             return isrc
     return ""
 
 
 def _first_label_info(infos: _MbArray) -> tuple[str, str]:
-    if not infos:
+    if not infos or not isinstance(infos[0], dict):
         return "", ""
     info = infos[0]
-    label = (info.get("label") or {}).get("name", "")
-    catno = info.get("catalog-number", "")
+    label = _text(_as_dict(info.get("label")).get("name"), "label")
+    catno = _text(info.get("catalog-number"), "catalog number")
     return label, catno
 
 

@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (78)
+## 1. Log lines we parse (79)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -130,6 +130,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_kept_read_began` **(fork-only)** | indented | `^\\s{1,8}Kept read began:\\s{1,8}(?P<value>\\S.*)$` |
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
+| `track_echo_header` | indented | `^\\s{1,8}(?:Metadata\|CD-TEXT):\\s*$` |
 
 Of these, **28 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:

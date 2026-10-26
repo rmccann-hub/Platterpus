@@ -1643,6 +1643,25 @@ _TRACK_SECURE_VERDICT = re.compile(
     r"^\s+Secure re-?read(?:s)?:\s+(?P<text>\S(?:.*\S)?)\s*$"
 )
 
+# --- The ECHO: where a track block starts repeating values it was given ---------
+#
+# cyanrip prints each track's tags in a `  Metadata:` block and the disc's own
+# words for the track in a `  CD-TEXT:` block, both with a bare "%s\n"
+# (`cyanrip@eca33dc:src/cyanrip_log.c:58-62`, `:770-776`, `:785-788`). So a value
+# holding a line break puts the rest of it on a line of its own, shaped like any
+# row cyanrip prints. Our own values cannot carry one (the argv chokepoint refuses
+# or replaces it, decision D14), but the disc's CD-TEXT is echoed whatever we send.
+#
+# **Why the header is a reliable boundary.** Every per-track verdict row (`EAC
+# CRC32`, `Secure re-read`, `Accurip:` and its `v1`/`v2`/`450` rows) is printed
+# BEFORE the `Metadata:` header in every cyanrip build (`cyanrip@eca33dc:
+# src/cyanrip_log.c:648-744` against `:755`; every committed log agrees,
+# `tests/test_echoed_field_forgery.py`). One that appears after it in the same
+# block can only have come out of an echoed value, so it is not read. Scoped to
+# the block, not to the echo's first blank line: a value can carry a blank line
+# too. (Peer review 2.4, 2026-10-26; what this cannot close is TASKS R86.)
+_TRACK_ECHO_HEADER = re.compile(r"^\s{1,8}(?:Metadata|CD-TEXT):\s*$")
+
 # --- 4. "Appended: N frames of silence" — ALREADY PRINTED by cyanrip 0.9.3 ---
 #
 # Not fork-only: this is in both committed reference logs (track 14 of each), and
@@ -2164,6 +2183,28 @@ class _TrackAcc:
     # the disc. Both None when the line is absent: "not stated", never 0.
     beyond_disc_frames_refused: int | None = None
     beyond_disc_frames: int | None = None
+    # True once this block's `Metadata:` or `CD-TEXT:` header has been read: from
+    # there on a verdict-shaped row is an echoed value, never cyanrip's own
+    # (see `_TRACK_ECHO_HEADER`).
+    echo_reached: bool = False
+
+
+def _is_track_verdict_row(line: str) -> bool:
+    """True for a row that, read as cyanrip's own, would set a track's verdict.
+
+    The rows `_TRACK_ECHO_HEADER` explains: each is printed before the echo in
+    every build, so after it they are refused, not read. Never raises.
+    """
+    return any(
+        pattern.match(line)
+        for pattern in (
+            _EAC_CRC,
+            _TRACK_SECURE_VERDICT,
+            _TRACK_ACCURIP_STATUS,
+            _ACCURIP_TRACK,
+            _ACCURIP_OFFSET,
+        )
+    )
 
 
 # A handler takes the accumulator and the successful match, records the fact, and
@@ -3215,6 +3256,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_kept_read_began", _KEPT_READ_BEGAN),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
     ("track_accurip_status", _TRACK_ACCURIP_STATUS),
+    # A boundary, not a fact: after it, a verdict-shaped row is an echoed value.
+    ("track_echo_header", _TRACK_ECHO_HEADER),
 )
 
 # Lines cyanrip prints at the top level that we KNOWINGLY do not parse. This is
@@ -3647,6 +3690,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
     error_head: list[str] = []
     error_tail: deque[str] = deque(maxlen=_ERROR_LINE_KEEP)
     error_total = 0
+    # Verdict-shaped rows found inside a track's echo and not read (the latch at
+    # `_TRACK_ECHO_HEADER`). Counted so the drop reaches the log, never silent.
+    echoed_verdict_rows = 0
 
     # The track block currently being read; flushed into `disc.tracks` when the
     # next block (or the end of input) is reached.
@@ -4033,6 +4079,17 @@ def parse_cyanrip_log(text: str) -> RipLog:
             continue
 
         if current is not None:
+            # The echo latch (`_TRACK_ECHO_HEADER`). The header itself is only a
+            # marker; the rows inside the echo (ReplayGain among them) are still
+            # read below. Only a verdict-shaped row after it is set aside, and
+            # counted, so the drop is never silent.
+            if _TRACK_ECHO_HEADER.match(line):
+                current.echo_reached = True
+                continue
+            if current.echo_reached and _is_track_verdict_row(line):
+                echoed_verdict_rows += 1
+                continue
+
             # A data track's CRC32 and EDC rows. Read only inside a data track's
             # block: the CRC32 of a data track is not an audio CRC, and filing it
             # anywhere else would hand it to a track it does not describe.
@@ -4458,6 +4515,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
             for tr in disc.tracks
         ]
     truncated, last_incomplete = _detect_truncation(text, disc.tracks)
+    if echoed_verdict_rows:
+        # A warning, not debug: cyanrip never prints one of these after the echo,
+        # so each is a value that carried a line break (the disc's CD-TEXT, or a
+        # tag it filled in), and a reader of the log file should know.
+        log.warning(
+            "cyanrip log: %d verdict-shaped row(s) inside an echoed Metadata or "
+            "CD-TEXT block were NOT read: a value cyanrip echoed carried a line "
+            "break, so those rows are not cyanrip's own",
+            echoed_verdict_rows,
+        )
     if unclaimed_total:
         log.debug(
             "cyanrip log: %d unrecognised top-level line(s); first %d: %r",

@@ -119,8 +119,11 @@ SITE_SCENARIOS: Final[dict[str, tuple[str, ...]]] = {
         "cyanrip update check[*]",
         "cyanrip update check, held back[*]",
     ),
-    # Inline Qt dialogs.
-    "ui/main_window_update.py::_begin_update_install": (
+    # Inline Qt dialogs. The update's progress dialog is built by
+    # `plain_progress_dialog` since 2026-10-26 (peer review 2.6: its label is
+    # PlainText), which `_begin_update_install` calls; the scenarios still drive it
+    # through the update.
+    "ui/plain_text.py::plain_progress_dialog": (
         "update progress[downloading]",
         "update progress[installing]",
     ),
@@ -783,7 +786,7 @@ def test_every_direct_message_box_has_a_scenario() -> None:
     direct = set(_message_box_functions()) - {"ui/message_boxes.py::build"}
     sites = direct | inline_dialog_sites()
     assert len(direct) >= 8, f"only {len(direct)} direct sites — the sweep broke"
-    assert "ui/main_window_update.py::_begin_update_install" in sites, (
+    assert "ui/plain_text.py::plain_progress_dialog" in sites, (
         "the inline-dialog sweep no longer sees the update's progress dialog"
     )
     assert sites == set(SITE_SCENARIOS), (

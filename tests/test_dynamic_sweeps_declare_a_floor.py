@@ -54,6 +54,20 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Peer review 2.4 (2026-10-26): the six forged verdict rows, and the eleven
+    # -a/-t values end to end.
+    "test_echoed_field_forgery.py::test_a_CDTEXT_echo_cannot_forge_a_track_verdict_row": (
+        "test_the_forged_row_table_names_every_verdict_row"
+    ),
+    "test_echoed_field_forgery.py::test_an_echoed_TITLE_cannot_forge_a_track_verdict_row": (
+        "test_the_forged_row_table_names_every_verdict_row"
+    ),
+    "test_echoed_field_forgery.py::test_each_forged_row_IS_read_when_it_stands_where_cyanrip_prints_it": (
+        "test_the_forged_row_table_names_every_verdict_row"
+    ),
+    "test_echoed_field_forgery.py::test_OUR_values_cannot_carry_a_line_into_the_log": (
+        "test_the_field_table_names_all_eleven_values_we_send"
+    ),
     # `.27`'s `Pregap search:` line (2026-10-26, round 36 lap 8 S21): the shapes
     # are filled from their P2 format string, and one variant from a filled line.
     "test_pregap_search.py::test_each_shape_of_the_line_is_read": (

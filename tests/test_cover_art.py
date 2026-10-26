@@ -497,10 +497,22 @@ def test_save_additional_covers_saves_back_and_booklet(tmp_path: Path) -> None:
     manifest = json.dumps(
         {
             "images": [
-                {"types": ["Front"], "image": "http://caa/front.jpg"},
-                {"types": ["Back"], "image": "http://caa/back.jpg"},
-                {"types": ["Booklet"], "image": "http://caa/b1.jpg"},
-                {"types": ["Booklet"], "image": "http://caa/b2.jpg"},
+                {
+                    "types": ["Front"],
+                    "image": "http://coverartarchive.org/release/img/front.jpg",
+                },
+                {
+                    "types": ["Back"],
+                    "image": "http://coverartarchive.org/release/img/back.jpg",
+                },
+                {
+                    "types": ["Booklet"],
+                    "image": "http://coverartarchive.org/release/img/b1.jpg",
+                },
+                {
+                    "types": ["Booklet"],
+                    "image": "http://coverartarchive.org/release/img/b2.jpg",
+                },
             ]
         }
     ).encode()
@@ -528,7 +540,14 @@ def test_save_additional_covers_no_release_or_error(tmp_path: Path) -> None:
 
 def test_save_additional_covers_ignores_non_image_bytes(tmp_path: Path) -> None:
     manifest = json.dumps(
-        {"images": [{"types": ["Back"], "image": "http://caa/back"}]}
+        {
+            "images": [
+                {
+                    "types": ["Back"],
+                    "image": "http://coverartarchive.org/release/img/back",
+                }
+            ]
+        }
     ).encode()
 
     def fetcher(url: str) -> bytes:

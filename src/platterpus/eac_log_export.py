@@ -49,7 +49,7 @@ import logging
 import re
 from datetime import datetime
 
-from platterpus import diagnostics, one_frame_match
+from platterpus import diagnostics, inbound_text, one_frame_match
 from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.cyanrip_log import (
     INTERRUPTED_MID_READ,
@@ -156,6 +156,34 @@ def _break_recognition(match: re.Match[str]) -> str:
         f"{match.group('program')}{match.group('gap')}log "
         f"{match.group('file')}{match.group('tail')}"
     )
+
+
+def _screen_rows(lines: list[str]) -> list[str]:
+    """Each row exactly one line: a control character inside it is shown, not obeyed.
+
+    The log is a list of rows joined with ``\\n``, and some rows carry text from
+    outside (the album line, the drive's name, each track's file name, the
+    ripper's banner). A value holding a line break would add a line we never
+    wrote, shaped like any row EAC prints, ABOVE the checksum that then attests
+    it; a NUL or an escape sequence hides in the text. So every row goes through
+    the app's one inbound screen (:func:`inbound_text.screen_line`): each control
+    character becomes a visible ``\\xNN`` escape, tab is kept, an absurd length
+    is bounded head and tail with the elision counted. A row of ours carries none
+    of these, so a real log is unchanged (peer review 2.5, 2026-10-26).
+    """
+    out: list[str] = []
+    flagged = 0
+    for line in lines:
+        screened = inbound_text.screen_line(line)
+        flagged += screened.flagged
+        out.append(screened.text)
+    if flagged:
+        log.warning(
+            "EAC-style log: %d row(s) carried a control character or an absurd "
+            "length; shown as escapes so each stays one line",
+            flagged,
+        )
+    return out
 
 
 def _defuse_signature_lines(lines: list[str]) -> tuple[list[str], list[str]]:
@@ -552,7 +580,7 @@ def _render(
     lines.append("")
     # Before our own not-signed line goes on, so it is never touched: nothing a
     # metadata value put above it may read as a signature (D16).
-    lines, defused = _defuse_signature_lines(lines)
+    lines, defused = _defuse_signature_lines(_screen_rows(lines))
     # Deliberately NOT a real "==== Log checksum <hex> ====": that is EAC's
     # signature, and signing our output as EAC would be forgery.
     lines.append(_NOT_SIGNED)
