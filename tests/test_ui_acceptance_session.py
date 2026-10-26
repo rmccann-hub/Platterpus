@@ -1647,6 +1647,115 @@ def test_a_rip_that_will_not_stop_is_packed_around_and_named(
     assert "STILL READING" in note, note
 
 
+def test_the_session_waits_for_the_post_rip_checks_before_it_packs(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run B, 2026-10-21: the rip stopped at 23:46:21, the session packed its
+    bundle from 23:46:22, and the CTDB and FLAC results landed at 23:47:29 and
+    23:47:34, so the bundled report said `verification_result_missing`. The
+    session now waits for the post-rip checks too, and says it did."""
+    import threading
+
+    from platterpus import test_session as provision
+
+    launched: list[dict] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(k),
+    )
+    monkeypatch.setattr(provision, "RIP_POLL_MS", 20)
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+    win._rip_worker = None  # the rip has stopped
+    done = threading.Event()
+    ctdb = threading.Thread(target=lambda: done.wait(5.0), daemon=True)
+    ctdb.start()
+    win._ctdb_thread = ctdb  # its CTDB check is still running
+    try:
+        win._on_acceptance_run_finished(_report_with(("rip", "pass")))
+        assert launched == [], "packed while a post-rip check was still running"
+        assert win._acceptance_layout is not None, "the session ended under it"
+    finally:
+        done.set()
+    ctdb.join(5.0)
+    assert process_until(lambda: bool(launched), timeout=5), "never packed"
+    facts = launched[0]["facts"]
+    assert "waited" in facts["post-rip checks at packing"], facts
+    # The rip's own note survives the re-polls rather than being re-answered.
+    assert facts["rip at the end of the run"] == "no rip was reading when the run ended"
+
+
+def test_the_rips_note_survives_the_wait_for_its_post_rip_checks(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """New state the post-rip wait creates: the session re-polls after the rip
+    has stopped, and asking about the rip again would answer "no rip was
+    reading", which is false. The first answer is kept across the re-polls."""
+    import threading
+
+    from platterpus import test_session as provision
+
+    launched: list[dict] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(k),
+    )
+    monkeypatch.setattr(provision, "RIP_POLL_MS", 20)
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+    win._rip_worker = object()  # type: ignore[assignment]  # still reading
+    done = threading.Event()
+    checks = threading.Thread(target=lambda: done.wait(5.0), daemon=True)
+    checks.start()
+    win._checksums_thread = checks
+    try:
+        win._on_acceptance_run_finished(_report_with(("rip", "pass")))
+        win._rip_worker = None  # the rip stops; its checks keep running
+        assert process_until(
+            lambda: win._acceptance_post_rip_wait_since is not None, timeout=5
+        ), "floor: the session never reached the post-rip wait"
+    finally:
+        done.set()
+    assert process_until(lambda: bool(launched), timeout=5), "never packed"
+    note = launched[0]["facts"]["rip at the end of the run"]
+    assert "waited" in note and "still reading" in note, note
+
+
+def test_post_rip_checks_that_outlast_the_wait_are_named_in_the_bundle(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bounded: past `post_rip_wait_s` the bundle is packed and names the checks
+    still running, so a report without their results is not read as complete."""
+    import threading
+
+    from platterpus import test_session as provision
+
+    launched: list[dict] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(k),
+    )
+    monkeypatch.setattr(provision, "RIP_POLL_MS", 20)
+    monkeypatch.setattr(provision, "post_rip_wait_s", lambda: 0.2)
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+    win._rip_worker = None
+    done = threading.Event()
+    flac = threading.Thread(target=lambda: done.wait(5.0), daemon=True)
+    flac.start()
+    win._flac_verify_thread = flac
+    try:
+        win._on_acceptance_run_finished(_report_with(("rip", "pass")))
+        assert process_until(lambda: bool(launched), timeout=5), "never packed"
+    finally:
+        done.set()
+    note = launched[0]["facts"]["post-rip checks at packing"]
+    assert "STILL RUNNING" in note and "flac_verify" in note, note
+
+
 def test_with_no_rip_running_the_session_packs_at_once_and_says_so(
     window, session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -1854,6 +1854,8 @@ def test_a_stopped_securing_pass_keeps_the_verdicts_it_reached(
             "converged": False,
             "replaced": False,
             "replaced_because": None,
+            "pass_unfinished": True,
+            "not_replaced_because": "accuraterip_did_not_verify",
         }
     ]
     # Nothing from the stopped pass reached the album folder.
@@ -1913,10 +1915,149 @@ def test_a_stopped_securing_pass_whose_log_never_settles_keeps_its_whole_verdict
             "converged": False,
             "replaced": False,
             "replaced_because": None,
+            "pass_unfinished": True,
+            "not_replaced_because": "accuraterip_did_not_verify",
         }
     ]
     joined = "\n".join(lines)
     assert "never reached its footer" in joined, joined
+
+
+def _closed_flac(total_samples: int) -> bytes:
+    """A FLAC header as an encoder leaves it once it has CLOSED the file.
+
+    ``STREAMINFO`` carries the sample count and a non-zero audio MD5, the two
+    values an encoder writes only when it finishes (`unfinished_refix.py`).
+    ``total_samples`` 0 with a zero MD5 is the shape of a file never closed.
+    """
+    packed = (44100 << 44) | (1 << 41) | (15 << 36) | total_samples
+    md5 = bytes(range(1, 17)) if total_samples else bytes(16)
+    payload = bytes(10) + packed.to_bytes(8, "big") + md5
+    return b"fLaC" + bytes([0x80, 0, 0, 34]) + payload + b"FRAMES"
+
+
+# Run B of the 0.7.112 Full runs (2026-10-21), track 11 as its securing pass
+# logged it: five reads, no two agreeing, and AccurateRip matching the read it
+# kept (v1 confidence 12, v2 confidence 29), where the album pass's read of the
+# track matched nothing. Re-shaped onto this file's 3-track fixture as track 2;
+# the stop came during track 3, so track 3 has no verdict. 14113 sectors.
+_REFIX_STOPPED_AFTER_A_VERIFIED_TRACK_2 = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Done; (repeat limit of 5 reads reached; at most 1 read agreed)\n"
+    "Track 2 read with errors.\n"
+    "    Start LSN:   135147 (with offset: 135148)\n"
+    "    End LSN:     149259 (with offset: 149261)\n"
+    "  EAC CRC32:     10248071 (after 5 rips)\n"
+    "    Accurip v1:  9FCC4FB0 (accurately ripped, confidence 12)\n"
+    "    Accurip v2:  F90C8B07 (accurately ripped, confidence 29)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Repeating ripping (0 out of 2 matches for current checksum AB84C427)\n"
+    "Stopping, ripping incomplete!\n"
+    "Ripping errors: 3390 (including 3389 paranoia skips)\n"
+    "Rip completed:  no (interrupted by SIGTERM, 1 of 3 tracks)\n"
+    "Log FUN512: abc\n"
+)
+
+
+def _stopped_pass_worker(
+    tmp_path: Path, refix_log: str, track2_flac: bytes
+) -> tuple[RipWorker, _FakeBackend, list[str]]:
+    """Run an album pass with tracks 2 and 3 unstable, and a securing pass the
+    user stops during track 3, which leaves ``track2_flac`` as track 2's file."""
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, refix_log, False)
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            folder = call["output_dir"] / "Artist" / "Album"
+            (folder / "02 - B.flac").write_bytes(track2_flac)
+            worker.cancel()  # the six-hour wait gives up during track 3
+
+    backend.rip_side_effect = rip_side_effect
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True, exist_ok=True)
+    (album / "02 - B.flac").write_bytes(b"FIRST-READ")
+    worker.start_rip()
+    return worker, backend, lines
+
+
+def test_a_stopped_securing_pass_swaps_in_a_finished_re_read_accuraterip_verified(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Run B, 2026-10-21: the stopped pass's verified re-read was thrown away.
+
+    The securing pass was stopped during track 18 and nothing was swapped from
+    it, so the album kept track 11's unverified first read while the pass's own
+    log showed the re-read matching AccurateRip at confidence 29. A track the
+    pass finished, whose re-read AccurateRip verified and whose file was written
+    whole, is now swapped in exactly as a finished pass's would be.
+    """
+    whole = _closed_flac(14113 * 588)
+    worker, backend, lines = _stopped_pass_worker(
+        tmp_path, _REFIX_STOPPED_AFTER_A_VERIFIED_TRACK_2, whole
+    )
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": True,
+            "replaced_because": "accuraterip",
+            "pass_unfinished": True,
+            "not_replaced_because": None,
+        }
+    ]
+    album = tmp_path / "Artist" / "Album"
+    assert (album / "02 - B.flac").read_bytes() == whole
+    assert 2 in worker.swapped_track_records
+    assert 2 not in worker.unstable_tracks
+    # The supersede sidecar describes the file now on disk.
+    addenda = list(album.glob("*addendum*"))
+    assert len(addenda) == 1, addenda
+    assert "10248071" in addenda[0].read_text(encoding="utf-8")
+    # Still a stopped pass: its report block says interrupted.
+    report = worker.secure_rerip_report
+    assert report is not None and report["interrupted"] is True
+    assert any("replace the first reads" in line for line in lines), lines
+
+
+def test_a_stopped_securing_pass_keeps_the_first_read_when_the_file_is_not_whole(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The twin of the test above: the same verified verdict, but the re-read's
+    FLAC was never closed by its encoder (0 samples, no MD5), so ``File(s):``
+    alone is not taken as proof the file is whole and the first read stays."""
+    worker, _backend, _lines = _stopped_pass_worker(
+        tmp_path, _REFIX_STOPPED_AFTER_A_VERIFIED_TRACK_2, _closed_flac(0)
+    )
+
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": False,
+            "replaced_because": None,
+            "pass_unfinished": True,
+            "not_replaced_because": "file_not_whole",
+        }
+    ]
+    album = tmp_path / "Artist" / "Album"
+    assert (album / "02 - B.flac").read_bytes() == b"FIRST-READ"
+    assert worker.swapped_track_records == {}
 
 
 def test_the_securing_pass_keeps_its_own_ripper_log_beside_the_albums(

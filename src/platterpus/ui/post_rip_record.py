@@ -51,6 +51,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:  # pragma: no cover — annotations only
+    from platterpus.adapters.rip_backend import RipMetadata
     from platterpus.read_speed_ladder import SpeedAttempt
     from platterpus.report_types import (
         EtaSampleBlock,
@@ -103,6 +104,11 @@ class PostRipRecord:
     # is a fact about this rip rather than a setting that can drift.
     settings: dict[str, object] = field(default_factory=dict)
     gate_inputs: dict[str, bool] = field(default_factory=dict)
+    #: The tags this rip was handed (the track table as typed, and the release's
+    #: passthroughs), set when its worker starts. The acceptance graders compare
+    #: the files with THIS, not with the window: run A on 0.7.112 cleared the
+    #: table 41 s after its rip and graded correct files as wrong.
+    metadata: RipMetadata | None = None
 
     # --- captured at finish: what the rip DID -------------------------------
     outcome: dict[str, object] | None = None

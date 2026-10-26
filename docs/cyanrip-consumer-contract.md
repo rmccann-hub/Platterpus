@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (74)
+## 1. Log lines we parse (76)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -83,6 +83,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_partial_total` | disc | `^(?:Tracks ripped partially accurately\|Tracks matched on one frame only):\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)(?:\\s{1,4}\\(including\\s{1,4}(?P<skips>\\d{1,20})\\s{1,4}paranoia\\s{1,4}skips?\\))?` |
 | `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
+| `not_written_whole` **(fork-only)** | disc | `^\\s{1,8}not written whole: (?P<path>.+)$` |
 | `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S(?:.*\\S)?)\\s*$` |
 | `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
 | `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
@@ -124,10 +125,11 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |
 | `track_elapsed_seconds` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?P<s>\\d{1,7}(?:\\.\\d{1,6})?)\\s*(?:s\|sec\|secs\|seconds)\\b` |
+| `track_kept_read_began` **(fork-only)** | indented | `^\\s{1,8}Kept read began:\\s{1,8}(?P<value>\\S.*)$` |
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 
-Of these, **24 exist only in the fork** and match nothing in
+Of these, **26 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -140,6 +142,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `album_sample_peak_level`
 - `album_true_peak_level`
 - `encoder_errors`
+- `not_written_whole`
 - `interrupted_at`
 - `rip_completed`
 - `read_stalls`
@@ -152,6 +155,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_sample_peak`
 - `track_extraction_speed`
 - `track_elapsed_seconds`
+- `track_kept_read_began`
 - `track_secure_verdict`
 - `track_accurip_status`
 

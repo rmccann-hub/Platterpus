@@ -223,6 +223,16 @@ class ExpectedCue:
     #: not having it (measured against the committed reference report,
     #: 2026-08-06 review).
     ripped_tracks: frozenset[int] | None = None
+    #: Track number → the disc's OWN ISRC, the code on the ripper's ``Disc
+    #: ISRC:`` row, given only when we sent ``--prefer-disc-isrc``. The ripper
+    #: then writes the disc's code wherever the disc has one, so that, not the
+    #: MusicBrainz code in ``isrcs``, is what the cue must carry. Runs A and D
+    #: of the 0.7.112 Full runs (2026-10-21/22): every cue carried the disc's
+    #: codes, A's all fourteen equal to EAC's cue of the same disc, and the
+    #: check warned "ISRC(s) differ from what we sent" on all of them. A
+    #: difference from MusicBrainz is then a NOTE naming both (D's track 10:
+    #: disc ``USZO10001709``, MusicBrainz ``USZ010001709``, an MB typo).
+    disc_isrcs: Mapping[int, str] = field(default_factory=dict)
 
 
 # --- The parser -------------------------------------------------------------
@@ -572,22 +582,29 @@ def _named_tracks(numbers: Sequence[int]) -> str:
     return _named([str(n) for n in numbers], MAX_NAMED_TRACKS)
 
 
+def _same_isrc(a: str, b: str) -> bool:
+    return a.strip().upper() == b.strip().upper()
+
+
 def _check_isrcs(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
-    """Did every ISRC we sent come back on its track in the cue?
+    """Did every ISRC we expect come back on its track in the cue?
 
     ISRCs are the disc's per-track identifiers; a tracker or tagger reading the
-    cue is entitled to them, and we know exactly which ones we supplied.
+    cue is entitled to them. What we expect on a track is the disc's own code
+    when we sent ``--prefer-disc-isrc`` and the disc has one
+    (``expected.disc_isrcs``), and otherwise the code we sent.
     """
     # Narrow to the tracks that were actually ripped BEFORE testing for
     # emptiness. `-t` arguments come from the metadata, not from the selection,
     # so a two-track rip still sends fourteen ISRCs — and the cue is only ever
     # going to carry the two. Expecting the other twelve is expecting the ripper
     # to have ignored the `-l` we gave it.
-    wanted: Mapping[int, str] = expected.isrcs
+    sent: Mapping[int, str] = expected.isrcs
+    disc: Mapping[int, str] = expected.disc_isrcs
     if expected.ripped_tracks is not None:
-        wanted = {
-            n: v for n, v in expected.isrcs.items() if n in expected.ripped_tracks
-        }
+        sent = {n: v for n, v in sent.items() if n in expected.ripped_tracks}
+        disc = {n: v for n, v in disc.items() if n in expected.ripped_tracks}
+    wanted: dict[int, str] = {**sent, **disc}
 
     if not wanted:
         # Not determined, never "ok". A rip of an unknown disc sends no ISRCs,
@@ -610,15 +627,22 @@ def _check_isrcs(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
     missing: list[int] = []
     mismatched: list[str] = []
     absent_track: list[int] = []
+    disc_over_sent: list[str] = []
     for number, isrc in sorted(wanted.items()):
         track = by_number.get(number)
+        source = "disc" if number in disc else "sent"
         if track is None:
             absent_track.append(number)
         elif not track.isrc:
             missing.append(number)
-        elif track.isrc.strip().upper() != isrc.strip().upper():
-            mismatched.append(f"track {number}: cue {track.isrc} vs sent {isrc}")
+        elif not _same_isrc(track.isrc, isrc):
+            mismatched.append(f"track {number}: cue {track.isrc} vs {source} {isrc}")
+        elif number in disc and number in sent and not _same_isrc(isrc, sent[number]):
+            disc_over_sent.append(
+                f"track {number}: disc {isrc}, MusicBrainz {sent[number]}"
+            )
 
+    what = "we sent" if not disc else "we expected"
     findings: list[CueFinding] = []
     if missing:
         # The signature sentence. On both measured rips the dropped ISRCs were
@@ -637,8 +661,8 @@ def _check_isrcs(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
             CueFinding(
                 LEVEL_WARN,
                 "cue_isrc_missing",
-                f"cue sheet — {len(missing)} of {len(wanted)} ISRC(s) we "
-                f"sent are missing from the cue: track(s) "
+                f"cue sheet — {len(missing)} of {len(wanted)} ISRC(s) {what} "
+                f"are missing from the cue: track(s) "
                 f"{_named_tracks(missing)}{correlation}",
             )
         )
@@ -657,7 +681,7 @@ def _check_isrcs(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
             CueFinding(
                 LEVEL_WARN,
                 "cue_isrc_mismatch",
-                f"cue sheet — {len(mismatched)} ISRC(s) differ from what we sent: "
+                f"cue sheet — {len(mismatched)} ISRC(s) differ from what {what}: "
                 f"{_named(mismatched)}",
             )
         )
@@ -666,8 +690,21 @@ def _check_isrcs(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
             CueFinding(
                 LEVEL_OK,
                 "cue_isrc_ok",
-                f"cue sheet — all {len(wanted)} ISRC(s) we sent round-tripped "
-                "into the cue",
+                f"cue sheet — all {len(wanted)} ISRC(s) {what} round-tripped "
+                "into the cue"
+                + (f", {len(disc)} of them the disc's own" if disc else ""),
+            )
+        )
+    if disc_over_sent:
+        # Information, not a fault: the cue is right by the flag we sent, and the
+        # two codes are both kept here so a reader can correct MusicBrainz.
+        findings.append(
+            CueFinding(
+                LEVEL_NOTE,
+                "cue_isrc_disc_differs_from_musicbrainz",
+                f"cue sheet — {len(disc_over_sent)} ISRC(s) on the disc differ from "
+                f"MusicBrainz's, and the cue carries the disc's, as "
+                f"--prefer-disc-isrc asks: {_named(disc_over_sent)}",
             )
         )
     return findings

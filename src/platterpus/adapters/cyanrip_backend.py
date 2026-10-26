@@ -333,6 +333,15 @@ class CyanripImpl(RipBackend):
         # build's contract lists it; withheld for an unknown build.
         if prefer_disc_isrc:
             argv += prefer_disc_isrc_args_for_build(ripper_build_tag)
+        # `--prefer-accuraterip-match` (`.27`, round 36 lap 7 S3): at the `-Z`
+        # repeat limit, keep the read AccurateRip matches at the highest
+        # confidence, where one does, over the read most reads agreed on. Sent on
+        # EVERY rip whose build lists it, with no setting: it changes nothing
+        # until a track reaches the limit, and then it only prefers a read
+        # AccurateRip vouches for. Under the same gate as `--consumer`, so a build
+        # without it never sees it; for those builds the verified-read chase
+        # (`verified_read_chase.py`) is still how such a read is kept.
+        argv += prefer_accuraterip_match_args_for_build(ripper_build_tag)
         # Checked once: `-c` and the %N/%M template tokens below read the same
         # position, so a folder name cannot disagree with the disc tags.
         position = _disc_position(metadata)
@@ -1621,6 +1630,27 @@ def prefer_disc_isrc_args_for_build(build_tag: str) -> list[str]:
     return (
         [PREFER_DISC_ISRC_FLAG]
         if fork_source.accepts_prefer_disc_isrc(build_tag)
+        else []
+    )
+
+
+#: cyanrip's long-only option, as P1 of `.27`'s regenerated contract spells it
+#: (`cyanrip@302dba8:PROVIDER-CONTRACT.md:61`). `.27` is built and not released.
+PREFER_ACCURATERIP_MATCH_FLAG: str = "--prefer-accuraterip-match"
+
+
+def prefer_accuraterip_match_args_for_build(build_tag: str) -> list[str]:
+    """``["--prefer-accuraterip-match"]`` for a build that lists it, else ``[]``.
+
+    One home for the words and their gate, as for ``--prefer-disc-isrc``. Empty for
+    every build today: ``fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH``
+    is empty until `.27` is released.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    return (
+        [PREFER_ACCURATERIP_MATCH_FLAG]
+        if fork_source.accepts_prefer_accuraterip_match(build_tag)
         else []
     )
 

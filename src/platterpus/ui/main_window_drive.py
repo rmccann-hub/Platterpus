@@ -438,7 +438,9 @@ class DriveMixin(MainWindowShared):
         the status ioctl would just read 'not ready'/'unavailable'), reads the
         drive's media state best-effort (never raises, never spins the disc), and
         only when the pure MediaWatcher sees a real empty→disc transition does it
-        kick the SAME rescan path as the Rescan button. Best-effort throughout —
+        kick the SAME rescan path as the Rescan button. An empty tray is a removal
+        only once it has lasted (`drive_media.REMOVAL_CONFIRM_S`); shorter, and the
+        disc is re-read instead (`drive_media.RETURNED`). Best-effort throughout —
         a diagnostic poll must never disrupt the UI.
         """
         try:
@@ -483,6 +485,12 @@ class DriveMixin(MainWindowShared):
                 # what an app that saw nothing looks like (Rescan does the same).
                 self._disc_info_panel.set_disc_info_loading()
                 self._start_disc_info(device)
+            elif event == drive_media.RETURNED:
+                # Empty for less than the removal bound, then a disc: kept, and
+                # re-read to learn whether it is the same disc (disc_return).
+                self._on_disc_returned(
+                    device, status, self._media_watcher.last_gap_seconds
+                )
             elif event == drive_media.REMOVED:
                 # The disc left the drive (an eject or a physical removal). Clear
                 # the now-stale disc-identity view so the app doesn't look like it
@@ -508,6 +516,8 @@ class DriveMixin(MainWindowShared):
                         device,
                     )
                 self._begin_disc_request()
+                # Kept, so the same disc put back keeps its release and edits.
+                self._park_disc()
                 self._reset_disc_view()
                 self._disc_info_panel.set_no_disc()
         except Exception:  # noqa: BLE001 — a background poll must never crash the UI
