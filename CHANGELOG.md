@@ -26,6 +26,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **TASKS rows R49 to R66 carry every Platterpus item of the EAC parity plan of record of 2026-10-26, and R7, R9, R12, R17, R20, R34, R43, R44 and R46 carry dated notes on the items they already held** (contributor-facing). Each new row names its regard in `docs/eac-parity.md` Part F by number: a per-track time budget on a damaged disc (R49), saying a wrong track is wrong (R50), a line naming each track's proof (R51), whether AccurateRip takes submissions from unlisted programs (R52), cache defeat measured in setup (R53), a drive blip (R54), an EAC-against-us timed rip (R55), and the Full-run harness and record defects the four runs of 2026-10-21 and 22 exposed (R56 to R66). Rows whose fix is in progress on the session branch are marked `[~]`: the unfinished securing pass's swap (R7), the cue ISRC check (R20), the drive blip (R54), the harness races (R56), the cover-art race (R57), the derived-verify timeout (R58), the completion audit (R59) and bundle packing (R9).
+
+- **`docs/eac-parity.md` gains Part F: the yardstick for "is the rip right", the four Full runs of 2026-10-21 and 22 scored by it, and all 34 regards against EAC with their grades** (the owner's EAC parity plan of record of 2026-10-26, held there rather than committed as a new file). A rip is right when AccurateRip verifies the whole track or CTDB's strongest entry agrees; wrong when only frame 450 matches. The four runs wrote 158 right tracks of 172 by the plan's count; every `Bit-perfect` verdict was true, but five wrong tracks carried `Copy OK`. Part E gains the nine regards it lacked (keeping a right read once found, a damaged disc, CD-R detection, a drive blip, clean-rip speed, saying a wrong track is wrong, each track's proof, CTDB and AccurateRip submission), each cited to the filed runs; accurate stream is re-graded *Equal on what can be known* from `59f4e331`; and E2's track 3 carries the fork's lap 8 S8 reading, which names no cause for the speed.
+
 - **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours, and the shared-hash check records the copy as landed after our lap 6 declared the old hash.
 
 - **The rip report says when the read each track's files carry began, from the cyanrip fork's `.27`.** `.27` (built, not yet released; their round 36 lap 7 S5) prints `Kept read began:    2026-10-21T09:23:27Z` below each audio track's `Elapsed:`, the UTC instant the kept read started, which under `-Z` can be any of the track's reads. Each track in the report now carries `kept_read_began` with `kept_read_began_state` beside it: `read`, `unrecognised` for a value that is not an instant (logged with its start and its end and the cut counted, never reported as a time), or `not_present` for an older build, a data track, or a time the ripper could not convert, never "no read". Report schema 40, additions only (39 shipped in 0.7.111 and 0.7.112). The consumer contract lists the line as fork-only.
@@ -43,6 +47,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Our round 36 lap 6, held until its pull request is green and merged.** It accepts the fork's lap 5 S4 (the footer's tally over audio tracks) and S9 (the skips line only when `Ripping errors:` carries no skip suffix), answers S10 (no log we hold shows an error line under `Ripping errors: 0`, so that cause leaves the proposed line), carries lap 1's close-by, and corrects our laps 2 and 3's.
 
 ### Fixed
+
+- **`docs/eac-parity.md` Part D §2 now gives OPS's own logchecker deductions, each with its line in `OPSnet/Logchecker@ca56547:src/Logchecker.php`.** The old table came mostly from `hey-bro-check-log`, unmaintained since 2020-03-31, and was wrong in six rows against OPS's code: C2 is −10 (not −20), null samples −5 (not −1), a missing Test & Copy −10 (not −20), `Not detected` gap handling −10 (absent before), AccurateRip −0 (not −5), and the log checksum is reported beside the score, not deducted (not −15). A virtual drive costs 20, not the whole score. Every line was re-read from the fetched file on 2026-10-26.
+
+- **What our documents say EAC does is corrected against EAC's own page** (the EAC parity plan of record of 2026-10-26, §7). EAC's secure mode re-reads each sector until reads agree, up to 82 times, and Test & Copy is a separate choice; it does not do "a Test pass and a Copy pass", and it does not keep a majority per track. KDD-30 and 0.7.112's notes carry dated corrections rather than rewrites; the archived investigation says EAC *can* use C2 when switched on; the README no longer calls EAC's speed reduction "per-sector", which no source we hold says; and KDD-12's "AccurateRip accepts submissions only from EAC and dBpoweramp" is marked unverified, since AccurateRip's own list names five programs.
 
 - **The EAC-layout log's `Utilize accurate stream` row now says what the drive declared, instead of `(not reported by the ripper)`.** Every `.26` rip on the rig printed `Accurate stream: declared supported by drive (capabilities page, not measured)`, and the row ignored it. A declaration is not EAC's "used", so the row reads `(not determined; the drive declares it supported, not measured)`, never `Yes`.
 
@@ -71,6 +79,15 @@ track was doubtful, whether the read offset is AccurateRip's for the drive, and 
 actually ran; a data track no longer counts as a failed audio track; and the verdict stops
 saying "No errors occurred" over an unclean read or "not in the database" for a disc AccurateRip
 holds. `.25` is still installed by default. Released on the owner's word of 2026-10-20.
+
+> **Correction (2026-10-26, the EAC parity plan of record, §7):** "where EAC keeps the
+> majority" above is wrong. EAC does not keep a majority per track. In secure mode it
+> repeats a sector with a read or sync error until 8 of 16 reads agree, at most 82 reads,
+> and otherwise tells the user where the possible error is
+> ([EAC: Extraction Technology](https://exactaudiocopy.de/extraction-technology/), read
+> 2026-10-26). With Test & Copy it keeps its Copy read whatever AccurateRip says. The
+> majority at the repeat limit is cyanrip's, as the R7 bullet below says. The text above
+> stays as released.
 
 ### Added
 
