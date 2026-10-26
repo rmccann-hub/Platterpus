@@ -351,7 +351,8 @@ Platterpus/
         │   ├── derived_verify.py        # post-transcode verify of derived MP3/WavPack/WAV files (KDD-22)
         │   ├── accuraterip_offsets.py   # read-offset lookup by drive model (AccurateRip list)
         │   ├── accuraterip_offsets_data.py # bundled DriveOffsets.bin (~4,800 drives, gzip+base64)
-        │   └── ctdb_client.py           # CTDBClient ABC + CtdbHttpImpl (CUETools DB lookup; KDD-16)
+        │   ├── ctdb_client.py           # CTDBClient ABC + CtdbHttpImpl (CUETools DB lookup; KDD-16)
+        │   └── ctdb_parity.py           # fetch a CTDB entry's parity record (bounded, cuetools.net only)
         │
         ├── ctdb/                        # CTDB verify library (clean-room; KDD-16; GUI-wired; CRC hardware-validated 2026-07-07)
         │   ├── __init__.py
@@ -656,7 +657,12 @@ Clean-room CTDB verify support (KDD-16), kept as a standalone library so the det
 - **`sweep.py`** — every CRC a verify compares, from one streamed pass over the disc's PCM (one track resident at a time): the whole-disc CTDB CRC and each track's CTDB CRC (CUETools' `TrackCRC`: track 1 loses the front guard band, the last track the back one), each over the offsets asked for. Prefix CRCs plus one GF(2) "append zeros" operator per window, so ~165,000 offset CRCs cost one pass and table lookups (TASKS R43, 2026-10-21).
 - **`matching.py`** — compares the sweep with the lookup the way CUETools' `GenerateLog` does: entries the whole disc matches (any offset) vouch for every track; otherwise a track agrees with an entry at that entry's offset (placed by the consensus of its tracks, standing in for the parity-based `FindOffset`) or within ±2939. Tri-state per track: `match` / `differs` / `not_determined`, with the summed confidence and a per-track `outvoted` (TASKS R43).
 - **`track_wording.py`** — `per_track_sentence` and `per_track_lines`, the one wording the verdict message, the results pane and `--ctdb-calibrate` share; worded as ours, not as EAC's plugin, except that a located difference uses EAC's own phrase.
-- **The localisation** (2026-10-26, TASKS R43; numpy on the owner's word) — CUETools' `VerifyParity`, clean-room: **`gf16.py`** (the field), **`syndromes.py`** (our 16 syndromes per column in one streamed numpy pass, shifted to any alignment without another), **`rs_decode.py`** (Berlekamp-Massey, Chien, Forney, from the textbook), **`verify_parity.py`** (fetch, check against the lookup's `syndrome`, align, decode, and require the entry's CRC back), **`localise.py`** (the numpy-free orchestration: which entries, the lazy second decode pass, the 300 s bound, numpy asked of `deps/registry.py` first) and **`differences.py`** (what was located, per track, as `differs in 16 samples @04:04:68,...`).
+- **`gf16.py`** (2026-10-26, TASKS R43; numpy on the owner's word, for the localisation as a whole) — arithmetic in GF(2^16), the field CTDB's parity lives in: the polynomial `0x1100B` with alpha = 2, a published fact read for format only (KDD-16 clean-room). Pure Python; the reference the numpy pass and the decoder are tested against.
+- **`syndromes.py`** (2026-10-26, TASKS R43) — OUR 16 Reed-Solomon syndromes per column of the disc's audio, in one streamed numpy pass, shifted to any alignment without another. The only module that imports numpy; `localise.py` imports it only after `deps/registry.py` says numpy is installed.
+- **`rs_decode.py`** (2026-10-26, TASKS R43) — Berlekamp-Massey, Chien search and Forney for one column, written from the textbook (CUETools' LGPL decoder was not copied or paraphrased): where the column differs and by how much, or a reason it cannot say.
+- **`verify_parity.py`** (2026-10-26, TASKS R43) — one CTDB entry: fetch its parity, check it against the lookup's `syndrome`, align it with our audio, decode every column, and require the entry's CRC back after correcting the located samples, so a wrong location is "not determined", never a claim.
+- **`localise.py`** (2026-10-26, TASKS R43) — the numpy-free orchestration: which entries to decode against (the strongest with parity, at most three), the lazy second pass, the 300 s bound, and numpy asked of `deps/registry.py` first, so a dev install without it reads "not determined: numpy is not installed".
+- **`differences.py`** (2026-10-26, TASKS R43) — what the localisation found, as data and as the one per-track wording every surface shows, in EAC's plugin layout: `differs in 16 samples @04:04:68,04:05:17,04:11:32`. Pure and numpy-free.
 
 ### Dependency self-management subsystem (`deps/`)
 
