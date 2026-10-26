@@ -1069,7 +1069,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # expects. The rule deciding WHEN that warning is expected is a separate
     # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
     # **331 -> 330** (2026-10-21, TASKS R13): the data-track test now asks `data_tracks.is_data_track` instead of restating the substring.
-    "uiscript/artifact_grading.py": 330,
+    # **330 -> 359** (2026-10-26, run C): `derived_verification_refusal`, the one predicate `expect-derived-output` and `expect-verification` share for a derived verification that did not run, beside `settle_state` which both already share.
+    "uiscript/artifact_grading.py": 359,
     # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
     # claude-code-skills audit check. **Kept as one module deliberately**: the
     # weight behind a match (`best_confidence`, `outvoted`) and its one wording
@@ -1311,7 +1312,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
-    "cue_validate.py": 1264,
+    # **1264 -> 1301** (2026-10-26, runs A and D of the 0.7.112 Full runs): `ExpectedCue.disc_isrcs` and `_check_isrcs` expecting the disc's own ISRC under `--prefer-disc-isrc`, with a difference from MusicBrainz a note naming both; the ISRC check's own home.
+    "cue_validate.py": 1301,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
     # **426 -> 429** (2026-09-28, the argv chokepoint half): the mechanism's hardware citation names the committed round-27 log the new test reads, instead of an uncommitted bundle.
     "cyanrip_cli.py": 429,
@@ -2000,7 +2002,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **467 -> 470** (2026-10-21, TASKS R13): the retry list asks `data_tracks.is_data_track`.
     # **467 -> 472** (2026-10-21, TASKS R7, the verified-read chase): the retried-track copy carries `kept_read` and a copy of `verified_read_chase` (schema 39); both are derived and copied by `verified_read_chase.py`.
     # **-> 475** (2026-10-21): the entries above landed together on one branch.
-    "read_speed_ladder.py": 475,
+    # **475 -> 479** (2026-10-26, run B): the retried-track copy carries `pass_unfinished` and `not_replaced_because` (schema 40).
+    "read_speed_ladder.py": 479,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -2042,7 +2045,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **984 -> 989** (2026-10-26, `.27`, round 36 lap 7 S5): `TrackBlock.kept_read_began` and `kept_read_began_state`, schema 40.
     # **989 -> 993** (2026-10-26, TASKS R48, `/11`): `TrackErrorPositionsBlock.kept_read_began` and its state, schema 40.
     # **993 -> 998** (2026-10-26, `.27`, round 36 lap 7 S6): `RipBlock.not_written_whole` and `not_written_whole_not_kept`, schema 40.
-    "report_types.py": 998,
+    # **984 -> 994** (2026-10-26, run B): `RetriedTrackBlock.pass_unfinished` and `not_replaced_because` (schema 40), in the one place the report's shape is declared.
+    # **994 -> 997** (2026-10-26, run C of the 0.7.112 Full runs): `DerivedBlock.timed_out_waiting_for_transcode` (schema 40).
+    # **-> 1011** (2026-10-26): the entries above landed together on one branch.
+    "report_types.py": 1011,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2086,7 +2092,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # delegates to `handshake_note`, keys on the released arm, and says when a
     # released build was cut while a round was open.
     # **1590 -> 1613** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `_audit_disc_identity` asks whether the disc ripped is the disc looked up, of the same predicate the report used, on the report's own fields. The comparison itself lives in `disc_identity.py`.
-    "rip_audit.py": 1613,
+    # **1613 -> 1628** (2026-10-26, run C of the 0.7.112 Full runs, section N): the completion grade scopes the ripping-error warning to the reads the album keeps. The attribution is `rip_health.errors_in_replaced_reads`; only the grade's wording is here.
+    # **1628 -> 1641** (2026-10-26, runs A and D): `cue_integrity` hands `validate_cue` the disc's ISRCs from the report when the first-pass argv carried `--prefer-disc-isrc`; the judging is `cue_validate.py`.
+    "rip_audit.py": 1641,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,
@@ -2160,7 +2168,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3290 -> 3307** (2026-10-26, `.27`, round 36 lap 7 S5): the schema-40 note and the two per-track `kept_read_began` keys. The reading lives in `kept_read.py`.
     # **3307 -> 3315** (2026-10-26, TASKS R48, `/11`): the schema-40 note for the record's two keys; the reading is `record_track_v11.py`.
     # **3315 -> 3332** (2026-10-26, `.27`, round 36 lap 7 S6): the schema-40 note, the two `rip` keys and the warnings added beside `health_findings`; the wording lives in `written_whole.py`.
-    "rip_report.py": 3332,
+    # **3290 -> 3299** (2026-10-26, run B): the schema-40 history note beside `REPORT_SCHEMA_VERSION`.
+    # **3299 -> 3307** (2026-10-26, run C): the derived block carries `timed_out_waiting_for_transcode`, and its schema-40 note.
+    # **-> 3349** (2026-10-26): the entries above landed together on one branch.
+    "rip_report.py": 3349,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2254,7 +2265,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
     # **1053 -> 1069** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `UNKNOWN_DISC_SCRIPT_NAME`, `ACCEPTANCE_SCRIPT_NAMES` and a `name` on the two packaged-script lookups, so both scripts have their one name in the one place the session reads it.
     # **1069 -> 1076** (2026-10-14, TASKS R9): the MANIFEST's `ripper -j records missing` line, delegated to `record_fate.record_absences` with the session's own report glob.
-    "test_session.py": 1076,
+    # **1076 -> 1088** (2026-10-26, run B of the 0.7.112 Full runs): `post_rip_wait_s`, the bound on how long a finished session waits for the last rip's post-rip checks, beside `rip_wait_s` which bounds the wait for the rip.
+    "test_session.py": 1088,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -2466,7 +2478,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1769 -> 1788** (2026-10-06, KDD-41 C4): the closing dialog counts steps this equipment cannot run, so "PASSED — all N" can no longer stand over an `unreachable` step; one branch beside the run headline's others.
     # **1788 -> 1814** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `run_acceptance_session` takes the script to run, and the new action's slot runs the unknown-disc script with no size question; the session is the same job for both.
     # **1814 -> 1816** (2026-10-07, KDD-42 W6): the first-run setup question names Help → Getting started, the offer W6 asks for, without a fourth launch-time modal.
-    "ui/main_window_provision.py": 1816,
+    # **1816 -> 1875** (2026-10-26, run B): `_acceptance_post_rip_at_end` waits, bounded, for the last rip's post-rip checks before the session restores settings and packs, and the bundle's facts say what it waited for or what was still running; beside `_acceptance_rip_at_end`, the same shape one step earlier.
+    "ui/main_window_provision.py": 1875,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2583,7 +2596,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
     # **457 -> 458** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the same declarations on the seam.
     # **458 -> 469** (2026-10-26, run A on 0.7.112, the drive flicker): `_parked_disc` and the three cross-mixin methods `DiscReturnMixin` and `DriveMixin` call on each other, declared so mypy resolves them.
-    "ui/main_window_shared.py": 469,
+    # **458 -> 463** (2026-10-26, run B): the seam declares `_album_folder_settled` and `_post_rip_still_running`, which the acceptance session now asks before it packs.
+    # **-> 474** (2026-10-26): the entries above landed together on one branch.
+    "ui/main_window_shared.py": 474,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2797,7 +2812,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4809 -> 4815** (2026-10-21, TASKS P2 #4): `expect-verification`'s floor asks `verification_gates.gate_claims_ran`, since a gate with a result now says "ran — passed" or "ran — failed".
     # **-> 4829** (2026-10-21): the entries above landed together on one branch.
     # **4829 -> 4824** (2026-10-26, run A on 0.7.112): lowered: `rescan` moved to `scan_verbs.py` with the scan waits `rip` and `pick-release` now share; `rip`'s refusals became `_start_refusal`/`_press_start`, read again at the press when it waited for a scan.
-    "uiscript/runner.py": 4824,
+    # **4829 -> 4857** (2026-10-26, run C): `expect-derived-output` waits for the report to settle and FAILs a derived verification that did not run, and `expect-verification` FAILs it too; the predicate is `artifact_grading.derived_verification_refusal`, only the deadline wiring is here.
+    # **-> 4852** (2026-10-26): the entries above landed together on one branch.
+    "uiscript/runner.py": 4852,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2842,7 +2859,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **999 -> 1045** (2026-10-21, the timed rip): the `install-ripper`, `skip-if-same-build`, `record-timing` and `compare-timings` declarations, and the module docstring naming `install-ripper` as the one argued exception to "no verb installs a dependency". The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **1045 -> 1046** (2026-10-26, run A on 0.7.112): `expect-tags`' help says it compares with the table as it was when the rip started (its record), not as it is now; one more wrapped line.
     # **1046 -> 1059** (2026-10-26, run A on 0.7.112): `rescan` and `rip` say they wait for the scan, and `pick-release` that it never answers a superseded scan's picker; two entries move from one line to the wrapped form.
-    "uiscript/verbs.py": 1059,
+    # **1045 -> 1047** (2026-10-26, run C): the help of `expect-derived-output` and `expect-verification` says each now fails a derived verification that did not run.
+    # **-> 1061** (2026-10-26): the entries above landed together on one branch.
+    "uiscript/verbs.py": 1061,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
@@ -2922,7 +2941,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4307 -> 4162** SHRANK (2026-10-21): the diagnostic-line matcher moved to `ripper_error_lines.py` so the log parser shares it.
     # **4307 -> 4425** (2026-10-21, TASKS R7, the verified-read chase): `_rip_once` keeps a chase read's exit status off the securing pass's field (`verified_reread`), `_auto_fix_tracks` calls the chase before the unstable list and the addendum, and `_chase_verified_reads` / `_read_once_for_chase` apply what it kept. The decision is `verified_read_chase.py` and the loop `workers/verified_read_run.py`; only the worker owns `_rip_once` and the swap records.
     # **-> 4280** (2026-10-21): the entries above landed together on one branch.
-    "workers/rip_worker.py": 4280,
+    # **4280 -> 4324** (2026-10-26, run B of the 0.7.112 Full runs): `_record_unfinished_refix` swaps in a stopped securing pass's finished, AccurateRip-verified re-read and records why each other track was not, and its call passes the swap's inputs. The decision, the file-whole check and the sentence are `unfinished_refix.py`; only the worker owns the swap and its records.
+    "workers/rip_worker.py": 4324,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

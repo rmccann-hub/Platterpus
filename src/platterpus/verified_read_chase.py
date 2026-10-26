@@ -64,6 +64,7 @@ Pure: no Qt, no I/O, never raises. The attempts themselves are run by
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -270,18 +271,29 @@ def chase_log_path_for(log_path: str | Path) -> Path:
 
 
 def chase_log_section(
-    number: int, attempt: int, argv: tuple[str, ...], exit_code: int | None, text: str
+    number: int,
+    attempt: int,
+    argv: tuple[str, ...],
+    exit_code: int | None,
+    text: str,
+    *,
+    homes: Sequence[str] | None = None,
 ) -> str:
     """One attempt's section of the kept chase log: what ran, how it ended, its log.
 
-    The argv as spawned and the exit status head the ripper's own log, so the
-    sidecar alone carries all three things the diagnostics rule asks for. The log
-    is copied whole: it is a single track's, bounded by the ripper.
+    The argv as spawned (home folder as ``~``, by the export's own
+    `export_redaction.redact_text`, since run C of 2026-10-22 wrote the absolute
+    path five times per record) and the exit status head the ripper's own log,
+    which is signed and copied whole, as written. ``homes`` is for tests.
     """
+    from platterpus.export_redaction import redact_text, this_machines_homes
+
     status = "never reaped" if exit_code is None else str(exit_code)
+    argv_line = "argv: " + " ".join(argv) if argv else "argv: (not recorded)"
+    known = this_machines_homes() if homes is None else list(homes)
     head = [
         f"=== Platterpus verified-read chase: track {number}, attempt {attempt} ===",
-        "argv: " + " ".join(argv) if argv else "argv: (not recorded)",
+        redact_text(argv_line, homes=known)[0],
         f"exit status: {status}",
         "",
     ]

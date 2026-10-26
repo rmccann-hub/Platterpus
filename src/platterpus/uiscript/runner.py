@@ -2794,7 +2794,30 @@ class ScriptRunner(
             except OSError:
                 return False
 
-        self._arm_deadline(step, seconds, _derived_are_all_there)
+        from platterpus.uiscript import artifact_grading
+
+        def _derived_are_there_and_verified() -> bool:
+            # The files first, then the report's derived gate once the report
+            # settles: a set of files whose verification did not run is a FAIL
+            # (run C, 2026-10-22), and the shared predicate says why.
+            if not _derived_are_all_there():
+                return False
+            path = artifact_grading.report_path(folder)
+            report = artifact_grading.read_report(path) if path else None
+            if artifact_grading.settle_state(report) != artifact_grading.SETTLE_SETTLED:
+                self._deadline_timeout_detail = (
+                    f"all {wanted} .{ext} file(s) are in {folder.name}, but the "
+                    f"rip's report never settled, so whether they were verified is "
+                    f"NOT DETERMINED, which is never a pass."
+                )
+                return False
+            refused = artifact_grading.derived_verification_refusal(report)
+            if refused is not None:
+                self._deadline_outcome = Outcome.FAIL
+                self._deadline_detail = f"{wanted} .{ext} file(s) exist, but {refused}"
+            return True
+
+        self._arm_deadline(step, seconds, _derived_are_there_and_verified)
         self._deadline_outcome = Outcome.PASS
         self._deadline_detail = (
             f"{wanted} .{ext} file(s) beside {wanted} FLAC master(s) in "
@@ -2908,6 +2931,11 @@ class ScriptRunner(
                 return True
             if state != artifact_grading.SETTLE_SETTLED or report is None:
                 return False
+            refused = artifact_grading.derived_verification_refusal(report)
+            if refused is not None:  # run C, 2026-10-22: it passed over this
+                self._deadline_outcome = Outcome.FAIL
+                self._deadline_detail = f"for {folder.name}, {refused}"
+                return True
             verification = report.get("verification")
             gates = (
                 verification.get("gates") if isinstance(verification, dict) else None

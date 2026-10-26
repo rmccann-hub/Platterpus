@@ -521,6 +521,19 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      log names none, with `rip.not_written_whole_not_kept` counting any past
 #      the parse's bound; each raises the `file_not_written_whole` warning,
 #      naming the file (`written_whole.py`).
+#      Also v40, the fixes from the four Full runs on 0.7.112 (2026-10-21/22). Additions
+#      only. A securing pass that was stopped no longer throws away a re-read
+#      AccurateRip verified (run B, track 11, `unfinished_refix.py`):
+#      `read_speed.retried_tracks[]` gains `pass_unfinished` (the verdict came
+#      from a pass stopped before it finished; False otherwise) and
+#      `not_replaced_because` (`block_incomplete`, `accuraterip_did_not_verify`,
+#      `file_not_whole`, `copy_failed`; null when swapped in, and for a pass
+#      that finished). Such a track's `replaced` is true with
+#      `replaced_because: accuraterip`, and `kept_read` says `securing_pass`.
+#      Same version (run C): `verification.derived.timed_out_waiting_for_transcode`
+#      says the derived-file verify gave up waiting for the transcode, whose
+#      `error` then reads "timed out waiting for the transcode to finish" where a
+#      fixed 60 s wait used to record "no mp3 files found to verify".
 REPORT_SCHEMA_VERSION: int = 40
 
 
@@ -2278,6 +2291,10 @@ def _derived_verify(result: object | None) -> dict | None:
         "failures": [str(p) for p in failures],
         "mismatches": [str(p) for p in mismatches],
         "error": getattr(result, "error", "") or None,
+        # Schema 40: the verify gave up waiting for the transcode (run C).
+        "timed_out_waiting_for_transcode": bool(
+            getattr(result, "timed_out_waiting_for_transcode", False)
+        ),
     }
 
 

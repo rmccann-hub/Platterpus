@@ -420,6 +420,9 @@ class DerivedBlock(TypedDict):
     failures: list[str]
     mismatches: list[str]
     error: str | None
+    # The verify gave up waiting for the transcode to finish, so `error` says
+    # that rather than "no files found" (run C, 2026-10-22). Schema 40.
+    timed_out_waiting_for_transcode: NotRequired[bool]
 
 
 class VerificationBlock(TypedDict):
@@ -636,6 +639,16 @@ class RetriedTrackBlock(TypedDict):
     # The verified-read chase, when it applied to this track (the kept read was
     # not verified and the disc is in AccurateRip); absent or None otherwise.
     verified_read_chase: NotRequired[VerifiedReadChaseBlock | None]
+    # True when this verdict came from a securing pass that was stopped before
+    # it finished; such a track's re-read is swapped in only when AccurateRip
+    # verified it and its file was written whole (`unfinished_refix.py`). The
+    # report always carries it; False for a pass that finished. Schema 40.
+    pass_unfinished: NotRequired[bool]
+    # Why a stopped pass's finished re-read was NOT swapped in
+    # (`unfinished_refix.NOT_REPLACED_*`); None when it was, and for a pass
+    # that finished (whose reason is `converged` and `replaced_because`).
+    # Schema 40.
+    not_replaced_because: NotRequired[str | None]
 
 
 class SecureReripBlock(TypedDict):

@@ -440,7 +440,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         2,
         "expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived "
         "files the chosen output format calls for exist beside the FLAC masters, "
-        "one per master. Waits (default 600s) because the transcode runs after "
+        "one per master, and that the report's derived-file verification ran. "
+        "Waits (default 600s) because the transcode runs after "
         "`wait-for-rip` returns; the format is named here rather than read from "
         "Settings, so the step cannot check a setting against itself",
     ),
@@ -488,7 +489,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         "FLAC integrity, derived-format) finished and left a result, "
         "rather than being dropped when the next rip started. Waits (default 600s) "
         "because the checks run after `wait-for-rip` returns; at least one gate "
-        "must have run, so the step cannot pass over a rip that checked nothing",
+        "must have run, so the step cannot pass over a rip that checked nothing, "
+        "and a derived-format verification that did not run is a FAIL",
     ),
     # --- Grading what the rip LEFT (2026-09-30) -------------------------------
     # Every rip leaves a report, a ripper's log, an EAC-style log, a cue sheet and
