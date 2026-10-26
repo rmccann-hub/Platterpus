@@ -40,6 +40,7 @@ import json
 from pathlib import Path
 from typing import Any, Final
 from unittest import mock
+from urllib.parse import urlsplit
 
 import pytest
 from hypothesis import HealthCheck, given, settings
@@ -314,7 +315,12 @@ def test_ANY_ctdb_entry_attributes_parse_without_raising(
     result = parse_lookup_response(body.encode("utf-8"))
     assert len(result.entries) == len(attrs)
     for entry in result.entries:
-        assert entry.parity_url == "" or "cuetools.net" in entry.parity_url
+        if entry.parity_url == "":
+            continue
+        # Parse the host, as the adapter does: a substring test would also pass
+        # `http://p.cuetools.net.evil.example/`, which the adapter refuses.
+        host = urlsplit(entry.parity_url).hostname or ""
+        assert host == "cuetools.net" or host.endswith(".cuetools.net"), entry
 
 
 def test_an_entity_expansion_bomb_is_refused_not_expanded() -> None:
