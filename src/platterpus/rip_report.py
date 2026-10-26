@@ -48,6 +48,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.pregap_search import report_block as pregap_search_block
 from platterpus.read_offset_check import OffsetLookup, check_read_offset
 from platterpus.read_offset_check import issue_for as read_offset_issue
 from platterpus.record_fate import RecordFate, missing_issue, outcome_block
@@ -65,12 +66,20 @@ from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_exit_class import classify_exit
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
+from platterpus.track_proof import (
+    TrackProof,
+    ctdb_tracks_by_number,
+    track_proof,
+    track_proof_among,
+    verified_reread_numbers,
+)
 from platterpus.user_settings import user_settings
 from platterpus.verdict import (
     VERDICT_BASIS_READS_AGREE,
     accuraterip_verdict,
     apply_downgrades,
     reads_agree_without_accuraterip,
+    track_accuraterip_contradiction,
 )
 from platterpus.verification_gates import (
     CUT_SHORT_GATE,
@@ -534,6 +543,42 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      says the derived-file verify gave up waiting for the transcode, whose
 #      `error` then reads "timed out waiting for the transcode to finish" where a
 #      fixed 60 s wait used to record "no mp3 files found to verify".
+#      Also v40, where a rip differs from CTDB (TASKS R43, the owner's word on
+#      numpy of 2026-10-26). Additions only. Per track,
+#      `ctdb.tracks[].differences`: one row per entry the parity located a
+#      difference against, strongest first, with `entry_id`, `confidence`,
+#      `samples` (16-bit values that differ in the track, CUETools' count),
+#      `places` (track-relative `mm:ss:ff` or `mm:ss:ff-mm:ss:ff`, EAC's layout),
+#      `places_elided` (places beyond the twelve shown, counted) and `text`
+#      ("differs in 16 samples @04:04:68,04:05:17,04:11:32"); empty when none.
+#      `ctdb.localisation`: `status` (`located`, `not_determined`, `not_needed`),
+#      `reason` (why not, e.g. "numpy is not installed") and `entries_tried`
+#      (`entry_id`, `confidence`, `status`, `offset`, `samples_located`,
+#      `reason`); null when the check never computed our CRCs.
+#      Also v40 (the owner's EAC-parity plan of record, 2026-10-26, row 8) per track,
+#      `accuraterip_contradiction`: "wrong" when frame 450 matched AccurateRip
+#      and the whole track did not, "differs" when it was compared and nothing
+#      matched, null otherwise (`verdict.track_accuraterip_contradiction`).
+#      Additions only.
+#      Also in v40 (row 9): per track, `proof` (`kind`, `line`): which proof the
+#      copy has, one of `accuraterip`, `verified_reread`, `ctdb`, `reads_agree`
+#      or `none`, in the line the EAC-layout log prints (`track_proof.py`), with
+#      CTDB's per-track result, which that log is written before. Additions only.
+#      Also in v40 (plan Appendix I, defect 3), a meaning that NARROWS: for a
+#      track whose file is a re-read, `extraction_speed`,
+#      `extraction_elapsed_seconds`, `paranoia_counts` and `paranoia_scope` are
+#      that read's own, null or empty where its log printed none, never the
+#      superseded read's.
+#      Also v40, additions only: per track `pregap_search`, what `.27`'s
+#      sub-channel search saw, from the `Pregap search:` line below `Pregap
+#      source:` (their round 36 lap 8 S21; `cyanrip@b2ffd42:src/cyanrip_log.c:
+#      476-489`): `state` (`read`, or `unrecognised` with the line's value kept,
+#      bounded and screened, in `unrecognised` and every count null), the
+#      counts `asked`, `crc_failed`, `no_frame`, `elsewhere`, `no_address`,
+#      `shift`, `harder_pass_ran`, `undecided_from`/`undecided_to`, and
+#      `summary`, the sentence that names them (`pregap_search.py`). Null when
+#      the log printed no line: an older build, an image rip, or a pre-gap the
+#      TOC or the lead-in gave, never "no search".
 REPORT_SCHEMA_VERSION: int = 40
 
 
@@ -1633,7 +1678,14 @@ def _build(
     # The per-track blocks, built ONCE: `issues` reads them (the `Beyond disc:`
     # finding) and the same list is serialised as `tracks`, so the finding and
     # the row it summarises cannot disagree.
-    track_blocks = [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())]
+    # Each track's proof needs two facts the parsed log does not hold: which
+    # files are verified-read chase reads, and CTDB's per-track answer.
+    chased = verified_reread_numbers(secure_rerip)
+    ctdb_rows = ctdb_tracks_by_number(ctdb_result)
+    track_blocks = [
+        _track(t, track_proof_among(t, chased=chased, ctdb_rows=ctdb_rows))
+        for t in (getattr(rip_log, "tracks", ()) or ())
+    ]
     issues = _issues(
         outcome=outcome,
         verdict_level=level,
@@ -2043,7 +2095,12 @@ def _search_pair(value: object) -> list[int] | None:
     return None
 
 
-def _track(track: object) -> dict:
+def _track(track: object, proof: TrackProof | None = None) -> dict:
+    """One track's block. ``proof`` is from :func:`track_proof.track_proof`, with
+    the chase and CTDB facts only the report holds; without it (a caller that has
+    neither) the track's own fields decide it."""
+    if proof is None:
+        proof = track_proof(track)
     return {
         "number": getattr(track, "number", None),
         "filename": getattr(track, "filename", "") or None,
@@ -2141,11 +2198,26 @@ def _track(track: object) -> dict:
         "pregap_search_frames": _search_pair(
             getattr(track, "pregap_search_frames", None)
         ),
+        # v40: what `.27`'s sub-channel search saw (`Pregap search:`), so a reader
+        # of an `unknown` pre-gap can tell reads that failed the CRC from frames
+        # that answered for another sector; null when the log printed no line.
+        "pregap_search": pregap_search_block(getattr(track, "pregap_search", None)),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
         # The shared confidence>=1 rule — same as the banner and disc panel.
         "accuraterip_verified": track_accuraterip_verified(track),
+        # v40 (plan of record 2026-10-26, row 8): how AccurateRip contradicts
+        # this copy, from the one predicate the EAC-layout log and the results
+        # table ask: "wrong" (frame 450 matched, the whole track did not),
+        # "differs" (compared, nothing matched), or None. `status` above stays
+        # the ripper's own word ("ripped successfully"), so this is the field
+        # that says a track is not fine.
+        "accuraterip_contradiction": track_accuraterip_contradiction(track),
+        # v40 (plan of record row 9): which proof this copy has, in the line the
+        # EAC-layout log prints, plus CTDB's per-track result, which that log is
+        # written too early to hold.
+        "proof": {"kind": proof.kind, "line": proof.line},
         # cyanrip's per-track "Accurip:" status text — the only thing that says
         # whether a lookup happened. Without it a consumer cannot tell "compared
         # and disagreed" from "never asked", which is the distinction the on-screen
@@ -2334,7 +2406,46 @@ def _ctdb(result: object | None) -> dict | None:
         # Per track (v39, TASKS R43): what CTDB's per-track CRCs say about each
         # track. Null when the check never computed our CRCs.
         "tracks": _ctdb_tracks(getattr(result, "tracks", ())),
+        # Where it differs (v40, R43): the parity-based localisation's outcome.
+        "localisation": _ctdb_localisation(getattr(result, "localisation", None)),
     }
+
+
+def _ctdb_localisation(found: object | None) -> dict[str, object] | None:
+    """Serialize ``CtdbVerifyResult.localisation`` (``ctdb/differences.py``)."""
+    if found is None:
+        return None
+    rows = getattr(found, "entries", ()) or ()
+    return {
+        "status": getattr(getattr(found, "status", None), "value", None),
+        "reason": getattr(found, "reason", "") or None,
+        "entries_tried": [
+            {
+                "entry_id": getattr(row, "entry_id", None),
+                "confidence": getattr(row, "confidence", None),
+                "status": getattr(getattr(row, "status", None), "value", None),
+                "offset": getattr(row, "offset", None),
+                "samples_located": len(getattr(row, "words", ()) or ()),
+                "reason": getattr(row, "reason", "") or None,
+            }
+            for row in rows
+        ],
+    }
+
+
+def _ctdb_differences(differences: object) -> list[dict[str, object]]:
+    """Serialize a track's ``differences`` (v40): EAC's "differs in N samples @..."."""
+    return [
+        {
+            "entry_id": getattr(d, "entry_id", None),
+            "confidence": getattr(d, "confidence", None),
+            "samples": getattr(d, "samples", None),
+            "places": list(getattr(d, "places", ()) or ()),
+            "places_elided": getattr(d, "elided", 0),
+            "text": getattr(d, "text", None),
+        }
+        for d in (differences if isinstance(differences, (list, tuple)) else ())
+    ]
 
 
 def _ctdb_tracks(tracks: object) -> list[dict[str, object]] | None:
@@ -2359,6 +2470,7 @@ def _ctdb_tracks(tracks: object) -> list[dict[str, object]] | None:
                 "our_crc": _hex_crc(getattr(track, "our_crc", None)),
                 "offset": getattr(track, "offset", None),
                 "reason": getattr(track, "reason", "") or None,
+                "differences": _ctdb_differences(getattr(track, "differences", ())),
             }
         )
     return rows or None

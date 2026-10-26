@@ -1979,6 +1979,8 @@ fix is now a new, signed version (§6.4 step 5).
 
 **After integrating a branch cut before the last release, check the released `CHANGELOG.md` section against its tag** (added 2026-10-21). A cherry-pick places a hunk beside the neighbours it had when its branch was cut, so a branch that predates a release puts its `[Unreleased]` bullet inside the *released* section, and git reports no conflict. Four did on 2026-10-21 (R44, the timed rip, item 11, R13), all inside the published `[0.7.111]`, caught by comparing that section with `git show v0.7.111:CHANGELOG.md` and repaired in `18471330`. The check: everything from the newest released heading down must equal the tag's text byte for byte; anything else belongs under `[Unreleased]`.
 
+**Give each parallel branch its own `TASKS.md` row numbers before it starts** (added 2026-10-26). Six agents built the EAC parity plan's fixes at once, each told to number its rows "after the last one". Each took the same next numbers, so R48 was claimed three times and R73 twice, and every merge had to renumber one side's rows in the lines that branch added (a script diffing the branch against the merge base) while leaving every other `R48` alone. Git reports these only when two branches touch the same row; a new row with a taken number merges silently. Hand each branch a range in its brief (`R67 to R72`), and after merging run `grep -c '^| R<n> '` for the numbers it used.
+
 #### Signing the release (maintainer-only, and read it before you arm it)
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (Project operations → CI / release), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
@@ -2121,4 +2123,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.7.112.*
+*Last updated for Platterpus v0.7.113.*

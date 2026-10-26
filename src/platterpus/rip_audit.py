@@ -600,9 +600,22 @@ def _audit_pregaps(report: dict[str, Any], album: AlbumAudit) -> None:
             album.pregap_sources.add(str(source))
         state = track.get("pregap_state")
         if state == "unknown":
-            album.pregap_sources.add(
-                "unknown: " + str(track.get("pregap_unknown_reason") or "?")
-            )
+            reason = str(track.get("pregap_unknown_reason") or "?")
+            album.pregap_sources.add("unknown: " + reason)
+            # Name what the sub-channel search saw (`.27`'s `Pregap search:`,
+            # report v40), so a drive run tells reads that failed the CRC from
+            # frames that answered for another sector. The reason alone cannot:
+            # `sub-channel CRC mismatches` is printed for both (the fork's round
+            # 36 lap 8 S5). One finding per track, kept out of the library-wide
+            # source set, which counts kinds rather than tracks.
+            search = track.get("pregap_search")
+            summary = search.get("summary") if isinstance(search, dict) else None
+            if isinstance(summary, str) and summary:
+                album.add(
+                    LEVEL_NOTE,
+                    f"track {track.get('number', '?')}: pre-gap unknown ({reason}); "
+                    f"the sub-channel search: {summary}",
+                )
 
     # Say something either way. This check used to feed only the library-wide
     # summary set, so an album whose tracks carried no pre-gap rows produced no

@@ -5533,6 +5533,8 @@ def test_a_cancelled_rip_gets_no_class_story(
         ("Track 1 read successfully!", "✓"),  # .14 and later — the pinned build
         ("Track 1 read with errors.", "with errors"),
         ("Track 1 ripped and encoded successfully!", "✓"),  # <= .13, archived logs
+        # The fork's proposed rename (round 36 lap 8 S26), read before it ships.
+        ("Track 1 read with no error reported.", "✓"),
     ],
 )
 def test_a_finished_track_is_marked_done_on_every_build_wording(

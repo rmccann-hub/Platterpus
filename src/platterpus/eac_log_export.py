@@ -67,12 +67,16 @@ from platterpus.parsers.rip_log import (
     TrackResult,
     accuraterip_is_match,
 )
+from platterpus.pregap_search import describe as describe_pregap_search
 from platterpus.report_types import SecureReripBlock
+from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
+from platterpus.track_proof import track_proof, verified_reread_numbers
 from platterpus.verdict import (
     accuraterip_lookup_happened,
     expected_track_total,
+    track_accuraterip_contradiction,
     track_has_unverified_skips,
 )
 
@@ -525,8 +529,9 @@ def _render(
     lines.extend(_toc_block(rip_log, disc_track_total))
 
     # --- Per-track blocks ---
+    chased = verified_reread_numbers(secure_rerip)
     for track in rip_log.tracks:
-        lines.extend(_track_block(track))
+        lines.extend(_track_block(track, verified_reread=track.number in chased))
 
     # --- Conclusive report, in EAC's own wording ---
     lines.append("")
@@ -577,6 +582,17 @@ UNVERIFIED_SKIPS_VERDICT: str = (
     "Copy NOT confirmed — the ripper could not verify every read and AccurateRip "
     "did not confirm the audio"
 )
+
+#: The per-track verdict for a track AccurateRip contradicts
+#: (`verdict.track_accuraterip_contradiction`): EAC's own line for a copy it does
+#: not call OK, with no "OK" in it (plan of record, 2026-10-26, row 8). The
+#: `Proof:` row above it says why, in our words.
+CONTRADICTED_VERDICT: str = "Copy finished"
+
+#: EAC's own disc-level sentence for a rip with errors (string 1224, which OPS's
+#: checker marks as bad, `src/Logchecker.php:896`), agreed for this log in round
+#: 36: our lap 3 S11, the fork's lap 5 S9, our lap 6 S3.
+DISC_HAD_ERRORS: str = "There were errors"
 
 # The TOC's columns are too narrow for the sentence above, so an unmeasured cell
 # gets this instead. Same rule: name the gap, never compute a value from nothing.
@@ -980,6 +996,11 @@ def _pregap_line(track: TrackResult) -> list[str]:
     # standing rule: rows the ripper does not report say so instead of guessing.
     if getattr(track, "pregap_state", "") == "unknown":
         reason = getattr(track, "pregap_unknown_reason", "") or "not determined"
+        # From `.27`, what the search saw, so the log itself tells a CRC failure
+        # from a frame that answered for another sector (their round 36 lap 8 S21).
+        seen = describe_pregap_search(getattr(track, "pregap_search", None))
+        if seen:
+            reason = f"{reason}; the search saw: {seen}"
         return [f"     Pre-gap length  (not determined by the ripper — {reason})", ""]
     sectors = track.pregap_sectors
     if not isinstance(sectors, int) or sectors <= 0:
@@ -1205,8 +1226,13 @@ def _status_report(
     # diffs against, so it changes only through the handshake; the replacement
     # wording is proposed in TASKS.md for our round 36 lap. The report's
     # `health_status` and the window already say it (2026-10-21).
+    #
+    # One exception, by the owner's plan of record (2026-10-26, row 8): never
+    # "No errors occurred" over a track AccurateRip contradicts. The ripper
+    # counts read errors, and a track can read the same wrong audio four times
+    # with none (the Police disc's track 3, 2026-10-21). See `_health_lines`.
     if rip_log.health_status:
-        out.append(rip_log.health_status)
+        out.extend(_health_lines(rip_log))
         out.append("")
     # THE RIPPER'S OWN COMPLETION RECORD, which this document used to discard.
     #
@@ -1265,6 +1291,37 @@ def _status_report(
         out.append("")
     out.append("End of status report")
     return out
+
+
+def _health_lines(rip_log: RipLog) -> list[str]:
+    """The disc-level health sentence: the ripper's, unless AccurateRip contradicts a track.
+
+    The ripper's sentence verbatim when it already reads not clean, or when no
+    track is contradicted. Otherwise EAC's :data:`DISC_HAD_ERRORS` and one line
+    of ours in the shape agreed in round 36 (our lap 3 S11), so nothing the
+    ripper said is dropped: ``Ripper's own count  : Ripping errors: 0 — not
+    counted: track(s) 3, 5, which AccurateRip contradicts``. The count is
+    quoted as the ripper printed it when the parser read one, else its sentence.
+    """
+    health = rip_log.health_status
+    contradicted = [
+        track.number
+        for track in rip_log.tracks
+        if track_accuraterip_contradiction(track) is not None
+    ]
+    if health != CLEAN_HEALTH or not contradicted:
+        return [health]
+    count = rip_log.ripping_errors
+    said = (
+        f"Ripping errors: {count}"
+        if isinstance(count, int) and not isinstance(count, bool)
+        else health
+    )
+    return [
+        DISC_HAD_ERRORS,
+        f"Ripper's own count  : {said} — not counted: track(s) "
+        f"{_listed_tracks(contradicted)}, which AccurateRip contradicts",
+    ]
 
 
 def _read_stability_line(rip_log: RipLog) -> list[str]:
@@ -1426,13 +1483,7 @@ def _verified_reread_line(secure_rerip: SecureReripBlock | None) -> list[str]:
     securing pass's own read was not the one kept. Reads defensively, like
     :func:`_interrupted_securing_line`.
     """
-    if not isinstance(secure_rerip, dict):
-        return []
-    tracks = [
-        n
-        for n in secure_rerip.get("verified_rereads") or []
-        if isinstance(n, int) and not isinstance(n, bool)
-    ]
+    tracks = verified_reread_numbers(secure_rerip)
     if not tracks:
         return []
     listed = ", ".join(str(n) for n in sorted(tracks))
@@ -1662,8 +1713,12 @@ def _provenance_lines(
     return out
 
 
-def _track_block(track: TrackResult) -> list[str]:
-    """The per-track section, matching EAC's shape (only real fields rendered)."""
+def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[str]:
+    """The per-track section, matching EAC's shape (only real fields rendered).
+
+    ``verified_reread`` is True when the track's file is a verified-read chase
+    read (``secure_rerip["verified_rereads"]``), which its ``Proof:`` row names.
+    """
     # EAC writes "Track" + one space + the number right-aligned to width 2, so a
     # single-digit track reads "Track  1" and a double-digit one "Track 14". A
     # non-int number falls back to str() rather than raising on the format spec.
@@ -1745,11 +1800,24 @@ def _track_block(track: TrackResult) -> list[str]:
     # out and the block's own status line, below, says what the track is.
     if not is_data_track(track):
         out.append(f"     {_accuraterip_line(track)}")
+    # A row of our own, beside EAC's AccurateRip row it explains (plan of record,
+    # 2026-10-26, rows 8 and 9): which proof this copy has, from `track_proof`,
+    # the one wording the report carries too. EAC's one proof is a Test and Copy
+    # CRC pair; ours differs by track, so the log says which. A track AccurateRip
+    # contradicts says so here, so the block's last line is never the only
+    # verdict a reader sees. CTDB is not named: this log is written before it
+    # answers, and the report's `proof` carries it. Not for a data track, for
+    # the AccurateRip row's reason above: its own status line says what it is.
+    if not is_data_track(track):
+        proof = track_proof(track, verified_reread=verified_reread)
+        out.append(f"     Proof: {proof.line}")
+    contradiction = track_accuraterip_contradiction(track)
     if track.status:
         verdict = _status_line(
             track.status,
             reproducible=track.secure_rerip_converged,
             unverified_skips=track_has_unverified_skips(track),
+            contradicted=contradiction is not None,
         )
         out.append(f"     {verdict}")
     out.append("")
@@ -1800,12 +1868,26 @@ def _crc_lines(track: TrackResult) -> list[str]:
     if verified:
         # ≥2 reads agreed → the CRC is both the test-read's and the copy-read's
         # result. Render the EAC Test/Copy pair + an honest provenance note.
-        note = (
-            f"  (Test and Copy CRC identical — confirmed across {reads} secure "
-            "re-reads)"
-            if reads >= 2
-            else "  (Test and Copy CRC identical — reads converged)"
-        )
+        #
+        # NOT "confirmed" over a track AccurateRip contradicts (plan of record,
+        # 2026-10-26, row 8). The Police disc's track 3 read 3D8FCF0C on
+        # 2026-10-21, and this note called it "confirmed across 4 secure
+        # re-reads" while AccurateRip matched frame 450 only: the reads agreed
+        # with each other on the wrong audio. The Test/Copy pair stays, because it
+        # is true and it is EAC's own shape for reads that agreed; the note says
+        # that AccurateRip disagrees, so agreeing confirmed nothing.
+        if track_accuraterip_contradiction(track) is not None:
+            note = (
+                "  (Test and Copy CRC identical — the re-reads agreed on this "
+                "value, and AccurateRip contradicts it)"
+            )
+        elif reads >= 2:
+            note = (
+                f"  (Test and Copy CRC identical — confirmed across {reads} secure "
+                "re-reads)"
+            )
+        else:
+            note = "  (Test and Copy CRC identical — reads converged)"
         out.append(f"     Test CRC {crc}")
         out.append(f"     Copy CRC {crc}{note}")
     else:
@@ -1931,7 +2013,11 @@ def _accuraterip_line(track: TrackResult) -> str:
 
 
 def _status_line(
-    status: str, *, reproducible: bool | None = None, unverified_skips: bool = False
+    status: str,
+    *,
+    reproducible: bool | None = None,
+    unverified_skips: bool = False,
+    contradicted: bool = False,
 ) -> str:
     """Render the track status the way EAC does — but never `Copy OK` for a track
     whose re-reads disagreed.
@@ -1981,6 +2067,14 @@ def _status_line(
     "re-reads did not converge" twice and drop the skip. Both verdicts begin
     ``Copy NOT confirmed``, so a reader scanning for that phrase finds the track
     either way.
+
+    ``contradicted`` is ``verdict.track_accuraterip_contradiction(track) is not
+    None``: AccurateRip matched frame 450 only, or nothing. Such a track gets
+    EAC's own ``Copy finished`` (:data:`CONTRADICTED_VERDICT`), the line EAC
+    prints for a copy it does not call OK, never ``Copy OK`` (plan of record,
+    2026-10-26, row 8). The ``Proof:`` row above it names the contradiction in our
+    words. The two verdicts above take precedence, because each already reads
+    not clean and names its own cause.
     """
     if unverified_skips:
         return UNVERIFIED_SKIPS_VERDICT
@@ -1993,6 +2087,8 @@ def _status_line(
             "Copy NOT confirmed — re-reads did not converge, so this track is not "
             "verified reproducible (see Read stability above)"
         )
+    if contradicted:
+        return CONTRADICTED_VERDICT
     # EAC writes "Copy OK"; our backends use phrases like "ripped successfully".
     normalized = status.strip().lower()
     if normalized in ("copy ok", "ripped successfully"):

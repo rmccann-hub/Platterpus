@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
@@ -432,6 +433,36 @@ class VerificationBlock(TypedDict):
     derived: DerivedBlock | None
 
 
+class CtdbDifferenceBlock(TypedDict):
+    """One row of ``ctdb.tracks[].differences`` (v40, TASKS R43; ``ctdb/differences.py``)."""
+
+    entry_id: str | None
+    confidence: int | None
+    samples: int | None
+    places: list[str]
+    places_elided: int
+    text: str | None
+
+
+class CtdbLocalisationEntryBlock(TypedDict):
+    """One row of ``ctdb.localisation.entries_tried`` (v40)."""
+
+    entry_id: str | None
+    confidence: int | None
+    status: str | None
+    offset: int | None
+    samples_located: int
+    reason: str | None
+
+
+class CtdbLocalisationBlock(TypedDict):
+    """``ctdb.localisation`` (v40, TASKS R43; ``ctdb/localise.py``)."""
+
+    status: str | None
+    reason: str | None
+    entries_tried: list[CtdbLocalisationEntryBlock]
+
+
 class CtdbTrackBlock(TypedDict):
     """One row of ``ctdb.tracks`` (v39, TASKS R43; ``ctdb/matching.py``)."""
 
@@ -444,6 +475,8 @@ class CtdbTrackBlock(TypedDict):
     our_crc: str | None
     offset: int | None
     reason: str | None
+    # v40 (TASKS R43): where the parity located this track's difference.
+    differences: list[CtdbDifferenceBlock]
 
 
 class CtdbBlock(TypedDict):
@@ -465,6 +498,8 @@ class CtdbBlock(TypedDict):
     db_crcs: list[str | None]
     message: str | None
     tracks: list[CtdbTrackBlock] | None
+    # v40 (TASKS R43): the parity-based localisation's outcome.
+    localisation: CtdbLocalisationBlock | None
 
 
 class CoverArtBlock(TypedDict):
@@ -512,6 +547,13 @@ class KeptReadBlock(TypedDict):
     accuraterip_confidence: int
     # The last read's value when it was not the one kept; None when it was.
     last_read_crc: str | None
+
+
+class TrackProofBlock(TypedDict):
+    #: v40: one of `track_proof.PROOF_KINDS` ("accuraterip", "verified_reread",
+    #: "ctdb", "reads_agree", "none") and the line the EAC-layout log prints.
+    kind: str
+    line: str
 
 
 class TrackBlock(TypedDict):
@@ -565,6 +607,11 @@ class TrackBlock(TypedDict):
     #: v39: `.26`'s two disagreeing sub-channel searches of the pre-gap, first
     #: first; None when the log printed no disagreement.
     pregap_search_frames: list[int] | None
+    #: v40: `.27`'s `Pregap search:` line, what the sub-channel search saw (the
+    #: counts, read or `unrecognised` with the line kept, and a summary); None
+    #: when the log printed none: an older build, an image rip, a TOC or
+    #: lead-in pre-gap (`pregap_search.py`).
+    pregap_search: PregapSearchBlock | None
     pregap_state: str | None
     pregap_unknown_reason: str | None
     replaygain: dict[str, str] | None
@@ -579,6 +626,11 @@ class TrackBlock(TypedDict):
     #: and these are the only values that can separate them.
     paranoia_counts: dict[str, int]
     accuraterip_verified: bool
+    #: v40: `verdict.track_accuraterip_contradiction`: "wrong" (frame 450 matched,
+    #: the whole track did not), "differs" (compared, nothing matched), or None.
+    accuraterip_contradiction: str | None
+    #: v40: which proof this copy has (`track_proof.track_proof`), CTDB included.
+    proof: TrackProofBlock
     accuraterip: TrackAccurateRipBlock
 
 

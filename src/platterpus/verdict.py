@@ -159,25 +159,61 @@ def accuraterip_rejected_count(rip_log: object) -> int:
         return sum(
             1
             for t in _audio_tracks(rip_log)
-            if not track_accuraterip_verified(t)
-            and (
-                track_accuraterip_partial(t)
-                or accuraterip_state(
-                    getattr(t, "accuraterip_v1", None),
-                    getattr(t, "accuraterip_offset", None),
-                    getattr(t, "accuraterip_lookup", None),
-                )
-                == AR_STATE_NO_MATCH
-                or accuraterip_state(
-                    getattr(t, "accuraterip_v2", None),
-                    getattr(t, "accuraterip_offset", None),
-                    getattr(t, "accuraterip_lookup", None),
-                )
-                == AR_STATE_NO_MATCH
-            )
+            if track_accuraterip_contradiction(t) is not None
         )
     except (AttributeError, TypeError, ValueError):
         return 0
+
+
+#: :func:`track_accuraterip_contradiction`: frame 450 matched AccurateRip and the
+#: whole track did not. The owner's yardstick (plan of record, 2026-10-26, §2)
+#: calls such a track WRONG: the frame match places the pressing, so a whole-track
+#: mismatch means the audio differs from it.
+AR_CONTRADICTION_WRONG: Final[str] = "wrong"
+#: :func:`track_accuraterip_contradiction`: AccurateRip has an entry for this
+#: track, compared it, and nothing matched, not even frame 450. Not proven wrong,
+#: because no frame places the pressing, but contradicted all the same.
+AR_CONTRADICTION_DIFFERS: Final[str] = "differs"
+
+
+def track_accuraterip_contradiction(track: object) -> str | None:
+    """How AccurateRip contradicts this track's copy, or None when it does not.
+
+    **The one predicate behind "never a clean word over a track AccurateRip
+    contradicts"** (row 8 of the plan of record, 2026-10-26). The EAC-layout log's
+    per-track verdict and disc-level sentence, the report's per-track
+    ``accuraterip_contradiction`` and the results table's Status cell all ask it,
+    so no surface can call a track fine that another calls wrong. The worst
+    outcome the owner names, *a wrong track reported as fine*, is a disagreement
+    between this answer and a clean word printed beside it.
+
+    * :data:`AR_CONTRADICTION_WRONG` when only frame 450 matched
+      (:func:`track_accuraterip_partial`). On the Police disc's secure re-read of
+      2026-10-21, track 3 read ``3D8FCF0C`` four times, matched frame 450 at
+      confidence 200 and no whole-track checksum, and the EAC-layout log said
+      "confirmed across 4 secure re-reads … Copy OK" over it.
+    * :data:`AR_CONTRADICTION_DIFFERS` when either version's state is
+      :data:`AR_STATE_NO_MATCH`: compared, and the read is not one of the copies.
+    * None for an exact match (it proves the bytes however they were read), for a
+      track AccurateRip has no entry for or was never asked about, and for a data
+      track, which AccurateRip does not cover.
+
+    Reads with ``getattr``; never raises.
+    """
+    try:
+        if is_data_track(track) or track_accuraterip_verified(track):
+            return None
+        if track_accuraterip_partial(track):
+            return AR_CONTRADICTION_WRONG
+        offset = getattr(track, "accuraterip_offset", None)
+        lookup = getattr(track, "accuraterip_lookup", None)
+        for name in ("accuraterip_v1", "accuraterip_v2"):
+            state = accuraterip_state(getattr(track, name, None), offset, lookup)
+            if state == AR_STATE_NO_MATCH:
+                return AR_CONTRADICTION_DIFFERS
+        return None
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 # --- The one AccurateRip state classification --------------------------------
@@ -376,6 +412,42 @@ def accuraterip_state(
     if result is None:
         return AR_STATE_NO_DATA
     return AR_STATE_ABSENT
+
+
+#: Which of a track's two columns (v1, v2) summarises it: the best one, so an
+#: exact match in either column is a verified track, as
+#: ``track_accuraterip_verified`` says. `no-data` ranks above `not-checked`
+#: because a lookup that left no result is nearer an answer than no lookup.
+_TRACK_STATE_RANK: Final[tuple[str, ...]] = (
+    AR_STATE_VERIFIED,
+    AR_STATE_OFFSET_VARIANT,
+    AR_STATE_NO_MATCH,
+    AR_STATE_ABSENT,
+    AR_STATE_NO_DATA,
+    AR_STATE_NOT_CHECKED,
+)
+
+
+def track_accuraterip_state(track: object) -> str:
+    """One track's AccurateRip state: the best of its v1 and v2 columns.
+
+    The per-column classifier is :func:`accuraterip_state`; this is the one
+    summary of a whole track, for a caller that reports a track rather than a
+    column (the paired rips of section P6, ``uiscript/accuracy_grading.py``).
+    ``uiscript/artifact_grading._track_ar_state`` computes the same ranking and
+    ``tests/test_uiscript_accuracy_verbs.py`` holds the two equal. Pure; never
+    raises (an unexpected shape reads as ``not-checked``).
+    """
+    try:
+        offset = getattr(track, "accuraterip_offset", None)
+        lookup = getattr(track, "accuraterip_lookup", None)
+        states = [
+            accuraterip_state(getattr(track, column, None), offset, lookup)
+            for column in ("accuraterip_v1", "accuraterip_v2")
+        ]
+    except (AttributeError, TypeError, ValueError):
+        return AR_STATE_NOT_CHECKED
+    return min(states, key=_TRACK_STATE_RANK.index)
 
 
 def expected_track_total(

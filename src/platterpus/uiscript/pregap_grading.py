@@ -24,6 +24,17 @@ unmerged`` says the same thing out loud, so both read as 0. Only the FRAME
 COUNT is compared: whether a gap is merged into the previous track is a setting
 (``-G``), not something read off the disc.
 
+**A pregap the log calls unknown is a reading, and it disagrees with a number.**
+From ``.22`` the block can say ``pregap of track 9 unknown (sub-channel CRC
+mismatches)``. Until 2026-10-26 that line made the whole list unreadable, so the
+log was set aside, and on the fork's round 36 runs of the reference disc the
+check compared three logs, called them identical, and set aside the three that
+said track 9 was unknown (their round 36 lap 8 S11). A log that cannot tell a
+pregap disagrees with one that gives it a value; that is the disagreement this
+check exists to report. Such a track reads as unknown, and the detail names the
+log's reason and, where the log carries ``.27``'s ``Pregap search:`` line for
+that track, what the search saw (:func:`platterpus.pregap_search.describe`).
+
 **Who is "the same disc".** The MusicBrainz Disc ID on cyanrip's ``DiscID:``
 line: computed from the disc's table of contents, so it names the physical disc
 and not the release, which is the same key ``rip_compare.same_disc`` tries first.
@@ -60,6 +71,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.pregap_search import describe as describe_search
 from platterpus.safe_int import int_or_none
 
 #: The floor: how many readable lists of one disc a comparison needs.
@@ -71,6 +83,13 @@ MIN_LOGS_PER_DISC: Final[int] = 2
 #: few minutes both fit, and an absurd number is "not recognised", not a gap.
 _GAP_LINE: Final[re.Pattern[str]] = re.compile(
     r"^(?P<frames>\d{1,7}) frames? pregap in track (?P<track>\d{1,3})(?:,\s*\S.*)?$"
+)
+
+#: The fork's line for a pregap its sub-channel search could not tell
+#: (``pregap of track 9 unknown (sub-channel CRC mismatches)``, ``.22`` onward).
+#: The reason is optional and bounded; a reason we do not know is still a reason.
+_UNKNOWN_LINE: Final[re.Pattern[str]] = re.compile(
+    r"^pregap of track (?P<track>\d{1,3}) unknown(?: \((?P<reason>[^()]{1,120})\))?$"
 )
 
 #: Stock cyanrip 0.9.3's whole ``Gaps:`` block when there are none.
@@ -92,14 +111,18 @@ class GapReading:
     """One log's pregap list, or why it has none we can use.
 
     ``pregaps`` maps track number to frames for every track with a non-zero
-    pregap; ``None`` means NOT DETERMINED, never "no pregaps", and ``problem``
-    then says why. ``disc_id`` is ``""`` when the log names no disc.
+    pregap, and to ``None`` for a track the log says is UNKNOWN; ``pregaps``
+    itself being ``None`` means NOT DETERMINED, never "no pregaps", and
+    ``problem`` then says why. ``unknown_notes`` says, per unknown track, the
+    log's reason and what its sub-channel search saw. ``disc_id`` is ``""`` when
+    the log names no disc.
     """
 
     label: str
     disc_id: str
-    pregaps: Mapping[int, int] | None
+    pregaps: Mapping[int, int | None] | None
     problem: str = ""
+    unknown_notes: Mapping[int, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -107,12 +130,15 @@ class TrackDifference:
     """One track whose pregap differs between rips of one disc.
 
     ``readings`` pairs each frame count that was read with the logs that read
-    it, largest first, so "158 frames in ten logs, 0 in one" reads in that order.
+    it, largest first, so "158 frames in ten logs, 0 in one" reads in that order;
+    ``None`` is "the log says unknown", and comes last. ``notes`` pairs each log
+    that read unknown with what it said about why.
     """
 
     disc_id: str
     track: int
-    readings: tuple[tuple[int, tuple[str, ...]], ...]
+    readings: tuple[tuple[int | None, tuple[str, ...]], ...]
+    notes: tuple[tuple[str, str], ...] = ()
 
 
 #: The three answers :func:`compare` gives.
@@ -143,26 +169,51 @@ class PregapComparison:
         return tuple(sorted({d.track for d in self.differences}))
 
 
-def parse_gap_lines(joined: str) -> tuple[dict[int, int] | None, str]:
+def parse_gap_lines(joined: str) -> tuple[dict[int, int | None] | None, str]:
     """``(track -> frames, "")`` from the parser's joined ``Gaps:`` value, or
     ``(None, why not)``. Pure; never raises.
 
     Zero-frame entries are dropped, because the block's silence about a track
-    already says 0. A track named twice with two different counts is not
-    recognised: the log contradicts itself, and picking one would be a guess.
+    already says 0. A track the block calls unknown maps to ``None``. A track
+    named twice with two different answers is not recognised: the log
+    contradicts itself, and picking one would be a guess.
     """
+    pregaps, _reasons, problem = _read_gap_lines(joined)
+    return pregaps, problem
+
+
+def _read_gap_lines(
+    joined: str,
+) -> tuple[dict[int, int | None] | None, dict[int, str], str]:
+    """:func:`parse_gap_lines`, with each unknown track's reason beside it."""
     text = (joined or "").strip()
     if not text:
-        return None, "the log has no Gaps: block"
+        return None, {}, "the log has no Gaps: block"
     if text == _NONE_SIGNALLED:
-        return {}, ""
-    pregaps: dict[int, int] = {}
+        return {}, {}, ""
+    pregaps: dict[int, int | None] = {}
+    reasons: dict[int, str] = {}
     for fragment in text.split(_JOINED_BY):
+        unknown = _UNKNOWN_LINE.match(fragment.strip())
+        if unknown is not None:
+            track_said = int_or_none(unknown.group("track"), field="Gaps: track")
+            if track_said is None:
+                return (
+                    None,
+                    {},
+                    "its Gaps: block has a number this check could not read",
+                )
+            if track_said in pregaps and pregaps[track_said] is not None:
+                return None, {}, f"its Gaps: block names track {track_said} twice"
+            pregaps[track_said] = None
+            reasons[track_said] = unknown.group("reason") or "no reason given"
+            continue
         match = _GAP_LINE.match(fragment.strip())
         if match is None:
             shown = fragment.strip()[:80]
             return (
                 None,
+                {},
                 f"its Gaps: block has a line this check does not read: {shown!r}",
             )
         # Through the shared guard, like every parser of external text (the
@@ -172,15 +223,15 @@ def parse_gap_lines(joined: str) -> tuple[dict[int, int] | None, str]:
         track = int_or_none(match.group("track"), field="Gaps: track")
         frames = int_or_none(match.group("frames"), field="Gaps: frames")
         if track is None or frames is None:
-            return None, "its Gaps: block has a number this check could not read"
+            return None, {}, "its Gaps: block has a number this check could not read"
         if frames == 0:
             if pregaps.get(track, 0) != 0:
-                return None, f"its Gaps: block names track {track} twice"
+                return None, {}, f"its Gaps: block names track {track} twice"
             continue
         if track in pregaps and pregaps[track] != frames:
-            return None, f"its Gaps: block names track {track} twice"
+            return None, {}, f"its Gaps: block names track {track} twice"
         pregaps[track] = frames
-    return pregaps, ""
+    return pregaps, reasons, ""
 
 
 def read_gap_list(text: str, label: str) -> GapReading:
@@ -197,16 +248,40 @@ def read_gap_list(text: str, label: str) -> GapReading:
     except Exception as exc:  # noqa: BLE001 — a grader of external text never raises
         return GapReading(label, "", None, f"its log could not be parsed ({exc!r})")
     disc_id = (parsed.disc_id or "").strip()
-    pregaps, problem = parse_gap_lines(parsed.ripping_info.gap_detection)
+    pregaps, reasons, problem = _read_gap_lines(parsed.ripping_info.gap_detection)
+    # Each unknown track's reason, and what `.27`'s search saw on that track when
+    # this rip read it (a track block exists only for a track the rip read).
+    searches = {
+        getattr(t, "number", None): getattr(t, "pregap_search", None)
+        for t in parsed.tracks
+    }
+    notes = {
+        track: "; ".join(
+            part for part in (reason, describe_search(searches.get(track))) if part
+        )
+        for track, reason in reasons.items()
+    }
     if not disc_id:
         return GapReading(
-            label, "", pregaps, "it names no Disc ID, so its disc is unknown"
+            label,
+            "",
+            pregaps,
+            "it names no Disc ID, so its disc is unknown",
+            unknown_notes=notes,
         )
-    return GapReading(label, disc_id, pregaps, problem)
+    return GapReading(label, disc_id, pregaps, problem, unknown_notes=notes)
 
 
-def _frames(value: int) -> str:
+def _frames(value: int | None) -> str:
+    if value is None:
+        return "unknown"
     return "none" if value == 0 else f"{value} frame{'s' if value != 1 else ''}"
+
+
+def _largest_first(item: tuple[int | None, list[str]]) -> tuple[bool, int]:
+    """Sort key: frame counts largest first, then "unknown" last."""
+    value = item[0]
+    return (value is None, -(value or 0))
 
 
 def _quoted(labels: Sequence[str]) -> str:
@@ -246,11 +321,18 @@ def compare(readings: Sequence[GapReading]) -> PregapComparison:
         tracks = sorted({t for r in group for t in (r.pregaps or {})})
         found_here = 0
         for track in tracks:
-            seen: dict[int, list[str]] = {}
+            seen: dict[int | None, list[str]] = {}
+            notes: list[tuple[str, str]] = []
             for reading in group:
-                seen.setdefault((reading.pregaps or {}).get(track, 0), []).append(
-                    reading.label
-                )
+                value = (reading.pregaps or {}).get(track, 0)
+                seen.setdefault(value, []).append(reading.label)
+                if value is None:
+                    notes.append(
+                        (
+                            reading.label,
+                            reading.unknown_notes.get(track, "") or "no reason given",
+                        )
+                    )
             if len(seen) < 2:
                 continue
             found_here += 1
@@ -260,8 +342,9 @@ def compare(readings: Sequence[GapReading]) -> PregapComparison:
                     track,
                     tuple(
                         (frames, tuple(labels))
-                        for frames, labels in sorted(seen.items(), reverse=True)
+                        for frames, labels in sorted(seen.items(), key=_largest_first)
                     ),
+                    tuple(notes),
                 )
             )
         verdict = f"{found_here} track(s) differ" if found_here else "identical"
@@ -309,6 +392,11 @@ def compare(readings: Sequence[GapReading]) -> PregapComparison:
             for frames, labels in diff.readings
         )
         track_lines.append(f"track {diff.track} (disc {_short(diff.disc_id)}): {said}")
+        # Why each log could not tell: its reason, and what the search saw, so
+        # a run can tell reads that failed the CRC from misplaced frames.
+        track_lines.extend(
+            f"  '{label}' says unknown: {note}" for label, note in diff.notes
+        )
     named = ", ".join(str(t) for t in sorted({d.track for d in differences}))
     return PregapComparison(
         DIFFER,

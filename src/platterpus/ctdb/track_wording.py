@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from platterpus.ctdb.differences import CtdbLocalisation, LocalisationStatus
 from platterpus.ctdb.matching import CtdbTrackResult, TrackVerdict
 
 
@@ -23,11 +24,18 @@ def _track_list(numbers: Sequence[int]) -> str:
     return f"tracks {head} and {numbers[-1]}"
 
 
-def per_track_sentence(tracks: Sequence[CtdbTrackResult], total: int) -> str:
+def per_track_sentence(
+    tracks: Sequence[CtdbTrackResult],
+    total: int,
+    localisation: CtdbLocalisation | None = None,
+) -> str:
     """The one wording for the per-track results, shared by the verdict and the screen.
 
     Empty when no per-track result exists (the check did not get that far).
-    ``total`` is every submission for the disc, the denominator EAC prints.
+    ``total`` is every submission for the disc, the denominator EAC prints. Where
+    the parity located a track's difference (TASKS R43) the sentence names it
+    against the strongest entry; where it could not, and a track does differ or
+    agrees only with a minority, it says why the places are not determined.
     """
     if not tracks:
         return ""
@@ -49,6 +57,20 @@ def per_track_sentence(tracks: Sequence[CtdbTrackResult], total: int) -> str:
         )
     if undetermined:
         parts.append(f"{_track_list(undetermined)} not determined")
+    for track in tracks:
+        if track.differences:
+            first = track.differences[0]
+            parts.append(
+                f"track {track.track} {first.text} from the "
+                f"{first.confidence:,}-submission entry"
+            )
+    questioned = bool(differs or minority)
+    if (
+        questioned
+        and localisation is not None
+        and localisation.status is LocalisationStatus.NOT_DETERMINED
+    ):
+        parts.append(f"where it differs: not determined ({localisation.reason})")
     return "; ".join(parts) + "."
 
 
@@ -57,8 +79,9 @@ def per_track_lines(tracks: Sequence[CtdbTrackResult], total: int) -> list[str]:
 
     Laid out like EAC's ``Track | CTDB Status`` table so the two can be read side
     by side, but worded as ours: "agree" rather than EAC's "Accurately ripped",
-    because this is not EAC's plugin and does not count what it counts (it has
-    no repair-based localisation, see the module docstring).
+    because this is not EAC's plugin and does not count what it counts. Where the
+    parity located a difference, the line ends with it in EAC's own phrase
+    (``(1,416/1,441) differs in 16 samples @04:04:68,...``).
     """
     lines: list[str] = []
     for track in tracks:
@@ -75,5 +98,7 @@ def per_track_lines(tracks: Sequence[CtdbTrackResult], total: int) -> list[str]:
             )
         else:
             text = f"not determined ({track.reason})"
+        for difference in track.differences:
+            text += f"; ({difference.confidence:,}/{total:,}) {difference.text}"
         lines.append(f" {track.track:2d}   | {text}")
     return lines

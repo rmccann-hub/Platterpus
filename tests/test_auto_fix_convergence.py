@@ -569,3 +569,98 @@ def test_the_eac_layout_log_shows_a_chase_read_as_one_verified_read() -> None:
 def test_no_status_line_without_a_chase_read() -> None:
     text = render_eac_style_log(_log(), secure_rerip=None)
     assert "Verified re-read" not in text
+
+
+# --- the shipped read's own speed, time and counters (plan Appendix I, defect 3)
+
+
+def _run_c_track_16() -> tuple[SimpleNamespace, RipLog]:
+    """Run C's secure re-read, track 16 (2026-10-22, bundle 20261022t114515z).
+
+    The superseded `-Z` read ran at 0.55x for 362.25 s with one paranoia skip;
+    chase read 5, the one AccurateRip verifies and the file holds, ran at 4.8x
+    for 41.53 s with none. The report and the EAC-layout log printed the first
+    three beside the second's CRC.
+    """
+    first_pass = RipLog(
+        log_creator="cyanrip 0.9.4-rc3+platterpus.26",
+        tracks=(
+            TrackResult(
+                number=16,
+                filename="16.flac",
+                copy_crc="0FC7769D",
+                rip_count=5,
+                secure_rerip_converged=False,
+                extraction_speed=0.55,
+                extraction_elapsed_seconds=362.25,
+                paranoia_counts={"READ": 900, "VERIFY": 300, "SKIP": 1},
+                paranoia_scope="the last of 5 reads; the disc totals below sum all",
+            ),
+        ),
+    )
+    shipped = TrackResult(
+        number=16,
+        filename="tmp/16.flac",
+        copy_crc="3EACDE74",
+        extraction_speed=4.8,
+        extraction_elapsed_seconds=41.53,
+        paranoia_counts={"READ": 180, "VERIFY": 40},
+        accuraterip_v2=AccurateRipResult(
+            version=2,
+            result="accurately ripped, confidence 24",
+            confidence=24,
+            local_crc="B337E973",
+        ),
+    )
+    window = _window(
+        [
+            {
+                "track": 16,
+                "reripped_z": 2,
+                "converged": False,
+                "replaced": True,
+                "replaced_because": "accuraterip",
+                "verified_read_chase": {"kept_attempt": 5},
+            }
+        ],
+        {16: shipped},
+    )
+    return window, first_pass
+
+
+def test_a_chase_read_reports_its_own_speed_time_and_counters() -> None:
+    window, first_pass = _run_c_track_16()
+    track = _by_number(RipMixin._apply_auto_fix_results(window, first_pass), 16)
+    assert track.copy_crc == "3EACDE74"
+    assert track.extraction_speed == 4.8
+    assert track.extraction_elapsed_seconds == 41.53
+    assert track.paranoia_counts == {"READ": 180, "VERIFY": 40}
+    assert track.paranoia_scope == ""
+
+
+def test_the_eac_layout_log_prints_the_kept_read_s_speed_not_the_superseded() -> None:
+    window, first_pass = _run_c_track_16()
+    text = render_eac_style_log(
+        RipMixin._apply_auto_fix_results(window, first_pass),
+        secure_rerip={"verified_rereads": [16]},
+    )
+    assert "Extraction speed 4.8 X" in text
+    assert "Extraction time 0:00:42" in text or "Extraction time 41.53 s" in text
+    assert "0.6 X" not in text and "0:06:02" not in text
+    # The superseded read's skip no longer stands over the verified file.
+    assert "Copy NOT confirmed" not in text
+
+
+def test_a_read_that_reported_no_speed_gets_none_not_another_read_s() -> None:
+    """Unknown is true; the discarded read's 0.55x is not."""
+    window, first_pass = _run_c_track_16()
+    shipped = window._last_swapped_tracks[16]
+    window._last_swapped_tracks[16] = TrackResult(
+        number=16,
+        copy_crc=shipped.copy_crc,
+        accuraterip_v2=shipped.accuraterip_v2,
+    )
+    track = _by_number(RipMixin._apply_auto_fix_results(window, first_pass), 16)
+    assert track.extraction_speed is None
+    assert track.extraction_elapsed_seconds is None
+    assert track.paranoia_counts == {}

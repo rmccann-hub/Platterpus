@@ -212,7 +212,7 @@ def _host_tool_entries() -> list[Entry]:
     installs = _dnf_installs()
     encoders = _ffmpeg_encoders(Path(transcode_file))
     for spec in SPECS:
-        if spec.dep_id in {"cyanrip", "musicbrainzngs"}:
+        if spec.dep_id in {"cyanrip", "musicbrainzngs", "numpy"}:
             continue  # the ripper and python-runtime categories carry these
         name = _registry_name(spec.dep_id)
         minimum = ".".join(str(n) for n in spec.min_version)

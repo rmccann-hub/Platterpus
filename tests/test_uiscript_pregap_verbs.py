@@ -244,6 +244,115 @@ def test_an_absurdly_long_number_never_raises() -> None:
     assert reading.pregaps is None
 
 
+# --- A pregap the log calls unknown (the fork's round 36 lap 8 S11) ------------
+#
+# Until 2026-10-26 `pregap of track N unknown (reason)` made a log's whole list
+# unreadable, so the log was set aside: on the fork's runs of the reference disc
+# the check compared three logs, called them identical, and set aside the three
+# that said track 9 was unknown. No filed log of those runs is a fixture here
+# (they are on the evidence branch, and this check reads none), so the real
+# case is the fork's `.27` golden reference, whose track 3 the search could not
+# read, beside the same log with track 3 given a value.
+
+#: `cyanrip@22af58e:docs/golden-reference.log`, verbatim (`test_pregap_search.py`
+#: pins its hash). Its track 3 is unknown, with a `.27` `Pregap search:` line.
+_R36L8 = _REPO / "tests/fixtures/cyanrip_fork_golden_reference_r36l8.log"
+_UNKNOWN_GAP = "    pregap of track 3 unknown (sub-channel unreadable)\n"
+
+
+def _r36l8(*, track_3: str | None = None) -> str:
+    text = _R36L8.read_text(encoding="utf-8")
+    assert text.count(_UNKNOWN_GAP) == 1  # floor: the anchor is there, once
+    if track_3 is None:
+        return text
+    return text.replace(_UNKNOWN_GAP, f"    {track_3}\n")
+
+
+def test_an_unknown_pregap_is_read_not_set_aside() -> None:
+    reading = grading.read_gap_list(_r36l8(), "unknown")
+    assert reading.problem == ""
+    assert reading.pregaps == {1: 150, 2: 75, 3: None}
+    assert reading.unknown_notes[3].startswith("sub-channel unreadable; ")
+
+
+def test_an_unknown_pregap_disagrees_with_a_value_and_names_the_search() -> None:
+    unknown = grading.read_gap_list(_r36l8(), "unknown")
+    found = grading.read_gap_list(
+        _r36l8(track_3="94 frame pregap in track 3, merging into track 2"), "found"
+    )
+    result = grading.compare([found, unknown])
+
+    assert result.state == grading.DIFFER, result.detail
+    assert result.compared == 2
+    assert result.set_aside == ()
+    assert result.differing_tracks == (3,)
+    [difference] = result.differences
+    assert difference.readings == ((94, ("found",)), (None, ("unknown",)))
+    # The detail says which log could not tell, why, and what its search saw: the
+    # counts that tell reads that failed the CRC from misplaced frames.
+    assert "94 frames in 'found'; unknown in 'unknown'" in result.detail
+    assert (
+        "'unknown' says unknown: sub-channel unreadable; 1 sector asked; 0 reads "
+        "failed the CRC; 0 frames answered for another sector; LSN 376 to 524 "
+        "undecided"
+    ) in result.detail
+
+
+def test_an_unknown_pregap_without_a_search_line_still_disagrees() -> None:
+    """An older build's `unknown` (`.22` to `.26`): the reason alone is named."""
+    unknown = grading.read_gap_list(
+        _gap_log(
+            _DISC, [_GAPS[0], "pregap of track 4 unknown (sub-channel CRC mismatches)"]
+        ),
+        "unknown",
+    )
+    known = grading.read_gap_list(_gap_log(_DISC, _GAPS), "known")
+    result = grading.compare([known, unknown])
+    assert result.state == grading.DIFFER
+    assert result.differing_tracks == (4,)
+    assert "'unknown' says unknown: sub-channel CRC mismatches" in result.detail
+
+
+def test_logs_that_all_call_one_pregap_unknown_agree_with_each_other() -> None:
+    """They say the same thing, so there is no disagreement to report; the
+    detail still says which logs were compared."""
+    result = grading.compare(
+        [grading.read_gap_list(_r36l8(), name) for name in ("a", "b")]
+    )
+    assert result.state == grading.AGREE, result.detail
+    assert result.compared == 2
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        (["pregap of track 9 unknown (sub-channel CRC mismatches)"], {9: None}),
+        (["pregap of track 9 unknown"], {9: None}),
+        (
+            ["0 frame pregap in track 1, unmerged", "pregap of track 9 unknown"],
+            {9: None},
+        ),
+        (["94 frame pregap in track 9", "pregap of track 9 unknown"], None),
+        (["pregap of track 9 unknown", "94 frame pregap in track 9"], None),
+        (["pregap of track 9 unknown (" + "x" * 200 + ")"], None),
+    ],
+    ids=[
+        "reason",
+        "no-reason",
+        "beside-a-zero",
+        "value-then-unknown",
+        "unknown-then-value",
+        "absurd-reason",
+    ],
+)
+def test_the_unknown_line_grammar(
+    lines: list[str], expected: dict[int, int | None] | None
+) -> None:
+    pregaps, problem = grading.parse_gap_lines("; ".join(lines))
+    assert pregaps == expected
+    assert (pregaps is None) == bool(problem)
+
+
 # --- The scan: which files count ----------------------------------------------
 
 

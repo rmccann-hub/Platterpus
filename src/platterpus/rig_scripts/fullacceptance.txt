@@ -13,13 +13,15 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 497 steps now. The run
+#                               the script is 576 steps now, and P6
+#                               adds about 30 minutes to it. The run
 #                               states its own estimate when it starts
 #                               and again after section E (run-estimate)
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus seven short partial
-#                   rips, and four more of tracks 1-3 for P5's timed rip, which
-#                   also rebuilds the ripper four times (P5 says how long).
+#                   rips, four more of tracks 1-3 for P5's timed rip, and eight
+#                   of track 3 alone for P6's paired rips; P5 and P6 switch the
+#                   ripper between two builds (each says how long it takes).
 #                   ONLY FULL counts toward a version or a handshake close.
 #
 # RUN SIZES are cut from THIS ONE FILE. Each section's first line is
@@ -1654,6 +1656,137 @@ expect-rip-complete
 expect-verification
 record-timing B2
 compare-timings A1 B1 A2 B2
+install-ripper (pin)
+set read_speed_mode auto_ladder
+expect read_speed_mode auto_ladder
+set second_read_without_accuraterip on
+expect second_read_without_accuraterip on
+set secure_rerip_matches 2
+expect secure_rerip_matches 2
+set secure_rerip_dynamic on
+expect secure_rerip_dynamic on
+
+# --- P6. PAIRED RIPS OF TRACK 3: DOES THE BUILD DECIDE ITS ACCURACY? -------
+# The owner's word (2026-10-26): "add paired .25/.26 rips of track 3 to the
+# Full run." On the 2026-10-21 Full run, track 3 of the reference disc verified
+# with AccurateRip in both of P5's `.25` rips and in neither `.26` rip (one
+# frame only), though P5 already alternated the builds; `.25` had also misread
+# track 3 in earlier whole-disc rips. The fork's round 36 lap 8 S8: "Two rips a
+# side cannot separate the build from the disc." So this section rips track 3
+# ALONE, four times on each build, and counts how many of each build's rips
+# AccurateRip verified.
+#
+# ABBA ORDER, over four pairs: A B B A A B B A, where A is the approved build
+# (FORK_PIN) and B the build under review. Each build sits at the same mean
+# position in the run, so a drift that grows steadily through the section (the
+# drive warming, the disc heating) favours neither. P5's plain alternation
+# (A B A B) puts every B after its A, which is the one order a drift can
+# exploit. The build switches only between rips of different builds: five
+# installs, not eight.
+#
+# A MEASUREMENT, NOT A VERDICT (docs/testing.md, Acceptance severity, P6): each
+# rip's per-track result, CRC32 and speed are `info`, and so is the tally,
+# "right in N of M rips" per build with every distinct CRC32 it read. A build
+# that misreads track 3 is a finding for the fork, not a defect of this rip.
+# What can go red is a comparison that cannot be made: a log naming no build,
+# rips over different tracks, only one build among them, a rip AccurateRip
+# gave no answer about (counting an unknown as wrong would score it a
+# failure), or an install that failed. "Verified" is the verdict's own word
+# (`verdict.track_accuraterip_state`), not restated here.
+#
+# NOTHING TO COMPARE BETWEEN ROUNDS. When the build under review IS the
+# approved pin, `skip-if-same-build` says so (info) and every step below is
+# marked N/A. No build tag is named here: `(fork-pin)`, `(under-review)` and
+# `(pin)` read the handshake record, for the reason this file's header gives.
+#
+# FIXED SETTINGS, P5's: track 3 only, the offset as section B set it, NO
+# securing pass (`-Z` off: no dynamic re-read, no second read without
+# AccurateRip, so no rip can replace the read being graded), a fixed read speed
+# (0: no `-S`, the drive's own), the shipped retry ceiling. P5 put every one of
+# these back, so they are set again here, and put back again at the end.
+# `expect-verification` after each rip lets its post-rip checks finish BEFORE
+# the next install replaces the binary they call.
+#
+# TIME: measured on 2026-10-21 (the bundle's app log and transcript, P5): each
+# install of an already-built commit took 6 to 8 s (2 s when nothing changed),
+# and each P5 cycle spent about 14 s outside the rip (install plus the post-rip
+# checks); track 3's `Elapsed:` was 303 s on `.25` and 104 to 105 s on `.26`,
+# and each rip waited 6 to 12 s beyond its tracks' `Elapsed:` sum. So about
+# 4 x 325 s + 4 x 130 s, roughly 30 minutes, ESTIMATED from P5's three-track
+# rips: track 3 has not been ripped alone on this rig, and a misread may read
+# slower. Bounded at 6 x 45 minutes of install and 8 x 30 minutes of rip; past
+# a bound the step fails and the batch continues. The last line puts back the
+# build section A accepted, so section Q and the next run are on it.
+log --- P6. paired rips of track 3: does the build decide its accuracy? ---
+run-size full
+skip-if-same-build (fork-pin) (under-review)
+log P6 rips track 3 alone, eight times in ABBA order (A=approved, B=under review), offset as set, no securing pass (-Z off), fixed read speed 0, shipped retries
+set secure_rerip_dynamic off
+expect secure_rerip_dynamic off
+set secure_rerip_matches 0
+expect secure_rerip_matches 0
+set second_read_without_accuraterip off
+expect second_read_without_accuraterip off
+set read_speed_mode fixed
+expect read_speed_mode fixed
+expect read_speed 0
+expect max_retries 5
+expect output_format flac
+select-tracks 3
+install-ripper (fork-pin)
+album accuracy A1 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy A1
+install-ripper (under-review)
+album accuracy B1 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy B1
+album accuracy B2 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy B2
+install-ripper (fork-pin)
+album accuracy A2 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy A2
+album accuracy A3 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy A3
+install-ripper (under-review)
+album accuracy B3 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy B3
+album accuracy B4 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy B4
+install-ripper (fork-pin)
+album accuracy A4 (run) (ripper)
+rip
+wait-for-rip 1800
+expect-rip-complete
+expect-verification
+record-accuracy A4
+compare-accuracy A1 B1 B2 A2 A3 B3 B4 A4
 install-ripper (pin)
 set read_speed_mode auto_ladder
 expect read_speed_mode auto_ladder

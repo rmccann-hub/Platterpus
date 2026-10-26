@@ -15,7 +15,7 @@
           "type": "application",
           "group": "platterpus",
           "name": "scripts/emit_bom.py",
-          "version": "0.7.112"
+          "version": "0.7.113"
         }
       ]
     },
@@ -23,14 +23,14 @@
       "type": "application",
       "bom-ref": "platterpus",
       "name": "platterpus",
-      "version": "0.7.112",
+      "version": "0.7.113",
       "description": "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
       "licenses": [
         {
           "expression": "GPL-3.0-only"
         }
       ],
-      "purl": "pkg:pypi/platterpus@0.7.112",
+      "purl": "pkg:pypi/platterpus@0.7.113",
       "externalReferences": [
         {
           "type": "vcs",
@@ -57,7 +57,7 @@
       },
       {
         "name": "platterpus:count:python-runtime",
-        "value": "5"
+        "value": "6"
       },
       {
         "name": "platterpus:count:ripper",
@@ -325,6 +325,44 @@
         {
           "name": "platterpus:checked-minimum",
           "value": "0.7.1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:numpy",
+      "name": "numpy",
+      "description": "Reed-Solomon syndromes over GF(2^16) that locate where a rip differs from a CTDB entry (TASKS R43).",
+      "scope": "required",
+      "purl": "pkg:pypi/numpy",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/ctdb/syndromes.py, src/platterpus/ctdb/verify_parity.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies, build/python-appimage/requirements.txt, src/platterpus/deps/registry.py (checked at launch)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=2.4.6,<2.5"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "src/platterpus/ctdb/syndromes.py, src/platterpus/ctdb/verify_parity.py"
+        },
+        {
+          "name": "platterpus:appimage-constraint",
+          "value": "~=2.4.6"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "2.4.6"
         }
       ]
     },
@@ -3525,6 +3563,7 @@
         "desktop:org.freedesktop.ScreenSaver",
         "pypi:cryptography",
         "pypi:musicbrainzngs",
+        "pypi:numpy",
         "pypi:pyside6",
         "pypi:sigstore",
         "pypi:tomli-w",
