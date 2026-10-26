@@ -18,6 +18,7 @@ settle_state`, the one predicate ``expect-verification`` also uses.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
@@ -38,6 +39,14 @@ log = logging.getLogger(__name__)
 #: default as ``expect-verification``; in the script these verbs come after it,
 #: so on a healthy run the record has already settled and the wait is zero.
 ARTIFACT_WAIT_S: Final[float] = 600.0
+
+#: How long ``expect-cover-art`` waits, from its start, for a settled report to
+#: gain its ``cover_art`` result. The cover step is not a verification gate, so
+#: the report settles without it. Run C on 0.7.112 (app log lines 17612-17719):
+#: the step finished 166 s after the rip, 91 s after the verb had graded. Five
+#: minutes is under :data:`ARTIFACT_WAIT_S`, so a result still missing then is
+#: graded "not determined" rather than timing out.
+COVER_ART_WAIT_S: Final[float] = 300.0
 
 
 class ArtifactVerbsMixin:
@@ -84,8 +93,15 @@ class ArtifactVerbsMixin:
         grade: Callable[[Path, dict[str, Any]], grading.Grade],
         *,
         grade_unfinished: bool = False,
+        still_waiting: Callable[[dict[str, Any]], bool] | None = None,
+        still_waiting_s: float = 0.0,
     ) -> None:
         """Wait for this rip's report to settle, then grade it once.
+
+        ``still_waiting`` keeps waiting on a SETTLED report for up to
+        ``still_waiting_s`` from the start, for a result that lands after the
+        record settles (``expect-cover-art``'s cover step); past that, the
+        report is graded as it stands.
 
         ``grade_unfinished`` is for the one verb whose question still stands
         after a cancelled rip (``expect-album-audit ripper_log_integrity``: did
@@ -93,6 +109,8 @@ class ArtifactVerbsMixin:
         other grader FAILs an unfinished rip at once, the way
         ``expect-verification`` does — there is nothing for it to wait for.
         """
+
+        started = time.monotonic()
 
         def settled() -> bool:
             path = grading.report_path(folder)
@@ -107,6 +125,12 @@ class ArtifactVerbsMixin:
                     f"nothing here to grade — the rip's own failure is the finding"
                 )
                 return True
+            if (
+                still_waiting is not None
+                and still_waiting(report)
+                and time.monotonic() - started < still_waiting_s
+            ):
+                return False
             result = grade(path, report)
             self._deadline_outcome = (
                 Outcome.BLOCKED
@@ -237,6 +261,8 @@ class ArtifactVerbsMixin:
                 mode,
                 tag_grading.report_release_id(report),
             ),
+            still_waiting=lambda report: tag_grading.cover_art_pending(report, mode),
+            still_waiting_s=COVER_ART_WAIT_S,
         )
 
     def _do_track_title(self, step: Step) -> None:

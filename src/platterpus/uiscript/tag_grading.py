@@ -58,6 +58,20 @@ def report_release_id(report: Mapping[str, Any]) -> str | None:
     return value.strip() if isinstance(value, str) else ""
 
 
+def cover_art_pending(report: Mapping[str, Any], mode: str) -> bool:
+    """True while the cover setting asked for something and the report holds no
+    ``cover_art`` result yet. The cover step runs after the report first
+    settles (it is not one of the verification gates), so a settled report can
+    still be waiting for it."""
+    from platterpus.adapters.cover_art import plan_actions
+
+    release_id = report_release_id(report)
+    if release_id is None:
+        return False
+    embed, save_file = plan_actions(mode, False, release_id)
+    return (embed or save_file) and not isinstance(report.get("cover_art"), dict)
+
+
 def ripped_masters(report: Mapping[str, Any], folder: Path) -> list[tuple[int, Path]]:
     """``(track number, FLAC path)`` for every track the report says was ripped.
 
@@ -198,6 +212,17 @@ def grade_cover_art(
     embed, save_file = plan_actions(mode, False, release_id)
     block = report.get("cover_art")
     art = block if isinstance(block, dict) else {}
+    if (embed or save_file) and not isinstance(block, dict):
+        # Absent is not zero. Run C on 0.7.112 graded while the cover step was
+        # still embedding, and reported "0 file(s) took the cover" over 16 that
+        # had (its app log, lines 17625 and 17719).
+        return Grade(
+            False,
+            f"not determined: cover art was asked for ({mode!r}) and the report "
+            "still holds no cover_art result, so what the rip did with it is "
+            "unknown",
+            blocked=True,
+        )
     if (embed or save_file) and art.get("found") is False:
         return Grade(
             False,
@@ -231,7 +256,12 @@ def grade_cover_art(
             f"mode {mode!r} embeds nothing, yet track(s) "
             f"{', '.join(map(str, with_cover))} carry a picture"
         )
-    claimed = art.get("embedded_count") or 0
+    count = art.get("embedded_count")
+    claimed = count if isinstance(count, int) else 0
+    if embed and not isinstance(count, int):
+        problems.append(
+            f"the report's cover_art block has no embedded_count ({count!r})"
+        )
     if claimed != (len(with_cover) if embed else 0):
         problems.append(
             f"the report says {claimed} file(s) took the cover; the files hold "

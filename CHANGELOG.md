@@ -18,6 +18,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **The acceptance test grades a rip's tags and cover against that rip's own record, not the window** (contributor-facing). `expect-tags` compared the files with the track table and `expect-cover-art` took the release from the window, so when run A's drive flicker cleared the window, section F failed correct files ("the window has no row for it"; "mode 'embed' embeds nothing, yet track(s) 1 … 14 carry a picture"). The tags a rip is handed are now kept on its record when it starts, and the release comes from its report's `disc` block; a report with no `disc` block is "not determined", and a rip with no record kept is an error that says so.
 
+- **`expect-cover-art` waits for a cover result that lands after the rip's report has settled, and never reads a missing one as zero** (contributor-facing). The cover step is not a verification gate, so the report settles without it; in run C on 0.7.112 the verb graded 91 s before the step recorded its result and said "the report says 0 file(s) took the cover; the files hold 16". It now waits up to five minutes for the result, and a result still missing is "not determined".
+
 ### Added
 
 - **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours.

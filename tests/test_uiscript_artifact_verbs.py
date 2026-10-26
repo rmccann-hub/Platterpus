@@ -350,3 +350,55 @@ def test_expect_cover_art_reads_the_release_from_the_report(tmp_path) -> None:
     assert report_release_id({}) is None
     grade = grade_cover_art([], {}, "embed", None)
     assert grade.blocked and grade.detail.startswith("not determined"), grade
+
+
+# --- Run C on 0.7.112: the cover step landed after the grade ------------------
+
+
+def test_a_missing_cover_art_result_is_not_determined_never_zero(tmp_path) -> None:
+    """Run C's app log line 17625: "the report says 0 file(s) took the cover; the
+    files hold 16", graded 91 s before the cover step recorded its result (line
+    17719). An absent block is "not determined", not a count of zero."""
+    from platterpus.uiscript.tag_grading import cover_art_pending, grade_cover_art
+
+    report = _load("overwrite")
+    del report["cover_art"]
+    assert cover_art_pending(report, "embed")
+    assert not cover_art_pending(report, "")  # nothing asked for, nothing pending
+    grade = grade_cover_art(
+        [], report, "embed", report["disc"]["musicbrainz_release_id"]
+    )
+    assert grade.blocked and grade.detail.startswith("not determined"), grade
+    assert "0 file(s)" not in grade.detail
+
+
+def test_expect_cover_art_waits_for_a_cover_result_that_lands_late(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The report settles without the cover step, which is not a gate; the verb
+    waits for its result rather than grading the record without it."""
+    from PySide6.QtCore import QTimer
+
+    monkeypatch.setattr(artifact_verbs, "ARTIFACT_WAIT_S", 20.0)
+    monkeypatch.setattr(artifact_verbs, "COVER_ART_WAIT_S", 10.0)
+    full = _load("overwrite")
+    early = dict(full)
+    del early["cover_art"]
+    win = _rip(tmp_path, early)
+    (report_file,) = (tmp_path / "album").glob("*.platterpus.json")
+    QTimer.singleShot(300, lambda: report_file.write_text(json.dumps(full), "utf-8"))
+    step = _run(win, qapp, process_until, "expect-cover-art")
+    assert step.outcome is Outcome.PASS, step.detail
+    assert step.elapsed_s >= 0.2, "graded before the cover result landed"
+
+
+def test_expect_cover_art_says_not_determined_when_the_result_never_lands(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(artifact_verbs, "ARTIFACT_WAIT_S", 20.0)
+    monkeypatch.setattr(artifact_verbs, "COVER_ART_WAIT_S", 0.3)
+    report = _load("overwrite")
+    del report["cover_art"]
+    step = _run(_rip(tmp_path, report), qapp, process_until, "expect-cover-art")
+    assert step.outcome is Outcome.BLOCKED, step.detail
+    assert step.detail.startswith("not determined"), step.detail
