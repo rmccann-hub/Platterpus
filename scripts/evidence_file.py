@@ -54,9 +54,11 @@ from platterpus.export_identity import (  # noqa: E402
     this_machines_hostnames,
 )
 from platterpus.export_redaction import (  # noqa: E402
+    CHASE_RECORD,
     KEPT_CYANRIP_SIGNED,
     KEPT_PLATTERPUS_CHECKSUM,
     redact_all,
+    redact_chase_record,
     signed_reason,
     this_machines_homes,
 )
@@ -127,6 +129,47 @@ def stage(
     return filed, skipped
 
 
+def _file_chase_wrapper(
+    data: bytes,
+    text: str,
+    dest: Path,
+    rel: str,
+    *,
+    homes: Sequence[str],
+    hosts: Sequence[str],
+    names: Sequence[str] | None,
+) -> Filed:
+    """Verify each embedded log, keep it as written, and redact what is around it.
+
+    The chase's record (TASKS R7) holds several signed cyanrip logs with our argv
+    lines between them, so it verifies as no single log. The redaction is the
+    export's own (``export_redaction.redact_chase_record``), so filing and export
+    cannot disagree; the verification of each embedded log is this tool's.
+    """
+    before = hashlib.sha256(data).hexdigest()
+    done, logs = redact_chase_record(text, homes=homes, hosts=hosts, names=names)
+    verdicts = [fun512.verify(log.encode("utf-8", "surrogateescape")) for log in logs]
+    new = done.text.encode("utf-8", "surrogateescape")
+    dest.write_bytes(new)
+    valid = sum(1 for v in verdicts if v == "valid")
+    verdict = (
+        f"verified-read wrapper: {len(verdicts)} embedded cyanrip log(s), "
+        f"{valid} FUN512 valid"
+    )
+    if valid != len(verdicts) or not verdicts:
+        verdict += f", mismatch in {len(verdicts) - valid}"
+    return Filed(
+        dest.name,
+        rel,
+        before,
+        hashlib.sha256(new).hexdigest(),
+        verdict,
+        done.homes,
+        done.hosts,
+        done.names,
+    )
+
+
 def file_member(
     data: bytes,
     dest: Path,
@@ -137,9 +180,13 @@ def file_member(
     names: Sequence[str] | None,
 ) -> Filed:
     """Verify first; then keep a signed log as written, or redact and count."""
+    text = data.decode("utf-8", "surrogateescape")
+    if CHASE_RECORD.match(text):
+        return _file_chase_wrapper(
+            data, text, dest, rel, homes=homes, hosts=hosts, names=names
+        )
     before = hashlib.sha256(data).hexdigest()
     verdict = verification(data)
-    text = data.decode("utf-8", "surrogateescape")
     done = redact_all(text, homes=homes, hosts=hosts, names=names)
     if verdict:
         dest.write_bytes(data)

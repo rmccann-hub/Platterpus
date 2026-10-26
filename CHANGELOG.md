@@ -14,11 +14,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours, and the shared-hash check records the copy as landed after our lap 6 declared the old hash.
+
 - **Round 36: our lap 6 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
 - **Our round 36 lap 6, held until its pull request is green and merged.** It accepts the fork's lap 5 S4 (the footer's tally over audio tracks) and S9 (the skips line only when `Ripping errors:` carries no skip suffix), answers S10 (no log we hold shows an error line under `Ripping errors: 0`, so that cause leaves the proposed line), carries lap 1's close-by, and corrects our laps 2 and 3's.
 
 ### Fixed
+
+- **The EAC-layout log's `Utilize accurate stream` row now says what the drive declared, instead of `(not reported by the ripper)`.** Every `.26` rip on the rig printed `Accurate stream: declared supported by drive (capabilities page, not measured)`, and the row ignored it. A declaration is not EAC's "used", so the row reads `(not determined; the drive declares it supported, not measured)`, never `Yes`.
+
+- **An exported session bundle no longer carries your home folder in the verified-read chase's record.** The record holds each single read's signed cyanrip log, with our argv line before it, and the export kept any file with a signed log in it byte for byte, so the argv lines' home folder went into the 2026-10-22 11:45 UTC bundle, ten times. The export now redacts around the embedded logs, which stay exactly as written, through the same function the evidence filing tool uses.
+
+- **The evidence filing tool names every member of a 0.7.112 Full run, and files the verified-read chase's record redacted** (contributor-facing). The four round 36 bundles had members it had no name for (section P5's `timing A1` to `B2` folders, `install-ripper`'s records, and the loose files of a rip that never finished), and the chase's record, several signed cyanrip logs with our argv lines between them, verified as no log at all, so it was kept unredacted with the rig's home folder on each argv line. Each embedded log is now verified on its own and kept byte for byte, and the lines between them are redacted and counted. The four runs are filed on `evidence` at `6b31795c` (308 files), with their manifest rows.
 
 - **Our handshake report now catches a later lap that moves a round's close-by** (contributor-facing). It read only each round's first `HANDSHAKE-CLOSE-BY`, so our own round 36 laps 2 and 3, declaring 2026-11-30 against the fork's lap 1's 2026-11-20, went unremarked until the fork's lap 5 S15 found them. It now compares every later lap, either side's, with the first declaration, advisory as R2 says; over the record that is 7 laps (round 8's laps 9 to 18, and our two). The fork's round 36 lap 5 is filed.
 

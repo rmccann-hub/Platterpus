@@ -135,6 +135,27 @@ def test_a_signed_cyanrip_log_is_kept_byte_for_byte_with_its_paths_counted() -> 
     assert done.kept_reason == KEPT_CYANRIP_SIGNED
 
 
+def test_a_chase_record_is_redacted_around_its_embedded_logs() -> None:
+    """The 2026-10-22 11:45 UTC Full run exported the verified-read chase's record
+    (TASKS R7) with the rig's home folder on every argv line: the record holds
+    signed cyanrip logs, so the whole file was kept as one. Our argv lines are
+    redacted now, and each embedded log is kept exactly as written, its own
+    path included, since replacing it would break its signature."""
+    attempt = (
+        "=== Platterpus verified-read chase: track 16, attempt {n} ===\n"
+        "argv: /var/home/alice/.local/bin/cyanrip -l 16\n"
+        "exit status: 0\n\n"
+    )
+    text = attempt.format(n=1) + _SIGNED_LOG + "\n" + attempt.format(n=2) + _SIGNED_LOG
+    done = redact_member(text.encode())
+
+    out = done.data.decode()
+    assert "/var/home/alice" not in out
+    assert out.count(_SIGNED_LOG) == 2, "an embedded log was altered"
+    assert done.replaced == 2
+    assert done.kept_reason == ""
+
+
 def test_our_checksummed_eac_log_is_kept_byte_for_byte() -> None:
     text = _eac_style("Used drive  : x\nFilename /home/alice/Music/01.flac\n")
     # The stand-in is real: the module that writes the footer accepts it.
