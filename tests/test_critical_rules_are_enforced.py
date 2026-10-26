@@ -1572,7 +1572,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2887 -> 2918** (2026-10-26, round 36 lap 7 S3): `BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH`, empty until `.27` is released, and its reader, beside the other per-build capability sets.
     # **2918 -> 2957** (2026-10-26, round 36's pin moves to `.27` on the owner's word, the fork's lap 10): `PIN_UNDER_REVIEW` `5aeefc4`, its release sequence 38, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version, `.26` named in the `--verify-log` set, each with the source it was read from.
     # **2957 -> 3081** (2026-10-26, the claude-code-skills review, item 2.1): the full commit beside each named pin (`FORK_PIN_FULL`, `PIN_UNDER_REVIEW_FULL`, `FORK_TEST_PIN_FULL`, `full_commit_for`, `ForkTarget.full_commit`) and the build script's refusals of a wrong HEAD, a dirty tree and a `-dirty` banner. Kept here rather than split out: the build script and the pins it checks are the one fact this module owns, and the build script is a string the step engine passes whole, so moving half of it would put the HEAD check and the checkout it checks in two files.
-    "deps/fork_source.py": 3081,
+    # **3081 -> 3113** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `is_dirty_build`, the one predicate for a `-dirty` build, beside `release_seq_for_commit`, which still orders one at its release, and `is_the_build_under_review` refusing one.
+    "deps/fork_source.py": 3113,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1583,7 +1584,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # heuristic is explicitly not meant to punish.
     "deps/ripper_wrapper_probe.py": 510,
     # **663 -> 688 (2026-09-25)**: the default wizard keeps the build under review, records that it did, and says so in its 'already present' line.
-    "deps/host_setup.py": 688,
+    # **688 -> 695** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` build of the target is not the target installed, so the wizard builds the clean one over it.
+    "deps/host_setup.py": 695,
     # **343 -> 392 (2026-09-21).** The menu-cache rebuild the uninstaller never
     # did, and the comment saying why it is unconditional on the failure path and
     # absent on a dry run. Installing refreshed the caches and uninstalling did
@@ -1607,7 +1609,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **800 -> 810 (2026-09-28)**: the offer names each build by version, commit and
     # fork release through `ripper_standing`, and names the round testing it.
     # **810 -> 868** (2026-10-06): `_build_under_review_note`, so an up-to-date answer on one channel names the build an open round reviews on the other, and the in-app route to it.
-    "deps/ripper_offer.py": 868,
+    # **868 -> 929** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `_dirty_build_offer`, decided before any prefix comparison, so a `-dirty` build is offered the clean build instead of being told it is current; it belongs beside the other offers it pre-empts.
+    "deps/ripper_offer.py": 929,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
@@ -1826,7 +1829,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 795 -> 804 (2026-10-16): round 34's close moves the approval record to round
     # 34 for `.23` with 0.7.106, recorded beside both constants.
     # **804 -> 813** (2026-10-20): round 35's approval record (0.7.110, round 35), recorded beside its constants, as each round's is.
-    "handshake_approval.py": 813,  # 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    "handshake_approval.py": 822,  # 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);

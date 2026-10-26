@@ -501,6 +501,32 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
 }
 
 
+def is_dirty_build(commit_or_tag: str) -> bool:
+    """Whether a build tag, or the commit read off one, ends in ``-dirty``.
+
+    The fork's meson ``vcs_tag`` appends ``-dirty`` when the tree it built from had
+    changes (``cyanrip@5f1d036:src/meson.build:127-128``), so the binary itself says
+    it is not the published build of the commit it names. **This is the one place
+    that question is answered**, and its answer decides different things in
+    different places, on purpose (the claude-code-skills review of 2026-10-26,
+    item 2.2):
+
+    * **ordering keeps it**: :func:`release_seq_for_commit` and the per-build flag
+      sets still place a dirty build at its commit, because a dirty build of a
+      release still has that release's flags and sits at that point in the
+      sequence;
+    * **approval, keeping and offering refuse it**: the rip verdict is
+      ``unapproved`` (``handshake_approval._tag_is_approved`` compares the whole
+      tag), :func:`is_the_build_under_review` is ``False`` so nothing keeps it, the
+      update offer offers the clean build in its place, the setup wizard counts it
+      as not installed, and the build script refuses to install one.
+
+    A ``-dirty`` tag on a commit we know is *recognised*, so ``unapproved`` is the
+    honest verdict for it; an unrecognised tag stays ``not_determined``.
+    """
+    return (commit_or_tag or "").strip().casefold().endswith("-dirty")
+
+
 def release_seq_for_commit(commit: str) -> int | None:
     """Which numbered fork release ``commit`` is, or ``None`` if we do not know.
 
@@ -1911,9 +1937,15 @@ def is_the_build_under_review(commit: str) -> bool:
     were right between rounds and wrong during one, because during a round the build
     to keep is the one under review. Asked here, once, so the offer and the wizard
     cannot answer differently.
+
+    **A ``-dirty`` build of the pin under review is NOT it** (2026-10-26, the
+    claude-code-skills review, item 2.2): :func:`same_commit` is a prefix match, so
+    ``5aeefc4-dirty`` matched ``5aeefc4`` and the offer, the wizard and the ripper
+    status all kept a binary that says itself it was built from a changed tree.
     """
     return (
         bool(commit)
+        and not is_dirty_build(commit)
         and a_round_is_reviewing_a_build()
         and same_commit(commit, PIN_UNDER_REVIEW)
     )

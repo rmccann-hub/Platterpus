@@ -298,6 +298,13 @@ class HostSetup:
         target_pin = self._target.pin
         if identity.kind != "fork":
             return False
+        # A `-dirty` build of the target is NOT the target installed: its own tag
+        # says it was built from a changed tree, so the step runs and builds the
+        # clean one over it (the claude-code-skills review of 2026-10-26, item 2.2;
+        # the substring test below matched it).
+        if fork_source.is_dirty_build(identity.build_tag):
+            self.kept_under_review = False
+            return False
         if target_pin in identity.build_tag.casefold():
             return True
         # **The DEFAULT target keeps the build a round is reviewing.** The wizard
