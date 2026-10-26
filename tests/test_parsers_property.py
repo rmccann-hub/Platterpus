@@ -71,6 +71,7 @@ from platterpus.parsers.eac_log import (
 )
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
 from platterpus.record_track_v11 import STATES as RECORD_V11_STATES
+from platterpus.record_track_v11 import isrc_disc_read_meaning
 from platterpus.record_track_v11 import parse_row as parse_record_v11_row
 from platterpus.reread_limit import STOPPED_BY as REREAD_STOPPED_BY
 from platterpus.reread_limit import TIME_LIMIT_STATES as REREAD_TIME_LIMIT_STATES
@@ -906,7 +907,12 @@ def test_the_kept_read_instant_reader_never_raises(
             st.floats(),
             st.text(max_size=200),
             st.sampled_from(
-                ["read sub-channel", "q frames", "read sub-channel, again"]
+                [
+                    "read sub-channel",
+                    "q frames",
+                    "read sub-channel, again",
+                    "disc image",  # the fork's round 36 lap 10 S12
+                ]
             ),
         ),
     )
@@ -916,3 +922,6 @@ def test_the_record_v11_row_reader_never_raises(row: dict[str, object]) -> None:
     record = parse_record_v11_row(row)
     assert record.kept_read_began_state in RECORD_V11_STATES
     assert record.isrc_disc_read_state in RECORD_V11_STATES
+    # A meaning only for a word we read, never for one we could not.
+    meaning = isrc_disc_read_meaning(record)
+    assert (meaning is not None) == (record.isrc_disc_read_state == "read")

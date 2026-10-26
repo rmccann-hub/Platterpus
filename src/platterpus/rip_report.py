@@ -596,6 +596,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      (`read`, `unrecognised` with the line's value in
 #      `rip.reread_time_limit_text`, or `not_present`: no `Re-read limit:` line,
 #      which is every rip that did not set the limit).
+#      Also v41, still unreleased, so additions only: the `-j` record's
+#      `isrc_disc_read` takes a fourth word, `disc image` (the fork's round 36
+#      lap 10 S12; not built): the code came from the image's own file through
+#      libcdio, and no command reached a drive. Each `disc.isrc_provenance` row
+#      gains `disc_read_meaning`, that word's meaning in a sentence
+#      (`record_track_v11.ISRC_DISC_READ_MEANINGS`), null unless
+#      `disc_read_state` is `read`; an unknown word stays `unrecognised`.
 REPORT_SCHEMA_VERSION: int = 41
 
 

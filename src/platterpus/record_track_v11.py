@@ -16,6 +16,13 @@
   ISRC:`` line prints the code and not which of the three found it, which their
   lap 4 S8 called their gap; this key closes it.
 
+  **A fourth word, ``disc image``** (their round 36 lap 10 S12,
+  ``cyanrip@52501ed:docs/handshake/round-36-lap-10.md``), accepted before it is
+  built: on a disc image libcdio answers from the image's own file (a cue sheet,
+  a cdrdao ``.toc`` or an NRG) and sends no command, so ``read sub-channel``
+  would be false of the code, and ``null`` would say none was found. Each word's
+  meaning is :data:`ISRC_DISC_READ_MEANINGS`, carried into the report beside it.
+
 **Neither key is built yet** (their lap 7 S15: both wait for the release of ours
 that reads ``/11``). So this module reads the shapes the fork proposed, and is
 tolerant where the shape is not settled: the instant is read by the record's form
@@ -52,13 +59,39 @@ from platterpus import inbound_text, kept_read
 KEPT_READ_BEGAN_KEY: Final[str] = "kept_read_began"
 ISRC_DISC_READ_KEY: Final[str] = "isrc_disc_read"
 
-#: The three reads that can find a disc ISRC, as the fork proposed them (their
-#: round 36 lap 4 S12), in the order ``.26`` tries them (their lap 4 S6).
+#: The image's own word (their round 36 lap 10 S12): the code came from the
+#: image's file through libcdio, and no command reached a drive.
+ISRC_DISC_READ_DISC_IMAGE: Final[str] = "disc image"
+
+#: The words the record can give for where a disc ISRC came from: the three
+#: reads of a drive, as the fork proposed them (their round 36 lap 4 S12), in the
+#: order ``.26`` tries them (their lap 4 S6), then the image's.
 ISRC_DISC_READS: Final[tuple[str, ...]] = (
     "read sub-channel",
     "q frames",
     "read sub-channel, again",
+    ISRC_DISC_READ_DISC_IMAGE,
 )
+
+#: What each word means, for a reader of the report who has not read the
+#: handshake. One entry per word of :data:`ISRC_DISC_READS`, held by a test.
+ISRC_DISC_READ_MEANINGS: Final[dict[str, str]] = {
+    "read sub-channel": (
+        "the drive's answer to libcdio's ISRC read, the first read tried"
+    ),
+    "q frames": (
+        "found in the track's own Q sub-channel frames, read when libcdio's "
+        "first answer gave no code"
+    ),
+    "read sub-channel, again": (
+        "the drive's answer when libcdio asked again with the head inside the "
+        "track, after the Q frames gave no code"
+    ),
+    ISRC_DISC_READ_DISC_IMAGE: (
+        "from the disc image's own file (a cue sheet, a cdrdao .toc or an NRG), "
+        "through libcdio; no command reached a drive"
+    ),
+}
 
 #: The four states of each key. ``READ`` and ``NOT_PRESENT`` are
 #: :mod:`platterpus.kept_read`'s own words, so the log's state and the record's
@@ -121,6 +154,17 @@ def _isrc_disc_read(row: Mapping[str, object]) -> tuple[str | None, str]:
     if value in ISRC_DISC_READS:
         return value, READ
     return _bounded(value), UNRECOGNISED
+
+
+def isrc_disc_read_meaning(record: TrackRecordV11) -> str | None:
+    """What ``isrc_disc_read`` says, in words, or ``None`` unless it is ``read``.
+
+    An unrecognised word gets no meaning: we would be guessing what the ripper
+    meant. Pure; never raises.
+    """
+    if record.isrc_disc_read_state != READ or record.isrc_disc_read is None:
+        return None
+    return ISRC_DISC_READ_MEANINGS.get(record.isrc_disc_read)
 
 
 def _bounded(value: str) -> str:

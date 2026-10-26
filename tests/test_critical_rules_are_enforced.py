@@ -1866,7 +1866,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **324 -> 337** (2026-10-17, round 35 lap 6): `well_formed` reads the code as written, as cyanrip's `.25` check does, and the malformed finding quotes the ripper's reason.
     # **337 -> 347** (2026-10-21, TASKS R44): the one reader of `track_state` hands each row to `error_positions.parse_reads`, so the record is read once for both; `TrackIsrc.reads` and the docstring paragraph saying so.
     # **347 -> 359** (2026-10-26, TASKS R48, `cyanrip-diagnostics/11`): the reader hands each row to `record_track_v11.parse_row` as well, `TrackIsrc.record`, and the block's rows carry `disc_read` and its state. The reading lives in `record_track_v11.py`.
-    "isrc_provenance.py": 359,
+    # **359 -> 366** (2026-10-26, the fork's round 36 lap 10 S12, TASKS R82): the row's `disc_read_meaning`, so `disc image` reads as the image's own file; the words and meanings live in `record_track_v11.py`.
+    "isrc_provenance.py": 366,
     # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
     # **651 -> 661** (2026-10-20, the owner's word "yes, read twice by default"): the User Guide entry for the second-read setting, saying what 'reads agree' does and does not prove.
     # **661 -> 664** the 2026-10-21 known-fixes item 12: the amber banner's help says a disc with some matches is in AccurateRip and names the tracks that differ.
@@ -2203,7 +2204,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3349 -> 3364** (2026-10-26, `.27`, round 36 lap 8 S21): the schema-40 note and the per-track `pregap_search` key. The reading lives in `pregap_search.py`.
     # **-> 3461** (2026-10-26): the entries above landed together on one branch.
     # **3461 -> 3509** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the schema-41 note, `_limit_stop_block`, and the per-track and `rip` keys.
-    "rip_report.py": 3509,
+    # **3509 -> 3516** (2026-10-26, the fork's round 36 lap 10 S12, TASKS R82): the schema-41 note for `disc image` and `disc_read_meaning`.
+    "rip_report.py": 3516,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
