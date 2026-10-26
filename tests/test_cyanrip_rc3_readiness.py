@@ -504,6 +504,8 @@ def test_a_crc32_row_in_an_audio_block_is_not_recorded_anywhere() -> None:
         ("Track 3 is data:", None),
         ("Track 3 is data, skipping:", None),
         ("Track 3 read successfully!", (3, True)),
+        # The fork's proposed rename (round 36 lap 8 S26).
+        ("Track 3 read with no error reported.", (3, True)),
     ],
 )
 def test_the_live_reader_sees_a_data_copy_finish(

@@ -48,6 +48,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.pregap_search import report_block as pregap_search_block
 from platterpus.read_offset_check import OffsetLookup, check_read_offset
 from platterpus.read_offset_check import issue_for as read_offset_issue
 from platterpus.record_fate import RecordFate, missing_issue, outcome_block
@@ -568,6 +569,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `extraction_elapsed_seconds`, `paranoia_counts` and `paranoia_scope` are
 #      that read's own, null or empty where its log printed none, never the
 #      superseded read's.
+#      Also v40, additions only: per track `pregap_search`, what `.27`'s
+#      sub-channel search saw, from the `Pregap search:` line below `Pregap
+#      source:` (their round 36 lap 8 S21; `cyanrip@b2ffd42:src/cyanrip_log.c:
+#      476-489`): `state` (`read`, or `unrecognised` with the line's value kept,
+#      bounded and screened, in `unrecognised` and every count null), the
+#      counts `asked`, `crc_failed`, `no_frame`, `elsewhere`, `no_address`,
+#      `shift`, `harder_pass_ran`, `undecided_from`/`undecided_to`, and
+#      `summary`, the sentence that names them (`pregap_search.py`). Null when
+#      the log printed no line: an older build, an image rip, or a pre-gap the
+#      TOC or the lead-in gave, never "no search".
 REPORT_SCHEMA_VERSION: int = 40
 
 
@@ -2187,6 +2198,10 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         "pregap_search_frames": _search_pair(
             getattr(track, "pregap_search_frames", None)
         ),
+        # v40: what `.27`'s sub-channel search saw (`Pregap search:`), so a reader
+        # of an `unknown` pre-gap can tell reads that failed the CRC from frames
+        # that answered for another sector; null when the log printed no line.
+        "pregap_search": pregap_search_block(getattr(track, "pregap_search", None)),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),

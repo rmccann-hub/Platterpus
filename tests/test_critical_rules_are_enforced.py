@@ -1112,7 +1112,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # parse, the comparison and the one sentence that names each differing track
     # belong together; most of the length is the docstring saying why the answer
     # is gathered rather than graded and what the floor refuses.
-    "uiscript/pregap_grading.py": 333,
+    # **333 -> 421** (2026-10-26, the fork's round 36 lap 8 S11): a pregap the log calls unknown is read as a reading that disagrees with a number, where it used to set the whole log aside. The unknown line's pattern, the reading's `unknown_notes`, the difference's `notes`, the sort that puts unknown last, and the docstring saying why; still one job, the same comparison.
+    "uiscript/pregap_grading.py": 421,
     # 356 lines on 2026-09-14, crossing the ~300 heuristic with round 18's rename.
     # **Kept as one module deliberately.** The heuristic asks whether a file is
     # doing more than one job, and this one is not: it is the script run report —
@@ -1955,7 +1956,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4300 -> 4334** (2026-10-26, the fork's `.27`, round 36 lap 7 S5): the `Kept read began:` pattern with its citations, its listing and its handler beside `Elapsed:`; the instant itself is read by `kept_read.py`, which the `-j` record's reader shares.
     # **4334 -> 4364** (2026-10-26, `.27`, round 36 lap 7 S6): the `not written whole:` pattern and its rule beside `Encoder errors:`, claimed only below that line. The bounding and the report live in `written_whole.py`.
     # **4364 -> 4368** (2026-10-26): the unrecognised `Kept read began:` value is logged head and tail by `diagnostics.bounded_chars`, not cut at the head (`tests/test_dependency_output_is_never_cut_at_the_head.py` caught it).
-    "parsers/cyanrip_log.py": 4368,
+    # **4368 -> 4408** (2026-10-26, the fork's round 36 lap 8 S26): `read with no error reported.` added to `_TRACK_START` beside `read successfully!`, with why it is not a verification claim, and `read_reported_no_error`, the ONE predicate the five `endswith("successfully!")` sites now ask. It lives beside the pattern whose alternatives it names.
+    # **4408 -> 4450** (2026-10-26, `.27`, round 36 lap 8 S21): the `Pregap search:` line pattern with its citations, its listing, its `_TrackAcc` slot and its handler beside `Pregap source:`, which logs a reworded value. The value itself is read by `pregap_search.py`.
+    "parsers/cyanrip_log.py": 4450,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1984,7 +1987,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 1170** (2026-10-21): the entries above landed together on one branch.
     # **1170 -> 1179** (2026-10-26, `.27`, round 36 lap 7 S5): `TrackResult.kept_read_began` and its state, with why "" is not "no read".
     # **1179 -> 1187** (2026-10-26, `.27`, round 36 lap 7 S6): `RipLog.not_written_whole` and its total, beside the other footer fields.
-    "parsers/rip_log.py": 1187,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1187 -> 1195** (2026-10-26, `.27`, round 36 lap 8 S21): `TrackResult.pregap_search`, with why None is never "no search" or "a clean search".
+    "parsers/rip_log.py": 1195,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2058,7 +2062,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **987 -> 996** (2026-10-26, plan of record row 9): `TrackProofBlock` and `TrackBlock.proof` (v40).
     # **-> 1023** (2026-10-26): the entries above landed together on one branch.
     # **-> 1057** (2026-10-26): the entries above landed together on one branch.
-    "report_types.py": 1057,
+    # **1011 -> 1017** (2026-10-26, `.27`, round 36 lap 8 S21): `TrackBlock.pregap_search`, schema 40; its block type lives in `pregap_search.py`.
+    # **-> 1063** (2026-10-26): the entries above landed together on one branch.
+    "report_types.py": 1063,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2104,7 +2110,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1590 -> 1613** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `_audit_disc_identity` asks whether the disc ripped is the disc looked up, of the same predicate the report used, on the report's own fields. The comparison itself lives in `disc_identity.py`.
     # **1613 -> 1628** (2026-10-26, run C of the 0.7.112 Full runs, section N): the completion grade scopes the ripping-error warning to the reads the album keeps. The attribution is `rip_health.errors_in_replaced_reads`; only the grade's wording is here.
     # **1628 -> 1641** (2026-10-26, runs A and D): `cue_integrity` hands `validate_cue` the disc's ISRCs from the report when the first-pass argv carried `--prefer-disc-isrc`; the judging is `cue_validate.py`.
-    "rip_audit.py": 1641,
+    # **1641 -> 1654** (2026-10-26, `.27`, round 36 lap 8 S21): an unknown pre-gap's finding names what the sub-channel search saw, the counts that tell CRC failures from misplaced frames. The sentence is `pregap_search.describe`.
+    "rip_audit.py": 1654,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,
@@ -2188,7 +2195,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3330 -> 3335** (2026-10-26, plan of record Appendix I defect 3): the v40 note that a re-read track's speed, time and paranoia counters are the shipped read's; the merge itself is in `ui/main_window_rip.py`.
     # **-> 3394** (2026-10-26): the entries above landed together on one branch.
     # **-> 3446** (2026-10-26): the entries above landed together on one branch.
-    "rip_report.py": 3446,
+    # **3349 -> 3364** (2026-10-26, `.27`, round 36 lap 8 S21): the schema-40 note and the per-track `pregap_search` key. The reading lives in `pregap_search.py`.
+    # **-> 3461** (2026-10-26): the entries above landed together on one branch.
+    "rip_report.py": 3461,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -3064,7 +3073,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **560 -> 569** (2026-10-21, round 36 lap 1 S4 to S6): `.26`'s three rows declared fork-only, with the citation that shows upstream prints none of them.
     # **569 -> 575** (2026-10-26, round 36 lap 7 S5): `.27`'s `Kept read began:` declared fork-only, with the citation into their source and their P2.
     # **575 -> 580** (2026-10-26, round 36 lap 7 S6): `.27`'s `not written whole:` declared fork-only, with its citation.
-    "scripts/emit_dependency_contract.py": 580,
+    # **580 -> 585** (2026-10-26, round 36 lap 8 S21): `.27`'s `Pregap search:` declared fork-only, with the citation into their source and their P2.
+    "scripts/emit_dependency_contract.py": 585,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the

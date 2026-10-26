@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (76)
+## 1. Log lines we parse (77)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -91,7 +91,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
-| `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|is data, skipping:\|is data:)` |
+| `track_block_start` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|read with no error reported\\.\|is data, skipping:\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit)\\b` |
 | `secure_rerip_progress` | section header | `^\\s*Repeating ripping\\s+\\((?P<matches>\\d{1,6})\\s+out of\\s+(?P<target>\\d{1,6})\\s+matches\\b` |
@@ -112,6 +112,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_pregap_length` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<frames>\\d{1,9})\\s+frames?\\b` |
 | `track_pregap_source_two_searches` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+sub-channel \\(not signalled by TOC; two searches read (?P<first>-?\\d{1,9}) and (?P<second>-?\\d{1,9}) frames, the first is used\\)\\s*$` |
 | `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,198}\\S)?)\\s*$` |
+| `track_pregap_search` **(fork-only)** | indented | `^\\s{1,8}Pregap search:\\s{1,8}(?P<value>\\S.*)$` |
 | `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<unused>[^\\s()][^()\\n]{0,39}?) \\((?P<unused_reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
@@ -129,7 +130,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 
-Of these, **26 exist only in the fork** and match nothing in
+Of these, **27 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -151,6 +152,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_pregap_length`
 - `track_pregap_source_two_searches`
 - `track_pregap_source`
+- `track_pregap_search`
 - `track_peak_kind_header`
 - `track_sample_peak`
 - `track_extraction_speed`

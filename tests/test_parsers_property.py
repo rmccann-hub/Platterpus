@@ -247,6 +247,8 @@ _any_text = st.one_of(st.text(max_size=2000), _noisy_text)
                 [
                     "read successfully!",
                     "read with errors.",
+                    # The fork's proposed rename (round 36 lap 8 S26).
+                    "read with no error reported.",
                     "is data:",
                     "ripped",
                     # `+platterpus.23`: a data track's outcome and its -X opener.

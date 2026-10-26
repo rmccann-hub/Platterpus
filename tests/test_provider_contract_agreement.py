@@ -516,6 +516,13 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
         "lists it in P2 (`cyanrip@302dba8:PROVIDER-CONTRACT.md:286`, `not written "
         "whole: %s`). Retires when `.27`'s contract is filed"
     ),
+    "track_pregap_search": (
+        "the fork's `.27` track-block line, built and not released (their round 36 "
+        "lap 8 S21), so absent from `.26`'s contract, the newest filed here; their "
+        "regenerated contract lists it in P2 "
+        "(`cyanrip@b2ffd42:PROVIDER-CONTRACT.md:300`, `Pregap search: %i sectors "
+        "asked; ...`). Retires when `.27`'s contract is filed"
+    ),
 }
 
 

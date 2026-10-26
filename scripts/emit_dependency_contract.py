@@ -176,6 +176,11 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # `cyanrip@302dba8:PROVIDER-CONTRACT.md:286`. Fork-only: it sits below
         # `Encoder errors:`, itself fork-only (declared above).
         "not_written_whole",
+        # `.27`'s record of the sub-channel pre-gap search (round 36 lap 8 S21),
+        # `cyanrip@b2ffd42:src/cyanrip_log.c:483`, their P2 at
+        # `cyanrip@b2ffd42:PROVIDER-CONTRACT.md:300`. Fork-only: upstream's
+        # search prints nothing of what it saw.
+        "track_pregap_search",
     }
 )
 
