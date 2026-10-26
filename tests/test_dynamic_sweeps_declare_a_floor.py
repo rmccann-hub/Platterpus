@@ -54,6 +54,14 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # `.27`'s `Pregap search:` line (2026-10-26, round 36 lap 8 S21): the shapes
+    # are filled from their P2 format string, and one variant from a filled line.
+    "test_pregap_search.py::test_each_shape_of_the_line_is_read": (
+        "test_the_case_tables_are_populated"
+    ),
+    "test_pregap_search.py::test_a_variant_wording_is_kept_verbatim_never_dropped": (
+        "test_the_case_tables_are_populated"
+    ),
     # Added 2026-10-06 with the greedy rewrites (TASKS *Found while integrating*
     # item 4), the CommonMark fence reader (C6), and ruling C1's securing gate.
     # The first four populations are built from tables (a filter over

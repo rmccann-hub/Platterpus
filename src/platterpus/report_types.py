@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
@@ -565,6 +566,11 @@ class TrackBlock(TypedDict):
     #: v39: `.26`'s two disagreeing sub-channel searches of the pre-gap, first
     #: first; None when the log printed no disagreement.
     pregap_search_frames: list[int] | None
+    #: v40: `.27`'s `Pregap search:` line, what the sub-channel search saw (the
+    #: counts, read or `unrecognised` with the line kept, and a summary); None
+    #: when the log printed none: an older build, an image rip, a TOC or
+    #: lead-in pre-gap (`pregap_search.py`).
+    pregap_search: PregapSearchBlock | None
     pregap_state: str | None
     pregap_unknown_reason: str | None
     replaygain: dict[str, str] | None

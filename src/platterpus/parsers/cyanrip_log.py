@@ -71,7 +71,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
-from platterpus import diagnostics, kept_read, ripper_error_lines
+from platterpus import diagnostics, kept_read, pregap_search, ripper_error_lines
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
@@ -91,6 +91,7 @@ from platterpus.parsers.rip_log import (
     RippingInfo,
     TrackResult,
 )
+from platterpus.pregap_search import PregapSearch
 
 # THE shared "int() that cannot raise" guard. This module used to carry a private
 # copy (`_int_or_none`) — it was the module the hole was found in, and the fix was
@@ -951,6 +952,22 @@ _PREGAP_SOURCE_TWO_SEARCHES = re.compile(
     r"read (?P<first>-?\d{1,9}) and (?P<second>-?\d{1,9}) frames, the first is "
     r"used\)\s*$"
 )
+# FORK-ONLY, from `.27` (their round 36 lap 8 S21): what the sub-channel search
+# saw, one line below `Pregap source:` (or below `Pregap LSN:` when no source is
+# printed) for every track a search ran on, found or not
+# (`cyanrip@b2ffd42:src/cyanrip_log.c:476-489`, their P2 row
+# `cyanrip@b2ffd42:PROVIDER-CONTRACT.md:300`):
+#
+#     Pregap search: 37 sectors asked; 2 reads failed the CRC; 0 sectors gave no
+#     frame passing it; 3 frames were another sector's; 0 had no address; frames
+#     answer +0 sectors off[; 200-retry pass ran][; LSN A to B undecided]
+#
+# The line pattern claims the label and takes the value whole; the value is read
+# by `pregap_search.read_search`, whose own pattern is bounded and applied to a
+# value capped in length. So a reworded value is still claimed, and kept as
+# `unrecognised`, rather than falling into the skimmed residue. Unbounded on the
+# value on purpose, and still linear: nothing before `.*` can match what it does.
+_PREGAP_SEARCH = re.compile(r"^\s{1,8}Pregap search:\s{1,8}(?P<value>\S.*)$")
 #: What `TrackResult.pregap_source` reads when the two-search form was printed:
 #: the provenance part of the line, which is the agreeing form's whole value
 #: (`cyanrip@cef0f629:src/cyanrip_log.c:443`). The counts go to their own field.
@@ -2056,6 +2073,8 @@ class _TrackAcc:
     # `.26`'s two disagreeing sub-channel searches, first search first. See
     # TrackResult.pregap_search_frames for why None is not "they agreed".
     pregap_search_frames: tuple[int, int] | None = None
+    # `.27`'s `Pregap search:` line, read (see TrackResult.pregap_search).
+    pregap_search: PregapSearch | None = None
     replaygain: dict[str, str] = field(default_factory=dict)
     # The three new per-track facts. All default to None — "the ripper did not say"
     # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
@@ -3088,6 +3107,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # `.26`: the two-search form, read before the general row below.
     ("track_pregap_source_two_searches", _PREGAP_SOURCE_TWO_SEARCHES),
     ("track_pregap_source", _PREGAP_SOURCE),
+    # `.27`: what the sub-channel search saw, below `Pregap source:`.
+    ("track_pregap_search", _PREGAP_SEARCH),
     ("track_preemphasis", _PREEMPHASIS),
     # `+platterpus.24`: the disc's own ISRC, beside the metadata's (R20).
     ("track_disc_isrc", _DISC_ISRC),
@@ -3650,6 +3671,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 pregap_length_frames=current.pregap_length_frames,
                 pregap_source=current.pregap_source,
                 pregap_search_frames=current.pregap_search_frames,
+                pregap_search=current.pregap_search,
                 filename=current.filename,
                 pre_emphasis=current.pre_emphasis,
                 copy_crc=current.copy_crc,
@@ -4014,6 +4036,26 @@ def parse_cyanrip_log(text: str) -> RipLog:
             match = _PREGAP_SOURCE.match(line)
             if match:
                 current.pregap_source = match.group("source")
+                continue
+
+            # `.27`'s record of the sub-channel search. A wording we do not read is
+            # kept, bounded and screened, as `unrecognised`, and logged; no count
+            # is invented for it (`pregap_search.py`). One line per track; were
+            # there two, the later is the one kept, as for every other row.
+            match = _PREGAP_SEARCH.match(line)
+            if match:
+                search = pregap_search.read_search(match.group("value"))
+                current.pregap_search = search
+                if search.unrecognised:
+                    log.warning(
+                        "cyanrip log: track %s: unrecognised Pregap search: %r",
+                        current.number,
+                        diagnostics.bounded_chars(
+                            match.group("value"),
+                            head=_UNRECOGNISED_VALUE_HEAD,
+                            tail=_UNRECOGNISED_VALUE_TAIL,
+                        ),
+                    )
                 continue
 
             # "Appended:    2 frames of silence" — cyanrip 0.9.3 DOES print this,

@@ -82,6 +82,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Final
 
+from platterpus.pregap_search import PregapSearch
 from platterpus.safe_int import int_or_none
 
 # --- the two drive facts in cyanrip's disc header, from the fork's `.26` ------
@@ -421,6 +422,13 @@ class TrackResult:
     # fork prints nothing in the last two (round 36 lap 1 S6), so None is never
     # "the searches agreed".
     pregap_search_frames: tuple[int, int] | None = None
+    # What the sub-channel search saw, from the fork's `.27` line `Pregap search:`
+    # (`pregap_search.py` says why it exists): the sectors it asked for, reads
+    # that failed the CRC, frames that answered for another sector, and the
+    # stretch it left undecided. It is what tells the causes of an `unknown`
+    # apart. None is NO LINE: an older build, an image rip, a pre-gap the TOC or
+    # the lead-in gave; never "no search", and never "the search was clean".
+    pregap_search: PregapSearch | None = None
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-upstream.md Part A §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
