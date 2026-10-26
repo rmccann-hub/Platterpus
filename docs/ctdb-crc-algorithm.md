@@ -81,8 +81,11 @@ uses the same two trims.
 
 How the per-track values are compared (an entry's offset, ±2939, the summed
 confidence) is CUETools' `CUEToolsDB.GenerateLog`, implemented in
-`ctdb/matching.py`; its docstring says where ours differs (no parity, so the
-entry's offset comes from the consensus of its tracks).
+`ctdb/matching.py`; its docstring says where ours differs (the entry's offset
+for per-track matching comes from the consensus of its tracks). Where a track
+differs, the entry's parity locates the samples (`ctdb/localise.py`, TASKS R43),
+and the corrections must reproduce the entry's whole-disc CRC above, with the
+same window, or nothing is located.
 - **Calibrate** (`ctdb/calibrate.py`, `platterpus --ctdb-calibrate`): sweeps the
   full ±5879 offset window and reports which offset reproduces a DB CRC. Uses the
   zlib `crc32_combine` (GF(2) "append N zero bytes") operator so the whole sweep

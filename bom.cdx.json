@@ -342,7 +342,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/ctdb/syndromes.py"
+          "value": "src/platterpus/ctdb/syndromes.py, src/platterpus/ctdb/verify_parity.py"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -354,7 +354,7 @@
         },
         {
           "name": "platterpus:imported-by",
-          "value": "src/platterpus/ctdb/syndromes.py"
+          "value": "src/platterpus/ctdb/syndromes.py, src/platterpus/ctdb/verify_parity.py"
         },
         {
           "name": "platterpus:appimage-constraint",

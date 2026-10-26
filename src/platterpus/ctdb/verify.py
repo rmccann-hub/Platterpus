@@ -13,6 +13,8 @@ The flow:
   2. Look the TOC up in CTDB.
   3. If found, decode the tracks to PCM and compute our CRC, then compare to
      the database entries.
+  4. Where a stronger entry with parity differs, locate the differing samples
+     (:mod:`platterpus.ctdb.localise`, a second decode pass made only then).
 
 Every step degrades to a clear verdict rather than raising, so a missing
 decoder or a network blip never crashes the caller.
@@ -27,6 +29,7 @@ ever toggled back (e.g. a future algorithm change re-opening the gate).
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 import logging
 import subprocess
@@ -43,12 +46,19 @@ from platterpus.build_info import self_invocation
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
+from platterpus.ctdb.differences import CtdbLocalisation, track_differences
+from platterpus.ctdb.localise import localise_disc
 from platterpus.ctdb.matching import (
     CtdbTrackResult,
     match_disc,
     match_tracks,
 )
-from platterpus.ctdb.sweep import DISC_OFFSET_RANGE, SweepResult, sweep_disc
+from platterpus.ctdb.sweep import (
+    DISC_OFFSET_RANGE,
+    SweepResult,
+    disc_frames,
+    sweep_disc,
+)
 from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
 from platterpus.ctdb.track_wording import per_track_sentence
 
@@ -110,6 +120,11 @@ class CtdbVerifyResult:
     # `Confidence` does.
     offset_range: int = 0
     matched_offset: int | None = None
+    # **Where it differs** (TASKS R43): the parity-based localisation against the
+    # strongest entries our disc does not match (`ctdb/localise.py`); its located
+    # samples also sit on each track as `differences`. None when the check never
+    # got as far as our CRCs.
+    localisation: CtdbLocalisation | None = None
 
     @property
     def outvoted(self) -> bool:
@@ -271,11 +286,29 @@ def verify_rip(
         return _db_only_result(
             result, Verdict.LOOKUP_ERROR, "disc too short for the CTDB CRC guard band"
         )
-    return _match_verdict(result, our_crc, measured)
+    # 4) Where does it differ? A second decode pass, made only when an entry with
+    #    parity outweighs whatever we matched (the generator is lazy, so a disc
+    #    that needs none is decoded once). Bounded, and never raises.
+    starts, total_frames = disc_frames(toc)
+    localisation = localise_disc(
+        result.entries,
+        measured.disc,
+        measured.tracks,
+        (decoder(Path(p)) for p in flac_paths),
+        total_frames,
+        client,
+    )
+    return _match_verdict(
+        result, our_crc, measured, localisation, (starts, total_frames)
+    )
 
 
 def _match_verdict(
-    result: CtdbLookupResult, our_crc: int, measured: SweepResult | None = None
+    result: CtdbLookupResult,
+    our_crc: int,
+    measured: SweepResult | None = None,
+    localisation: CtdbLocalisation | None = None,
+    frames: tuple[Sequence[int], int] | None = None,
 ) -> CtdbVerifyResult:
     db_crcs = tuple(e.crc for e in result.entries if e.crc is not None)
     best = max((e.confidence for e in result.entries), default=0)
@@ -290,7 +323,13 @@ def _match_verdict(
         if measured is not None
         else ()
     )
-    per_track = f" {per_track_sentence(tracks, total)}" if tracks else ""
+    if localisation is not None and frames is not None:
+        # `frames` is (track starts, total frames) from the TOC, as the sweep used.
+        located = track_differences(localisation, *frames)
+        tracks = tuple(
+            dataclasses.replace(t, differences=located.get(t.track, ())) for t in tracks
+        )
+    per_track = f" {per_track_sentence(tracks, total, localisation)}" if tracks else ""
     if disc_matched:
         matched = [(result.entries[i], o) for i, o in disc_matched.items()]
         confidence = sum(max(0, e.confidence) for e, _ in matched)
@@ -320,6 +359,7 @@ def _match_verdict(
             tracks=tracks,
             offset_range=swept,
             matched_offset=offset,
+            localisation=localisation,
         )
     n = len(result.entries)
     # The message MUST depend on whether our CRC algorithm is trustworthy. While
@@ -368,6 +408,7 @@ def _match_verdict(
         total_confidence=total,
         tracks=tracks,
         offset_range=swept,
+        localisation=localisation,
     )
 
 

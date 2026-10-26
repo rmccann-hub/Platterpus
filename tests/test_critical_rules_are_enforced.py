@@ -1082,7 +1082,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 375** (2026-10-21): the entries above landed together on one branch.
     # **350 -> 381** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 406** (2026-10-21): the entries above landed together on one branch.
-    "ctdb/verify.py": 406,
+    # **406 -> 447** (2026-10-26, TASKS R43, the CTDB localisation): the result carries `localisation`, and the verify makes the second, lazy decode pass that feeds it and hangs each track's located samples on the track before the sentence is worded. The arithmetic lives in `ctdb/localise.py`, `ctdb/verify_parity.py`, `ctdb/syndromes.py` and `ctdb/rs_decode.py`; this is where the verify meets it.
+    "ctdb/verify.py": 447,
     # 299 -> 306 on 2026-10-20, crossing the heuristic. **One job, kept as one
     # module**: replacing home paths at export. The 2026-10-20 Full run left the
     # owner's username in a filed bundle, because a JSON ``\n`` escape sits
@@ -2031,7 +2032,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 964** (2026-10-21): the entries above landed together on one branch.
     # **815 -> 835** (2026-10-21, TASKS P2 #5): `VerificationCompletenessBlock` and the `completeness.verification` key that carries it.
     # **-> 984** (2026-10-21): the entries above landed together on one branch.
-    "report_types.py": 984,
+    # **984 -> 1018** (2026-10-26, TASKS R43, the CTDB localisation): schema v40's three blocks (`CtdbDifferenceBlock`, `CtdbLocalisationEntryBlock`, `CtdbLocalisationBlock`) and the two fields that hold them; every report block is declared here.
+    "report_types.py": 1018,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2146,7 +2148,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3192** (2026-10-21): the entries above landed together on one branch.
     # **2911 -> 3009** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #4/#5): the schema-39 note that `gates.*` narrows, `build_gates` taking the cut-short ledger, `_build` correcting the gates from the results and writing `completeness.verification`, and the `verification_cut_short` issue. The rules and wording live in `verification_gates.py`; this is the one place the report is assembled.
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
-    "rip_report.py": 3290,
+    # **3290 -> 3342** (2026-10-26, TASKS R43, the CTDB localisation): the v40 history entry and the two serializers for `ctdb.localisation` and `ctdb.tracks[].differences`. They must be dict literals in this file: `tests/test_report_types_completeness.py` reads the report's keys from here.
+    "rip_report.py": 3342,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2589,7 +2592,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1676 -> 1696** (2026-10-19, P1): the CTDB line says "matched N of M submissions; K disagree" for an outvoted match, and the colour takes the rip log so a match beside a track AccurateRip rejected is amber.
     # **1696 -> 1703** (2026-10-21, TASKS R43): per-track CTDB results. The new logic lives in its own modules (`ctdb/sweep.py`, `ctdb/matching.py`, `ctdb/track_wording.py`); this file only carries the result to its readers.
     # **1703 -> 1718** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
-    "ui/rip_progress.py": 1718,
+    # **1718 -> 1721** (2026-10-26, TASKS R43, the CTDB localisation): the results pane passes the localisation to the shared per-track sentence, which does the wording.
+    "ui/rip_progress.py": 1721,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,

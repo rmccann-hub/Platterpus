@@ -7,6 +7,8 @@ Public surface:
   * `coverage.disc_track_count` — how many tracks the DISC has, so a partial
     rip is never looked up with a TOC built from only the tracks it ripped.
   * `toc.DiscToc` / `toc.disc_toc_from_files` — disc-TOC modelling.
+  * `localise.localise_disc` — where a rip differs from a CTDB entry, from its
+    parity (TASKS R43; the only part that needs numpy, asked of the registry).
 
 The lookup transport lives in `platterpus.adapters.ctdb_client` (Critical
 Rule #1). The audio-CRC algorithm (`crc.py`) is hardware-validation-gated —

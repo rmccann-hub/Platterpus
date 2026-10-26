@@ -491,7 +491,19 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
 #      the gates and the result blocks; and the `verification_cut_short` warning,
 #      written by the unattended quit before the process ends.
-REPORT_SCHEMA_VERSION: int = 39
+# v40: where a rip differs from CTDB (TASKS R43, the owner's word on numpy of
+#      2026-10-26). v39 shipped in 0.7.112, so this is a new number. Per track,
+#      `ctdb.tracks[].differences`: one row per entry the parity located a
+#      difference against, strongest first, with `entry_id`, `confidence`,
+#      `samples` (16-bit values that differ in the track, CUETools' count),
+#      `places` (track-relative `mm:ss:ff` or `mm:ss:ff-mm:ss:ff`, EAC's layout),
+#      `places_elided` (places beyond the twelve shown, counted) and `text`
+#      ("differs in 16 samples @04:04:68,04:05:17,04:11:32"); empty when none.
+#      `ctdb.localisation`: `status` (`located`, `not_determined`, `not_needed`),
+#      `reason` (why not, e.g. "numpy is not installed") and `entries_tried`
+#      (`entry_id`, `confidence`, `status`, `offset`, `samples_located`,
+#      `reason`); null when the check never computed our CRCs. Additions only.
+REPORT_SCHEMA_VERSION: int = 40
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -2275,7 +2287,46 @@ def _ctdb(result: object | None) -> dict | None:
         # Per track (v39, TASKS R43): what CTDB's per-track CRCs say about each
         # track. Null when the check never computed our CRCs.
         "tracks": _ctdb_tracks(getattr(result, "tracks", ())),
+        # Where it differs (v40, R43): the parity-based localisation's outcome.
+        "localisation": _ctdb_localisation(getattr(result, "localisation", None)),
     }
+
+
+def _ctdb_localisation(found: object | None) -> dict[str, object] | None:
+    """Serialize ``CtdbVerifyResult.localisation`` (``ctdb/differences.py``)."""
+    if found is None:
+        return None
+    rows = getattr(found, "entries", ()) or ()
+    return {
+        "status": getattr(getattr(found, "status", None), "value", None),
+        "reason": getattr(found, "reason", "") or None,
+        "entries_tried": [
+            {
+                "entry_id": getattr(row, "entry_id", None),
+                "confidence": getattr(row, "confidence", None),
+                "status": getattr(getattr(row, "status", None), "value", None),
+                "offset": getattr(row, "offset", None),
+                "samples_located": len(getattr(row, "words", ()) or ()),
+                "reason": getattr(row, "reason", "") or None,
+            }
+            for row in rows
+        ],
+    }
+
+
+def _ctdb_differences(differences: object) -> list[dict[str, object]]:
+    """Serialize a track's ``differences`` (v40): EAC's "differs in N samples @..."."""
+    return [
+        {
+            "entry_id": getattr(d, "entry_id", None),
+            "confidence": getattr(d, "confidence", None),
+            "samples": getattr(d, "samples", None),
+            "places": list(getattr(d, "places", ()) or ()),
+            "places_elided": getattr(d, "elided", 0),
+            "text": getattr(d, "text", None),
+        }
+        for d in (differences if isinstance(differences, (list, tuple)) else ())
+    ]
 
 
 def _ctdb_tracks(tracks: object) -> list[dict[str, object]] | None:
@@ -2300,6 +2351,7 @@ def _ctdb_tracks(tracks: object) -> list[dict[str, object]] | None:
                 "our_crc": _hex_crc(getattr(track, "our_crc", None)),
                 "offset": getattr(track, "offset", None),
                 "reason": getattr(track, "reason", "") or None,
+                "differences": _ctdb_differences(getattr(track, "differences", ())),
             }
         )
     return rows or None
