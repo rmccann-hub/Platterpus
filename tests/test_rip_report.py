@@ -1322,7 +1322,9 @@ def test_schema_version_is_27() -> None:
     # unreleased v39 added `outcome.ripper_exit_class` and
     # `outcome.ripper_exit_build_tag`: the exit code read by the fork's classes
     # from release 36 (64 refused, 74 disc or drive), and the build it was read by.
-    assert REPORT_SCHEMA_VERSION == 39
+    # v40 added, per track, `accuraterip_contradiction` ("wrong", "differs" or
+    # null): row 8 of the owner's EAC-parity plan of record, 2026-10-26.
+    assert REPORT_SCHEMA_VERSION == 40
 
 
 def _issue_codes(report: dict) -> set[str]:

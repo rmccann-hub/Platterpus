@@ -64,6 +64,7 @@ from platterpus.verdict import (
     accuraterip_verdict,
     apply_downgrades,
     reads_agree_without_accuraterip,
+    track_accuraterip_contradiction,
 )
 from platterpus.verification_gates import (
     CUT_SHORT_GATE,
@@ -491,7 +492,12 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
 #      the gates and the result blocks; and the `verification_cut_short` warning,
 #      written by the unattended quit before the process ends.
-REPORT_SCHEMA_VERSION: int = 39
+# v40: (the owner's EAC-parity plan of record, 2026-10-26, row 8) per track,
+#      `accuraterip_contradiction`: "wrong" when frame 450 matched AccurateRip
+#      and the whole track did not, "differs" when it was compared and nothing
+#      matched, null otherwise (`verdict.track_accuraterip_contradiction`).
+#      Additions only.
+REPORT_SCHEMA_VERSION: int = 40
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -2091,6 +2097,13 @@ def _track(track: object) -> dict:
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
         # The shared confidence>=1 rule — same as the banner and disc panel.
         "accuraterip_verified": track_accuraterip_verified(track),
+        # v40 (plan of record 2026-10-26, row 8): how AccurateRip contradicts
+        # this copy, from the one predicate the EAC-layout log and the results
+        # table ask: "wrong" (frame 450 matched, the whole track did not),
+        # "differs" (compared, nothing matched), or None. `status` above stays
+        # the ripper's own word ("ripped successfully"), so this is the field
+        # that says a track is not fine.
+        "accuraterip_contradiction": track_accuraterip_contradiction(track),
         # cyanrip's per-track "Accurip:" status text — the only thing that says
         # whether a lookup happened. Without it a consumer cannot tell "compared
         # and disagreed" from "never asked", which is the distinction the on-screen

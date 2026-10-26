@@ -562,6 +562,9 @@ class TrackBlock(TypedDict):
     #: and these are the only values that can separate them.
     paranoia_counts: dict[str, int]
     accuraterip_verified: bool
+    #: v40: `verdict.track_accuraterip_contradiction`: "wrong" (frame 450 matched,
+    #: the whole track did not), "differs" (compared, nothing matched), or None.
+    accuraterip_contradiction: str | None
     accuraterip: TrackAccurateRipBlock
 
 
