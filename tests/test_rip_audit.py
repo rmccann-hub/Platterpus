@@ -389,6 +389,77 @@ def test_completed_with_ripping_errors_is_a_warning_naming_them() -> None:
     assert not any(f.level == LEVEL_OK for f in album.findings)
 
 
+def _errors_in_track_2(
+    *, kept_read: str, verified: bool, skips: int = 2, track1_skips: int = 0
+) -> dict[str, object]:
+    """Run C section N's shape on the 2-track fixture: the album pass counted
+    2 ripping errors, both paranoia skips in track 2 (per its `-j` record), and
+    the verified-read chase replaced track 2 with a read AccurateRip verified."""
+    report = _healthy()
+    report["health_status"] = "2 ripping errors"
+    report["disc"] = {
+        "error_positions": {
+            "state": "read",
+            "tracks": [
+                {
+                    "number": n,
+                    "state": "read",
+                    "read_errors": 0,
+                    "skips": skips if n == 2 else track1_skips,
+                    "complete": True,
+                    "count_agrees_with_counters": True,
+                }
+                for n in (1, 2)
+            ],
+        }
+    }
+    for track in report["tracks"]:
+        if track["number"] == 2:
+            track["accuraterip_verified"] = verified
+    report["read_speed"] = {
+        "retried_tracks": [
+            {
+                "track": 2,
+                "replaced": kept_read != "first_read",
+                "replaced_because": "accuraterip"
+                if kept_read != "first_read"
+                else None,
+                "kept_read": kept_read,
+            }
+        ]
+    }
+    return report
+
+
+def test_errors_only_in_a_replaced_verified_read_do_not_warn() -> None:
+    """Run C, section N, 2026-10-22: the chase's attempt 5 was AccurateRip
+    verified and kept (16/16 AR), and the audit still warned "completed with 2
+    ripping errors", about the first read the album no longer holds."""
+    report = _errors_in_track_2(kept_read="verified_reread", verified=True)
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    assert album.worst == LEVEL_OK, [f.text for f in album.findings]
+    (ok,) = [f.text for f in album.findings if f.level == LEVEL_OK]
+    assert "no errors in the reads it keeps" in ok and "track(s) 2" in ok, ok
+
+
+def test_errors_in_a_kept_or_unverified_read_still_warn() -> None:
+    """The narrowing, from both sides: the first read kept (run C's own full
+    rip, track 16 `first_read`), a replacement AccurateRip did not verify, and
+    a count the per-track record does not account for all keep the warning."""
+    for report in (
+        _errors_in_track_2(kept_read="first_read", verified=False),
+        _errors_in_track_2(kept_read="securing_pass", verified=False),
+        _errors_in_track_2(kept_read="verified_reread", verified=True, skips=1),
+        # Per-track counts summing past the tally: the population is not closed.
+        _errors_in_track_2(kept_read="verified_reread", verified=True, track1_skips=1),
+    ):
+        album = rip_audit.AlbumAudit(folder=Path("x"))
+        rip_audit._audit_completion(report, album)
+        assert album.worst == LEVEL_WARN, [f.text for f in album.findings]
+        assert any("2 ripping errors" in f.text for f in album.findings)
+
+
 def test_an_encoder_failure_in_the_tally_also_withholds_ok() -> None:
     report = _healthy()
     report["health_status"] = "1 encoder error"
@@ -1679,3 +1750,64 @@ def test_agreement_against_the_real_ripper_log_is_still_ok() -> None:
             "the EAC-style log's copy CRCs match the ripper's log on all 14 track(s)",
         )
     ], findings
+
+
+def test_errors_in_replaced_reads_never_raises_and_declines_garbage() -> None:
+    """The attribution reads a report written by another process: anything it
+    cannot read is not determined (None), never an exception or a guess."""
+    from platterpus.rip_health import errors_in_replaced_reads
+
+    for garbage in (
+        {},
+        {"health_status": "2 ripping errors"},
+        {"health_status": "2 ripping errors", "disc": {"error_positions": "x"}},
+        {
+            "health_status": "2 ripping errors",
+            "disc": {"error_positions": {"state": "read", "tracks": [{"state": 1}]}},
+        },
+        {"health_status": 7, "disc": None, "tracks": "x", "read_speed": []},
+    ):
+        assert errors_in_replaced_reads(garbage) is None, garbage
+
+
+def _disc_isrc_report(*, prefer_sent: bool) -> dict:
+    """Run D's shape on the 2-track fixture: MusicBrainz gave track 2 the code
+    `USZ010001709` (a zero where the disc has a letter O), the disc's own
+    `Disc ISRC:` row reads `USZO10001709`, and the cue carries the disc's."""
+    report = _healthy()
+    argv = report["outcome"]["ripper_argv"]
+    argv[argv.index("2=title=Two:isrc=GBAAM0000002")] = "2=title=Two:isrc=USZ010001709"
+    if prefer_sent:
+        argv.append("--prefer-disc-isrc")
+    report["tracks"][0].update(disc_isrc="GBAAM0000001", disc_isrc_state="code")
+    report["tracks"][1].update(disc_isrc="USZO10001709", disc_isrc_state="code")
+    cue = _healthy_cue().replace("ISRC GBAAM0000002", "ISRC USZO10001709")
+    report["artifacts"]["cue"]["text"] = cue
+    return report
+
+
+def test_a_cue_carrying_the_discs_isrc_under_prefer_disc_isrc_is_not_a_warning() -> (
+    None
+):
+    """Runs A and D, 2026-10-21/22: we sent `--prefer-disc-isrc`, the cue
+    carried the disc's codes (A's all fourteen equal to EAC's cue), and
+    `cue_integrity` warned "ISRC(s) differ from what we sent". The cue is right;
+    the difference from MusicBrainz is a note naming both codes."""
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_cue_integrity(_disc_isrc_report(prefer_sent=True), album)
+    texts = [(f.level, f.text) for f in album.findings if "ISRC" in f.text]
+    assert not any(level == LEVEL_WARN for level, _ in texts), texts
+    (note,) = [text for level, text in texts if level == LEVEL_NOTE]
+    assert "USZO10001709" in note and "USZ010001709" in note, note
+    assert any(level == LEVEL_OK for level, _ in texts), texts
+
+
+def test_without_prefer_disc_isrc_a_cue_that_differs_from_what_we_sent_warns() -> None:
+    """The other side of the narrowing: without the flag the ripper writes what
+    we sent, so a cue carrying anything else is still the warning it was."""
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_cue_integrity(_disc_isrc_report(prefer_sent=False), album)
+    assert any(
+        f.level == LEVEL_WARN and "differ from what we sent" in f.text
+        for f in album.findings
+    ), [f.text for f in album.findings]

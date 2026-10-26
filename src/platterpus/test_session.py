@@ -1052,6 +1052,18 @@ def rip_wait_s() -> float:
     return cancelled_log_wait_s() + 30.0
 
 
+def post_rip_wait_s() -> float:
+    """How long a finished session waits for the last rip's post-rip checks.
+
+    Run B (2026-10-21): the session packed its bundle one second after the rip
+    stopped, and the CTDB and FLAC results landed 68 and 73 s later, so the
+    bundled report carried `verification_result_missing`. Ten minutes is the
+    wait `expect-verification` gives the same checks by default; past it the
+    bundle is packed and names the checks still running.
+    """
+    return 600.0
+
+
 def ripper_processes_fact() -> dict[str, str]:
     """The ripper processes the host sees as the bundle is packed. Never raises.
 

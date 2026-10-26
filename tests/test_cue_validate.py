@@ -1645,3 +1645,48 @@ def test_no_markers_is_a_pass_only_when_something_says_none_were_due() -> None:
     findings = validate_cue(cue, expected=ExpectedCue(pregap_frames={1: 150, 2: 90}))
     assert "cue_index00_ok" not in _codes(findings)
     assert _by_code(findings, "cue_pregap_marker_missing").level == LEVEL_WARN
+
+
+# --- --prefer-disc-isrc: the disc's own code is what the cue carries ---------
+#
+# Runs A and D of the 0.7.112 Full runs (2026-10-21/22). With the flag sent the
+# ripper writes the disc's ISRC where the disc has one, so that is the expected
+# code; a difference from MusicBrainz is a note, never the mismatch warning.
+
+_TWO_TRACK_CUE = (
+    'FILE "01 - A.flac" WAVE\n'
+    "  TRACK 01 AUDIO\n"
+    "    ISRC GBAAM7800003\n"
+    "    INDEX 01 00:00:00\n"
+    'FILE "02 - B.flac" WAVE\n'
+    "  TRACK 02 AUDIO\n"
+    "    ISRC USZO10001709\n"
+    "    INDEX 01 00:00:00\n"
+)
+
+
+def test_the_discs_isrc_is_expected_and_a_musicbrainz_difference_is_a_note() -> None:
+    expected = ExpectedCue(
+        isrcs={1: "GBAAM0201086", 2: "USZ010001709"},
+        disc_isrcs={1: "GBAAM7800003", 2: "USZO10001709"},
+    )
+    findings = validate_cue(_TWO_TRACK_CUE, expected=expected)
+    assert "cue_isrc_mismatch" not in _codes(findings)
+    assert _by_code(findings, "cue_isrc_ok").level == LEVEL_OK
+    note = _by_code(findings, "cue_isrc_disc_differs_from_musicbrainz")
+    assert note.level == LEVEL_NOTE
+    assert "track 2: disc USZO10001709, MusicBrainz USZ010001709" in note.text
+
+
+def test_a_cue_that_lost_the_discs_isrc_still_warns_and_names_the_disc() -> None:
+    """The cue carrying MusicBrainz's code when the disc's was preferred is a
+    real disagreement with what the ripper was asked to write."""
+    expected = ExpectedCue(
+        isrcs={1: "GBAAM7800003", 2: "USZ010001709"},
+        disc_isrcs={2: "USZO10001709"},
+    )
+    cue = _TWO_TRACK_CUE.replace("ISRC USZO10001709", "ISRC USZ010001709")
+    findings = validate_cue(cue, expected=expected)
+    mismatch = _by_code(findings, "cue_isrc_mismatch")
+    assert mismatch.level == LEVEL_WARN
+    assert "vs disc USZO10001709" in mismatch.text

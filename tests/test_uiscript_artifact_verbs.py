@@ -10,6 +10,7 @@ same widget a user edits and `track-title` goes through the same edit path.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,28 @@ def _load(name: str) -> dict[str, Any]:
     loaded = json.loads((_ROUND29 / f"round29full{name}report.json").read_text("utf-8"))
     assert isinstance(loaded, dict)
     return loaded
+
+
+def _handed(table: Any) -> Any:
+    """The tags a rip is handed at Start, built from the table as the window
+    builds them (`RipMixin._rip_metadata_for`: album fields and each row)."""
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+
+    album = table.album_metadata()
+    return RipMetadata(
+        album_artist=album.artist,
+        album_title=album.title,
+        year=album.year,
+        tracks=tuple(
+            TrackTag(number=t.number, title=t.title, artist=t.artist_credit)
+            for t in table.tracks()
+        ),
+    )
+
+
+def _start_snapshot(win: Any) -> None:
+    """Freeze the table onto the rip's record, as `_start_rip_worker` does."""
+    win._post_rip_records[1].metadata = _handed(win._track_table)
 
 
 def _rip(
@@ -97,9 +120,12 @@ def _rip(
         track_table=table,
         config=Config(cover_art=cover_art),
     )
-    win._current_release_id = (
-        report["cover_art"]["release_id"] if report.get("cover_art") else ""
-    )
+    from platterpus.ui.post_rip_record import PostRipRecord
+
+    # The rip's own record, as the window keeps it: the folder its log went to
+    # and the tags it was handed at Start. The graders read this, not the table.
+    win._post_rip_records = {1: PostRipRecord(generation=1, log_file=log_file)}
+    _start_snapshot(win)
     return win
 
 
@@ -187,6 +213,7 @@ def test_track_title_edits_through_the_real_table_and_expect_tags_reads_it(
     step = _run(win, qapp, process_until, f"track-title 1 {title}")
     assert step.outcome is Outcome.PASS, step.detail
     assert win._track_table.tracks()[0].title == title
+    _start_snapshot(win)  # the script's `rip` comes after `track-title`
     assert _run(win, qapp, process_until, "expect-tags").outcome is Outcome.PASS
 
 
@@ -266,3 +293,131 @@ def test_a_record_that_never_settles_is_not_graded(
     win = _rip(tmp_path, _load("overwrite"), write_report=False)
     step = _run(win, qapp, process_until, "expect-ctdb partial")
     assert step.outcome is Outcome.FAIL and "did not settle" in step.detail
+
+
+# --- Run A on 0.7.112: the window was cleared before section F graded --------
+
+
+def test_section_f_grades_the_rips_record_after_the_window_was_cleared(
+    qapp, process_until, tmp_path
+) -> None:
+    """App log lines 649-730 of bundle platterpusbundle20261021t113505z: a drive
+    flicker cleared the table and the release 41 s after the rip, and section F
+    then failed correct files ("the window has no row for it"; "mode 'embed'
+    embeds nothing, yet track(s) 1 … 14 carry a picture"). Both verbs now grade
+    against the rip's record, so clearing the window changes nothing."""
+    win = _rip(tmp_path, _load("overwrite"))
+    win._track_table.clear()  # what `_reset_disc_view` did
+    win._current_release_id = ""
+    tags = _run(win, qapp, process_until, "expect-tags")
+    cover = _run(win, qapp, process_until, "expect-cover-art")
+    assert tags.outcome is Outcome.PASS, tags.detail
+    assert cover.outcome is Outcome.PASS, cover.detail
+
+
+def test_expect_tags_says_so_when_no_record_of_the_rip_is_kept(
+    qapp, process_until, tmp_path
+) -> None:
+    """No record of what the rip was handed: an ERROR naming that, never a
+    comparison with whatever the table holds now."""
+    win = _rip(tmp_path, _load("overwrite"))
+    win._post_rip_records = {}
+    step = _run(win, qapp, process_until, "expect-tags")
+    assert step.outcome is Outcome.ERROR and "no record of the tags" in step.detail
+
+
+def test_expect_tags_grades_the_record_not_a_later_edit_of_the_table(
+    qapp, process_until, tmp_path
+) -> None:
+    """The relation: the files are compared with what the rip was handed, so an
+    edit made after Start (or a scan that rewrote the table) cannot make correct
+    files fail, and a wrong file still fails."""
+    win = _rip(tmp_path, _load("overwrite"))
+    assert win._track_table.edit_track_title(1, "Changed after the rip") == ""
+    step = _run(win, qapp, process_until, "expect-tags")
+    assert step.outcome is Outcome.PASS, step.detail
+    wrong = _rip(tmp_path / "w", _load("overwrite"), titles={1: "Roxane", 2: "x"})
+    assert _run(wrong, qapp, process_until, "expect-tags").outcome is Outcome.FAIL
+
+
+def test_expect_cover_art_reads_the_release_from_the_report(tmp_path) -> None:
+    """The pure half: an unknown disc's report names no release; a report with
+    no disc block is not determined, never "expect nothing"."""
+    from platterpus.uiscript.tag_grading import grade_cover_art, report_release_id
+
+    report = _load("overwrite")
+    assert report_release_id(report) == report["disc"]["musicbrainz_release_id"]
+    assert report_release_id({"disc": {"musicbrainz_release_id": None}}) == ""
+    assert report_release_id({}) is None
+    grade = grade_cover_art([], {}, "embed", None)
+    assert grade.blocked and grade.detail.startswith("not determined"), grade
+
+
+# --- Run C on 0.7.112: the cover step landed after the grade ------------------
+
+
+def test_a_missing_cover_art_result_is_not_determined_never_zero(tmp_path) -> None:
+    """Run C's app log line 17625: "the report says 0 file(s) took the cover; the
+    files hold 16", graded 91 s before the cover step recorded its result (line
+    17719). An absent block is "not determined", not a count of zero."""
+    from platterpus.uiscript.tag_grading import cover_art_pending, grade_cover_art
+
+    report = _load("overwrite")
+    del report["cover_art"]
+    assert cover_art_pending(report, "embed")
+    assert not cover_art_pending(report, "")  # nothing asked for, nothing pending
+    grade = grade_cover_art(
+        [], report, "embed", report["disc"]["musicbrainz_release_id"]
+    )
+    assert grade.blocked and grade.detail.startswith("not determined"), grade
+    assert "0 file(s)" not in grade.detail
+
+
+def test_expect_cover_art_waits_for_a_cover_result_that_lands_late(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The report settles without the cover step, which is not a gate; the verb
+    waits for its result rather than grading the record without it.
+
+    The late result is written only once the verb has SEEN the cover pending,
+    not on a timer: a timer armed before the step starts can fire before the
+    step's first read on a loaded machine, and the test then proved nothing
+    (it failed that way once in a parallel full-suite run, 2026-10-26)."""
+    from platterpus.uiscript import tag_grading
+
+    monkeypatch.setattr(artifact_verbs, "ARTIFACT_WAIT_S", 20.0)
+    monkeypatch.setattr(artifact_verbs, "COVER_ART_WAIT_S", 10.0)
+    full = _load("overwrite")
+    early = dict(full)
+    del early["cover_art"]
+    win = _rip(tmp_path, early)
+    (report_file,) = (tmp_path / "album").glob("*.platterpus.json")
+    seen_pending: list[bool] = []
+    real_pending = tag_grading.cover_art_pending
+
+    def pending_then_land(report: Mapping[str, Any], mode: str) -> bool:
+        answer = real_pending(report, mode)
+        seen_pending.append(answer)
+        if answer:
+            # The verb has observed the missing result: now it lands.
+            report_file.write_text(json.dumps(full), "utf-8")
+        return answer
+
+    monkeypatch.setattr(tag_grading, "cover_art_pending", pending_then_land)
+    step = _run(win, qapp, process_until, "expect-cover-art")
+    assert step.outcome is Outcome.PASS, step.detail
+    # Floor: the verb saw the result missing, waited, and then saw it present.
+    assert seen_pending[0] is True, seen_pending
+    assert seen_pending[-1] is False, seen_pending
+
+
+def test_expect_cover_art_says_not_determined_when_the_result_never_lands(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(artifact_verbs, "ARTIFACT_WAIT_S", 20.0)
+    monkeypatch.setattr(artifact_verbs, "COVER_ART_WAIT_S", 0.3)
+    report = _load("overwrite")
+    del report["cover_art"]
+    step = _run(_rip(tmp_path, report), qapp, process_until, "expect-cover-art")
+    assert step.outcome is Outcome.BLOCKED, step.detail
+    assert step.detail.startswith("not determined"), step.detail

@@ -620,6 +620,28 @@ class TrackTable(QWidget):
         self._model.set_tracks(detail.tracks)
         self._apply_column_widths()
 
+    def restore_edits(
+        self,
+        album: AlbumMetadata,
+        tracks: Sequence[TrackSummary],
+        selected: Sequence[int],
+    ) -> None:
+        """Put back what :meth:`album_metadata`, :meth:`tracks` and
+        :meth:`selected_track_numbers` returned earlier, edits and ticks included.
+
+        For a disc that left the drive and came back: the user's typing is kept
+        rather than replaced by a fresh MusicBrainz answer (the disc-return path
+        in ``ui/main_window_disc_return.py``).
+        """
+        if self._refuses_rewrite("restore a disc's edits"):
+            return
+        self._album_artist_edit.setText(album.artist)
+        self._album_title_edit.setText(album.title)
+        self._album_year_edit.setText(album.year)
+        self._model.set_tracks(tracks)
+        self._model.set_only_selected(selected)
+        self._apply_column_widths()
+
     def set_placeholder_tracks(self, count: int) -> None:
         """Pre-fill placeholder metadata for a disc MusicBrainz can't ID.
 
