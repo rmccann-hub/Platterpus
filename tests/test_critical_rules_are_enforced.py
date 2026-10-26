@@ -1571,7 +1571,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2846 -> 2887** (2026-10-21, round 36's pin moves to `.26` on the owner's word, the fork's lap 4): `PIN_UNDER_REVIEW` `ca0f097`, its release sequence 37, its consumer-flag and `--prefer-disc-isrc` rows, its version, `.25` named in the `--verify-log` set, each with the source it was read from.
     # **2887 -> 2918** (2026-10-26, round 36 lap 7 S3): `BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH`, empty until `.27` is released, and its reader, beside the other per-build capability sets.
     # **2918 -> 2957** (2026-10-26, round 36's pin moves to `.27` on the owner's word, the fork's lap 10): `PIN_UNDER_REVIEW` `5aeefc4`, its release sequence 38, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version, `.26` named in the `--verify-log` set, each with the source it was read from.
-    "deps/fork_source.py": 2957,
+    # **2957 -> 3081** (2026-10-26, the claude-code-skills review, item 2.1): the full commit beside each named pin (`FORK_PIN_FULL`, `PIN_UNDER_REVIEW_FULL`, `FORK_TEST_PIN_FULL`, `full_commit_for`, `ForkTarget.full_commit`) and the build script's refusals of a wrong HEAD, a dirty tree and a `-dirty` banner. Kept here rather than split out: the build script and the pins it checks are the one fact this module owns, and the build script is a string the step engine passes whole, so moving half of it would put the HEAD check and the checkout it checks in two files.
+    "deps/fork_source.py": 3081,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

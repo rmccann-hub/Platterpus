@@ -1707,6 +1707,66 @@ def accepts_prefer_accuraterip_match(build_tag: str) -> bool:
 
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
+# --- The full commits behind the short pins ---------------------------------
+#
+# **Why the short pins stay short, and the full commits sit BESIDE them.** The
+# claude-code-skills review of 2026-10-26 (item 2.1) asked for the full 40-character
+# SHA, compared with `git rev-parse HEAD` before building. The short pin is not only
+# a git revision here: it is the build tag the binary prints. The fork's meson
+# `vcs_tag` fills the banner from `git rev-parse --short HEAD`
+# (`cyanrip@5f1d036:src/meson.build:125-128`), so `FORK_EXPECTED_BUILD_TAG`,
+# `_tag_is_approved`'s exact comparison, every `BUILD_TAGS_*` set, the keys of
+# `FORK_RELEASE_SEQ_BY_PIN`, the status block's D6 line and every lap of the
+# handshake record are spelled in seven characters. A 40-character `FORK_PIN`
+# would make the approved tag `platterpus-fork-g<40 hex>`, which no binary prints,
+# and every rip would report `unapproved`. So the full commit is a second fact,
+# recorded once in this table and read in one place: the build script, which
+# refuses unless HEAD is exactly it.
+#
+# Resolved from the fork's own clone on 2026-10-26
+# (`git -C /home/user/cyanrip rev-parse 5f1d036 5aeefc4 3952c03`), not typed from
+# a lap. `tests/test_fork_source.py` holds each entry's prefix to its short pin,
+# and refuses a named pin with no entry, so moving a pin without recording its
+# full commit fails the suite rather than silently weakening the build check.
+
+#: :data:`FORK_PIN` in full.
+FORK_PIN_FULL: Final[str] = "5f1d036ef0621330b6e84004c9574d3395b3a117"
+#: :data:`PIN_UNDER_REVIEW` in full.
+PIN_UNDER_REVIEW_FULL: Final[str] = "5aeefc43ae46c7171424bf84de6f762982c9c7b4"
+#: :data:`FORK_TEST_PIN` in full.
+FORK_TEST_PIN_FULL: Final[str] = "3952c03a397790b7c6bd4ae07a5a01c0a5d65e77"
+
+#: Every full commit we have recorded, for :func:`full_commit_for`.
+FULL_COMMITS: Final[tuple[str, ...]] = (
+    FORK_PIN_FULL,
+    PIN_UNDER_REVIEW_FULL,
+    FORK_TEST_PIN_FULL,
+)
+
+_HEX_DIGITS: Final[frozenset[str]] = frozenset("0123456789abcdef")
+
+
+def full_commit_for(pin: str) -> str:
+    """The full 40-character commit ``pin`` names, or ``""`` when we have none.
+
+    A pin that is already 40 hex characters is its own answer. A shorter one (at
+    least seven characters, as every pin we use is) answers with the recorded full
+    commit it is a prefix of. ``""`` means *not recorded*: a manifest's newer
+    release, or a commit an operator typed, whose full SHA this file never held.
+    The build script then checks only that HEAD begins with the pin, which is
+    weaker, and says so in its log rather than pretending to the stronger check.
+    """
+    key = (pin or "").strip().lower()
+    if len(key) < 7 or not set(key) <= _HEX_DIGITS:
+        return ""
+    if len(key) == 40:
+        return key
+    for full in FULL_COMMITS:
+        if full.startswith(key):
+            return full
+    return ""
+
+
 # --- Which build the wizard actually installs -------------------------------
 
 
@@ -1747,6 +1807,15 @@ class ForkTarget:
     def build_tag(self) -> str:
         """The banner parenthetical a correct build of :attr:`pin` prints."""
         return f"{FORK_BRANCH}-g{self.pin}"
+
+    @property
+    def full_commit(self) -> str:
+        """The full commit HEAD must equal before building, or ``""`` if unrecorded.
+
+        Derived from :attr:`pin` through :func:`full_commit_for`, so it cannot
+        drift from the pin: one object owns the pin and every fact about it.
+        """
+        return full_commit_for(self.pin)
 
     @property
     def banner(self) -> str:
@@ -2530,6 +2599,11 @@ pin="$4"
 # round 11 §0 measured that meson fails the WHOLE configure on an unknown -D, so
 # a constant flag here would break the downgrade path to our own current pin.
 meson_opts="${6-}"
+# $7 — the FULL 40-character commit HEAD must be, or empty when this Platterpus
+# never recorded one for $4 (a newer manifest release, a commit an operator
+# typed). See `full_commit_for` in fork_source.py for why the pin itself stays
+# short.
+full="${7-}"
 
 # --- Say where we are before doing anything ---------------------------------
 # These four lines are the ones that would have ended the v0.6.4b2 hunt in
@@ -2558,25 +2632,64 @@ else
   echo "platterpus: no clone at $src — cloning $branch"
   git clone --branch "$branch" "$url" "$src"
 fi
-# Detach onto the verified commit. `--force` discards a half-finished previous
+# Detach onto the verified commit — the FULL one when we have it, because a short
+# name is resolved as a ref before it is resolved as a commit, so a tag or branch
+# spelled like the pin would win. `--force` discards a half-finished previous
 # attempt; the tree is a build cache we own, never the user's work.
-git -C "$src" checkout --force --detach "$pin"
+git -C "$src" checkout --force --detach "${full:-$pin}"
 
 # --- Prove the tree is what we asked for, before building it ----------------
 # A build tag names a commit; it does not name what was built (CLAUDE.md rule
-# 12). So state the commit we actually landed on, and whether the tree is dirty
-# — a dirty tree bakes a tag for a different tree, silently.
-echo "platterpus: HEAD=$(git -C "$src" rev-parse HEAD)"
+# 12). So state the commit we actually landed on, REFUSE unless it is the one we
+# asked for, and REFUSE a dirty tree: a dirty tree bakes a tag for a different
+# tree, silently. Both refusals happen before anything is built or installed.
+head="$(git -C "$src" rev-parse HEAD)"
+echo "platterpus: HEAD=$head"
 echo "platterpus: HEAD short=$(git -C "$src" rev-parse --short HEAD)"
 echo "platterpus: describe=$(git -C "$src" describe --always --dirty 2>&1 || true)"
-dirt="$(git -C "$src" status --porcelain 2>/dev/null || true)"
+if [ -n "$full" ]; then
+  if [ "$head" != "$full" ]; then
+    echo "platterpus: FATAL HEAD is $head but the pin $pin is commit $full" >&2
+    echo "platterpus: refusing to build — /usr/local/bin/cyanrip and the host" \\
+         "export are UNCHANGED" >&2
+    exit 1
+  fi
+  echo "platterpus: HEAD is exactly the recorded commit $full"
+else
+  # No full commit recorded for this pin: the weaker check, said as weaker.
+  pin_lc="$(printf '%s' "$pin" | tr 'A-F' 'a-f')"
+  case "$head" in
+    "$pin_lc"*)
+      echo "platterpus: HEAD begins with $pin_lc (no full commit is recorded" \\
+           "for this pin, so only the prefix is checked)" ;;
+    *)
+      echo "platterpus: FATAL HEAD is $head, which does not begin with $pin" >&2
+      echo "platterpus: refusing to build — /usr/local/bin/cyanrip and the host" \\
+           "export are UNCHANGED" >&2
+      exit 1 ;;
+  esac
+fi
+# `git status --porcelain` lists changed tracked files and untracked ones that
+# are not ignored; `build/` is ignored at every pin we build, so a reused build
+# dir is not dirt. An untracked file can still change what compiles (a stray
+# header next to the sources), which is why it counts.
+if ! dirt="$(git -C "$src" status --porcelain 2>&1)"; then
+  echo "platterpus: FATAL could not read the source tree's status:" >&2
+  printf '%s\\n' "$dirt" >&2
+  echo "platterpus: refusing to build a tree whose state is unknown —" \\
+       "/usr/local/bin/cyanrip and the host export are UNCHANGED" >&2
+  exit 1
+fi
 if [ -n "$dirt" ]; then
-  echo "platterpus: WARNING the source tree is DIRTY — the build tag will not" \\
+  echo "platterpus: FATAL the source tree is DIRTY — the build tag would not" \\
        "describe what is built:" >&2
   printf '%s\\n' "$dirt" >&2
-else
-  echo "platterpus: tree is clean"
+  echo "platterpus: refusing to build it. Delete $src and run the install" \\
+       "again for a fresh clone; /usr/local/bin/cyanrip and the host export" \\
+       "are UNCHANGED" >&2
+  exit 1
 fi
+echo "platterpus: tree is clean"
 # meson's vcs_tag resolves the build tag by running git in the source root. If
 # THAT cannot work, the tag silently becomes upstream's `release` fallback — the
 # v0.6.4b2 symptom — so probe it here, where a failure is attributable.
@@ -2641,13 +2754,20 @@ if [ -z "$_banner" ]; then
   echo "platterpus: refusing to install it — nothing has been changed" >&2
   exit 1
 fi
+# The tag must be the WHOLE parenthetical: `*"$5"*` alone also accepted
+# `($5-dirty)`, a binary that says itself it was built from a modified tree
+# (the claude-code-skills review of 2026-10-26, item 2.2).
 case "$_banner" in
-  *"$5"*)
+  *"($5)"*)
     echo "platterpus: built binary identifies as $5 — safe to install" ;;
   *)
     echo "platterpus: FATAL built binary reports \\"$_banner\\"" >&2
     echo "platterpus: but commit $4 must produce build tag \\"$5\\"" >&2
     case "$_banner" in
+      *"($5-dirty)"*)
+        echo "platterpus: that is a DIRTY build of the right commit — its own" \\
+             "tag says the tree it was built from had changes, so it is not" \\
+             "the published build" >&2 ;;
       *-grelease*|*-gunknown*)
         echo "platterpus: that tag names no commit at all — meson's vcs_tag fell" \\
              "back to its literal default, so the binary cannot prove which" \\
@@ -2759,6 +2879,10 @@ def build_command(container: str, target: ForkTarget | None = None) -> list[str]
         # Joined here rather than in shell so the *only* thing the container sees
         # is a list Python already validated.
         " ".join(chosen.meson_options),
+        # $7 — the full commit HEAD must be before anything is built, or "" when
+        # none is recorded for this pin (the script then checks the prefix and
+        # says it did). Read off the target, like the tag, so it cannot drift.
+        chosen.full_commit,
     )
 
 

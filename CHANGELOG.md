@@ -32,6 +32,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **Our round 36 lap 9, held until its pull request is green and merged.** It reads the four Full runs as the fork's lap 8 does (`Recordable:` and track 9's pregap stop `.26`), names 0.7.113 as the release that reads `.27`'s lines, accepts the fork's `Pregap search:`, the `read with no error reported.` rename and the kept read's `Extraction speed:` under `-Z`, asks for their `-Z` time limit, and files their lap 8 byte for byte.
 
+### Fixed
+
+- **The ripper build refuses a wrong commit and a dirty source tree, before it builds anything.** The setup wizard's and `--install-ripper`'s build step checked out a seven-character pin, printed HEAD, warned on a dirty tree and built it anyway, and accepted a binary whose own tag said `-dirty`. It now checks out the full 40-character commit for each build this Platterpus names (`.25` `5f1d036ef062…`, `.27` `5aeefc43ae46…` and the round-21 test pin `3952c03a3977…`, resolved in the fork's clone), stops unless `git rev-parse HEAD` is exactly that commit (or, for a commit this Platterpus never recorded, begins with the pin), stops on any `git status --porcelain` output, and refuses a built binary whose tag is not exactly the expected one, `-dirty` included. Every refusal leaves the installed ripper unchanged. The short pins stay short because they are the build tag the binary prints, which the approval check, the release map and every handshake lap use (the claude-code-skills review of 2026-10-26, item 2.1).
+
 ## [0.7.113] — 2026-10-26
 
 The release your next Full run goes through, and the first built against the EAC parity plan of
