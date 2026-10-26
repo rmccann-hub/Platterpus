@@ -80,6 +80,21 @@ dependencies = [
     # tests/test_update_attestation.py run against the real release bundle.
     # `build/python-appimage/requirements.txt` states the same range.
     "sigstore>=4.5.0,<4.6",
+    # Locates the samples a rip differs from a CTDB entry in ("Differs in 16
+    # samples @04:04:68,...", TASKS R43): Reed-Solomon syndromes over GF(2^16),
+    # computed across the 11,760 interleaved columns at once. Pure Python would
+    # take minutes to hours a disc; numpy takes seconds (src/platterpus/ctdb/
+    # syndromes.py, the only module that imports it). Added on the owner's word of
+    # 2026-10-26: "numpy; record what it adds to the download" (DEPENDENCIES.md).
+    #
+    # MINOR-PINNED like PySide6, though numpy is not a gate tool. The reason is
+    # what a silent change would cost: the localisation is integer arithmetic
+    # whose answer is a claim about the user's audio, and numpy has changed
+    # integer dtype rules across minors before (NEP 50, in 2.0). A drift would not
+    # fail loudly; it would name the wrong samples. The floor is the release the
+    # synthetic-encoder tests ran against; a minor bump is a deliberate commit that
+    # re-runs them. `build/python-appimage/requirements.txt` states the same range.
+    "numpy>=2.4.6,<2.5",
 ]
 
 [project.optional-dependencies]

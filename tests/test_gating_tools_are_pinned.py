@@ -362,6 +362,11 @@ MINOR_PINNED_RUNTIME: Final[dict[str, str]] = {
         "the updater refuses an update this verifier cannot pass, so an API change "
         "in a new minor would silently stop every user's in-app updates"
     ),
+    "numpy": (
+        "the CTDB localisation is integer arithmetic whose answer names samples in "
+        "the user's audio; a change in numpy's integer rules (NEP 50 changed them in "
+        "2.0) would name the wrong samples rather than fail"
+    ),
 }
 
 

@@ -61,4 +61,11 @@ cryptography~=50.0
 # their current version. Bump both together; tests/test_gating_tools_are_pinned.py
 # fails if they disagree.
 sigstore~=4.5.0
+# CTDB localisation (ctdb/syndromes.py). MINOR-PINNED: `~=2.4.6` is
+# `>=2.4.6,<2.5`, the range pyproject states, because a change in numpy's
+# integer rules would name the wrong samples rather than fail. Its wheels are
+# manylinux_2_28 (glibc 2.28), below PySide6 6.11's manylinux_2_34, so the
+# AppImage's glibc floor does not move. Bump both together;
+# tests/test_gating_tools_are_pinned.py fails if they disagree.
+numpy~=2.4.6
 platterpus

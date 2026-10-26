@@ -50,3 +50,34 @@ def test_ffmpeg_probe_is_a_zero_arg_callable_returning_a_proberesult(
     result = spec.probe()
     assert isinstance(result, ProbeResult)
     assert result.present is True
+
+
+def test_numpy_spec_is_registered_optional_and_bundled() -> None:
+    """numpy (the CTDB localisation, TASKS R43) routes through the one registry.
+
+    Optional: without it only the localisation reads "not determined", so the
+    launch check must not nag. Manual tier like musicbrainzngs: the AppImage
+    bundles it, so a missing copy means a broken install, not a user's task.
+    """
+    spec = _spec("numpy")
+    assert spec is not None, "numpy must be in the single dependency registry"
+    assert spec.optional is True
+    assert spec.tier is Tier.MANUAL
+    assert spec.install_command is None
+    assert spec.min_version == (2, 4, 6)
+
+
+def test_probe_dependency_runs_the_registered_probe(monkeypatch) -> None:
+    """The helper calls the spec's own probe, and knows nothing it was not told."""
+    from platterpus.deps import registry
+
+    monkeypatch.setattr(
+        registry,
+        "check_python_pkg",
+        lambda name: ProbeResult(
+            present=name == "numpy", version=(2, 4, 6), location="x"
+        ),
+    )
+    found = registry.probe_dependency("numpy")
+    assert found is not None and found.present is True
+    assert registry.probe_dependency("no-such-dependency") is None
