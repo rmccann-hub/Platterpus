@@ -433,6 +433,15 @@ class TrackResult:
     # what EAC's row wants. We deliberately do NOT derive one from the other —
     # see `_track_block` in eac_log_export for why that would be a guess.
     extraction_elapsed_seconds: float | None = None
+    # WHEN the read this track's files carry began, from the fork's `.27` line
+    # `Kept read began:    2026-10-21T09:23:27Z` (`kept_read.py` says why it
+    # exists). The instant in UTC, `YYYY-MM-DDTHH:MM:SSZ`, when the state is
+    # `read`. `kept_read_began_state` is `read`, `unrecognised` (a line whose
+    # value is not an instant; the value is not kept as a time), or "" for NO
+    # LINE: an older build, a data track, or a time the ripper could not convert.
+    # "" is "not stated", never "no read", as everywhere in this dataclass.
+    kept_read_began: str = ""
+    kept_read_began_state: str = ""
     # Frames of SILENCE the ripper appended to this track because it could not
     # read the disc that far ("Appended:    2 frames of silence"). cyanrip 0.9.3
     # DOES print this — on the last track, when overread is off — and we simply

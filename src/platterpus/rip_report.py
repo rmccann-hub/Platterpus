@@ -34,6 +34,7 @@ from platterpus.handshake_approval import (
     cross_check_note,
 )
 from platterpus.isrc_provenance import findings as isrc_findings
+from platterpus.kept_read import NOT_PRESENT as KEPT_READ_NOT_PRESENT
 from platterpus.parsers.rip_log import (
     DRIVE_FACT_NOT_PRESENT,
     RECORDABLE_CDRW,
@@ -491,7 +492,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
 #      the gates and the result blocks; and the `verification_cut_short` warning,
 #      written by the unattended quit before the process ends.
-REPORT_SCHEMA_VERSION: int = 39
+# v40: what the fork's `.27` adds (their round 36 lap 7 S5 to S6, read from
+#      their source at `cyanrip@709337a`). v39 shipped in 0.7.111 and 0.7.112, so
+#      this is a new number. Additions only. Per track `kept_read_began`, the UTC
+#      instant the read the track's files carry began, from the `Kept read
+#      began:` line below `Elapsed:` (`cyanrip@709337a:src/cyanrip_log.c:
+#      670-679`), null unless read, with `kept_read_began_state` beside it
+#      (`read`, `unrecognised`, `not_present`; `kept_read.py`). `not_present` is
+#      an older build, a data track or a time the ripper could not convert, never
+#      "no read".
+REPORT_SCHEMA_VERSION: int = 40
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -2035,6 +2045,13 @@ def _track(track: object) -> dict:
         # and a derived multiple would be a guess wearing EAC's label.
         "extraction_elapsed_seconds": getattr(
             track, "extraction_elapsed_seconds", None
+        ),
+        # v40: when the read the files carry began (`.27`'s `Kept read began:`),
+        # and the state beside it, so an absent line reads `not_present` in a
+        # word rather than as a null a reader could take for "never read".
+        "kept_read_began": getattr(track, "kept_read_began", "") or None,
+        "kept_read_began_state": (
+            getattr(track, "kept_read_began_state", "") or KEPT_READ_NOT_PRESENT
         ),
         # Frames of SILENCE the ripper appended because it could not read the
         # disc that far. This one is NOT fork-only — 0.9.3 prints it, on the last

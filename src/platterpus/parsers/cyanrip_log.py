@@ -71,7 +71,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
-from platterpus import diagnostics, ripper_error_lines
+from platterpus import diagnostics, kept_read, ripper_error_lines
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
@@ -1484,6 +1484,17 @@ _TRACK_ELAPSED_SECONDS = re.compile(
     r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
     r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
 )
+# `    Kept read began:    2026-10-21T09:23:27Z` — the fork's `.27`, directly below
+# `Elapsed:` in an audio track's block: WHEN the read the track's files carry
+# began, in UTC (`cyanrip@709337a:src/cyanrip_log.c:670-679`, their P2 at
+# `cyanrip@302dba8:PROVIDER-CONTRACT.md:331`). A data track prints none, and so
+# does a track whose time could not be converted. The value is captured whole
+# and judged by `kept_read.instant_state`, the one reader the `-j` record's
+# reader shares, so a value in any other form is `unrecognised` rather than a
+# line that silently falls into the skimmed residue. Unbounded on purpose, and
+# still linear (nothing before `.*` can match what it does): a line of any
+# length is claimed, and `kept_read` refuses a value over 40 characters.
+_KEPT_READ_BEGAN = re.compile(r"^\s{1,8}Kept read began:\s{1,8}(?P<value>\S.*)$")
 
 # --- 3. the -Z convergence verdict as a LABELLED per-track row (§2.4) --------
 #
@@ -2001,6 +2012,9 @@ class _TrackAcc:
     peak_level: float | None = None
     extraction_speed: float | None = None
     extraction_elapsed_seconds: float | None = None
+    # `.27`'s `Kept read began:` (see TrackResult): "" with state "" = no line.
+    kept_read_began: str = ""
+    kept_read_began_state: str = ""
     appended_silence_frames: int | None = None
     # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`
     # only for `Track N is data:`, whose meaning depends on what follows (see
@@ -3029,6 +3043,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_sample_peak", _SAMPLE_PEAK),
     ("track_extraction_speed", _TRACK_SPEED),
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
+    # `.27`: when the read the track's files carry began, below `Elapsed:`.
+    ("track_kept_read_began", _KEPT_READ_BEGAN),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
     ("track_accurip_status", _TRACK_ACCURIP_STATUS),
 )
@@ -3590,6 +3606,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 peak_level=current.peak_level,
                 extraction_speed=current.extraction_speed,
                 extraction_elapsed_seconds=current.extraction_elapsed_seconds,
+                kept_read_began=current.kept_read_began,
+                kept_read_began_state=current.kept_read_began_state,
                 appended_silence_frames=current.appended_silence_frames,
                 data_crc32=current.data_crc32,
                 data_sector_edc=current.data_sector_edc,
@@ -4041,6 +4059,22 @@ def parse_cyanrip_log(text: str) -> RipLog:
             match = _TRACK_ELAPSED_SECONDS.match(line)
             if match:
                 current.extraction_elapsed_seconds = _float_or_none(match.group("s"))
+                continue
+
+            # When the kept read began (`.27`). Read as an instant or not at all:
+            # a value we cannot read is recorded as `unrecognised` and logged,
+            # never reported as a time we guessed (`kept_read.py`).
+            match = _KEPT_READ_BEGAN.match(line)
+            if match:
+                state, instant = kept_read.instant_state(match.group("value"))
+                current.kept_read_began_state = state
+                current.kept_read_began = instant
+                if state != kept_read.READ:
+                    log.warning(
+                        "cyanrip log: track %s: unrecognised Kept read began: %r",
+                        current.number,
+                        match.group("value")[:_UNRECOGNISED_VALUE_HEAD],
+                    )
                 continue
 
             # The -Z convergence verdict as a durable, LABELLED per-track row —

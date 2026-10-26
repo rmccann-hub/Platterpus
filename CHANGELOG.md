@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The rip report says when the read each track's files carry began, from the cyanrip fork's `.27`.** `.27` (built, not yet released; their round 36 lap 7 S5) prints `Kept read began:    2026-10-21T09:23:27Z` below each audio track's `Elapsed:`, the UTC instant the kept read started, which under `-Z` can be any of the track's reads. Each track in the report now carries `kept_read_began` with `kept_read_began_state` beside it: `read`, `unrecognised` for a value that is not an instant (logged, never reported as a time), or `not_present` for an older build, a data track, or a time the ripper could not convert, never "no read". Report schema 40, additions only (39 shipped in 0.7.111 and 0.7.112). The consumer contract lists the line as fork-only.
+
 - **Round 36: our lap 6 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
 - **Our round 36 lap 6, held until its pull request is green and merged.** It accepts the fork's lap 5 S4 (the footer's tally over audio tracks) and S9 (the skips line only when `Ripping errors:` carries no skip suffix), answers S10 (no log we hold shows an error line under `Ripping errors: 0`, so that cause leaves the proposed line), carries lap 1's close-by, and corrects our laps 2 and 3's.

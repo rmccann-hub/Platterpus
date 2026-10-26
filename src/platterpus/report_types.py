@@ -519,6 +519,11 @@ class TrackBlock(TypedDict):
     pre_emphasis: bool | None
     peak_level: float | None
     extraction_elapsed_seconds: float | None
+    #: v40: the UTC instant the read this track's files carry began (`.27`'s
+    #: `Kept read began:`), null unless `kept_read_began_state` is `read`; the
+    #: state is `read`, `unrecognised` or `not_present` (`kept_read.STATES`).
+    kept_read_began: str | None
+    kept_read_began_state: str
     appended_silence_frames: int | None
     #: v34: a data track's CRC32 and `Sector EDC:` verdict, verbatim (`.23`+).
     #: Kept apart from `copy_crc`, which is an audio track's EAC CRC.

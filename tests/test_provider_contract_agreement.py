@@ -503,6 +503,13 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
     # contract was filed the same day
     # (`round-36-lap-04-provider-contract-ge2b52b1.md`, P2 lines 294, 372 and 373);
     # the stale check below then required their removal.
+    "track_kept_read_began": (
+        "the fork's `.27` line, built and not released (their round 36 lap 7 S5). "
+        "The newest provider contract filed here is `.26`'s, which predates it; "
+        "`.27`'s regenerated contract lists it in P2 "
+        "(`cyanrip@302dba8:PROVIDER-CONTRACT.md:331`, `Kept read began:    %s`). "
+        "Retires when `.27`'s contract is filed"
+    ),
 }
 
 

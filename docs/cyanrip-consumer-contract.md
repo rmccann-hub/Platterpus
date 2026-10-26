@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (74)
+## 1. Log lines we parse (75)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -124,10 +124,11 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |
 | `track_elapsed_seconds` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?P<s>\\d{1,7}(?:\\.\\d{1,6})?)\\s*(?:s\|sec\|secs\|seconds)\\b` |
+| `track_kept_read_began` **(fork-only)** | indented | `^\\s{1,8}Kept read began:\\s{1,8}(?P<value>\\S.*)$` |
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 
-Of these, **24 exist only in the fork** and match nothing in
+Of these, **25 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -152,6 +153,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_sample_peak`
 - `track_extraction_speed`
 - `track_elapsed_seconds`
+- `track_kept_read_began`
 - `track_secure_verdict`
 - `track_accurip_status`
 

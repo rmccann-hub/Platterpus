@@ -42,6 +42,8 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from platterpus.deps.ripper_manifest import parse_manifest
+from platterpus.kept_read import STATES as KEPT_READ_STATES
+from platterpus.kept_read import instant_state
 from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.cyanrip_log import (
@@ -193,6 +195,12 @@ _FRAGMENTS = st.sampled_from(
         "  Sector EDC:    1 of 150 sectors mismatched",
         "Sector EDC mismatch at LSN 10!",
         "Frame read failed at LSN " + "9" * 4400 + "!",  # over the digit ceiling
+        # The fork's `.27` per-track read time below `Elapsed:` (round 36 lap 7
+        # S5), with near misses.
+        "    Kept read began:    2026-10-21T09:23:27Z",
+        "    Kept read began:    2026-13-45T25:61:00Z",  # the shape, not a date
+        "    Kept read began:    " + "9" * 4400,  # over the digit ceiling
+        "    Kept read began:    yesterday",
         # EAC log shapes (exercise the eac_log parser).
         "Exact Audio Copy V1.8 from 15. July 2024",
         # Our EAC-layout export's first line, new wording and the one 0.6.62 and
@@ -774,3 +782,30 @@ def test_a_parsed_commit_is_always_shell_safe(commit: str) -> None:
     assert re.fullmatch(r"[0-9a-f]{7,40}", row.commit), (
         f"a commit that reaches the build step must be a bare hex sha, got {row.commit!r}"
     )
+
+
+# --- The fork's `.27` instant (`Kept read began:`, and `/11`'s `kept_read_began`) --
+#
+# One reader for both, so one property covers both callers: whatever the value,
+# the answer is a known state, and a time is only ever handed back in the one
+# form the log prints.
+
+
+@given(
+    st.one_of(
+        st.text(max_size=80),
+        st.from_regex(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})"),
+        st.integers(),
+        st.none(),
+    ),
+    st.booleans(),
+)
+@_SETTINGS
+def test_the_kept_read_instant_reader_never_raises(
+    value: object, offset_allowed: bool
+) -> None:
+    state, instant = instant_state(value, offset_allowed=offset_allowed)
+    assert state in KEPT_READ_STATES
+    assert instant == "" or re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", instant
+    ), instant
