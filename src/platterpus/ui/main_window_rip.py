@@ -53,6 +53,7 @@ if TYPE_CHECKING:
 
 from platterpus import drive_control, exit_work, rip_addendum, rip_files, tag_hygiene
 from platterpus.adapters import cover_art
+from platterpus.adapters.cyanrip_name_lengths import RipNaming
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_verify import FlacVerifyResult
 from platterpus.adapters.rip_backend import RipMetadata, TrackTag
@@ -64,6 +65,7 @@ from platterpus.adapters.transcode import (
 from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
+from platterpus.adapters.transcode import extension_for as transcode_extension_for
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
@@ -649,7 +651,10 @@ class RipMixin(MainWindowShared):
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
         if not params.unknown:
-            ok, message = self._track_table.validate()
+            # With the names the rip will need (TASKS R88): a folder, log or track
+            # file name over 255 bytes is refused HERE, before any read time is
+            # spent, rather than by cyanrip after it has read the track.
+            ok, message = self._track_table.validate(self._rip_naming_for(params))
             if not ok:
                 message_boxes.warning(self, "Cannot start rip", message)
                 return
@@ -991,20 +996,48 @@ class RipMixin(MainWindowShared):
             ),
         )
 
+    def _only_tracks_for_rip(self) -> tuple[int, ...]:
+        """Which tracks to rip, from the "Rip?" checkboxes.
+
+        All ticked → rip the whole disc (empty tuple, no `-l`); a subset → just
+        those track numbers (cyanrip `-l`). The table's validate() already blocked
+        a zero-selection start, so a non-empty selection here is guaranteed for a
+        real rip. One answer for the rip and for the name-length check before it.
+        """
+        if self._track_table.all_tracks_selected():
+            return ()
+        return tuple(self._track_table.selected_track_numbers())
+
+    def _rip_naming_for(self, params: RipParameters) -> RipNaming:
+        """What the track table needs to check the rip's names before Start.
+
+        Built from the same snapshot the rip is handed (`_rip_metadata_for`), the
+        same track selection (`_only_tracks_for_rip`) and the disc's own track
+        count, so the names it checks are the names the argv will produce. The
+        derived format's extension is included because the transcoder writes that
+        file beside each FLAC under the same name.
+        """
+        output_format = str(getattr(self._config, "output_format", "flac"))
+        derived = (
+            transcode_extension_for(output_format) or ""
+            if output_format in TRANSCODE_FORMATS
+            else ""
+        )
+        return RipNaming(
+            track_template=params.track_template,
+            metadata=self._rip_metadata_for(params),
+            disc_track_total=params.disc_track_total,
+            only_tracks=self._only_tracks_for_rip(),
+            derived_extension=derived,
+        )
+
     def _start_rip_worker(self, params: RipParameters) -> None:
         """Spin up the rip worker thread for `params`. Shared by the initial
         Start and the auto-heal retry, so both wire signals identically."""
-        # Which tracks to rip, from the "Rip?" checkboxes. All ticked → rip the
-        # whole disc (empty tuple, no `-l`); a subset → just those track numbers
-        # (cyanrip `-l`). The table's validate() already blocked a zero-selection
-        # start, so a non-empty selection here is guaranteed for a real rip.
-        only_tracks: tuple[int, ...] = (
-            ()
-            if self._track_table.all_tracks_selected()
-            else tuple(self._track_table.selected_track_numbers())
-        )
         params = replace(
-            params, only_tracks=only_tracks, metadata=self._rip_metadata_for(params)
+            params,
+            only_tracks=self._only_tracks_for_rip(),
+            metadata=self._rip_metadata_for(params),
         )
         started = self._post_rip_record()
         if started is not None:  # the tags it was handed, kept with its record

@@ -370,6 +370,67 @@ def render_scheme(scheme: str, tags: Mapping[str, str]) -> str:
     return "/".join(part.strip(" \t") for part in rendered.split("/"))
 
 
+#: The longest name ONE path component may have on Linux: ``NAME_MAX``, counted
+#: in BYTES, not characters. Every filesystem the target distros ship (ext4,
+#: btrfs, xfs) enforces it per component, so a 90-character Japanese title (270
+#: UTF-8 bytes) is too long while a 255-character English one is not.
+NAME_MAX_BYTES: Final[int] = 255
+
+#: The byte length of the glyph cyanrip writes for a ``"`` (U+201C or U+201D).
+#: Which of the two it picks depends on a parity flag no table can predict (the
+#: note on ``_VALUE_SANITISE``), but both are 3 bytes in UTF-8, so the LENGTH is
+#: predictable even where the glyph is not.
+_QUOTE_GLYPH_BYTES: Final[int] = len("“".encode())
+
+#: The byte length of U+FFFD, which cyanrip writes in place of a byte that is not
+#: valid UTF-8 (``cyanrip@eca33dc:src/naming.c:163-192``). A lone surrogate in a
+#: Python string is what such a byte becomes on its way through ``os.fsencode``.
+_REPLACEMENT_CHAR_BYTES: Final[int] = len("�".encode())
+
+
+def name_bytes_on_disk(component: str) -> int:
+    """How many bytes ONE path component takes on disk once cyanrip writes it.
+
+    ``component`` is a single folder or file name (no ``/``) as this module
+    predicts it, from :func:`render_scheme` or :func:`render_preview`. The count
+    is of what cyanrip actually writes, which is not always the predicted text:
+
+    * cyanrip swaps each path-illegal ASCII character for a 3-byte look-alike,
+      **in literal template text as well as in tag values**: the literal text
+      outside ``{}`` goes through the same ``crip_bprint_sanitize`` as a value
+      (``cyanrip@eca33dc:src/naming.c:266-272``; only a ``/`` is passed through
+      there, and a component holds none). So ``:`` costs 3 bytes wherever it is.
+    * a ``"`` becomes one of two 3-byte quotes; which one cannot be predicted,
+      but the length can, and the length is all this answers.
+    * an unencodable lone surrogate becomes U+FFFD, 3 bytes.
+
+    The look-alike table is the one above (``_VALUE_SANITISE``), not a second
+    copy of it. Compared against :data:`NAME_MAX_BYTES` by
+    ``adapters.cyanrip_name_lengths``, which refuses an over-long name before a
+    rip starts. Pure; never raises.
+    """
+    if not isinstance(component, str):
+        return 0
+    total = 0
+    for ch in _sanitise_value(component):
+        if ch == '"':
+            total += _QUOTE_GLYPH_BYTES
+        elif "\ud800" <= ch <= "\udfff":
+            total += _REPLACEMENT_CHAR_BYTES
+        else:
+            total += len(ch.encode("utf-8"))
+    return total
+
+
+#: The ``{key}`` names in a cyanrip scheme, in order, for saying WHICH value made a
+#: rendered name long. Uses the one pattern :func:`render_scheme` substitutes by.
+def scheme_keys(scheme: str) -> tuple[str, ...]:
+    """Every ``{key}`` name in ``scheme``, in order. Pure; never raises."""
+    if not isinstance(scheme, str):
+        return ()
+    return tuple(match.group(1) for match in _SCHEME_KEY_RE.finditer(scheme))
+
+
 #: Why a naming template or a rendered cyanrip scheme would write outside the
 #: output directory — empty when it stays put.
 #:

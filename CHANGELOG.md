@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS R88 records the owner's choice for over-long file names** (contributor-facing): the fork shortens the file or folder name at a character boundary and keeps the tags whole, asked in our next lap; the refusal before Start is the interim until that build is the default.
+
 - **Round 36: our lap 11 is released, on the owner's word of 2026-10-26** ("when ready release the next lap"). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
 - **The weekly dependency check runs claude-code-skills 0.1.21 and uv 0.13.5** (contributor-facing). 0.1.18's `--outdated` ended the whole run when a registry cut a transfer short; uv 0.13.4 fixed GHSA-hq85-5cpj-mr62. Both pins resolved by `git ls-remote` on 2026-10-26 (the claude-code-skills review of that date, items 1.1 and 1.2).
@@ -23,6 +25,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Round 36: our lap 9 is released, on the owner's standing word of 2026-10-21** ("Release each lap of round 36 once its pull request is green and merged, quoting this sentence, unless the lap asks me something; then ask in your HANDOFF and wait."). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
 ### Added
+
+- **A track title, album title or album artist too long to be a file or folder name is now refused before Start, instead of failing after the track has been read.** Linux allows at most 255 bytes in one file or folder name, and a byte is not a character: 90 Japanese characters are 270 bytes. cyanrip does not shorten such a name, so the rip read the whole track and then could not create its file. Start now shows which name is too long, by how much and what to shorten, for example *"Track 7’s file name would be 280 bytes; the limit is 255 — shorten its title."*, and counts any others. It checks each album-folder level, the rip log and cue sheet cyanrip writes beside the tracks, and every ticked track's file, with the derived format's extension when one is selected; the rip itself refuses the same names as a backstop. Shortening the title shortens its tag too, for now; we will ask the cyanrip fork to shorten only the file name.
 
 - **Our round 36 lap 11, held until its pull request is green and merged.** It puts `.27` under review, checks the fork's cause for `.26`'s read rate at their source and re-derives their per-sector numbers from our logs, accepts their `-Z` time limit and the `disc image` word with our readers built, says the Full run on `.27` needs 0.7.114, and reads the owner's Full run of 2026-10-26 on `.26`: no failure, and the paired rips of track 3 (`.25` right in 1 of 4, `.26` in 0 of 4) naming no cause.
 

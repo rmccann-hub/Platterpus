@@ -44,6 +44,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus.adapters.cyanrip_name_lengths import (
+    RipNaming,
+    describe,
+    log_overlong,
+    overlong_names_for,
+)
 from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
 from platterpus.settings_validation import path_reference_issue, path_segment_issue
 
@@ -839,9 +845,9 @@ class TrackTable(QWidget):
         all_off.triggered.connect(lambda: self._model.set_all_selected(False))
         menu.exec(self._view.viewport().mapToGlobal(pos))
 
-    def validate(self) -> tuple[bool, str]:
+    def validate(self, naming: RipNaming | None = None) -> tuple[bool, str]:
         """Validate that nothing required is blank and at least one track is
-        selected.
+        selected, and, given ``naming``, that every name the rip needs fits.
 
         Returns (True, "") when everything's filled in; (False, message)
         with the first failure when not. The main window uses this
@@ -857,6 +863,16 @@ class TrackTable(QWidget):
         one-place-only fix as the ``%Y`` traversal (audit, 2026-07-31). The check
         itself lives in ``settings_validation.path_segment_issue`` so it is
         asserted against a pure function, not through this widget.
+
+        **Name length (TASKS R88).** With ``naming`` (the template, the tag
+        snapshot and the disc the rip will be built from), every folder, log and
+        track file name is rendered as cyanrip will write it and refused when it
+        is over 255 bytes, naming the track, the byte count and what to shorten.
+        cyanrip does not shorten such a name, so the rip used to read the track
+        in full and then fail to create its file. The rendering and the limit live
+        in ``adapters.cyanrip_name_lengths``, which the argv chokepoint also calls;
+        nothing about them is restated here. Without ``naming`` (a caller that has
+        no rip to describe) that one check is skipped and the rest still run.
         """
         if not self._album_artist_edit.text().strip():
             return False, "Album artist is required."
@@ -890,4 +906,9 @@ class TrackTable(QWidget):
         # nothing to rip.
         if self._model.selected_count() == 0:
             return False, "No tracks selected to rip (tick at least one in Rip?)."
+        if naming is not None:
+            overlong = overlong_names_for(naming)
+            if overlong:
+                log_overlong(overlong, "cannot start the rip")
+                return False, describe(overlong)
         return True, ""
