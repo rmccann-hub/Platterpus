@@ -400,6 +400,63 @@ def _mismatch_offer(
     )
 
 
+def _dirty_build_offer(channel: str, installed: str) -> RipperOffer:
+    """The installed build's own tag ends in ``-dirty``: offer the CLEAN build.
+
+    **Why this is decided before anything else about the build** (the
+    claude-code-skills review of 2026-10-26, item 2.2). ``-dirty`` is the fork's
+    binary saying the tree it was built from had changes, so it is not the published
+    build of the commit it names. Every check below this one compares commits with
+    the prefix-tolerant :func:`~platterpus.deps.fork_source.same_commit`, so
+    ``5f1d036-dirty`` read as the approved pin: *"Your cyanrip build is the newest
+    published"*, nothing offered, while every rip on it recorded ``unapproved``: two
+    surfaces answering one question with different keys (``docs/testing.md``
+    §5.al).
+
+    What is offered is never a dirty build: the build-tag commit with ``-dirty``
+    removed, when it is the build a round is reviewing (so the acceptance run keeps
+    the build it needs, with consent, because it is not approved yet), and otherwise
+    the approved pin, which costs nothing to take. Raised unprompted: a dirty build
+    cannot be a release somebody installed on purpose, since no release is one.
+    """
+    clean = installed.strip()[: -len("-dirty")]
+    reinstall_review_build = fork_source.is_the_build_under_review(clean)
+    target = fork_source.PIN_UNDER_REVIEW if reinstall_review_build else None
+    if reinstall_review_build:
+        offer_line = (
+            f"Platterpus can build {fork_source.PIN_UNDER_REVIEW} again from a clean "
+            "checkout: it is the build handshake round "
+            f"{fork_source.PIN_UNDER_REVIEW_ROUND} is testing, and the acceptance "
+            "test needs it. Rips on it still report 'unapproved' until that round "
+            "closes, which is the correct verdict while the review is running."
+        )
+    else:
+        offer_line = (
+            f"Platterpus can install {_expected_build_sentence()} from a clean "
+            "checkout. It takes a few minutes and needs no commit typed in."
+        )
+    return RipperOffer(
+        verdict=OFFER_MISMATCHED,
+        channel=channel,
+        release=None,
+        install_commit=target or fork_source.FORK_PIN,
+        # Equal to whether OUR record approves the build on offer, as everywhere in
+        # this module (`tests/test_rig_scripts.py` holds the relation).
+        auto_installable=not reinstall_review_build,
+        installable_with_consent=reinstall_review_build,
+        may_surface_unprompted=True,
+        would_be_unapproved=reinstall_review_build,
+        detail=(
+            f"The cyanrip build installed on this machine says it was built from a "
+            f"changed source tree: its build tag ends in -dirty ({installed}). It is "
+            "not the published build of that commit, so it is not approved, and "
+            "every rip made with it reports its ripper as 'unapproved'. The audio is "
+            "unaffected and still bit-perfect if its own checks pass.\n\n"
+            f"{offer_line}"
+        ),
+    )
+
+
 def _test_pin_offer(channel: str, installed: str, *, retired: bool) -> RipperOffer:
     """A build nominated for a hardware session, named as such rather than "wrong".
 
@@ -555,6 +612,10 @@ def evaluate_offer(
     # unreachable — even though the useful answer needed only two local constants.
     if not installed:
         return _mismatch_offer(channel, None)
+    # Before any commit comparison: `same_commit` is a prefix match, so a `-dirty`
+    # build reads as its clean commit everywhere below. See `_dirty_build_offer`.
+    if fork_source.is_dirty_build(installed):
+        return _dirty_build_offer(channel, installed)
 
     installed_seq = fork_source.release_seq_for_commit(installed)
     if installed_seq is None:

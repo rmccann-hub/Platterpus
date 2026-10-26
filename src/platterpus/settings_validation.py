@@ -567,7 +567,21 @@ def path_segment_issue(label: str, value: str) -> str:
     """
     if _has_control_char(value):
         return f"{label} contains an illegal character (a control character)."
-    if value.strip() in _PATH_REFERENCE_SEGMENTS:
+    return path_reference_issue(label, value)
+
+
+def path_reference_issue(label: str, value: str) -> str:
+    """``""`` unless ``value`` is ``.`` or ``..`` (padded or not); then why not.
+
+    The directory-reference half of :func:`path_segment_issue`, for a value that
+    becomes a path segment through a naming token but is a TAG first, so a control
+    character in it is replaced rather than refused (decision D14): the album
+    YEAR, which cyanrip renders verbatim for ``%y`` (its ``{date}`` token). It was
+    checked for neither until peer review 2.7 (2026-10-26) found a year of ``..``
+    with a template ``%y/%A/…`` writing one folder above the output directory.
+    Never raises; a non-string is no reference.
+    """
+    if isinstance(value, str) and value.strip() in _PATH_REFERENCE_SEGMENTS:
         return (
             f"{label} can’t be “{value.strip()}” — the rip uses it as a folder "
             "name, and that would write outside your output directory."

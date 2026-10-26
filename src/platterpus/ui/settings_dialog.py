@@ -69,6 +69,7 @@ from platterpus.paths import LOG_PATH
 from platterpus.settings_validation import ValidationIssue
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.plain_text import plain_tooltip
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.ui.setting_homes import (
     DRIVE_SETUP,
@@ -405,11 +406,13 @@ class SettingsDialog(CenteredDialog):
         # tell a user which file to attach to a bug report — naming a path they do
         # not have is worse than naming none, because they conclude it is missing.
         self._debug_logging_check.setToolTip(
-            f"ON: every probe, command and parse step is recorded to the log file "
-            f"at\n{LOG_PATH} — turn this on, reproduce the problem, then attach "
-            "that file to a bug report. OFF (default): only notable events are "
-            "logged, which keeps the file small but usually will not contain "
-            "enough to diagnose a failure after the fact."
+            plain_tooltip(
+                f"ON: every probe, command and parse step is recorded to the log file "
+                f"at\n{LOG_PATH} — turn this on, reproduce the problem, then attach "
+                "that file to a bug report. OFF (default): only notable events are "
+                "logged, which keeps the file small but usually will not contain "
+                "enough to diagnose a failure after the fact."
+            )
         )
         form.addRow("Logging:", self._debug_logging_check)
 

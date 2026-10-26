@@ -21,6 +21,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from platterpus.config import Config
+from platterpus.ui.plain_text import plain_tooltip
 from platterpus.workers.rip_worker import RipParameters
 
 
@@ -148,7 +149,7 @@ class RipControls(QWidget):
         self._start_button.setEnabled(can_start)
         # A disabled button with no explanation reads as "broken" — say *why*
         # it's greyed out (and what to do) so the user is never left guessing.
-        self._start_button.setToolTip(self._start_tooltip())
+        self._start_button.setToolTip(plain_tooltip(self._start_tooltip()))
         self._cancel_button.setEnabled(self._rip_active)
         # Force-stop is available whenever something is holding the drive — an
         # active rip, or a disc scan that may have wedged the TOC reader.

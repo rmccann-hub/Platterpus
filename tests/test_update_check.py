@@ -20,8 +20,14 @@ from platterpus.update_check import (
 )
 
 _RELEASES = [
-    {"tag_name": "v0.3.0", "html_url": "https://example.com/v0.3.0"},
-    {"tag_name": "v0.2.0", "html_url": "https://example.com/v0.2.0"},
+    {
+        "tag_name": "v0.3.0",
+        "html_url": "https://github.com/rmccann-hub/Platterpus/releases/tag/v0.3.0",
+    },
+    {
+        "tag_name": "v0.2.0",
+        "html_url": "https://github.com/rmccann-hub/Platterpus/releases/tag/v0.2.0",
+    },
 ]
 
 
@@ -36,7 +42,10 @@ def test_latest_release_picks_the_highest_version() -> None:
     after a newer release, and taking position 0 then offers a downgrade.
     """
     info = latest_release(fetch=lambda url: json.dumps(_RELEASES))
-    assert info == ReleaseInfo(version="0.3.0", url="https://example.com/v0.3.0")
+    assert info == ReleaseInfo(
+        version="0.3.0",
+        url="https://github.com/rmccann-hub/Platterpus/releases/tag/v0.3.0",
+    )
 
 
 def test_latest_release_ignores_list_order() -> None:

@@ -943,8 +943,15 @@ def _reject_path_reference_values(meta: RipMetadata) -> None:
     rule #3). Values that aren't path-bearing (genre, barcode, ISRC…) are not
     checked: they only ever become tags.
     """
-    from platterpus.settings_validation import path_segment_issue
+    from platterpus.settings_validation import path_reference_issue, path_segment_issue
 
+    # The year reaches a path through `%y` (cyanrip's `{date}`) but is a tag first,
+    # so only its directory-reference half is refused here; its control
+    # characters are replaced below, as D14 rules for tags.
+    year_problem = path_reference_issue("Year", meta.year)
+    if year_problem:
+        log.error("refusing to start a rip: %s (value=%r)", year_problem, meta.year)
+        raise RipError(year_problem)
     checks: list[tuple[str, str]] = [
         ("Album artist", meta.album_artist),
         ("Album title", meta.album_title),

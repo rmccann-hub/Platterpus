@@ -45,7 +45,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
-from platterpus.settings_validation import path_segment_issue
+from platterpus.settings_validation import path_reference_issue, path_segment_issue
 
 # Qt's model/view API types every index/parent argument as this union, so our
 # QAbstractTableModel overrides must annotate it the same way or mypy flags an
@@ -866,6 +866,10 @@ class TrackTable(QWidget):
         if problem:
             return False, problem
         problem = path_segment_issue("Album title", self._album_title_edit.text())
+        if problem:
+            return False, problem
+        # `%y` puts the year in the path verbatim (peer review 2.7).
+        problem = path_reference_issue("Year", self._album_year_edit.text())
         if problem:
             return False, problem
         tracks = self._model.tracks()

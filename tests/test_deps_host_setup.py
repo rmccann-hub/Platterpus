@@ -524,6 +524,32 @@ def test_the_default_wizard_keeps_the_build_under_review(
     assert "reviewing" in setup._done_detail("cyanrip_fork")
 
 
+def test_a_dirty_build_of_the_target_is_not_installed(tmp_path: Path) -> None:
+    """The claude-code-skills review of 2026-10-26, item 2.2: the step counted
+    `(<tag>-dirty)` as the target installed, because the pin is a substring of
+    it, so the wizard never replaced a binary that says itself it was built from
+    a changed tree. The clean banner beside it is the positive control."""
+    tag = fork_source.WIZARD_TARGET.build_tag
+    version = fork_source.WIZARD_TARGET.version
+    assert _fork_probe(tmp_path, f"cyanrip {version} ({tag})\n") is True
+    assert _fork_probe(tmp_path, f"cyanrip {version} ({tag}-dirty)\n") is False
+
+
+def test_a_dirty_build_under_review_is_not_kept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reviewed = _mid_round(monkeypatch)
+    runner = _FakeRunner()
+    runner.paths = {tmp_path / "cyanrip"}
+    runner.results[(str(tmp_path / "cyanrip"), "-V")] = (
+        0,
+        f"cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-g{reviewed}-dirty)\n",
+    )
+    setup = _setup(tmp_path, runner)
+    assert setup.fork_installed() is False
+    assert setup.kept_under_review is False
+
+
 def test_an_explicit_target_still_compares_strictly_mid_round(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

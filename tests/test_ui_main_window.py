@@ -13324,7 +13324,10 @@ def test_opening_a_menu_does_not_wipe_the_dependency_sentence(
 
         assert _status_bar_text(window) == before, "the menu wiped the sentence"
         label = window._dep_status_label
-        assert label is not None and label.toolTip() == before
+        # The tooltip goes through `plain_tooltip` (peer review 2.6).
+        from platterpus.ui.plain_text import plain_tooltip
+
+        assert label is not None and label.toolTip() == plain_tooltip(before)
         assert label.textFormat() == Qt.TextFormat.PlainText
         assert not window.statusBar().toolTip(), "a second copy that can go stale"
     finally:

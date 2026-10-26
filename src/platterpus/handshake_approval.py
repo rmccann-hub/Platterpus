@@ -463,6 +463,15 @@ def _why_this_build_is_here(tag: str) -> str:
     Returns ``""`` for a build we have no story for — silence beats a guess.
     """
     lowered = tag.casefold()
+    # First, because every branch below matches the commit as a substring and would
+    # describe a dirty build as the clean build it was made from (the
+    # claude-code-skills review of 2026-10-26, item 2.2).
+    if fork_source.is_dirty_build(tag):
+        return (
+            " Its build tag ends in -dirty: the binary says it was built from a"
+            " source tree with changes, so it is not the published build of the"
+            " commit it names, whichever commit that is."
+        )
     # Asked, not read off `FORK_TEST_PIN`: that constant keeps the last test pin
     # ANY round nominated, and read directly it described round 21's pin as "the
     # test pin, expected during a session" while round 26 named none (2026-09-24).

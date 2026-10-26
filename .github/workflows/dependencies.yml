@@ -28,8 +28,10 @@ jobs:
       issues: write # to open, update and close the one dependencies issue
     env:
       TITLE: Dependencies behind their newest release
-      # claude-code-skills v0.1.18 (tag resolved by git ls-remote, 2026-10-20).
-      SKILLCHECK: git+https://github.com/rmccann-hub/claude-code-skills@9c545d63190f6a5d4fa7aa7e86da33b6dc330fe4
+      # claude-code-skills v0.1.21 (tag resolved by git ls-remote, 2026-10-26).
+      # 0.1.20 fixed `--outdated` ending the run on a cut transfer
+      # (http.client.IncompleteRead is not an OSError), which 0.1.18 had.
+      SKILLCHECK: git+https://github.com/rmccann-hub/claude-code-skills@ebc28175ec6532c5c6af4de1ba9a27dbe6984845
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,7 +39,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.13.1"
+          # 0.13.4 fixed GHSA-hq85-5cpj-mr62 (a trusted root whose intermediate
+          # was compromised); 0.13.5 resolved by git ls-remote, 2026-10-26.
+          version: "0.13.5"
 
       - name: Measure each dependency against its newest release
         id: report

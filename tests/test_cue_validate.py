@@ -41,6 +41,10 @@ from pathlib import Path
 
 import pytest
 from evidence_paths import evidence
+from hypothesis import HealthCheck as _HealthCheck
+from hypothesis import given as _given
+from hypothesis import settings as _settings
+from hypothesis import strategies as _st
 
 from platterpus import cue_validate, rip_audit, tag_hygiene
 from platterpus.adapters.cyanrip_backend import CyanripImpl, _metadata_args
@@ -1690,3 +1694,39 @@ def test_a_cue_that_lost_the_discs_isrc_still_warns_and_names_the_disc() -> None
     mismatch = _by_code(findings, "cue_isrc_mismatch")
     assert mismatch.level == LEVEL_WARN
     assert "vs disc USZO10001709" in mismatch.text
+
+
+# --- Peer review 2.5: the one rewrite of the cue we own adds no line -----------
+#
+# We do not WRITE a cue sheet: cyanrip does, and what we send into it cannot
+# carry a line break (`tests/test_echoed_field_forgery.py`). The one function of
+# ours that rewrites one, `restore_metadata_colons`, swaps a character for a
+# character, so it cannot add a line; these hold that, and that the reader of a
+# hostile sheet never raises (the disc's CD-TEXT reaching the cue is TASKS R86).
+
+
+@_settings(max_examples=200, suppress_health_check=[_HealthCheck.too_slow])
+@_given(_st.text(max_size=400))
+def test_reading_ANY_cue_text_never_raises(text: str) -> None:
+    from platterpus.cue_validate import parse_cue
+
+    parse_cue(text)
+    validate_cue(text, expected=ExpectedCue())
+
+
+@_settings(max_examples=200, suppress_health_check=[_HealthCheck.too_slow])
+@_given(
+    _st.lists(
+        _st.sampled_from(
+            ["TITLE ", "PERFORMER ", "REM COMMENT ", "FILE ", "  TRACK 01 AUDIO", ""]
+        ).flatmap(lambda head: _st.text(max_size=30).map(lambda t: head + t)),
+        max_size=12,
+    )
+)
+def test_restoring_colons_never_changes_the_line_count(rows: list[str]) -> None:
+    from platterpus.cue_validate import COLON_SUBSTITUTE, restore_metadata_colons
+
+    text = "\n".join(row + COLON_SUBSTITUTE for row in rows)
+    restored, _changed = restore_metadata_colons(text)
+    assert len(restored.splitlines()) == len(text.splitlines())
+    assert len(restored) == len(text)

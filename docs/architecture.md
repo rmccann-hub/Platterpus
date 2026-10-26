@@ -1855,8 +1855,23 @@ refused.
   workflow. The repository rulesets decided on 2026-10-12 (`PLANNING.md` KDD-43) route
   every change through a pull request that passes CI, but require no approval, so the
   check proves a build is traceable to a public commit here, not that anyone reviewed the
-  commit. It also does not stop a genuine *older* build being served under a newer
-  version; the attested commit is logged, so such a mix-up is visible afterwards.
+  commit. On its own it also did not stop a genuine *older* build being served under
+  a newer version; since 2026-10-26 the installer does, below.
+- **Never an older version** (the claude-code-skills review of 2026-10-26, item 2.3;
+  `src/platterpus/update_version_guard.py`). The update check never offers one, but
+  the installer took whatever version it was handed. It now refuses a version lower
+  than the one running **twice**: by the version asked for, before anything is
+  fetched; and, once the attestation verifies, by the version the file was **built
+  as**, read from `src/platterpus/__init__.py` at the commit the signed provenance
+  names (`raw.githubusercontent.com`, by full commit, read capped at 64 KiB), which
+  must also equal the version asked for. That is derived from the artifact's signed
+  evidence rather than the release's label; reading the AppImage's own SquashFS was
+  rejected because it needs a new dependency, `unsquashfs` on the host, or running
+  the download before it is installed. Fail closed: an attestation with no full
+  commit, or a version file that cannot be fetched or read, blocks the install.
+  Reinstalling the running version is allowed. Held by `tests/test_update_install.py`
+  (a correctly attested 0.6.60 build offered as newer is refused; the same build
+  declaring the asked version installs) and `tests/test_update_version_guard.py`.
 - **The rollout.** An installed app checks the release it updates *to*, so the
   first release carrying this code is installed by the old updater, unchecked, and
   every update after it is checked.

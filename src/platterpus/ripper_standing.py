@@ -248,7 +248,9 @@ def describe_installed_ripper(banner: str | None) -> RipperStanding:
         )
     else:
         test_pin = fork_source.current_test_pin()
-        if commit and test_pin and fork_source.same_commit(commit, test_pin):
+        # Never for a `-dirty` build: `same_commit` is a prefix match (review 2.2).
+        clean = not fork_source.is_dirty_build(commit)
+        if commit and test_pin and clean and fork_source.same_commit(commit, test_pin):
             status = (
                 f"ⓘ Test build, not a release: both projects chose it for round "
                 f"{fork_source.FORK_TEST_PIN_ROUND}'s hardware test. {consequence}"

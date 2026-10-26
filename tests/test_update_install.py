@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from platterpus import update_attestation, update_install
+from platterpus import update_attestation, update_install, update_version_guard
 from platterpus.update_install import (
     UpdateInstallError,
     asset_url,
@@ -25,6 +25,22 @@ from platterpus.update_install import (
 )
 
 _PAYLOAD = b"new appimage bytes" * 1000
+
+#: A version above any we will ship for a while, so every test of the OTHER gates
+#: is an upgrade over the real running version. Was "0.2.3" until 2026-10-26, when
+#: the installer started refusing a version older than the one running
+#: (`update_version_guard`); the downgrade tests below use real older versions.
+_NEWER = "99.0.0"
+
+#: The commit the stand-in attestation names as the build's source, and whose
+#: `src/platterpus/__init__.py` the openers serve.
+_COMMIT = "c0ffee" + "0" * 34
+
+
+def _source(declared: str) -> bytes:
+    """A version file in the shape `src/platterpus/__init__.py` has today."""
+    return f'# Platterpus.\n\n__version__: str = "{declared}"\n'.encode()
+
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 #: A real release's attestation (v0.6.60), served for every `.sigstore.json`.
@@ -55,6 +71,13 @@ class _StatementVerifier:
                     "digest": {"sha256": self._digest},
                 }
             ],
+            # What `actions/attest-build-provenance` records (the v0.6.60 bundle's
+            # shape): the source commit the updater reads the built version from.
+            "predicate": {
+                "buildDefinition": {
+                    "resolvedDependencies": [{"digest": {"gitCommit": _COMMIT}}]
+                }
+            },
         }
         return update_attestation.PAYLOAD_TYPE, json.dumps(statement).encode()
 
@@ -64,12 +87,15 @@ def _trust(payload: bytes = _PAYLOAD) -> update_attestation.TrustRefresh:
     return update_attestation.TrustRefresh(load=lambda offline: verifier).start()  # type: ignore[arg-type,return-value]  # the stand-in has only verify_dsse
 
 
-def _with_attestation(open_url: Any) -> Any:
-    """Serve the real bundle for the attestation asset; everything else as given."""
+def _with_attestation(open_url: Any, declared: str = _NEWER) -> Any:
+    """Serve the real bundle for the attestation asset, and the attested commit's
+    version file declaring ``declared``; everything else as given."""
 
     def wrapped(url: str) -> Any:
         if url.endswith(update_attestation.ATTESTATION_SUFFIX):
             return _FakeResponse(_BUNDLE)
+        if url == update_version_guard.source_url(_COMMIT):
+            return _FakeResponse(_source(declared))
         return open_url(url)
 
     return wrapped
@@ -130,9 +156,7 @@ def test_asset_url_points_at_the_release_tag() -> None:
 
 def test_success_installs_atomically_and_is_executable(tmp_path: Path) -> None:
     seen: list[float] = []
-    result = _install(
-        "0.2.3", dest_dir=tmp_path, progress=seen.append, opener=_opener()
-    )
+    result = _install(_NEWER, dest_dir=tmp_path, progress=seen.append, opener=_opener())
 
     assert result == tmp_path / "platterpus-x86_64.AppImage"
     assert result.read_bytes() == _PAYLOAD
@@ -146,7 +170,7 @@ def test_status_reports_each_phase(tmp_path: Path) -> None:
     look like a freeze (real-user report 2026-06-13). Verify + install must
     each announce themselves, in order, after downloading."""
     phases: list[str] = []
-    _install("0.2.3", dest_dir=tmp_path, status=phases.append, opener=_opener())
+    _install(_NEWER, dest_dir=tmp_path, status=phases.append, opener=_opener())
 
     joined = " | ".join(phases)
     assert "Downloading" in joined
@@ -167,7 +191,7 @@ def test_checksum_mismatch_never_installs(tmp_path: Path) -> None:
     bad = _opener(sha="0" * 64)  # plausible-looking but wrong checksum
 
     with pytest.raises(UpdateInstallError, match="checksum"):
-        _install("0.2.3", dest_dir=tmp_path, opener=bad)
+        _install(_NEWER, dest_dir=tmp_path, opener=bad)
 
     assert existing.read_bytes() == b"the old version"  # untouched
     assert not (tmp_path / ".platterpus-update.part").exists()  # cleaned up
@@ -194,7 +218,7 @@ def test_sha256_sidecar_read_is_bounded(tmp_path: Path) -> None:
         return _FakeResponse(_PAYLOAD)
 
     with pytest.raises(UpdateInstallError):
-        _install("0.2.3", dest_dir=tmp_path, opener=open_url)
+        _install(_NEWER, dest_dir=tmp_path, opener=open_url)
     assert reads and reads[0] == ui._MAX_SHA256_BYTES
 
 
@@ -207,12 +231,12 @@ def test_malformed_published_checksum_aborts_before_download(
         raise AssertionError("the big download must not start")
 
     with pytest.raises(UpdateInstallError, match="malformed"):
-        _install("0.2.3", dest_dir=tmp_path, opener=open_url)
+        _install(_NEWER, dest_dir=tmp_path, opener=open_url)
 
 
 def test_cancel_mid_download_cleans_up(tmp_path: Path) -> None:
     with pytest.raises(UpdateInstallError, match="cancelled"):
-        _install("0.2.3", dest_dir=tmp_path, cancelled=lambda: True, opener=_opener())
+        _install(_NEWER, dest_dir=tmp_path, cancelled=lambda: True, opener=_opener())
     assert not (tmp_path / ".platterpus-update.part").exists()
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
@@ -232,7 +256,7 @@ def test_download_rejects_oversized_content_length(tmp_path: Path) -> None:
         return resp
 
     with pytest.raises(UpdateInstallError, match="larger than expected"):
-        _install("0.2.3", dest_dir=tmp_path, opener=open_url)
+        _install(_NEWER, dest_dir=tmp_path, opener=open_url)
     assert not (tmp_path / ".platterpus-update.part").exists()
 
 
@@ -253,7 +277,7 @@ def test_download_aborts_when_stream_exceeds_cap(
         return _FakeResponse(payload, content_length=False)  # no header to trust
 
     with pytest.raises(UpdateInstallError, match="maximum expected size"):
-        _install("0.2.3", dest_dir=tmp_path, opener=open_url)
+        _install(_NEWER, dest_dir=tmp_path, opener=open_url)
     assert not (tmp_path / ".platterpus-update.part").exists()
 
 
@@ -262,7 +286,7 @@ def test_network_failure_raises_presentable_error(tmp_path: Path) -> None:
         raise OSError("connection reset")
 
     with pytest.raises(UpdateInstallError, match="checksum"):
-        _install("0.2.3", dest_dir=tmp_path, opener=open_url)
+        _install(_NEWER, dest_dir=tmp_path, opener=open_url)
 
 
 def test_download_stream_failure_cleans_up_and_raises(tmp_path: Path) -> None:
@@ -280,7 +304,7 @@ def test_download_stream_failure_cleans_up_and_raises(tmp_path: Path) -> None:
         return _ExplodingResponse(_PAYLOAD)
 
     with pytest.raises(UpdateInstallError, match="download failed"):
-        _install("0.2.3", dest_dir=tmp_path, opener=open_url)
+        _install(_NEWER, dest_dir=tmp_path, opener=open_url)
 
     assert not (tmp_path / ".platterpus-update.part").exists()
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
@@ -345,7 +369,7 @@ def test_valid_signature_installs_when_signing_armed(
     monkeypatch.setattr(update_signing, "PUBLIC_KEY_B64", pub_b64)
 
     result = _install(
-        "0.2.3", dest_dir=tmp_path, opener=_signing_opener(_PAYLOAD, minisig)
+        _NEWER, dest_dir=tmp_path, opener=_signing_opener(_PAYLOAD, minisig)
     )
     assert result.read_bytes() == _PAYLOAD  # installed
     assert not (tmp_path / ".platterpus-update.part").exists()
@@ -361,7 +385,7 @@ def test_missing_signature_is_refused_fail_closed(
 
     # No .minisig published — fail-closed: refuse, don't fall through to install.
     with pytest.raises(UpdateInstallError, match="no verifiable signature"):
-        _install("0.2.3", dest_dir=tmp_path, opener=_signing_opener(_PAYLOAD, None))
+        _install(_NEWER, dest_dir=tmp_path, opener=_signing_opener(_PAYLOAD, None))
     assert not (tmp_path / ".platterpus-update.part").exists()
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
@@ -377,7 +401,7 @@ def test_invalid_signature_is_refused(
 
     with pytest.raises(UpdateInstallError, match="failed signature verification"):
         _install(
-            "0.2.3",
+            _NEWER,
             dest_dir=tmp_path,
             opener=_signing_opener(_PAYLOAD, minisig_for_other),
         )
@@ -400,7 +424,7 @@ def test_signature_not_fetched_when_signing_not_configured(
         fetched.append(url)
         return inner(url)
 
-    _install("0.2.3", dest_dir=tmp_path, opener=recording_opener)
+    _install(_NEWER, dest_dir=tmp_path, opener=recording_opener)
     assert not any(u.endswith(".minisig") for u in fetched)
 
 
@@ -415,7 +439,7 @@ def test_install_swap_failure_cleans_up_and_raises(
     monkeypatch.setattr(Path, "replace", boom)
 
     with pytest.raises(UpdateInstallError, match="couldn't install"):
-        _install("0.2.3", dest_dir=tmp_path, opener=_opener())
+        _install(_NEWER, dest_dir=tmp_path, opener=_opener())
 
     assert not (tmp_path / ".platterpus-update.part").exists()
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
@@ -429,7 +453,7 @@ def test_unknown_size_reports_indeterminate_progress(tmp_path: Path) -> None:
         return _FakeResponse(_PAYLOAD, content_length=False)
 
     seen: list[float] = []
-    _install("0.2.3", dest_dir=tmp_path, progress=seen.append, opener=open_url)
+    _install(_NEWER, dest_dir=tmp_path, progress=seen.append, opener=open_url)
     assert seen and all(p == -1.0 for p in seen)  # busy indicator, no bogus %
 
 
@@ -560,11 +584,16 @@ def test_the_final_url_is_checked_not_only_the_requested_one(
 # missing, unreadable or non-matching one blocks the install.
 
 
-def _plain_opener(payload: bytes = _PAYLOAD, attestation: Any = _BUNDLE):
-    """Serves the AppImage, its .sha256 and (unless None) the attestation."""
+def _plain_opener(
+    payload: bytes = _PAYLOAD, attestation: Any = _BUNDLE, declared: str = _NEWER
+):
+    """Serves the AppImage, its .sha256, (unless None) the attestation, and the
+    attested commit's version file declaring ``declared``."""
     digest = hashlib.sha256(payload).hexdigest()
 
     def open_url(url: str):
+        if url == update_version_guard.source_url(_COMMIT):
+            return _FakeResponse(_source(declared))
         if url.endswith(".sha256"):
             return _FakeResponse(f"{digest}  platterpus-x86_64.AppImage\n".encode())
         if url.endswith(update_attestation.ATTESTATION_SUFFIX):
@@ -586,7 +615,7 @@ def test_a_release_with_no_attestation_is_refused_and_nothing_changes(
         UpdateInstallError, match="build attestation, which is required"
     ):
         download_and_install(
-            "0.2.3",
+            _NEWER,
             dest_dir=tmp_path,
             opener=_plain_opener(attestation=None),
             trust=_trust(),
@@ -599,7 +628,7 @@ def test_an_attestation_for_a_different_file_is_refused(tmp_path: Path) -> None:
     """The stand-in attests other bytes: the downloaded digest is what is checked."""
     with pytest.raises(UpdateInstallError, match="did not check out"):
         download_and_install(
-            "0.2.3",
+            _NEWER,
             dest_dir=tmp_path,
             opener=_plain_opener(),
             trust=_trust(b"some other build"),
@@ -625,7 +654,7 @@ def test_the_real_verifier_refuses_a_download_its_bundle_does_not_name(
     trust = update_attestation.TrustRefresh(load=lambda offline: real).start()
     with pytest.raises(UpdateInstallError, match="different file"):
         download_and_install(
-            "0.6.60", dest_dir=tmp_path, opener=_plain_opener(), trust=trust
+            _NEWER, dest_dir=tmp_path, opener=_plain_opener(), trust=trust
         )
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
@@ -636,7 +665,7 @@ def test_no_trust_root_means_not_checked_and_not_installed(tmp_path: Path) -> No
 
     with pytest.raises(UpdateInstallError, match="couldn't check"):
         download_and_install(
-            "0.2.3",
+            _NEWER,
             dest_dir=tmp_path,
             opener=_plain_opener(),
             trust=update_attestation.TrustRefresh(load=load).start(),
@@ -662,9 +691,7 @@ def test_an_oversized_attestation_is_refused_and_the_read_is_bounded(
         return inner(url)
 
     with pytest.raises(UpdateInstallError, match="larger than any real one"):
-        download_and_install(
-            "0.2.3", dest_dir=tmp_path, opener=open_url, trust=_trust()
-        )
+        download_and_install(_NEWER, dest_dir=tmp_path, opener=open_url, trust=_trust())
     assert reads == [update_attestation.MAX_BUNDLE_BYTES + 1]
 
 
@@ -681,9 +708,7 @@ def test_a_checksum_failure_stops_before_the_attestation_is_fetched(
         return inner(url)
 
     with pytest.raises(UpdateInstallError, match="checksum"):
-        download_and_install(
-            "0.2.3", dest_dir=tmp_path, opener=open_url, trust=_trust()
-        )
+        download_and_install(_NEWER, dest_dir=tmp_path, opener=open_url, trust=_trust())
     assert not any(u.endswith(update_attestation.ATTESTATION_SUFFIX) for u in fetched)
 
 
@@ -697,8 +722,8 @@ def test_the_attestation_is_fetched_from_the_release_being_installed(
         fetched.append(url)
         return inner(url)
 
-    download_and_install("0.2.3", dest_dir=tmp_path, opener=open_url, trust=_trust())
-    assert asset_url("0.2.3") + ".sigstore.json" in fetched
+    download_and_install(_NEWER, dest_dir=tmp_path, opener=open_url, trust=_trust())
+    assert asset_url(_NEWER) + ".sigstore.json" in fetched
 
 
 def test_the_attestation_phase_is_announced_as_a_post_download_step(
@@ -710,7 +735,7 @@ def test_the_attestation_phase_is_announced_as_a_post_download_step(
 
     phases: list[str] = []
     download_and_install(
-        "0.2.3",
+        _NEWER,
         dest_dir=tmp_path,
         status=phases.append,
         opener=_plain_opener(),
@@ -740,9 +765,159 @@ def test_without_a_trust_argument_the_real_refresh_starts_before_the_download(
     inner = _plain_opener()
 
     def open_url(url: str):
-        if url == asset_url("0.2.3"):
+        if url == asset_url(_NEWER):
             events.append("download started")
         return inner(url)
 
-    download_and_install("0.2.3", dest_dir=tmp_path, opener=open_url)
+    download_and_install(_NEWER, dest_dir=tmp_path, opener=open_url)
     assert events == ["refresh started", "download started"]
+
+
+# --- Never an older version (the claude-code-skills review of 2026-10-26, 2.3) ---
+#
+# The update check never OFFERS an older version, but the installer took whatever it
+# was handed, and the attestation proves who built a file, not which version it is.
+# These hold the installer to the REAL running version (`platterpus.__version__`):
+# nothing here patches it.
+
+
+def test_an_older_version_asked_for_by_name_is_refused_before_any_request(
+    tmp_path: Path,
+) -> None:
+    fetched: list[str] = []
+
+    def open_url(url: str) -> Any:
+        fetched.append(url)
+        raise AssertionError("nothing may be fetched for a refused downgrade")
+
+    with pytest.raises(UpdateInstallError, match="older than the version running"):
+        download_and_install("0.6.60", dest_dir=tmp_path, opener=open_url)
+    assert fetched == []
+    assert not any(tmp_path.iterdir())
+
+
+def test_a_correctly_attested_older_build_offered_as_newer_is_refused(
+    tmp_path: Path,
+) -> None:
+    """THE CASE THE REVIEW NAMED. The checksum matches, the attestation verifies
+    and names the file, and the release asked for is newer than the running app;
+    only the source the file was built from says it is 0.6.60. Refused, and the
+    existing install is untouched."""
+    existing = tmp_path / "platterpus-x86_64.AppImage"
+    existing.write_bytes(b"the running version")
+    with pytest.raises(UpdateInstallError, match="older than the version running"):
+        download_and_install(
+            _NEWER,
+            dest_dir=tmp_path,
+            opener=_plain_opener(declared="0.6.60"),
+            trust=_trust(),
+        )
+    assert existing.read_bytes() == b"the running version"
+    assert not (tmp_path / ".platterpus-update.part").exists()
+
+
+def test_the_same_attested_build_installs_when_its_source_says_what_was_asked(
+    tmp_path: Path,
+) -> None:
+    """The positive control for the test above: one value changed, the outcome
+    flips, so the refusal is about the built version and nothing else."""
+    result = download_and_install(
+        _NEWER, dest_dir=tmp_path, opener=_plain_opener(declared=_NEWER), trust=_trust()
+    )
+    assert result.read_bytes() == _PAYLOAD
+
+
+def test_a_build_of_a_different_newer_version_is_refused_as_mislabelled(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(UpdateInstallError, match="not the release it claims"):
+        download_and_install(
+            _NEWER,
+            dest_dir=tmp_path,
+            opener=_plain_opener(declared="98.0.0"),
+            trust=_trust(),
+        )
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
+
+
+def test_reinstalling_the_running_version_is_not_a_downgrade(tmp_path: Path) -> None:
+    from platterpus import __version__
+
+    result = download_and_install(
+        __version__,
+        dest_dir=tmp_path,
+        opener=_plain_opener(declared=__version__),
+        trust=_trust(),
+    )
+    assert result.exists()
+
+
+def test_an_unreadable_built_version_is_a_refusal(tmp_path: Path) -> None:
+    """Fail closed: a source we cannot fetch is not a pass."""
+    inner = _plain_opener()
+
+    def open_url(url: str) -> Any:
+        if url == update_version_guard.source_url(_COMMIT):
+            raise OSError("HTTP Error 404: Not Found")
+        return inner(url)
+
+    with pytest.raises(UpdateInstallError, match="couldn't read the version"):
+        download_and_install(_NEWER, dest_dir=tmp_path, opener=open_url, trust=_trust())
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
+    assert not (tmp_path / ".platterpus-update.part").exists()
+
+
+def test_an_attestation_naming_no_source_commit_is_a_refusal(tmp_path: Path) -> None:
+    """The real v0.6.60 bundle names one; a stand-in that names none must not pass."""
+
+    class _NoCommit(_StatementVerifier):
+        def verify_dsse(self, bundle: object, policy: object) -> tuple[str, bytes]:
+            kind, payload = super().verify_dsse(bundle, policy)
+            statement = json.loads(payload)
+            del statement["predicate"]
+            return kind, json.dumps(statement).encode()
+
+    verifier = _NoCommit(_PAYLOAD)
+    trust = update_attestation.TrustRefresh(load=lambda offline: verifier).start()  # type: ignore[arg-type,return-value]  # the stand-in has only verify_dsse
+    with pytest.raises(UpdateInstallError, match="names no full source commit"):
+        download_and_install(
+            _NEWER, dest_dir=tmp_path, opener=_plain_opener(), trust=trust
+        )
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
+
+
+def test_the_version_file_read_is_bounded(tmp_path: Path) -> None:
+    reads: list[int] = []
+
+    class _Recording(_FakeResponse):
+        def read(self, n: int = -1) -> bytes:
+            reads.append(n)
+            return super().read(n)
+
+    inner = _plain_opener()
+
+    def open_url(url: str) -> Any:
+        if url == update_version_guard.source_url(_COMMIT):
+            return _Recording(b"#" * (update_version_guard.MAX_SOURCE_BYTES + 10))
+        return inner(url)
+
+    with pytest.raises(UpdateInstallError, match="larger than any real one"):
+        download_and_install(_NEWER, dest_dir=tmp_path, opener=open_url, trust=_trust())
+    assert reads == [update_version_guard.MAX_SOURCE_BYTES + 1]
+
+
+def test_the_version_phase_is_announced_as_a_post_download_step(
+    tmp_path: Path,
+) -> None:
+    from platterpus.ui.main_window_update import _is_download_phase
+
+    phases: list[str] = []
+    download_and_install(
+        _NEWER,
+        dest_dir=tmp_path,
+        status=phases.append,
+        opener=_plain_opener(),
+        trust=_trust(),
+    )
+    label = next(p for p in phases if "built as" in p)
+    assert not _is_download_phase(label)

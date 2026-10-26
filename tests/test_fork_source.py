@@ -678,6 +678,9 @@ def test_the_build_script_has_a_label_argument_so_values_are_not_eaten_as_argv0(
         # current one. Asserted through the target rather than as a literal ""
         # so this test keeps checking the *wiring* after the pin moves.
         " ".join(fork_source.WIZARD_TARGET.meson_options),
+        # $7 — the full commit HEAD must equal before anything is built (the
+        # claude-code-skills review of 2026-10-26, item 2.1), read off the target.
+        fork_source.WIZARD_TARGET.full_commit,
     ]
 
 
@@ -1149,11 +1152,14 @@ class TestTheBuildRefusesBeforeInstalling:
         # $6 (the per-pin meson options) now trails the tag, so index off the end
         # by name rather than assuming the tag is last — the reason this test
         # broke when the argument was added, and the reason it says so here.
-        assert cmd[-1] == " ".join(target.meson_options)
-        assert cmd[-2] == target.build_tag, (
-            f"the build tag is not where it should be: {cmd[-4:]}"
+        # $7, the full commit, trails the options (2026-10-26), so the tag moved
+        # one further from the end.
+        assert cmd[-1] == target.full_commit
+        assert cmd[-2] == " ".join(target.meson_options)
+        assert cmd[-3] == target.build_tag, (
+            f"the build tag is not where it should be: {cmd[-5:]}"
         )
-        assert cmd[-3] == target.pin
+        assert cmd[-4] == target.pin
 
     def test_every_shipped_script_is_valid_shell(self) -> None:
         """`sh -n` parses without executing. Cheap, and it catches the case this
@@ -1536,7 +1542,8 @@ def test_our_production_pin_gets_no_meson_options() -> None:
 def test_the_build_argv_carries_the_pins_options_and_nothing_else() -> None:
     """The options reach the container as one positional argument, or as empty."""
     argv = fork_source.build_command("ripping")
-    assert argv[-1] == "", "our current pin must configure with no -D options"
+    # [-2]: $7, the full commit, is last since 2026-10-26.
+    assert argv[-2] == "", "our current pin must configure with no -D options"
 
     with_option = fork_source.ForkTarget(
         pin="c4d1a00",
@@ -1544,7 +1551,7 @@ def test_the_build_argv_carries_the_pins_options_and_nothing_else() -> None:
         why="round 11's published release",
         meson_options=("-Ddeclare_released=true",),
     )
-    assert fork_source.build_command("ripping", with_option)[-1] == (
+    assert fork_source.build_command("ripping", with_option)[-2] == (
         "-Ddeclare_released=true"
     )
 
