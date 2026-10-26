@@ -1217,7 +1217,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1909 -> 1943** (2026-10-19, TASKS R30): `diagnostics_args_for_build`, the gate that keeps `--diagnostics` off stock cyanrip, beside `consumer_args_for_build` and `prefer_disc_isrc_args_for_build`, the two gates it joins; its docstring says why it keys on the fork's ID and why an unread banner still gets the flag.
     # **1943 -> 1946** (2026-10-20, round 35, the fork's exit classes from release 36): the banner's build tag is read once in `rip()` and handed to the `RipHandle` as well as the argv gate.
     # **1946 -> 1976** (2026-10-26, round 36 lap 7 S3): `--prefer-accuraterip-match` through the argv chokepoint on every rip, gated on the build tag beside `--prefer-disc-isrc`'s gate.
-    "adapters/cyanrip_backend.py": 1976,
+    # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
+    "adapters/cyanrip_backend.py": 1983,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     "adapters/musicbrainz_client.py": 534,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
@@ -2267,7 +2268,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1208 -> 1207** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the re-compress bool in `_BOOL_FIELDS`.
     # **1207 -> 1208** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` among the booleans.
     # **1208 -> 1209** (2026-10-20, the owner's word "yes, read twice by default"): the new boolean setting in the validated list.
-    "settings_validation.py": 1209,
+    # **1209 -> 1223** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
+    "settings_validation.py": 1223,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2714,7 +2716,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
     # **867 -> 889** (2026-10-26, run A on 0.7.112, the drive flicker): `restore_edits`, putting back what `album_metadata`/`tracks`/`selected_track_numbers` returned, so the same disc returned to the drive keeps the user's typing. It writes the widget's own fields, so it lives beside the readers it inverts.
-    "ui/track_table.py": 889,
+    # **889 -> 893** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
+    "ui/track_table.py": 893,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces

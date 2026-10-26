@@ -40,6 +40,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **Tooltips and the update dialog's progress label show outside text as written, never as markup.** Neither has a text format to state, so Qt guessed: a tooltip quoting the ripper's status row or a dependency's version, or the update dialog's label showing the version the update server named, rendered a value holding `<b>` as bold and dropped the tags. The seven tooltips built from a value now go through `ui.plain_text.plain_tooltip`, and progress dialogs are built by `plain_progress_dialog` with a PlainText label of ours; `tests/test_tooltips_and_progress_labels_are_plaintext.py` sweeps both, with floors (peer review 2.6, 2026-10-26). The desktop notification and two About rows are still open (TASKS R87).
 
+- **An album year of `..` can no longer put a rip outside the output folder.** The `%y` naming token is cyanrip's `{date}`, filled from the Year box above the track table as typed, and the year was the one value reaching a path that neither the track table nor the argv builder checked: a year of `..` with a custom template such as `%y/%A/%d/%t - %n` wrote the album one folder above the folder you chose (`%Y` was already digits-only). The year is now refused when it is `.` or `..`, with the same message as the album title, before Start and again at the argv chokepoint; a control character in it is still replaced, as for any tag (peer review 2.7, 2026-10-26; `tests/test_title_filenames.py`, which also holds that `/`, `../` and absolute paths in a title land as one folder level).
+
 ## [0.7.113] — 2026-10-26
 
 The release your next Full run goes through, and the first built against the EAC parity plan of
