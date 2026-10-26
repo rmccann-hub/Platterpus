@@ -66,12 +66,12 @@ text is taken verbatim as one value.
 | `set` | 2+ (rest of line) | ready | set <config-field> <value> — change a setting (validated, then saved); booleans take on/off |
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
 | `expect-contains` | 2+ (rest of line) | ready | expect-contains <config-field> <text> — assert a setting contains text |
-| `rescan` | 0 | ready | rescan — re-read the disc in the drive |
-| `pick-release` | 1–2 | ready | pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous) |
+| `rescan` | 0 | ready | rescan — re-read the disc in the drive, and wait (up to 120 s) until the read has identified it or its own release picker is open |
+| `pick-release` | 1–2 | ready | pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous). Never answers a picker an older, superseded scan left open |
 | `album` | 1+ (rest of line) | ready | album <title> — set the album title, so repeat rips land in separate folders |
 | `album-artist` | 1+ (rest of line) | ready | album-artist <name> — set the album artist for this rip |
 | `select-tracks` | 1 | ready | select-tracks <all|none|1,3,5-7> — choose which tracks the rip covers (this is cyanrip's -l) |
-| `rip` | 0 | ready | rip — start the rip (needs an identified disc) |
+| `rip` | 0 | ready | rip — start the rip (needs an identified disc); a disc scan in flight is waited for (up to 120 s) first |
 | `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout. If the timeout runs out with the rip still reading, the run ends there and that rip is cancelled: no later step could be graded against it |
 | `cancel-rip` | 0 | ready | cancel-rip — cancel the rip this script's last `rip` step started. A run that ends early (`abort`, Stop, a `wait-for-rip` that runs out) cancels that rip too |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
@@ -82,7 +82,7 @@ text is taken verbatim as one value.
 | `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
 | `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one |
-| `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file |
+| `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
 | `set-library-scratch` | 0 | ready | set-library-scratch — point library_dir at a scratch folder inside the rips folder (the output directory), so a finished rip is filed there and never in your library; `set library_dir ""` turns the move off again |
@@ -539,7 +539,7 @@ found nothing wrong*.
       "max_args": 0,
       "takes_paths": false,
       "implemented": true,
-      "help": "rescan \u2014 re-read the disc in the drive"
+      "help": "rescan \u2014 re-read the disc in the drive, and wait (up to 120 s) until the read has identified it or its own release picker is open"
     },
     {
       "name": "pick-release",
@@ -547,7 +547,7 @@ found nothing wrong*.
       "max_args": 2,
       "takes_paths": false,
       "implemented": true,
-      "help": "pick-release <mbid|prefix|N> [seconds] \u2014 answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous)"
+      "help": "pick-release <mbid|prefix|N> [seconds] \u2014 answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous). Never answers a picker an older, superseded scan left open"
     },
     {
       "name": "album",
@@ -579,7 +579,7 @@ found nothing wrong*.
       "max_args": 0,
       "takes_paths": false,
       "implemented": true,
-      "help": "rip \u2014 start the rip (needs an identified disc)"
+      "help": "rip \u2014 start the rip (needs an identified disc); a disc scan in flight is waited for (up to 120 s) first"
     },
     {
       "name": "wait-for-rip",
@@ -667,7 +667,7 @@ found nothing wrong*.
       "max_args": 0,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-tags \u2014 every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file"
+      "help": "expect-tags \u2014 every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file"
     },
     {
       "name": "expect-cover-art",

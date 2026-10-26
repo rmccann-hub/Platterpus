@@ -238,7 +238,13 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-contains <config-field> <text> — assert a setting contains text",
     ),
     # --- Disc and rip --------------------------------------------------------
-    Verb("rescan", 0, 0, "rescan — re-read the disc in the drive"),
+    Verb(
+        "rescan",
+        0,
+        0,
+        "rescan — re-read the disc in the drive, and wait (up to 120 s) until the "
+        "read has identified it or its own release picker is open",
+    ),
     Verb(
         # An MBID rather than a row number is the documented form because
         # MusicBrainz ordering is not stable: `pick-release 2` would silently
@@ -250,7 +256,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         "pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release "
         "picker when a disc has more than one candidate, so an unattended run "
         "does not stop at a modal. Passes without choosing only if no picker "
-        "appears AND tracks are loaded (the disc was unambiguous)",
+        "appears AND tracks are loaded (the disc was unambiguous). Never answers "
+        "a picker an older, superseded scan left open",
     ),
     Verb(
         "album",
@@ -271,7 +278,13 @@ _VERB_LIST: tuple[Verb, ...] = (
         "select-tracks <all|none|1,3,5-7> — choose which tracks the rip covers "
         "(this is cyanrip's -l)",
     ),
-    Verb("rip", 0, 0, "rip — start the rip (needs an identified disc)"),
+    Verb(
+        "rip",
+        0,
+        0,
+        "rip — start the rip (needs an identified disc); a disc scan in flight is "
+        "waited for (up to 120 s) first",
+    ),
     Verb(
         "wait-for-rip",
         1,
@@ -514,7 +527,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         0,
         0,
         "expect-tags — every ripped FLAC's album, album artist, title, artist and "
-        "track number are exactly what the track table shows, read from the file",
+        "track number are exactly what the track table held when the rip started, "
+        "read from the file",
     ),
     Verb(
         "expect-cover-art",

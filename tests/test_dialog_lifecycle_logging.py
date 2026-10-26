@@ -259,9 +259,15 @@ def test_both_blocked_step_messages_send_the_operator_to_pick_release(
 
     from platterpus.uiscript import runner as runner_mod  # noqa: PLC0415
 
+    # `rip`'s refusals live in `_start_refusal` since 2026-10-26, so the waited
+    # press (a scan in flight) and the immediate one share them; `_do_rip` and
+    # `_press_start` must both delegate to it, or one path lost the remedy.
+    runner_cls = runner_mod.ScriptRunner
+    for caller in (runner_cls._do_rip, runner_cls._press_start):
+        assert "self._start_refusal()" in inspect.getsource(caller), caller
     handlers = {
-        "rip": runner_mod.ScriptRunner._do_rip,
-        "wait-for-rip": runner_mod.ScriptRunner._do_wait_for_rip,
+        "rip": runner_cls._start_refusal,
+        "wait-for-rip": runner_cls._do_wait_for_rip,
     }
     for name, fn in handlers.items():
         src = inspect.getsource(fn)

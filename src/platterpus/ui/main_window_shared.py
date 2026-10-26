@@ -117,6 +117,7 @@ if TYPE_CHECKING:
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
     from platterpus.ui.host_setup_dialog import HostSetupDialog
+    from platterpus.ui.main_window_disc_return import ParkedDisc
 
     # TYPE_CHECKING-only, and it has to be: ``main_window_rip`` imports THIS
     # module at runtime (every mixin inherits the seam), so a real import here
@@ -169,6 +170,9 @@ class MainWindowShared(_SeamBase):
     _last_mb_releases: list[ReleaseSummary]
     _manual_cover_path: str | None
     _current_disc_id: str
+    #: A disc's chosen release and edits, kept while it may be leaving the drive
+    #: (``ui/main_window_disc_return.py``); None when nothing is parked.
+    _parked_disc: ParkedDisc | None
     #: The disc-id we have already committed a MusicBrainz release for, in the
     #: current scan. Empty until one is chosen; reset by every new disc probe.
     #:
@@ -405,6 +409,13 @@ class MainWindowShared(_SeamBase):
         def _start_disc_info(
             self, device: str, *, automatic_retry: bool = ...
         ) -> None: ...
+
+        # Defined in DiscReturnMixin (main_window_disc_return.py):
+        def _park_disc(self) -> None: ...
+        def _on_disc_returned(self, device: str, status: str, gap_s: float) -> None: ...
+
+        # Defined in DriveMixin (main_window_drive.py):
+        def _reset_disc_view(self) -> None: ...
 
         # Defined in ProvisioningMixin (main_window_provision.py):
         def open_host_setup_dialog(self) -> None: ...

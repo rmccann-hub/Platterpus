@@ -2354,7 +2354,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1810 -> 1825** (2026-10-07, KDD-42 W6): Help → Getting started, first in the Help menu, its handler beside the other Help slots, and the kept non-modal window it raises rather than duplicates.
     # **1825 -> 1819** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac_recompress_done` signal and its connection.
     # **1819 -> 1821** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the typed `_last_*` working copies.
-    "ui/main_window.py": 1821,
+    # **1821 -> 1833** (2026-10-26, run A on 0.7.112, the drive flicker): `DiscReturnMixin` in the class list and its import, `_parked_disc` initialised beside the disc-id fields it parks, a drive change (Rescan) dropping it, and `_on_disc_info_ready` restoring the same disc's release instead of a new lookup. The logic is in `ui/main_window_disc_return.py`; these are the call sites it needs on the window.
+    # **1833 -> 1869** (2026-10-26, run A on 0.7.112, the script's `rescan` then `pick-release`): a new disc scan closes the release picker an older scan left open (`_close_superseded_picker`, called where a new read request begins), each picker carries the scan that asked it, and the slot logs a superseded close apart from a cancel. These are the MusicBrainz slots and the picker they own, which live here.
+    "ui/main_window.py": 1869,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2390,7 +2392,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 658 -> 668 on 2026-09-28 (code review R9): a disc removal ends the read a pending automatic retry was for, so its timer cannot replace the no-disc line with an error about the disc that left.
     # **668 -> 670** (2026-10-05): the disc-removal reset keeps the drive rows (2026-10-04 rig runs).
     # **670 -> 742** (2026-10-05): `_read_rate_for_current_drive` and `_learn_read_rate`: the drive's own measured speed (else the rig's for its model) goes to the rip, and each finished first pass folds into the profile (operator's request for an overall rip estimate, 2026-10-05).
-    "ui/main_window_drive.py": 742,
+    # **742 -> 752** (2026-10-26, run A on 0.7.112, the drive flicker): the media poll handles the watcher's new RETURNED event and parks the disc before a believed removal clears it. The poll is the watcher's only reader; the handler itself is in `ui/main_window_disc_return.py`.
+    "ui/main_window_drive.py": 752,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2539,7 +2542,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 5069** (2026-10-21): the entries above landed together on one branch.
     # **5000 -> 5035** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #5): `_record_post_rip_cut_short`, which seals the album's record and writes the report before the unattended quit, beside `_post_rip_steps_running` it reads; `_gates_for` and `_write_rip_report` pass the seal to the report. The seal itself is `PostRipRecord.seal_cut_short`.
     # **-> 5104** (2026-10-21): the entries above landed together on one branch.
-    "ui/main_window_rip.py": 5104,
+    # **5104 -> 5107** (2026-10-26, run A on 0.7.112): `_start_rip_worker` puts the tags the rip was handed onto its post-rip record, where the acceptance graders read them; it is the one place the metadata is built for the rip.
+    "ui/main_window_rip.py": 5107,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2562,7 +2566,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
     # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
     # **457 -> 458** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the same declarations on the seam.
-    "ui/main_window_shared.py": 458,
+    # **458 -> 469** (2026-10-26, run A on 0.7.112, the drive flicker): `_parked_disc` and the three cross-mixin methods `DiscReturnMixin` and `DriveMixin` call on each other, declared so mypy resolves them.
+    "ui/main_window_shared.py": 469,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2630,7 +2635,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
-    "ui/track_table.py": 867,
+    # **867 -> 889** (2026-10-26, run A on 0.7.112, the drive flicker): `restore_edits`, putting back what `album_metadata`/`tracks`/`selected_track_numbers` returned, so the same disc returned to the drive keeps the user's typing. It writes the widget's own fields, so it lives beside the readers it inverts.
+    "ui/track_table.py": 889,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
@@ -2774,7 +2780,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4809 -> 4823** (2026-10-21, the timed rip, the fork's round 36 lap 1 S15): two verb mixins in the class list and their imports, the two pieces of timing state with their reset, and the one dispatch line that marks a section N/A when it has nothing to compare. The handlers live in `install_verbs.py` and `timing_verbs.py`.
     # **4809 -> 4815** (2026-10-21, TASKS P2 #4): `expect-verification`'s floor asks `verification_gates.gate_claims_ran`, since a gate with a result now says "ran — passed" or "ran — failed".
     # **-> 4829** (2026-10-21): the entries above landed together on one branch.
-    "uiscript/runner.py": 4829,
+    # **4829 -> 4824** (2026-10-26, run A on 0.7.112): lowered: `rescan` moved to `scan_verbs.py` with the scan waits `rip` and `pick-release` now share; `rip`'s refusals became `_start_refusal`/`_press_start`, read again at the press when it waited for a scan.
+    "uiscript/runner.py": 4824,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2817,7 +2824,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **997 -> 998** (2026-10-16, round 35, `overreadprobe`): the `cyanrip` verb's help names `(lasttrack)`.
     # **998 -> 999** (2026-10-20): the `refused` word in `expect-exit`'s help line.
     # **999 -> 1045** (2026-10-21, the timed rip): the `install-ripper`, `skip-if-same-build`, `record-timing` and `compare-timings` declarations, and the module docstring naming `install-ripper` as the one argued exception to "no verb installs a dependency". The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 1045,
+    # **1045 -> 1046** (2026-10-26, run A on 0.7.112): `expect-tags`' help says it compares with the table as it was when the rip started (its record), not as it is now; one more wrapped line.
+    # **1046 -> 1059** (2026-10-26, run A on 0.7.112): `rescan` and `rip` say they wait for the scan, and `pick-release` that it never answers a superseded scan's picker; two entries move from one line to the wrapped form.
+    "uiscript/verbs.py": 1059,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

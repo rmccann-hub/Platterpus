@@ -12,26 +12,64 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from platterpus.flac_metadata import PICTURE_FRONT_COVER, read_flac_metadata
 from platterpus.inbound_text import screen_line
 from platterpus.uiscript.artifact_grading import Grade
 
+if TYPE_CHECKING:
+    from platterpus.adapters.rip_backend import RipMetadata
+
 
 @dataclass(frozen=True)
 class ExpectedTags:
-    """What the user chose, read from the window — not from what we sent.
+    """What the user chose, as the rip was handed it — not from what we sent.
 
     The argv is escaped for cyanrip (``\\:`` for a colon); reading the intent
     back out of it would need the unescaping this check exists to test. The
-    window's fields are the independent source: what the user saw and meant.
+    tags the window built at Start (:func:`expected_tags_from`) are the
+    independent source: what the user saw and meant, frozen with the rip, so a
+    scan that clears the window afterwards cannot change the answer.
     """
 
     album: str
     album_artist: str
     #: Track number -> (title, artist).
     tracks: Mapping[int, tuple[str, str]]
+
+
+def expected_tags_from(metadata: RipMetadata) -> ExpectedTags:
+    """The tags a rip was handed, in the shape :func:`grade_tags` compares."""
+    return ExpectedTags(
+        album=metadata.album_title,
+        album_artist=metadata.album_artist,
+        tracks={t.number: (t.title, t.artist) for t in metadata.tracks},
+    )
+
+
+def report_release_id(report: Mapping[str, Any]) -> str | None:
+    """The MusicBrainz release the rip's report names, ``""`` for an unknown
+    disc, or ``None`` when the report has no disc block to say either way."""
+    disc = report.get("disc")
+    if not isinstance(disc, dict):
+        return None
+    value = disc.get("musicbrainz_release_id")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def cover_art_pending(report: Mapping[str, Any], mode: str) -> bool:
+    """True while the cover setting asked for something and the report holds no
+    ``cover_art`` result yet. The cover step runs after the report first
+    settles (it is not one of the verification gates), so a settled report can
+    still be waiting for it."""
+    from platterpus.adapters.cover_art import plan_actions
+
+    release_id = report_release_id(report)
+    if release_id is None:
+        return False
+    embed, save_file = plan_actions(mode, False, release_id)
+    return (embed or save_file) and not isinstance(report.get("cover_art"), dict)
 
 
 def ripped_masters(report: Mapping[str, Any], folder: Path) -> list[tuple[int, Path]]:
@@ -145,9 +183,13 @@ def grade_cover_art(
     masters: Sequence[tuple[int, Path]],
     report: Mapping[str, Any],
     mode: str,
-    release_id: str,
+    release_id: str | None,
 ) -> Grade:
     """The cover art on disk is what the ``cover_art`` mode asks for.
+
+    ``release_id`` is the report's (:func:`report_release_id`), never the
+    window's: run A on 0.7.112 cleared the window before this ran, and with no
+    release it expected nothing and failed 14 correctly embedded covers.
 
     Which actions a mode asks for is :func:`cover_art.plan_actions`'s answer,
     called here rather than restated. Embedding is graded on the FLACs
@@ -160,9 +202,27 @@ def grade_cover_art(
     """
     from platterpus.adapters.cover_art import plan_actions
 
+    if release_id is None:
+        return Grade(
+            False,
+            "not determined: the report has no disc block naming the release, so "
+            "what the cover setting asked for cannot be known",
+            blocked=True,
+        )
     embed, save_file = plan_actions(mode, False, release_id)
     block = report.get("cover_art")
     art = block if isinstance(block, dict) else {}
+    if (embed or save_file) and not isinstance(block, dict):
+        # Absent is not zero. Run C on 0.7.112 graded while the cover step was
+        # still embedding, and reported "0 file(s) took the cover" over 16 that
+        # had (its app log, lines 17625 and 17719).
+        return Grade(
+            False,
+            f"not determined: cover art was asked for ({mode!r}) and the report "
+            "still holds no cover_art result, so what the rip did with it is "
+            "unknown",
+            blocked=True,
+        )
     if (embed or save_file) and art.get("found") is False:
         return Grade(
             False,
@@ -196,7 +256,12 @@ def grade_cover_art(
             f"mode {mode!r} embeds nothing, yet track(s) "
             f"{', '.join(map(str, with_cover))} carry a picture"
         )
-    claimed = art.get("embedded_count") or 0
+    count = art.get("embedded_count")
+    claimed = count if isinstance(count, int) else 0
+    if embed and not isinstance(count, int):
+        problems.append(
+            f"the report's cover_art block has no embedded_count ({count!r})"
+        )
     if claimed != (len(with_cover) if embed else 0):
         problems.append(
             f"the report says {claimed} file(s) took the cover; the files hold "
