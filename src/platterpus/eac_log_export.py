@@ -71,7 +71,7 @@ from platterpus.report_types import SecureReripBlock
 from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
-from platterpus.track_proof import contradiction_sentence
+from platterpus.track_proof import track_proof, verified_reread_numbers
 from platterpus.verdict import (
     accuraterip_lookup_happened,
     expected_track_total,
@@ -528,8 +528,9 @@ def _render(
     lines.extend(_toc_block(rip_log, disc_track_total))
 
     # --- Per-track blocks ---
+    chased = verified_reread_numbers(secure_rerip)
     for track in rip_log.tracks:
-        lines.extend(_track_block(track))
+        lines.extend(_track_block(track, verified_reread=track.number in chased))
 
     # --- Conclusive report, in EAC's own wording ---
     lines.append("")
@@ -1476,13 +1477,7 @@ def _verified_reread_line(secure_rerip: SecureReripBlock | None) -> list[str]:
     securing pass's own read was not the one kept. Reads defensively, like
     :func:`_interrupted_securing_line`.
     """
-    if not isinstance(secure_rerip, dict):
-        return []
-    tracks = [
-        n
-        for n in secure_rerip.get("verified_rereads") or []
-        if isinstance(n, int) and not isinstance(n, bool)
-    ]
+    tracks = verified_reread_numbers(secure_rerip)
     if not tracks:
         return []
     listed = ", ".join(str(n) for n in sorted(tracks))
@@ -1712,8 +1707,12 @@ def _provenance_lines(
     return out
 
 
-def _track_block(track: TrackResult) -> list[str]:
-    """The per-track section, matching EAC's shape (only real fields rendered)."""
+def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[str]:
+    """The per-track section, matching EAC's shape (only real fields rendered).
+
+    ``verified_reread`` is True when the track's file is a verified-read chase
+    read (``secure_rerip["verified_rereads"]``), which its ``Proof:`` row names.
+    """
     # EAC writes "Track" + one space + the number right-aligned to width 2, so a
     # single-digit track reads "Track  1" and a double-digit one "Track 14". A
     # non-int number falls back to str() rather than raising on the format spec.
@@ -1796,11 +1795,17 @@ def _track_block(track: TrackResult) -> list[str]:
     if not is_data_track(track):
         out.append(f"     {_accuraterip_line(track)}")
     # A row of our own, beside EAC's AccurateRip row it explains (plan of record,
-    # 2026-10-26, row 8): a track AccurateRip contradicts says so in words, so the
-    # block's last line is never the only verdict a reader sees.
+    # 2026-10-26, rows 8 and 9): which proof this copy has, from `track_proof`,
+    # the one wording the report carries too. EAC's one proof is a Test and Copy
+    # CRC pair; ours differs by track, so the log says which. A track AccurateRip
+    # contradicts says so here, so the block's last line is never the only
+    # verdict a reader sees. CTDB is not named: this log is written before it
+    # answers, and the report's `proof` carries it. Not for a data track, for
+    # the AccurateRip row's reason above: its own status line says what it is.
+    if not is_data_track(track):
+        proof = track_proof(track, verified_reread=verified_reread)
+        out.append(f"     Proof: {proof.line}")
     contradiction = track_accuraterip_contradiction(track)
-    if contradiction is not None:
-        out.append(f"     Proof: {contradiction_sentence(track, contradiction)}")
     if track.status:
         verdict = _status_line(
             track.status,

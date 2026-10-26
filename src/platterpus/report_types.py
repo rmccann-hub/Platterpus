@@ -502,6 +502,13 @@ class KeptReadBlock(TypedDict):
     last_read_crc: str | None
 
 
+class TrackProofBlock(TypedDict):
+    #: v40: one of `track_proof.PROOF_KINDS` ("accuraterip", "verified_reread",
+    #: "ctdb", "reads_agree", "none") and the line the EAC-layout log prints.
+    kind: str
+    line: str
+
+
 class TrackBlock(TypedDict):
     number: int | None
     filename: str | None
@@ -565,6 +572,8 @@ class TrackBlock(TypedDict):
     #: v40: `verdict.track_accuraterip_contradiction`: "wrong" (frame 450 matched,
     #: the whole track did not), "differs" (compared, nothing matched), or None.
     accuraterip_contradiction: str | None
+    #: v40: which proof this copy has (`track_proof.track_proof`), CTDB included.
+    proof: TrackProofBlock
     accuraterip: TrackAccurateRipBlock
 
 

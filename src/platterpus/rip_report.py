@@ -58,6 +58,13 @@ from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_exit_class import classify_exit
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
+from platterpus.track_proof import (
+    TrackProof,
+    ctdb_tracks_by_number,
+    track_proof,
+    track_proof_among,
+    verified_reread_numbers,
+)
 from platterpus.user_settings import user_settings
 from platterpus.verdict import (
     VERDICT_BASIS_READS_AGREE,
@@ -497,6 +504,10 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      and the whole track did not, "differs" when it was compared and nothing
 #      matched, null otherwise (`verdict.track_accuraterip_contradiction`).
 #      Additions only.
+#      Also in v40 (row 9): per track, `proof` (`kind`, `line`): which proof the
+#      copy has, one of `accuraterip`, `verified_reread`, `ctdb`, `reads_agree`
+#      or `none`, in the line the EAC-layout log prints (`track_proof.py`), with
+#      CTDB's per-track result, which that log is written before. Additions only.
 REPORT_SCHEMA_VERSION: int = 40
 
 
@@ -1596,7 +1607,14 @@ def _build(
     # The per-track blocks, built ONCE: `issues` reads them (the `Beyond disc:`
     # finding) and the same list is serialised as `tracks`, so the finding and
     # the row it summarises cannot disagree.
-    track_blocks = [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())]
+    # Each track's proof needs two facts the parsed log does not hold: which
+    # files are verified-read chase reads, and CTDB's per-track answer.
+    chased = verified_reread_numbers(secure_rerip)
+    ctdb_rows = ctdb_tracks_by_number(ctdb_result)
+    track_blocks = [
+        _track(t, track_proof_among(t, chased=chased, ctdb_rows=ctdb_rows))
+        for t in (getattr(rip_log, "tracks", ()) or ())
+    ]
     issues = _issues(
         outcome=outcome,
         verdict_level=level,
@@ -2001,7 +2019,12 @@ def _search_pair(value: object) -> list[int] | None:
     return None
 
 
-def _track(track: object) -> dict:
+def _track(track: object, proof: TrackProof | None = None) -> dict:
+    """One track's block. ``proof`` is from :func:`track_proof.track_proof`, with
+    the chase and CTDB facts only the report holds; without it (a caller that has
+    neither) the track's own fields decide it."""
+    if proof is None:
+        proof = track_proof(track)
     return {
         "number": getattr(track, "number", None),
         "filename": getattr(track, "filename", "") or None,
@@ -2104,6 +2127,10 @@ def _track(track: object) -> dict:
         # the ripper's own word ("ripped successfully"), so this is the field
         # that says a track is not fine.
         "accuraterip_contradiction": track_accuraterip_contradiction(track),
+        # v40 (plan of record row 9): which proof this copy has, in the line the
+        # EAC-layout log prints, plus CTDB's per-track result, which that log is
+        # written too early to hold.
+        "proof": {"kind": proof.kind, "line": proof.line},
         # cyanrip's per-track "Accurip:" status text — the only thing that says
         # whether a lookup happened. Without it a consumer cannot tell "compared
         # and disagreed" from "never asked", which is the distinction the on-screen

@@ -1687,7 +1687,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 2000** (2026-10-21): the entries above landed together on one branch.
     # **2000 -> 2027** (2026-10-26): `_accurate_stream_row`, the `Utilize accurate stream` row carrying the drive's `.26` declaration as not determined, never a Yes; one row's rule beside the rows it sits among.
     # **2027 -> 2112** (2026-10-26, the owner's EAC-parity plan of record, row 8): never "Copy OK", "confirmed across N secure re-reads" or "No errors occurred" over a track AccurateRip contradicts. `CONTRADICTED_VERDICT` (EAC's own "Copy finished"), the `Proof:` row, the Copy CRC note, and `_health_lines` (EAC's "There were errors" with the ripper's count on a labelled line, the round-36 S11 shape). The rule is `verdict.track_accuraterip_contradiction` and the Proof row's words are `track_proof.py`; what stays here is this document's own lines.
-    "eac_log_export.py": 2112,
+    # **2112 -> 2117** (2026-10-26, plan of record row 9): every audio track block carries a `Proof:` row naming which proof its copy has; the wording and the decision are `track_proof.py`, and `_verified_reread_line` reads the chase list through the same helper.
+    "eac_log_export.py": 2117,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2032,7 +2033,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **815 -> 835** (2026-10-21, TASKS P2 #5): `VerificationCompletenessBlock` and the `completeness.verification` key that carries it.
     # **-> 984** (2026-10-21): the entries above landed together on one branch.
     # **984 -> 987** (2026-10-26, the owner's EAC-parity plan of record, row 8): `TrackBlock.accuraterip_contradiction` (v40), declared where the report's shape is declared.
-    "report_types.py": 987,
+    # **987 -> 996** (2026-10-26, plan of record row 9): `TrackProofBlock` and `TrackBlock.proof` (v40).
+    "report_types.py": 996,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2148,7 +2150,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2911 -> 3009** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #4/#5): the schema-39 note that `gates.*` narrows, `build_gates` taking the cut-short ledger, `_build` correcting the gates from the results and writing `completeness.verification`, and the `verification_cut_short` issue. The rules and wording live in `verification_gates.py`; this is the one place the report is assembled.
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
     # **3290 -> 3303** (2026-10-26, the owner's EAC-parity plan of record, row 8): the v40 schema note and the per-track `accuraterip_contradiction` field. The rule is `verdict.track_accuraterip_contradiction`; this is the one place the report is assembled.
-    "rip_report.py": 3303,
+    # **3303 -> 3330** (2026-10-26, plan of record row 9): the per-track `proof` block and its v40 note; `_build` hands each track the chase list and CTDB's per-track rows, which only the report holds. The decision and wording are `track_proof.py`.
+    "rip_report.py": 3330,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
