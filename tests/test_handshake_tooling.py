@@ -1979,14 +1979,8 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # is compared normally.
     # The fork's lap 9 entry left on 2026-10-14 with the filing of their round 33
     # lap 1, which declares protocol(v9)=c0539096… and is their newest.
-    # Round 36, 2026-10-26: our lap 6 declares seam-commands=d4dcd5ec…, which was
-    # true when it was sent. The fork's lap 7 S10 added `--prefer-accuraterip-match`'s
-    # §1b row (`cyanrip@6e2ca21`), and its S11 asked for the copy, filed byte for
-    # byte at `platterpus@6177b3e7`, sha256 add9024f…. Leaves with our lap 8, which
-    # declares the new hash.
-    ("round-36-lap-06.md", "seam-commands"): (
-        "add9024fd962732284184fe7602fa62c0e80c1562d960e75558e8508739b0e21"
-    ),
+    # Our round 36 lap 6's seam-commands entry left with our lap 9, which declares
+    # add9024f…, the fork's lap 7 copy filed at 6177b3e7.
 }
 
 
