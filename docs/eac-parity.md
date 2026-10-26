@@ -924,7 +924,7 @@ cyanrip's default already merges pregaps into the previous track.
 | Read offset correction | `-s` applied. Since 2026-10-21 the report (`rip.read_offset_check`) and the results pane assert it against the AccurateRip drive list for the drive the log names, with KDD-31's re-confirmation beside it (`read_offset_check.py`); the EAC-layout log still prints the value only, and its wording is proposed in TASKS P2 #6 | **partial** (report met; EAC-layout log open) |
 | Fill missing offset samples with silence | derived from cyanrip's `Overread mode:` line, which stock and fork both always print (cyanrip@ca3f3ea:src/cyanrip_log.c:889-891); reads `No` under `-O` | **met** |
 | `Make use of C2 pointers` | **`No`, measured** on a drive that reports C2 unsupported; "(not reported)" otherwise (see below) | **met on the rig; open in general** |
-| `Utilize accurate stream` | no equivalent | **open** |
+| `Utilize accurate stream` | no equivalent; from `.26` the row carries the drive's own declaration (`Accurate stream:`, MODE SENSE page 2Ah), worded as not determined and never as EAC's `Yes`, since a declaration is not a use (`eac_log_export._accurate_stream_row`, 2026-10-26) | **open** |
 | Signed EAC log footer | plain SHA-256, self-labelled *not* EAC's | **by design** |
 | Recognised ripper name | never emitted (KDD-11/24/28); our log names EAC only to disclaim it, and OPS refuses it for lacking EAC's first line (§1) | **by design → score 0** |
 
@@ -1263,7 +1263,7 @@ more than double. No disc AccurateRip lacks has yet been ripped this way on hard
 | Test & Copy | `-Z N` keeps reading until N+1 reads agree and keeps the read most reads agreed on; on by default for AccurateRip-failing tracks, and from the next release for every track of a disc AccurateRip cannot vouch for (E3); a Settings tick makes it every track | Better when AccurateRip has the disc; when not, worse in 0.7.110 and earlier, equal from the next release (E3) |
 | Cache defeat | Paranoia tries on every read; the result is measured per drive (KDD-29, measured `Yes` on the BDR-209D) | Equal on the rig; unmeasured elsewhere |
 | C2 pointers | Not used; the log states the drive's capability (`cyanrip@891c79e:src/cyanrip_log.c:927-928`). EAC's baseline also had C2 off | Equal |
-| Accurate stream | No equivalent, and nothing measures it | Not determined |
+| Accurate stream | No equivalent, and nothing measures it. From `.26` the drive's declaration is read and shown; every `.26` rip on the BDR-209D (2026-10-21 and -22) read `declared supported by drive (capabilities page, not measured)` | Not determined |
 | Read offset | From AccurateRip's drive list, applied with `-s`, and re-confirmed by every rip that matches AccurateRip (KDD-31). From 2026-10-21 the report checks the applied value against the list's entry for the drive the log names and says `matches`, `differs` (a warning), `drive_not_listed` or `not_determined` (`rip.read_offset_check`); EAC's log prints the number only (`Read offset correction : 667`, `EAC_flac/…log`) | Equal; ahead in that it re-confirms on every rip and names the database entry |
 | Overread into lead-in and lead-out | Opt-in `-O`; it stalled for about 23 minutes on the BDR-209D (Part A scorecard) | Equal (EAC's baseline left it off) |
 | Read speed | The drive does not advertise speed control (`Speed: default (unchangeable)` in all 135 drive banners on `evidence`), so we never send `-S`, and the read-speed ladder only re-reads. Its slower steps have never run on hardware | Not proven |

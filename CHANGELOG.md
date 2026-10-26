@@ -22,6 +22,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The EAC-layout log's `Utilize accurate stream` row now says what the drive declared, instead of `(not reported by the ripper)`.** Every `.26` rip on the rig printed `Accurate stream: declared supported by drive (capabilities page, not measured)`, and the row ignored it. A declaration is not EAC's "used", so the row reads `(not determined; the drive declares it supported, not measured)`, never `Yes`.
+
 - **An exported session bundle no longer carries your home folder in the verified-read chase's record.** The record holds each single read's signed cyanrip log, with our argv line before it, and the export kept any file with a signed log in it byte for byte, so the argv lines' home folder went into the 2026-10-22 11:45 UTC bundle, ten times. The export now redacts around the embedded logs, which stay exactly as written, through the same function the evidence filing tool uses.
 
 - **The evidence filing tool names every member of a 0.7.112 Full run, and files the verified-read chase's record redacted** (contributor-facing). The four round 36 bundles had members it had no name for (section P5's `timing A1` to `B2` folders, `install-ripper`'s records, and the loose files of a rip that never finished), and the chase's record, several signed cyanrip logs with our argv lines between them, verified as no log at all, so it was kept unredacted with the rig's home folder on each argv line. Each embedded log is now verified on its own and kept byte for byte, and the lines between them are redacted and counted. The four runs are filed on `evidence` at `6b31795c` (308 files), with their manifest rows.

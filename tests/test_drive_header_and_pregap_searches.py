@@ -453,3 +453,49 @@ def test_the_image_golden_reference_raises_neither_new_issue() -> None:
     assert report["rip"]["recordable"] == "unknown"
     assert report["rip"]["accurate_stream"] == "unknown"
     assert not {"recordable_disc", "pregap_searches_disagree"} & _codes(report)
+
+
+# --- the EAC-layout log's `Utilize accurate stream` row ---------------------------
+
+
+@pytest.mark.parametrize(
+    ("accurate", "row"),
+    [
+        (
+            "declared supported by drive (capabilities page, not measured)",
+            "(not determined; the drive declares it supported, not measured)",
+        ),
+        (
+            "declared unsupported by drive",
+            "(not determined; the drive declares it unsupported, not measured)",
+        ),
+        (
+            "unknown (capabilities page not readable)",
+            "(not determined; the drive's declaration is unknown: "
+            "capabilities page not readable)",
+        ),
+        (
+            "maybe, who knows",
+            "(not determined; the ripper's line is in a wording we do not know)",
+        ),
+    ],
+)
+def test_the_eac_layout_row_carries_the_drives_declaration_never_a_yes(
+    accurate: str, row: str
+) -> None:
+    # Every run of `.26` on the rig printed `declared supported` (2026-10-21 and
+    # -22 Full runs, evidence ab3b1395 to 6b31795c), and the EAC-layout log still
+    # said `(not reported by the ripper)`. A declaration is not EAC's "used", so
+    # the row never says Yes; it says what the drive declared.
+    from platterpus.eac_log_export import render_eac_style_log
+
+    text = render_eac_style_log(parse_cyanrip_log(_with_header(accurate=accurate)))
+    lines = [ln for ln in text.splitlines() if ln.startswith("Utilize accurate stream")]
+    assert lines == [f"Utilize accurate stream : {row}"]
+
+
+def test_the_eac_layout_row_of_a_build_without_the_line_is_unreported() -> None:
+    from platterpus.eac_log_export import render_eac_style_log
+
+    text = render_eac_style_log(parse_cyanrip_log(_R35_LOG.read_text(encoding="utf-8")))
+    assert "Utilize accurate stream : (not reported by the ripper)" in text

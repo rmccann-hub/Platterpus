@@ -57,6 +57,10 @@ from platterpus.parsers.cyanrip_log import (
     interruption_point,
 )
 from platterpus.parsers.rip_log import (
+    ACCURATE_STREAM_DECLARED_SUPPORTED,
+    ACCURATE_STREAM_DECLARED_UNSUPPORTED,
+    ACCURATE_STREAM_UNKNOWN,
+    DRIVE_FACT_UNRECOGNISED,
     AccurateRipResult,
     RipLog,
     RippingInfo,
@@ -431,7 +435,10 @@ def _render(
     lines.append(f"Used drive  : {info.drive or _UNREPORTED}")
     lines.append("")
     lines.append(f"Read mode               : {_read_mode(info)}")
-    lines.append(f"Utilize accurate stream : {_UNREPORTED}")
+    # EAC's row says whether EAC USED accurate stream. cyanrip has no such switch,
+    # so the row never says Yes or No; from `.26` it carries what the DRIVE declares
+    # on its capabilities page, which the ripper says it did not measure.
+    lines.append(f"Utilize accurate stream : {_accurate_stream_row(info)}")
     # **Name the source of this verdict, not just the verdict.**
     #
     # `defeat_audio_cache` is *our* measurement — `cd-paranoia -A` run once per
@@ -1991,6 +1998,26 @@ def _status_line(
     if normalized in ("copy ok", "ripped successfully"):
         return "Copy OK"
     return status.strip()
+
+
+def _accurate_stream_row(info: RippingInfo) -> str:
+    """The `Utilize accurate stream` row: not determined, with the drive's word.
+
+    A declaration is not a use, so even a drive that declares support renders as
+    not determined, never as EAC's Yes; the suffix names what was declared.
+    """
+    declared = {
+        ACCURATE_STREAM_DECLARED_SUPPORTED: "the drive declares it supported",
+        ACCURATE_STREAM_DECLARED_UNSUPPORTED: "the drive declares it unsupported",
+    }.get(info.accurate_stream)
+    if declared is not None:
+        return f"(not determined; {declared}, not measured)"
+    if info.accurate_stream == ACCURATE_STREAM_UNKNOWN:
+        reason = info.accurate_stream_reason or "no reason given"
+        return f"(not determined; the drive's declaration is unknown: {reason})"
+    if info.accurate_stream == DRIVE_FACT_UNRECOGNISED:
+        return "(not determined; the ripper's line is in a wording we do not know)"
+    return _UNREPORTED
 
 
 def _yes_no(value: bool | None) -> str:

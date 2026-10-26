@@ -1685,7 +1685,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 1972** (2026-10-21): the entries above landed together on one branch.
     # **1924 -> 1952** (2026-10-21, TASKS R7, the verified-read chase): `_verified_reread_line`, the status-report line naming each track whose file is a single re-read AccurateRip verifies, beside the interrupted-pass line it mirrors. The decision and the reads live in `verified_read_chase.py` and `workers/verified_read_run.py`.
     # **-> 2000** (2026-10-21): the entries above landed together on one branch.
-    "eac_log_export.py": 2000,
+    # **2000 -> 2027** (2026-10-26): `_accurate_stream_row`, the `Utilize accurate stream` row carrying the drive's `.26` declaration as not determined, never a Yes; one row's rule beside the rows it sits among.
+    "eac_log_export.py": 2027,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
