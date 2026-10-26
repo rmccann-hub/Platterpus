@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS R88 records the owner's choice for over-long file names** (contributor-facing): the fork shortens the file or folder name at a character boundary and keeps the tags whole, asked in our next lap; the refusal before Start is the interim until that build is the default.
+
 - **Round 36: our lap 11 is released, on the owner's word of 2026-10-26** ("when ready release the next lap"). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
 
 - **The weekly dependency check runs claude-code-skills 0.1.21 and uv 0.13.5** (contributor-facing). 0.1.18's `--outdated` ended the whole run when a registry cut a transfer short; uv 0.13.4 fixed GHSA-hq85-5cpj-mr62. Both pins resolved by `git ls-remote` on 2026-10-26 (the claude-code-skills review of that date, items 1.1 and 1.2).
