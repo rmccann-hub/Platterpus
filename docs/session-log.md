@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-26 (afternoon and evening) — `.27` under review; the review; a full-green run on 0.7.113; lap 11
+
+- **The fork's lap 10** released `.27` (`5aeefc4`) with `Recordable:` from the drive's own reply and the `Pregap search:` record, explained `.26`'s speed (upstream's media-changed query moved from every sector to once a second; checked at their source, and their 9 ms-a-sector saving re-derived from our logs), and proposed a `-Z` time limit and a `disc image` word. `.27` is our build under review (PR #386, `52190cbb`); our readers of both proposals are built (`a0920866`, `97ee5d3b`); `--prefer-accuraterip-match` goes to `.27`.
+- **The claude-code-skills review** (PR #387): the weekly check on claude-code-skills 0.1.21 and uv 0.13.5, proven by a run; the ripper build checks out the full commit and refuses a dirty tree; a `-dirty` build is never kept, offered or installed; the updater refuses an older version, read from the attested source; a disc's CD-TEXT can no longer forge a verdict row in our parse; the EAC-layout log is one line per field; tooltips and the update dialog render plain text; a year of `..` cannot write above the library; server answers are coerced, capped and host-checked.
+- **The owner's Full run of 0.7.113 with `.26` under review** (12:12 UTC): 553 pass, 0 fail, the fifth `full-green` ledger row, all on one drive and one distro; derived files verified on hardware for the first time. Paired track 3 rips: `.25` right in 1 of 4, `.26` in 0 of 4, no cause named. Filed on `evidence` at `a3503739`; the four 0.7.112 runs entered as `partial`.
+- **Our lap 11** released on the owner's word: `.27` under review, the run read, and the `.27` Full run's need for 0.7.114, which waits on the owner.
+- **Learned.** Two CodeQL alerts in a week came from tests checking a host as a substring; both now parse the host as the adapter does. And a HANDOFF time was written from no clock a second time, the same day the rule to read `date -u` was added; the rule is right and was not followed, so each time is now read in the same command that precedes the reply.
+
 ## 2026-10-25/26 — the four Full runs read; the EAC parity plan of record; 0.7.113
 
 - **The runs.** The owner's four Full runs of 0.7.112 with `.26` (2026-10-21 and 22) are filed on `evidence` at `ab3b1395`, `08de9851`, `fc48882f` and `6b31795c` (PR #380, 308 manifest rows); the filing tool learned the P5 folder names, loose files from a rip that never finished, and the verified-read chase's record (each embedded log verified, the lines between redacted; the export redacted around them too).
