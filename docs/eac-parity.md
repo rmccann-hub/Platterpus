@@ -1553,4 +1553,4 @@ right in some rips and wrong in others, on both builds, with no read error repor
 
 ---
 
-*Last updated for Platterpus v0.7.112.*
+*Last updated for Platterpus v0.7.113.*

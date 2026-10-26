@@ -277,4 +277,4 @@ Sources: [whipper](https://github.com/whipper-team/whipper) ·
 
 ---
 
-*Last updated for Platterpus v0.7.112.*
+*Last updated for Platterpus v0.7.113.*

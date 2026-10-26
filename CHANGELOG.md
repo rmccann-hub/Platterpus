@@ -12,6 +12,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.113] — 2026-10-26
+
+The release your next Full run goes through, and the first built against the EAC parity plan of
+record of 2026-10-26. A track AccurateRip proves wrong is now called wrong: no "Copy OK", no
+"confirmed across N secure re-reads", and the disc reads "There were errors"; and every track's
+log block says what proves it. Where a track differs from CTDB, the app says where, in EAC's
+layout (`differs in 16 samples @04:04:68,...`), which adds numpy to the download. A stopped
+securing pass keeps a re-read AccurateRip verified; MP3, WavPack and WAV are verified again when
+their transcode is slow; a one-reading drive blip no longer clears your chosen release. It reads
+the fork's `.27` lines (`Kept read began:`, `not written whole:`, `Pregap search:`, `read with no
+error reported.`, the `/11` record) before they ship, and the Full run gains paired `.25`/`.26`
+rips of track 3. `.25` is still installed by default. Released on the owner's word of 2026-10-26.
+
 ### Fixed
 
 - **The EAC-layout log's not-determined `Pre-gap length` row says what the ripper's search saw,** from the fork's `.27` `Pregap search:` line: the reads that failed the CRC and the frames that answered for another sector, the two causes the line exists to tell apart.
@@ -19384,7 +19397,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...HEAD
+[0.7.113]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...v0.7.113
 [0.7.112]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...v0.7.112
 [0.7.111]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...v0.7.111
 [0.7.110]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.109...v0.7.110
@@ -19467,4 +19481,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.112.*
+*Last updated for Platterpus v0.7.113.*

@@ -11,6 +11,16 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-25/26 — the four Full runs read; the EAC parity plan of record; 0.7.113
+
+- **The runs.** The owner's four Full runs of 0.7.112 with `.26` (2026-10-21 and 22) are filed on `evidence` at `ab3b1395`, `08de9851`, `fc48882f` and `6b31795c` (PR #380, 308 manifest rows); the filing tool learned the P5 folder names, loose files from a rip that never finished, and the verified-read chase's record (each embedded log verified, the lines between redacted; the export redacted around them too).
+- **What they showed of `.26`:** the disc ISRC read works (14 of 14 equal EAC's cue); it reads about 3 to 5 times faster; `Recordable:` never answers (libcdio's placeholder) and track 9's pregap never reads EAC's 94. The fork's lap 8 read it the same way, and the owner's word takes round 36 to `.27` with both fixed, then a Full run of the reference disc with paired `.25`/`.26` rips of track 3.
+- **Ours, fixed** (PRs #381, #382): a stopped securing pass threw away a verified re-read; the derived-file check gave up after 60 s; the bundle was packed before the checks finished; the audit counted a replaced read's errors; the cue ISRC check ignored `--prefer-disc-isrc`; a one-reading drive blip cleared the release (57 failed steps); the graders read the window, not the rip's record; the cover-art grade raced its result; `rescan`/`pick-release`/`rip` raced each other.
+- **The plan of record** (the claude-code-skills session, 2026-10-26) set the yardstick and 34 regards against EAC; its documentation is `docs/eac-parity.md` Part F and TASKS R49 to R66. Built from it: a wrong track is called wrong (no "Copy OK" over an AccurateRip contradiction), a `Proof:` line per track, CTDB localisation (`differs in N samples @…`, numpy on the owner's word, +13.8 MB estimated in the AppImage), and section P6.
+- **Read before they ship:** `.27`'s `Kept read began:`, `not written whole:`, `Pregap search:`, `read with no error reported.` and the `/11` record; `--prefer-accuraterip-match` gated on a build set that is empty until `.27`'s release.
+- **Released:** 0.7.113, on the owner's word of 2026-10-26; `.25` stays the default.
+- **Learned.** A HANDOFF time written from no clock was four and a half hours off; read `date -u` first (graduated to CLAUDE.md, *Times*). Parallel agents told to number rows "after the last" all took the same numbers (graduated to `docs/architecture.md` §6.3). A test that arms a timer before the step it times passes alone and fails under load: trigger the late event from inside the thing being waited on. And a lap draft claimed the timed rips ran `.25` first; the script alternates them, which the logs confirm, so the draft was read against the script before it was sent.
+
 ## 2026-10-21 (small hours) — the known fixes; 0.7.111 and 0.7.112; `.26` under review; lap 3
 
 - **The owner's direction:** *"we need to reach EAC parity or better (better please). and fix know problems and open issues."* The claude-code-skills session ranked the known fixes; eight agents built them in parallel, each integrated by cherry-pick onto `main` (PR #375, `43fb0a16`): R7 (keep a read AccurateRip verifies over a rejected majority, `022c1cb6`), R43 (CTDB per track and over ±5879 offsets, `a5e11284`, `819435d8`), R44 (error positions, `bfedfee7`), R13 (a data track is not a failed one, `08860fae`), items 3 and 12 (verdict honesty, `3581d9e3`), item 5 (gates from results, `d27b2401`), item 11 (the read offset checked against the drive list, `2f902dc5`), and the timed `.25`-vs-`.26` section (`62f321eb`). Item 20, the MP3 ReplayGain, by hand (`1e2bf78f`).
@@ -10975,4 +10985,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.112.*
+*Last updated for Platterpus v0.7.113.*
