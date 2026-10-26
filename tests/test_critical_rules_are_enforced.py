@@ -2244,7 +2244,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
     # **1053 -> 1069** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `UNKNOWN_DISC_SCRIPT_NAME`, `ACCEPTANCE_SCRIPT_NAMES` and a `name` on the two packaged-script lookups, so both scripts have their one name in the one place the session reads it.
     # **1069 -> 1076** (2026-10-14, TASKS R9): the MANIFEST's `ripper -j records missing` line, delegated to `record_fate.record_absences` with the session's own report glob.
-    "test_session.py": 1076,
+    # **1076 -> 1088** (2026-10-26, run B of the 0.7.112 Full runs): `post_rip_wait_s`, the bound on how long a finished session waits for the last rip's post-rip checks, beside `rip_wait_s` which bounds the wait for the rip.
+    "test_session.py": 1088,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -2452,7 +2453,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1769 -> 1788** (2026-10-06, KDD-41 C4): the closing dialog counts steps this equipment cannot run, so "PASSED — all N" can no longer stand over an `unreachable` step; one branch beside the run headline's others.
     # **1788 -> 1814** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `run_acceptance_session` takes the script to run, and the new action's slot runs the unknown-disc script with no size question; the session is the same job for both.
     # **1814 -> 1816** (2026-10-07, KDD-42 W6): the first-run setup question names Help → Getting started, the offer W6 asks for, without a fourth launch-time modal.
-    "ui/main_window_provision.py": 1816,
+    # **1816 -> 1875** (2026-10-26, run B): `_acceptance_post_rip_at_end` waits, bounded, for the last rip's post-rip checks before the session restores settings and packs, and the bundle's facts say what it waited for or what was still running; beside `_acceptance_rip_at_end`, the same shape one step earlier.
+    "ui/main_window_provision.py": 1875,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2567,7 +2569,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
     # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
     # **457 -> 458** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the same declarations on the seam.
-    "ui/main_window_shared.py": 458,
+    # **458 -> 463** (2026-10-26, run B): the seam declares `_album_folder_settled` and `_post_rip_still_running`, which the acceptance session now asks before it packs.
+    "ui/main_window_shared.py": 463,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

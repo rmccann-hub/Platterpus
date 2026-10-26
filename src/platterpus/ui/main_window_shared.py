@@ -413,6 +413,11 @@ class MainWindowShared(_SeamBase):
         # Defined in DependencyMixin (main_window_deps.py):
         def run_dependency_check_async(self, show_summary: bool = ...) -> None: ...
 
+        # Defined in RipMixin (main_window_rip.py); the acceptance session asks
+        # them before it packs (run B, 2026-10-21):
+        def _album_folder_settled(self) -> bool: ...
+        def _post_rip_still_running(self) -> str: ...
+
         # Defined in UpdateMixin (main_window_update.py). Declared on the seam
         # because it answers "may I raise a dialog right now?" for EVERY surface
         # that raises one, not just the cyanrip check it was written for — which
