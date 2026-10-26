@@ -509,6 +509,14 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
     # `.27`'s own contract was filed the same day
     # (`round-36-lap-10-provider-contract-g580c46c.md`, P2 lines 341, 295 and 309);
     # the stale check below then required their removal.
+    "reread_time_limit": (
+        "the fork's PROPOSED `-Z` time limit's disc header line, not built: their "
+        "round 36 lap 10 S11 (`cyanrip@52501ed:docs/handshake/round-36-lap-10.md`) "
+        "gives it as `Re-read limit:  600 s a track, checked between whole-track "
+        "reads`, and round 20's order has our reader take it before any build "
+        "prints it. No provider contract can list it yet. Retires when the "
+        "contract of the build that prints it is filed"
+    ),
 }
 
 

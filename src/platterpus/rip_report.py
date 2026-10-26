@@ -57,10 +57,13 @@ from platterpus.report_types import (
     DebugBlock,
     EnvironmentBlock,
     KeptReadBlock,
+    LimitStopBlock,
     ReportReadSpeedBlock,
     SecureReripBlock,
     TimingBlock,
 )
+from platterpus.reread_limit import STOPPED_BY as REREAD_STOPPED_BY
+from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT
 from platterpus.rip_health import effective_health_status, health_findings
 from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
@@ -579,7 +582,46 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `summary`, the sentence that names them (`pregap_search.py`). Null when
 #      the log printed no line: an older build, an image rip, or a pre-gap the
 #      TOC or the lead-in gave, never "no search".
-REPORT_SCHEMA_VERSION: int = 40
+# v41: the fork's PROPOSED `-Z` time limit, `--reread-time-limit SECONDS` (their
+#      round 36 lap 10 S11, `cyanrip@52501ed:docs/handshake/round-36-lap-10.md`;
+#      not built, and we do not send it), read before any build prints it. v40
+#      shipped in 0.7.113, so this is a new number. Additions only. Per track
+#      `secure_rerip_limit_stop`: WHICH limit stopped a re-read that did not
+#      converge, `stopped_by` (`repeat_limit` or `time_limit`), with
+#      `time_limit_seconds`, `repeat_limit_reads` (the `-r` count where the line
+#      names it) and `reads` (where it says `after N reads`); null for a track
+#      that converged, was never re-read, or whose log names no limit. A track
+#      stopped by our clock is a limit we set, never a finding about the disc.
+#      And `rip.reread_time_limit_seconds` with `rip.reread_time_limit_state`
+#      (`read`, `unrecognised` with the line's value in
+#      `rip.reread_time_limit_text`, or `not_present`: no `Re-read limit:` line,
+#      which is every rip that did not set the limit).
+#      Also v41, still unreleased, so additions only: the `-j` record's
+#      `isrc_disc_read` takes a fourth word, `disc image` (the fork's round 36
+#      lap 10 S12; not built): the code came from the image's own file through
+#      libcdio, and no command reached a drive. Each `disc.isrc_provenance` row
+#      gains `disc_read_meaning`, that word's meaning in a sentence
+#      (`record_track_v11.ISRC_DISC_READ_MEANINGS`), null unless
+#      `disc_read_state` is `read`; an unknown word stays `unrecognised`.
+REPORT_SCHEMA_VERSION: int = 41
+
+
+def _limit_stop_block(stop: object) -> LimitStopBlock | None:
+    """A track's `secure_rerip_limit_stop` for the report, or None. Never raises."""
+    kind = getattr(stop, "kind", None)
+    if kind not in REREAD_STOPPED_BY:  # `reread_limit.STOPPED_BY`
+        return None
+
+    def _count(name: str) -> int | None:
+        value = getattr(stop, name, None)
+        return value if isinstance(value, int) else None
+
+    return {
+        "stopped_by": str(kind),
+        "time_limit_seconds": _count("time_limit_seconds"),
+        "repeat_limit_reads": _count("repeat_limit_reads"),
+        "reads": _count("reads"),
+    }
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -1993,6 +2035,14 @@ def _rip_block(
         "accurate_stream_reason": getattr(info, "accurate_stream_reason", "") or None,
         "recordable": getattr(info, "recordable", DRIVE_FACT_NOT_PRESENT),
         "recordable_reason": getattr(info, "recordable_reason", "") or None,
+        # v41: the fork's proposed `Re-read limit:` header line (round 36 lap 10
+        # S11): the seconds a `-Z` track's reads may take, as a state, so a rip
+        # that set no limit reads `not_present` in a word.
+        "reread_time_limit_seconds": getattr(info, "reread_time_limit_seconds", None),
+        "reread_time_limit_state": getattr(
+            info, "reread_time_limit_state", TIME_LIMIT_NOT_PRESENT
+        ),
+        "reread_time_limit_text": getattr(info, "reread_time_limit_text", "") or None,
         "paranoia_level": getattr(info, "paranoia_level", "") or None,
         "overread_mode": getattr(info, "overread_mode", "") or None,
         # Which cyanrip BINARY produced this rip ("release", "fork", a git
@@ -2120,6 +2170,11 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         # from the fork's proposed clause; None on every build released so far.
         "secure_rerip_kept_read": _kept_read_block(
             getattr(track, "secure_rerip_kept_read", None)
+        ),
+        # Schema 41: WHICH limit stopped a re-read that did not converge, the
+        # repeat limit or the fork's proposed time limit (round 36 lap 10 S11).
+        "secure_rerip_limit_stop": _limit_stop_block(
+            getattr(track, "secure_rerip_limit_stop", None)
         ),
         # Per-track extraction diagnostics cyanrip logs (None on legacy-format logs):
         # the drive speed this track read at (×), the extraction quality (%),

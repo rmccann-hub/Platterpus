@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (77)
+## 1. Log lines we parse (78)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -63,6 +63,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accurate_stream` **(fork-only)** | disc | `^Accurate stream:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `recordable` **(fork-only)** | disc | `^Recordable:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `paranoia_level` | disc | `^Paranoia level:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `reread_time_limit` **(fork-only)** | disc | `^Re-read limit:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `outputs` | disc | `^Outputs:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
@@ -93,7 +94,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
 | `track_block_start` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|read with no error reported\\.\|is data, skipping:\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
-| `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit)\\b` |
+| `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit\|time limit)\\b` |
 | `secure_rerip_progress` | section header | `^\\s*Repeating ripping\\s+\\((?P<matches>\\d{1,6})\\s+out of\\s+(?P<target>\\d{1,6})\\s+matches\\b` |
 | `data_track_outcome` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped successfully!\|ripped with errors\\.)` |
 | `data_track_copy_diagnostic` | section header | `^(?:Frame read failed at LSN -?\\d{1,9}!\|Sector EDC mismatch at LSN -?\\d{1,9}!\|Error writing to ")` |
@@ -130,12 +131,13 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 
-Of these, **27 exist only in the fork** and match nothing in
+Of these, **28 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
 - `accurate_stream`
 - `recordable`
+- `reread_time_limit`
 - `handshake_note`
 - `consumer`
 - `album_integrated_loudness`

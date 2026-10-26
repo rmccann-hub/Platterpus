@@ -32,8 +32,9 @@ _FIXTURE = (
     Path(__file__).parent / "fixtures" / "cyanrip_fork_diagnostics10_interrupted.json"
 )
 
-#: The keys v40 adds to each block's rows; everything else predates it.
-_NEW_ISRC_KEYS = {"disc_read", "disc_read_state"}
+#: The keys v40 (and v41's meaning) add to each block's rows; everything else
+#: predates them.
+_NEW_ISRC_KEYS = {"disc_read", "disc_read_state", "disc_read_meaning"}
 _NEW_READS_KEYS = {"kept_read_began", "kept_read_began_state"}
 
 
@@ -107,6 +108,51 @@ def test_each_proposed_read_word_is_read(word: str) -> None:
     isrc, _reads = _blocks(_as_v11(_sample(), isrc_disc_read=word))
     states = {(r["disc_read"], r["disc_read_state"]) for r in isrc["tracks"]}  # type: ignore[attr-defined]  # rows are dicts
     assert states == {(word, v11.READ)}
+
+
+# --- `disc image`, the fork's round 36 lap 10 S12 ---------------------------------
+#
+# On a disc image libcdio answers from the image's own file (a cue sheet, a
+# cdrdao `.toc` or an NRG) and sends no command, so `read sub-channel` would be
+# false of the code and `null` would say none was found. Accepted before it is
+# built: a known state, with its meaning in the report.
+
+
+def test_disc_image_is_a_known_word_with_its_meaning_in_the_report() -> None:
+    isrc, _reads = _blocks(_as_v11(_sample(), isrc_disc_read="disc image"))
+    rows = isrc["tracks"]
+    assert isinstance(rows, list)
+    assert len(rows) == 3  # floor: every row was read
+    for row in rows:
+        assert (row["disc_read"], row["disc_read_state"]) == ("disc image", v11.READ)
+        meaning = row["disc_read_meaning"]
+        assert isinstance(meaning, str)
+        # It says the code is the image file's, and that no drive was asked:
+        # the two facts `read sub-channel` would have got wrong.
+        assert "image's own file" in meaning, meaning
+        assert "no command reached a drive" in meaning, meaning
+
+
+def test_every_word_has_a_meaning_and_no_meaning_is_spare() -> None:
+    assert set(v11.ISRC_DISC_READ_MEANINGS) == set(v11.ISRC_DISC_READS)
+    assert len(set(v11.ISRC_DISC_READ_MEANINGS.values())) == len(v11.ISRC_DISC_READS)
+    assert len(v11.ISRC_DISC_READS) == 4  # floor: the three reads and the image
+
+
+@pytest.mark.parametrize("word", ["disc-image", "Disc image", "image", "disc image "])
+def test_a_near_miss_of_disc_image_stays_unrecognised_with_no_meaning(
+    word: str,
+) -> None:
+    record = v11.parse_row({"isrc_disc_read": word})
+    assert record.isrc_disc_read_state == v11.UNRECOGNISED
+    assert v11.isrc_disc_read_meaning(record) is None
+    isrc, _reads = _blocks(_as_v11(_sample(), isrc_disc_read=word))
+    assert {r["disc_read_meaning"] for r in isrc["tracks"]} == {None}  # type: ignore[attr-defined]  # rows are dicts
+
+
+def test_absent_and_null_words_have_no_meaning() -> None:
+    assert v11.isrc_disc_read_meaning(v11.parse_row({})) is None
+    assert v11.isrc_disc_read_meaning(v11.parse_row({"isrc_disc_read": None})) is None
 
 
 def test_the_kept_read_time_is_read_in_utc_from_either_form() -> None:
