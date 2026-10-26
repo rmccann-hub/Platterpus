@@ -1696,7 +1696,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2000 -> 2027** (2026-10-26): `_accurate_stream_row`, the `Utilize accurate stream` row carrying the drive's `.26` declaration as not determined, never a Yes; one row's rule beside the rows it sits among.
     # **2027 -> 2112** (2026-10-26, the owner's EAC-parity plan of record, row 8): never "Copy OK", "confirmed across N secure re-reads" or "No errors occurred" over a track AccurateRip contradicts. `CONTRADICTED_VERDICT` (EAC's own "Copy finished"), the `Proof:` row, the Copy CRC note, and `_health_lines` (EAC's "There were errors" with the ripper's count on a labelled line, the round-36 S11 shape). The rule is `verdict.track_accuraterip_contradiction` and the Proof row's words are `track_proof.py`; what stays here is this document's own lines.
     # **2112 -> 2117** (2026-10-26, plan of record row 9): every audio track block carries a `Proof:` row naming which proof its copy has; the wording and the decision are `track_proof.py`, and `_verified_reread_line` reads the chase list through the same helper.
-    "eac_log_export.py": 2117,
+    # **2117 -> 2123** (2026-10-26, `.27`, round 36 lap 8 S21): the not-determined `Pre-gap length` row names what the search saw; the wording is `pregap_search.describe`.
+    "eac_log_export.py": 2123,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,

@@ -67,6 +67,7 @@ from platterpus.parsers.rip_log import (
     TrackResult,
     accuraterip_is_match,
 )
+from platterpus.pregap_search import describe as describe_pregap_search
 from platterpus.report_types import SecureReripBlock
 from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.ripper_identity import identify_ripper
@@ -995,6 +996,11 @@ def _pregap_line(track: TrackResult) -> list[str]:
     # standing rule: rows the ripper does not report say so instead of guessing.
     if getattr(track, "pregap_state", "") == "unknown":
         reason = getattr(track, "pregap_unknown_reason", "") or "not determined"
+        # From `.27`, what the search saw, so the log itself tells a CRC failure
+        # from a frame that answered for another sector (their round 36 lap 8 S21).
+        seen = describe_pregap_search(getattr(track, "pregap_search", None))
+        if seen:
+            reason = f"{reason}; the search saw: {seen}"
         return [f"     Pre-gap length  (not determined by the ripper — {reason})", ""]
     sectors = track.pregap_sectors
     if not isinstance(sectors, int) or sectors <= 0:

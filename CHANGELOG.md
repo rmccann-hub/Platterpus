@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The EAC-layout log's not-determined `Pre-gap length` row says what the ripper's search saw,** from the fork's `.27` `Pregap search:` line: the reads that failed the CRC and the frames that answered for another sector, the two causes the line exists to tell apart.
+
 - **`PLANNING.md`'s module map lists the CTDB localisation's modules one by one** (contributor-facing). They had one combined paragraph and `ctdb_parity.py` was missing from the tree, so the module-map check failed after the merge.
 
 - **`expect-pregaps-agree` counts a pregap the log calls unknown as a disagreement, instead of setting the log aside** (contributor-facing). A `Gaps:` line such as `pregap of track 9 unknown (sub-channel CRC mismatches)`, which the cyanrip fork's logs have carried since `.22`, made the check skip the whole log; on the fork's runs of the reference disc it compared three logs, called them identical, and set aside the three that said track 9 was unknown (their round 36 lap 8 S11). Such a track now reads as unknown, which differs from any frame count, and the detail names each such log's reason and, from `.27`, what its pre-gap search saw.

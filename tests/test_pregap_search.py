@@ -433,3 +433,18 @@ def test_the_reader_never_raises_and_never_invents_a_count(value: object) -> Non
         )
     describe(search)
     pregap_search.report_block(search)
+
+
+def test_the_eac_layout_row_names_what_the_search_saw() -> None:
+    # The golden reference's track 3: an unknown pregap with `.27`'s search line.
+    # The EAC-layout row says what the search saw, so the log alone tells a CRC
+    # failure from a frame that answered for another sector.
+    from platterpus.eac_log_export import render_eac_style_log
+
+    log = parse_cyanrip_log(_golden())
+    seen = describe(log.tracks[2].pregap_search)
+    assert seen  # floor: track 3 carries the search
+    text = render_eac_style_log(log)
+    rows = [ln for ln in text.splitlines() if "Pre-gap length  (not determined" in ln]
+    assert len(rows) == 1, rows
+    assert rows[0].endswith(f"; the search saw: {seen})"), rows[0]
