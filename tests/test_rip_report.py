@@ -1382,6 +1382,8 @@ def test_schema_version_is_27() -> None:
     # re-read is swapped in, and a refused one says why (run B, 2026-10-21).
     # v40 added `ctdb.localisation` and, per track, `ctdb.tracks[].differences`:
     # where a rip differs from a CTDB entry, from its parity (TASKS R43).
+    # v40 added, per track, `accuraterip_contradiction` ("wrong", "differs" or
+    # null): row 8 of the owner's EAC-parity plan of record, 2026-10-26.
     assert REPORT_SCHEMA_VERSION == 40
 
 

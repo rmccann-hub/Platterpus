@@ -145,11 +145,22 @@ def test_the_status_report_uses_eac_s_own_wording() -> None:
     ours = _rendered()
     for phrase in (
         "track(s) accurately ripped",
-        "No errors occurred",
         "End of status report",
     ):
         assert phrase in theirs, "sanity: phrase should exist in the real EAC log"
         assert phrase in ours
+    # The disc-level health sentence is where the two logs now part, on purpose
+    # (plan of record, 2026-10-26, row 8). EAC printed "No errors occurred" over
+    # this disc although AccurateRip matched tracks 3 and 5 on frame 450 only;
+    # ours prints EAC's own sentence for a rip with errors, and the ripper's
+    # count on a labelled line of ours.
+    assert "No errors occurred" in theirs, "sanity: EAC's clean sentence"
+    assert "No errors occurred" not in ours
+    assert "\nThere were errors\n" in ours
+    assert (
+        "Ripper's own count  : Ripping errors: 0 — not counted: track(s) 3, 5, "
+        "which AccurateRip contradicts"
+    ) in ours
 
 
 def test_the_document_never_impersonates_eac() -> None:

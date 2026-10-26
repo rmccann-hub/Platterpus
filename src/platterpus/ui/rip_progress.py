@@ -71,6 +71,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.track_proof import contradiction_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
 from platterpus.ui.status_colours import SECONDARY_STYLE, status_style
@@ -79,6 +80,7 @@ from platterpus.ui.status_colours import SECONDARY_STYLE, status_style
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
 # home is the pure platterpus.verdict module.
 from platterpus.verdict import (
+    AR_CONTRADICTION_WRONG,
     AR_STATE_ABSENT,
     AR_STATE_NO_DATA,
     AR_STATE_NO_MATCH,
@@ -93,6 +95,7 @@ from platterpus.verdict import (
     accuraterip_verdict,
     apply_downgrades,
     reconcile_ar_ctdb,
+    track_accuraterip_contradiction,
 )
 
 __all__ = [
@@ -1004,7 +1007,9 @@ class RipProgress(QWidget):
         for row, track in enumerate(tracks):
             number_item = QTableWidgetItem(str(track.number))
             title_item = QTableWidgetItem(_basename(track.filename))
-            status_item = QTableWidgetItem(track.status or "")
+            status_text, status_tip = _status_cell(track)
+            status_item = QTableWidgetItem(status_text)
+            status_item.setToolTip(status_tip)
             # Pass the frame-450 result so a track where only that frame matched
             # (v1/v2 "not found") says so, rather than cyanrip's "…or bad rip",
             # which names a cause just as the old "pressing" wording did.
@@ -1511,6 +1516,30 @@ def _basename(path: str) -> str:
         return ""
     stem = Path(path).stem
     return stem or path
+
+
+def _status_cell(track: object) -> tuple[str, str]:
+    """The Status column for a track: ``(text, tooltip)``.
+
+    The ripper's own word ("ripped successfully") unless AccurateRip contradicts
+    the copy (``verdict.track_accuraterip_contradiction``, the one predicate the
+    EAC-layout log and the report ask). Then a ``⚠`` and the finding replace it,
+    because the ripper's word is clean and the plan of record (2026-10-26, row 8)
+    forbids clean wording over such a track. The tooltip is the EAC-layout log's
+    ``Proof:`` row, from the same function, plus the ripper's word, so nothing
+    is hidden. The ``⚠`` carries the status without colour. Never raises.
+    """
+    status = str(getattr(track, "status", "") or "")
+    contradiction = track_accuraterip_contradiction(track)
+    if contradiction is None:
+        return status, ""
+    text = (
+        "⚠ Wrong (AccurateRip)"
+        if contradiction == AR_CONTRADICTION_WRONG
+        else "⚠ Differs from AccurateRip"
+    )
+    said = f" The ripper reported: “{status}”." if status else ""
+    return text, f"Proof: {contradiction_sentence(track, contradiction)}.{said}"
 
 
 def _copy_is_ok(status: str) -> bool:

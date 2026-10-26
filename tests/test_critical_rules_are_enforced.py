@@ -1693,7 +1693,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1924 -> 1952** (2026-10-21, TASKS R7, the verified-read chase): `_verified_reread_line`, the status-report line naming each track whose file is a single re-read AccurateRip verifies, beside the interrupted-pass line it mirrors. The decision and the reads live in `verified_read_chase.py` and `workers/verified_read_run.py`.
     # **-> 2000** (2026-10-21): the entries above landed together on one branch.
     # **2000 -> 2027** (2026-10-26): `_accurate_stream_row`, the `Utilize accurate stream` row carrying the drive's `.26` declaration as not determined, never a Yes; one row's rule beside the rows it sits among.
-    "eac_log_export.py": 2027,
+    # **2027 -> 2112** (2026-10-26, the owner's EAC-parity plan of record, row 8): never "Copy OK", "confirmed across N secure re-reads" or "No errors occurred" over a track AccurateRip contradicts. `CONTRADICTED_VERDICT` (EAC's own "Copy finished"), the `Proof:` row, the Copy CRC note, and `_health_lines` (EAC's "There were errors" with the ripper's count on a labelled line, the round-36 S11 shape). The rule is `verdict.track_accuraterip_contradiction` and the Proof row's words are `track_proof.py`; what stays here is this document's own lines.
+    # **2112 -> 2117** (2026-10-26, plan of record row 9): every audio track block carries a `Proof:` row naming which proof its copy has; the wording and the decision are `track_proof.py`, and `_verified_reread_line` reads the chase list through the same helper.
+    "eac_log_export.py": 2117,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2052,7 +2054,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 1011** (2026-10-26): the entries above landed together on one branch.
     # **+R43** (2026-10-26, TASKS R43, the CTDB localisation): schema v40's three blocks (`CtdbDifferenceBlock`, `CtdbLocalisationEntryBlock`, `CtdbLocalisationBlock`) and the two fields that hold them; every report block is declared here.
     # **-> 1045** (2026-10-26): merged with the session branch; the entries above landed together.
-    "report_types.py": 1045,
+    # **984 -> 987** (2026-10-26, the owner's EAC-parity plan of record, row 8): `TrackBlock.accuraterip_contradiction` (v40), declared where the report's shape is declared.
+    # **987 -> 996** (2026-10-26, plan of record row 9): `TrackProofBlock` and `TrackBlock.proof` (v40).
+    # **-> 1023** (2026-10-26): the entries above landed together on one branch.
+    # **-> 1057** (2026-10-26): the entries above landed together on one branch.
+    "report_types.py": 1057,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2177,7 +2183,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3349** (2026-10-26): the entries above landed together on one branch.
     # **+R43** (2026-10-26, TASKS R43, the CTDB localisation): the v40 history entry and the two serializers for `ctdb.localisation` and `ctdb.tracks[].differences`. They must be dict literals in this file: `tests/test_report_types_completeness.py` reads the report's keys from here.
     # **-> 3401** (2026-10-26): merged with the session branch; the entries above landed together.
-    "rip_report.py": 3401,
+    # **3290 -> 3303** (2026-10-26, the owner's EAC-parity plan of record, row 8): the v40 schema note and the per-track `accuraterip_contradiction` field. The rule is `verdict.track_accuraterip_contradiction`; this is the one place the report is assembled.
+    # **3303 -> 3330** (2026-10-26, plan of record row 9): the per-track `proof` block and its v40 note; `_build` hands each track the chase list and CTDB's per-track rows, which only the report holds. The decision and wording are `track_proof.py`.
+    # **3330 -> 3335** (2026-10-26, plan of record Appendix I defect 3): the v40 note that a re-read track's speed, time and paranoia counters are the shipped read's; the merge itself is in `ui/main_window_rip.py`.
+    # **-> 3394** (2026-10-26): the entries above landed together on one branch.
+    # **-> 3446** (2026-10-26): the entries above landed together on one branch.
+    "rip_report.py": 3446,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2578,7 +2589,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5000 -> 5035** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #5): `_record_post_rip_cut_short`, which seals the album's record and writes the report before the unattended quit, beside `_post_rip_steps_running` it reads; `_gates_for` and `_write_rip_report` pass the seal to the report. The seal itself is `PostRipRecord.seal_cut_short`.
     # **-> 5104** (2026-10-21): the entries above landed together on one branch.
     # **5104 -> 5107** (2026-10-26, run A on 0.7.112): `_start_rip_worker` puts the tags the rip was handed onto its post-rip record, where the acceptance graders read them; it is the one place the metadata is built for the rip.
-    "ui/main_window_rip.py": 5107,
+    # **5104 -> 5117** (2026-10-26, the owner's EAC-parity plan of record, Appendix I defect 3): `_merge_shipped_track` takes the shipped read's own speed, elapsed time and paranoia counters, with no fallback to the superseded read's; the merge rule lives here.
+    # **-> 5120** (2026-10-26): the entries above landed together on one branch.
+    "ui/main_window_rip.py": 5120,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2631,7 +2644,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1696 -> 1703** (2026-10-21, TASKS R43): per-track CTDB results. The new logic lives in its own modules (`ctdb/sweep.py`, `ctdb/matching.py`, `ctdb/track_wording.py`); this file only carries the result to its readers.
     # **1703 -> 1718** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **1718 -> 1721** (2026-10-26, TASKS R43, the CTDB localisation): the results pane passes the localisation to the shared per-track sentence, which does the wording.
-    "ui/rip_progress.py": 1721,
+    # **1718 -> 1747** (2026-10-26, the owner's EAC-parity plan of record, row 8): `_status_cell`, the Status column's ⚠ for a track AccurateRip contradicts, where it showed the ripper's "ripped successfully". The rule is `verdict.track_accuraterip_contradiction` and the tooltip's words are `track_proof.contradiction_sentence`; this is the cell that shows them.
+    # **-> 1750** (2026-10-26): the entries above landed together on one branch.
+    "ui/rip_progress.py": 1750,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2900,7 +2915,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **791 -> 891** `tracks_differing_from_entry` and `differing_tracks_phrase` (the owner's known-fixes list, 2026-10-21, item 12): a disc AccurateRip holds names its failing tracks as differing from the entry, in the headline and the CTDB reconciliation line, instead of "not in the database"; the verdict owns its wording, and the helpers need `accuraterip_state` and `track_accuraterip_partial`, both defined here.
     # **-> 926** (2026-10-21): the entries above landed together on one branch.
     # **926 -> 962** (2026-10-26, section P6): `track_accuraterip_state`, the one summary of a track's two AccurateRip columns, beside the per-column `accuraterip_state` it ranks, so the paired-rip tally counts "verified" by the verdict's own word.
-    "verdict.py": 962,
+    # **926 -> 962** (2026-10-26, the owner's EAC-parity plan of record, row 8): `track_accuraterip_contradiction` and its two values, the one predicate every surface asks before printing a clean word over a track; `accuraterip_rejected_count` now counts with it. It needs `accuraterip_state` and `track_accuraterip_partial`, both defined here; the words for it live in `track_proof.py`.
+    # **-> 998** (2026-10-26): the two 962 entries above landed together on one branch.
+    "verdict.py": 998,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
