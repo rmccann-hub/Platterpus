@@ -75,6 +75,7 @@ def test_the_whole_disc_pass_of_the_2026_10_16_run_reads_as_written_only() -> No
             # v40: a `/9` record has no `isrc_disc_read`; said, not guessed.
             "disc_read": None,
             "disc_read_state": "not_present",
+            "disc_read_meaning": None,  # v41: no word, so no meaning
             "agreement": ip.WRITTEN_ONLY,
         },
         {
@@ -88,6 +89,7 @@ def test_the_whole_disc_pass_of_the_2026_10_16_run_reads_as_written_only() -> No
             # v40: a `/9` record has no `isrc_disc_read`; said, not guessed.
             "disc_read": None,
             "disc_read_state": "not_present",
+            "disc_read_meaning": None,  # v41: no word, so no meaning
             "agreement": ip.WRITTEN_ONLY,
         },
     ]

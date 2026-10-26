@@ -83,6 +83,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from platterpus.pregap_search import PregapSearch
+from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
 from platterpus.safe_int import int_or_none
 
 # --- the two drive facts in cyanrip's disc header, from the fork's `.26` ------
@@ -220,6 +221,14 @@ class RippingInfo:
     accurate_stream_reason: str = ""
     recordable: str = DRIVE_FACT_NOT_PRESENT
     recordable_reason: str = ""
+    # The fork's PROPOSED disc-header line `Re-read limit:  600 s a track, checked
+    # between whole-track reads` (round 36 lap 10 S11), printed below `Retry
+    # limit:` only when `--reread-time-limit` was given. The seconds when the
+    # state is `read` (`reread_limit.TIME_LIMIT_STATES`); for `unrecognised`,
+    # the line's value is kept, bounded, in `reread_time_limit_text`.
+    reread_time_limit_seconds: int | None = None
+    reread_time_limit_state: str = TIME_LIMIT_NOT_PRESENT
+    reread_time_limit_text: str = ""
 
 
 @dataclass(frozen=True)
@@ -352,6 +361,11 @@ class TrackResult:
     # PROPOSED limit-line clause (`LimitKeptRead`); None when the line has none,
     # which is every build so far. Describes the same reads as the two above.
     secure_rerip_kept_read: LimitKeptRead | None = None
+    # WHICH limit stopped a re-read that did not converge (`reread_limit.py`
+    # says why it matters): the repeat limit, or the fork's proposed time limit
+    # with its seconds. None for a converged track, a track never re-read, and a
+    # log that names no limit. Describes the same reads as the three above.
+    secure_rerip_limit_stop: RereadLimitStop | None = None
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without

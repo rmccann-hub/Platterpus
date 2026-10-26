@@ -71,7 +71,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
-from platterpus import diagnostics, kept_read, pregap_search, ripper_error_lines
+from platterpus import (
+    diagnostics,
+    kept_read,
+    pregap_search,
+    reread_limit,
+    ripper_error_lines,
+)
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
@@ -92,6 +98,7 @@ from platterpus.parsers.rip_log import (
     TrackResult,
 )
 from platterpus.pregap_search import PregapSearch
+from platterpus.reread_limit import RereadLimitStop
 
 # THE shared "int() that cannot raise" guard. This module used to carry a private
 # copy (`_int_or_none`) — it was the module the hole was found in, and the fix was
@@ -247,6 +254,15 @@ _RECORDABLE_VALUE = re.compile(
     r"^(?:(?P<answer>yes|no),\s(?P<profile>CD-ROM|CD-RW|CD-R)|(?P<unknown>unknown))"
     r"(?:\s\((?P<reason>[^()\n]{1,120})\))?$"
 )
+# FORK-ONLY and PROPOSED (round 36 lap 10 S11, `cyanrip@52501ed:docs/handshake/
+# round-36-lap-10.md`; not built): the disc header line printed below `Retry
+# limit:` only when `--reread-time-limit` was given,
+#     Re-read limit:  600 s a track, checked between whole-track reads
+# The LINE pattern claims the whole value, and `reread_limit.time_limit_state`
+# reads the seconds from its start, as the `.26` header lines are split: a
+# reworded trailer keeps the seconds, and a value with no seconds is
+# `unrecognised`, its text kept and logged.
+_REREAD_TIME_LIMIT = re.compile(r"^Re-read limit:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
 # "Paranoia level: max" → EAC's "Read mode" (Secure vs Burst).
 _PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # cyanrip's "Gaps:" section, whose single indented line answers EAC's
@@ -544,8 +560,26 @@ _SECURE_DONE_MATCH = re.compile(
 _SECURE_DONE_FAIL = re.compile(
     r"^\s*Done;\s+\("
     r"(?:no matches found"  # every build so far: said whatever the count was
-    r"|repeat limit)\b"  # proposed by the fork, round 29 lap 1 S38
+    r"|repeat limit"  # proposed by the fork, round 29 lap 1 S38
+    r"|time limit)\b"  # proposed by the fork, round 36 lap 10 S11 (see below)
 )
+
+# **The third arm, `time limit`: the fork's PROPOSED `--reread-time-limit
+# SECONDS`** (`cyanrip@52501ed:docs/handshake/round-36-lap-10.md`, S11; not
+# built, and Platterpus does not send the option). After each whole-track read
+# of a `-Z` track that has not converged, once the track's reads have taken
+# SECONDS or more, no further read starts, and the loop ends with
+#   "Done; (time limit of 600 s reached after 4 reads; at most 2 reads agreed)",
+# which can carry the repeat limit's two clauses as they are, `; last read %08X,
+# not kept` and the AccurateRip one (`_SECURE_LIMIT_KEPT` reads that one here
+# too, and `_SECURE_LIMIT_AGREED` the count). Read BEFORE any build prints it,
+# round 20's order. It is NOT convergence, for the same reason and in the same
+# fail-safe direction as the `repeat limit` arm: if it fell through as
+# unrecognised, the track would have no verdict and the EAC-layout log would
+# infer convergence from the read count. So it, too, matches only the prefix.
+# Which limit stopped the loop is a separate fact, read by
+# `secure_rerip_limit_stop`: a track stopped by our clock must never be
+# described as one whose reads disagreed.
 
 # The count inside the fork's limit-hit wording: `... at most 2 reads agreed)`,
 # or `at most 1 read agreed` (their `read%s`). Applied only to a line
@@ -789,6 +823,24 @@ def secure_rerip_limit_agreement(
     targets = {target for _matches, target in progress}
     exact = len(targets) == 1 and floor == min(targets)
     return RereadAgreement(most_reads_agreed=floor, exact=exact)
+
+
+def secure_rerip_limit_stop(line: str) -> RereadLimitStop | None:
+    """Which limit stopped a ``-Z`` re-read that did not converge, or ``None``.
+
+    ``line`` is a whole log line: a limit-hit ``Done; (…)`` line, either limit and
+    any wording, or the track block's ``Secure re-read:`` row when it reads as not
+    converged. Any other line is ``None``: the claim is made HERE, by this
+    module's own patterns, and :func:`platterpus.reread_limit.limit_stop` reads
+    which limit the claimed line names (the repeat limit, or the fork's proposed
+    time limit, round 36 lap 10 S11). Pure apart from a logged contradiction;
+    never raises.
+    """
+    if _SECURE_DONE_FAIL.match(line) is None:
+        row = _TRACK_SECURE_VERDICT.match(line)
+        if row is None or _parse_secure_verdict(row.group("text")) is not False:
+            return None
+    return reread_limit.limit_stop(line)
 
 
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
@@ -1743,6 +1795,10 @@ _SECURE_DID_NOT_CONVERGE: tuple[str, ...] = (
     "did not",
     "never agreed",
     "repeat limit",
+    # The fork's proposed time limit (round 36 lap 10 S11): the track block says
+    # `did NOT converge after 4 reads (time limit of 600 s reached)`, which the
+    # phrase above already reads; this keeps a reword without it negative.
+    "time limit",
     "gave up",
     "failed",
 )
@@ -1847,6 +1903,10 @@ class _Disc:
     accurate_stream_reason: str = ""
     recordable: str = DRIVE_FACT_NOT_PRESENT
     recordable_reason: str = ""
+    # The fork's proposed `Re-read limit:` header line (`reread_limit.py`).
+    reread_time_limit_seconds: int | None = None
+    reread_time_limit_state: str = reread_limit.TIME_LIMIT_NOT_PRESENT
+    reread_time_limit_text: str = ""
     paranoia_level: str = ""
     gap_detection: str = ""
     output_formats: str = ""
@@ -2041,6 +2101,8 @@ class _TrackAcc:
     # How many of those reads agreed, buffered the same way (see TrackResult).
     secure_rerip_agreement: RereadAgreement | None = None
     secure_rerip_kept_read: LimitKeptRead | None = None
+    # Which limit stopped them, buffered the same way (see TrackResult).
+    secure_rerip_limit_stop: RereadLimitStop | None = None
     filename: str = ""
     pre_emphasis: bool | None = None
     copy_crc: str = ""
@@ -2303,6 +2365,15 @@ def recordable_state(value: str) -> tuple[str, str]:
     if match.group("answer") != answer:
         return _unrecognised_drive_fact("Recordable:", text)
     return state, reason
+
+
+def _take_reread_time_limit(disc: _Disc, match: re.Match[str]) -> bool:
+    (
+        disc.reread_time_limit_state,
+        disc.reread_time_limit_seconds,
+        disc.reread_time_limit_text,
+    ) = reread_limit.time_limit_state(match.group("value"))
+    return True
 
 
 def _take_accurate_stream(disc: _Disc, match: re.Match[str]) -> bool:
@@ -2925,6 +2996,14 @@ _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
     ),
     _LineRule("recordable", _RECORDABLE, _take_recordable, disc_level_only=True),
     _LineRule("paranoia_level", _PARANOIA_LEVEL, _take_paranoia_level),
+    # PROPOSED by the fork (round 36 lap 10 S11), below `Retry limit:`, printed
+    # only when `--reread-time-limit` was given. Disc-level only: a header row.
+    _LineRule(
+        "reread_time_limit",
+        _REREAD_TIME_LIMIT,
+        _take_reread_time_limit,
+        disc_level_only=True,
+    ),
 )
 
 _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
@@ -3545,6 +3624,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     pending_progress: list[tuple[int, int]] = []
     pending_agreement: RereadAgreement | None = None
     pending_kept: LimitKeptRead | None = None
+    pending_stop: RereadLimitStop | None = None
     # Which peak the NEXT indented "Peak:  N dBFS" line reports: "true", "sample",
     # or "" for no header seen. cyanrip prints its peaks as a sub-header plus a
     # value line, and a FORK adding the sample peak is likely to do the same — so
@@ -3686,6 +3766,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 secure_rerip_converged=current.secure_rerip_converged,
                 secure_rerip_agreement=current.secure_rerip_agreement,
                 secure_rerip_kept_read=current.secure_rerip_kept_read,
+                secure_rerip_limit_stop=current.secure_rerip_limit_stop,
                 start_sector=current.start_sector,
                 end_sector=current.end_sector,
                 pregap_sectors=current.pregap_sectors,
@@ -3855,6 +3936,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             pending_converged = verdict
             pending_agreement = secure_rerip_limit_agreement(line, pending_progress)
             pending_kept = secure_rerip_limit_kept_read(line)
+            pending_stop = secure_rerip_limit_stop(line)
             pending_progress = []
             continue
         # A progress line from the same repeat loop, buffered for the same track.
@@ -3906,10 +3988,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 secure_rerip_converged=pending_converged,
                 secure_rerip_agreement=pending_agreement,
                 secure_rerip_kept_read=pending_kept,
+                secure_rerip_limit_stop=pending_stop,
             )
             pending_converged = None
             pending_agreement = None
             pending_kept = None
+            pending_stop = None
             # Progress lines with no verdict after them (a cancelled re-read stops
             # without one) describe nothing this track can claim.
             pending_progress = []
@@ -4208,6 +4292,20 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # last word.
                 if verdict is not None:
                     current.secure_rerip_converged = verdict
+                # Which limit stopped it, from the row's own parenthetical (the
+                # fork's proposed `(time limit of 600 s reached)` beside `(repeat
+                # limit hit)`). The row wins over the buffered `Done;` line, as
+                # its verdict does; a converged row clears it, since a limit only
+                # describes reads that did not converge; a row naming no limit
+                # leaves the buffered one alone.
+                if verdict is True:
+                    current.secure_rerip_limit_stop = None
+                else:
+                    stop = secure_rerip_limit_stop(line)
+                    if stop is not None:
+                        current.secure_rerip_limit_stop = reread_limit.combined(
+                            current.secure_rerip_limit_stop, stop
+                        )
                 continue
 
             match = _PREEMPHASIS.match(line)
@@ -4407,6 +4505,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
             accurate_stream_reason=disc.accurate_stream_reason,
             recordable=disc.recordable,
             recordable_reason=disc.recordable_reason,
+            reread_time_limit_seconds=disc.reread_time_limit_seconds,
+            reread_time_limit_state=disc.reread_time_limit_state,
+            reread_time_limit_text=disc.reread_time_limit_text,
         ),
         tracks=tuple(tracks),
         accuraterip_summary=disc.accuraterip_summary,

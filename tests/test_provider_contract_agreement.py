@@ -503,25 +503,19 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
     # contract was filed the same day
     # (`round-36-lap-04-provider-contract-ge2b52b1.md`, P2 lines 294, 372 and 373);
     # the stale check below then required their removal.
-    "track_kept_read_began": (
-        "the fork's `.27` line, built and not released (their round 36 lap 7 S5). "
-        "The newest provider contract filed here is `.26`'s, which predates it; "
-        "`.27`'s regenerated contract lists it in P2 "
-        "(`cyanrip@302dba8:PROVIDER-CONTRACT.md:331`, `Kept read began:    %s`). "
-        "Retires when `.27`'s contract is filed"
-    ),
-    "not_written_whole": (
-        "the fork's `.27` footer line, built and not released (their round 36 lap "
-        "7 S6), so absent from `.26`'s contract, the newest filed here; `.27`'s "
-        "lists it in P2 (`cyanrip@302dba8:PROVIDER-CONTRACT.md:286`, `not written "
-        "whole: %s`). Retires when `.27`'s contract is filed"
-    ),
-    "track_pregap_search": (
-        "the fork's `.27` track-block line, built and not released (their round 36 "
-        "lap 8 S21), so absent from `.26`'s contract, the newest filed here; their "
-        "regenerated contract lists it in P2 "
-        "(`cyanrip@b2ffd42:PROVIDER-CONTRACT.md:300`, `Pregap search: %i sectors "
-        "asked; ...`). Retires when `.27`'s contract is filed"
+    # The fork's three `.27` lines (`track_kept_read_began`, `not_written_whole`,
+    # `track_pregap_search`) sat here from 2026-10-26 (their round 36 laps 7 and 8,
+    # read from their draft contracts at `cyanrip@302dba8` and `b2ffd42`) until
+    # `.27`'s own contract was filed the same day
+    # (`round-36-lap-10-provider-contract-g580c46c.md`, P2 lines 341, 295 and 309);
+    # the stale check below then required their removal.
+    "reread_time_limit": (
+        "the fork's PROPOSED `-Z` time limit's disc header line, not built: their "
+        "round 36 lap 10 S11 (`cyanrip@52501ed:docs/handshake/round-36-lap-10.md`) "
+        "gives it as `Re-read limit:  600 s a track, checked between whole-track "
+        "reads`, and round 20's order has our reader take it before any build "
+        "prints it. No provider contract can list it yet. Retires when the "
+        "contract of the build that prints it is filed"
     ),
 }
 

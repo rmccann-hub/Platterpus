@@ -25,7 +25,8 @@ from platterpus.uiscript.runner import ScriptRunner
 @pytest.mark.parametrize(
     ("tag", "code"),
     [
-        ("platterpus-fork-gca0f097", 64),  # .26, under review in round 36
+        ("platterpus-fork-g5aeefc4", 64),  # .27, under review in round 36
+        ("platterpus-fork-gca0f097", 64),  # .26
         ("platterpus-fork-g5f1d036", 64),  # .25, the first with the classes
         ("platterpus-fork-g5f1d036-dirty", 64),
         ("platterpus-fork-g93afa15", 1),  # .24
@@ -44,7 +45,8 @@ def test_the_codes_are_the_ones_the_contract_states() -> None:
     assert (REFUSED_EXIT_WITH_CLASSES, REFUSED_EXIT_BEFORE_CLASSES) == (64, 1)
     # Non-triviality: the build under review really is placed as .25 or later.
     # `>=`, not `== 36`: the pin under review moves every round (`.26`, release
-    # 37, from 2026-10-21), and what this asserts is that it has the classes.
+    # 37, from 2026-10-21; `.27`, release 38, from 2026-10-26), and what this
+    # asserts is that it has the classes.
     seq = fork_source.release_seq_for_commit(fork_source.PIN_UNDER_REVIEW)
     assert seq is not None and seq >= FIRST_RELEASE_WITH_EXIT_CLASSES == 36
 

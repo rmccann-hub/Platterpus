@@ -54,7 +54,11 @@ from typing import Final
 
 from platterpus import inbound_text
 from platterpus.error_positions import TrackReads, parse_reads
-from platterpus.record_track_v11 import TrackRecordV11, parse_row
+from platterpus.record_track_v11 import (
+    TrackRecordV11,
+    isrc_disc_read_meaning,
+    parse_row,
+)
 from platterpus.ripper_ending import (
     DESCRIBES,
     MAX_RECORD_BYTES,
@@ -259,6 +263,9 @@ def report_block(
             # it, so a record without the key reads `not_present`, not "unread".
             "disc_read": track.record.isrc_disc_read,
             "disc_read_state": track.record.isrc_disc_read_state,
+            # v41: what that word means, so `disc image` (the fork's round 36
+            # lap 10 S12) reads as the image's own file, not a drive's answer.
+            "disc_read_meaning": isrc_disc_read_meaning(track.record),
             "agreement": agreement(
                 track, (passed or {}).get(track.number), known=known
             ),

@@ -57,6 +57,7 @@ from platterpus.parsers.cyanrip_log import (
     parse_cyanrip_log,
     secure_rerip_limit_agreement,
     secure_rerip_limit_kept_read,
+    secure_rerip_limit_stop,
     secure_rerip_progress,
     secure_rerip_read_checksum,
     secure_rerip_verdict_converged,
@@ -70,7 +71,11 @@ from platterpus.parsers.eac_log import (
 )
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
 from platterpus.record_track_v11 import STATES as RECORD_V11_STATES
+from platterpus.record_track_v11 import isrc_disc_read_meaning
 from platterpus.record_track_v11 import parse_row as parse_record_v11_row
+from platterpus.reread_limit import STOPPED_BY as REREAD_STOPPED_BY
+from platterpus.reread_limit import TIME_LIMIT_STATES as REREAD_TIME_LIMIT_STATES
+from platterpus.reread_limit import time_limit_state as reread_time_limit_state
 from platterpus.verified_read_chase import securing_pass_read_checksums
 
 # `deadline=None`: the parsers are fast, but CI runners are noisy and we
@@ -203,6 +208,23 @@ _FRAGMENTS = st.sampled_from(
         "    Kept read began:    2026-13-45T25:61:00Z",  # the shape, not a date
         "    Kept read began:    " + "9" * 4400,  # over the digit ceiling
         "    Kept read began:    yesterday",
+        # The fork's PROPOSED `-Z` time limit (round 36 lap 10 S11), verbatim, with
+        # near misses: three new branches, so new fuzz input.
+        "Re-read limit:  600 s a track, checked between whole-track reads",
+        "Re-read limit:  0 s a track, checked between whole-track reads",
+        "Re-read limit:  " + "9" * 4400 + " s a track",  # over the digit ceiling
+        "Re-read limit:  ten minutes",
+        "Done; (time limit of 600 s reached after 4 reads; at most 2 reads agreed)",
+        "Done; (time limit of 600 s reached after 4 reads; at most 2 reads agreed; "
+        "kept 1FFC9968, read 2 times, which AccurateRip matches at confidence 200; "
+        "last read 0A0B0C0D, not kept)",
+        "Done; (time limit of " + "9" * 4400 + " s reached after 4 reads)",
+        "Done; (time limit of 600 s reached; repeat limit of 5 reads reached)",
+        "  Secure re-read:  did NOT converge after 4 reads (time limit of 600 s "
+        "reached)",
+        "  Secure re-read:  did NOT converge after "
+        + "9" * 4400
+        + " reads (time limit of 600 s reached)",
         # And the footer's files a failed encoder left (S6), which count only
         # below an `Encoder errors:` line that names a failed track.
         "Encoder errors: 2 tracks failed (2, 3); 1 track encoded",
@@ -339,6 +361,56 @@ def test_secure_rerip_limit_kept_read_never_raises(text: str) -> None:
         and result.reads >= 1
         and result.accuraterip_confidence >= 1
     )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "{}{}time limit of {} s reached after {} read{}{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            st.sampled_from(["Done; (", "  Secure re-read:  did NOT converge ("]),
+            _digits,
+            _digits,
+            st.sampled_from(["", "s"]),
+            st.text(max_size=60),
+        ),
+        st.builds(
+            "{}{}repeat limit{}{}".format,
+            st.sampled_from(["", "  "]),
+            st.sampled_from(["Done; (", "Done; (no matches found, but hit "]),
+            st.sampled_from(["", " of ", " hit"]),
+            st.text(max_size=40),
+        ),
+    )
+)
+def test_secure_rerip_limit_stop_never_raises(text: str) -> None:
+    """Which limit stopped a `-Z` re-read (the fork's round 36 lap 10 S11).
+
+    A known kind or None, and a limit is only ever named on a line the verdict
+    reader calls NOT converged: a stop beside a convergence would contradict it.
+    """
+    result = secure_rerip_limit_stop(text)
+    assert result is None or (
+        result.kind in REREAD_STOPPED_BY
+        and secure_rerip_verdict_converged(text) is not True
+        and (result.time_limit_seconds is None or result.time_limit_seconds >= 1)
+    )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds("{} s a track{}".format, _digits, st.text(max_size=60)),
+    )
+)
+def test_the_reread_time_limit_header_reader_never_raises(value: str) -> None:
+    """The fork's proposed `Re-read limit:` value (round 36 lap 10 S11)."""
+    state, seconds, _text = reread_time_limit_state(value)
+    assert state in REREAD_TIME_LIMIT_STATES
+    assert (seconds is not None and seconds >= 1) == (state == "read")
 
 
 @_SETTINGS
@@ -835,7 +907,12 @@ def test_the_kept_read_instant_reader_never_raises(
             st.floats(),
             st.text(max_size=200),
             st.sampled_from(
-                ["read sub-channel", "q frames", "read sub-channel, again"]
+                [
+                    "read sub-channel",
+                    "q frames",
+                    "read sub-channel, again",
+                    "disc image",  # the fork's round 36 lap 10 S12
+                ]
             ),
         ),
     )
@@ -845,3 +922,6 @@ def test_the_record_v11_row_reader_never_raises(row: dict[str, object]) -> None:
     record = parse_record_v11_row(row)
     assert record.kept_read_began_state in RECORD_V11_STATES
     assert record.isrc_disc_read_state in RECORD_V11_STATES
+    # A meaning only for a word we read, never for one we could not.
+    meaning = isrc_disc_read_meaning(record)
+    assert (meaning is not None) == (record.isrc_disc_read_state == "read")

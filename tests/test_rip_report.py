@@ -1384,7 +1384,10 @@ def test_schema_version_is_27() -> None:
     # where a rip differs from a CTDB entry, from its parity (TASKS R43).
     # v40 added, per track, `accuraterip_contradiction` ("wrong", "differs" or
     # null): row 8 of the owner's EAC-parity plan of record, 2026-10-26.
-    assert REPORT_SCHEMA_VERSION == 40
+    # v41 added, per track, `secure_rerip_limit_stop` (which limit stopped a -Z
+    # re-read: the repeat limit or the fork's proposed time limit, round 36 lap
+    # 10 S11) and `rip.reread_time_limit_*`. v40 had shipped in 0.7.113.
+    assert REPORT_SCHEMA_VERSION == 41
 
 
 def _issue_codes(report: dict) -> set[str]:

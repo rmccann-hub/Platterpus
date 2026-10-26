@@ -410,6 +410,7 @@ def _merge_shipped_track(
             secure_rerip_converged=None,
             secure_rerip_agreement=None,
             secure_rerip_kept_read=None,
+            secure_rerip_limit_stop=None,
         )
     verdict = verdicts.get(track.number)
     if verdict is not None:
@@ -432,6 +433,12 @@ def _merge_shipped_track(
             # shipped read's own, never the first pass's under the re-rip's verdict.
             secure_rerip_kept_read=(
                 shipped.secure_rerip_kept_read if shipped is not None else None
+            ),
+            # So does which limit stopped them (the fork's round 36 lap 10 S11):
+            # a first-pass "stopped at our time limit" under the re-rip's verdict
+            # would describe reads that are no longer the file's.
+            secure_rerip_limit_stop=(
+                shipped.secure_rerip_limit_stop if shipped is not None else None
             ),
         )
     return track

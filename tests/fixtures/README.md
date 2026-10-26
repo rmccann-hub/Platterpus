@@ -103,7 +103,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.7.112.*
+*Last updated for Platterpus v0.7.113.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 
@@ -153,6 +153,16 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 `174a134` (`.19`). It names `.20` as the build round 30's closing run reviews; the
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
+
+## fork_release_manifest_a3f7043.json (added 2026-10-26)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@a3f7043`, the commit that published `.27` (unchanged at the merge of their
+PR #61, `52501ed`): sha256 `c29953e0…`, 1,135 bytes, pinned by
+`tests/test_handshake_pin_under_review.py`. Beta names `5aeefc4` (`.27`, `release_seq`
+38, `handshake_round` 36, `round_closed: false`); stable names `891c79e` (`.23`,
+`release_seq` 34, round 34 closed). Round 36's subject from 2026-10-26, to which the
+round's pin moves on the owner's word of that day. Not edited.
 
 ## fork_release_manifest_a085d19.json (added 2026-10-21)
 
