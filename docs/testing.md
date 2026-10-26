@@ -4080,8 +4080,15 @@ that is what the section costs, not what its title implies.
 | 2026-10-14 | 0.7.105 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-16 | 0.7.106 | maintainer | bdr209d | bazzite | full-green |
 | 2026-10-20 | 0.7.110 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-21 | 0.7.112 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-21 | 0.7.112 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-22 | 0.7.112 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-22 | 0.7.112 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-26 | 0.7.113 | maintainer | bdr209d | bazzite | full-green |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
+
+**The four 0.7.112 rows of 2026-10-21 and 22 are `partial`,** with 60, 1 (and 348 blocked behind a six-hour wait on a damaged disc), 4 and 2 failed steps, all ours and none the ripper's (`docs/eac-parity.md` Part F; evidence `ab3b1395`, `08de9851`, `fc48882f`, `6b31795c`). **The 2026-10-26 row is `full-green`:** the Full run on 0.7.113 with `.26` under review reported 553 pass, 0 fail, 0 error, 0 blocked, and one step unreachable on this equipment (E2's offset refusal; the drive is in AccurateRip's list), recorded as not covered, as on the earlier `full-green` rows (evidence `a3503739`). Its witnesses could fail, which is what §5.bi asks: the derived-format sections verified real MP3, WAV and WavPack files (`derived: ran — passed` in each report), where on 2026-10-22 the same gate read "not run".
 
 **The 2026-09-15 row reported `241 pass, 0 fail, 0 error` and is recorded
 `partial`.** The run wrote no `.mp3` and no `.wv` file at all — both
