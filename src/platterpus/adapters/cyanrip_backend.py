@@ -1634,17 +1634,17 @@ def prefer_disc_isrc_args_for_build(build_tag: str) -> list[str]:
     )
 
 
-#: cyanrip's long-only option, as P1 of `.27`'s regenerated contract spells it
-#: (`cyanrip@302dba8:PROVIDER-CONTRACT.md:61`). `.27` is built and not released.
+#: cyanrip's long-only option, as P1 of `.27`'s provider contract spells it
+#: (`round-36-lap-10-provider-contract-g580c46c.md:61`; `.27` released 2026-10-26).
 PREFER_ACCURATERIP_MATCH_FLAG: str = "--prefer-accuraterip-match"
 
 
 def prefer_accuraterip_match_args_for_build(build_tag: str) -> list[str]:
     """``["--prefer-accuraterip-match"]`` for a build that lists it, else ``[]``.
 
-    One home for the words and their gate, as for ``--prefer-disc-isrc``. Empty for
-    every build today: ``fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH``
-    is empty until `.27` is released.
+    One home for the words and their gate, as for ``--prefer-disc-isrc``. Sent to
+    `.27` (``5aeefc4``) alone today, the one tag in
+    ``fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH``.
     """
     from platterpus.deps import fork_source  # noqa: PLC0415
 

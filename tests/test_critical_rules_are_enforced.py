@@ -1570,7 +1570,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2844 -> 2846** (2026-10-21): `PIN_UNDER_REVIEW_ROUND` 36, its history line beside it, as each round's is.
     # **2846 -> 2887** (2026-10-21, round 36's pin moves to `.26` on the owner's word, the fork's lap 4): `PIN_UNDER_REVIEW` `ca0f097`, its release sequence 37, its consumer-flag and `--prefer-disc-isrc` rows, its version, `.25` named in the `--verify-log` set, each with the source it was read from.
     # **2887 -> 2918** (2026-10-26, round 36 lap 7 S3): `BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH`, empty until `.27` is released, and its reader, beside the other per-build capability sets.
-    "deps/fork_source.py": 2918,
+    # **2918 -> 2957** (2026-10-26, round 36's pin moves to `.27` on the owner's word, the fork's lap 10): `PIN_UNDER_REVIEW` `5aeefc4`, its release sequence 38, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version, `.26` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 2957,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

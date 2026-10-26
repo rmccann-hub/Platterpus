@@ -3,14 +3,16 @@
 The fork built the option in `.27` (`6e2ca21`; their round 36 lap 7 S3, which our
 round 36 lap 3 S4 accepted): at the `-Z` repeat limit it keeps first a read
 AccurateRip matches, at confidence 1 or more, the higher winning
-(`cyanrip@709337a:src/cyanrip_main.c:1809-1834`). Its P1 row is in `.27`'s
-regenerated contract (`cyanrip@302dba8:PROVIDER-CONTRACT.md:61`).
+(`cyanrip@709337a:src/cyanrip_main.c:1809-1834`).
 
-`.27` is not released, so no build tag accepts it yet and the capability set is
-EMPTY. cyanrip refuses an option it does not know, and every availability probe
-reads a refused run as a missing ripper, so the gate is the whole safety of the
-flag. These tests hold the gate with a tag patched in, and hold the set empty
-until a filed contract lists the option.
+**`.27` is released (2026-10-26, `5aeefc4`, their round 36 lap 10 S4)** and P1 of its
+filed contract lists the option
+(`round-36-lap-10-provider-contract-g580c46c.md:61`), so its tag,
+`platterpus-fork-g5aeefc4`, is the one tag in the set. cyanrip refuses an option it
+does not know, and every availability probe reads a refused run as a missing ripper,
+so the gate is the whole safety of the flag: these tests hold that `.27` gets it on
+every rip and that no other build does, including `.26`, `.25` and the fork's
+unreleased lap-7 build of the same option.
 """
 
 from __future__ import annotations
@@ -24,9 +26,15 @@ from platterpus.adapters.cyanrip_backend import (
 )
 from platterpus.deps import fork_source
 
-#: A tag standing in for `.27`'s, patched into the set: the fork's lap-7 build
-#: (`platterpus-fork-g709337a`), which carries the option and is not released.
-_TAG_27_BUILD = "platterpus-fork-g709337a"
+#: `.27`'s build tag: `meson.build` line 21 at `5aeefc4` declares
+#: `0.9.4-rc3+platterpus.27`, and their lap 10's RIPPER-VERSION names
+#: `platterpus-fork-g5aeefc4`.
+_TAG_27 = "platterpus-fork-g5aeefc4"
+
+#: The fork's lap-7 build (`platterpus-fork-g709337a`), which carries the option and
+#: was never released. Unlisted: a build joins on its own filed contract, not on
+#: having the code.
+_TAG_27_UNRELEASED_BUILD = "platterpus-fork-g709337a"
 
 
 def _argv(tag: str, **options: object) -> list[str]:
@@ -42,25 +50,29 @@ def _argv(tag: str, **options: object) -> list[str]:
 
 
 @pytest.fixture
-def listed(monkeypatch: pytest.MonkeyPatch) -> str:
-    """The set as it will be once `.27` is released: one tag in it."""
-    monkeypatch.setattr(
-        fork_source,
-        "BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH",
-        frozenset({_TAG_27_BUILD}),
+def listed() -> str:
+    """`.27`'s tag, asserted to be in the real set, not patched in."""
+    assert _TAG_27 in fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH
+    return _TAG_27
+
+
+# --- today: `.27` alone accepts it ----------------------------------------------------
+
+
+def test_only_27_is_listed() -> None:
+    assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH == frozenset(
+        {_TAG_27}
     )
-    return _TAG_27_BUILD
+    # Non-triviality: the build under review IS `.27`, so a rig on it sends the flag.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_27
 
 
-# --- today: no build accepts it ------------------------------------------------------
-
-
-def test_no_released_build_is_listed_so_no_rip_sends_it() -> None:
-    assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH == frozenset()
+def test_no_other_build_is_sent_it() -> None:
     for tag in (
-        f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}",
-        f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}",
-        _TAG_27_BUILD,
+        f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}",  # `.25`
+        "platterpus-fork-gca0f097",  # `.26`
+        _TAG_27_UNRELEASED_BUILD,
+        "release",  # stock cyanrip
         "",
     ):
         assert not fork_source.accepts_prefer_accuraterip_match(tag), tag
@@ -68,27 +80,29 @@ def test_no_released_build_is_listed_so_no_rip_sends_it() -> None:
 
 
 def test_the_flag_is_spelled_as_27s_p1_spells_it() -> None:
-    """`cyanrip@302dba8:PROVIDER-CONTRACT.md:61`: `| none | `--prefer-accuraterip-match` |`."""
+    """`round-36-lap-10-provider-contract-g580c46c.md:61`:
+    `| none | `--prefer-accuraterip-match` |`."""
     assert PREFER_ACCURATERIP_MATCH_FLAG == "--prefer-accuraterip-match"
 
 
 def test_a_filed_contract_listing_the_option_forces_the_question() -> None:
     """The tripwire for the set's one obligation: when a filed provider contract's P1
     lists the option, that build is released, and the set must have been asked about
-    it. Today the newest filed contract is `.26`'s, which does not list it."""
+    it. The newest filed contract is `.27`'s, which lists it, so the branch below is
+    taken (asserted, so the tripwire cannot pass by finding nothing)."""
     from test_argv_surface_agreement import newest_provider_contract
 
     contract = newest_provider_contract().read_text(encoding="utf-8")
     assert "| none | `--prefer-disc-isrc` |" in contract  # floor: P1 was read
-    if f"| none | `{PREFER_ACCURATERIP_MATCH_FLAG}` |" in contract:
-        assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH, (
-            "the newest filed provider contract lists --prefer-accuraterip-match in "
-            "P1 and no build tag is in BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH; "
-            "add the released build's tag (fork_source.py says how)"
-        )
+    assert f"| none | `{PREFER_ACCURATERIP_MATCH_FLAG}` |" in contract
+    assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH, (
+        "the newest filed provider contract lists --prefer-accuraterip-match in "
+        "P1 and no build tag is in BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH; "
+        "add the released build's tag (fork_source.py says how)"
+    )
 
 
-# --- once a build is listed ------------------------------------------------------------
+# --- the listed build ------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -119,12 +133,12 @@ def test_every_rip_to_a_listed_build_sends_it_once(
     assert PREFER_ACCURATERIP_MATCH_FLAG not in _argv("", **options)
 
 
-def test_the_generated_contract_would_publish_it_once_a_build_is_listed(
+def test_the_generated_contract_publishes_it_for_the_listed_build(
     listed: str,
 ) -> None:
     """The input half of the seam is derived from a real call to the builder, so
-    a listed build's flag reaches §3 and `tests/test_argv_surface_agreement.py`
-    without anyone editing a doc. Shown here with the patched set."""
+    the listed build's flag reaches §3 and `tests/test_argv_surface_agreement.py`
+    without anyone editing a doc."""
     argv = _argv(listed, secure_rerip_matches=2)
     assert PREFER_ACCURATERIP_MATCH_FLAG in argv
     assert "-N" in argv  # the metadata-lookup guard still holds beside it
