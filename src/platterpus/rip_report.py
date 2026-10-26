@@ -491,7 +491,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `without_result`, `cut_short`, `cut_short_steps`, `note`), computed from
 #      the gates and the result blocks; and the `verification_cut_short` warning,
 #      written by the unattended quit before the process ends.
-REPORT_SCHEMA_VERSION: int = 39
+#  40: the fixes from the four Full runs on 0.7.112 (2026-10-21/22). Additions
+#      only. A securing pass that was stopped no longer throws away a re-read
+#      AccurateRip verified (run B, track 11, `unfinished_refix.py`):
+#      `read_speed.retried_tracks[]` gains `pass_unfinished` (the verdict came
+#      from a pass stopped before it finished; False otherwise) and
+#      `not_replaced_because` (`block_incomplete`, `accuraterip_did_not_verify`,
+#      `file_not_whole`, `copy_failed`; null when swapped in, and for a pass
+#      that finished). Such a track's `replaced` is true with
+#      `replaced_because: accuraterip`, and `kept_read` says `securing_pass`.
+REPORT_SCHEMA_VERSION: int = 40
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:

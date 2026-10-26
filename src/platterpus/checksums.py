@@ -119,6 +119,19 @@ def flac_unencoded_md5(path: Path) -> str | None:
     or records the all-zero "not computed" value. ``None`` means *not determined*,
     which is a different fact from a digest that failed to match.
     """
+    payload = _streaminfo_payload(path)
+    if payload is None:
+        return None
+    digest = payload[18:34].hex()
+    return None if digest == _ZERO_MD5 else digest
+
+
+def _streaminfo_payload(path: Path) -> bytes | None:
+    """The 34-byte ``STREAMINFO`` payload of a FLAC, or None. Never raises.
+
+    None when the file is not a FLAC, is truncated, starts with a different block
+    (the spec requires ``STREAMINFO`` first), or cannot be read.
+    """
     try:
         with path.open("rb") as handle:
             if handle.read(4) != _FLAC_MAGIC:
@@ -140,8 +153,31 @@ def flac_unencoded_md5(path: Path) -> str | None:
         # Same contract as the rest of this module: a best-effort report section
         # never raises, and an unreadable file is "not determined".
         return None
-    digest = payload[18:34].hex()
-    return None if digest == _ZERO_MD5 else digest
+    return payload
+
+
+#: The low 36 bits of STREAMINFO bytes 10-17 are the stream's total samples per
+#: channel (after 20 bits of sample rate, 3 of channels and 5 of bit depth).
+_TOTAL_SAMPLES_MASK: int = (1 << 36) - 1
+
+
+def flac_total_samples(path: Path) -> int | None:
+    """How many samples per channel a FLAC's own ``STREAMINFO`` says it holds.
+
+    **Why it exists: it is how a FLAC says it was finished.** An encoder writes
+    ``STREAMINFO`` before it knows the length, with 0 samples and an all-zero
+    MD5, and rewrites both when it closes the file. A FLAC whose header still
+    says 0, or a count other than the read's, was not closed by its encoder, so
+    it is not a whole copy of that read (`unfinished_refix.file_written_whole`).
+
+    None when the header cannot be read or records 0 (the spec's "unknown"),
+    which is *not determined*, never a count. Reads 42 bytes; never raises.
+    """
+    payload = _streaminfo_payload(path)
+    if payload is None:
+        return None
+    total = int.from_bytes(payload[10:18], "big") & _TOTAL_SAMPLES_MASK
+    return total or None
 
 
 def unencoded_audio_digests(rip_dir: Path) -> dict[str, str]:

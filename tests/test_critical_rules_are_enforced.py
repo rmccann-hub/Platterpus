@@ -1990,7 +1990,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **467 -> 470** (2026-10-21, TASKS R13): the retry list asks `data_tracks.is_data_track`.
     # **467 -> 472** (2026-10-21, TASKS R7, the verified-read chase): the retried-track copy carries `kept_read` and a copy of `verified_read_chase` (schema 39); both are derived and copied by `verified_read_chase.py`.
     # **-> 475** (2026-10-21): the entries above landed together on one branch.
-    "read_speed_ladder.py": 475,
+    # **475 -> 479** (2026-10-26, run B): the retried-track copy carries `pass_unfinished` and `not_replaced_because` (schema 40).
+    "read_speed_ladder.py": 479,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -2029,7 +2030,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 964** (2026-10-21): the entries above landed together on one branch.
     # **815 -> 835** (2026-10-21, TASKS P2 #5): `VerificationCompletenessBlock` and the `completeness.verification` key that carries it.
     # **-> 984** (2026-10-21): the entries above landed together on one branch.
-    "report_types.py": 984,
+    # **984 -> 994** (2026-10-26, run B): `RetriedTrackBlock.pass_unfinished` and `not_replaced_because` (schema 40), in the one place the report's shape is declared.
+    "report_types.py": 994,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2144,7 +2146,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3192** (2026-10-21): the entries above landed together on one branch.
     # **2911 -> 3009** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #4/#5): the schema-39 note that `gates.*` narrows, `build_gates` taking the cut-short ledger, `_build` correcting the gates from the results and writing `completeness.verification`, and the `verification_cut_short` issue. The rules and wording live in `verification_gates.py`; this is the one place the report is assembled.
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
-    "rip_report.py": 3290,
+    # **3290 -> 3299** (2026-10-26, run B): the schema-40 history note beside `REPORT_SCHEMA_VERSION`.
+    "rip_report.py": 3299,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2896,7 +2899,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4307 -> 4162** SHRANK (2026-10-21): the diagnostic-line matcher moved to `ripper_error_lines.py` so the log parser shares it.
     # **4307 -> 4425** (2026-10-21, TASKS R7, the verified-read chase): `_rip_once` keeps a chase read's exit status off the securing pass's field (`verified_reread`), `_auto_fix_tracks` calls the chase before the unstable list and the addendum, and `_chase_verified_reads` / `_read_once_for_chase` apply what it kept. The decision is `verified_read_chase.py` and the loop `workers/verified_read_run.py`; only the worker owns `_rip_once` and the swap records.
     # **-> 4280** (2026-10-21): the entries above landed together on one branch.
-    "workers/rip_worker.py": 4280,
+    # **4280 -> 4324** (2026-10-26, run B of the 0.7.112 Full runs): `_record_unfinished_refix` swaps in a stopped securing pass's finished, AccurateRip-verified re-read and records why each other track was not, and its call passes the swap's inputs. The decision, the file-whole check and the sentence are `unfinished_refix.py`; only the worker owns the swap and its records.
+    "workers/rip_worker.py": 4324,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

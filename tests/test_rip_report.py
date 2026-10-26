@@ -367,6 +367,9 @@ def test_read_speed_block_records_auto_fix_retries() -> None:
             # Schema 39 (TASKS R7): derived, and null when no chase applied.
             "kept_read": "securing_pass",
             "verified_read_chase": None,
+            # Schema 40: a record from a pass that finished.
+            "pass_unfinished": False,
+            "not_replaced_because": None,
         }
     ]
     # An auto-fixed-and-clean rip is not "unresolved".
@@ -399,7 +402,56 @@ def test_read_speed_block_keeps_why_each_track_was_reread() -> None:
         ),
     )
     assert report["read_speed"]["retried_tracks"] == [
-        {**worker_record, "kept_read": "securing_pass", "verified_read_chase": None}
+        {
+            **worker_record,
+            "kept_read": "securing_pass",
+            "verified_read_chase": None,
+            "pass_unfinished": False,
+            "not_replaced_because": None,
+        }
+    ]
+
+
+def test_read_speed_block_carries_a_stopped_passs_swap_and_its_refusals() -> None:
+    """Schema 40 (run B, 2026-10-21): a stopped securing pass's verified re-read
+    is swapped in, and one it refused says why, in the report as the worker
+    recorded them."""
+    from platterpus.read_speed_ladder import SpeedAttempt, attempts_to_report
+
+    swapped = {
+        "track": 11,
+        "trigger": "accuraterip",
+        "reripped_z": 2,
+        "converged": False,
+        "replaced": True,
+        "replaced_because": "accuraterip",
+        "pass_unfinished": True,
+        "not_replaced_because": None,
+    }
+    refused = {
+        **swapped,
+        "track": 12,
+        "replaced": False,
+        "replaced_because": None,
+        "not_replaced_because": "accuraterip_did_not_verify",
+    }
+    report = build_report(
+        _sample_log(),
+        read_speed=attempts_to_report(
+            [SpeedAttempt(1, 0, 0, clean=True)],
+            unstable=[],
+            retried=[swapped, refused],
+        ),
+    )
+    rows = report["read_speed"]["retried_tracks"]
+    assert [(r["track"], r["kept_read"]) for r in rows] == [
+        (11, "securing_pass"),
+        (12, "first_read"),
+    ]
+    assert [r["pass_unfinished"] for r in rows] == [True, True]
+    assert [r["not_replaced_because"] for r in rows] == [
+        None,
+        "accuraterip_did_not_verify",
     ]
 
 
@@ -1322,7 +1374,10 @@ def test_schema_version_is_27() -> None:
     # unreleased v39 added `outcome.ripper_exit_class` and
     # `outcome.ripper_exit_build_tag`: the exit code read by the fork's classes
     # from release 36 (64 refused, 74 disc or drive), and the build it was read by.
-    assert REPORT_SCHEMA_VERSION == 39
+    # v40 added `read_speed.retried_tracks[].pass_unfinished` and
+    # `not_replaced_because`: a stopped securing pass's AccurateRip-verified
+    # re-read is swapped in, and a refused one says why (run B, 2026-10-21).
+    assert REPORT_SCHEMA_VERSION == 40
 
 
 def _issue_codes(report: dict) -> set[str]:
