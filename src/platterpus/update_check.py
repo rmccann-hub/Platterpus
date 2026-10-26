@@ -217,6 +217,21 @@ def latest_release(
     return ordered[0]
 
 
+def _our_release_page(value: object) -> str:
+    """The answer's release-page URL if it is one of OURS, else our releases page.
+
+    The URL is opened in the browser when the user accepts the offer, so it is an
+    instruction from a server, and only a page under :data:`RELEASES_PAGE_URL`
+    is taken from it: not another site, not ``file:``, not ``javascript:`` (peer
+    review 2.8, 2026-10-26). Never raises.
+    """
+    if isinstance(value, str) and (
+        value == RELEASES_PAGE_URL or value.startswith(RELEASES_PAGE_URL + "/")
+    ):
+        return value
+    return RELEASES_PAGE_URL
+
+
 def _parse_releases(releases: object, channel: str) -> list[ReleaseInfo] | None:
     """Releases from the API payload, newest first. ``None`` means unusable.
 
@@ -227,9 +242,13 @@ def _parse_releases(releases: object, channel: str) -> list[ReleaseInfo] | None:
     candidates: list[tuple[tuple[int, int, int, int, int], ReleaseInfo]] = []
     try:
         for entry in releases:  # type: ignore[attr-defined]  # payload shape is checked by the try
-            tag = str(entry["tag_name"])
+            # Stripped first: `release_sort_key` tolerates surrounding whitespace,
+            # so "v9.9.9\n" used to survive into the version we show and build a
+            # download URL from. A second leading "v" ("vv1.2.3") is no tag we
+            # publish, so the version may not start with one (peer review 2.8).
+            tag = str(entry["tag_name"]).strip()
             version = tag[1:] if tag.startswith("v") else tag
-            key = release_sort_key(version)
+            key = release_sort_key(version) if version[:1] not in ("v", "V") else None
             if key is None:
                 # Not a shape we publish. Skip the entry rather than abandoning the
                 # whole check: one odd tag in the list must not hide five good ones.
@@ -240,7 +259,7 @@ def _parse_releases(releases: object, channel: str) -> list[ReleaseInfo] | None:
             pre = is_prerelease_version(version)
             if channel != CHANNEL_BETA and not offered_on_stable_channel(tag):
                 continue
-            url = str(entry.get("html_url") or RELEASES_PAGE_URL)
+            url = _our_release_page(entry.get("html_url"))
             candidates.append(
                 (key, ReleaseInfo(version=version, url=url, is_prerelease=pre))
             )

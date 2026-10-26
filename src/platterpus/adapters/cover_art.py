@@ -278,6 +278,53 @@ def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes 
     return data
 
 
+#: The most back-cover and booklet images one release's manifest may make us
+#: fetch. A real booklet runs to a few dozen pages; the file names are numbered
+#: to two digits. A manifest naming more is cut here and the cut is logged.
+MAX_EXTRA_IMAGES: int = 60
+
+#: Hosts the Cover Art Archive serves its images from: its own, and the Internet
+#: Archive that stores them (an image URL redirects there).
+_IMAGE_HOSTS: tuple[str, ...] = ("coverartarchive.org", "archive.org")
+
+
+def image_url_is_ours(url: str) -> bool:
+    """True for an ``http(s)`` URL on the Cover Art Archive's own hosts.
+
+    The manifest NAMES the URLs we then fetch, so a URL in it is an instruction
+    from a server, not a fact. ``urllib`` follows ``file://`` and any host, so an
+    answer naming ``file:///…`` or a machine on the user's own network would have
+    been fetched (peer review 2.8, 2026-10-26). Never raises.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    return parsed.scheme in ("http", "https") and any(
+        host == ours or host.endswith("." + ours) for ours in _IMAGE_HOSTS
+    )
+
+
+def _manifest_images(raw: bytes) -> list[dict[str, object]]:
+    """The image entries of a Cover Art Archive manifest, or ``[]``. Never raises.
+
+    The manifest is a server's answer: any shape is possible, and every one that is
+    not ``{"images": [ {…}, … ]}`` is no images rather than an exception out of a
+    function documented never to raise (a non-list ``images``, or a document nested
+    deeper than the interpreter allows, both raised until 2026-10-26).
+    """
+    try:
+        manifest = json.loads(raw)
+    except (ValueError, RecursionError, TypeError) as exc:
+        log.info("cover-art manifest unreadable: %s", type(exc).__name__)
+        return []
+    images = manifest.get("images") if isinstance(manifest, dict) else None
+    if not isinstance(images, list):
+        return []
+    return [img for img in images if isinstance(img, dict)]
+
+
 def save_additional_covers(
     rip_dir: Path,
     release_id: str,
@@ -299,21 +346,32 @@ def save_additional_covers(
     url = MANIFEST_URL_TEMPLATE.format(mbid=urllib.parse.quote(mbid, safe=""))
     try:
         raw = fetch(url)
-        manifest = json.loads(raw)
-        images = manifest.get("images", []) if isinstance(manifest, dict) else []
     except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
         log.info("cover-art manifest fetch failed for %s: %s", mbid, e)
         return []
+    images = _manifest_images(raw)
 
     saved: list[str] = []
     have_back = False
     booklet_n = 0
+    fetches = 0
     for img in images:
-        if not isinstance(img, dict):
+        raw_types = img.get("types")
+        types = (
+            [t.lower() for t in raw_types if isinstance(t, str)]
+            if isinstance(raw_types, list)
+            else []
+        )
+        image_url = img.get("image")
+        if not isinstance(image_url, str) or not image_url:
             continue
-        types = [str(t).lower() for t in (img.get("types") or [])]
-        image_url = str(img.get("image") or "")
-        if not image_url:
+        if not image_url_is_ours(image_url):
+            log.warning(
+                "cover-art manifest for %s named an image off the archive's hosts; "
+                "not fetched: %r",
+                mbid,
+                diagnostics.bounded_chars(image_url, head=160, tail=40),
+            )
             continue
         if "back" in types and not have_back:
             stem = "back"
@@ -322,6 +380,16 @@ def save_additional_covers(
             stem = f"booklet-{booklet_n:02d}"
         else:
             continue
+        if fetches >= MAX_EXTRA_IMAGES:
+            log.warning(
+                "cover-art manifest for %s names more than %d back/booklet images; "
+                "fetched the first %d",
+                mbid,
+                MAX_EXTRA_IMAGES,
+                MAX_EXTRA_IMAGES,
+            )
+            break
+        fetches += 1
         try:
             data = fetch(image_url)
         except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):

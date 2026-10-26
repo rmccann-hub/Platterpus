@@ -1062,6 +1062,10 @@ _MODULE_LINE_THRESHOLD: Final[int] = 300
 #: this was written. A file may shrink or leave; it may not grow, and no new file
 #: may join.
 _OVERSIZE_MODULES: Final[dict[str, int]] = {
+    # 316 (2026-10-26, peer review 2.8): crossed 300 by `_our_release_page`, which
+    # takes a release-page URL from the answer only when it is one of ours. One
+    # job still: read the releases answer into what the update offer shows.
+    "update_check.py": 316,
     # 299 -> 331 on 2026-10-06, crossing the heuristic with the maintainer's
     # narrowing of `expect-album-audit`. **Kept as one module deliberately**: it is
     # one pure grader per artifact verb (album audit, AccurateRip, CTDB, settling),
@@ -1153,7 +1157,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **378 -> 388** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the saved cd-paranoia output keeps head and tail (`diagnostics.bounded_output`), and the comment says why: the verdict is the last thing it prints, and the 2,000-character cut dropped it.
     "adapters/cache_probe.py": 388,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "adapters/cover_art.py": 567,
+    # **567 -> 635** (2026-10-26, peer review 2.8): the manifest is a server's answer: `_manifest_images` (any shape is no images, never an exception), `image_url_is_ours` (only the archive's own http(s) hosts are fetched) and `MAX_EXTRA_IMAGES`; all three belong beside the one function that reads the manifest.
+    "adapters/cover_art.py": 635,
     # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
     # **339 -> 358** (2026-10-21, TASKS R43): `parse_track_crcs`, all-or-nothing, so one unreadable token no longer slides later per-track CRCs onto the wrong track; parsing the response belongs in the adapter.
     # **358 -> 395** (2026-10-26, TASKS R43, the CTDB localisation): `CtdbEntry` keeps the parity URL, the `syndrome` words and the stride the lookup publishes, and the client gains `fetch_parity` (a concrete default on the ABC, so no test fake reaches the network). Fetching and validating the record is `adapters/ctdb_parity.py`; the entry and the client seam belong here.
@@ -1220,7 +1225,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     "adapters/cyanrip_backend.py": 1983,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
-    "adapters/musicbrainz_client.py": 534,
+    # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
+    "adapters/musicbrainz_client.py": 618,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
     # signature last has the window, so this is a property of the SEAM and
