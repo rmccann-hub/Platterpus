@@ -161,3 +161,90 @@ def test_commit_builds_an_evidence_commit_and_its_rows(tmp_path: Path) -> None:
         (tmp_path / "staged-manifest-rows.tsv").read_text(encoding="utf-8").splitlines()
     )
     assert len(rows) == len(filed) and all(r.split("\t")[3] == sha for r in rows)
+
+
+def _chase_wrapper(signed: bytes, attempts: int = 2) -> bytes:
+    """The verified-read chase's record, as `verified_read_chase.py` writes it."""
+    out = b""
+    for n in range(1, attempts + 1):
+        out += (
+            f"=== Platterpus verified-read chase: track 16, attempt {n} ===\n"
+            "argv: /var/home/someone/.local/bin/cyanrip -d /dev/sr0 -l 16\n"
+            "exit status: 0\n"
+        ).encode()
+        out += signed + b"\n"
+    return out
+
+
+def test_a_chase_wrapper_keeps_each_log_and_redacts_around_them(
+    tmp_path: Path,
+) -> None:
+    """The 2026-10-22 11:45 UTC run: the chase's record named the rig's home
+    folder on each argv line, and its five embedded logs, read as ONE signed log,
+    failed the check and were kept unredacted. Each embedded log now verifies on
+    its own and stays byte for byte; the lines between them are redacted."""
+    raw = _bundle(tmp_path)
+    folder = next((raw / "album").iterdir())
+    (folder / "Album.platterpus-verified-read.txt").write_bytes(
+        _chase_wrapper(_SIGNED.read_bytes())
+    )
+    out = tmp_path / "staged"
+
+    code = evidence_file.main(["stage", str(raw), str(out), "--prefix", "r"])
+
+    filed = (out / "rwholediscverifiedread.txt").read_bytes()
+    row = _rows(out)["rwholediscverifiedread.txt"]
+    assert code == 0
+    assert b"/var/home/someone" not in filed
+    assert filed.count(_SIGNED.read_bytes()) == 2, "an embedded log was altered"
+    assert row["verification"] == (
+        "verified-read wrapper: 2 embedded cyanrip log(s), 2 FUN512 valid"
+    )
+    assert row["homes"] == "2"
+
+
+def test_a_tampered_log_inside_a_chase_wrapper_fails_the_filing(
+    tmp_path: Path,
+) -> None:
+    raw = _bundle(tmp_path)
+    folder = next((raw / "album").iterdir())
+    data = bytearray(_SIGNED.read_bytes())
+    data[100] ^= 1
+    (folder / "Album.platterpus-verified-read.txt").write_bytes(
+        _chase_wrapper(bytes(data), attempts=1)
+    )
+
+    assert (
+        evidence_file.main(["stage", str(raw), str(tmp_path / "s"), "--prefix", "r"])
+        == 1
+    )
+
+
+@pytest.mark.parametrize(
+    ("rel", "name"),
+    [
+        # Section P5's timed rips, one album folder each (0.7.112).
+        (
+            "album/timing A1 20261022t215702 platterpus-fork-g5f1d036/x CD4.log",
+            "timinga1.log",
+        ),
+        (
+            "album/timing B2 20261022t215702 platterpus-fork-gca0f097/x CD4.platterpus.json",
+            "timingb2report.json",
+        ),
+        ("session/run/installripper1628.txt", "installripper1628.txt"),
+        # A rip that never finished leaves its files loose under album/.
+        (
+            "album/full acceptance x 20261021t214510 CD1 (EAC-compatible).log",
+            "wholedisceac.log",
+        ),
+        ("album/full acceptance x 20261021t214510 CD1.log", "wholedisc.log"),
+    ],
+)
+def test_the_round_36_bundles_members_have_filed_names(rel: str, name: str) -> None:
+    """Every member of the four 2026-10-21/22 bundles needed a name before any
+    could be filed: the timed rips' folders, the install records, and the loose
+    files of the run that stopped after 21,600 s."""
+    from evidence_names import staged_name
+
+    assert staged_name(rel) == name

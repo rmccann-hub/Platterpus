@@ -20,6 +20,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The evidence filing tool names every member of a 0.7.112 Full run, and files the verified-read chase's record redacted** (contributor-facing). The four round 36 bundles had members it had no name for (section P5's `timing A1` to `B2` folders, `install-ripper`'s records, and the loose files of a rip that never finished), and the chase's record, several signed cyanrip logs with our argv lines between them, verified as no log at all, so it was kept unredacted with the rig's home folder on each argv line. Each embedded log is now verified on its own and kept byte for byte, and the lines between them are redacted and counted. The four runs are filed on `evidence` at `6b31795c` (308 files), with their manifest rows.
+
 - **Our handshake report now catches a later lap that moves a round's close-by** (contributor-facing). It read only each round's first `HANDSHAKE-CLOSE-BY`, so our own round 36 laps 2 and 3, declaring 2026-11-30 against the fork's lap 1's 2026-11-20, went unremarked until the fork's lap 5 S15 found them. It now compares every later lap, either side's, with the first declaration, advisory as R2 says; over the record that is 7 laps (round 8's laps 9 to 18, and our two). The fork's round 36 lap 5 is filed.
 
 ### Changed

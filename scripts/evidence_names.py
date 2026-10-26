@@ -36,6 +36,12 @@ ALBUMS: tuple[tuple[str, str], ...] = (
     ("secure reread", "securereread"),
     ("r16deemphoff", "deemphoff"),
     ("r16deemphon", "deemphon"),
+    # Section P5's timed rips (0.7.112): the approved build twice (A1, A2) and the
+    # one under review twice (B1, B2), each its own album folder.
+    ("timing A1", "timinga1"),
+    ("timing A2", "timinga2"),
+    ("timing B1", "timingb1"),
+    ("timing B2", "timingb2"),
 )
 
 #: An album member by how its file name ends.
@@ -79,11 +85,19 @@ def staged_name(rel: str) -> str | None:
         return "cacheprobe.txt"
     if m := re.fullmatch(r"session/run/tags(\d{4})\.txt", rel):
         return f"tags{m[1]}.txt"
+    # `install-ripper`'s record of each build it installed (section P5).
+    if m := re.fullmatch(r"session/run/installripper(\d{4})\.txt", rel):
+        return f"installripper{m[1]}.txt"
     if m := re.fullmatch(
         r"ripperdiagnostics/cyanrip-diagnostics-(\w{1,40}?)(-securingpass)?\.json", rel
     ):
         return f"jrecord{m[1].lower()}{'securingpass' if m[2] else ''}.json"
     parts = rel.split("/")
+    if len(parts) == 2 and parts[0] == "album":
+        # A rip that never finished leaves its files loose under `album/`, with
+        # no album folder (the 2026-10-21 21:45 UTC run, stopped after 21,600 s):
+        # the file's own name then says which section it belongs to.
+        parts = ["album", parts[1], parts[1]]
     if len(parts) == 3 and parts[0] == "album":
         key = album_key(parts[1])
         for ending, suffix in ALBUM_FILES:
