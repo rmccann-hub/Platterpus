@@ -1153,7 +1153,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cover_art.py": 567,
     # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
     # **339 -> 358** (2026-10-21, TASKS R43): `parse_track_crcs`, all-or-nothing, so one unreadable token no longer slides later per-track CRCs onto the wrong track; parsing the response belongs in the adapter.
-    "adapters/ctdb_client.py": 358,
+    # **358 -> 395** (2026-10-26, TASKS R43, the CTDB localisation): `CtdbEntry` keeps the parity URL, the `syndrome` words and the stride the lookup publishes, and the client gains `fetch_parity` (a concrete default on the ABC, so no test fake reaches the network). Fetching and validating the record is `adapters/ctdb_parity.py`; the entry and the client seam belong here.
+    "adapters/ctdb_client.py": 395,
     # --- The 2026-09-09 log-verification race: eight files, one defect ------
     #
     # A cancelled rip's log was read 6.1 s before the ripper finished writing
