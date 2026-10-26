@@ -1699,7 +1699,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2112 -> 2117** (2026-10-26, plan of record row 9): every audio track block carries a `Proof:` row naming which proof its copy has; the wording and the decision are `track_proof.py`, and `_verified_reread_line` reads the chase list through the same helper.
     # **2117 -> 2123** (2026-10-26, `.27`, round 36 lap 8 S21): the not-determined `Pre-gap length` row names what the search saw; the wording is `pregap_search.describe`.
     # **2123 -> 2189** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): a track OUR proposed time limit stopped is worded by that limit, never as reads that disagreed: `_stopped_by_time_limit`, its own `Read stability` line, the verdict line, and `_agreement_clause` split out of `_reread_shortfall` so both wordings share it. The limit itself is read in `reread_limit.py`.
-    "eac_log_export.py": 2189,
+    # **2189 -> 2217** (2026-10-26, peer review 2.5): `_screen_rows`, every row through `inbound_text.screen_line` at the one place the rows are joined, so a value holding a line break cannot add a row above the checksum. It belongs at the join it guards.
+    "eac_log_export.py": 2217,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
