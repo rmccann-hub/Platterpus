@@ -69,6 +69,7 @@ from platterpus.parsers.rip_log import (
 )
 from platterpus.pregap_search import describe as describe_pregap_search
 from platterpus.report_types import SecureReripBlock
+from platterpus.reread_limit import stopped_by_time_limit
 from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
@@ -1351,11 +1352,26 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     renders nothing, so a clean rip's conclusive report is unchanged.
     """
     lines: list[str] = []
+    # A track stopped by OUR time limit (the fork's proposed `--reread-time-limit`,
+    # round 36 lap 10 S11) gets its own line: "did not read identically" would
+    # be false of a track the clock stopped after one read, and it blames the
+    # disc for a limit we set.
+    timed_out = [
+        track.number
+        for track in rip_log.tracks
+        if track.secure_rerip_converged is False and _stopped_by_time_limit(track)
+    ]
     unstable = [
         track.number
         for track in rip_log.tracks
-        if track.secure_rerip_converged is False
+        if track.secure_rerip_converged is False and not _stopped_by_time_limit(track)
     ]
+    if timed_out:
+        lines.append(
+            f"Read stability      : track(s) {_listed_tracks(timed_out)} stopped "
+            "re-reading at our time limit before the reads converged — not "
+            "confirmed reproducible (a limit we set, not a finding about the disc)"
+        )
     if unstable:
         lines.append(
             f"Read stability      : track(s) {_listed_tracks(unstable)} did not read "
@@ -1371,6 +1387,16 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
             "audio — not confirmed"
         )
     return lines
+
+
+def _stopped_by_time_limit(track: TrackResult) -> bool:
+    """True when the log says OUR time limit stopped this track's ``-Z`` re-read.
+
+    The fork's PROPOSED ``--reread-time-limit`` (their round 36 lap 10 S11; see
+    :mod:`platterpus.reread_limit`). False for the repeat limit and for a log
+    that names no limit, so every log filed so far renders as before.
+    """
+    return stopped_by_time_limit(getattr(track, "secure_rerip_limit_stop", None))
 
 
 def _listed_tracks(numbers: list[int]) -> str:
@@ -1818,6 +1844,7 @@ def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[s
             reproducible=track.secure_rerip_converged,
             unverified_skips=track_has_unverified_skips(track),
             contradicted=contradiction is not None,
+            stopped_by_time_limit=_stopped_by_time_limit(track),
         )
         out.append(f"     {verdict}")
     out.append("")
@@ -1930,6 +1957,13 @@ def _reread_shortfall(track: TrackResult) -> str:
       27's track 3, whose log cannot show whether its last read matched one of
       the others (it did).
 
+    And one case decided by WHICH limit stopped the reads, before those three:
+    **our time limit** (the fork's proposed ``--reread-time-limit``, round 36 lap
+    10 S11): ``re-reads stopped at our time limit of 600 s before they
+    converged``, with the count only when two or more agreed. Never "did NOT
+    agree": the first read always runs and a track can stop after it, so that
+    sentence would blame the disc for a limit we set.
+
     Never a Test CRC built from the reads that agreed. That would print EAC's
     *Test CRC ≠ Copy CRC* state, which describes two full passes EAC ran; here
     the kept read is the last one (the fork's round 29 lap 1 S35), on round 28's
@@ -1938,10 +1972,33 @@ def _reread_shortfall(track: TrackResult) -> str:
     (S34). ``docs/eac-parity.md`` (Part B, the CRC row) has the parity reasoning.
     """
     agreement = track.secure_rerip_agreement
+    if _stopped_by_time_limit(track):
+        # OUR clock stopped it (the fork's proposed `--reread-time-limit`, round
+        # 36 lap 10 S11), so the sentence names the limit and never says the
+        # reads disagreed: the first read always runs, and a track can stop after
+        # it, with nothing to agree with. A count of two or more is still said.
+        stop = track.secure_rerip_limit_stop
+        seconds = stop.time_limit_seconds if stop is not None else None
+        limit = f" of {seconds} s" if seconds else ""
+        head = f"re-reads stopped at our time limit{limit} before they converged"
+        counted = _agreement_clause(track)
+        return f"{head}; {counted}" if counted else head
     if agreement is None or agreement.most_reads_agreed < 2:
         if agreement is not None and agreement.exact:
             return "re-reads did NOT agree"
         return "re-reads did not converge"
+    return f"re-reads did not converge; {_agreement_clause(track)}"
+
+
+def _agreement_clause(track: TrackResult) -> str:
+    """``at most 2 of 3 reads agreed``, or "" when fewer than two agreed or unknown.
+
+    ``at most`` when the log proves the number (the fork's own word for it), ``at
+    least`` when it proves only a floor. Pure.
+    """
+    agreement = track.secure_rerip_agreement
+    if agreement is None or agreement.most_reads_agreed < 2:
+        return ""
     bound = "at most" if agreement.exact else "at least"
     reads = track.rip_count
     # "of N" only when the read count can hold the number we are about to print;
@@ -1951,10 +2008,7 @@ def _reread_shortfall(track: TrackResult) -> str:
         if isinstance(reads, int) and reads >= agreement.most_reads_agreed
         else ""
     )
-    return (
-        f"re-reads did not converge; {bound} {agreement.most_reads_agreed}"
-        f"{of_reads} reads agreed"
-    )
+    return f"{bound} {agreement.most_reads_agreed}{of_reads} reads agreed"
 
 
 def _accuraterip_line(track: TrackResult) -> str:
@@ -2018,6 +2072,7 @@ def _status_line(
     reproducible: bool | None = None,
     unverified_skips: bool = False,
     contradicted: bool = False,
+    stopped_by_time_limit: bool = False,
 ) -> str:
     """Render the track status the way EAC does — but never `Copy OK` for a track
     whose re-reads disagreed.
@@ -2075,9 +2130,20 @@ def _status_line(
     2026-10-26, row 8). The ``Proof:`` row above it names the contradiction in our
     words. The two verdicts above take precedence, because each already reads
     not clean and names its own cause.
+
+    ``stopped_by_time_limit`` (the fork's proposed ``--reread-time-limit``, round
+    36 lap 10 S11) words a non-reproducible track's verdict by the limit that
+    stopped it: OUR time limit, never the disc. It changes nothing unless
+    ``reproducible`` is ``False``.
     """
     if unverified_skips:
         return UNVERIFIED_SKIPS_VERDICT
+    if reproducible is False and stopped_by_time_limit:
+        return (
+            "Copy NOT confirmed — re-reads stopped at our time limit before they "
+            "converged, so this track is not verified reproducible (see Read "
+            "stability above)"
+        )
     if reproducible is False:
         # "did not converge", not "did not agree": on the round-28 Full run's
         # track 5 two reads DID agree, and the Copy CRC line above says how many.

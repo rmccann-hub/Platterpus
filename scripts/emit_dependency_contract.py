@@ -181,6 +181,12 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # `cyanrip@b2ffd42:PROVIDER-CONTRACT.md:300`. Fork-only: upstream's
         # search prints nothing of what it saw.
         "track_pregap_search",
+        # The fork's PROPOSED `-Z` time limit's disc header line, `Re-read limit:
+        # 600 s a track, checked between whole-track reads` (round 36 lap 10 S11,
+        # `cyanrip@52501ed:docs/handshake/round-36-lap-10.md`), read before any
+        # build prints it. Fork-only: the option is theirs, and upstream's header
+        # has `Frame retries:` alone.
+        "reread_time_limit",
     }
 )
 

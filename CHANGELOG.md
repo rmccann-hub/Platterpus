@@ -18,6 +18,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The rip log reader takes the cyanrip fork's proposed `-Z` time limit before any build prints it.** Their round 36 lap 10 S11 proposes `--reread-time-limit SECONDS`: once a track's re-reads have taken that long, no further read starts. Its line `Done; (time limit of 600 s reached after 4 reads; at most 2 reads agreed)` is read as NOT converged, with its count and kept-read clauses, so a track it stopped can never be taken for a converged one; the report says which limit stopped each such track, `tracks[].secure_rerip_limit_stop` (`repeat_limit` or `time_limit`, with the seconds), and the `Re-read limit:  600 s a track, …` header as `rip.reread_time_limit_seconds` and its state. Report schema 41 (40 shipped in 0.7.113), additions only. The EAC-layout log says such a track's re-reads *stopped at our time limit* and gives it a `Read stability` line saying it is a limit we set, not a finding about the disc. Platterpus does not send the option.
+
 - **What numpy added to the download, measured:** 0.7.113's AppImage is 274,356,728 bytes, 18.3 MB (7.2 %) more than 0.7.112's; that is the whole release's difference, and the pre-release estimate for numpy alone was 13.8 MB (`DEPENDENCIES.md`).
 
 - **Our round 36 lap 9, held until its pull request is green and merged.** It reads the four Full runs as the fork's lap 8 does (`Recordable:` and track 9's pregap stop `.26`), names 0.7.113 as the release that reads `.27`'s lines, accepts the fork's `Pregap search:`, the `read with no error reported.` rename and the kept read's `Extraction speed:` under `-Z`, asks for their `-Z` time limit, and files their lap 8 byte for byte.

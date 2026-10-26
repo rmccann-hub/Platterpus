@@ -454,10 +454,17 @@ log proves (`eac_log_export._reread_shortfall`, from
 | the largest group of agreeing reads, exactly | `re-reads did not converge; at most 2 of 3 reads agreed — …` | round 28 track 5, round 26 track 5 |
 | only a floor under it (old wording, short of the `-Z` target) | `re-reads did not converge; at least 2 of 4 reads agreed — …` | none committed |
 | nothing (old wording, no read matched before the last) | `re-reads did not converge — this read is not confirmed reproducible` | round 27 track 3 |
+| **our time limit** stopped the reads (the fork's PROPOSED `--reread-time-limit`, round 36 lap 10 S11; not built, not sent) | `re-reads stopped at our time limit of 600 s before they converged; at most 2 of 4 reads agreed — …`, the count only when two or more agreed | none: no build prints it (`tests/test_reread_time_limit.py` builds the case from S11's text) |
 
 The verdict line reads `Copy NOT confirmed — re-reads did not converge, so this
-track is not verified reproducible`, one wording for all four, since *did not
-converge* is the `-Z` verdict itself. *At most* is the fork's own word for the exact
+track is not verified reproducible`, one wording for the first four, since *did not
+converge* is the `-Z` verdict itself. A track **our time limit** stopped reads
+`Copy NOT confirmed — re-reads stopped at our time limit before they converged, …`
+instead, and its own `Read stability` line says *a limit we set, not a finding about
+the disc*: the first read always runs and the clock can stop a track after it, so
+*did NOT agree* or *did not read identically* would blame the disc for our setting.
+The limit is read by `reread_limit.py`; the words go to the fork in our next lap,
+since they diff this log. *At most* is the fork's own word for the exact
 count, so their line and ours say the same thing about one track.
 
 **The parity reasoning.** (1) Nothing EAC-shaped was added: no new line, no new

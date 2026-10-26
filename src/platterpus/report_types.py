@@ -49,6 +49,12 @@ class RipBlock(TypedDict):
     accurate_stream_reason: str | None
     recordable: str
     recordable_reason: str | None
+    #: v41: the fork's proposed `Re-read limit:` line (round 36 lap 10 S11): the
+    #: seconds, the state (`reread_limit.TIME_LIMIT_STATES`) and, for
+    #: `unrecognised`, the line's value.
+    reread_time_limit_seconds: int | None
+    reread_time_limit_state: str
+    reread_time_limit_text: str | None
     paranoia_level: str | None
     overread_mode: str | None
     ripper_build: str | None
@@ -549,6 +555,19 @@ class KeptReadBlock(TypedDict):
     last_read_crc: str | None
 
 
+class LimitStopBlock(TypedDict):
+    """Which limit stopped a `-Z` re-read that did not converge (schema 41)."""
+
+    #: `repeat_limit` or `time_limit` (`reread_limit.STOPPED_BY`).
+    stopped_by: str
+    #: The time limit the line names, for `time_limit`; else None.
+    time_limit_seconds: int | None
+    #: The `-r` count the repeat-limit line names; None where it names none.
+    repeat_limit_reads: int | None
+    #: How many reads were made, where the line says `after N reads`.
+    reads: int | None
+
+
 class TrackProofBlock(TypedDict):
     #: v40: one of `track_proof.PROOF_KINDS` ("accuraterip", "verified_reread",
     #: "ctdb", "reads_agree", "none") and the line the EAC-layout log prints.
@@ -568,6 +587,8 @@ class TrackBlock(TypedDict):
     # line, "kept X, read N times, which AccurateRip matches at confidence C".
     # None on every build so far.
     secure_rerip_kept_read: KeptReadBlock | None
+    #: Schema 41: which limit stopped a re-read that did not converge.
+    secure_rerip_limit_stop: LimitStopBlock | None
     extraction_speed: float | None
     extraction_quality: float | None
     pre_emphasis: bool | None

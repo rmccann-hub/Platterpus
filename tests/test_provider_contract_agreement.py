@@ -523,6 +523,14 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
         "(`cyanrip@b2ffd42:PROVIDER-CONTRACT.md:300`, `Pregap search: %i sectors "
         "asked; ...`). Retires when `.27`'s contract is filed"
     ),
+    "reread_time_limit": (
+        "the fork's PROPOSED `-Z` time limit's disc header line, not built: their "
+        "round 36 lap 10 S11 (`cyanrip@52501ed:docs/handshake/round-36-lap-10.md`) "
+        "gives it as `Re-read limit:  600 s a track, checked between whole-track "
+        "reads`, and round 20's order has our reader take it before any build "
+        "prints it. No provider contract can list it yet. Retires when the "
+        "contract of the build that prints it is filed"
+    ),
 }
 
 
