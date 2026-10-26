@@ -22,6 +22,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **What our documents say EAC does is corrected against EAC's own page** (the EAC parity plan of record of 2026-10-26, §7). EAC's secure mode re-reads each sector until reads agree, up to 82 times, and Test & Copy is a separate choice; it does not do "a Test pass and a Copy pass", and it does not keep a majority per track. KDD-30 and 0.7.112's notes carry dated corrections rather than rewrites; the archived investigation says EAC *can* use C2 when switched on; the README no longer calls EAC's speed reduction "per-sector", which no source we hold says; and KDD-12's "AccurateRip accepts submissions only from EAC and dBpoweramp" is marked unverified, since AccurateRip's own list names five programs.
+
 - **The EAC-layout log's `Utilize accurate stream` row now says what the drive declared, instead of `(not reported by the ripper)`.** Every `.26` rip on the rig printed `Accurate stream: declared supported by drive (capabilities page, not measured)`, and the row ignored it. A declaration is not EAC's "used", so the row reads `(not determined; the drive declares it supported, not measured)`, never `Yes`.
 
 - **An exported session bundle no longer carries your home folder in the verified-read chase's record.** The record holds each single read's signed cyanrip log, with our argv line before it, and the export kept any file with a signed log in it byte for byte, so the argv lines' home folder went into the 2026-10-22 11:45 UTC bundle, ten times. The export now redacts around the embedded logs, which stay exactly as written, through the same function the evidence filing tool uses.
@@ -49,6 +51,15 @@ track was doubtful, whether the read offset is AccurateRip's for the drive, and 
 actually ran; a data track no longer counts as a failed audio track; and the verdict stops
 saying "No errors occurred" over an unclean read or "not in the database" for a disc AccurateRip
 holds. `.25` is still installed by default. Released on the owner's word of 2026-10-20.
+
+> **Correction (2026-10-26, the EAC parity plan of record, §7):** "where EAC keeps the
+> majority" above is wrong. EAC does not keep a majority per track. In secure mode it
+> repeats a sector with a read or sync error until 8 of 16 reads agree, at most 82 reads,
+> and otherwise tells the user where the possible error is
+> ([EAC: Extraction Technology](https://exactaudiocopy.de/extraction-technology/), read
+> 2026-10-26). With Test & Copy it keeps its Copy read whatever AccurateRip says. The
+> majority at the repeat limit is cyanrip's, as the R7 bullet below says. The text above
+> stays as released.
 
 ### Added
 
