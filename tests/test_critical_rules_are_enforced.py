@@ -1963,7 +1963,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4368 -> 4408** (2026-10-26, the fork's round 36 lap 8 S26): `read with no error reported.` added to `_TRACK_START` beside `read successfully!`, with why it is not a verification claim, and `read_reported_no_error`, the ONE predicate the five `endswith("successfully!")` sites now ask. It lives beside the pattern whose alternatives it names.
     # **4408 -> 4450** (2026-10-26, `.27`, round 36 lap 8 S21): the `Pregap search:` line pattern with its citations, its listing, its `_TrackAcc` slot and its handler beside `Pregap source:`, which logs a reworded value. The value itself is read by `pregap_search.py`.
     # **4450 -> 4551** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the `time limit` arm of `_SECURE_DONE_FAIL` with why it must read as not converged, the `Re-read limit:` line rule, `secure_rerip_limit_stop` (the claim made here), the buffered and in-block handling, and the listings. Which limit a claimed line names, and the header's seconds, are read in `reread_limit.py`.
-    "parsers/cyanrip_log.py": 4551,
+    # **4551 -> 4618** (2026-10-26, peer review 2.4, TASKS R86): `_TRACK_ECHO_HEADER`, its listing, `_TrackAcc.echo_reached`, `_is_track_verdict_row`, the latch in the block loop and its counted warning, so a value cyanrip echoes (the disc's CD-TEXT) cannot set a track's verdict. It must sit in the block loop it guards; the citations for the print order are the reason it is safe.
+    "parsers/cyanrip_log.py": 4618,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one

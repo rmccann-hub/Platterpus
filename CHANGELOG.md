@@ -32,6 +32,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **Our round 36 lap 9, held until its pull request is green and merged.** It reads the four Full runs as the fork's lap 8 does (`Recordable:` and track 9's pregap stop `.26`), names 0.7.113 as the release that reads `.27`'s lines, accepts the fork's `Pregap search:`, the `read with no error reported.` rename and the kept read's `Extraction speed:` under `-Z`, asks for their `-Z` time limit, and files their lap 8 byte for byte.
 
+### Fixed
+
+- **A value cyanrip echoes into its log can no longer set a track's verdict.** cyanrip prints each track's tags and the disc's own CD-TEXT verbatim (`cyanrip@eca33dc:src/cyanrip_log.c:58-62`, `:770-776`), so a CD-TEXT title holding a line break could put `  Accurip:       accurately ripped (confidence 200)` on a line of its own after the genuine row, and the reader took the last one: a disc AccurateRip had not checked read as verified (peer review 2.4, 2026-10-26, measured on the `.26` reference log). Every per-track verdict row prints before the block's `Metadata:` header in every build, so one after it is now counted, logged as a warning and not read. Our own values could not do this: the argv chokepoint already refuses or replaces a control character in all eleven `-a`/`-t` values, now held end to end by `tests/test_echoed_field_forgery.py`. A forged block opener, `Done;` line or disc-level header row is still open (TASKS R86) and goes to the fork as a NEXT-ROUND item.
+
 ## [0.7.113] — 2026-10-26
 
 The release your next Full run goes through, and the first built against the EAC parity plan of
