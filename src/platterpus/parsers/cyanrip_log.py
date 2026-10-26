@@ -390,15 +390,55 @@ _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # trailing data track's geometry would overwrite the last audio track's. What a
 # data track's block then says about the copy is read by `_DATA_TRACK_OUTCOME` and
 # the two `_DATA_*` rows below.
+#
+# **`read with no error reported.` is the fork's proposed rename of `read
+# successfully!`** (their round 36 lap 8 S26; the line is printed at
+# `cyanrip@ca0f097:src/cyanrip_main.c:1966`). It says what the line always meant:
+# the READ reported no error (no drive error, no paranoia skip, no `-Z` repeat
+# limit). It is NOT a verification claim: it is printed before AccurateRip is
+# looked up, and on the fork's damaged-disc run it printed over four tracks
+# AccurateRip then rejected (their S9). Read here BEFORE any build prints it,
+# because round 20's order is that no build of theirs may emit a line this parser
+# cannot read. The old wording is kept for good: every log already filed carries
+# it. Whether a read finished cleanly is answered by ONE predicate,
+# `read_reported_no_error`, never by a caller matching the wording.
 _TRACK_START = re.compile(
-    r"^Track (?P<number>\d+) "
+    r"^Track (?P<number>\d{1,4}) "
     r"(?P<what>"
     r"ripped and encoded successfully!|ripped and encoded with errors\.|"  # <= .13
     r"read successfully!|read with errors\.|"  # >= .14, their §0.3
+    r"read with no error reported\.|"  # their round 36 lap 8 S26, proposed
     r"is data, skipping:|"  # >= .23 under -X
     r"is data:"
     r")"
 )
+
+#: Every outcome wording, of an audio track's `_TRACK_START` or a data track's
+#: `_DATA_TRACK_OUTCOME`, that says the read reported no error. A wording not in
+#: this set (`with errors.` in any of its spellings) says it did.
+_NO_ERROR_REPORTED_OUTCOMES: Final[frozenset[str]] = frozenset(
+    {
+        "ripped and encoded successfully!",  # <= .13
+        "read successfully!",  # .14 onward
+        "read with no error reported.",  # the proposed rename (lap 8 S26)
+        "ripped successfully!",  # a data track's copy, `+platterpus.23` onward
+    }
+)
+
+
+def read_reported_no_error(what: str) -> bool:
+    """Whether a track's outcome wording says its read reported no error.
+
+    THE one answer for every caller: the block loop's status, the live reader
+    (:func:`finished_track`), and through it the rip worker, the progress row and
+    the verified-read chase. Five call sites used to ask whether the wording
+    ended in ``successfully!``, which would have read the rename (round 36 lap 8
+    S26) as a read WITH errors. **Not a verification claim**: it says the
+    drive reported no error, which AccurateRip can still contradict. Pure; never
+    raises.
+    """
+    return isinstance(what, str) and what in _NO_ERROR_REPORTED_OUTCOMES
+
 
 # A data track's own outcome line, inside its block (`+platterpus.23` onward):
 #
@@ -2468,14 +2508,14 @@ def finished_track(line: str) -> tuple[int, bool] | None:
         number = int_or_none(match.group("number"), field="finished track number")
         if number is None:
             return None
-        return number, match.group("what").endswith("successfully!")
+        return number, read_reported_no_error(match.group("what"))
     data = _DATA_TRACK_OUTCOME.match(line)
     if data is None:
         return None
     number = int_or_none(data.group("number"), field="finished data track number")
     if number is None:
         return None
-    return number, data.group("what").endswith("successfully!")
+    return number, read_reported_no_error(data.group("what"))
 
 
 def partial_summary_denominator(
@@ -3819,7 +3859,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # same number (see `_DATA_TRACK_OUTCOME`).
                 current.status = (
                     DATA_TRACK_COPIED
-                    if what.endswith("successfully!")
+                    if read_reported_no_error(what)
                     else DATA_TRACK_COPIED_WITH_ERRORS
                 )
                 current.data_awaiting_outcome = False
@@ -3830,7 +3870,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # build before `.23`; the data track's outcome line, or the
                 # evidence `flush()` looks for, revises it (`DATA_TRACK_STATUSES`).
                 status = DATA_TRACK_SKIPPED
-            elif what.endswith("successfully!"):
+            elif read_reported_no_error(what):
                 status = "ripped successfully"
             else:
                 status = "ripped with errors"
@@ -3869,7 +3909,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             if current is not None and current.is_data and outcome_of == current.number:
                 current.status = (
                     DATA_TRACK_COPIED
-                    if match.group("what").endswith("successfully!")
+                    if read_reported_no_error(match.group("what"))
                     else DATA_TRACK_COPIED_WITH_ERRORS
                 )
                 current.data_awaiting_outcome = False
