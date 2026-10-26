@@ -20,6 +20,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **`expect-cover-art` waits for a cover result that lands after the rip's report has settled, and never reads a missing one as zero** (contributor-facing). The cover step is not a verification gate, so the report settles without it; in run C on 0.7.112 the verb graded 91 s before the step recorded its result and said "the report says 0 file(s) took the cover; the files hold 16". It now waits up to five minutes for the result, and a result still missing is "not determined".
 
+- **A new disc scan closes a release picker an older scan left open, and the script's `rescan`, `pick-release` and `rip` act on the scan they started.** In run A on 0.7.112 a picker opened by the flicker's scan stayed open 338 s; `rescan` returned at once, `pick-release` answered that old picker 250 ms into the new scan, and `rip` was refused because the new scan was still reading. The window now closes a picker whose scan was superseded (each picker carries the scan that asked it), so the new scan asks its own question. `rescan` waits up to 120 s for its scan to identify the disc or open its picker, `pick-release` refuses a superseded scan's picker, and `rip` waits up to 120 s for a scan in flight before deciding as it did before.
+
 ### Added
 
 - **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours.

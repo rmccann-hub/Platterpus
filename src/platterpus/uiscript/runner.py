@@ -63,6 +63,7 @@ from platterpus.uiscript.report import (
     StepRecord,
     render,
 )
+from platterpus.uiscript.scan_verbs import ScanVerbsMixin, superseded_picker
 from platterpus.uiscript.script import (
     LAST_TRACK_PLACEHOLDER,
     OFFSET_PLACEHOLDER,
@@ -382,6 +383,7 @@ class ScriptRunner(
     BurstVerbsMixin,
     InstallVerbsMixin,
     TimingVerbsMixin,
+    ScanVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -2175,30 +2177,8 @@ class ScriptRunner(
     # all. Until now the vocabulary could open dialogs and probe the ripper but could
     # not start a rip, so the one thing a rig session exists to do needed a person.
 
-    def _do_rescan(self, step: Step) -> None:
-        """Re-run the whole disc pipeline (disc info → MusicBrainz) for the drive.
-
-        Goes through the window's own `_on_drive_changed`, which is exactly what the
-        Rescan button's `drive_changed` signal triggers — rather than poking the
-        probe directly, which would skip the wiring the button depends on.
-        """
-        picker = getattr(self._window, "_drive_picker", None)
-        device = picker.current_device() if picker is not None else None
-        if not device:
-            self._record(
-                step,
-                Outcome.FAIL,
-                "no drive is selected, so there is nothing to rescan",
-            )
-            return
-        handler = getattr(self._window, "_on_drive_changed", None)
-        if handler is None:
-            self._record(step, Outcome.ERROR, "the window has no _on_drive_changed()")
-            return
-        self._record(step, Outcome.PASS, f"rescanning {device}")
-        # Deferred like `open`: the scan spawns workers, and returning to the event
-        # loop first keeps the runner's own tick responsive.
-        QTimer.singleShot(0, lambda: handler(device))
+    # `rescan` and the scan waits `rip` and `pick-release` share live in
+    # `scan_verbs.py` (run A on 0.7.112: all three raced the scan).
 
     def _do_album(self, step: Step) -> None:
         """Set the album title.
@@ -3292,6 +3272,18 @@ class ScriptRunner(
         if controls is None:
             self._record(step, Outcome.ERROR, "no rip controls on the window")
             return
+        refusal = self._start_refusal()
+        if refusal:
+            self._record(step, Outcome.FAIL, refusal)
+            return
+        # A scan in flight disables Start for a few seconds; run A's `rip` was
+        # refused by exactly that. Wait for it, then decide as below.
+        if self._wait_for_scan_then(step, lambda: self._press_start(step, controls)):
+            return
+        self._record(step, *self._press_start(step, controls))
+
+    def _start_refusal(self) -> str:
+        """Why Start must not be pressed now (a dialog, a rip running), or ``""``."""
         blocking = _active_dialog()
         if blocking is not None:
             title = blocking.windowTitle()
@@ -3310,35 +3302,34 @@ class ScriptRunner(
                 if title == _RELEASE_PICKER_TITLE
                 else "Answer it in the script (`ok` / `cancel`) before ripping."
             )
-            self._record(
-                step,
-                Outcome.FAIL,
+            return (
                 f"a dialog is waiting for an answer: {title!r}. Refusing to press "
                 "Start behind it — the previous step's rip may not have been "
                 "created yet, and starting a second one would put two ripper "
-                f"processes on one drive. {fix}",
+                f"processes on one drive. {fix}"
             )
-            return
         if getattr(self._window, "_rip_worker", None) is not None:
-            self._record(step, Outcome.FAIL, "a rip is already running")
-            return
+            return "a rip is already running"
+        return ""
+
+    def _press_start(self, step: Step, controls: object) -> tuple[Outcome, str]:
+        """Press Start if everything still allows it, read at the press itself."""
+        refusal = self._start_refusal()
+        if refusal:
+            return Outcome.FAIL, refusal
         can_start = getattr(controls, "can_start", None)
         if callable(can_start) and not can_start():
-            self._record(
-                step,
-                Outcome.FAIL,
+            return Outcome.FAIL, (
                 "the Start button is not enabled — no disc identified, no drive "
-                "selected, or a rip/scan is already active",
+                "selected, or a rip/scan is already active"
             )
-            return
         start = getattr(controls, "_on_start", None)
         if start is None:
-            self._record(step, Outcome.ERROR, "the rip controls have no _on_start()")
-            return
-        self._record(step, Outcome.PASS, "start requested")
+            return Outcome.ERROR, "the rip controls have no _on_start()"
         self._last_rip_step_started = True
         self._last_rip_step = step
         QTimer.singleShot(0, start)
+        return Outcome.PASS, "start requested"
 
     def _do_pick_release(self, step: Step) -> None:
         """Answer the MusicBrainz release picker without a person.
@@ -3504,6 +3495,10 @@ class ScriptRunner(
                 )
             return False  # scan or lookup still running; keep waiting
 
+        stale = superseded_picker(self._window, dialog)
+        if stale:
+            self._deadline_timeout_detail = f"nothing chosen: {stale}"
+            return False
         releases = list(getattr(dialog, "_releases", []))
         index = _match_release(releases, wanted)
         if index is None:

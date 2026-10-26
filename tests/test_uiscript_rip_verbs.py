@@ -928,11 +928,14 @@ class ReleasePickerDialog:  # noqa: N801 — the name IS the interface here
     drift into satisfying a verb the product would not.
     """
 
-    def __init__(self, releases: list[_Release], visible: bool = True) -> None:
+    def __init__(
+        self, releases: list[_Release], visible: bool = True, scan_request: int = 0
+    ) -> None:
         self._releases = releases
         self._table = _FakeTable()
         self._visible = visible
         self.accepted = False
+        self.scan_request = scan_request
 
     def isVisible(self) -> bool:  # noqa: N802 — Qt spelling
         return self._visible
@@ -954,7 +957,7 @@ def test_the_stand_in_matches_the_real_pickers_surface() -> None:
     would still pass while the verb died in front of an unattended batch."""
     from platterpus.ui.release_picker import ReleasePickerDialog as Real
 
-    for name in ("_releases", "_table", "accept", "isVisible"):
+    for name in ("_releases", "_table", "accept", "isVisible", "scan_request"):
         assert hasattr(Real, name) or f"self.{name}" in __import__("inspect").getsource(
             Real.__init__
         ), f"the real ReleasePickerDialog has no {name!r}, but the verb uses it"

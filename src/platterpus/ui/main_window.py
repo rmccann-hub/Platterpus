@@ -380,6 +380,8 @@ class MainWindow(
         # The disc whose release picker is on screen right now, "" when none is.
         # Lives exactly as long as the picker's `exec()`; see `_on_mb_releases`.
         self._mb_picker_open_for: str = ""
+        # That picker itself, so a newer scan can close it (`_close_superseded_picker`).
+        self._open_release_picker: ReleasePickerDialog | None = None
         # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -1318,6 +1320,7 @@ class MainWindow(
 
         if not automatic_retry:
             self._begin_disc_request()
+            self._close_superseded_picker()
 
         # A new disc scan resets unknown-album mode: it latches True when a disc
         # can't be identified (the auto-offer / File → Rip as Unknown), and if it
@@ -1463,6 +1466,28 @@ class MainWindow(
         """
         current = self._drive_picker.current_device()
         return current is not None and current != device
+
+    def _close_superseded_picker(self) -> None:
+        """A new disc scan was asked for: close a release picker an older scan
+        left open, unanswered.
+
+        Its question belongs to a scan nobody is waiting for, and while it is
+        open the new scan's own candidates are declined for the same disc (the
+        one-picker rule in `_on_mb_releases`), so the new scan could never ask.
+        Run A on 0.7.112 (app log lines 690-705): a picker from a scan the drive
+        flicker started stayed open 338 s, and the script's `pick-release` after
+        a `rescan` answered it instead of the rescan's question.
+        """
+        dialog = self._open_release_picker
+        if dialog is None or not dialog.isVisible():
+            return
+        log.info(
+            "closing the release picker for disc %r unanswered: a new disc scan "
+            "supersedes it",
+            self._mb_picker_open_for,
+        )
+        dialog.superseded = True
+        dialog.reject()
 
     # --- Slots: MusicBrainz results ----------------------------------------
 
@@ -1613,17 +1638,28 @@ class MainWindow(
                 context,
             )
             dialog = ReleasePickerDialog(releases, self)
+            dialog.scan_request = self._disc_retries.request
             waited_from = time.monotonic()
             # Restored, not cleared, when the picker closes: pickers for two
             # discs can nest, and the outer one is still open.
             outer_picker = self._mb_picker_open_for
+            outer_dialog = self._open_release_picker
             self._mb_picker_open_for = context
+            self._open_release_picker = dialog
             try:
                 accepted = dialog.exec() == QDialog.DialogCode.Accepted
             finally:
                 self._mb_picker_open_for = outer_picker
+                self._open_release_picker = outer_dialog
             waited = time.monotonic() - waited_from
-            if accepted:
+            if dialog.superseded:
+                log.info(
+                    "release picker for disc %r closed unanswered after %.1fs: a "
+                    "newer disc scan superseded it and asks again",
+                    context,
+                    waited,
+                )
+            elif accepted:
                 mbid = dialog.selected_mbid()
                 if mbid:
                     log.info("release picker: user chose %s after %.1fs", mbid, waited)

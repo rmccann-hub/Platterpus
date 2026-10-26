@@ -2354,7 +2354,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1825 -> 1819** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac_recompress_done` signal and its connection.
     # **1819 -> 1821** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the typed `_last_*` working copies.
     # **1821 -> 1833** (2026-10-26, run A on 0.7.112, the drive flicker): `DiscReturnMixin` in the class list and its import, `_parked_disc` initialised beside the disc-id fields it parks, a drive change (Rescan) dropping it, and `_on_disc_info_ready` restoring the same disc's release instead of a new lookup. The logic is in `ui/main_window_disc_return.py`; these are the call sites it needs on the window.
-    "ui/main_window.py": 1833,
+    # **1833 -> 1869** (2026-10-26, run A on 0.7.112, the script's `rescan` then `pick-release`): a new disc scan closes the release picker an older scan left open (`_close_superseded_picker`, called where a new read request begins), each picker carries the scan that asked it, and the slot logs a superseded close apart from a cancel. These are the MusicBrainz slots and the picker they own, which live here.
+    "ui/main_window.py": 1869,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2778,7 +2779,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4809 -> 4823** (2026-10-21, the timed rip, the fork's round 36 lap 1 S15): two verb mixins in the class list and their imports, the two pieces of timing state with their reset, and the one dispatch line that marks a section N/A when it has nothing to compare. The handlers live in `install_verbs.py` and `timing_verbs.py`.
     # **4809 -> 4815** (2026-10-21, TASKS P2 #4): `expect-verification`'s floor asks `verification_gates.gate_claims_ran`, since a gate with a result now says "ran — passed" or "ran — failed".
     # **-> 4829** (2026-10-21): the entries above landed together on one branch.
-    "uiscript/runner.py": 4829,
+    # **4829 -> 4824** (2026-10-26, run A on 0.7.112): lowered: `rescan` moved to `scan_verbs.py` with the scan waits `rip` and `pick-release` now share; `rip`'s refusals became `_start_refusal`/`_press_start`, read again at the press when it waited for a scan.
+    "uiscript/runner.py": 4824,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2822,7 +2824,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **998 -> 999** (2026-10-20): the `refused` word in `expect-exit`'s help line.
     # **999 -> 1045** (2026-10-21, the timed rip): the `install-ripper`, `skip-if-same-build`, `record-timing` and `compare-timings` declarations, and the module docstring naming `install-ripper` as the one argued exception to "no verb installs a dependency". The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **1045 -> 1046** (2026-10-26, run A on 0.7.112): `expect-tags`' help says it compares with the table as it was when the rip started (its record), not as it is now; one more wrapped line.
-    "uiscript/verbs.py": 1046,
+    # **1046 -> 1059** (2026-10-26, run A on 0.7.112): `rescan` and `rip` say they wait for the scan, and `pick-release` that it never answers a superseded scan's picker; two entries move from one line to the wrapped form.
+    "uiscript/verbs.py": 1059,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

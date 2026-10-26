@@ -14280,3 +14280,53 @@ def test_a_finished_rip_of_the_wrong_disc_says_so_everywhere(
     assert report["disc"]["lookup_disc_id"] == _DISC_B
     assert report["disc"]["identity_check"]["status"] == "mismatch"
     assert "disc_identity_mismatch" in {i["code"] for i in report["issues"]}
+
+
+def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
+    teardown_threads: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Run A on 0.7.112 (app log lines 690-705): a picker opened by the scan the
+    drive flicker started stayed open 338 s; the script's `rescan` started a new
+    scan behind it, and `pick-release` answered the OLD picker. While it stayed
+    open, the new scan's candidates for the same disc were declined (one picker
+    per disc), so the new scan could never ask. A new scan now closes it."""
+    from PySide6.QtCore import QCoreApplication  # noqa: PLC0415
+
+    window = teardown_threads()
+    disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+    window._current_disc_id = disc
+    releases = [
+        ReleaseSummary(
+            mbid=f"aaaaaaaa-0000-0000-0000-00000000000{n}",
+            title=f"Candidate {n}",
+            artist_credit="The Police",
+            date="2003",
+            country="GB",
+            track_count=14,
+        )
+        for n in (1, 2)
+    ]
+    pickers: list[ReleasePickerDialog] = []
+
+    def _fake_exec(self: ReleasePickerDialog) -> int:
+        pickers.append(self)
+        if len(pickers) == 1:  # only the first is shown: it is the one closed
+            self.show()
+            window._start_disc_info("/dev/sr0")  # the rescan, behind the picker
+            QCoreApplication.processEvents()
+        return int(self.result())
+
+    monkeypatch.setattr(ReleasePickerDialog, "exec", _fake_exec)
+    first_scan = window._disc_retries.request
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window"):
+        window._on_mb_releases(disc, releases)
+
+    assert pickers[0].scan_request == first_scan
+    assert pickers[0].superseded and not pickers[0].isVisible()
+    assert "a newer disc scan superseded it" in caplog.text, caplog.text
+    # The new scan's own candidates now open the new scan's own picker.
+    window._current_disc_id = disc
+    window._on_mb_releases(disc, releases)
+    assert len(pickers) == 2 and pickers[1].scan_request == first_scan + 1
