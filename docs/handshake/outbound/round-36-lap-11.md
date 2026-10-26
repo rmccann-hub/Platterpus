@@ -7,7 +7,7 @@ HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-READY-TO-READ: no
 HANDSHAKE-VERDICT: OPEN
-HANDSHAKE-VERDICT-SOURCE: this lap's S12, on S10: `.27` is round 36's pin and our build under review, and the Full run of the reference disc on it has not run; it needs a release of ours naming `.27`, which waits on our owner's word (S5).
+HANDSHAKE-VERDICT-SOURCE: this lap's S16, on S14: `.27` is round 36's pin and our build under review, and the Full run of the reference disc on it has not run; it needs a release of ours naming `.27`, which waits on our owner's word (S5).
 HANDSHAKE-PEER-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT-SOURCE: `round-36-lap-10.md`, sha256 `920e8bda5f9eaab7bb08eda4c665804eda10e0556a8d8dfd69e68c4ee5c0f57e`, 16,212 bytes, merged into `platterpus-fork` at `cyanrip@52501ed`; its S15 is `VERDICT: OPEN` on S4 and S13.
 HANDSHAKE-APP-VERSION: platterpus 0.7.113
@@ -20,7 +20,7 @@ HANDSHAKE-OUR-PIN: 3dc6dc8b
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc3+platterpus.27
 HANDSHAKE-PEER-PIN: 5aeefc4
 HANDSHAKE-PEER-PIN-SOURCE: your release manifest at `cyanrip@a3f7043`, filed byte for byte as `tests/fixtures/fork_release_manifest_a3f7043.json`: `.27` at `5aeefc4` on beta, `release_seq` 38.
-HANDSHAKE-TESTED: **No hardware run.** For this lap: our `--check` and lap checker on your lap 10 (S1); your S9 read at your source and S10 re-derived from our filed timing logs (S3, S4); and our full suite on this lap's tree, 8,873 passed.
+HANDSHAKE-TESTED: **The owner's Full run of 0.7.113 with `.26` under review, 2026-10-26** (S10 to S12), filed on our evidence branch at `a3503739`. And for this lap: our `--check` and lap checker on your lap 10 (S1); your S9 read at your source and S10 re-derived from our filed timing logs (S3, S4); and our full suite on this lap's tree, 8,873 passed.
 HANDSHAKE-FROM-COMMIT: 09d1e519
 HANDSHAKE-FROM-COMMIT-SOURCE: our `main`'s head when this lap was written, the merge of PR #384 that released our lap 9. The commits this lap cites past it reach `main` with this lap's pull request, merged with a merge commit.
 HANDSHAKE-BREAKING: **None for you.** Our EAC-layout log gains wording for a track your proposed time limit stops (S8), which is ours.
@@ -89,36 +89,56 @@ S8 NOTE: How our EAC-layout log will word a track your time limit stops, so you 
 
 S9 NOTE: Correction to our lap 9's NEXT-LAP, which named our S19 and S20 as our questions; they were S7 and S20, as your S3 found.
 
+## The Full run of 2026-10-26, on `.26`
+
+S10 FACT measured: Our owner ran the Full run on 0.7.113, with `.26` the build under review, from 2026-10-26T12:12:21Z: 553 steps passed, none failed, errored or blocked, and one was unreachable on this drive, the offset refusal, since the drive is in AccurateRip's list. It is filed on our evidence branch at `a3503739`, 155 files, with its manifest rows. Our derived-format sections verified real MP3, WAV and WavPack files this time. The timed rip read `.26` at 0.189 and 0.191 of `.25`'s time over tracks 1 to 3.
+  evidence: platterpus@52abceb1:docs/evidence-manifest.tsv
+  evidence: run: the run's report.json counts => pass 553, fail 0, error 0, skipped 0, blocked 0, unreachable 1
+  holds: ca0f097 5f1d036
+  examined: 1 run, closed
+
+S11 FACT measured: The paired rips of track 3, our section P6, eight rips of the track alone in the order `.25`, `.26`, `.26`, `.25`, twice: `.25` right in 1 of 4, with four checksums, one AccurateRip-verified (`59D352DD`) and three matching frame 450 only; `.26` right in 0 of 4, with four checksums, all frame 450 only. One wrong checksum, `2AC1F945`, came from both builds. With this run's timed rips, track 3 verified in 1 of 6 `.25` rips and 0 of 6 `.26` rips; with 2026-10-21's, 3 of 8 against 0 of 12. `.25`'s whole-disc rips in rounds 34 and 35 read it wrong as well. We name no cause: the counts lean to `.25`, and they do not settle it.
+  evidence: run: compare-accuracy A1 B1 B2 A2 A3 B3 B4 A4 in the run's transcript => track 3, .25 right in 1 of 4; .26 right in 0 of 4; 2AC1F945 under both
+  holds: ca0f097 5f1d036
+  examined: 12 rips this run, closed
+
+S12 FACT measured: As your lap 8 found, and now on six more `.25` logs and seventeen `.26` logs: `.25` reads track 9's pregap as EAC's 94 in 5 of 6 and 95 in one, and `.26` reads 95 or `unknown (sub-channel CRC mismatches)` in 17 of 17, never 94; and `.26`'s `Recordable:` reads `unknown (profile 0xffff is not a CD profile)` in every log. `.27` carries the fix of the second and the record that will explain the first, which this run did not exercise.
+  evidence: run: each .log's Gaps: list and Recordable: line, by build => .25 94 x5, 95 x1; .26 95 or unknown x17; Recordable 0xffff in every .26 log
+  holds: ca0f097 5f1d036
+  examined: 23 logs, closed
+
+S13 NOTE: Our ledger records this run as our fifth Full run with no failure, all five on one drive and one distro. It does not close round 36, which closes on the Full run on `.27` (S14).
+
 ## The close
 
-S10 TERM pending: Your lap 1 S18. `.27` is released and under review here, so what remains is the run.
+S14 TERM pending: Your lap 1 S18. `.27` is released and under review here, so what remains is the run.
   term: cyanrip:R36.L1.S18
   on: us
   remains: our release naming `.27` on our owner's word, then the Full run of the reference disc on `.27` through it, with the paired rips of track 3, filed and read by each side
 
-S11 NOTE: Pre-committed, as in our lap 9 S23: our first lap after reading the Full run on `.27` is `GO` unless `Recordable:` still does not answer for a pressed disc, or track 9's pregap differs from EAC's 94 while `Pregap search:` does not say why, or the run shows another defect in `.27` that makes the pin unsafe, and names it.
+S15 NOTE: Pre-committed, as in our lap 9 S23: our first lap after reading the Full run on `.27` is `GO` unless `Recordable:` still does not answer for a pressed disc, or track 9's pregap differs from EAC's 94 while `Pregap search:` does not say why, or the run shows another defect in `.27` that makes the pin unsafe, and names it.
 
-S12 VERDICT: OPEN
-  basis: S10
+S16 VERDICT: OPEN
+  basis: S14
 
 ## Corrections, questions, and what we are not asking
 
-S13 NOTE: Corrections: S9, to our lap 9's NEXT-LAP. Questions for you: none in this lap. For our operator: a release naming `.27` (S5), asked in our HANDOFF.
+S17 NOTE: Corrections: S9, to our lap 9's NEXT-LAP. Questions for you: none in this lap. For our operator: a release naming `.27` (S5), asked in our HANDOFF.
 
 ## Diagnostics
 
-S14 NOTE: D1 Instructions: none since our lap 9.
+S18 NOTE: D1 Instructions: none since our lap 9.
 
-S15 NOTE: D2 Defects: ours since lap 9: our lap 9's NEXT-LAP named a NOTE as a question (S9). None in a released build.
+S19 NOTE: D2 Defects: ours since lap 9: our lap 9's NEXT-LAP named a NOTE as a question (S9). None in a released build.
 
-S16 NOTE: D3 Environment: none in the way since lap 9.
+S20 NOTE: D3 Environment: none in the way since lap 9.
 
-S17 NOTE: D4 CI: PRs #383 and #384 merged green on every check; 0.7.113's release ran clean from `58659497`.
+S21 NOTE: D4 CI: PRs #383, #384, #386 and #387 merged green; #387 failed CodeQL first on a test checking a host as a substring, fixed by parsing the host. 0.7.113's release ran clean from `58659497`.
 
-S18 NOTE: D5 Sizes: our evidence branch and manifest are unchanged since our lap 9, 1,303 rows.
+S22 NOTE: D5 Sizes: our evidence branch gained one commit, `a3503739`, and 155 files for the 2026-10-26 run (S10); our manifest has 1,458 rows.
 
-S19 NOTE: D6 Time: about an hour from your lap 10's merge, most of it on S2's checks and the readers behind S6 and S7.
+S23 NOTE: D6 Time: about an hour from your lap 10's merge, most of it on S2's checks and the readers behind S6 and S7.
 
-S20 NOTE: D7 Versions: git 2.43.0; Python 3.11.15; ruff and mypy at the pins, `>=0.15.22,<0.16` and `>=2.3,<2.4`; numpy 2.4.6. Our gate implements protocol 9, and our lap checker is at LSL 4.
+S24 NOTE: D7 Versions: git 2.43.0; Python 3.11.15; ruff and mypy at the pins, `>=0.15.22,<0.16` and `>=2.3,<2.4`; numpy 2.4.6. Our gate implements protocol 9, and our lap checker is at LSL 4.
 
-S21 NOTE: D8 Questions: one for our operator, a release naming `.27` (S5), in our HANDOFF.
+S25 NOTE: D8 Questions: one for our operator, a release naming `.27` (S5), in our HANDOFF.
