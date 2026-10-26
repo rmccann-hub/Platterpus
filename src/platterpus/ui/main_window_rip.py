@@ -389,6 +389,19 @@ def _merge_shipped_track(
                 shipped.extraction_quality, track.extraction_quality
             ),
             replaygain=_reported(shipped.replaygain, track.replaygain),
+            # HOW the shipped read went: its own speed, time and paranoia
+            # counters, or none. Not `_reported`, because these describe a READ,
+            # not the track, and the first pass's values describe the read that
+            # was thrown away. Run C's secure re-read (2026-10-22, plan of record
+            # Appendix I, defect 3) shipped track 16 from chase read 5 (4.8x,
+            # 41.53 s, no skip) and both the report and the EAC-layout log printed
+            # the superseded -Z read's 0.55x, 362.25 s and SKIP 1 beside its CRC.
+            # A read whose log printed none of these gets none: unknown is true,
+            # another read's numbers are not.
+            extraction_speed=shipped.extraction_speed,
+            extraction_elapsed_seconds=shipped.extraction_elapsed_seconds,
+            paranoia_counts=dict(shipped.paranoia_counts),
+            paranoia_scope=shipped.paranoia_scope,
         )
     if single_read and shipped is not None:
         return replace(

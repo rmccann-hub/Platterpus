@@ -2151,7 +2151,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3290** (2026-10-21): the entries above landed together on one branch.
     # **3290 -> 3303** (2026-10-26, the owner's EAC-parity plan of record, row 8): the v40 schema note and the per-track `accuraterip_contradiction` field. The rule is `verdict.track_accuraterip_contradiction`; this is the one place the report is assembled.
     # **3303 -> 3330** (2026-10-26, plan of record row 9): the per-track `proof` block and its v40 note; `_build` hands each track the chase list and CTDB's per-track rows, which only the report holds. The decision and wording are `track_proof.py`.
-    "rip_report.py": 3330,
+    # **3330 -> 3335** (2026-10-26, plan of record Appendix I defect 3): the v40 note that a re-read track's speed, time and paranoia counters are the shipped read's; the merge itself is in `ui/main_window_rip.py`.
+    "rip_report.py": 3335,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2545,7 +2546,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 5069** (2026-10-21): the entries above landed together on one branch.
     # **5000 -> 5035** (2026-10-21, the owner's known-fixes list item 5, TASKS P2 #5): `_record_post_rip_cut_short`, which seals the album's record and writes the report before the unattended quit, beside `_post_rip_steps_running` it reads; `_gates_for` and `_write_rip_report` pass the seal to the report. The seal itself is `PostRipRecord.seal_cut_short`.
     # **-> 5104** (2026-10-21): the entries above landed together on one branch.
-    "ui/main_window_rip.py": 5104,
+    # **5104 -> 5117** (2026-10-26, the owner's EAC-parity plan of record, Appendix I defect 3): `_merge_shipped_track` takes the shipped read's own speed, elapsed time and paranoia counters, with no fallback to the superseded read's; the merge rule lives here.
+    "ui/main_window_rip.py": 5117,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

@@ -508,6 +508,11 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      copy has, one of `accuraterip`, `verified_reread`, `ctdb`, `reads_agree`
 #      or `none`, in the line the EAC-layout log prints (`track_proof.py`), with
 #      CTDB's per-track result, which that log is written before. Additions only.
+#      Also in v40 (plan Appendix I, defect 3), a meaning that NARROWS: for a
+#      track whose file is a re-read, `extraction_speed`,
+#      `extraction_elapsed_seconds`, `paranoia_counts` and `paranoia_scope` are
+#      that read's own, null or empty where its log printed none, never the
+#      superseded read's.
 REPORT_SCHEMA_VERSION: int = 40
 
 
