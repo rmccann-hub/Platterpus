@@ -141,6 +141,21 @@ def test_a_value_that_is_not_an_instant_is_unrecognised_not_a_time(value: str) -
     )
 
 
+def test_an_unrecognised_value_is_logged_with_its_end_and_the_cut_counted(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The warning quotes head AND tail of a long value, and says how much it cut:
+    a tool's last words are where its explanation is (`diagnostics.bounded_chars`)."""
+    value = "1" * 4000 + "END-OF-VALUE"
+    with caplog.at_level("WARNING", logger="platterpus.parsers.cyanrip_log"):
+        parse_cyanrip_log(_with_value(value))
+    [record] = [r for r in caplog.records if "Kept read began" in r.getMessage()]
+    message = record.getMessage()
+    assert "END-OF-VALUE" in message
+    assert "character(s) omitted" in message
+    assert len(message) < 400
+
+
 def test_the_record_form_takes_an_offset_and_converts_it_to_utc() -> None:
     """The record's reader shares this function, and its instants carry offsets."""
     assert (

@@ -4101,7 +4101,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
                     log.warning(
                         "cyanrip log: track %s: unrecognised Kept read began: %r",
                         current.number,
-                        match.group("value")[:_UNRECOGNISED_VALUE_HEAD],
+                        diagnostics.bounded_chars(
+                            match.group("value"),
+                            head=_UNRECOGNISED_VALUE_HEAD,
+                            tail=_UNRECOGNISED_VALUE_TAIL,
+                        ),
                     )
                 continue
 

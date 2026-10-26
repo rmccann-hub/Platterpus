@@ -1947,7 +1947,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 4300** (2026-10-21): the entries above landed together on one branch.
     # **4300 -> 4334** (2026-10-26, the fork's `.27`, round 36 lap 7 S5): the `Kept read began:` pattern with its citations, its listing and its handler beside `Elapsed:`; the instant itself is read by `kept_read.py`, which the `-j` record's reader shares.
     # **4334 -> 4364** (2026-10-26, `.27`, round 36 lap 7 S6): the `not written whole:` pattern and its rule beside `Encoder errors:`, claimed only below that line. The bounding and the report live in `written_whole.py`.
-    "parsers/cyanrip_log.py": 4364,
+    # **4364 -> 4368** (2026-10-26): the unrecognised `Kept read began:` value is logged head and tail by `diagnostics.bounded_chars`, not cut at the head (`tests/test_dependency_output_is_never_cut_at_the_head.py` caught it).
+    "parsers/cyanrip_log.py": 4368,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
