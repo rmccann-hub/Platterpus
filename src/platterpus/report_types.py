@@ -61,6 +61,11 @@ class RipBlock(TypedDict):
     #: v34: the disc's AccurateRip ID verbatim (`id1-id2-cddb`, lower-case hex),
     #: from the ripper's `AccurateRip ID:` line. None before the fork's `.23`.
     accuraterip_disc_id: str | None
+    #: v40: the files `.27`'s footer says a failed encoder did not write whole,
+    #: screened; None when the log names none (never "all written whole"), and
+    #: the count of any past the parse's bound.
+    not_written_whole: list[str] | None
+    not_written_whole_not_kept: int
     # v14: the ripper's own completion footer, tri-state. `rip_completed` is
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.
@@ -260,6 +265,10 @@ class TrackErrorPositionsBlock(TypedDict):
     paranoia_all_reads_state: str
     paranoia_all_reads: dict[str, int] | None
     paranoia_all_reads_not_read: int
+    #: v40 (`cyanrip-diagnostics/11`): the record's `kept_read_began` in UTC, and
+    #: its state (`record_track_v11.STATES`); `not_present` on `/10` and earlier.
+    kept_read_began: str | None
+    kept_read_began_state: str
 
 
 class ErrorPositionsBlock(TypedDict):
@@ -519,6 +528,11 @@ class TrackBlock(TypedDict):
     pre_emphasis: bool | None
     peak_level: float | None
     extraction_elapsed_seconds: float | None
+    #: v40: the UTC instant the read this track's files carry began (`.27`'s
+    #: `Kept read began:`), null unless `kept_read_began_state` is `read`; the
+    #: state is `read`, `unrecognised` or `not_present` (`kept_read.STATES`).
+    kept_read_began: str | None
+    kept_read_began_state: str
     appended_silence_frames: int | None
     #: v34: a data track's CRC32 and `Sector EDC:` verdict, verbatim (`.23`+).
     #: Kept apart from `copy_crc`, which is an audio track's EAC CRC.
