@@ -155,6 +155,16 @@ _FIELDS: Final[dict[str, str]] = {
 }
 
 
+def test_the_forged_row_table_names_every_verdict_row() -> None:
+    """The floor for the three tests parametrized over `_FORGED_ROWS`."""
+    assert len(_FORGED_ROWS) == 6
+
+
+def test_the_field_table_names_all_eleven_values_we_send() -> None:
+    """The floor for the parametrized route-1 test: its population is computed."""
+    assert len(_FIELDS) == 11 and set(_PATH_BEARING) <= set(_FIELDS)
+
+
 def _metadata_with(field: str, value: str) -> tuple[RipMetadata, str]:
     track = TrackTag(
         1,

@@ -841,15 +841,17 @@ class UpdateMixin(MainWindowShared):
         """
         if self._install_thread is not None:  # an install is already running
             return
-        from PySide6.QtWidgets import QProgressDialog
-
+        from platterpus.ui.plain_text import plain_progress_dialog
         from platterpus.workers import start_worker_thread
         from platterpus.workers.update_worker import UpdateInstallWorker
 
         self._install_worker = UpdateInstallWorker(version)
         self._install_thread = QThread(self)
 
-        dialog = QProgressDialog(
+        # PlainText from the first text on: `version` is the update server's, and
+        # the worker's status sentences follow it into this label
+        # (`ui/plain_text.py`; QProgressDialog's own label guesses its format).
+        dialog = plain_progress_dialog(
             f"Downloading Platterpus {version}…", "Cancel", 0, 100, self
         )
         dialog.setWindowTitle("Updating")

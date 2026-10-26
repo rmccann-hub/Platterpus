@@ -1002,7 +1002,10 @@ def test_offset_variant_cells_get_a_tooltip(qapp: QApplication) -> None:
     )
     widget.set_rip_log(log)
     item = widget._ar_table.item(0, _AR_COL_V1)
-    assert item.toolTip() == ONE_FRAME_TOOLTIP
+    # Shown through `plain_tooltip` (peer review 2.6), so compared the same way.
+    from platterpus.ui.plain_text import plain_tooltip
+
+    assert item.toolTip() == plain_tooltip(ONE_FRAME_TOOLTIP)
 
 
 # --- Re-rip comparison banner (0.4.24) --------------------------------------

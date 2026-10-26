@@ -45,6 +45,7 @@ from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 from platterpus.ui.main_window_shared import MainWindowShared
+from platterpus.ui.plain_text import plain_tooltip
 
 if TYPE_CHECKING:
     from platterpus.deps.build_notes import BuildNote
@@ -324,7 +325,9 @@ class DependencyMixin(MainWindowShared):
         # names what was not checked is the long one, so the whole of it is kept
         # reachable on hover rather than cut off where the window happens to end.
         # On the label, not the bar, so it is hidden with the text it copies.
-        label.setToolTip(stamped)
+        # Through `plain_tooltip`: the sentence names tools and versions a
+        # dependency reported, and a tooltip guesses its format (`ui/plain_text.py`).
+        label.setToolTip(plain_tooltip(stamped))
         announce(label, text)
 
     def _dependency_sentence_on_screen(self) -> bool:

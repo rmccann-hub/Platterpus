@@ -2444,7 +2444,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 935 -> 934 on 2026-09-28 (down: the import in, and the function-local
     # `QMessageBox` import it no longer needs out): every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup.
     # 934 -> 962 on 2026-09-28 (code review R8): the dependency sentence moves from a temporary status-bar message, which opening any menu wiped, to a status-bar label built here beside the one method that writes it; a silent check now replaces a sentence already on screen (it no longer vanishes on its own), which retires the overdue-only flag.
-    "ui/main_window_deps.py": 962,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **962 -> 965** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
+    "ui/main_window_deps.py": 965,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2656,7 +2657,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pin is html-escaped into the setup dialog's RichText intro, with the comment
     # saying so (tests/test_labels_state_their_text_format.py checks this builder).
     # **1023 -> 1004** (2026-10-05, the setup wizard's intro shows its list as a list): down: the ripper update's `SetupCopy` moved to `host_setup_dialog.ripper_update_copy`, and `import html` with it.
-    "ui/main_window_update.py": 1004,
+    # **1004 -> 1006** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
+    "ui/main_window_update.py": 1006,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
@@ -2667,7 +2669,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1718 -> 1721** (2026-10-26, TASKS R43, the CTDB localisation): the results pane passes the localisation to the shared per-track sentence, which does the wording.
     # **1718 -> 1747** (2026-10-26, the owner's EAC-parity plan of record, row 8): `_status_cell`, the Status column's ⚠ for a track AccurateRip contradicts, where it showed the ripper's "ripped successfully". The rule is `verdict.track_accuraterip_contradiction` and the tooltip's words are `track_proof.contradiction_sentence`; this is the cell that shows them.
     # **-> 1750** (2026-10-26): the entries above landed together on one branch.
-    "ui/rip_progress.py": 1750,
+    # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
+    "ui/rip_progress.py": 1759,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2705,7 +2708,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1388 -> 1373** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the greyed-out Re-compress FLACs row, its save and its preset wiring.
     # **1373 -> 1390** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC` checkbox, its tooltip and save key.
     # **1390 -> 1412** (2026-10-20, the owner's word "yes, read twice by default"): the second-read checkbox and its tooltip, which says what turning it off gives up.
-    "ui/settings_dialog.py": 1412,
+    # **1412 -> 1415** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
+    "ui/settings_dialog.py": 1415,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.

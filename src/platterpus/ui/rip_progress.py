@@ -74,6 +74,7 @@ from platterpus.parsers.rip_log import (
 from platterpus.track_proof import contradiction_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
+from platterpus.ui.plain_text import plain_tooltip
 from platterpus.ui.status_colours import SECONDARY_STYLE, status_style
 
 # Re-exported so existing imports (and tests) can keep doing
@@ -1009,7 +1010,7 @@ class RipProgress(QWidget):
             title_item = QTableWidgetItem(_basename(track.filename))
             status_text, status_tip = _status_cell(track)
             status_item = QTableWidgetItem(status_text)
-            status_item.setToolTip(status_tip)
+            status_item.setToolTip(plain_tooltip(status_tip))
             # Pass the frame-450 result so a track where only that frame matched
             # (v1/v2 "not found") says so, rather than cyanrip's "…or bad rip",
             # which names a cause just as the old "pressing" wording did.
@@ -1032,14 +1033,22 @@ class RipProgress(QWidget):
             # the two drift before. Qt shows no tooltip for an empty string, so
             # an unremarkable cell needs no branch.
             v1_item.setToolTip(
-                _ar_tooltip(track.accuraterip_v1, offset_result=offset, lookup=lookup)
+                plain_tooltip(
+                    _ar_tooltip(
+                        track.accuraterip_v1, offset_result=offset, lookup=lookup
+                    )
+                )
             )
             v2_item.setToolTip(
-                _ar_tooltip(track.accuraterip_v2, offset_result=offset, lookup=lookup)
+                plain_tooltip(
+                    _ar_tooltip(
+                        track.accuraterip_v2, offset_result=offset, lookup=lookup
+                    )
+                )
             )
             eac_text, eac_tip = _eac_cell(track)
             eac_item = QTableWidgetItem(eac_text)
-            eac_item.setToolTip(eac_tip)
+            eac_item.setToolTip(plain_tooltip(eac_tip))
             self._ar_table.setItem(row, _AR_COL_NUMBER, number_item)
             self._ar_table.setItem(row, _AR_COL_TITLE, title_item)
             self._ar_table.setItem(row, _AR_COL_STATUS, status_item)
