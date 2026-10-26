@@ -1,0 +1,124 @@
+argv: distrobox list
+exit: 0
+ID           | NAME                 | STATUS             | IMAGE                         
+2abb8858c807 | ripping              | Up 2 hours         | registry.fedoraproject.org/fedora-toolbox:latest
+
+argv: distrobox list
+exit: 0
+ID           | NAME                 | STATUS             | IMAGE                         
+2abb8858c807 | ripping              | Up 2 hours         | registry.fedoraproject.org/fedora-toolbox:latest
+
+argv: distrobox enter ripping -- command -v flac
+exit: 0
+~/.local/bin/flac
+
+argv: distrobox list
+exit: 0
+ID           | NAME                 | STATUS             | IMAGE                         
+2abb8858c807 | ripping              | Up 2 hours         | registry.fedoraproject.org/fedora-toolbox:latest
+
+argv: distrobox enter ripping -- command -v cyanrip
+exit: 0
+~/.local/bin/cyanrip
+
+argv: ~/.local/bin/cyanrip -V
+exit: 0
+cyanrip 0.9.4-rc3+platterpus.26 (platterpus-fork-gca0f097)
+
+argv: distrobox enter ripping -- sudo dnf install -y git meson ninja-build gcc pkgconfig(libavcodec) pkgconfig(libavformat) pkgconfig(libswresample) pkgconfig(libavfilter) pkgconfig(libavutil) pkgconfig(libcdio) pkgconfig(libcdio_paranoia) pkgconfig(libmusicbrainz5) pkgconfig(libcurl)
+exit: 0
+Nothing to do.
+Updating and loading repositories:
+Repositories loaded.
+Package "git-2.55.0-1.fc44.x86_64" is already installed.
+Package "meson-1.11.2-1.fc44.noarch" is already installed.
+Package "ninja-build-1.13.2-2.fc44.x86_64" is already installed.
+Package "gcc-16.2.1-2.fc44.x86_64" is already installed.
+Package "libavcodec-free-devel-8.1.2-4.fc44.x86_64" is already installed.
+Package "libavformat-free-devel-8.1.2-4.fc44.x86_64" is already installed.
+Package "libswresample-free-devel-8.1.2-4.fc44.x86_64" is already installed.
+Package "libavfilter-free-devel-8.1.2-4.fc44.x86_64" is already installed.
+Package "libavutil-free-devel-8.1.2-4.fc44.x86_64" is already installed.
+Package "libcdio-devel-2.3.0-1.fc44.x86_64" is already installed.
+Package "libcdio-paranoia-devel-10.2+2.0.2-6.fc44.x86_64" is already installed.
+Package "libmusicbrainz5-devel-5.1.0-30.fc44.x86_64" is already installed.
+Package "libcurl-devel-8.18.0-10.fc44.x86_64" is already installed.
+
+argv: distrobox enter ripping -- sh -c set -eu\n# $1 is a path RELATIVE TO $HOME, and $HOME is expanded HERE — at the point of\n# use, inside the container's own shell. Passing a pre-baked "$HOME/..." string\n# does NOT work: parameter expansion does not recurse, so it stayed literal and\n# every path became a relative one under a directory named '$HOME'. See\n# FORK_SOURCE_SUBPATH for the full post-mortem.\nsrc="$HOME/$1"\nurl="$2"\nbranch="$3"\npin="$4"\n# $6 — `meson setup` options for THIS pin, or empty. Word-split deliberately\n# (the one place in this script that wants splitting), because it is either\n# empty or a short list of `-Dkey=value`. Every element was validated against an\n# allowlist in Python before it got here: see `_clean_build_options` in\n# ripper_manifest.py for why the manifest's build command is PARSED and never\n# executed. Empty is the correct value for every commit predating the option —\n# round 11 §0 measured that meson fails the WHOLE configure on an unknown -D, so\n# a constant flag here would break the downgrade path to our own current pin.\nmeson_opts="${6-}"\n\n# --- Say where we are before doing anything ---------------------------------\n# These four lines are the ones that would have ended the v0.6.4b2 hunt in\n# seconds. The failure was entirely visible in a path and nobody printed it.\necho "platterpus: HOME=$HOME"\necho "platterpus: cwd=$(pwd)"\necho "platterpus: source tree=$src"\necho "platterpus: requested pin=$pin branch=$branch"\ncase "$src" in\n  /*) : ;;\n  *) echo "platterpus: FATAL source tree is not an absolute path: $src" >&2\n     exit 1 ;;\nesac\ncase "$src" in\n  *'$'*) echo "platterpus: FATAL source tree contains an unexpanded variable:" \\\n              "$src — this is the v0.6.4b2 defect" >&2\n         exit 1 ;;\nesac\n\nmkdir -p "$(dirname "$src")"\nif [ -d "$src/.git" ]; then\n  echo "platterpus: reusing existing clone, fetching $branch"\n  git -C "$src" remote set-url origin "$url"\n  git -C "$src" fetch --force origin "$branch"\nelse\n  echo "platterpus: no clone at $src — cloning $branch"\n  git clone --branch "$branch" "$url" "$src"\nfi\n# Detach onto the verified commit. `--force` discards a half-finished previous\n# attempt; the tree is a build cache we own, never the user's work.\ngit -C "$src" checkout --force --detach "$pin"\n\n# --- Prove the tree is what we asked for, before building it ----------------\n# A build tag names a commit; it does not name what was built (CLAUDE.md rule\n# 12). So state the commit we actually landed on, and whether the tree is dirty\n# — a dirty tree bakes a tag for a different tree, silently.\necho "platterpus: HEAD=$(git -C "$src" rev-parse HEAD)"\necho "platterpus: HEAD short=$(git -C "$src" rev-parse --short HEAD)"\necho "platterpus: describe=$(git -C "$src" describe --always --dirty 2>&1 || true)"\ndirt="$(git -C "$src" status --porcelain 2>/dev/null || true)"\nif [ -n "$dirt" ]; then\n  echo "platterpus: WARNING the source tree is DIRTY — the build tag will not" \\\n       "describe what is built:" >&2\n  printf '%s\\n' "$dirt" >&2\nelse\n  echo "platterpus: tree is clean"\nfi\n# meson's vcs_tag resolves the build tag by running git in the source root. If\n# THAT cannot work, the tag silently becomes upstream's `release` fallback — the\n# v0.6.4b2 symptom — so probe it here, where a failure is attributable.\nif git -C "$src" rev-parse --short HEAD >/dev/null 2>&1; then\n  echo "platterpus: git is usable in the source root (vcs_tag should resolve)"\nelse\n  echo "platterpus: WARNING git is NOT usable in the source root — meson's" \\\n       "vcs_tag will fall back and the build tag will name no commit" >&2\nfi\n\n# `--wipe` reconfigures an existing build dir (and fails if there isn't one),\n# so branch on it rather than deleting anything.\necho "platterpus: meson options=${meson_opts:-(none)}"\n# Unquoted on purpose — see `meson_opts` above. `set -eu` is active, so an empty\n# value expands to nothing rather than to an empty argument.\n# shellcheck disable=SC2086\nif [ -d "$src/build" ]; then\n  echo "platterpus: reconfiguring existing build dir"\n  meson setup --wipe $meson_opts "$src/build" "$src"\nelse\n  echo "platterpus: configuring a fresh build dir"\n  meson setup $meson_opts "$src/build" "$src"\nfi\nninja -C "$src/build"\n\n# --- Read the banner off the thing we just built ----------------------------\n# The build step's own self-check. Previously the first time anyone learned the\n# banner was wrong was three commands later, in the verify step, which reported\n# only what it EXPECTED. Reading it here attributes a wrong tag to the build\n# that produced it.\nbuilt="$src/build/src/cyanrip"\nif [ -x "$built" ]; then\n  echo "platterpus: built binary=$built"\n  _banner=''\n  for _f in -V --version; do\n    if _out="$("$built" "$_f" 2>/dev/null)"; then\n      _banner="$(printf '%s\\n' "$_out" | head -n 1)"\n      echo "platterpus: built banner=$_banner"\n      break\n    fi\n  done\nelse\n  echo "platterpus: FATAL ninja reported success but $built is not executable" >&2\n  exit 1\nfi\n\n# --- REFUSE HERE, BEFORE ANYTHING IS INSTALLED ------------------------------\n# $5 is the build tag a correct build of $4 must print. Checking it *here* is\n# the whole point: the steps that follow are `sudo install` over\n# /usr/local/bin/cyanrip and `distrobox-export` over the host wrapper, and both\n# are irreversible. Verifying only after them means a failed check reports the\n# problem accurately and still leaves the wrong ripper on the ripping path,\n# with no rollback — the guard meant to be the last word running after the\n# point of no return.\n#\n# The post-install verify stays. Two checks are not redundant here: this one\n# says "we built the right thing", the later one says "the right thing is what\n# landed and got exported". A single check cannot cover both, because install\n# and export are exactly where a correct build could still go astray.\nif [ -z "$_banner" ]; then\n  echo "platterpus: FATAL the binary we just built answered none of: -V --version" >&2\n  echo "platterpus: refusing to install it — nothing has been changed" >&2\n  exit 1\nfi\ncase "$_banner" in\n  *"$5"*)\n    echo "platterpus: built binary identifies as $5 — safe to install" ;;\n  *)\n    echo "platterpus: FATAL built binary reports \\"$_banner\\"" >&2\n    echo "platterpus: but commit $4 must produce build tag \\"$5\\"" >&2\n    case "$_banner" in\n      *-grelease*|*-gunknown*)\n        echo "platterpus: that tag names no commit at all — meson's vcs_tag fell" \\\n             "back to its literal default, so the binary cannot prove which" \\\n             "source built it" >&2 ;;\n    esac\n    echo "platterpus: refusing to install it — /usr/local/bin/cyanrip and the" \\\n         "host export are UNCHANGED, so the previously working ripper is still" \\\n         "in place" >&2\n    exit 1 ;;\nesac\n build-cyanrip-fork .cache/platterpus/cyanrip-fork https://github.com/rmccann-hub/cyanrip.git platterpus-fork 5f1d036 platterpus-fork-g5f1d036 
+exit: 0
+platterpus: HOME=~
+platterpus: cwd=~
+platterpus: source tree=~/.cache/platterpus/cyanrip-fork
+platterpus: requested pin=5f1d036 branch=platterpus-fork
+platterpus: reusing existing clone, fetching platterpus-fork
+platterpus: HEAD=5f1d036ef0621330b6e84004c9574d3395b3a117
+platterpus: HEAD short=5f1d036
+platterpus: describe=5f1d036
+platterpus: tree is clean
+platterpus: git is usable in the source root (vcs_tag should resolve)
+platterpus: meson options=(none)
+platterpus: reconfiguring existing build dir
+The Meson build system
+Version: 1.11.2
+Source dir: ~/.cache/platterpus/cyanrip-fork
+Build dir: ~/.cache/platterpus/cyanrip-fork/build
+Build type: native build
+WARNING: Project targets '>=0.53.0' but uses feature introduced in '0.55.0': string concatenation in meson_options.txt.
+Project name: cyanrip
+Project version: 0.9.4-rc3+platterpus.25
+  … [94 line(s) omitted; the log file has the engine's copy] …
+[29/61] Generating src/handshake_state.h with a custom command
+[30/61] Compiling C object src/cyanrip.p/meson-generated_.._version.c.o
+[31/61] Compiling C object src/cyanrip.p/qrcode.c.o
+[32/61] Compiling C object src/cyanrip.p/fun512.c.o
+[33/61] Compiling C object src/cyanrip.p/acoustid.c.o
+[34/61] Compiling C object src/cyanrip.p/fifo_packet.c.o
+[35/61] Compiling C object src/cyanrip.p/utils.c.o
+[36/61] Compiling C object src/cyanrip.p/fifo_frame.c.o
+[37/61] Compiling C object src/cyanrip.p/stall_watchdog.c.o
+[38/61] Compiling C object src/cyanrip.p/discid.c.o
+[39/61] Compiling C object src/cyanrip.p/cdtext.c.o
+[40/61] Compiling C object src/cyanrip.p/json.c.o
+[41/61] Compiling C object src/cyanrip.p/cache_probe.c.o
+[42/61] Linking target tests/fun512_test
+[43/61] Linking target tests/stall_test
+[44/61] Linking target tests/json_test
+[45/61] Compiling C object src/cyanrip.p/accurip.c.o
+[46/61] Compiling C object src/cyanrip.p/coverart.c.o
+[47/61] Compiling C object src/cyanrip.p/pregap.c.o
+[48/61] Linking target tests/cacheprobe_test
+[49/61] Compiling C object src/cyanrip.p/naming.c.o
+[50/61] Compiling C object src/cyanrip.p/cue_writer.c.o
+[51/61] Linking target tests/naming_test
+[52/61] Compiling C object src/cyanrip.p/musicbrainz.c.o
+[53/61] Compiling C object src/cyanrip.p/diagnostics.c.o
+[54/61] Linking target tests/diag_test
+[55/61] Linking target tests/diagrecord_test
+[56/61] Linking target tests/diagcache_test
+[57/61] Compiling C object src/cyanrip.p/cyanrip_log.c.o
+[58/61] Compiling C object src/cyanrip.p/cyanrip_encode.c.o
+[59/61] Linking target tests/logrender_test
+[60/61] Compiling C object src/cyanrip.p/cyanrip_main.c.o
+[61/61] Linking target src/cyanrip
+platterpus: built binary=~/.cache/platterpus/cyanrip-fork/build/src/cyanrip
+platterpus: built banner=cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)
+platterpus: built binary identifies as platterpus-fork-g5f1d036 — safe to install
+From https://github.com/rmccann-hub/cyanrip
+ * branch            platterpus-fork -> FETCH_HEAD
+Previous HEAD position was ca0f097 Regenerate the contract, golden reference and dependency map for 0.9.4-rc3+platterpus.26
+HEAD is now at 5f1d036 Regenerate the contract, golden reference and dependency map for 0.9.4-rc3+platterpus.25
+
+argv: distrobox enter ripping -- sh -c set -eu\nsrc="$HOME/$1"\nbuilt="$src/build/src/cyanrip"\nif [ ! -x "$built" ]; then\n  echo "platterpus: FATAL nothing to install — $built is missing or not executable" >&2\n  echo "platterpus: (the build step is what creates it; did it run?)" >&2\n  exit 1\nfi\necho "platterpus: installing $built -> $2"\nsudo install -Dm0755 "$built" "$2"\necho "platterpus: installed $(ls -l "$2")"\n install-cyanrip-fork .cache/platterpus/cyanrip-fork /usr/local/bin/cyanrip
+exit: 0
+platterpus: installing ~/.cache/platterpus/cyanrip-fork/build/src/cyanrip -> /usr/local/bin/cyanrip
+platterpus: installed -rwxr-xr-x. 1 root root 950224 Oct 26 09:53 /usr/local/bin/cyanrip
+
+argv: distrobox enter ripping -- distrobox-export --bin /usr/local/bin/cyanrip
+exit: 0
+/usr/local/bin/cyanrip from ripping exported successfully in ~/.local/bin.
+OK!
+
+argv: distrobox enter ripping -- sh -c set -eu\nbanner=''\nfor _flag in -V --version; do\n  if out="$("$1" "$_flag" 2>/dev/null)"; then\n    banner="$(printf '%s\\n' "$out" | head -n 1)"\n    break\n  fi\ndone\nif [ -z "$banner" ]; then\n  "$1" --version 2>&1 | head -n 5 >&2 || true\n  echo "cyanrip answered none of: -V --version" >&2\n  exit 1\nfi\nprintf '%s\\n' "$banner"\ncase "$banner" in\n  *"$2"*) echo "platterpus: installed binary identifies as $2" ; exit 0 ;;\nesac\ncase "$banner" in\n  *-grelease*|*-gunknown*)\n    echo "note: that build tag names no commit at all (meson vcs_tag fell back to its literal default), so the binary cannot prove which source it was built from" >&2 ;;\nesac\necho "installed cyanrip reports \\"$banner\\" but this Platterpus expects build tag \\"$2\\"" >&2\nexit 1\n verify-cyanrip-fork /usr/local/bin/cyanrip platterpus-fork-g5f1d036
+exit: 0
+cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)
+platterpus: installed binary identifies as platterpus-fork-g5f1d036

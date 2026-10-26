@@ -1,0 +1,17 @@
+REM MUSICBRAINZ_ID "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+REM DISCID "E20DFE0E"
+REM MEDIA "CD"
+REM COMMENT "cyanrip 0.9.4-rc3+platterpus.26"
+REM TOTALDISCS "1"
+REM DISC "1"
+REM DATE "2003"
+REM MUSICBRAINZ_ALBUMID "65282302-368b-4ba2-953a-483bcdef2410"
+REM ARTIST "The Police"
+PERFORMER "The Police"
+TITLE "accuracy B1 20261026t121221 platterpus-fork-gca0f097"
+FILE "03 - Message in a Bottle.flac" WAVE
+  TRACK 03 AUDIO
+    TITLE "Message in a Bottle"
+    PERFORMER "The Police"
+    ISRC GBAAM7900002
+    INDEX 01 00:00:00
