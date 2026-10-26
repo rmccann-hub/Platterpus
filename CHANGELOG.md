@@ -16,6 +16,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **A drive that flickers no longer clears the disc you chose a release for.** In run A of the owner's Full test on 0.7.112 the drive reported its tray open for about 2.5 s with nobody near it, 41 s after a rip (nine times across the runs, several overnight). The app cleared the chosen release, asked MusicBrainz again and opened the release picker over the unattended script, and 57 of the run's 60 failures followed. An empty tray now counts as a removal only once it has lasted 6 s, more than twice the longest flicker measured; shorter, and the app keeps the view and re-reads the disc. When the disc read back, after a flicker or a real removal, has the same MusicBrainz disc ID, the chosen release and your edits stay and no lookup runs; a different disc is cleared and looked up. Rescan still asks again.
 
+- **The acceptance test grades a rip's tags and cover against that rip's own record, not the window** (contributor-facing). `expect-tags` compared the files with the track table and `expect-cover-art` took the release from the window, so when run A's drive flicker cleared the window, section F failed correct files ("the window has no row for it"; "mode 'embed' embeds nothing, yet track(s) 1 … 14 carry a picture"). The tags a rip is handed are now kept on its record when it starts, and the release comes from its report's `disc` block; a report with no `disc` block is "not determined", and a rip with no record kept is an error that says so.
+
 ### Added
 
 - **The fork's round 36 lap 7 is filed, and its `docs/seam-commands.md` copied byte for byte** (sha256 `add9024f…`, the `--prefer-accuraterip-match` row in §1b added). Our status block names lap 8 as ours.

@@ -170,26 +170,39 @@ class ArtifactVerbsMixin:
             step, folder, lambda _path, report: grading.grade_ctdb(report, scope)
         )
 
-    def _expected_tags(self) -> tag_grading.ExpectedTags | None:
-        """The album, artist and titles the user chose, from the track table."""
-        table = getattr(self._window, "_track_table", None)
-        if table is None:
-            return None
-        album = table.album_metadata()
-        return tag_grading.ExpectedTags(
-            album=album.title,
-            album_artist=album.artist,
-            tracks={t.number: (t.title, t.artist_credit) for t in table.tracks()},
-        )
+    def _expected_tags(self, folder: Path) -> tag_grading.ExpectedTags | None:
+        """The album, artist and titles the rip in ``folder`` was HANDED.
+
+        Read from that rip's own record (``PostRipRecord.metadata``, frozen when
+        its worker started), matched by the folder its log was written to. Never
+        from the track table: the table describes the disc in the drive NOW, and
+        run A on 0.7.112 cleared it (a drive flicker) before section F graded,
+        so correct files failed against an empty table.
+        """
+        records = getattr(self._window, "_post_rip_records", None) or {}
+        for generation in sorted(records, reverse=True):
+            record = records[generation]
+            log_file = getattr(record, "log_file", None)
+            metadata = getattr(record, "metadata", None)
+            if log_file is not None and metadata is not None:
+                if Path(log_file).parent == folder:
+                    return tag_grading.expected_tags_from(metadata)
+        return None
 
     def _do_expect_tags(self, step: Step) -> None:
         """Every ripped FLAC carries exactly the album, artist and titles chosen."""
         folder = self._rip_album_dir(step)
         if folder is None:
             return
-        expected = self._expected_tags()
+        expected = self._expected_tags(folder)
         if expected is None:
-            self._record(step, Outcome.ERROR, "no track table on the window")
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"no record of the tags the rip in {folder.name} was handed (the "
+                "window keeps the last few rips' records), so there is nothing to "
+                "compare its files with",
+            )
             return
 
         def grade(_path: Path, report: dict[str, Any]) -> grading.Grade:
@@ -213,12 +226,16 @@ class ArtifactVerbsMixin:
             return
         config = getattr(self._window, "_config", None)
         mode = str(getattr(config, "cover_art", ""))
-        release_id = str(getattr(self._window, "_current_release_id", "") or "")
+        # The release from the rip's report, never `_current_release_id`: that
+        # is the disc on screen now, which a later scan may have cleared.
         self._grade_when_settled(
             step,
             folder,
             lambda _path, report: tag_grading.grade_cover_art(
-                tag_grading.ripped_masters(report, folder), report, mode, release_id
+                tag_grading.ripped_masters(report, folder),
+                report,
+                mode,
+                tag_grading.report_release_id(report),
             ),
         )
 

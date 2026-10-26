@@ -48,6 +48,28 @@ def _load(name: str) -> dict[str, Any]:
     return loaded
 
 
+def _handed(table: Any) -> Any:
+    """The tags a rip is handed at Start, built from the table as the window
+    builds them (`RipMixin._rip_metadata_for`: album fields and each row)."""
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+
+    album = table.album_metadata()
+    return RipMetadata(
+        album_artist=album.artist,
+        album_title=album.title,
+        year=album.year,
+        tracks=tuple(
+            TrackTag(number=t.number, title=t.title, artist=t.artist_credit)
+            for t in table.tracks()
+        ),
+    )
+
+
+def _start_snapshot(win: Any) -> None:
+    """Freeze the table onto the rip's record, as `_start_rip_worker` does."""
+    win._post_rip_records[1].metadata = _handed(win._track_table)
+
+
 def _rip(
     tmp_path: Path,
     report: dict[str, Any],
@@ -97,9 +119,12 @@ def _rip(
         track_table=table,
         config=Config(cover_art=cover_art),
     )
-    win._current_release_id = (
-        report["cover_art"]["release_id"] if report.get("cover_art") else ""
-    )
+    from platterpus.ui.post_rip_record import PostRipRecord
+
+    # The rip's own record, as the window keeps it: the folder its log went to
+    # and the tags it was handed at Start. The graders read this, not the table.
+    win._post_rip_records = {1: PostRipRecord(generation=1, log_file=log_file)}
+    _start_snapshot(win)
     return win
 
 
@@ -187,6 +212,7 @@ def test_track_title_edits_through_the_real_table_and_expect_tags_reads_it(
     step = _run(win, qapp, process_until, f"track-title 1 {title}")
     assert step.outcome is Outcome.PASS, step.detail
     assert win._track_table.tracks()[0].title == title
+    _start_snapshot(win)  # the script's `rip` comes after `track-title`
     assert _run(win, qapp, process_until, "expect-tags").outcome is Outcome.PASS
 
 
@@ -266,3 +292,61 @@ def test_a_record_that_never_settles_is_not_graded(
     win = _rip(tmp_path, _load("overwrite"), write_report=False)
     step = _run(win, qapp, process_until, "expect-ctdb partial")
     assert step.outcome is Outcome.FAIL and "did not settle" in step.detail
+
+
+# --- Run A on 0.7.112: the window was cleared before section F graded --------
+
+
+def test_section_f_grades_the_rips_record_after_the_window_was_cleared(
+    qapp, process_until, tmp_path
+) -> None:
+    """App log lines 649-730 of bundle platterpusbundle20261021t113505z: a drive
+    flicker cleared the table and the release 41 s after the rip, and section F
+    then failed correct files ("the window has no row for it"; "mode 'embed'
+    embeds nothing, yet track(s) 1 … 14 carry a picture"). Both verbs now grade
+    against the rip's record, so clearing the window changes nothing."""
+    win = _rip(tmp_path, _load("overwrite"))
+    win._track_table.clear()  # what `_reset_disc_view` did
+    win._current_release_id = ""
+    tags = _run(win, qapp, process_until, "expect-tags")
+    cover = _run(win, qapp, process_until, "expect-cover-art")
+    assert tags.outcome is Outcome.PASS, tags.detail
+    assert cover.outcome is Outcome.PASS, cover.detail
+
+
+def test_expect_tags_says_so_when_no_record_of_the_rip_is_kept(
+    qapp, process_until, tmp_path
+) -> None:
+    """No record of what the rip was handed: an ERROR naming that, never a
+    comparison with whatever the table holds now."""
+    win = _rip(tmp_path, _load("overwrite"))
+    win._post_rip_records = {}
+    step = _run(win, qapp, process_until, "expect-tags")
+    assert step.outcome is Outcome.ERROR and "no record of the tags" in step.detail
+
+
+def test_expect_tags_grades_the_record_not_a_later_edit_of_the_table(
+    qapp, process_until, tmp_path
+) -> None:
+    """The relation: the files are compared with what the rip was handed, so an
+    edit made after Start (or a scan that rewrote the table) cannot make correct
+    files fail, and a wrong file still fails."""
+    win = _rip(tmp_path, _load("overwrite"))
+    assert win._track_table.edit_track_title(1, "Changed after the rip") == ""
+    step = _run(win, qapp, process_until, "expect-tags")
+    assert step.outcome is Outcome.PASS, step.detail
+    wrong = _rip(tmp_path / "w", _load("overwrite"), titles={1: "Roxane", 2: "x"})
+    assert _run(wrong, qapp, process_until, "expect-tags").outcome is Outcome.FAIL
+
+
+def test_expect_cover_art_reads_the_release_from_the_report(tmp_path) -> None:
+    """The pure half: an unknown disc's report names no release; a report with
+    no disc block is not determined, never "expect nothing"."""
+    from platterpus.uiscript.tag_grading import grade_cover_art, report_release_id
+
+    report = _load("overwrite")
+    assert report_release_id(report) == report["disc"]["musicbrainz_release_id"]
+    assert report_release_id({"disc": {"musicbrainz_release_id": None}}) == ""
+    assert report_release_id({}) is None
+    grade = grade_cover_art([], {}, "embed", None)
+    assert grade.blocked and grade.detail.startswith("not determined"), grade

@@ -82,7 +82,7 @@ text is taken verbatim as one value.
 | `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
 | `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one |
-| `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file |
+| `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
 | `set-library-scratch` | 0 | ready | set-library-scratch — point library_dir at a scratch folder inside the rips folder (the output directory), so a finished rip is filed there and never in your library; `set library_dir ""` turns the move off again |
@@ -667,7 +667,7 @@ found nothing wrong*.
       "max_args": 0,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-tags \u2014 every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file"
+      "help": "expect-tags \u2014 every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file"
     },
     {
       "name": "expect-cover-art",

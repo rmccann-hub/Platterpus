@@ -3676,6 +3676,60 @@ def test_start_rip_worker_snapshots_track_table_metadata(
     ]
 
 
+def test_the_tags_a_rip_was_handed_are_kept_on_its_record(
+    teardown_threads, monkeypatch
+) -> None:
+    """Run A on 0.7.112: section F graded the files against the track table, and
+    a drive flicker had cleared it. The tags the rip was handed are frozen onto
+    the album's record when its worker starts, and survive the window clearing."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._track_table.set_release(_detail())
+    window._current_release_detail = _detail()
+    seen: list[RipParameters] = []
+
+    class _NoopWorker:
+        def __init__(self, backend, params):
+            seen.append(params)
+
+        def moveToThread(self, thread):
+            pass
+
+        def start_rip(self):
+            pass
+
+        class _Sig:
+            def connect(self, *_a, **_k):
+                pass
+
+        log_line = progress = status = current_track = track_completed = error = (
+            finished
+        ) = _Sig()
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
+    )
+    window._rip_generation += 1
+    record = window._open_post_rip_record()
+    window._start_rip_worker(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="some-mbid",
+            output_dir=Path("/tmp/out"),
+            track_template="t",
+            disc_template="d",
+        )
+    )
+    window._set_rip_lock(False)
+    window._track_table.clear()
+
+    assert record.metadata is not None and record.metadata == seen[0].metadata
+    assert record.metadata.album_title == "Album"
+    assert [t.title for t in record.metadata.tracks] == ["One", "Two"]
+
+
 class _FakeThread:
     """Minimal QThread stand-in: collects connects, never starts."""
 

@@ -514,7 +514,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         0,
         0,
         "expect-tags — every ripped FLAC's album, album artist, title, artist and "
-        "track number are exactly what the track table shows, read from the file",
+        "track number are exactly what the track table held when the rip started, "
+        "read from the file",
     ),
     Verb(
         "expect-cover-art",
