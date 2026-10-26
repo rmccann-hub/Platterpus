@@ -389,6 +389,77 @@ def test_completed_with_ripping_errors_is_a_warning_naming_them() -> None:
     assert not any(f.level == LEVEL_OK for f in album.findings)
 
 
+def _errors_in_track_2(
+    *, kept_read: str, verified: bool, skips: int = 2, track1_skips: int = 0
+) -> dict[str, object]:
+    """Run C section N's shape on the 2-track fixture: the album pass counted
+    2 ripping errors, both paranoia skips in track 2 (per its `-j` record), and
+    the verified-read chase replaced track 2 with a read AccurateRip verified."""
+    report = _healthy()
+    report["health_status"] = "2 ripping errors"
+    report["disc"] = {
+        "error_positions": {
+            "state": "read",
+            "tracks": [
+                {
+                    "number": n,
+                    "state": "read",
+                    "read_errors": 0,
+                    "skips": skips if n == 2 else track1_skips,
+                    "complete": True,
+                    "count_agrees_with_counters": True,
+                }
+                for n in (1, 2)
+            ],
+        }
+    }
+    for track in report["tracks"]:
+        if track["number"] == 2:
+            track["accuraterip_verified"] = verified
+    report["read_speed"] = {
+        "retried_tracks": [
+            {
+                "track": 2,
+                "replaced": kept_read != "first_read",
+                "replaced_because": "accuraterip"
+                if kept_read != "first_read"
+                else None,
+                "kept_read": kept_read,
+            }
+        ]
+    }
+    return report
+
+
+def test_errors_only_in_a_replaced_verified_read_do_not_warn() -> None:
+    """Run C, section N, 2026-10-22: the chase's attempt 5 was AccurateRip
+    verified and kept (16/16 AR), and the audit still warned "completed with 2
+    ripping errors", about the first read the album no longer holds."""
+    report = _errors_in_track_2(kept_read="verified_reread", verified=True)
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    assert album.worst == LEVEL_OK, [f.text for f in album.findings]
+    (ok,) = [f.text for f in album.findings if f.level == LEVEL_OK]
+    assert "no errors in the reads it keeps" in ok and "track(s) 2" in ok, ok
+
+
+def test_errors_in_a_kept_or_unverified_read_still_warn() -> None:
+    """The narrowing, from both sides: the first read kept (run C's own full
+    rip, track 16 `first_read`), a replacement AccurateRip did not verify, and
+    a count the per-track record does not account for all keep the warning."""
+    for report in (
+        _errors_in_track_2(kept_read="first_read", verified=False),
+        _errors_in_track_2(kept_read="securing_pass", verified=False),
+        _errors_in_track_2(kept_read="verified_reread", verified=True, skips=1),
+        # Per-track counts summing past the tally: the population is not closed.
+        _errors_in_track_2(kept_read="verified_reread", verified=True, track1_skips=1),
+    ):
+        album = rip_audit.AlbumAudit(folder=Path("x"))
+        rip_audit._audit_completion(report, album)
+        assert album.worst == LEVEL_WARN, [f.text for f in album.findings]
+        assert any("2 ripping errors" in f.text for f in album.findings)
+
+
 def test_an_encoder_failure_in_the_tally_also_withholds_ok() -> None:
     report = _healthy()
     report["health_status"] = "1 encoder error"
@@ -1679,3 +1750,21 @@ def test_agreement_against_the_real_ripper_log_is_still_ok() -> None:
             "the EAC-style log's copy CRCs match the ripper's log on all 14 track(s)",
         )
     ], findings
+
+
+def test_errors_in_replaced_reads_never_raises_and_declines_garbage() -> None:
+    """The attribution reads a report written by another process: anything it
+    cannot read is not determined (None), never an exception or a guess."""
+    from platterpus.rip_health import errors_in_replaced_reads
+
+    for garbage in (
+        {},
+        {"health_status": "2 ripping errors"},
+        {"health_status": "2 ripping errors", "disc": {"error_positions": "x"}},
+        {
+            "health_status": "2 ripping errors",
+            "disc": {"error_positions": {"state": "read", "tracks": [{"state": 1}]}},
+        },
+        {"health_status": 7, "disc": None, "tracks": "x", "read_speed": []},
+    ):
+        assert errors_in_replaced_reads(garbage) is None, garbage

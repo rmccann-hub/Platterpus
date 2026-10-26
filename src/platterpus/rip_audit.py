@@ -48,6 +48,7 @@ from platterpus.disc_identity import (
 )
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
+from platterpus.rip_health import errors_in_replaced_reads
 
 log = logging.getLogger(__name__)
 
@@ -416,13 +417,27 @@ def _grade_a_reported_completion(
             f"{n_done} of {n_total} tracks{asked_for} — the record contradicts "
             "itself, so do not treat it as a complete rip",
         )
+    # Scoped to the reads the album KEEPS (run C, 2026-10-22): errors in a first
+    # read the album replaced with an AccurateRip-verified read are not in it.
+    placed = errors_in_replaced_reads(report) if health != _NO_ERRORS else None
+    if placed is not None and placed.in_replaced and not placed.in_kept_reads:
+        replaced = ", ".join(str(n) for n in placed.tracks)
+        clean = (
+            f"no errors in the reads it keeps: the ripper's {placed.counted} were "
+            f"all in the first read of track(s) {replaced}, replaced by a read "
+            "AccurateRip verified"
+        )
+    elif isinstance(health, str) and health == _NO_ERRORS:
+        clean = "no errors"
+    else:
+        clean = ""
     if not isinstance(health, str) or not health:
         album.add(
             LEVEL_NOTE,
             "the ripper's error tally (its `Ripping errors:` line) is absent, so "
             "whether it counted any errors is not determined",
         )
-    elif health != _NO_ERRORS:
+    elif not clean:
         album.add(
             LEVEL_WARN,
             f"the ripper reports the rip completed with {health} — check the "
@@ -433,11 +448,11 @@ def _grade_a_reported_completion(
         and n_total is not None
         and n_total > 0
         and n_done == expected
-        and health == _NO_ERRORS
+        and clean
     ):
         subset = f", the {asked} asked for" if asked and asked < n_total else ""
         album.add(
-            LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks{subset}, no errors)"
+            LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks{subset}, {clean})"
         )
 
 
