@@ -164,7 +164,7 @@ _MIN_SHELL_SCRIPTS: int = 10
 #: reader does not "fix" it and break a launcher.
 _NO_PIPEFAIL_ALLOWED: dict[str, str] = {
     "build/python-appimage/entrypoint.sh": (
-        'line 13 is `ls "$APPDIR"/opt/python*/bin/python* | head -1`; under '
+        'its PYTHON_BIN line is `ls "$APPDIR"/opt/python*/bin/python* | head -1`; under '
         "pipefail the early-exiting `head` makes `ls` fail and `set -e` would "
         "abort the AppImage launcher on a healthy install"
     ),

@@ -96,6 +96,44 @@ def test_entrypoint_invokes_platterpus_module() -> None:
     assert "-m" in text  # invoking as a module
 
 
+@pytest.mark.parametrize("args", [[], ["--version"]])
+def test_entrypoint_launches_under_nounset_with_a_bare_environment(
+    tmp_path: Path, args: list[str]
+) -> None:
+    """The entrypoint runs `set -eu` (review 2026-10-27, item 3.6) and still launches.
+
+    `-u` stops on any variable read unset, so this runs the real file with an
+    environment holding only PATH: no APPIMAGE, no SSL_CERT_FILE or SSL_CERT_DIR,
+    the variables a careless read would trip on. A stand-in bundled interpreter
+    prints what it was handed, so the test sees the exact `-m platterpus` call,
+    with no arguments as well as with some (`"$@"` empty under `-u`).
+    """
+    import os
+    import subprocess
+
+    text = ENTRYPOINT.read_text(encoding="utf-8")
+    assert re.search(r"^set -eu$", text, re.MULTILINE), "the entrypoint lost set -u"
+    appdir = tmp_path / "AppDir"
+    python = appdir / "opt" / "python3.12" / "bin" / "python3.12"
+    python.parent.mkdir(parents=True)
+    python.write_text('#!/bin/sh\necho "launched: $*"\n', encoding="utf-8")
+    python.chmod(0o755)
+
+    result = subprocess.run(
+        ["bash", str(ENTRYPOINT), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "APPDIR": str(appdir)},
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == " ".join(["launched: -m platterpus", *args]), (
+        result.stdout
+    )
+
+
 def test_entrypoint_points_openssl_at_host_ca_bundle() -> None:
     """The bundled CPython has no CA certs, so the entrypoint must set
     SSL_CERT_FILE from the host bundle or MusicBrainz HTTPS lookups fail

@@ -105,14 +105,19 @@ find_appimage() {
         ( cd "$(dirname "$arg")" && printf '%s/%s\n' "$PWD" "$(basename "$arg")" )
         return 0
     fi
-    local dir
+    # A glob, not parsed `ls` output (review 2026-10-27, item 3.6). Same order
+    # as before (the glob sorts as `ls` did), but `-f` takes only a regular file:
+    # `ls` of a FOLDER named platterpus*.AppImage printed the folder's contents,
+    # bare names that are not paths at all. An unmatched glob stays literal and
+    # fails `-f`, so no nullglob is needed.
+    local dir hit
     for dir in "$PWD" "$HOME/Downloads" "$APPS_DIR"; do
-        local hit
-        hit="$(ls -1 "$dir"/platterpus*.AppImage 2>/dev/null | head -1 || true)"
-        if [ -n "$hit" ]; then
-            echo "$hit"
-            return 0
-        fi
+        for hit in "$dir"/platterpus*.AppImage; do
+            if [ -f "$hit" ]; then
+                echo "$hit"
+                return 0
+            fi
+        done
     done
     return 1
 }

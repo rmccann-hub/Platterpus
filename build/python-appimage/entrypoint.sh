@@ -5,7 +5,15 @@
 # filesystem. python-appimage installs CPython under $APPDIR/opt/python*/
 # and our console-script `platterpus` ends up on the bundled bin/ PATH.
 
-set -e
+# `-u` too (review 2026-10-27, item 3.6): a misspelt variable stops the launch
+# with its name instead of expanding to nothing. Safe here because every
+# variable this file reads from outside is read with a default (`${APPDIR:-…}`,
+# `${SSL_CERT_FILE:-}`, `${SSL_CERT_DIR:-}`). python-appimage pastes this file
+# into AppRun after its own preamble, so the option takes effect from here on,
+# and `exec` at the end means nothing of AppRun runs after it. `pipefail` stays
+# off: see the `ls | head -1` below and `_NO_PIPEFAIL_ALLOWED` in
+# tests/test_security_no_shell.py.
+set -eu
 
 # Locate the bundled Python install (manylinux base is python3.11 today;
 # fall back to whatever version python-appimage embedded if that changes).
