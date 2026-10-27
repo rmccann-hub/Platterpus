@@ -51,6 +51,12 @@ jobs:
           # 0.13.4 fixed GHSA-hq85-5cpj-mr62 (a trusted root whose intermediate
           # was compromised); 0.13.5 resolved by git ls-remote, 2026-10-26.
           version: "0.13.5"
+          # No cache: this job holds `issues: write`, and a cache is input another
+          # run wrote. setup-uv's default, `auto`, turns caching ON for a
+          # GitHub-hosted runner, so it is switched off by name (the second
+          # follow-up review of 2026-10-27, item 6;
+          # tests/test_workflow_permissions.py).
+          enable-cache: false
 
       - name: Measure each dependency against its newest release
         id: report

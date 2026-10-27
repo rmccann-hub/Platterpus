@@ -328,30 +328,70 @@ def test_every_checkout_in_every_workflow_drops_its_token() -> None:
     assert not missing, f"checkouts that keep the token in .git/config: {missing}"
 
 
+#: A job holding any write permission: a cache is input another run wrote, so a
+#: poisoned one reaches whatever that job can write (a release, a tag, a pull
+#: request, an issue).
+_WRITES: Final[re.Pattern[str]] = re.compile(r"^\s+[a-z-]+:\s*write\b", re.M)
+
+
+def _cache_uses(body: str) -> list[str]:
+    """Every way a job's steps restore a cache, by what it is.
+
+    `cache:` on setup-python; any `actions/cache` action (`cache@`,
+    `cache/restore@`, `cache/save@`); and setup-uv unless it says
+    `enable-cache: false`, because its default, `auto`, turns caching ON for a
+    GitHub-hosted runner (the second follow-up review of 2026-10-27, item 6).
+    """
+    found: list[str] = []
+    if re.search(r"^\s+cache:\s*\S", body, re.M):
+        found.append("setup-python `cache:`")
+    if re.search(r"\bactions/cache(/restore|/save)?@", body):
+        found.append("actions/cache")
+    for step in re.split(r"^\s+- ", body, flags=re.M):
+        if "astral-sh/setup-uv@" in step and not re.search(
+            r"^\s+enable-cache:\s*false\b", step, re.M
+        ):
+            found.append("setup-uv without enable-cache: false")
+    return found
+
+
 def test_no_job_that_can_publish_or_write_restores_a_cache() -> None:
-    """Item 1.3, across all workflows: a job holding `id-token: write` or a
-    `contents: write` restores no cache, since a cache is input another run
-    wrote (zizmor: cache poisoning)."""
+    """Item 1.3, across all workflows: no job holding a write permission restores
+    a cache, since a cache is input another run wrote (zizmor: cache poisoning)."""
     privileged = 0
     offenders: list[str] = []
     for path in _workflow_files():
         for name, body in _jobs(path.read_text(encoding="utf-8")).items():
-            if not re.search(r"^\s+(id-token|contents):\s*write\b", body, re.M):
+            if not _WRITES.search(body):
                 continue
             privileged += 1
-            if re.search(r"^\s+cache:\s*\S", body, re.M) or "actions/cache@" in body:
-                offenders.append(f"{path.name} job {name}")
+            offenders += [f"{path.name} job {name}: {u}" for u in _cache_uses(body)]
     # release.yml's build-and-release and publish-pypi.yml's publish, at least.
     assert privileged >= 2, privileged
     assert not offenders, f"privileged jobs that restore a cache: {offenders}"
 
 
-def test_the_cache_check_sees_a_cache_in_a_privileged_job() -> None:
-    """The check above, fed the shape it refuses."""
-    text = (
-        "jobs:\n  publish:\n    permissions:\n      id-token: write\n    steps:\n"
-        "      - uses: actions/setup-python@x\n        with:\n          cache: pip\n"
-    )
-    body = _jobs(text)["publish"]
-    assert re.search(r"^\s+(id-token|contents):\s*write\b", body, re.M)
-    assert re.search(r"^\s+cache:\s*\S", body, re.M)
+def test_the_cache_check_sees_every_shape_it_refuses() -> None:
+    """The check above, fed each shape it refuses, and the one it allows."""
+    head = "    permissions:\n      contents: write\n    steps:\n"
+    for step, expected in (
+        (
+            "      - uses: actions/setup-python@x\n        with:\n          cache: pip\n",
+            "setup-python `cache:`",
+        ),
+        ("      - uses: actions/cache@x\n", "actions/cache"),
+        ("      - uses: actions/cache/restore@x\n", "actions/cache"),
+        (
+            "      - uses: astral-sh/setup-uv@x\n",
+            "setup-uv without enable-cache: false",
+        ),
+        (
+            "      - uses: astral-sh/setup-uv@x\n        with:\n          enable-cache: auto\n",
+            "setup-uv without enable-cache: false",
+        ),
+    ):
+        body = _jobs("jobs:\n  j:\n" + head + step)["j"]
+        assert _WRITES.search(body)
+        assert expected in _cache_uses(body), step
+    allowed = "      - uses: astral-sh/setup-uv@x\n        with:\n          enable-cache: false\n"
+    assert _cache_uses(_jobs("jobs:\n  j:\n" + head + allowed)["j"]) == []
