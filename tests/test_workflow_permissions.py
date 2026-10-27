@@ -182,6 +182,47 @@ def test_every_action_is_pinned_to_a_full_commit_sha() -> None:
     )
 
 
+#: The comment a SHA pin carries: the exact release tag that SHA is, `# v1.14.1`.
+_EXACT_TAG_COMMENT: Final[re.Pattern[str]] = re.compile(
+    r"@[0-9a-f]{40}\s+#\s*v\d+\.\d+\.\d+\s*$"
+)
+
+
+def test_every_sha_pin_names_the_exact_tag_it_is() -> None:
+    """A pin's comment names an exact tag, never a moving one (2026-10-27 review, 2.6).
+
+    `# v4` sat on a `v4.1.1` pin and `# release/v1`, a branch, on `v1.14.1`. A
+    moving name reads as a version and says nothing about which one, so the next
+    reader cannot check the SHA against it. Each comment was resolved with
+    `git ls-remote https://github.com/<owner>/<repo> refs/tags/*` (annotated tags
+    peeled with `^{}`) on 2026-10-27. This checks the shape; whether the SHA *is*
+    that tag needs the network, and Dependabot rewrites both together.
+    """
+    lines = [
+        (workflow.name, line.strip())
+        for workflow in _workflow_files()
+        for line in workflow.read_text(encoding="utf-8").splitlines()
+        if re.search(r"uses:\s*\S+@[0-9a-f]{40}", line)
+    ]
+    assert len(lines) >= 20, f"only {len(lines)} SHA pins found; the reader is broken"
+    vague = [
+        f"{name}: {line}" for name, line in lines if not _EXACT_TAG_COMMENT.search(line)
+    ]
+    assert not vague, (
+        "these SHA pins do not name the exact tag they are (`# vX.Y.Z`):\n  "
+        + "\n  ".join(vague)
+    )
+
+
+def test_the_tag_comment_check_refuses_a_moving_name() -> None:
+    """Non-triviality: the two shapes the review found are refused."""
+    sha = "0f67c3f4856b2e3261c31976d6725780e5e4c373"
+    assert _EXACT_TAG_COMMENT.search(f"uses: a/b@{sha} # v4.1.1")
+    assert not _EXACT_TAG_COMMENT.search(f"uses: a/b@{sha} # v4")
+    assert not _EXACT_TAG_COMMENT.search(f"uses: a/b@{sha} # release/v1")
+    assert not _EXACT_TAG_COMMENT.search(f"uses: a/b@{sha}")
+
+
 def test_the_pin_check_refuses_a_tag_ref() -> None:
     """Non-triviality: the patterns above reject the shapes they exist to reject."""
     assert not _PINNED.match("actions/checkout@v4")

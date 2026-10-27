@@ -2450,7 +2450,7 @@
       "bom-ref": "gha:actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
       "group": "actions",
       "name": "attest-build-provenance",
-      "version": "v4",
+      "version": "v4.1.1",
       "description": "Signs the release AppImage's build-provenance attestation.",
       "scope": "excluded",
       "purl": "pkg:github/actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
@@ -2483,7 +2483,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v4"
+          "value": "v4.1.1"
         }
       ]
     },
@@ -2534,7 +2534,7 @@
       "bom-ref": "gha:pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
       "group": "pypa",
       "name": "gh-action-pypi-publish",
-      "version": "release/v1",
+      "version": "v1.14.1",
       "description": "Publishes the wheel and sdist to PyPI.",
       "scope": "excluded",
       "purl": "pkg:github/pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
@@ -2567,7 +2567,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "release/v1"
+          "value": "v1.14.1"
         }
       ]
     },
