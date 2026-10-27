@@ -2249,6 +2249,17 @@ actionlint with zizmor, and ShellCheck, and not Vale.
   `ci-lint` extra and run by two jobs that are not required checks yet. Vale is not
   added.
 
+**Added the same day, after the second follow-up review (item 2): KDD-43's
+Dependabot fix, applied.** The `update-types` ignores on ruff and mypy never
+worked, which is how #303 and #399 got through: Dependabot works out the versions
+an `update-types` ignore skips from the dependency's current version, and a
+pyproject range has none, so it skipped nothing
+(dependabot-core@8ef6f0723368:common/lib/dependabot/config/ignore_condition.rb:56-58).
+Every minor-pinned CI tool is now ignored by name, which skips all version
+updates and still admits security updates (:42-43); the runtime pins (PySide6,
+sigstore, numpy) are kept out of the weekly group, so each arrives in a pull
+request of its own. `tests/test_dependabot_holds_the_pins.py` holds both.
+
 **What changed, by area.** Both audio guards match NUL-separated names from one shared
 list (`.githooks/audio-extensions.txt`), so a name git quotes can no longer pass (1.1),
 and the rig collector checks the same 18 types (1.6). Setup no longer pipes distrobox's

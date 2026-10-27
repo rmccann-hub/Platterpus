@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Dependabot's ignores of the pinned CI tools work now** (contributor-facing; the second follow-up review of 2026-10-27, item 2). They named `update-types`, which Dependabot works out from a dependency's current version, and a `pyproject.toml` range has none, so they never matched: that is how #303 and #399 widened mypy. Each tool is now ignored by name, which still lets a security update through. The runtime pins (PySide6, sigstore, numpy) each get a pull request of their own instead of sharing one group, which is what the old comment claimed. The test derives the tool list from `pyproject.toml` and also refuses a cooldown under seven days.
+
 - **python-appimage is held in Dependabot like the other pinned tools, and three open follow-ups are recorded** (contributor-facing). The locks moved python-appimage into a minor-pinned `appimage` extra, so it joins the `pinned-minor` group and the ignore list. TASKS R90 to R92 record the regex timing test's flake, the installs still taken from ranges, and Critical rule #11's wording, which is the owner's to change.
 
 - **`CLAUDE.md`'s project-operations section is wrapped at 100 columns and its filler is gone** (contributor-facing; the follow-up review of 2026-10-27, item 8). The words are unchanged apart from three uses of "just"; two long commands stay on one line each, since a code span is never broken. The locked rules above it are untouched.
