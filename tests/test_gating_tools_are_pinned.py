@@ -39,7 +39,19 @@ CI_WORKFLOW: Path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 #: The tools CLAUDE.md rule #11 names as gating. Not derived from the workflow: the
 #: rule is about *these two specifically*, because their output changes between minor
 #: releases in ways that fail a check rather than merely warn.
-GATING_TOOLS: Final[tuple[str, ...]] = ("ruff", "mypy")
+#:
+#: **`pip-audit` joined on 2026-10-27** (the external review, item 2.2; amendment
+#: A5): it is a required status check, and the job installed whichever release was
+#: newest that day. Its output changes less between minors than a formatter's, but
+#: a new release can still add a check that fails CI with no change to our code,
+#: which is the failure the rule names.
+GATING_TOOLS: Final[tuple[str, ...]] = ("ruff", "mypy", "pip-audit")
+
+
+def _normalised(name: str) -> str:
+    """A distribution name the PEP 503 way: lowercase, `-` and `.` as `_`."""
+    return re.sub(r"[-.]", "_", name).lower()
+
 
 #: A pin whose upper bound is a MINOR, e.g. ``<0.16`` or ``<2.4``. ``<1`` is not one:
 #: it admits every minor release in a major series, which is what floating means.
@@ -99,7 +111,7 @@ def _bounds_are_a_minor_pin(spec: str) -> str:
 #: bare ``pip install ruff==0.15.0``. Deliberately does NOT match the fixed form,
 #: which installs ``"$spec"`` read out of ``pyproject.toml`` at run time.
 _LITERAL_PIN: Final[re.Pattern[str]] = re.compile(
-    r"pip\s+install[^\n]*[\"']?\b(?P<tool>ruff|mypy)\s*[<>=!~]"
+    r"pip\s+install[^\n]*[\"']?\b(?P<tool>ruff|mypy|pip[-_]audit)\s*[<>=!~]"
 )
 
 
@@ -129,7 +141,7 @@ def _spec_for(tool: str) -> str:
     """The ``dev`` extra's requirement string for ``tool``."""
     for entry in _dev_extra():
         # Normalise the PEP 503 way, so `ruff` matches however it is spelled.
-        if entry.replace("-", "_").lower().startswith(tool):
+        if _normalised(entry).startswith(_normalised(tool)):
             return entry
     raise AssertionError(
         f"{tool!r} is not in pyproject's `dev` extra at all — CLAUDE.md rule #11 "
@@ -183,6 +195,32 @@ def test_the_ci_gate_installs_the_pin_rather_than_repeating_it() -> None:
         f"two drifted: pyproject said `<0.16` while the lint job said `<1`. Read the "
         f"spec out of pyproject.toml at run time so there is one source of truth."
     )
+
+
+#: A pip install that names a gating tool with NO version at all: the shape the
+#: `pip-audit` job had until 2026-10-27 (`pip install -e . pip-audit`), which the
+#: literal-pin detector above cannot see, because there is no literal to find.
+_BARE_INSTALL: Final[re.Pattern[str]] = re.compile(
+    r"pip\s+install[^\n]*?(?<![\w./-])(?P<tool>ruff|mypy|pip[-_]audit)(?![\w.-]|\s*[<>=!~\[])"
+)
+
+
+def test_no_gating_tool_is_installed_unpinned() -> None:
+    """An unversioned install floats exactly as far as `<1` does, and further.
+
+    Read off executable lines only, so this file's subject matter appearing in a
+    comment cannot trip it.
+    """
+    lines = _executable_lines(CI_WORKFLOW.read_text(encoding="utf-8"))
+    offenders = [ln.strip() for ln in lines if _BARE_INSTALL.search(ln)]
+    assert not offenders, (
+        f"{CI_WORKFLOW.name} installs a gating tool with no version: {offenders}. "
+        "Read its spec out of pyproject.toml's dev extra, as the lint job does."
+    )
+    # NON-TRIVIALITY: the detector matches the line that shipped, and not the fix.
+    assert _BARE_INSTALL.search("          python -m pip install -e . pip-audit")
+    assert not _BARE_INSTALL.search('          python -m pip install -e . "$spec"')
+    assert not _BARE_INSTALL.search("          pip-audit --progress-spinner=off")
 
 
 def _executable_lines(text: str) -> list[str]:

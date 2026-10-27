@@ -104,7 +104,8 @@ dependencies = [
 # failure looks like a code problem, not a dependency one. Worse, local and CI
 # then resolve different versions and disagree about a green build.
 #
-# So the two gating tools are pinned to the minor they were measured against, and
+# So the gating tools (ruff, mypy, and pip-audit since 2026-10-27) are pinned to
+# the minor they were measured against, and
 # bumping them is a deliberate commit that re-runs the gate. The non-gating tools
 # stay loose: a pytest or hypothesis bump cannot silently redefine "correct".
 # (Found while auditing why so much had got through the gates, 2026-07-29.)
@@ -119,6 +120,12 @@ dev = [
     # --- gating: pinned to the measured minor, bump deliberately ---
     "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
     "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
+    # `pip-audit` gates CI too (a required check), so rule #11 reaches it: pinned
+    # to the minor main's CI ran: 2.10.1 (run 40425541839, 2026-10-27; PyPI's
+    # newest since 2026-06-10). The `pip-audit` job reads this line rather than
+    # restating it.
+    # (The 2026-10-27 external review, item 2.2; amendment A5.)
+    "pip-audit>=2.10.1,<2.11",
 ]
 # The tools `.github/workflows/publish-pypi.yml` runs in the job that holds
 # `id-token: write`, the one job that can publish to PyPI (the 2026-10-27 review,

@@ -85,11 +85,11 @@
       },
       {
         "name": "platterpus:count:python-dev",
-        "value": "7"
+        "value": "8"
       },
       {
         "name": "platterpus:count:python-build",
-        "value": "8"
+        "value": "7"
       },
       {
         "name": "platterpus:count:ci-action",
@@ -2103,6 +2103,39 @@
     },
     {
       "type": "library",
+      "bom-ref": "pypi:pip-audit",
+      "name": "pip-audit",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pip-audit",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml, .github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=2.10.1,<2.11"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "yes (pinned to the measured minor, Critical rule #11)"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pypi:pytest",
       "name": "pytest",
       "description": "The test runner.",
@@ -2308,32 +2341,6 @@
         {
           "name": "platterpus:pin-enforced-in",
           "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
-        },
-        {
-          "name": "platterpus:constraint",
-          "value": "unpinned"
-        }
-      ]
-    },
-    {
-      "type": "application",
-      "bom-ref": "pypi:pip-audit",
-      "name": "pip-audit",
-      "description": "The gating vulnerability audit of the resolved runtime graph.",
-      "scope": "excluded",
-      "purl": "pkg:pypi/pip-audit",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "python-build"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (pip-audit)"
-        },
-        {
-          "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (pip-audit)"
         },
         {
           "name": "platterpus:constraint",

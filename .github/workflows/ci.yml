@@ -408,7 +408,21 @@ jobs:
           # latest patched setuptools keeps the audit honest without suppressing
           # a real finding — the actual fix, not an --ignore-vuln.
           python -m pip install --upgrade pip setuptools
-          python -m pip install -e . pip-audit
+          # The pin is READ from pyproject.toml's dev extra, the same way the lint
+          # job reads ruff's (Critical rule #11; the 2026-10-27 review, item 2.2):
+          # this job is a required check, and it used to install whichever
+          # pip-audit was newest that day. Only pip-audit is taken from the extra,
+          # not the whole extra, so the audited environment stays the runtime graph
+          # plus the auditor, as before.
+          spec="$(python -c '
+          import pathlib, tomllib
+          dev = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["dev"]
+          print(next(d for d in dev if d.replace("-", "_").startswith("pip_audit")))
+          ')"
+          echo "pyproject pins: $spec"
+          python -m pip install -e . "$spec"
       - name: Audit dependencies
         run: pip-audit --progress-spinner=off
 

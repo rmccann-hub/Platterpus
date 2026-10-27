@@ -113,8 +113,8 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | External programs Platterpus runs or offers | 28 |
 | Desktop interfaces | 1 |
 | Bundled data | 1 |
-| Python packages for development and tests (the dev extra) | 7 |
-| Python packages for building, releasing and CI | 8 |
+| Python packages for development and tests (the dev extra) | 8 |
+| Python packages for building, releasing and CI | 7 |
 | GitHub Actions | 6 |
 | CI and build programs | 12 |
 | CI runner images | 1 |
@@ -241,26 +241,26 @@ Details for `cyanrip (build under review)`:
 |---|---|---|---|---|---|
 | `AccurateRip drive offsets` | `2026-06-05` | required | A snapshot of AccurateRip's drive read-offset table, shipped in the package so offset lookup works offline. | src/platterpus/adapters/accuraterip_offsets.py | scripts/update_drive_offsets.py (regenerates it) |
 
-### Python packages for development and tests (the dev extra) (7)
+### Python packages for development and tests (the dev extra) (8)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `cyclonedx-python-lib` | `>=11.12,<12` | excluded | — | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
 | `hypothesis` | `>=6` | excluded | Property-based tests, including the parsers' never-raises properties. | tests/ (every importer is in these directories) | pyproject.toml [project.optional-dependencies].dev |
 | `mypy` | `>=2.3,<2.4` | excluded | Strict type checking; gates CI. | .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
+| `pip-audit` | `>=2.10.1,<2.11` | excluded | — | .github/workflows/ci.yml, .github/workflows/release.yml | pyproject.toml [project.optional-dependencies].dev |
 | `pytest` | `>=8,<10` | excluded | The test runner. | tests/ (every importer is in these directories), .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
 | `pytest-cov` | `>=5` | excluded | Branch coverage and the CI coverage floor. | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
 | `pytest-xdist` | `>=3.6,<4` | excluded | Parallel test runs (CI and scripts/check.py pass -n auto). | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
 | `ruff` | `>=0.15.22,<0.16` | excluded | Lint and format; gates CI. | .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
 
-### Python packages for building, releasing and CI (8)
+### Python packages for building, releasing and CI (7)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `build` | `>=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; >=1.6.1,<1.7 in pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)` | excluded | PEP 517 frontend: builds the wheel and sdist. | .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml) | .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml) |
 | `cyclonedx-bom` | `>=7,<8` | excluded | Writes the CI sbom job's resolved-environment SBOM. | .github/workflows/ci.yml (sbom) | .github/workflows/ci.yml (sbom) |
 | `pip` | `unpinned` | excluded | Installs everything else. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) |
-| `pip-audit` | `unpinned` | excluded | The gating vulnerability audit of the resolved runtime graph. | .github/workflows/ci.yml (pip-audit) | .github/workflows/ci.yml (pip-audit) |
 | `python-appimage` | `>=1.4,<2` | excluded | Builds the AppImage (Critical rule #2). | .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh | .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh |
 | `setuptools` | `>=77 in pyproject.toml [build-system].requires; unpinned in .github/workflows/ci.yml (pip-audit)` | excluded | The build backend. | .github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires | .github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires |
 | `twine` | `>=7.0.0,<7.1` | excluded | Checks the wheel and sdist before the PyPI upload. | pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml) | pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml) |
