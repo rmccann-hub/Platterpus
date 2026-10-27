@@ -280,47 +280,72 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # Same audio-extension pattern as .githooks/pre-commit + .gitignore.
-          pattern='\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+          # THE EXTENSION LIST IS READ FROM ONE FILE, `.githooks/audio-extensions.txt`,
+          # which `.githooks/pre-commit` reads too, so the two guards cannot drift
+          # apart (`tests/test_media_guard_hook.py` compares them with the agent-side
+          # hook's list). One lowercase extension per line, no dot. A missing, empty
+          # or malformed file REFUSES: a guard with no list would match nothing and
+          # report a clean scan it never performed.
+          ext_file=.githooks/audio-extensions.txt
+          if [ ! -s "$ext_file" ]; then
+            echo "::error::$ext_file is missing or empty, so this gate has no list of audio extensions to match. Refusing rather than reporting a clean scan."
+            exit 1
+          fi
+          if grep -qvE '^[a-z0-9]+$' "$ext_file"; then
+            echo "::error::$ext_file holds a line that is not one lowercase extension (letters and digits, no dot). Refusing rather than guessing what it meant:"
+            grep -nvE '^[a-z0-9]+$' "$ext_file" >&2 || true
+            exit 1
+          fi
+          pattern="\.($(paste -sd'|' "$ext_file"))\$"
+          echo "audio extensions ($(wc -l < "$ext_file")): $pattern"
           if [ "$EVENT" = "pull_request" ]; then
             base="$PR_BASE"; head="$PR_HEAD"
           else
             base="$PUSH_BEFORE"; head="$GITHUB_SHA"
           fi
-          # THE PRODUCER IS CHECKED SEPARATELY FROM grep. `| grep ... || true`
-          # needs the `|| true` for grep's no-match exit (the normal case), but
-          # `|| true` sits outside the pipeline and so also absorbs a failure of
-          # `git ls-files` / `git diff` themselves — `set -o pipefail` cannot help,
-          # because it is the pipeline's own non-zero status being discarded. The
-          # result is an empty `offenders`, a "No audio/media files. ✅", and a
-          # green gate that inspected nothing: fail-OPEN on the one rule here with
-          # legal consequences.
+          # NUL-SEPARATED NAMES, NEVER LINES (the 2026-10-27 review, item 1.1). With
+          # `core.quotePath` on (git's default), a name outside ASCII is printed
+          # quoted and octal-escaped: `Björk.flac` comes out as "Bj\303\266rk.flac"
+          # with a closing quote, so `\.flac$` never matched it and this gate passed
+          # the file. `-z` prints every name raw and NUL-terminated, and `grep -z`
+          # matches each NUL-terminated record whole, so a quote, an escape or a
+          # newline inside a name cannot hide the extension.
           #
-          # This branch has the more reachable trigger of the two: after a
-          # force-push `$PUSH_BEFORE` can name an object that no longer exists, at
-          # which point `git diff` is fatal rather than empty.
+          # THE PRODUCER IS CHECKED SEPARATELY FROM grep. A pipe into
+          # `grep ... || true` would absorb a failure of `git ls-files` / `git diff`
+          # along with grep's no-match exit, and a fatal producer would read as
+          # "No audio/media files. ✅": fail-OPEN on the one rule here with legal
+          # consequences (found 2026-08-20; the hook had the identical idiom). So the
+          # names go to a file, the producer's own status is read, and only grep's
+          # exit 1 (no match) counts as clean; its exit 2 (an error) refuses.
           #
-          # The identical idiom was in `.githooks/pre-commit`, which CLAUDE.md calls
-          # "the canonical guard" — so the two guards meant to be INDEPENDENT
-          # witnesses shared one failure mode, which is exactly what an independent
-          # backstop is for. Found 2026-08-20; both fixed together.
-          #
+          # The range branch has the more reachable trigger: after a force-push
+          # `$PUSH_BEFORE` can name an object that no longer exists, at which point
+          # `git diff` is fatal rather than empty.
+          names="$(mktemp)"
+          offenders="$(mktemp)"
           # Manual run or a new ref with no base → scan the whole tree instead of a range.
           if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$base" | grep -qE '^0+$'; then
-            if ! candidates=$(git ls-files); then
+            if ! git ls-files -z > "$names"; then
               echo "::error::git ls-files failed, so this gate could not enumerate the tree. Refusing rather than reporting a clean scan it did not perform."
               exit 1
             fi
           else
-            if ! candidates=$(git diff --name-only --diff-filter=ACMR "$base" "$head"); then
+            if ! git diff -z --name-only --diff-filter=ACMR "$base" "$head" > "$names"; then
               echo "::error::git diff $base..$head failed (a force-push can leave \$PUSH_BEFORE naming a vanished object), so this gate could not enumerate the change. Refusing rather than reporting a clean scan it did not perform."
               exit 1
             fi
           fi
-          offenders=$(printf '%s\n' "$candidates" | grep -iE "$pattern" || true)
-          if [ -n "$offenders" ]; then
+          echo "names examined: $(tr -cd '\0' < "$names" | wc -c)"
+          status=0
+          grep -z -iE "$pattern" "$names" > "$offenders" || status=$?
+          if [ "$status" -gt 1 ]; then
+            echo "::error::grep exited $status while matching the names, so this gate cannot say whether any is audio. Refusing."
+            exit 1
+          fi
+          if [ "$status" -eq 0 ]; then
             echo "::error::Audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8). Offenders:"
-            printf '%s\n' "$offenders" >&2
+            tr '\0' '\n' < "$offenders" >&2
             exit 1
           fi
           echo "No audio/media files. ✅"
