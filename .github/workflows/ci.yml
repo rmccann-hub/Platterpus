@@ -26,6 +26,17 @@ on:
 permissions:
   contents: read
 
+# EVERY CHECKOUT HERE SETS `persist-credentials: false` (the 2026-10-27 review,
+# item 1.4). By default actions/checkout leaves the token in the clone's git
+# config for every later step to use, so any step, or any tool a step installs,
+# could read it. No job in this file pushes. The jobs that fetch after checkout
+# (`changelog`, `media-guard`, `tests-touched`, `test`) fetch from this PUBLIC
+# repository, which needs no token; `gitleaks` takes every branch, `evidence`
+# included, in the checkout itself, which uses the token whatever this says; and
+# `scripts/laplang/evidence.py` fetches into a temporary repository of its own,
+# which never saw the persisted token anyway. Held by
+# `tests/test_ci_workflow_shape.py`.
+
 jobs:
   # Lint + format check. Fast and dependency-light (ruff is a single binary,
   # no Qt libs needed), so it runs as its own job in parallel with the tests.
@@ -43,6 +54,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
         # Depth 1, the default (HR-2 §8b): ruff reads the tree and never history.
         # The comment that stood here explained why the TEST job needs history; it
         # was copied with the setting, and the setting fetched the whole history for
@@ -98,6 +111,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -125,6 +140,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           filter: blob:none
       # HR-2 §8b: fetch only what this job reads, by explicit refspec. Depth 1 and
       # blobless above, then the full history of HEAD and of main, still without
@@ -260,6 +276,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           filter: blob:none
       # HR-2 §8b: fetch only what this job reads, by explicit refspec. Depth 1 and
       # blobless above, then the full history of HEAD and of main, still without
@@ -360,6 +377,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
@@ -394,6 +413,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # Full history. A shallow clone would make this check pass by not
           # looking, which is the failure mode this repo names most often.
           fetch-depth: 0
@@ -528,6 +548,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
@@ -564,17 +586,22 @@ jobs:
           name: sbom-cyclonedx
           path: sbom.cdx.json
 
-  # Advisory (never fails): warn when src/ changes without a matching tests/
-  # change — a soft nudge toward "every change carries a test / every bug gets a
-  # regression test", mirroring the changelog gate's range logic. It only emits a
-  # GitHub ::warning:: and always exits 0, because plenty of legitimate src edits
-  # (a comment, a rename, a docstring) need no new test.
+  # GATING since 2026-08-20, and a required status check: fail when src/platterpus
+  # changes with no change under tests/, mirroring the changelog gate's range
+  # logic. Two ways through, both stated in the step below: a release commit whose
+  # only src change is the `__version__` line, or a `[no-test-needed] <reason>`
+  # line in a commit message of the range, with a real reason (a bare marker is
+  # refused). Plenty of legitimate src edits (a comment, a rename, a docstring)
+  # need no new test; they take the second door, where review can see why.
+  # (This comment called the job "Advisory (never fails)" until the 2026-10-27
+  # review, item 2.16: the prose stayed behind when the `exit 1` below landed.)
   tests-touched:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           filter: blob:none
       # HR-2 §8b: fetch only what this job reads, by explicit refspec. Depth 1 and
       # blobless above, then the full history of HEAD and of main, still without
@@ -704,6 +731,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # Depth 1 here, then history + tags by refspec in the next step.
           fetch-depth: 1
 
