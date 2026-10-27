@@ -470,6 +470,77 @@ jobs:
       - name: Regenerate every lock and diff it against the committed file
         run: bash build/lock-requirements.sh --check
 
+  # EVERY LOCK INSTALLS, AND THE BUILDS RUN, BEFORE A RELEASE NEEDS THEM (the
+  # follow-up review of 2026-10-27, item 4). No pull request installed
+  # publish.lock, which publish-pypi.yml first met at publish time, and
+  # release.lock and the AppImage's lock were first installed by appimage.yml on
+  # main. So a lock that could not install, or a build it could not run,
+  # surfaced at the release. This job installs each lock into a clean venv of
+  # its own with `--require-hashes --only-binary=:all:`, runs `pip check` on
+  # each, then runs what the consuming job runs, short of anything that
+  # publishes: publish-pypi.yml's build and `twine check`, build_appimage.sh's
+  # wheel build, and each tool's own version line. ci.lock is not repeated
+  # here: the test, lint and typecheck jobs install it on every pull request.
+  #
+  # The AppImage's lock is for the CPython the AppImage bundles (3.12), so it
+  # gets a 3.12 venv; everything else gets 3.11, as the jobs that use it do.
+  # No secrets, no token, no cache: a clean install is the point.
+  #
+  # NOT a required status check yet: the owner adds it to the default-branch
+  # ruleset when they choose to (PLANNING.md KDD-43).
+  lock-install:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Two interpreters: the last one listed is the default `python`.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: |
+            3.12
+            3.11
+      - name: Install each lock into a clean venv, hashed, and pip check it
+        run: |
+          set -euo pipefail
+          v="$RUNNER_TEMP/venvs"
+          for name in release publish audit sbom ci-lint; do python3.11 -m venv "$v/$name"; done
+          python3.12 -m venv "$v/appimage"
+          "$v/release/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock
+          "$v/publish/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/publish.lock
+          "$v/audit/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/audit.lock
+          "$v/sbom/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/sbom.lock
+          "$v/ci-lint/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/ci-lint.lock
+          "$v/appimage/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/python-appimage/requirements.lock
+          for name in release publish audit sbom ci-lint appimage; do
+            echo "pip check: $name"
+            "$v/$name/bin/python" -m pip check
+          done
+      - name: Build the wheel and sdist and check them, as publish-pypi.yml does, without publishing
+        run: |
+          set -euo pipefail
+          py="$RUNNER_TEMP/venvs/publish/bin/python"
+          "$py" -m build --no-isolation --outdir "$RUNNER_TEMP/dist-publish"
+          "$py" -m twine check "$RUNNER_TEMP"/dist-publish/*
+      - name: Build the wheel as build_appimage.sh does, from the release lock
+        run: |
+          set -euo pipefail
+          py="$RUNNER_TEMP/venvs/release/bin/python"
+          "$py" -m build --wheel --no-isolation --outdir "$RUNNER_TEMP/dist-release"
+          ls -l "$RUNNER_TEMP/dist-release"
+          "$py" -m python_appimage --help > /dev/null
+          "$py" -m sigstore --version
+      - name: Run each tool the other locks install
+        run: |
+          set -euo pipefail
+          v="$RUNNER_TEMP/venvs"
+          "$v/audit/bin/pip-audit" --version
+          "$v/sbom/bin/cyclonedx-py" --version
+          "$v/ci-lint/bin/actionlint" --version
+          "$v/ci-lint/bin/zizmor" --version
+          "$v/ci-lint/bin/shellcheck" --version
+
   # SECRET SCANNING. Gitleaks over the FULL HISTORY, not just the diff.
   #
   # This repository is public and its git history is public with it. A credential

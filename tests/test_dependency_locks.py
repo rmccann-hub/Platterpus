@@ -741,6 +741,58 @@ def test_the_sbom_describes_the_versions_ci_tests() -> None:
     assert "cyclonedx-bom" in sbom
 
 
+#: Locks the lock-install job need not repeat: ci.lock is installed on every
+#: pull request by the test, lint and typecheck jobs already.
+_INSTALLED_ELSEWHERE_ON_EVERY_PULL_REQUEST: Final[frozenset[str]] = frozenset(
+    {"build/locks/ci.lock"}
+)
+
+
+def test_every_lock_is_installed_and_built_from_on_pull_requests() -> None:
+    """Item 4 of the follow-up review of 2026-10-27: no lock waits for a release.
+
+    publish.lock was first installed at publish time and release.lock first on
+    main, so a lock that could not install surfaced at a release. ci.yml's
+    `lock-install` job (which runs on pull requests, as every ci.yml job does)
+    installs each into a clean venv with `--require-hashes`, runs `pip check`, and
+    runs the builds the release and the publish run, without publishing.
+    """
+    ci = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+    assert re.search(r"^  pull_request:", ci, re.M), "ci.yml no longer runs on PRs"
+    body = _job(ci, "lock-install")
+    lines = _install_lines(body)
+    unhashed = [ln for ln in lines if not _is_hashed_install(ln)]
+    assert not unhashed, f"lock-install installs without a hashed lock: {unhashed}"
+    expected = set(LOCKS) - _INSTALLED_ELSEWHERE_ON_EVERY_PULL_REQUEST
+    installed = {
+        lock for lock in expected for ln in lines if ln.endswith(f" -r {lock}")
+    }
+    assert installed == expected, (
+        f"lock-install does not install {sorted(expected - installed)}"
+    )
+    # Each into a venv of its own: every install line runs a venv's python.
+    assert all(re.match(r'^"\$v/[\w-]+/bin/python" -m pip', ln) for ln in lines), lines
+    executable = "\n".join(
+        ln for ln in body.splitlines() if not ln.strip().startswith("#")
+    )
+    assert re.search(r'"\$v/\$name/bin/python" -m pip check', executable)
+    # The publish job's build and check, and the AppImage build's wheel build.
+    assert re.search(r'"\$py" -m build --no-isolation --outdir', executable)
+    assert re.search(r'"\$py" -m twine check', executable)
+    assert re.search(r'"\$py" -m build --wheel --no-isolation', executable)
+    # Nothing that could publish: no token, no secrets, no OIDC, no writes.
+    for forbidden in (
+        "secrets.",
+        "github.token",
+        "id-token",
+        "permissions:",
+        "gh-action-pypi-publish",
+        "twine upload",
+        "gh release",
+    ):
+        assert forbidden not in executable, f"lock-install has {forbidden!r}"
+
+
 def test_the_install_check_catches_the_lines_that_shipped() -> None:
     """Non-triviality, against the exact lines the review named."""
     for shipped in (

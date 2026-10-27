@@ -307,7 +307,9 @@ they're established. Keep entries terse.*
   (actionlint and zizmor `--offline`) and `shellcheck` (every tracked shell script outside
   `docs/handshake/`), with their pins in pyproject's `ci-lint` extra, and `lock-check`
   (`bash build/lock-requirements.sh --check`: every hashed lock must regenerate byte for byte
-  from the uv version and `--exclude-newer` date in its header). Two more workflows:
+  from the uv version and `--exclude-newer` date in its header), and `lock-install` (every lock
+  into a clean venv with `--require-hashes` and `pip check`, then the publish and AppImage wheel
+  builds, without publishing). Two more workflows:
   `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`,
   ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main`
   and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build &
