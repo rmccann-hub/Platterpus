@@ -2634,7 +2634,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 5120** (2026-10-26): the entries above landed together on one branch.
     # **5120 -> 5127** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `_merge_shipped_track` carries the limit that stopped the reads with the verdict it describes.
     # **5127 -> 5160** (2026-10-26, TASKS R88, the owner's interim): `_rip_naming_for`, the snapshot the track table checks names against at Start, built from the same `_rip_metadata_for` the rip is handed; `_only_tracks_for_rip` is the selection both now read.
-    "ui/main_window_rip.py": 5160,
+    # **5160 -> 5178** (2026-10-27, external review item 3.2): the GUI-thread check in `run_unknown_post_processing` is a raise of `OffGuiThreadWidgetRead` instead of an `assert` that `python -O` strips; the exception class sits beside the one method that raises it, with the reason it is not an assert.
+    "ui/main_window_rip.py": 5178,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3871,3 +3872,80 @@ def test_only_setup_and_the_scoped_exception_enter_the_container() -> None:
     )
     stale = sorted(set(_CONTAINER_TOOL_ALLOWED) - running)
     assert not stale, f"allowlisted but no longer running one; remove them: {stale}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# `assert` in shipped code only narrows a type; it never guards behaviour.
+#
+# `python -O` deletes every `assert`, so an assert that checks a caller's
+# precondition (which thread we are on, whether an argument is in range) is a
+# check that disappears under an interpreter flag. The one that did that —
+# `run_unknown_post_processing` asserting the GUI thread — is a raise now
+# (external review of 2026-10-27, item 3.2). What remains is the shape mypy
+# needs: `x is not None` / `isinstance(x, T)`, stating a fact the line above
+# already established, whose removal changes no behaviour a correct program
+# can reach. Anything else in an `assert` is refused here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _assert_only_narrows(test: ast.expr) -> bool:
+    """True when an assert's condition is purely type narrowing.
+
+    Allowed: ``x is not None``, ``isinstance(x, T)``, and ``and`` of those.
+    """
+    if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And):
+        return all(_assert_only_narrows(value) for value in test.values)
+    if (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], ast.IsNot)
+        and isinstance(test.comparators[0], ast.Constant)
+        and test.comparators[0].value is None
+    ):
+        return True
+    return (
+        isinstance(test, ast.Call)
+        and isinstance(test.func, ast.Name)
+        and test.func.id == "isinstance"
+    )
+
+
+def test_asserts_in_src_only_narrow_types() -> None:
+    """Every `assert` under `src/platterpus` is type narrowing, nothing more."""
+    examined = 0
+    behavioural: list[str] = []
+    for rel, tree in _src_trees():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assert):
+                examined += 1
+                if not _assert_only_narrows(node.test):
+                    behavioural.append(f"{rel}:{node.lineno}: {ast.unparse(node.test)}")
+    # Floor: 15 narrowing asserts measured on 2026-10-27. Well under that still
+    # catches a scan that walked nothing.
+    assert examined >= 8, f"only {examined} assert(s) found; the scan is blind"
+    assert not behavioural, (
+        "these asserts check behaviour, and `python -O` removes them; raise a "
+        "specific exception (or log and refuse) instead:\n  " + "\n  ".join(behavioural)
+    )
+
+
+def test_the_assert_detector_fires_and_does_not_over_fire() -> None:
+    """The detector refuses the shape that shipped and allows the narrowing ones."""
+
+    def condition(source: str) -> ast.expr:
+        statement = ast.parse(source).body[0]
+        assert isinstance(statement, ast.Assert)
+        return statement.test
+
+    # The shape that was removed from main_window_rip.py.
+    assert not _assert_only_narrows(
+        condition("assert threading.current_thread() is threading.main_thread()")
+    )
+    assert not _assert_only_narrows(condition("assert count > 0"))
+    assert not _assert_only_narrows(condition("assert x is not None and x > 0"))
+    assert not _assert_only_narrows(condition("assert x is None"))
+    assert _assert_only_narrows(condition("assert proc.stdout is not None"))
+    assert _assert_only_narrows(condition("assert isinstance(ar, Result)"))
+    assert _assert_only_narrows(
+        condition("assert a is not None and isinstance(b, int)")
+    )

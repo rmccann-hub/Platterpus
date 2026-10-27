@@ -2449,8 +2449,15 @@ def test_run_unknown_post_processing_rejects_off_gui_thread_read(
     teardown_threads, tmp_path: Path
 ) -> None:
     """BUG-1: called WITHOUT a snapshot from a non-GUI thread, it must refuse
-    (assert) rather than silently race the Qt widgets."""
+    rather than silently race the Qt widgets.
+
+    The refusal is a specific exception, not an `assert` (external review of
+    2026-10-27, item 3.2): `python -O` strips asserts, so the old check vanished
+    under exactly the flag a packager might set. Catching only
+    `OffGuiThreadWidgetRead` is what makes this test fail on the old code."""
     import threading
+
+    from platterpus.ui.main_window_rip import OffGuiThreadWidgetRead
 
     window = teardown_threads()
     errors: list[str] = []
@@ -2458,7 +2465,7 @@ def test_run_unknown_post_processing_rejects_off_gui_thread_read(
     def run() -> None:
         try:
             window.run_unknown_post_processing(tmp_path, False)
-        except AssertionError as exc:
+        except OffGuiThreadWidgetRead as exc:
             errors.append(str(exc))
 
     thread = threading.Thread(target=run)

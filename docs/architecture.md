@@ -507,6 +507,15 @@ comments accurate too — they document *which* mixin owns each concern).
   `except Exception` is acceptable *only* at a thread/GUI boundary where a
   crash would take down the app, and it must `log.exception(...)` and degrade
   gracefully (tagging must never crash the GUI).
+- **An `assert` narrows a type; it never guards behaviour.** `python -O` deletes
+  every `assert`, so a check of a caller's precondition (which thread we are on,
+  whether a value is in range) written as one disappears under an interpreter
+  flag. Raise a specific exception, or log and refuse. The one that did this,
+  `run_unknown_post_processing` asserting the GUI thread, raises
+  `OffGuiThreadWidgetRead` since 2026-10-27; what remains in `src` is
+  `x is not None` / `isinstance(...)` for mypy, and
+  `tests/test_critical_rules_are_enforced.py::test_asserts_in_src_only_narrow_types`
+  refuses anything else.
 - **Use the `logging` module, never `print`.** The user's log lives at
   `~/.local/share/platterpus/log.txt` — the first thing to ask for in a bug
   report (the Settings *debug logging* toggle raises it to verbose DEBUG). Log
