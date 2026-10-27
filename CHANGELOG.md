@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Smaller follow-ups from the second review of 2026-10-27, item 6** (contributor-facing). The cache test now covers any job that can write (not only publishing ones), `actions/cache/restore` and `save`, and setup-uv, whose default caching is on for GitHub's runners; it found `dependencies.yml`'s issue-writing job caching, now off. `build/python-appimage/requirements.txt` no longer says the lock is uncommitted. The publish gate says why a release tag on an older `main` commit passes: a publish retry needs it.
+
+- **The flags that make a locked install hashed are each held by a test** (contributor-facing; the second follow-up review of 2026-10-27, item 3). `tests/test_lock_install_hardening.py` refuses a `python -m build` without `--no-isolation`, a hashed install without `--only-binary=:all:`, and a `pipx` or `uv` install in a workflow that publishes. It runs the AppImage build's lock check and expects it to refuse a missing lock and a lock made for another Python. Each was proven by reverting it.
+
+- **Dependabot's ignores of the pinned CI tools work now** (contributor-facing; the second follow-up review of 2026-10-27, item 2). They named `update-types`, which Dependabot works out from a dependency's current version, and a `pyproject.toml` range has none, so they never matched: that is how #303 and #399 widened mypy. Each tool is now ignored by name, which still lets a security update through. The runtime pins (PySide6, sigstore, numpy) each get a pull request of their own instead of sharing one group, which is what the old comment claimed. The test derives the tool list from `pyproject.toml` and also refuses a cooldown under seven days.
+
 - **python-appimage is held in Dependabot like the other pinned tools, and three open follow-ups are recorded** (contributor-facing). The locks moved python-appimage into a minor-pinned `appimage` extra, so it joins the `pinned-minor` group and the ignore list. TASKS R90 to R92 record the regex timing test's flake, the installs still taken from ranges, and Critical rule #11's wording, which is the owner's to change.
 
 - **`CLAUDE.md`'s project-operations section is wrapped at 100 columns and its filler is gone** (contributor-facing; the follow-up review of 2026-10-27, item 8). The words are unchanged apart from three uses of "just"; two long commands stay on one line each, since a code span is never broken. The locked rules above it are untouched.

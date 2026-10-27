@@ -83,6 +83,16 @@ jobs:
       # minted. The `pypi` environment's own branch rule is set in the
       # repository settings, which a session cannot read; this gate holds
       # whatever that rule says.
+      #
+      # A `v*` tag on an OLDER `main` commit passes, on purpose (asked in the
+      # second follow-up review of 2026-10-27, item 6). The one legitimate
+      # dispatch besides release.yml's is a retry of an existing release's
+      # publish, and by then that release's commit is behind main's tip. The
+      # gate's job is to keep code that never reached main off PyPI, which it
+      # does. What it does not stop, a new `v*` tag pushed by hand on an old
+      # main commit, publishes that commit's own `__version__`, and PyPI refuses
+      # a second upload of a version it already has, so it can republish
+      # nothing that was released.
       - name: Ref gate — publish only a v* tag whose commit is on main
         env:
           SHA: ${{ github.sha }}
