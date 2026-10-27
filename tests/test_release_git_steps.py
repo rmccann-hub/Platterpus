@@ -31,6 +31,8 @@ import pytest
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 RELEASE_YML: Final[Path] = REPO_ROOT / ".github" / "workflows" / "release.yml"
+PUBLISH_YML: Final[Path] = REPO_ROOT / ".github" / "workflows" / "publish-pypi.yml"
+REF_GATE: Final[str] = "Ref gate — publish only a v* tag whose commit is on main"
 BRANCH_GATE: Final[str] = "Branch gate — refuse to release a commit that is not on main"
 TAG_STEP: Final[str] = "Tag the release commit (annotated)"
 PUBLISH_STEP: Final[str] = "Publish to GitHub Release"
@@ -38,9 +40,9 @@ TAG: Final[str] = "v0.7.999"
 BOT: Final[str] = "github-actions[bot]"
 
 
-def _step_script(step_name: str) -> str:
-    """The named step's `run: |` block, dedented, read from `release.yml`."""
-    lines = RELEASE_YML.read_text(encoding="utf-8").splitlines()
+def _step_script(step_name: str, workflow: Path = RELEASE_YML) -> str:
+    """The named step's `run: |` block, dedented, read from ``workflow``."""
+    lines = workflow.read_text(encoding="utf-8").splitlines()
     start = next(
         i for i, ln in enumerate(lines) if ln.strip() == f"- name: {step_name}"
     )
@@ -127,9 +129,11 @@ class _Origin:
         return dest
 
 
-def _run_step(step: str, cwd: Path, **env: str) -> tuple[int, str]:
+def _run_step(
+    step: str, cwd: Path, workflow: Path = RELEASE_YML, **env: str
+) -> tuple[int, str]:
     done = subprocess.run(
-        ["bash", "-e", "-c", _step_script(step)],
+        ["bash", "-e", "-c", _step_script(step, workflow)],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -199,6 +203,78 @@ def test_the_branch_gate_fetches_main_alone_and_runs_before_the_build() -> None:
     text = RELEASE_YML.read_text(encoding="utf-8")
     assert text.index(f"- name: {BRANCH_GATE}") < text.index(
         "- name: Build the AppImage"
+    )
+
+
+# --- the PyPI publish's ref gate (follow-up review of 2026-10-27, item 2) -----
+
+
+def _publish_gate(
+    clone: Path, sha: str, ref_type: str, ref_name: str
+) -> tuple[int, str]:
+    return _run_step(
+        REF_GATE,
+        clone,
+        PUBLISH_YML,
+        SHA=sha,
+        REF_TYPE=ref_type,
+        REF_NAME=ref_name,
+    )
+
+
+def test_the_publish_gate_passes_a_release_tag_whose_commit_is_on_main(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    clone = origin.shallow_clone(tmp_path, "rel")
+    code, out = _publish_gate(clone, origin.b, "tag", TAG)
+    assert code == 0, out
+    assert "is on main" in out
+
+
+def test_the_publish_gate_refuses_a_branch_even_main(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """A dispatch on a branch publishes nothing, `main` included: PyPI gets a
+    release tag's build, never a moving branch's."""
+    clone = origin.shallow_clone(tmp_path, "main")
+    code, out = _publish_gate(clone, origin.d, "branch", "main")
+    assert code == 1, out
+    assert "publishes a release tag only" in out
+
+
+def test_the_publish_gate_refuses_a_tag_whose_commit_is_not_on_main(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """The case the gate exists for: a `v*` tag pushed on a feature commit."""
+    clone = origin.shallow_clone(tmp_path, "feature")
+    code, out = _publish_gate(clone, origin.c, "tag", TAG)
+    assert code == 1, out
+    assert f"{origin.c} is not on main" in out
+
+
+def test_the_publish_gate_refuses_a_tag_that_is_not_a_version(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    clone = origin.shallow_clone(tmp_path, "rel")
+    code, out = _publish_gate(clone, origin.b, "tag", "nightly")
+    assert code == 1, out
+    assert "publishes a release tag only" in out
+
+
+def test_the_publish_gate_ends_in_release_s_branch_gate_line_for_line() -> None:
+    """One gate in two workflows: the publish gate's on-main half is release.yml's
+    branch gate, so a fix to one cannot leave the other behind."""
+    release = _step_script(BRANCH_GATE)
+    publish = _step_script(REF_GATE, PUBLISH_YML)
+    assert release.strip() and publish.rstrip().endswith(release.rstrip()), (
+        "the publish gate's on-main half no longer matches release.yml's branch gate"
+    )
+
+
+def test_the_publish_gate_runs_before_the_build() -> None:
+    text = PUBLISH_YML.read_text(encoding="utf-8")
+    assert text.index(f"- name: {REF_GATE}") < text.index(
+        "- name: Build wheel + sdist and validate metadata"
     )
 
 

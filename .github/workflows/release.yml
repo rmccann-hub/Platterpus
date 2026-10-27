@@ -243,7 +243,7 @@ jobs:
           git merge-base --is-ancestor "$SHA" refs/remotes/origin/main || rc=$?
           case "$rc" in
             0) echo "branch gate: $SHA is on main ($(git rev-parse --short refs/remotes/origin/main) is its tip). ✅" ;;
-            1) echo "::error::$SHA is not on main. A release is cut from main only: merge the pull request, wait for main's CI, then dispatch this workflow on main."
+            1) echo "::error::$SHA is not on main. Releases and PyPI publishes come from main only: merge the pull request, wait for main's CI, then dispatch release.yml on main, which makes the tag and dispatches the publish on it."
                exit 1 ;;
             *) echo "::error::git merge-base could not compare $SHA with main (exit $rc), so there is no evidence it is on main."
                exit 1 ;;
