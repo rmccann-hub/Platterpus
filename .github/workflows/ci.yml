@@ -787,6 +787,78 @@ jobs:
           fi
           python3 scripts/check_commit_subjects.py --range "$base..$head"
 
+  # The workflows and the shell scripts get linters of their own (the
+  # 2026-10-27 review, items 2.5 and 3.6, added on the owner's word that day).
+  # NOT required checks yet: the owner adds `workflow-lint` and `shellcheck` to
+  # the default-branch ruleset when they choose to. Both read their pins out of
+  # pyproject's `ci-lint` extra, as the lint job reads ruff's (Critical rule #11).
+  workflow-lint:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install actionlint and zizmor (pins read from pyproject)
+        run: |
+          set -euo pipefail
+          specs="$(python -c '
+          import pathlib, tomllib
+          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["ci-lint"]
+          print("\n".join(s.split(";")[0].strip() for s in extra if s.startswith(("actionlint-py", "zizmor"))))
+          ')"
+          mapfile -t pins <<<"$specs"
+          test "${#pins[@]}" -eq 2
+          printf 'pyproject pins:\n'; printf '  %s\n' "${pins[@]}"
+          python -m pip install "${pins[@]}"
+      # actionlint checks every file under .github/workflows; zizmor runs
+      # offline, so it judges the files as written and never calls GitHub's API.
+      # Findings a reviewer accepted carry a `# zizmor: ignore[...]` beside them.
+      - name: actionlint
+        run: actionlint -color
+      - name: zizmor (offline)
+        run: zizmor --offline --format plain .github/workflows
+
+  shellcheck:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install ShellCheck (pin read from pyproject)
+        run: |
+          set -euo pipefail
+          spec="$(python -c '
+          import pathlib, tomllib
+          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["ci-lint"]
+          print(next(s for s in extra if s.startswith("shellcheck-py")))
+          ')"
+          echo "pyproject pin: $spec"
+          python -m pip install "$spec"
+      # Every tracked shell script, read NUL-separated so no name can split. The
+      # handshake folder is left out on purpose: its rig scripts are sent records,
+      # kept byte for byte as the peer received them. The list is held to every
+      # file with a shell shebang by tests/test_ci_lint_jobs.py, so a new script
+      # can't fall outside it.
+      - name: ShellCheck every shell script
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t scripts < <(git ls-files -z -- '*.sh' .githooks/pre-commit ':(exclude)docs/handshake/**')
+          echo "checking ${#scripts[@]} scripts"
+          test "${#scripts[@]}" -ge 10
+          shellcheck "${scripts[@]}"
+
   test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30

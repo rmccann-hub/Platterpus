@@ -205,6 +205,14 @@ def _python_build_entries(taken: set[str]) -> list[Entry]:
             "pyproject.toml [project.optional-dependencies].publish "
             "(installed by .github/workflows/publish-pypi.yml)",
         )
+    # The `ci-lint` extra, read the same way by ci.yml's workflow-lint and
+    # shellcheck jobs (added 2026-10-27).
+    for text in _strings(extras.get("ci-lint", [])):
+        add(
+            text,
+            "pyproject.toml [project.optional-dependencies].ci-lint "
+            "(installed by .github/workflows/ci.yml)",
+        )
     for flow in workflows():
         for job, text in flow.pip:
             add(text, _where(flow.rel, job))
@@ -257,5 +265,8 @@ _BUILD_PURPOSE: Final[dict[str, str]] = {
     "python-appimage": "Builds the AppImage (Critical rule #2).",
     "setuptools": "The build backend.",
     "twine": "Checks the wheel and sdist before the PyPI upload.",
+    "actionlint-py": "Lints the workflow files (syntax and expressions).",
+    "zizmor": "Audits the workflow files for security problems, offline.",
+    "shellcheck-py": "Checks the shell scripts.",
     "wheel": "Wheel support for the build backend.",
 }

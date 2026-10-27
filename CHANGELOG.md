@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **CI lints its own workflows and shell scripts** (contributor-facing; the review of 2026-10-27, items 2.5 and 3.6, added on the owner's word that day). A `workflow-lint` job runs actionlint and zizmor (offline), and a `shellcheck` job runs ShellCheck over every tracked shell script outside the handshake records. Neither is a required check yet. Their pins live in a new `ci-lint` extra in `pyproject.toml`, read by the jobs, and `tests/test_ci_lint_jobs.py` holds the ShellCheck list to every file with a shell shebang.
+
 - **The shell scripts pass ShellCheck** (contributor-facing; the review of 2026-10-27, item 3.6). The AppImage launcher finds its bundled Python with a glob instead of `ls | head -1`, which lets it run with `pipefail` too, so its exemption leaves the pipefail list. The rig-session script counts its logs with `find`, and the remaining `ls` listings, which only print to the operator, and `setup-host.sh`'s deliberate single quotes and `os-release` source carry a `# shellcheck` directive with the reason.
 
 - **The docs say "Analyze cache" wherever they name the drive wizard's button** (README's capability rows, TASKS R53, PLANNING's module map and parity table), matching the relabelled button; `CLAUDE.md`'s lint note names the rule sets now selected. Dated records (KDD-29's text, the session log) keep the spelling they were written with.
