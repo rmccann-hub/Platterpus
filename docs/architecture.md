@@ -1631,7 +1631,7 @@ release, never the ripper's interactive prompt).
 - `pytest` from the repo root (no env vars — `pyproject.toml` sets
   `pythonpath = ["src"]`); the suite touches no real hardware, network, or
   container. CI enforces **branch coverage with a hard floor**
-  (`--cov-fail-under`, 91, ratchets up) on the 3.14 leg of a 3.11–3.14 matrix that
+  (`--cov-fail-under`, 93, ratchets up) on the 3.14 leg of a 3.11–3.14 matrix that
   runs every test in parallel, plus `ruff`
   lint + format, the gating `mypy` typecheck (strict def-typing,
   `pyproject.toml [tool.mypy]`), and the changelog / media-guard /

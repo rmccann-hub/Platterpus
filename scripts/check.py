@@ -61,7 +61,7 @@ SENTINEL: Final[Path] = REPO_ROOT / ".pytest-session-complete"
 #: the authority. Stated here so a local run applies the same bar rather than a
 #: politer one — a local gate that is easier than CI's is a gate that teaches the
 #: wrong thing.
-COVERAGE_FLOOR: Final[int] = 91
+COVERAGE_FLOOR: Final[int] = 93
 
 #: Per-gate wall-clock bound. The suite measured 266 s clean and 320 s under
 #: coverage instrumentation, so 30 minutes is far above any healthy run while

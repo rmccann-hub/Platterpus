@@ -856,7 +856,10 @@ jobs:
 
       # Run with branch coverage and a hard floor. The gate ratchets up as
       # the suite grows — raise --cov-fail-under when TOTAL comfortably clears
-      # it; never lower it to make a red build pass.
+      # it; never lower it to make a red build pass. 91 -> 93 on 2026-10-27 (the
+      # external review, item 2.11): main's run 40425541839, this leg, measured
+      # TOTAL 93.28%, rounded DOWN to a whole number. `scripts/check.py`'s
+      # COVERAGE_FLOOR moves with it (`tests/test_check_script.py`).
       #
       # A single clean pass. The offscreen-Qt/PySide *process abort* that used to
       # flake this matrix (SIGSEGV/SIGABRT) was a wrong-thread QObject destruction
@@ -878,7 +881,7 @@ jobs:
         timeout-minutes: 15
         run: >-
           pytest -n auto
-          ${{ matrix.coverage && '--cov=platterpus --cov-report=term-missing --cov-fail-under=91' || '' }}
+          ${{ matrix.coverage && '--cov=platterpus --cov-report=term-missing --cov-fail-under=93' || '' }}
 
       # The exit code above is NOT sufficient on its own. conftest.py ends the
       # session with `os._exit(status)` (to dodge a PySide teardown abort), so any
