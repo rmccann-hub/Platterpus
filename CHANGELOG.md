@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The README puts Installation before Getting started, and has a Security section** (contributor-facing). An external review of 2026-10-27 found the first-rip guide ahead of the install steps and no pointer to `SECURITY.md`. The generated Getting started section moved whole, its markers with it, to follow Installation; the new Security section says how to report a vulnerability privately and links `SECURITY.md`. No section's text changed, and every in-page link still resolves, because the headings are the same. *Documentation for contributors* already serves as the development section.
+
 - **Round 36: the fork's lap 12 is filed and our lap 13, the answer to it, is written and held** (contributor-facing). Lap 13 corrects our lap 11's track 3 count (counted alike: `.25` 3 of 8, `.26` 0 of 8 paired and timed, 1 of 15 over every rip), accepts their log escaping, amends their path rules with the owner's choice of 2026-10-26 (shorten an over-long name to 255 bytes at a character boundary, keeping the track number and extension, and print it in the log), and asks that a drive's refusal of `-S` fall back to its own speed rather than stop the rip. It stays `HANDSHAKE-READY-TO-READ: no` until the owner's word. The status block names `.25` and `.27` for the paired rips.
 
 - **TASKS R88 records the owner's choice for over-long file names** (contributor-facing): the fork shortens the file or folder name at a character boundary and keeps the tags whole, asked in our next lap; the refusal before Start is the interim until that build is the default.
