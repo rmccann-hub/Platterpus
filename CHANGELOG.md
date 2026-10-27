@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **python-appimage is held in Dependabot like the other pinned tools, and three open follow-ups are recorded** (contributor-facing). The locks moved python-appimage into a minor-pinned `appimage` extra, so it joins the `pinned-minor` group and the ignore list. TASKS R90 to R92 record the regex timing test's flake, the installs still taken from ranges, and Critical rule #11's wording, which is the owner's to change.
+
 - **`CLAUDE.md`'s project-operations section is wrapped at 100 columns and its filler is gone** (contributor-facing; the follow-up review of 2026-10-27, item 8). The words are unchanged apart from three uses of "just"; two long commands stay on one line each, since a code span is never broken. The locked rules above it are untouched.
 
 - **The no-cache and no-token rules are tested in every workflow, not only `ci.yml`** (contributor-facing; the follow-up review of 2026-10-27, item 7). `tests/test_workflow_permissions.py` now requires every checkout in every workflow to drop its token, and refuses a cache in any job that holds `id-token: write` or `contents: write`, so `release.yml` and `publish-pypi.yml` no longer rely on the non-required zizmor job alone.

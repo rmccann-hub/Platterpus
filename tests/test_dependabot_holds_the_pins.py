@@ -33,7 +33,7 @@ _MINOR_CEILING: Final[re.Pattern[str]] = re.compile(r"<\s*\d+\.\d+")
 
 #: The CI tools, as opposed to runtime packages: these are ignored too.
 _CI_TOOLS: Final[frozenset[str]] = frozenset(
-    {"ruff", "mypy", "pip-audit", "build", "twine"}
+    {"ruff", "mypy", "pip-audit", "build", "twine", "python-appimage"}
 )
 
 
