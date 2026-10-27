@@ -254,6 +254,17 @@ tiers. "I added a happy-path test" is not done.
 4. **Coverage gate.** CI runs branch coverage with `--cov-fail-under` (currently
    **93%**, raised from 91 on 2026-10-27 against a measured TOTAL of 93.28%). The gate **ratchets up, never down** — raise it when
    TOTAL comfortably clears it; never lower it to make a build green.
+   **And a test-count floor beside it** (2026-10-27, the external review's item
+   2.12): every leg refuses a run that collected fewer tests than
+   `tests/collected-tests-baseline.txt`. The session sentinel proves a run
+   *finished*; only a count proves it ran as much as it should, since a module
+   that stops being collected leaves a finished, green run. `tests/conftest.py`
+   writes the controller's `session.testscollected` (the whole run under xdist)
+   to `$PLATTERPUS_TEST_COUNT_FILE` when CI sets it, and
+   `scripts/check_test_count.py` compares. It ratchets the same way: a run above
+   the floor prints a notice with the number to raise it to, so raise it in the
+   change that adds tests; `tests/test_check_test_count.py` refuses a baseline
+   below the newest release tag's.
 5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14),
    each leg in parallel (`pytest -n auto`). The coverage floor runs on the 3.14
    leg only (2026-09-26), because its `sys.monitoring` tracer is the fast one;

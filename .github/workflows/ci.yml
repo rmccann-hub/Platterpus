@@ -878,6 +878,9 @@ jobs:
       - name: Run tests (coverage gate on the py3.14 leg)
         env:
           QT_QPA_PLATFORM: offscreen
+          # Where tests/conftest.py writes the collected-test count, for the
+          # baseline check below. Outside the checkout, so nothing can commit it.
+          PLATTERPUS_TEST_COUNT_FILE: ${{ runner.temp }}/pytest-collected-count
         timeout-minutes: 15
         run: >-
           pytest -n auto
@@ -906,3 +909,18 @@ jobs:
             exit 1
           fi
           echo "Session completed; recorded exit status: $(cat .pytest-session-complete)"
+
+      # A FINISHED run is not a COMPLETE one (the 2026-10-27 review, item 2.12).
+      # The step above proves the session reached its end; this one proves it
+      # collected at least as many tests as `tests/collected-tests-baseline.txt`
+      # records. A module that silently stops being collected leaves a finished,
+      # green run with less in it, and only a count can see that. It ratchets:
+      # the script prints a notice with the number to raise the baseline to when
+      # a change adds tests, and `tests/test_check_test_count.py` refuses a
+      # baseline below the newest release tag's. One baseline for every leg:
+      # main's run 40425541839 collected 9,313 on py3.11 and on py3.12 alike
+      # (9,292 passed + 21 skipped each), so a leg below it has lost tests.
+      - name: Refuse a run that collected fewer tests than the baseline
+        env:
+          PLATTERPUS_TEST_COUNT_FILE: ${{ runner.temp }}/pytest-collected-count
+        run: python3 scripts/check_test_count.py --count-file "$PLATTERPUS_TEST_COUNT_FILE"
