@@ -84,7 +84,7 @@ jobs:
       # another run wrote: zizmor rates a build cache in a publishing workflow as
       # cache poisoning (high). The release runs a few times a month, so the
       # minute a cold install costs is not worth the risk.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
@@ -419,7 +419,7 @@ jobs:
       # 404ing (see "Publish to GitHub Release") has to cover this asset as well.
       - name: Attest AppImage build provenance
         id: attest
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: platterpus-x86_64.AppImage
 
