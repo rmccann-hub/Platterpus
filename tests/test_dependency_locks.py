@@ -793,6 +793,45 @@ def test_every_lock_is_installed_and_built_from_on_pull_requests() -> None:
         assert forbidden not in executable, f"lock-install has {forbidden!r}"
 
 
+def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
+    """Item 1 of the follow-up review of 2026-10-27: the locks must not rot.
+
+    Dependabot reads pyproject.toml, not the locks, so without this job nothing
+    ever takes a newer release into one. dependencies.yml's `relock` job
+    regenerates them every week with a date seven days back, opens a pull request
+    when a pin or hash changed, and fails visibly when it cannot.
+    """
+    text = (WORKFLOWS / "dependencies.yml").read_text(encoding="utf-8")
+    assert re.search(r"^  schedule:\n    - cron: ", text, re.M), "no weekly schedule"
+    assert re.search(r"^  workflow_dispatch:", text, re.M)
+    body = _job(text, "relock")
+    executable = "\n".join(
+        ln for ln in body.splitlines() if not ln.strip().startswith("#")
+    )
+    # Least privilege, on the job: exactly the two writes it needs.
+    grants = re.search(
+        r"^    permissions:\n(?P<g>(?:      [\w-]+: \w+[^\n]*\n)+)", body, re.M
+    )
+    assert grants is not None, "the relock job grants nothing of its own"
+    granted = dict(re.findall(r"^      ([\w-]+): (\w+)", grants.group("g"), re.M))
+    assert granted == {"contents": "write", "pull-requests": "write"}, granted
+    # Seven days back, Dependabot's cooldown, through the generator itself.
+    assert "date -u -d '7 days ago' +%Y-%m-%dT00:00:00Z" in executable
+    assert 'bash build/lock-requirements.sh --exclude-newer "$date"' in executable
+    # A new date alone is no reason for a pull request.
+    assert "git diff --quiet -I '^# exclude-newer: '" in executable
+    # It writes, so it restores no cache, setup-uv's default included.
+    assert "enable-cache: false" in body
+    assert not re.search(r"^\s+cache:\s*\S", body, re.M)
+    # A pull request it could not open is a red job naming the branch.
+    assert re.search(r"if ! url=\"\$\(gh pr create ", executable)
+    failure = executable.split('if ! url="$(gh pr create ', 1)[1].split("fi\n", 1)[0]
+    assert "::error::" in failure and "exit 1" in failure, failure
+    # And the pull request says CI has not run on it, and who carries it.
+    assert "No CI has run on this branch" in executable
+    assert "KDD-43" in executable
+
+
 def test_the_install_check_catches_the_lines_that_shipped() -> None:
     """Non-triviality, against the exact lines the review named."""
     for shipped in (
