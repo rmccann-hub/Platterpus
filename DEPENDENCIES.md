@@ -60,7 +60,7 @@ drive-dependent**; nothing in cyanrip's own output confirms defeat happened, so
 that field alone would read `(unknown)` (PLANNING.md KDD-25). We now **measure**
 the verdict with the standalone **`cd-paranoia -A`** self-test — libcdio's own
 copy of that same engine (the `cd-paranoia` dependency row above) — invoked via
-Set up drive → Analyse cache and recorded per drive. This is the maintainer-approved
+Set up drive → Analyze cache and recorded per drive. This is the maintainer-approved
 new dependency (deviation-policy sign-off given 2026-07-24). The honesty rule from
 KDD-25 still holds: an inconclusive probe keeps `(unknown)`, never a forged `Yes`.
 The exact `-A` verdict wording is hardware-tuned against the first real capture

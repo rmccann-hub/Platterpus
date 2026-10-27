@@ -270,13 +270,13 @@ ____________
 
 ### A14 — [ ] Cancelling the cache probe must actually stop the disc
 
-`Analyse cache` runs `cd-paranoia -A`, which can take **minutes** and spins the disc the
+`Analyze cache` runs `cd-paranoia -A`, which can take **minutes** and spins the disc the
 whole time. Closing the dialog called a cancel hook that was a **no-op** — a do-nothing
 default on the base class that this backend never overrode — so the flag was set and the
 probe carried on to its 600-second ceiling. Three separate comments in the code claimed it
 killed the process.
 
-1. Disc in. *Tools → Setup & Updates… → Set up drive…* → **Analyse cache**.
+1. Disc in. *Tools → Setup & Updates… → Set up drive…* → **Analyze cache**.
 2. Wait ~15 seconds so it is genuinely reading, then **close the dialog**.
 
 - Expected: the dialog closes immediately, the app stays responsive, and **the disc spins
@@ -906,7 +906,7 @@ Untick it afterwards.
 mv ~/.local/bin/cd-paranoia ~/.local/bin/cd-paranoia.bak
 ```
 
-1. Relaunch. *Set up drive* → **Analyse cache**. Expected: it says **cd-paranoia isn't
+1. Relaunch. *Set up drive* → **Analyze cache**. Expected: it says **cd-paranoia isn't
    installed** and points at *Tools → Setup & Updates… → Run setup…* — not a vague "could not be
    determined".
 2. Rip a CD → works. **Cache defeat** keeps saying **Yes** because your drive's verdict is
@@ -921,8 +921,8 @@ mv ~/.local/bin/cd-paranoia ~/.local/bin/cd-paranoia.bak
 
 ### C9 — [ ] Cache probe: no disc, and cancel mid-probe
 
-1. **Empty drive** → **Analyse cache** → expected: a clear message, no hang, no crash.
-2. Disc in, start **Analyse cache**, then **close the dialog while it runs** — see A14,
+1. **Empty drive** → **Analyze cache** → expected: a clear message, no hang, no crash.
+2. Disc in, start **Analyze cache**, then **close the dialog while it runs** — see A14,
    which is the same action with the fix now in place.
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
@@ -985,7 +985,7 @@ cache-defeat **Yes** measurement.
 
 ### C16 — [ ] UI spot-check
 
-- [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**, and says
+- [ ] *Help → User Guide* mentions **Analyze cache** and **Verify every track**, and says
       CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says "on by
       default"
@@ -1238,4 +1238,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.113.*

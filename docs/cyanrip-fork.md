@@ -444,7 +444,7 @@ sign-off, and hardware validation before it could be trusted (KDD-25).
 > preconditions was met and the feature **shipped in v0.5.8**: the `cd-paranoia`
 > row is in `DEPENDENCIES.md`, the maintainer signed off, and the verdict was
 > hardware-validated on the BDR-209D on 2026-07-26 (fixture:
-> `tests/fixtures/cdparanoia_A_bdr209d.txt`). *Set up drive → Analyse cache*
+> `tests/fixtures/cdparanoia_A_bdr209d.txt`). *Set up drive → Analyze cache*
 > now measures the drive's real behaviour via `adapters/cache_probe.py` and
 > renders a measured `Yes`/`No`. What survives from KDD-25 is the rule it was
 > protecting, not its conclusion: an **inconclusive** probe still renders
@@ -930,4 +930,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.113.*

@@ -171,7 +171,7 @@ class DriveSetupDialog(CenteredDialog):
                 "you can enter it by hand.\n\n"
                 "You can also measure this drive's audio-cache behaviour, which "
                 "confirms re-reads reach the disc (not a stale cache). Insert any "
-                "audio CD and click Analyse cache — the measured Yes/No is saved "
+                "audio CD and click Analyze cache — the measured Yes/No is saved "
                 "and recorded in the drive's EAC-compatible log."
             )
         else:
@@ -240,8 +240,8 @@ class DriveSetupDialog(CenteredDialog):
         self._progress: QProgressBar | None = None
         if self._can_detect or self._can_analyze:
             # "Detect" when there's a real offset finder (offset + cache);
-            # "Analyse cache" when only the cache probe runs (cyanrip).
-            label = "&Detect" if self._can_detect else "Analy&se cache"
+            # "Analyze cache" when only the cache probe runs (cyanrip).
+            label = "&Detect" if self._can_detect else "Analy&ze cache"
             self._detect_button = QPushButton(label, self)
             self._detect_button.clicked.connect(self._on_detect_clicked)
             root.addWidget(self._detect_button)
@@ -451,7 +451,7 @@ class DriveSetupDialog(CenteredDialog):
         if self._detect_button is not None:
             self._detect_button.setEnabled(True)
             self._detect_button.setText(
-                "Re-detect" if self._can_detect else "Re-analyse cache"
+                "Re-detect" if self._can_detect else "Re-analyze cache"
             )
         self._set_manual_controls_enabled(True)
         self._worker = None

@@ -1245,7 +1245,7 @@ class MainWindow(
             action.setEnabled(not active)
         # Greying the menu item only stops the window being OPENED. Setup &
         # Updates is modeless, so one already open when the rip starts kept every
-        # button live — Set up drive… → Analyse cache would spin the drive under
+        # button live — Set up drive… → Analyze cache would spin the drive under
         # the rip, and an update could swap the AppImage out from under it.
         if self._setup_center is not None:
             self._setup_center.set_locked(active)

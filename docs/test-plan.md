@@ -149,7 +149,7 @@ click, no disc. If your drive isn't in the list: look it up at
 accuraterip.com/driveoffsets.htm and **type it** into the manual field, then
 Save. (The wizard does not measure the offset from a disc, so there is no "Detect"
 button — the value comes from the list or manual entry. The fork's own finder,
-`cyanrip -f`, runs only in the acceptance run's section O. The dialog's **Analyse
+`cyanrip -f`, runs only in the acceptance run's section O. The dialog's **Analyze
 cache** button measures the drive's cache with `cd-paranoia -A`, KDD-29.)
 
 ### A6 — [ ] Rip a recognized CD
@@ -915,4 +915,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.113.*

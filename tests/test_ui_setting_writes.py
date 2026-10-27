@@ -272,7 +272,7 @@ def test_a_rip_locks_a_setup_and_updates_window_that_was_already_open(
     """The regression: greying the menu item only stopped it being OPENED.
 
     Before this, a Setup & Updates window left open when a rip started kept every
-    button live — Set up drive… → Analyse cache would spin the drive under the
+    button live — Set up drive… → Analyze cache would spin the drive under the
     rip. Every action is locked for the rip and unlocked after it.
     """
     window = make_window()
