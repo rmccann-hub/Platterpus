@@ -157,6 +157,7 @@ class MetaflacAdapter:
                 # a GUI process with no terminal — "hung with no explanation" is the
                 # least diagnosable failure there is.
                 stdin=subprocess.DEVNULL,
+                encoding="utf-8",
                 errors="replace",  # a stray non-UTF-8 byte must not raise here
             )
         except FileNotFoundError as exc:

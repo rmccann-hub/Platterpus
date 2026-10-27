@@ -8,6 +8,12 @@ hole: every text-mode pipe that set no ``errors`` policy raised
 then stopped reading the ripper altogether, with the line before the byte lost
 as well. Eight of the fourteen text-mode reads had no policy, the rip itself among them. The sweep at the bottom keeps a
 new one from arriving.
+
+**And which encoding** (external review of 2026-10-27, item 3.3). The same pipes
+named no ``encoding=``, so they decoded with the locale's: correct under UTF-8
+and C/POSIX locales, silently garbled under a named non-UTF-8 one. Every
+text-mode subprocess call now says ``encoding="utf-8"``, and a second sweep
+keeps it so.
 """
 
 from __future__ import annotations
@@ -113,7 +119,12 @@ def test_a_text_pipe_with_replace_survives_a_byte_that_is_not_utf8() -> None:
         "import sys; sys.stdout.buffer.write(b'before\\nbad \\xe9 byte\\nafter\\n')",
     ]
     proc = subprocess.Popen(
-        child, stdout=subprocess.PIPE, text=True, errors="replace", bufsize=1
+        child,
+        stdout=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
     )
     assert proc.stdout is not None
     lines = [line.rstrip("\n") for line in proc.stdout]
@@ -181,6 +192,98 @@ def test_the_policy_sweep_fires_on_the_shape_it_refuses() -> None:
     assert _text_mode_calls(good) == (1, [])
     by_encoding = "import subprocess\nsubprocess.run(['x'], encoding='utf-8')\n"
     assert _text_mode_calls(by_encoding) == (1, [2])
+
+
+def _text_mode_subprocess_calls_without_encoding(source: str) -> tuple[int, list[int]]:
+    """``(text-mode subprocess calls found, lines of those naming no encoding)``.
+
+    A text-mode pipe with no ``encoding=`` decodes the child's bytes with the
+    locale's encoding (``locale.getpreferredencoding``). Python 3.7+ switches to
+    UTF-8 under the C/POSIX locale, so the exposure is a *named* non-UTF-8
+    locale (``de_DE.ISO-8859-1``, say): there, every UTF-8 tag cyanrip prints
+    would be decoded as Latin-1 and arrive as mojibake, and because Latin-1
+    decodes every byte, ``errors="replace"`` would never fire and
+    ``inbound_text`` would count nothing. The garbling would be silent.
+    """
+    found = 0
+    missing: list[int] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+        if name not in _SUBPROCESS_CALLS:
+            continue
+        keywords = {k.arg: k for k in node.keywords if k.arg}
+        flag = keywords.get("text") or keywords.get("universal_newlines")
+        if not (
+            flag is not None
+            and isinstance(flag.value, ast.Constant)
+            and flag.value.value is True
+        ):
+            continue
+        found += 1
+        if "encoding" not in keywords:
+            missing.append(node.lineno)
+    return found, missing
+
+
+def test_every_text_mode_subprocess_pipe_names_its_encoding() -> None:
+    """External review of 2026-10-27, item 3.3: decode as UTF-8, never the locale."""
+    missing: list[str] = []
+    found = 0
+    for path in sorted(_SRC.rglob("*.py")):
+        count, lines = _text_mode_subprocess_calls_without_encoding(
+            path.read_text(encoding="utf-8")
+        )
+        found += count
+        missing += [f"{path.relative_to(_SRC)}:{line}" for line in lines]
+    # Floor: 12 text-mode subprocess calls on 2026-10-27, none naming an encoding.
+    assert found >= 10, f"only {found} text-mode subprocess call(s) found; blind"
+    assert not missing, (
+        'these text-mode subprocess calls decode with the locale; add encoding="utf-8" '
+        "beside text=True so a non-UTF-8 locale cannot garble the output silently:\n  "
+        + "\n  ".join(missing)
+    )
+
+
+def test_the_encoding_sweep_fires_on_the_shape_it_refuses() -> None:
+    bad = (
+        "import subprocess\n"
+        "subprocess.run(['x'], capture_output=True, text=True, errors='replace')\n"
+    )
+    good = bad.replace("text=True", "text=True, encoding='utf-8'")
+    assert _text_mode_subprocess_calls_without_encoding(bad) == (1, [2])
+    assert _text_mode_subprocess_calls_without_encoding(good) == (1, [])
+    # A call that is not a subprocess call is not this sweep's business.
+    other = "screen(text=True)\n"
+    assert _text_mode_subprocess_calls_without_encoding(other) == (0, [])
+
+
+def test_a_utf8_pipe_reads_what_a_latin1_default_would_garble() -> None:
+    """The mechanism, run for real: UTF-8 bytes from a child come back intact
+    through `encoding="utf-8"`, and the same bytes decoded as Latin-1 (what the
+    locale default does under a named ISO-8859-1 locale) are garbled with no
+    U+FFFD for `inbound_text` to count."""
+    child = [
+        sys.executable,
+        "-c",
+        "import sys; sys.stdout.buffer.write('Café — 日本語\\n'.encode('utf-8'))",
+    ]
+    proc = subprocess.run(
+        child,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    )
+    assert proc.stdout == "Café — 日本語\n"
+    # And the same bytes read as Latin-1 (what a locale default would do under
+    # a named ISO-8859-1 locale) are garbled without a single U+FFFD to flag it.
+    raw = "Café — 日本語\n".encode()
+    as_latin1 = raw.decode("latin-1", errors="replace")
+    assert as_latin1 != proc.stdout and "\ufffd" not in as_latin1
 
 
 def test_the_inbound_screen_and_the_outbound_rule_differ_only_in_tab() -> None:

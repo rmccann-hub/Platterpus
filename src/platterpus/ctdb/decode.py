@@ -133,6 +133,7 @@ def _default_probe_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
         argv,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         errors="replace",
         timeout=_PROBE_TIMEOUT_S,
         check=False,

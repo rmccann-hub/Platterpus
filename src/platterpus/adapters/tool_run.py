@@ -232,6 +232,7 @@ def run_tool(
             stdin=subprocess.DEVNULL,
             timeout=timeout_s,
             text=True,
+            encoding="utf-8",
             errors="replace",  # a stray non-UTF-8 byte must not raise here
         )
     except FileNotFoundError:

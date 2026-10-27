@@ -1230,7 +1230,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1946 -> 1976** (2026-10-26, round 36 lap 7 S3): `--prefer-accuraterip-match` through the argv chokepoint on every rip, gated on the build tag beside `--prefer-disc-isrc`'s gate.
     # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **1983 -> 1998** (2026-10-26, TASKS R88, the owner's interim): the argv chokepoint calls `cyanrip_name_lengths.assert_names_fit`, so no route to the ripper skips the name-length check; the check itself lives in its own module.
-    "adapters/cyanrip_backend.py": 1998,
+    # **1998 -> 1999** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "adapters/cyanrip_backend.py": 1999,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     "adapters/musicbrainz_client.py": 618,
@@ -1596,7 +1597,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # evidence in different files. Roughly 40% of the lines are the comments
     # explaining why each bound and each tri-state is there, which the cohesion
     # heuristic is explicitly not meant to punish.
-    "deps/ripper_wrapper_probe.py": 510,
+    # **510 -> 511** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "deps/ripper_wrapper_probe.py": 511,
     # **663 -> 688 (2026-09-25)**: the default wizard keeps the build under review, records that it did, and says so in its 'already present' line.
     # **688 -> 695** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` build of the target is not the target installed, so the wizard builds the clean one over it.
     "deps/host_setup.py": 695,
@@ -1648,7 +1650,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
     # **565 -> 834** (2026-10-05, the fork's round 30 lap 9 S28): `second_signal_refusal`, the predicate that keeps the rescue and the shutdown stop from sending a native cyanrip our cancel already reached its second SIGTERM, and `term_unsignalled_holders` / `device_holders` / `parse_fuser_pids`, which ask `fuser` who holds the drive before signalling. Beside `free_device_holders` and `stop_reader_gracefully` because it is the first step of the same kill sequence (rule #3's one scoped exception); the most of it is the docstrings saying why each path is safe.
     # **834 -> 838** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the one `term_unsignalled_holders` arm that returned with no line (no holder, after a cancel that reached a process) now logs its outcome, because `sigterm-world` reads the outcome from the log and a silent arm reads as no rescue.
-    "drive_control.py": 838,
+    # **838 -> 839** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "drive_control.py": 839,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
     "drive_profiles.py": 452,
@@ -1849,7 +1852,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
     # the gate itself lives in `container_gate.py`.
-    "killable.py": 323,
+    # **323 -> 324** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "killable.py": 324,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -2113,7 +2117,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **998 -> 1009** (landed 2026-09-29, written 2026-09-28 as `167e0d4c`): the reference argv's `-r`/`-Z` come from `Config()` instead of a hand-typed `-r 3 -Z 3`, a pair that can never converge and that the argv chokepoint now refuses; the comment says so.
     # **1009 -> 1012** (2026-10-06, ruling C1): `_rip_failure` phrases each pass's exit through `rip_pass_exit.PassExits`, the one phrasing every reader shares; the phrasing itself lives there.
     # **1012 -> 1018** (2026-10-13, round 32 lap 5 S11): `DIAGNOSTICS_FLAG` is imported from `diagnostics_record` rather than spelled here, with the reason (two copies could strip one spelling and append the other); the cache-probe row names `--cache-probe`.
-    "rig_check.py": 1018,
+    # **1018 -> 1020** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "rig_check.py": 1020,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
@@ -2289,7 +2294,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1209 -> 1223** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     "settings_validation.py": 1223,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
-    "sleep_inhibit.py": 600,
+    # **600 -> 601** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "sleep_inhibit.py": 601,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
     # on the maintainer's "stop polluting my home directory" instruction. The

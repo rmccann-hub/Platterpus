@@ -532,7 +532,12 @@ comments accurate too — they document *which* mixin owns each concern).
   is a realistic source of such a byte. `tests/test_inbound_text.py` sweeps for
   it. What such a read then shows a person goes through `inbound_text` (escapes
   for control characters, a bound on line length, the count of what changed).
-  Parsers read the raw text.
+  Parsers read the raw text. **And it names the encoding:** every text-mode
+  subprocess call passes `encoding="utf-8"` beside `text=True` (2026-10-27,
+  external review item 3.3). Without it the pipe decodes with the locale's
+  encoding, and under a named non-UTF-8 locale such as ISO-8859-1 every byte
+  decodes, so cyanrip's UTF-8 tags arrive as mojibake with no U+FFFD for
+  `inbound_text` to count. The same file sweeps for that too.
 - **Two audiences, two artifacts (maintainer's call, 2026-07-01).** Platterpus's
   app log lands in exactly two places — *not* redundant — and there is **no**
   standalone `.platterpus.log` sidecar:

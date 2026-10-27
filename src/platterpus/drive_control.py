@@ -143,6 +143,7 @@ def _run_bounded(argv: list[str], timeout: float) -> subprocess.CompletedProcess
         timeout=timeout,
         check=False,
         text=True,
+        encoding="utf-8",
         errors="replace",  # a stray non-UTF-8 byte must not raise here
     )
 
