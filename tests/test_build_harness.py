@@ -112,7 +112,9 @@ def test_entrypoint_launches_under_nounset_with_a_bare_environment(
     import subprocess
 
     text = ENTRYPOINT.read_text(encoding="utf-8")
-    assert re.search(r"^set -eu$", text, re.MULTILINE), "the entrypoint lost set -u"
+    assert re.search(r"^set -eu(o pipefail)?$", text, re.MULTILINE), (
+        "the entrypoint lost set -u"
+    )
     appdir = tmp_path / "AppDir"
     python = appdir / "opt" / "python3.12" / "bin" / "python3.12"
     python.parent.mkdir(parents=True)

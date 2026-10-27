@@ -146,6 +146,9 @@ ensure_distrobox() {
     # lets tests point this at a fixture).
     local id_like=""
     local os_release="${OS_RELEASE_FILE:-/etc/os-release}"
+    # os-release is a file of shell assignments, made to be sourced; its path
+    # is chosen at run time, so ShellCheck can't follow it.
+    # shellcheck source=/dev/null
     [ -r "$os_release" ] && id_like="$(. "$os_release"; echo "${ID:-} ${ID_LIKE:-}")"
     case "$id_like" in
         *fedora*|*rhel*|*centos*) run sudo dnf install -y distrobox ;;
@@ -191,6 +194,9 @@ ensure_container_backend() {
     fi
     local id_like=""
     local os_release="${OS_RELEASE_FILE:-/etc/os-release}"
+    # os-release is a file of shell assignments, made to be sourced; its path
+    # is chosen at run time, so ShellCheck can't follow it.
+    # shellcheck source=/dev/null
     [ -r "$os_release" ] && id_like="$(. "$os_release"; echo "${ID:-} ${ID_LIKE:-}")"
     case "$id_like" in
         *fedora*|*rhel*|*centos*) run sudo dnf install -y podman ;;
@@ -242,6 +248,9 @@ install_tools() {
     # stanza the GUI's host-setup wizard writes (deps/host_setup.py) — keep the
     # two in sync. The stanza is passed as a positional "$1" so $releasever is
     # never shell-expanded; the repo is enabled only INSIDE the container.
+    # Single quotes on purpose: "$1" and $releasever must reach the container's
+    # shell unexpanded (ShellCheck SC2016 reads that as a mistake).
+    # shellcheck disable=SC2016
     in_container sudo sh -c 'printf %s "$1" > /etc/yum.repos.d/copr-barsnick-non-fed.repo' write-copr-repo \
 '[copr:copr.fedorainfracloud.org:barsnick:non-fed]
 name=Copr repo for non-fed owned by barsnick (provides cyanrip)
