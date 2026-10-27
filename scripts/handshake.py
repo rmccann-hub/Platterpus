@@ -822,6 +822,7 @@ def our_pin() -> str:
             cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         sha = found.stdout.strip()
         if found.returncode == 0 and sha:

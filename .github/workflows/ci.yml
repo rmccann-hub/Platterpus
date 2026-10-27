@@ -819,12 +819,13 @@ jobs:
       # actionlint checks every file under .github/workflows, and runs the pinned
       # ShellCheck over each `run:` block (installed here so the result does not
       # depend on what the runner image happens to carry); zizmor runs
-      # offline, so it judges the files as written and never calls GitHub's API.
+      # offline over all of .github (the workflows and dependabot.yml), so it
+      # judges the files as written and never calls GitHub's API.
       # Findings a reviewer accepted carry a `# zizmor: ignore[...]` beside them.
       - name: actionlint
         run: actionlint -color
       - name: zizmor (offline)
-        run: zizmor --offline --format plain .github/workflows
+        run: zizmor --offline --format plain .github
 
   shellcheck:
     runs-on: ubuntu-22.04

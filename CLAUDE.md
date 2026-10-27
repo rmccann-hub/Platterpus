@@ -274,85 +274,313 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 ## Project operations
 
-*This section grows as the project develops. Add concrete commands, paths, and operational notes as they're established. Keep entries terse.*
+*This section grows as the project develops. Add concrete commands, paths, and operational notes as
+they're established. Keep entries terse.*
 
 ### Build commands
 
-- AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` at repo root via `python-appimage`)
-- App icon: `python3 build/make_icon.py` (regenerates the committed `build/python-appimage/io.github.rmccann_hub.Platterpus.png` from `assets/platterpus-logo.svg`; needs an SVG rasterizer on PATH — `rsvg-convert`, Inkscape, ImageMagick, or the `cairosvg` module — **not** Pillow)
+- AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` at repo root via
+  `python-appimage`)
+- App icon: `python3 build/make_icon.py` (regenerates the committed
+  `build/python-appimage/io.github.rmccann_hub.Platterpus.png` from `assets/platterpus-logo.svg`;
+  needs an SVG rasterizer on PATH — `rsvg-convert`, Inkscape, ImageMagick, or the `cairosvg` module
+  — **not** Pillow)
 
 ### CI / release
 
-- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:** `test` (pytest on the 3.11–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14 leg), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package, plus `scripts/`, `build/*.py` and `.claude/hooks`), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8 backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the full history, merge commits included, with the pinned and checksum-verified CLI; it refuses a shallow clone and a scan below its floors, since 2026-10-05 — `SECURITY.md`; it is also the one job that fetches the `evidence` branch, scanning every commit of it and checking the evidence manifest, HR-2 §8a), **`sbom`** (a CycloneDX inventory of what ships, with a floor that refuses fewer than ten components), and **`tests-touched`** (GATING since 2026-08-20: it fails when `src/platterpus` changes with no change under `tests/`, unless a commit in the range carries `[no-test-needed] <reason>` — a bare marker is refused — or the only src change is the `__version__` bump of a release commit). **Non-gating jobs** in the same file (added 2026-10-27, after that day's review; the owner adds one to the ruleset to make it required): `commit-subjects` (`scripts/check_commit_subjects.py` against the subject grammar below), `workflow-lint` (actionlint and zizmor `--offline`) and `shellcheck` (every tracked shell script outside `docs/handshake/`), with their pins in pyproject's `ci-lint` extra. Two more workflows: `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`, ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main` and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build & testing**). Why each gate exists: `docs/architecture.md` §6.3.
-- **Releases are IMMUTABLE once published** (the owner's setting, 2026-10-12): the tag cannot move, and no file can be added to or replaced on a published release. `release.yml` creates each release as a **draft** carrying every file, then publishes it; its re-run branch finishes a leftover draft and **refuses** a release that is already published, because re-running cannot re-upload its files (`tests/test_release_uploads_while_draft.py`). A broken published release is fixed by a new version, never by editing it. **CodeQL default setup** runs for Actions, C/C++ and Python, and **every action must be pinned to a full commit SHA** (the repository's Actions policy; `tests/test_workflow_permissions.py::test_every_action_is_pinned_to_a_full_commit_sha`).
-- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`, which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. **Handshake record:** the release prints every open handshake round and goes ahead (protocol v8 §6b, from 2026-10-11) — see `docs/cyanrip-handshake.md`. A partly-verified pin is still an unverified pin: `FORK_PIN` moves only when a round closes. Before tagging (the reason for each step: `docs/architecture.md` §6.3):
-  - **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — the *single source*; `pyproject.toml` reads it dynamically, so do **not** add a version there;
-  - **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a matching compare link;
-  - **(3)** run **`pytest tests/test_no_stale_version_claims.py`** — the version-bump gate: it fails until the CHANGELOG has a section *and* a compare link for the new version, the `[Unreleased]` link points at it, and README/SECURITY name the new minor and carry its stamp;
-  - **(4)** restamp the docs the cycle touched: run `pytest tests/test_doc_version_stamps.py`; it lists every Markdown doc changed since the last release tag whose `*Last updated for Platterpus vX.Y.Z.*` footer must move to the new version (`docs/README.md` → *Doc version stamps*);
-  - **(5)** **re-run the generators, AFTER the bump, not before**: `python3 scripts/emit_script_language.py`, `python3 scripts/emit_dependency_contract.py` and `python3 scripts/emit_bom.py` — all three embed `__version__`, so **hand-editing the footer does not fix it**; `--check` modes exist on all three, and `tests/test_dependency_contract_emitted.py` / `tests/test_script_language_emitted.py` / `tests/test_bom_emitted.py` are the authority. `python3 scripts/emit_ripper_inventory.py` is **not** version-stamped: run it when a handshake round ships a new provider contract, not when the version moves;
-  - **(6)** **re-run `pip install -e .` before you believe a local suite run** — `tests/test_app.py::test_installed_metadata_matches_canonical_version` reads the version recorded at install time — and **read pytest's own exit code, not a pipeline's**.
-- **WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run.** A merge creates a **new commit** (a merge commit, or formerly a squash), so CI starts again *on `main`* — and `release.yml`'s CI gate reads **that** run, by head SHA. Check the CI run for the merge SHA is `completed`/`success`, then dispatch. **The gate is right and must not be loosened.** (The measured case: `docs/architecture.md` §6.3.)
-- **The gates that actually run at release time live in `release.yml`, not in the checklist above.** Seven, in order: **(a)** the **handshake record**, which runs first so it heads the log, prints every open round and refuses nothing (protocol v8 §6b, E1, E9, from 2026-10-11; until then it held a stable-offered release while a round was open unless a released lap recorded a `§6b` `HANDSHAKE-OVERRIDE`); then the CI gate above, which is what holds a release for its suite; then the **branch gate**, which refuses a commit that is not on `main` (2026-10-27); **(b)** the **changelog gate**: `[Unreleased]` empty **and** the tag's own `## [X.Y.Z]` section present and non-empty; **(c)** the built-binary version check; **(d)** the **bundled-verifier check**; **(e)** the **attestation check**. After the gates, `release.yml` makes an **annotated** tag on the release commit and publishes with `gh release create --verify-tag` (2026-10-27; tags before 0.7.114 stay lightweight, KDD-37 D7). **When you change a gate, ask what it can be satisfied by.** (`docs/architecture.md` §6.3.)
-- **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing***. The moment `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so every release after arming **must** carry a `.minisig`. **The maintainer decided on 2026-09-25 that it is never armed** (KDD-37, D9), so do not propose arming it. What protects an update instead is the **build attestation, checked fail-closed in the app** (`update_attestation.py`): `release.yml` must attest and stage `platterpus-x86_64.AppImage.sigstore.json` **before** the release is published, or no installed app can update to it (§6.2).
-- **Single record of changes:** every notable change is recorded in **`CHANGELOG.md`** (the one authoritative update log; Keep-a-Changelog style). Add a bullet to its `[Unreleased]` section **in the same commit** as the change. `PLANNING.md` (KDDs) and `docs/session-log.md` are for *design decisions and session history*, not the user-facing change record.
+- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:**
+  `test` (pytest on the 3.11–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14
+  leg), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in
+  `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package, plus `scripts/`,
+  `build/*.py` and `.claude/hooks`), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8
+  backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the full
+  history, merge commits included, with the pinned and checksum-verified CLI; it refuses a shallow
+  clone and a scan below its floors, since 2026-10-05 — `SECURITY.md`; it is also the one job that
+  fetches the `evidence` branch, scanning every commit of it and checking the evidence manifest,
+  HR-2 §8a), **`sbom`** (a CycloneDX inventory of what ships, with a floor that refuses fewer than
+  ten components), and **`tests-touched`** (GATING since 2026-08-20: it fails when `src/platterpus`
+  changes with no change under `tests/`, unless a commit in the range carries
+  `[no-test-needed] <reason>` — a bare marker is refused — or the only src change is the
+  `__version__` bump of a release commit). **Non-gating jobs** in the same file (added 2026-10-27,
+  after that day's review; the owner adds one to the ruleset to make it required): `commit-subjects`
+  (`scripts/check_commit_subjects.py` against the subject grammar below), `workflow-lint`
+  (actionlint and zizmor `--offline`) and `shellcheck` (every tracked shell script outside
+  `docs/handshake/`), with their pins in pyproject's `ci-lint` extra. Two more workflows:
+  `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`,
+  ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main`
+  and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build &
+  testing**). Why each gate exists: `docs/architecture.md` §6.3.
+- **Releases are IMMUTABLE once published** (the owner's setting, 2026-10-12): the tag cannot move,
+  and no file can be added to or replaced on a published release. `release.yml` creates each release
+  as a **draft** carrying every file, then publishes it; its re-run branch finishes a leftover draft
+  and **refuses** a release that is already published, because re-running cannot re-upload its files
+  (`tests/test_release_uploads_while_draft.py`). A broken published release is fixed by a new
+  version, never by editing it. **CodeQL default setup** runs for Actions, C/C++ and Python, and
+  **every action must be pinned to a full commit SHA** (the repository's Actions policy;
+  `tests/test_workflow_permissions.py::test_every_action_is_pinned_to_a_full_commit_sha`).
+- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag
+  (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag
+  as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes
+  don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing
+  `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a
+  GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`,
+  which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. **Handshake record:** the
+  release prints every open handshake round and goes ahead (protocol v8 §6b, from 2026-10-11) — see
+  `docs/cyanrip-handshake.md`. A partly-verified pin is still an unverified pin: `FORK_PIN` moves
+  only when a round closes. Before tagging (the reason for each step: `docs/architecture.md` §6.3):
+  - **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — the *single
+    source*; `pyproject.toml` reads it dynamically, so do **not** add a version there;
+  - **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading
+    with a matching compare link;
+  - **(3)** run **`pytest tests/test_no_stale_version_claims.py`** — the version-bump gate: it fails
+    until the CHANGELOG has a section *and* a compare link for the new version, the `[Unreleased]`
+    link points at it, and README/SECURITY name the new minor and carry its stamp;
+  - **(4)** restamp the docs the cycle touched: run `pytest tests/test_doc_version_stamps.py`; it
+    lists every Markdown doc changed since the last release tag whose
+    `*Last updated for Platterpus vX.Y.Z.*` footer must move to the new version (`docs/README.md` →
+    *Doc version stamps*);
+  - **(5)** **re-run the generators, AFTER the bump, not before**:
+    `python3 scripts/emit_script_language.py`, `python3 scripts/emit_dependency_contract.py` and
+    `python3 scripts/emit_bom.py` — all three embed `__version__`, so **hand-editing the footer does
+    not fix it**; `--check` modes exist on all three, and
+    `tests/test_dependency_contract_emitted.py` / `tests/test_script_language_emitted.py` /
+    `tests/test_bom_emitted.py` are the authority. `python3 scripts/emit_ripper_inventory.py` is
+    **not** version-stamped: run it when a handshake round ships a new provider contract, not when
+    the version moves;
+  - **(6)** **re-run `pip install -e .` before you believe a local suite run** —
+    `tests/test_app.py::test_installed_metadata_matches_canonical_version` reads the version
+    recorded at install time — and **read pytest's own exit code, not a pipeline's**.
+- **WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run.** A merge
+  creates a **new commit** (a merge commit, or formerly a squash), so CI starts again *on `main`* —
+  and `release.yml`'s CI gate reads **that** run, by head SHA. Check the CI run for the merge SHA is
+  `completed`/`success`, then dispatch. **The gate is right and must not be loosened.** (The
+  measured case: `docs/architecture.md` §6.3.)
+- **The gates that actually run at release time live in `release.yml`, not in the checklist above.**
+  Seven, in order: **(a)** the **handshake record**, which runs first so it heads the log, prints
+  every open round and refuses nothing (protocol v8 §6b, E1, E9, from 2026-10-11; until then it held
+  a stable-offered release while a round was open unless a released lap recorded a `§6b`
+  `HANDSHAKE-OVERRIDE`); then the CI gate above, which is what holds a release for its suite; then
+  the **branch gate**, which refuses a commit that is not on `main` (2026-10-27); **(b)** the
+  **changelog gate**: `[Unreleased]` empty **and** the tag's own `## [X.Y.Z]` section present and
+  non-empty; **(c)** the built-binary version check; **(d)** the **bundled-verifier check**; **(e)**
+  the **attestation check**. After the gates, `release.yml` makes an **annotated** tag on the
+  release commit and publishes with `gh release create --verify-tag` (2026-10-27; tags before
+  0.7.114 stay lightweight, KDD-37 D7). **When you change a gate, ask what it can be satisfied by.**
+  (`docs/architecture.md` §6.3.)
+- **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key
+  `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing***. The moment
+  `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so every release after
+  arming **must** carry a `.minisig`. **The maintainer decided on 2026-09-25 that it is never
+  armed** (KDD-37, D9), so do not propose arming it. What protects an update instead is the **build
+  attestation, checked fail-closed in the app** (`update_attestation.py`): `release.yml` must attest
+  and stage `platterpus-x86_64.AppImage.sigstore.json` **before** the release is published, or no
+  installed app can update to it (§6.2).
+- **Single record of changes:** every notable change is recorded in **`CHANGELOG.md`** (the one
+  authoritative update log; Keep-a-Changelog style). Add a bullet to its `[Unreleased]` section **in
+  the same commit** as the change. `PLANNING.md` (KDDs) and `docs/session-log.md` are for *design
+  decisions and session history*, not the user-facing change record.
 
 ### Commit & PR hygiene
 
-The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md`](docs/github-workflow-sop.md)** (identity/SSH, fork+PR, atomic commits, the seven commit-message rules, PR anatomy, merge strategies, conflict resolution) — read it for *upstream* contributions especially. **This section is the authority for *this* repo and wins wherever the generic SOP differs.** What we actually do:
+The general GitHub mechanics + etiquette live in
+**[`docs/github-workflow-sop.md`](docs/github-workflow-sop.md)** (identity/SSH, fork+PR, atomic
+commits, the seven commit-message rules, PR anatomy, merge strategies, conflict resolution) — read
+it for *upstream* contributions especially. **This section is the authority for *this* repo and wins
+wherever the generic SOP differs.** What we actually do:
 
-- **Atomic commits.** One logical change per commit — don't mix a fix with an unrelated refactor. Small, test-green units keep review, `git bisect`, and `git revert` surgical.
-- **Conventional-commit subject:** `type(scope): imperative summary` — **lowercase** after the colon, no trailing period, concise (aim short, but the `type(scope):` prefix + a release subject legitimately run past 50 chars — clarity over a hard cap). Types in use: `feat`, `fix`, `docs`, `test`, `refactor`, `style`, `chore`, `release`, and `ci` and `build`, which the `commit-subjects` job also accepts. Blank line, then a body wrapped ~72 cols that explains **what and why, not how** (the diff shows how).
-- **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
-- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for a pure historical-record commit. **The exemption is strictly that** (maintainer ruling, 2026-07-21): contributor/CI-facing changes — type annotations, CI config, dev tooling, refactors — are **not** exempt and get a bullet like any other change; "pure historical record" means the commit changes nothing but the record itself (e.g. a session-log catch-up). CI backstops this.
-- **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`. Prefer `git switch` over `git checkout` for branch ops. **GitHub deletes a merged head branch automatically** (the repository setting, on since 2026-09-30), so after a merge the session branch is gone from the remote: start the next change with `git switch -C <branch> origin/main`, and the push recreates it.
-- **Every PR merges into `main` with a merge commit, never a squash** (session branches since 2026-09-26, on the maintainer's instruction that every branch be deletable without consequence; every PR since 2026-10-12, when the owner turned squash and rebase merging off). `git log --first-parent main` still shows one node per complete, deployable change. The reason is the citations: our laps, TASKS and session log cite session-branch SHAs, and the fork's laps cite them too. A squash puts one new commit on `main` and none of the branch's, so each citation lasted only as long as its branch. **47 had already been stranded**, held only by GitHub's `refs/pull/N/head`, which a plain clone does not fetch. They were brought back with `git merge -s ours` (history in, tree unchanged). `tests/test_cited_commits_are_reachable.py` turns `main` red if a squash strands one again, and its message names the repair. **Every pull request merges with a merge commit, Dependabot's included: squash and rebase merging are off in the repository settings** (the owner's decision, 2026-10-12). The `changelog` job's Dependabot exemption therefore keys on the pull request's author or its `dependabot/*` branch, and on a push to `main` on the commits the push brings in (every non-merge commit Dependabot's), never on the head commit's author, which a merge commit makes whoever merged (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all nine gating jobs**: the `pytest` 3.11–3.14 matrix (coverage floor on 3.14), `ruff` lint/format, `mypy` typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**, and **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the same file said so under *CI / release* two sections above, so this was one document disagreeing with itself). Don't open a PR unless asked.
-- **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no force-push, no branch delete, no tag push**; releases go via the `release.yml` `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply — the session branch is assigned; **(5) `main` and the `v*` tags are protected by repository rulesets** (the owner's decision, **2026-10-12**, replacing the decline of 2026-09-11, whose premise no longer holds: this repository is public, and on GitHub Free a public repository gets rulesets at no cost). A **default-branch ruleset** blocks deletion and force pushes and requires a pull request with **no approvals**, with these required status checks: `lint`, `typecheck`, `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, and `test (py3.11)` to `test (py3.14)`. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch** (2026-10-14, HR-2 point 3), blocks its deletion and force pushes. What every session must keep true under them: every change lands through a pull request (it already does); nothing pushes to `main`, moves or deletes a `v*` tag, or force-pushes; **merge commits are the only merge method** (squash and rebase are off, 2026-10-12), so the ruleset must not require linear history, which would forbid the one method left; and the tag ruleset may block updates and deletions but **not creation**, because `release.yml` creates each tag as `github-actions[bot]`: since 2026-10-27 it pushes an annotated tag just before it publishes the draft (`--verify-tag`), where before it let GitHub create a lightweight one on publish. A Dependabot pull request that changes a dependency fails `test` **by design** (the generated `bom.cdx.json` goes stale, and `ruff`/`mypy` are pinned by rule #11): carry the bump on a session branch with the regenerated files and a CHANGELOG bullet, then close Dependabot's. The full check of what the rulesets touch: `PLANNING.md` KDD-43. Read their live state from `gh api repos/rmccann-hub/Platterpus/rulesets`, not from this sentence. (6) **merge commits, not the SOP's favoured squash** (see the bullet above): a squash strands every commit a lap cites once its branch is deleted.
+- **Atomic commits.** One logical change per commit — don't mix a fix with an unrelated refactor.
+  Small, test-green units keep review, `git bisect`, and `git revert` surgical.
+- **Conventional-commit subject:** `type(scope): imperative summary` — **lowercase** after the
+  colon, no trailing period, concise (aim short, but the `type(scope):` prefix + a release subject
+  legitimately run past 50 chars — clarity over a hard cap). Types in use: `feat`, `fix`, `docs`,
+  `test`, `refactor`, `style`, `chore`, `release`, and `ci` and `build`, which the `commit-subjects`
+  job also accepts. Blank line, then a body wrapped ~72 cols that explains **what and why, not how**
+  (the diff shows how).
+- **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the
+  `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
+- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for
+  a pure historical-record commit. **The exemption is strictly that** (maintainer ruling,
+  2026-07-21): contributor/CI-facing changes — type annotations, CI config, dev tooling, refactors —
+  are **not** exempt and get a bullet like any other change; "pure historical record" means the
+  commit changes nothing but the record itself (e.g. a session-log catch-up). CI backstops this.
+- **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`.
+  Prefer `git switch` over `git checkout` for branch ops. **GitHub deletes a merged head branch
+  automatically** (the repository setting, on since 2026-09-30), so after a merge the session branch
+  is gone from the remote: start the next change with `git switch -C <branch> origin/main`, and the
+  push recreates it.
+- **Every PR merges into `main` with a merge commit, never a squash** (session branches since
+  2026-09-26, on the maintainer's instruction that every branch be deletable without consequence;
+  every PR since 2026-10-12, when the owner turned squash and rebase merging off).
+  `git log --first-parent main` still shows one node per complete, deployable change. The reason is
+  the citations: our laps, TASKS and session log cite session-branch SHAs, and the fork's laps cite
+  them too. A squash puts one new commit on `main` and none of the branch's, so each citation lasted
+  only as long as its branch. **47 had already been stranded**, held only by GitHub's
+  `refs/pull/N/head`, which a plain clone does not fetch. They were brought back with
+  `git merge -s ours` (history in, tree unchanged). `tests/test_cited_commits_are_reachable.py`
+  turns `main` red if a squash strands one again, and its message names the repair. **Every pull
+  request merges with a merge commit, Dependabot's included: squash and rebase merging are off in
+  the repository settings** (the owner's decision, 2026-10-12). The `changelog` job's Dependabot
+  exemption therefore keys on the pull request's author or its `dependabot/*` branch, and on a push
+  to `main` on the commits the push brings in (every non-merge commit Dependabot's), never on the
+  head commit's author, which a merge commit makes whoever merged
+  (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all nine gating
+  jobs**: the `pytest` 3.11–3.14 matrix (coverage floor on 3.14), `ruff` lint/format, `mypy`
+  typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**, and
+  **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the
+  same file said so under *CI / release* two sections above, so this was one document disagreeing
+  with itself). Don't open a PR unless asked.
+- **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use
+  **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix
+  style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no
+  force-push, no branch delete, no tag push**; releases go via the `release.yml`
+  `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply
+  — the session branch is assigned; **(5) `main` and the `v*` tags are protected by repository
+  rulesets** (the owner's decision, **2026-10-12**, replacing the decline of 2026-09-11, whose
+  premise no longer holds: this repository is public, and on GitHub Free a public repository gets
+  rulesets at no cost). A **default-branch ruleset** blocks deletion and force pushes and requires a
+  pull request with **no approvals**, with these required status checks: `lint`, `typecheck`,
+  `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, and `test (py3.11)`
+  to `test (py3.14)`. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
+  (2026-10-14, HR-2 point 3), blocks its deletion and force pushes. What every session must keep
+  true under them: every change lands through a pull request (it already does); nothing pushes to
+  `main`, moves or deletes a `v*` tag, or force-pushes; **merge commits are the only merge method**
+  (squash and rebase are off, 2026-10-12), so the ruleset must not require linear history, which
+  would forbid the one method left; and the tag ruleset may block updates and deletions but **not
+  creation**, because `release.yml` creates each tag as `github-actions[bot]`: since 2026-10-27 it
+  pushes an annotated tag right before it publishes the draft (`--verify-tag`), where before it let
+  GitHub create a lightweight one on publish. A Dependabot pull request that changes a dependency
+  fails `test` **by design** (the generated `bom.cdx.json` goes stale, and `ruff`/`mypy` are pinned
+  by rule #11): carry the bump on a session branch with the regenerated files and a CHANGELOG
+  bullet, then close Dependabot's. The full check of what the rulesets touch: `PLANNING.md` KDD-43.
+  Read their live state from `gh api repos/rmccann-hub/Platterpus/rulesets`, not from this sentence.
+  (6) **merge commits, not the SOP's favoured squash** (see the bullet above): a squash strands
+  every commit a lap cites once its branch is deleted.
 
 ### Run commands
 
-- **Quickstart from a fresh clone:** `bash dev-setup.sh` then `source .venv/bin/activate && platterpus`
-- **Manual:** `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && platterpus`
+- **Quickstart from a fresh clone:** `bash dev-setup.sh` then
+  `source .venv/bin/activate && platterpus`
+- **Manual:**
+  `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && platterpus`
 - **From the AppImage (once published):** `./platterpus-x86_64.AppImage`
 - **From a `pipx` install (once published):** `platterpus`
-- **CLI flags on the AppImage:** there is **no `platterpus` on `PATH`** for AppImage users (only `pipx`/dev installs put one there). The AppImage entrypoint (`build/python-appimage/entrypoint.sh`) ends with `exec "$PYTHON_BIN" -m platterpus "$@"` (the bundled interpreter), so every flag below works by passing it to the AppImage directly, e.g. `./platterpus-x86_64.AppImage --doctor` or `./platterpus-x86_64.AppImage --ctdb-calibrate "<album folder>"`. (User-facing version in README → *Command-line usage*.)
-- **Version check without launching the GUI:** `platterpus --version` (or `./platterpus-x86_64.AppImage --version`)
-- **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no extra flags — it just runs the full check and exits). For the tunable form use `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability checks). It exits non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it. (cyanrip is the sole backend — KDD-18 — so there is no backend-override flag.)
+- **CLI flags on the AppImage:** there is **no `platterpus` on `PATH`** for AppImage users (only
+  `pipx`/dev installs put one there). The AppImage entrypoint
+  (`build/python-appimage/entrypoint.sh`) ends with `exec "$PYTHON_BIN" -m platterpus "$@"` (the
+  bundled interpreter), so every flag below works by passing it to the AppImage directly, e.g.
+  `./platterpus-x86_64.AppImage --doctor` or
+  `./platterpus-x86_64.AppImage --ctdb-calibrate "<album folder>"`. (User-facing version in README →
+  *Command-line usage*.)
+- **Version check without launching the GUI:** `platterpus --version` (or
+  `./platterpus-x86_64.AppImage --version`)
+- **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no
+  extra flags: it runs the full check and exits). For the tunable form use
+  `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability
+  checks). It exits non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses
+  the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it.
+  (cyanrip is the sole backend — KDD-18 — so there is no backend-override flag.)
 
 ### Test commands
 
-- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** One command for every gate CI runs (`lint`, `format`, `types`, `tests` + the coverage floor), reporting each one's **real** exit code in a final table, with complete output in `.check-logs/`. `--only lint types` for a subset, `--no-coverage` for a faster suite run. A `pytest … | tail` reports *tail's* status, so never read a verdict through a pipe; if you do pipe something, read the status with `${PIPESTATUS[0]}` or `set -o pipefail`. (What it refuses, and why it exists: `docs/testing.md` §7.)
+- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** One command for every gate CI
+  runs (`lint`, `format`, `types`, `tests` + the coverage floor), reporting each one's **real** exit
+  code in a final table, with complete output in `.check-logs/`. `--only lint types` for a subset,
+  `--no-coverage` for a faster suite run. A `pytest … | tail` reports *tail's* status, so never read
+  a verdict through a pipe; if you do pipe something, read the status with `${PIPESTATUS[0]}` or
+  `set -o pipefail`. (What it refuses, and why it exists: `docs/testing.md` §7.)
 - `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
-- **What CI enforces:** every test on a **Python 3.11–3.14 matrix**, each leg in parallel (`pytest -n auto`, pytest-xdist), and branch coverage with a hard floor — `--cov=platterpus --cov-report=term-missing --cov-fail-under=93` — **on the 3.14 leg** (maintainer, 2026-09-26: 3.14's `sys.monitoring` tracer is the fast one, and 3.11–3.13 paid most of their time for coverage). The gate **ratchets up, never down** (91 until 2026-10-27, raised to the measured 93.28%). Each leg also fails if it collected fewer tests than `tests/collected-tests-baseline.txt`, which is raised in the change that adds tests. A bare local `pytest` stays serial; `scripts/check.py` passes `-n auto` like CI.
-- Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py` (needs `hypothesis`, in the `dev` extra).
-- **Prove a test isn't vacuous:** `python3 scripts/revert_probe.py <spec.json>` — applies a revert, runs the named tests, restores, and reports `detected` / `VACUOUS` / `REFUSED` / `NO EVIDENCE`. Use it instead of hand-reverting: it proves the edit *landed* (anchor unique + file hash changed) and distinguishes a collection error from a real failure, which hand-checks have got wrong four recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the reverted line. Spec format is in the script's docstring; exits non-zero unless every revert behaved as expected.
-- **Compute a handshake round digest:** `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` — the `HANDSHAKE-ROUND-DIGEST` field, by **the cyanrip fork's method** (adopted round 15 lap 4), over **both directions**; `tests/test_round_digest.py` pins their published values. It refuses an `--exclude` that matches **nothing** *or* **more than one** file. (`docs/testing.md` §7.)
-- Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` — non-blocking, never gates a merge) with **`scripts/mutation_sweep.py`, ours**, one matrix leg per trust-bearing module, each with its own measured `--min-checked` floor. The workflow's matrix is the authority for the list and the floors; `tests/test_mutation_audit_can_report_its_own_absence.py` holds the required modules as a ratchet and pins the command below to a real leg. Run one leg locally the way CI does, e.g. `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`. (`docs/testing.md` §7.)
-- **Testing strategy + the rules every change is held to live in [`docs/testing.md`](docs/testing.md)** (the trophy + hardware gate, the five-tier case taxonomy, and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the same PR as the fix; every new parser of external output gets a property-based "never raises" test.**
+- **What CI enforces:** every test on a **Python 3.11–3.14 matrix**, each leg in parallel
+  (`pytest -n auto`, pytest-xdist), and branch coverage with a hard floor —
+  `--cov=platterpus --cov-report=term-missing --cov-fail-under=93` — **on the 3.14 leg**
+  (maintainer, 2026-09-26: 3.14's `sys.monitoring` tracer is the fast one, and 3.11–3.13 paid most
+  of their time for coverage). The gate **ratchets up, never down** (91 until 2026-10-27, raised to
+  the measured 93.28%). Each leg also fails if it collected fewer tests than
+  `tests/collected-tests-baseline.txt`, which is raised in the change that adds tests. A bare local
+  `pytest` stays serial; `scripts/check.py` passes `-n auto` like CI.
+- Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py`
+  (needs `hypothesis`, in the `dev` extra).
+- **Prove a test isn't vacuous:** `python3 scripts/revert_probe.py <spec.json>` — applies a revert,
+  runs the named tests, restores, and reports `detected` / `VACUOUS` / `REFUSED` / `NO EVIDENCE`.
+  Use it instead of hand-reverting: it proves the edit *landed* (anchor unique + file hash changed)
+  and distinguishes a collection error from a real failure, which hand-checks have got wrong four
+  recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the
+  reverted line. Spec format is in the script's docstring; exits non-zero unless every revert
+  behaved as expected.
+- **Compute a handshake round digest:**
+  `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` — the
+  `HANDSHAKE-ROUND-DIGEST` field, by **the cyanrip fork's method** (adopted round 15 lap 4), over
+  **both directions**; `tests/test_round_digest.py` pins their published values. It refuses an
+  `--exclude` that matches **nothing** *or* **more than one** file. (`docs/testing.md` §7.)
+- Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` —
+  non-blocking, never gates a merge) with **`scripts/mutation_sweep.py`, ours**, one matrix leg per
+  trust-bearing module, each with its own measured `--min-checked` floor. The workflow's matrix is
+  the authority for the list and the floors;
+  `tests/test_mutation_audit_can_report_its_own_absence.py` holds the required modules as a ratchet
+  and pins the command below to a real leg. Run one leg locally the way CI does, e.g.
+  `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`.
+  (`docs/testing.md` §7.)
+- **Testing strategy + the rules every change is held to live in
+  [`docs/testing.md`](docs/testing.md)** (the trophy + hardware gate, the five-tier case taxonomy,
+  and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the
+  same PR as the fix; every new parser of external output gets a property-based "never raises"
+  test.**
 
 ### Uninstall
 
-- `bash uninstall.sh` (interactive; removes `.venv/`, GUI config, GUI logs; prompts for Picard / Distrobox / whipper.conf / host exports)
+- `bash uninstall.sh` (interactive; removes `.venv/`, GUI config, GUI logs; prompts for Picard /
+  Distrobox / whipper.conf / host exports)
 - `bash uninstall.sh --full --yes` (removes everything except music files and the cloned repo)
 - `bash uninstall.sh --dry-run` (shows what would be removed)
 - `bash uninstall.sh --help`
 
 ### Lint / format commands
 
-- **Lint:** `ruff check src tests scripts build` (config in `pyproject.toml` `[tool.ruff]`; rules `E,F,W,I,B,UP`, a few `N` rules, `S`, `DTZ`, `BLE001` and `RUF100` (the list is `select` there), `E501` off). Auto-fix: `ruff check src tests scripts build --fix`.
-- **Format:** `ruff format src tests scripts build` (88-col, double quotes — matches the existing code). CI checks with `ruff format --check`.
-- **Type-check:** `mypy` (bare invocation; config in `pyproject.toml` `[tool.mypy]`, strict def-typing across the whole package, plus `scripts/`, `build/*.py` and `.claude/hooks`). CI runs it as the gating `typecheck` job.
-- **CI:** the `lint` job in `.github/workflows/ci.yml` runs both ruff commands in check mode on every push/PR, in parallel with `test` and `typecheck`.
+- **Lint:** `ruff check src tests scripts build` (config in `pyproject.toml` `[tool.ruff]`; rules
+  `E,F,W,I,B,UP`, a few `N` rules, `S`, `DTZ`, `BLE001` and `RUF100` (the list is `select` there),
+  `E501` off). Auto-fix: `ruff check src tests scripts build --fix`.
+- **Format:** `ruff format src tests scripts build` (88-col, double quotes — matches the existing
+  code). CI checks with `ruff format --check`.
+- **Type-check:** `mypy` (bare invocation; config in `pyproject.toml` `[tool.mypy]`, strict
+  def-typing across the whole package, plus `scripts/`, `build/*.py` and `.claude/hooks`). CI runs
+  it as the gating `typecheck` job.
+- **CI:** the `lint` job in `.github/workflows/ci.yml` runs both ruff commands in check mode on
+  every push/PR, in parallel with `test` and `typecheck`.
 - `ruff` and `mypy` are in the `dev` extra (`pip install -e ".[dev]"`).
 
 ### Enforced safety (.claude/ + git hook)
 
-Beyond the *guidance* in the Critical rules above, a few things are **enforced** (not just trusted):
+Beyond the *guidance* in the Critical rules above, a few things are **enforced** (not only trusted):
 
-- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore` backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does this**, and in a Claude Code session on the web the SessionStart hook `.claude/hooks/session-start.sh` does, because a fresh cloud clone never runs `dev-setup.sh`; tested by `tests/test_session_start_hook.py`). There is no bypass for audio: a test that needs real PCM generates it at test time (or reads it from outside the repo), and `git commit --no-verify` does not get past CI, whose required `media-guard` refuses the same file on push.
-- **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`), plus a `PreToolUse` hook, **`.claude/hooks/audio_guard.py`**, the Claude-session belt for the same rule (the git hook is the canonical guard). It reads the command it is judging: it blocks a commit or push while audio is staged and a command that itself stages audio, always allows `git restore --staged`/`reset`/`rm`, and **fails closed** (a commit or push is refused when it cannot read the staged list; everything else is allowed). Tested by `tests/test_audio_guard_hook.py`, every case also under a failing `git diff`. Deliberately does **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm what loaded.
+- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file
+  (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore`
+  backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does
+  this**, and in a Claude Code session on the web the SessionStart hook
+  `.claude/hooks/session-start.sh` does, because a fresh cloud clone never runs `dev-setup.sh`;
+  tested by `tests/test_session_start_hook.py`). There is no bypass for audio: a test that needs
+  real PCM generates it at test time (or reads it from outside the repo), and
+  `git commit --no-verify` does not get past CI, whose required `media-guard` refuses the same file
+  on push.
+- **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands
+  (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`),
+  plus a `PreToolUse` hook, **`.claude/hooks/audio_guard.py`**, the Claude-session belt for the same
+  rule (the git hook is the canonical guard). It reads the command it is judging: it blocks a commit
+  or push while audio is staged and a command that itself stages audio, always allows
+  `git restore --staged`/`reset`/`rm`, and **fails closed** (a commit or push is refused when it
+  cannot read the staged list; everything else is allowed). Tested by
+  `tests/test_audio_guard_hook.py`, every case also under a failing `git diff`. Deliberately does
+  **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal
+  overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm
+  what loaded.
 
-- **The `evidence` branch stays out of every fetch (HR-2 §7, `docs/cyanrip-handshake.md` §7.4b).** Run evidence lives on an orphan `evidence` branch, hundreds of MB that no build reads. The SessionStart hook adds a negative refspec to each remote; where hooks do not run, run it yourself once per remote (git 2.29 or later): `git config --add remote.origin.fetch '^refs/heads/evidence'`. A tool that needs an evidence file fetches its commit by hash into a temporary bare repository (`scripts/laplang/evidence.py`), never into the working clone, because a `--depth` fetch makes a full clone shallow. A test reads evidence only through a fixture (`tests/evidence_paths.py`); `tests/test_no_new_evidence_readers.py` refuses a new reader.
+- **The `evidence` branch stays out of every fetch (HR-2 §7, `docs/cyanrip-handshake.md` §7.4b).**
+  Run evidence lives on an orphan `evidence` branch, hundreds of MB that no build reads. The
+  SessionStart hook adds a negative refspec to each remote; where hooks do not run, run it yourself
+  once per remote (git 2.29 or later):
+  `git config --add remote.origin.fetch '^refs/heads/evidence'`. A tool that needs an evidence file
+  fetches its commit by hash into a temporary bare repository (`scripts/laplang/evidence.py`), never
+  into the working clone, because a `--depth` fetch makes a full clone shallow. A test reads
+  evidence only through a fixture (`tests/evidence_paths.py`);
+  `tests/test_no_new_evidence_readers.py` refuses a new reader.
 
 ### Artifact filenames that cross machines
 
@@ -381,25 +609,43 @@ it (2026-08-13): `docs/cyanrip-handshake.md` §7.7l.
 - User config: `~/.config/platterpus/config.toml`
 - User logs: `~/.local/share/platterpus/log.txt`
 - Ripper binary (host-exported from Distrobox): `~/.local/bin/cyanrip`
-- Legacy `whipper.conf`: `~/.config/whipper/whipper.conf` — **not read** by the app since 2026-09-24 (`drive_profiles.py`); cyanrip does not use it, and the read offset lives in the GUI's own config. Only `uninstall.sh` still offers to remove it
-- MusicBrainz Picard (Flatpak, used for auto-launch on unknown discs): `flatpak run org.musicbrainz.Picard`
-- **The full map of everything Platterpus has or relies on** (languages, packages, external programs, the ripper fork and its container, services, CI): `bom.cdx.json` (CycloneDX 1.7, machine-readable) and its generated block in `DEPENDENCIES.md` → *The full map*. Both are generated by `python3 scripts/emit_bom.py` (`--check` to verify); never hand-edit either
+- Legacy `whipper.conf`: `~/.config/whipper/whipper.conf` — **not read** by the app since 2026-09-24
+  (`drive_profiles.py`); cyanrip does not use it, and the read offset lives in the GUI's own config.
+  Only `uninstall.sh` still offers to remove it
+- MusicBrainz Picard (Flatpak, used for auto-launch on unknown discs):
+  `flatpak run org.musicbrainz.Picard`
+- **The full map of everything Platterpus has or relies on** (languages, packages, external
+  programs, the ripper fork and its container, services, CI): `bom.cdx.json` (CycloneDX 1.7,
+  machine-readable) and its generated block in `DEPENDENCIES.md` → *The full map*. Both are
+  generated by `python3 scripts/emit_bom.py` (`--check` to verify); never hand-edit either
 
 ### Getting help (Claude Code / Anthropic)
 
-For problems with the **AI tooling itself** — Claude Code, the Claude model, or the Anthropic API. (This is *not* Platterpus end-user support; app questions route to the project maintainer, not Anthropic.)
+For problems with the **AI tooling itself** — Claude Code, the Claude model, or the Anthropic API.
+(This is *not* Platterpus end-user support; app questions route to the project maintainer, not
+Anthropic.)
 
-- **Fastest:** the support messenger at [support.anthropic.com](https://support.anthropic.com/en/) — message icon, bottom-right. Or, when signed in, **[Claude.ai](https://claude.ai)** / **[Console](https://console.anthropic.com)** → your initials → **"Get help."** (Signed-in routes faster — they see the account.)
+- **Fastest:** the support messenger at [support.anthropic.com](https://support.anthropic.com/en/) —
+  message icon, bottom-right. Or, when signed in, **[Claude.ai](https://claude.ai)** /
+  **[Console](https://console.anthropic.com)** → your initials → **"Get help."** (Signed-in routes
+  faster — they see the account.)
 - **API / developer issues:** [support.claude.com](https://support.claude.com).
-- **Topic-specific email:** safety / harmful content → `usersafety@anthropic.com`; security vulnerability → `security@anthropic.com`; privacy / data request → `privacy@anthropic.com`.
-- **Claude via Amazon Bedrock or Google Vertex:** contact AWS / Google support, not Anthropic directly.
-- Reference: [How can I contact Support?](https://support.anthropic.com/en/articles/9015913-how-can-i-contact-support)
+- **Topic-specific email:** safety / harmful content → `usersafety@anthropic.com`; security
+  vulnerability → `security@anthropic.com`; privacy / data request → `privacy@anthropic.com`.
+- **Claude via Amazon Bedrock or Google Vertex:** contact AWS / Google support, not Anthropic
+  directly.
+- Reference: [How can I contact
+  Support?](https://support.anthropic.com/en/articles/9015913-how-can-i-contact-support)
 
 ### Session history
 
-Chronological session notes — what was built, decided, and learned each session — live in **[`docs/session-log.md`](docs/session-log.md)** (newest first). They're kept out of this file so the always-loaded project context stays lean and scannable.
+Chronological session notes — what was built, decided, and learned each session — live in
+**[`docs/session-log.md`](docs/session-log.md)** (newest first). They're kept out of this file so
+the always-loaded project context stays lean and scannable.
 
-**Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* / *Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not left only in the dated log. The log is append-only chronology; the rules are the distillation.
+**Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* /
+*Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not
+left only in the dated log. The log is append-only chronology; the rules are the distillation.
 
 ---
 

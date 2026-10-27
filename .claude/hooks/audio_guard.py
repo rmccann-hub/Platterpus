@@ -353,6 +353,7 @@ def _git(cwd: Path, *args: str) -> str | None:
             ["git", "-C", str(cwd), *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=GIT_TIMEOUT_S,
             check=False,
         )
@@ -368,6 +369,7 @@ def _git_failure(cwd: Path, *args: str) -> str:
             ["git", "-C", str(cwd), *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=GIT_TIMEOUT_S,
             check=False,
         )

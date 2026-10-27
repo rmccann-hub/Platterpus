@@ -247,6 +247,33 @@ def test_every_text_mode_subprocess_pipe_names_its_encoding() -> None:
     )
 
 
+#: The Python outside the package that CI or a release runs: the scripts, the
+#: build helpers and the Claude-session hooks.
+_REPO = _SRC.parent.parent
+_OUTSIDE_SRC: tuple[str, ...] = ("scripts", "build", ".claude/hooks")
+
+
+def test_every_text_mode_pipe_outside_src_names_its_encoding_too() -> None:
+    """Follow-up review of 2026-10-27, item 5: 3.3 covered src only, and nine
+    calls in scripts/ (two more in .claude/hooks) still decoded with the locale.
+    The same rule, over the code CI and the release run."""
+    missing: list[str] = []
+    found = 0
+    for root in _OUTSIDE_SRC:
+        for path in sorted((_REPO / root).rglob("*.py")):
+            count, lines = _text_mode_subprocess_calls_without_encoding(
+                path.read_text(encoding="utf-8")
+            )
+            found += count
+            missing += [f"{path.relative_to(_REPO)}:{line}" for line in lines]
+    # Floor: 11 text-mode subprocess calls outside src on 2026-10-27.
+    assert found >= 9, f"only {found} text-mode subprocess call(s) found; blind"
+    assert not missing, (
+        'these text-mode subprocess calls decode with the locale; add encoding="utf-8" '
+        "beside text=True:\n  " + "\n  ".join(missing)
+    )
+
+
 def test_the_encoding_sweep_fires_on_the_shape_it_refuses() -> None:
     bad = (
         "import subprocess\n"
