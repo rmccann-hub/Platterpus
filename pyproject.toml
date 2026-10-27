@@ -54,7 +54,7 @@ dependencies = [
     # green), while a MINOR bump becomes a deliberate commit that re-runs the gate.
     # `build/python-appimage/requirements.txt` must express the same range — it is
     # what actually ships — and a test asserts the two agree.
-    "PySide6>=6.11.1,<6.12",
+    "PySide6>=6.11.1,<6.13",
     "musicbrainzngs==0.7.1",
     "tomli-w>=1.0,<2",
     # Ed25519 verification of a release's minisign signature (the in-app
@@ -119,7 +119,7 @@ dev = [
     "cyclonedx-python-lib[json-validation]>=11.12,<12",
     # --- gating: pinned to the measured minor, bump deliberately ---
     "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
-    "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
+    "mypy>=2.3,<2.5",       # `typecheck`; the strict flag set is version-dependent
     # `pip-audit` gates CI too (a required check), so rule #11 reaches it: pinned
     # to the minor main's CI ran: 2.10.1 (run 40425541839, 2026-10-27; PyPI's
     # newest since 2026-06-10). The `pip-audit` job reads this line rather than
