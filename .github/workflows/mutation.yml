@@ -183,9 +183,14 @@ jobs:
           # this whole workflow exists to have stopped making -- introducing it
           # here, in the job about signals that lie, would have been the joke.
           set -o pipefail
+          # One `--tests` per file, built as an array so nothing is word-split
+          # after the fact (ShellCheck SC2046, via actionlint). The matrix value
+          # is split on purpose: it is a space-separated list in this file.
+          test_args=()
+          for t in ${{ matrix.tests }}; do test_args+=(--tests "$t"); done
           python3 scripts/mutation_sweep.py \
             --target "${{ matrix.target }}" \
-            $(for t in ${{ matrix.tests }}; do printf -- "--tests %s " "$t"; done) \
+            "${test_args[@]}" \
             --limit 40 --min-checked "${{ matrix.floor }}" \
             --json "mutation-${{ matrix.name }}.json" \
             | tee "mutation-${{ matrix.name }}.log"

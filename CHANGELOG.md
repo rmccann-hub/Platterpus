@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The workflows' own shell steps pass ShellCheck** (contributor-facing). actionlint runs ShellCheck over every `run:` block when it can find it, so `workflow-lint` now installs the pinned ShellCheck rather than depend on the runner image, and the three findings it raised are fixed: the AppImage and release jobs find the bundled Python by glob instead of `ls | head -1`, the mutation sweep builds its `--tests` arguments as an array, and the release's `--prerelease` flag is quoted.
+
 - **The review of 2026-10-27 is recorded** (contributor-facing): KDD-45 records the owner's word and where each held amendment of C3 now stands (A2 applied, A5 applied for pip-audit, A4 still held), KDD-43 notes the annotated tag, `CLAUDE.md`'s project operations name the new jobs, the seventh release gate, the `ci` and `build` commit types and the coverage floor of 93, and `docs/architecture.md` §6.3 says why each new check exists and how a generated-block conflict dropped a hand-kept row.
 
 - **CI lints its own workflows and shell scripts** (contributor-facing; the review of 2026-10-27, items 2.5 and 3.6, added on the owner's word that day). A `workflow-lint` job runs actionlint and zizmor (offline), and a `shellcheck` job runs ShellCheck over every tracked shell script outside the handshake records. Neither is a required check yet. Their pins live in a new `ci-lint` extra in `pyproject.toml`, read by the jobs, and `tests/test_ci_lint_jobs.py` holds the ShellCheck list to every file with a shell shebang.

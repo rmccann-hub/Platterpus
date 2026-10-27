@@ -802,7 +802,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - name: Install actionlint and zizmor (pins read from pyproject)
+      - name: Install actionlint, zizmor and ShellCheck (pins read from pyproject)
         run: |
           set -euo pipefail
           specs="$(python -c '
@@ -810,13 +810,15 @@ jobs:
           extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
               "optional-dependencies"
           ]["ci-lint"]
-          print("\n".join(s.split(";")[0].strip() for s in extra if s.startswith(("actionlint-py", "zizmor"))))
+          print("\n".join(s.split(";")[0].strip() for s in extra))
           ')"
           mapfile -t pins <<<"$specs"
-          test "${#pins[@]}" -eq 2
+          test "${#pins[@]}" -eq 3
           printf 'pyproject pins:\n'; printf '  %s\n' "${pins[@]}"
           python -m pip install "${pins[@]}"
-      # actionlint checks every file under .github/workflows; zizmor runs
+      # actionlint checks every file under .github/workflows, and runs the pinned
+      # ShellCheck over each `run:` block (installed here so the result does not
+      # depend on what the runner image happens to carry); zizmor runs
       # offline, so it judges the files as written and never calls GitHub's API.
       # Findings a reviewer accepted carry a `# zizmor: ignore[...]` beside them.
       - name: actionlint

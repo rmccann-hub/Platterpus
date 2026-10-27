@@ -391,7 +391,13 @@ jobs:
         run: |
           work="$(mktemp -d)"
           (cd "$work" && "$GITHUB_WORKSPACE/platterpus-x86_64.AppImage" --appimage-extract >/dev/null)
-          py="$(ls "$work"/squashfs-root/opt/python*/bin/python3* | head -1)"
+          # The first match of the glob, as `ls | head -1` gave it, without
+          # parsing ls (ShellCheck SC2012, via actionlint).
+          py=""
+          for candidate in "$work"/squashfs-root/opt/python*/bin/python3*; do
+            if [ -f "$candidate" ]; then py="$candidate"; break; fi
+          done
+          test -n "$py"
           echo "bundled interpreter: $py"
           PYTHONNOUSERSITE=1 "$py" scripts/check_bundled_verifier.py --bundle-root "$work/squashfs-root"
 
@@ -579,7 +585,7 @@ jobs:
               --verify-tag \
               --generate-notes \
               --draft \
-              $PRERELEASE
+              ${PRERELEASE:+"$PRERELEASE"}
             # Every asset is attached — publish atomically (keeps the prerelease
             # flag set at create time).
             gh release edit "$TAG" --draft=false
