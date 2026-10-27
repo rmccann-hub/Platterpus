@@ -723,6 +723,56 @@ jobs:
           echo "    [no-test-needed] <why a test cannot or should not cover this>"
           exit 1
 
+  # COMMIT SUBJECTS follow this repository's grammar (the 2026-10-27 review,
+  # item 2.9): lowercase `type(scope): summary` or `type: summary`, the grammar
+  # CLAUDE.md → Commit & PR hygiene records as a deliberate divergence from the
+  # generic SOP, plus the merge, revert and Dependabot subjects git and GitHub
+  # write. What it accepts, and why, is `scripts/check_commit_subjects.py`'s
+  # docstring; `tests/test_check_commit_subjects.py` holds it against the 400
+  # commits up to 27755380, merges included.
+  #
+  # NOT a required status check: the default-branch ruleset names the required
+  # ones, and adding this job to it is the owner's decision (PLANNING.md KDD-43).
+  commit-subjects:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          filter: blob:none
+      # HR-2 §8b: fetch only what this job reads, by explicit refspec. Subjects
+      # need commits, never file contents, so blobless is all of it.
+      - name: Fetch HEAD's and main's history, blobless, by refspec (HR-2 §8b)
+        run: |
+          set -euo pipefail
+          deepen=()
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then deepen=(--unshallow); fi
+          git fetch --no-tags "${deepen[@]}" --filter=blob:none origin '+refs/heads/main:refs/remotes/origin/main'
+          test "$(git rev-parse --is-shallow-repository)" = "false"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Check every new commit's subject
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            base="$PR_BASE"; head="$PR_HEAD"
+          else
+            base="$PUSH_BEFORE"; head="$GITHUB_SHA"
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$base" | grep -qE '^0+$'; then
+            echo "No change range to check."; exit 0
+          fi
+          python3 scripts/check_commit_subjects.py --range "$base..$head"
+
   test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
