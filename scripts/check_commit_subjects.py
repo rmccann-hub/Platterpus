@@ -121,6 +121,7 @@ def _subjects_in_range(revision_range: str) -> list[tuple[str, str, bool]] | Non
             ["git", "log", "--format=%H %P%x00%s%x00", revision_range],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
             timeout=120,
         )

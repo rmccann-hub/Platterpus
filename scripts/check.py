@@ -332,6 +332,7 @@ def _run(gate: Gate) -> None:
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=_GATE_TIMEOUT_S,
             check=False,
         )

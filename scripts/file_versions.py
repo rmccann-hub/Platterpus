@@ -64,6 +64,7 @@ def _git(*args: str) -> str:
             ["git", *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             check=False,
         )
     except OSError:

@@ -290,6 +290,7 @@ def _run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=_TEST_TIMEOUT_S,
         check=False,
         env=env,

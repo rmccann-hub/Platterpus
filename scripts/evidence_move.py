@@ -71,6 +71,7 @@ def _git(
         input=stdin,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=GIT_TIMEOUT_S,
         check=False,
         env=env,

@@ -3095,7 +3095,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # the subcommands share the git and manifest plumbing. 350 since HR-2.1
     # (2026-10-14): the two tree checks, `move` and `unchanged`, went to
     # `scripts/evidence_trees.py` rather than this number going up.
-    "scripts/evidence_manifest.py": 350,
+    "scripts/evidence_manifest.py": 351,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     # 2026-10-14, HR-2 §6-§7: the manifest's parser and the by-hash fetcher a
     # checker reads evidence through. Splitting the fetcher from the parser
     # would leave each needing the other's types.
@@ -3107,7 +3107,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # hook import a sibling module from `.claude/hooks/`. If it grows, the shell
     # reader (`strip_heredoc_bodies` to `_parse_git_words`, about 140 lines) is the
     # part to move first.
-    ".claude/hooks/audio_guard.py": 632,
+    ".claude/hooks/audio_guard.py": 634,  # +2 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     # **320 -> 326** (2026-10-05): `_REQUIREMENT` rewritten greedy, linear rather
     # than quadratic on a run of spaces, with the five lines saying why it is shaped so.
     "scripts/bommap/reading.py": 326,
@@ -3123,7 +3123,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/build_walkthrough_media.py": 472,
     # **498 -> 499** (2026-10-05): lint and format-check read `scripts/` and `build/`
     # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
-    "scripts/check.py": 499,
+    "scripts/check.py": 500,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     # **534 -> 560** (2026-10-17, round 35 lap 6): the maximal argv taken over both builds we may drive, so a flag gated on the build under review is in §3.
     # **560 -> 569** (2026-10-21, round 36 lap 1 S4 to S6): `.26`'s three rows declared fork-only, with the citation that shows upstream prints none of them.
     # **569 -> 575** (2026-10-26, round 36 lap 7 S5): `.27`'s `Kept read began:` declared fork-only, with the citation into their source and their P2.
@@ -3186,7 +3186,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4564 -> 4568** (2026-10-21): K1's refusal narrowed to the same lap number, as the protocol says, with four lines of why.
     # **4568 -> 4583** (2026-10-21, the fork's round 36 lap 5 S15): the close-by report compares every later lap, either side's, with the first declaration.
     # **4583 -> 4586** (2026-10-27, external review item 3.4): `--announce` dates a release in UTC, not the local day (ruff DTZ011).
-    "scripts/handshake.py": 4586,
+    "scripts/handshake.py": 4587,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.
@@ -3207,10 +3207,10 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # an old commit ID runs at the commit the map says replaced it.
     # **348 -> 372** (2026-10-14, HR-2 §6d): `Scratch.overlay` places a cited
     # evidence file in a scratch tree, refusing to overwrite different bytes.
-    "scripts/laplang/scratch.py": 372,
+    "scripts/laplang/scratch.py": 373,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     "scripts/mutation_sweep.py": 502,
     "scripts/probe_argv_surface.py": 423,
-    "scripts/revert_probe.py": 546,
+    "scripts/revert_probe.py": 547,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     # **544 -> 618** (2026-10-11, protocol v8 E10): `fenced_lines`, the CommonMark
     # fence rule, moved here from `handshake.py` (which shrank by more) so the gate,
     # this digest and the lap-language checker share one function. It lives here
