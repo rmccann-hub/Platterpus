@@ -357,7 +357,12 @@ def test_every_pyproject_dependency_is_present(committed: dict) -> None:
     wanted = {
         "required": [_requirement_name(d) for d in project["dependencies"]],
         "excluded": [
-            *(_requirement_name(d) for d in project["optional-dependencies"]["dev"]),
+            # Every extra, not only `dev`: `publish` (build, twine) arrived 2026-10-27.
+            *(
+                _requirement_name(d)
+                for extra in project["optional-dependencies"].values()
+                for d in extra
+            ),
             *(_requirement_name(d) for d in pyproject["build-system"]["requires"]),
         ],
     }

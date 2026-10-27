@@ -194,6 +194,17 @@ def _python_build_entries(taken: set[str]) -> list[Entry]:
     assert isinstance(build_system, dict)
     for text in _strings(build_system["requires"]):
         add(text, "pyproject.toml [build-system].requires")
+    # The `publish` extra: the pins publish-pypi.yml reads at run time and installs
+    # as `"${pins[@]}"`, which the workflow reader skips like any `$` token, so
+    # they are named here from where they live.
+    extras = _project()["optional-dependencies"]
+    assert isinstance(extras, dict)
+    for text in _strings(extras.get("publish", [])):
+        add(
+            text,
+            "pyproject.toml [project.optional-dependencies].publish "
+            "(installed by .github/workflows/publish-pypi.yml)",
+        )
     for flow in workflows():
         for job, text in flow.pip:
             add(text, _where(flow.rel, job))

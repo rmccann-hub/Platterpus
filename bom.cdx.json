@@ -2251,15 +2251,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; unpinned in .github/workflows/publish-pypi.yml (publish)"
+          "value": ">=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; >=1.6.1,<1.7 in pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         }
       ]
     },
@@ -2407,15 +2407,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/publish-pypi.yml (publish)"
+          "value": "pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/publish-pypi.yml (publish)"
+          "value": "pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:constraint",
-          "value": "unpinned"
+          "value": ">=7.0.0,<7.1"
         }
       ]
     },

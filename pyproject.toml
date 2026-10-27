@@ -120,6 +120,18 @@ dev = [
     "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
     "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
 ]
+# The tools `.github/workflows/publish-pypi.yml` runs in the job that holds
+# `id-token: write`, the one job that can publish to PyPI (the 2026-10-27 review,
+# item 2.1; held amendment A2). It installed `build twine` with no version at all,
+# so whatever PyPI served that minute ran with a publishing identity. Pinned to the
+# minor, like ruff and mypy (Critical rule #11), and READ from here by the
+# workflow: a literal version there would be a second copy free to drift. Not in
+# `dev`, because no developer or test run needs twine. Versions current on PyPI,
+# read 2026-10-27: build 1.6.1 (2026-09-10), twine 7.0.0 (2026-07-27).
+publish = [
+    "build>=1.6.1,<1.7",  # PEP 517 frontend: builds the wheel and sdist
+    "twine>=7.0.0,<7.1",  # `twine check` on both before the upload
+]
 
 [project.scripts]
 # Console-script entry — used by pipx install and the AppImage's AppRun.
