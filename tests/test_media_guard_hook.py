@@ -470,3 +470,24 @@ def test_every_audio_list_equals_the_shared_file() -> None:
             "ci.yml's media-guard pattern differs from audio-extensions.txt.\n"
             f"  shared: {shared}\n  ci:     {ci}"
         )
+
+    # The rig collector spells its list as one shell assignment, which its `find`
+    # expression is built from. Read the assignment, not a mention of it.
+    collector_text = (
+        REPO_ROOT / "docs" / "rig-scripts" / "platterpuscollect.sh"
+    ).read_text(encoding="utf-8")
+    assignment = re.search(r'^AUDIO_EXTS="([a-z0-9 ]+)"$', collector_text, re.MULTILINE)
+    assert assignment, "no AUDIO_EXTS assignment in platterpuscollect.sh"
+    collector = assignment.group(1).split()
+    assert collector == shared, (
+        "platterpuscollect.sh's AUDIO_EXTS differs from audio-extensions.txt.\n"
+        f"  shared:    {shared}\n  collector: {collector}"
+    )
+    # And its `find` really is built from that list, so the assignment above is
+    # not a decoration beside a hand-written expression.
+    assert '-iname "*.$ext"' in collector_text and "for ext in $AUDIO_EXTS" in (
+        collector_text
+    ), "platterpuscollect.sh's audio find no longer uses AUDIO_EXTS"
+    assert not re.search(r"-iname '\*\.(?:flac|wav|mp3)'", collector_text), (
+        "platterpuscollect.sh has a hand-written audio -iname again"
+    )

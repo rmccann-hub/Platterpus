@@ -26,6 +26,7 @@ import json
 import os
 import shutil
 import subprocess
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -523,3 +524,78 @@ def test_the_collector_packs_a_clean_bundle_with_a_working_find(tmp_path: Path) 
         or (tmp_path / "home" / "platterpusbundle.tar.gz").exists()
     )
     assert (tmp_path / "home" / "platterpusbundle.tar.gz").exists()
+
+
+def _plant_in_transcripts(tmp_path: Path, names: list[str]) -> None:
+    """Put text files with the given names where the collector copies wholesale.
+
+    `~/.local/share/platterpus/uiscript` is copied with `cp -r`, so anything in it
+    reaches the bundle and only the audio sweep stands between it and the upload.
+    The files hold text: no audio is created (Critical rule #8 binds tests too).
+    """
+    folder = tmp_path / "home" / ".local" / "share" / "platterpus" / "uiscript"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "transcript.txt").write_text("step 1 ok\n", encoding="utf-8")
+    for name in names:
+        (folder / name).write_text("not audio\n", encoding="utf-8")
+
+
+def _bundle_members(tmp_path: Path) -> list[str]:
+    """The file names inside the packed bundle."""
+    with tarfile.open(tmp_path / "home" / "platterpusbundle.tar.gz") as tar:
+        return [Path(m.name).name for m in tar.getmembers() if m.isfile()]
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_collector_removes_every_audio_type_the_guards_know(tmp_path: Path) -> None:
+    """Regression (review 2026-10-27, item 1.6): no audio type is packed.
+
+    The sweep checked 7 of the guards' 18 extensions, so a `.ogg`, `.opus` or
+    `.pcm` went into the tarball under the line "clean - no audio files in the
+    bundle". One file per shared extension, alternately in upper case, plus a
+    name with spaces in it.
+
+    Not a test of item 3.7 (`IFS= read -r` in the delete loop): every line the
+    sweep reads starts with the bundle's absolute path, so the blanks a bare
+    `read` strips cannot occur there. `scripts/revert_probe.py` confirmed that
+    reverting only `IFS=` leaves this test passing; the change is hygiene.
+    """
+    shared = (_REPO / ".githooks" / "audio-extensions.txt").read_text(encoding="utf-8")
+    extensions = shared.split()
+    assert len(extensions) >= 18, "the shared extension list is not being read"
+    names = [
+        f"t{i:02d}.{ext.upper() if i % 2 else ext}" for i, ext in enumerate(extensions)
+    ]
+    names.append(" with spaces .ogg")
+    _plant_in_transcripts(tmp_path, names)
+
+    result = _run_collect(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "REMOVING audio that must not be here" in result.stdout, result.stdout
+    assert "removed; the bundle is now clean" in result.stdout, result.stdout
+    members = _bundle_members(tmp_path)
+    # Non-triviality: the bundle was packed and does carry the planted text file,
+    # so an empty or missing tarball cannot pass the audio check below.
+    assert "transcript.txt" in members, members
+    packed_audio = [n for n in members if n in names]
+    assert not packed_audio, f"audio reached the upload bundle: {packed_audio}"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_collector_refuses_to_pack_audio_it_could_not_remove(
+    tmp_path: Path,
+) -> None:
+    """A removal is checked, not assumed: audio left behind stops the packing.
+
+    A name holding a newline cannot survive the sweep's one-name-per-line list,
+    so `rm` is handed two halves that do not exist. The collector must look
+    again, see the file is still there, and refuse to pack.
+    """
+    _plant_in_transcripts(tmp_path, ["two\nlines.flac"])
+
+    result = _run_collect(tmp_path)
+
+    assert result.returncode != 0, result.stdout
+    assert "AUDIO IS STILL IN THE BUNDLE" in result.stderr, result.stderr
+    assert not (tmp_path / "home" / "platterpusbundle.tar.gz").exists()
