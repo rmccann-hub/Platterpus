@@ -296,7 +296,12 @@ Worker mechanics, all demonstrated in `workers/`:
   floor on what it examined and was revert-probed. Its first run found four real
   defects the per-dialog gates had missed — and found that the contrast rule
   examined no status line at all until windows were measured in a state that
-  shows one, which is why `STATES` exists.
+  shows one, which is why `STATES` exists. **Every condition measures in one
+  named font, DejaVu Sans at 9 pt** (`MEASURE_FONT_FAMILY`, since 2026-10-27):
+  a text-fit verdict is a statement about the font as well as the layout, and
+  the machine's default made it two verdicts on two machines (Inter failed
+  three tests that DejaVu passed). The subprocess checks with `QFontInfo` that
+  Qt really matched that family and refuses to measure in a substitute.
 - **One door per action.** An action reachable from two places has two places
   to go stale, and the second door is rarely maintained. Settings' "Check
   dependencies" and "Re-detect…" duplicated Setup & Updates buttons and were

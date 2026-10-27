@@ -266,6 +266,69 @@ def _factories() -> dict[str, object]:
     }
 
 
+#: The one font every measurement is taken in. **Named, never the machine's
+#: default** (external review of 2026-10-27, item 3.1). `clipped_text` and
+#: `cut_off_cells` compare a text's measured width with the room it is given, so
+#: their verdict is a statement about the font as much as about the layout. The
+#: matrix used to take whatever `QApplication` resolved "Sans Serif" to: DejaVu
+#: Sans on CI's runner image, which passed, and Inter in a container that had
+#: it, where three tests failed. Two machines, two verdicts, one layout — so the
+#: font was an unrecorded input. DejaVu Sans is the one pinned because it is
+#: what the suite had been measured against all along (CI installs it as
+#: `fonts-dejavu-core`), it is the fontconfig fallback on most Linux desktops,
+#: and it is one of the wider common sans faces, so a layout that holds in it
+#: holds in the narrower ones.
+MEASURE_FONT_FAMILY: str = "DejaVu Sans"
+#: Qt's own default size under the offscreen platform (measured 2026-10-27,
+#: PySide6 6.11: `QApplication([]).font()` is "Sans Serif" at 9 pt), so pinning
+#: the family did not also move the size the matrix had always measured at. The
+#: 150% conditions scale this number.
+MEASURE_FONT_POINT_SIZE: float = 9.0
+
+
+class MeasurementFontMissing(RuntimeError):
+    """Qt could not give us the font the matrix measures in.
+
+    Raised rather than measuring with whatever fontconfig substituted, because a
+    substitute's widths would make every text-fit verdict silently about a
+    different font — the defect this font pin exists to remove.
+    """
+
+
+def check_measurement_font(requested: str, resolved: str) -> None:
+    """Refuse to measure when Qt resolved ``requested`` to some other family.
+
+    A pure function of two names so the refusal can be tested without a font
+    being missing on the machine running the test.
+    """
+    if resolved.casefold() != requested.casefold():
+        raise MeasurementFontMissing(
+            f"the UI conformance matrix measures text in {requested!r}, but Qt "
+            f"resolved it to {resolved!r} — that font is not installed here. "
+            f"Install it (Debian/Ubuntu: fonts-dejavu-core; Fedora: "
+            f"dejavu-sans-fonts; Arch: ttf-dejavu) rather than measuring in a "
+            f"substitute, whose widths would make clipped_text and cut_off_cells "
+            f"report on a different font."
+        )
+
+
+def _measurement_font(text_scale: float) -> object:
+    """The pinned font at this condition's scale, verified to be the real one.
+
+    Returns a `QFont` (typed ``object`` like the rest of this file's Qt values,
+    which are imported only inside the measuring subprocess).
+    """
+    from PySide6.QtGui import QFont, QFontInfo
+
+    font = QFont(MEASURE_FONT_FAMILY)
+    font.setPointSizeF(MEASURE_FONT_POINT_SIZE * text_scale)
+    # QFontInfo reports what the font database actually matched, which is the
+    # family every width below is measured in; QFont.family() only echoes back
+    # the name we asked for.
+    check_measurement_font(MEASURE_FONT_FAMILY, QFontInfo(font).family())
+    return font
+
+
 def _apply_condition(app: object, theme: str, text_scale: float) -> None:
     """Style, palette and font for this process's condition."""
     from PySide6.QtGui import QColor, QPalette
@@ -275,13 +338,9 @@ def _apply_condition(app: object, theme: str, text_scale: float) -> None:
     for role, colour in PALETTES[theme].items():
         palette.setColor(getattr(QPalette.ColorRole, role), QColor(colour))
     app.setPalette(palette)  # type: ignore[attr-defined]  # a QApplication
-    if text_scale != 1.0:
-        font = app.font()  # type: ignore[attr-defined]  # a QApplication
-        if font.pointSizeF() > 0:
-            font.setPointSizeF(font.pointSizeF() * text_scale)
-        else:
-            font.setPixelSize(round(font.pixelSize() * text_scale))
-        app.setFont(font)  # type: ignore[attr-defined]  # a QApplication
+    # Always set, at 100% too: the default is the machine's, and the point of
+    # MEASURE_FONT_FAMILY is that no condition measures in the machine's font.
+    app.setFont(_measurement_font(text_scale))  # type: ignore[attr-defined]  # a QApplication
 
 
 _COLOUR_IN_STYLE: re.Pattern[str] = re.compile(r"(?<![-\w])color:\s*(#[0-9a-fA-F]{6})")
@@ -1556,6 +1615,37 @@ def test_every_centered_dialog_in_the_source_is_measured() -> None:
         f"not measured: {sorted(found - MEASURED)}; "
         f"measured but gone: {sorted(MEASURED - found)}"
     )
+
+
+def test_the_font_check_refuses_a_substitute() -> None:
+    """The pin fails loudly: a substitute family is refused, by name, with the
+    package to install, instead of being measured as if it were the pinned one."""
+    check_measurement_font("DejaVu Sans", "DejaVu Sans")
+    check_measurement_font("DejaVu Sans", "dejavu sans")  # fontconfig's casing varies
+    with pytest.raises(MeasurementFontMissing) as refused:
+        check_measurement_font("DejaVu Sans", "Inter")
+    message = str(refused.value)
+    assert "'DejaVu Sans'" in message and "'Inter'" in message
+    assert "fonts-dejavu-core" in message
+
+
+def test_the_matrix_measures_in_the_pinned_font(qapp: object) -> None:
+    """What the measuring subprocess sets is the pinned family at the pinned
+    size, scaled for the 150% conditions — read back through `QFontInfo`, which
+    reports what Qt matched, not what was asked for. Fails (loudly, by design)
+    on a machine without DejaVu Sans, which is the machine whose verdicts would
+    otherwise have been about a different font."""
+    from PySide6.QtGui import QFont, QFontInfo
+
+    for scale in (1.0, 1.5):
+        font = _measurement_font(scale)
+        assert isinstance(font, QFont)
+        info = QFontInfo(font)
+        assert info.family() == MEASURE_FONT_FAMILY
+        assert font.pointSizeF() == pytest.approx(MEASURE_FONT_POINT_SIZE * scale)
+    # And `_apply_condition` is what installs it — the subprocess's only path.
+    source = Path(__file__).read_text(encoding="utf-8")
+    assert "app.setFont(_measurement_font(text_scale))" in source
 
 
 if __name__ == "__main__" and "--measure" in sys.argv:
