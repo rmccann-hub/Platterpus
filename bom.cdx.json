@@ -2310,15 +2310,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
+          "value": "build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
+          "value": "build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; >=1.6.1,<1.7 in pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
+          "value": ">=1.6.1,<1.7"
         }
       ]
     },
@@ -2362,11 +2362,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
         },
         {
           "name": "platterpus:constraint",
@@ -2388,15 +2388,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+          "value": "build/build_appimage.sh"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+          "value": "build/build_appimage.sh"
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=1.4,<2"
+          "value": ">=1.4.6,<1.5"
         }
       ]
     },
@@ -2414,15 +2414,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires"
+          "value": "pyproject.toml [build-system].requires"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires"
+          "value": "pyproject.toml [build-system].requires"
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=77 in pyproject.toml [build-system].requires; unpinned in .github/workflows/ci.yml (pip-audit)"
+          "value": ">=77"
         }
       ]
     },

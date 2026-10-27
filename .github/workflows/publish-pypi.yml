@@ -116,27 +116,24 @@ jobs:
         with:
           python-version: "3.11"
 
-      # build and twine are PINNED, and the pins are READ OUT OF pyproject.toml
-      # (its `publish` extra), the way ci.yml reads ruff's (Critical rule #11). They
-      # ran unpinned here, in the one job that can publish to PyPI (the 2026-10-27
-      # review, item 2.1). Reading them keeps one copy of each pin: a literal
-      # version here could drift from pyproject's, and
-      # tests/test_gating_tools_are_pinned.py refuses one.
+      # build and twine are installed at EXACT versions, VERIFIED BY HASH, in the
+      # one job that can publish to PyPI. They ran unpinned here until the
+      # 2026-10-27 review (item 2.1), then pinned to a minor range read from
+      # pyproject's `publish` extra; a range still installs whatever patch release
+      # PyPI serves that minute, a compromised one included (the review's
+      # follow-up). build/locks/publish.lock is resolved from that extra and the
+      # build backend by build/lock-requirements.sh, carries the sha256 of every
+      # file for each version, and tests/test_dependency_locks.py holds it inside
+      # pyproject's ranges, so the range still lives in one place.
+      #
+      # `--no-isolation`: build with the setuptools and wheel the lock just
+      # installed. An isolated build fetches `setuptools>=77` and `wheel` from
+      # PyPI by range, unhashed, which is the same hole one step later. No
+      # `pip install --upgrade pip` either: that was an unhashed install too.
       - name: Build wheel + sdist and validate metadata
         run: |
-          python -m pip install --upgrade pip
-          specs="$(python -c '
-          import pathlib, tomllib
-          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
-              "optional-dependencies"
-          ]["publish"]
-          print("\n".join(extra))
-          ')"
-          mapfile -t pins <<<"$specs"
-          echo "pyproject pins:"
-          printf '  %s\n' "${pins[@]}"
-          python -m pip install "${pins[@]}"
-          python -m build
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/publish.lock
+          python -m build --no-isolation
           # Catch PyPI-invalid metadata before we try to upload.
           python -m twine check dist/*
 

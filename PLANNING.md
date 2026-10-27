@@ -168,7 +168,8 @@ Platterpus/
 │                                        #   (per-track CRCs prove bit-perfection; never commit audio — see its README)
 │
 ├── build/                               # everything related to producing the AppImage
-│   ├── lock-requirements.sh             # writes the hash-pinned requirements.lock (run in the release env)
+│   ├── lock-requirements.sh             # writes every hash-pinned lock with uv: the AppImage's and build/locks/*.lock
+│   ├── locks/                           # hashed locks the CI and release jobs install with pip --require-hashes
 │   ├── build_appimage.sh                # one-shot build script (calls python-appimage)
 │   ├── make_icon.py                     # regenerate the committed app icon (needs an SVG rasterizer — rsvg-convert/Inkscape/ImageMagick/cairosvg; NOT Pillow)
 │   └── python-appimage/
@@ -2221,9 +2222,24 @@ actionlint with zizmor, and ShellCheck, and not Vale.
     `publish-pypi.yml` reads (review 2.1).
   - **A5, applied for pip-audit:** pinned to its minor in the dev extra, read by `ci.yml`
     (review 2.2). Its other half, `cyclonedx-bom` (`>=7,<8` in `ci.yml`), is still open.
-  - **A4, still held:** no lockfile. A hashed universal lock was produced and works, but
-    installing CI from it needs uv in CI, which `DEPENDENCIES.md` does not list, and the
-    AppImage half can be proved only by a real build (review 2.3).
+  - **A4, applied** (2026-10-27, the review's follow-up to 2.1 and 2.3). The reason it was held did not
+    survive the follow-up: installing from a lock needs only pip (uv only *generates*
+    it, and uv already runs in CI and is listed in `DEPENDENCIES.md`), and `appimage.yml`
+    builds on dispatch without releasing anything, so it can prove the AppImage half.
+    `build/lock-requirements.sh` resolves `build/python-appimage/requirements.lock`
+    (CPython 3.12 on manylinux_2_34, the interpreter python-appimage bundles) and
+    `build/locks/{release,publish,audit}.lock` from pyproject's ranges;
+    `release.yml`, `appimage.yml`, `publish-pypi.yml` and the `pip-audit` job install
+    only with `--require-hashes`, the builds run `--no-isolation`, the AppImage build
+    refuses to run without its lock, and `tests/test_dependency_locks.py` holds every
+    lock inside its ranges. The `test`, `lint` and `typecheck` jobs followed the same
+    day: `build/locks/ci.lock` is one universal resolution for the 3.11 to 3.14 matrix,
+    installed with `--require-hashes` and then the project with `--no-index --no-deps
+    --no-build-isolation`; it installed and passed the suite on 3.11 and 3.14 before it
+    was adopted, and it pins every package it shares with the AppImage lock alike.
+    **A4 is applied in full.** What is left unhashed in CI: the `sbom` job
+    (`cyclonedx-bom>=7,<8`, A5's other half), the non-required `workflow-lint`,
+    `shellcheck` and `commit-subjects` jobs, and `mutation.yml`.
   - **A6, applied 2026-10-12** (KDD-39's record).
   - **A7 (split `CLAUDE.md`) and A22 (the update channel's `latest`), the owner's call:**
     the review leaves both to the owner (4.2, 4.4).

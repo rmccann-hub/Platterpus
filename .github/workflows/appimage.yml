@@ -43,10 +43,14 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      # The same hashed lock release.yml installs, so this build proves the
+      # release's own toolchain on every push to main (and on any branch it is
+      # dispatched for). Exact versions with the sha256 of every file, refused
+      # otherwise; resolved from pyproject's ranges by build/lock-requirements.sh
+      # and held inside them by tests/test_dependency_locks.py.
       - name: Install build tooling
         run: |
-          python -m pip install --upgrade pip
-          pip install "build>=1,<2" "python-appimage>=1.4,<2"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock
 
       - name: Build the AppImage
         env:

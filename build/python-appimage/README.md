@@ -7,7 +7,10 @@ AppImage. The actual build is driven by `../build_appimage.sh`.
 ## Build prerequisites
 
 - Python 3.11+
-- `python3 -m pip install --user build "python-appimage>=1.4,<2"`
+- `python3 -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock`
+  (in a venv: `build`, `python-appimage`, the build backend and `sigstore`, at the
+  exact versions the release job uses, verified by hash; the wheel is built with
+  `--no-isolation` from them)
 - Linux x86_64 (python-appimage's manylinux2014 base is x86_64-only).
   Arm64 support requires upstream changes — out of scope for v1.
 
@@ -16,6 +19,7 @@ AppImage. The actual build is driven by `../build_appimage.sh`.
 | File | Purpose |
 |---|---|
 | `requirements.txt` | pip deps bundled into the AppImage. The locally-built platterpus wheel is resolved via the `PIP_FIND_LINKS` the build script exports (a global `--find-links .` line does **not** work — python-appimage installs each line from a temp dir). Version pins use `~=` (or an exact `==`) because `<`/`>` get read as shell redirections during the build. |
+| `requirements.lock` | **Generated** by `../lock-requirements.sh`; do not hand-edit. The exact version and sha256s of every third-party package `requirements.txt` resolves to, for the CPython this AppImage bundles. The build installs only what it names (see *Reproducible dependency bytes* below). |
 | `entrypoint.sh` | Launch script. AppImage runtime sets `$APPDIR`; we run `$APPDIR/opt/python*/bin/python -m platterpus`. **Must keep an extension** — python-appimage globs `entrypoint.*` and silently ignores a bare `entrypoint`. |
 | `io.github.rmccann_hub.Platterpus.desktop` | Desktop integration metadata (named for the freedesktop app-id). |
 | `io.github.rmccann_hub.Platterpus.png` | App icon (512×512). `build_appimage.sh` generates a grey placeholder if missing; regenerate the real one with `build/make_icon.py`. |
@@ -79,39 +83,44 @@ When `DEPENDENCIES.md` bumps a pin, update **both** `pyproject.toml`
 `requirements.txt` line here (what the AppImage bundles; `~=` form — see the
 operator note above) in the same commit, so the three stay in lockstep.
 
-If `requirements.lock` exists (see below), also regenerate it in the same
-commit — `bash build/lock-requirements.sh` — so its hashes track the new
-version, or the next build's hash gate will reject the changed wheel.
+Then regenerate the locks in the same commit — `bash build/lock-requirements.sh`
+— so `requirements.lock` names the new version and its hashes, or the next
+build's hash gate rejects the changed wheel. `tests/test_dependency_locks.py`
+fails until you do.
 
 ## Reproducible dependency bytes (hash-verified wheelhouse)
 
 `SOURCE_DATE_EPOCH` already makes the wheel and squashfs timestamps
-deterministic. To also pin the exact *dependency* bytes (defends against
-PyPI or a mirror serving a swapped artifact for a pinned version), the build
-supports an **opt-in, hash-verified wheelhouse**:
+deterministic. The exact *dependency* bytes are pinned too (defends against
+PyPI or a mirror serving a swapped artifact for a pinned version), by a
+**hash-verified wheelhouse, required since 2026-10-27**:
 
-1. **Generate the lock, in the release environment** (Linux x86_64 + the
-   pinned CPython — the hashes are platform/Python-specific):
+1. **The lock.** `bash build/lock-requirements.sh` (needs
+   [uv](https://docs.astral.sh/uv/)) writes `requirements.lock` here, with every
+   other hashed lock. It resolves the third-party closure (PySide6 → shiboken6,
+   musicbrainzngs, tomli-w, cryptography, sigstore, numpy and their dependencies)
+   with `uv pip compile --generate-hashes` **for the AppImage's own target**, not
+   the machine it runs on: CPython 3.12 (the interpreter python-appimage bundles,
+   `APPIMAGE_PYTHON`, held equal to `build_appimage.sh`'s default by the test) on
+   `manylinux_2_34_x86_64` (PySide6 6.11's glibc floor, the lowest that resolves).
+   Each `name==version` carries the sha256 of every file PyPI publishes for it.
+   The header names the target. The local `platterpus` wheel is intentionally
+   *not* locked (built here every commit; pinned by `SOURCE_DATE_EPOCH` instead).
 
-   ```bash
-   bash build/lock-requirements.sh   # writes build/python-appimage/requirements.lock
-   ```
+2. **It is committed**, as small text; the wheelhouse it rebuilds from is
+   transient and git-ignored (`.wheelhouse/`).
 
-   It resolves the third-party closure (PySide6 → shiboken6, musicbrainzngs,
-   tomli-w, cryptography, sigstore and their dependencies) via `pip download --report` and writes exact `name==version` pins
-   with `--hash=sha256:…`. The local `platterpus` wheel is intentionally *not*
-   locked (built here every commit; pinned by `SOURCE_DATE_EPOCH` instead).
-
-2. **Commit `requirements.lock`.** It's small text; the wheelhouse it rebuilds
-   from is transient and git-ignored (`.wheelhouse/`). **No lock is committed
-   yet** (checked 2026-10-19), so today every build takes the online `~=` path in
-   step 3.
-
-3. **Build as usual.** When the lock is present, `build_appimage.sh`
-   `pip download --require-hashes`-es the closure into `.wheelhouse/` (aborting
-   on any hash mismatch), then installs python-appimage's per-line deps
-   **offline** from it (`PIP_NO_INDEX`). No lock ⇒ the previous version-pinned
-   (`~=`) online install, unchanged — the feature is purely additive.
+3. **Build as usual.** `build_appimage.sh` reads the target out of the lock's
+   header, refuses a build for a different CPython, and
+   `pip download --require-hashes --only-binary=:all:`-es the closure for that
+   CPython and every manylinux tag up to the lock's glibc into `.wheelhouse/`
+   (aborting on any hash mismatch). It then installs python-appimage's per-line
+   deps **offline** from it (`PIP_NO_INDEX`), so the bundle holds exactly what the
+   lock names. **No lock ⇒ the build stops**: a supply-chain check that falls back
+   to an unhashed install when its input is missing can be passed by deleting a
+   file. (Replayed on 2026-10-27: python-appimage 1.4.6's per-line installs, run
+   offline from that wheelhouse on CPython 3.12.3, installed exactly the 36 locked
+   versions.)
 
 **Validation is a real-build step:** confirm the *full* AppImage (not just the
 wheel) is byte-identical across two rebuilds of the same commit once the lock
@@ -119,4 +128,4 @@ is in place. That can't be done in a sandbox that can't run the AppImage build.
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.113.*

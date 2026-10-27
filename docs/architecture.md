@@ -1702,6 +1702,35 @@ several gotchas found the hard way:
 - FUSE-less hosts (CI) need `APPIMAGE_EXTRACT_AND_RUN=1`; rate-limited
   base-image downloads need an authenticated `GITHUB_TOKEN` or a pre-staged
   base image.
+- **Every install the build and the publishing jobs do is a hashed lock**
+  (2026-10-27, the review's follow-up to items 2.1 and 2.3).
+  `build/lock-requirements.sh` resolves pyproject's (and `requirements.txt`'s)
+  ranges with `uv pip compile --generate-hashes` into
+  `build/python-appimage/requirements.lock` and `build/locks/*.lock`, and the
+  jobs install them with `pip install --require-hashes`. Three things about
+  them bite:
+  - **The AppImage's lock is for the BUNDLED interpreter, not the host's.**
+    numpy, cffi and pydantic-core ship one wheel per CPython minor, and the
+    release job runs 3.11 while the AppImage bundles 3.12. The lock's header
+    names its target (`target-python`, `target-platform`), the build downloads
+    for that target and refuses a build for another one, and the test holds the
+    generator's `APPIMAGE_PYTHON` equal to the build's default.
+  - **pip does not expand `--platform manylinux_2_NN`** to the older tags it
+    implies (it does for `manylinux2014`): given `manylinux_2_34_x86_64` alone,
+    pip 24.0 found no cffi wheel, whose tag is `manylinux_2_17`. The build passes
+    every tag from the lock's glibc down.
+  - **A build with isolation fetches the backend by range.** `python -m build`
+    makes a fresh environment and installs `setuptools>=77` and `wheel` from PyPI,
+    unhashed, so both builds run `--no-isolation` with the backend the lock
+    installed.
+
+  CI's `test`, `lint` and `typecheck` jobs install `build/locks/ci.lock`, one
+  universal resolution for every Python of the matrix, then the project with
+  `--no-index --no-deps --no-build-isolation`, so nothing but a lock reaches PyPI.
+  `tests/test_dependency_locks.py` fails when a lock falls outside the ranges it
+  was resolved from, when a line is not an exact hashed pin, when the CI lock and
+  the AppImage lock pin a shared package differently, or when a job that
+  publishes, attests or gates installs anything else.
 
 **Releasing is tag-driven and automated** — don't hand-build or hand-upload.
 The operational steps (bump `__version__`, roll the CHANGELOG, dispatch the
