@@ -22,7 +22,10 @@ AppDir/
 build/python-appimage/.cache/
 # Transient hash-verified wheelhouse (build_appimage.sh builds + removes it per
 # run when requirements.lock is present); never committed. requirements.lock
-# itself IS committed — it's the small text pin the wheelhouse is rebuilt from.
+# itself is NOT ignored: it is meant to be committed, as the small text pin the
+# wheelhouse is rebuilt from (build/lock-requirements.sh writes it). Check
+# `git ls-files build/python-appimage` for whether it has been; on 2026-10-27
+# it had not, and the build fell back to its version-pinned online install.
 build/python-appimage/.wheelhouse/
 # Intermediate wheel build tree from `python -m build`
 build/lib/
@@ -54,6 +57,15 @@ htmlcov/
 *.swp
 *.swo
 .DS_Store
+
+# Local secrets and scratch work (external review of 2026-10-27, item 4.1).
+# .claude/settings.json denies agents READING .env, .env.* and secrets/**; these
+# lines stop anyone COMMITTING them, which is the other half of the same rule.
+# scratch/ is the conventional place for throwaway work inside a checkout.
+.env
+.env.*
+secrets/
+scratch/
 
 # Claude Code: the shared, enforced .claude/settings.json IS committed (deny
 # rules + the audio-guard hook). Personal/local overrides are not.

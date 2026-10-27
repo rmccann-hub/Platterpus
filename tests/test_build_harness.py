@@ -334,3 +334,38 @@ def test_release_workflow_ships_the_zsync_file() -> None:
     assert workflow.index("Verify update artifacts") < workflow.index("sha256sum")
     # Build (which embeds update info) must precede the checksum generation.
     assert workflow.index("build_appimage.sh") < workflow.index("sha256sum")
+
+
+def test_gitignore_keeps_the_lock_committable_and_secrets_out() -> None:
+    """`.gitignore` against what it promises (review 2026-10-27, items 2.4 and 4.1).
+
+    Asked of git itself (`check-ignore --no-index`), so the answer is the one a
+    `git add` would get, not a reading of the patterns. requirements.lock must
+    stay committable, since the build verifies hashes from it; local secrets and
+    scratch work must be ignored, matching what .claude/settings.json denies.
+    """
+    import shutil
+    import subprocess
+
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git is not on PATH")
+
+    def ignored(path: str) -> bool:
+        result = subprocess.run(
+            [git, "check-ignore", "-q", "--no-index", path],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # 0: ignored; 1: not ignored; anything else is git failing, not an answer.
+        assert result.returncode in (0, 1), result.stderr
+        return result.returncode == 0
+
+    assert not ignored("build/python-appimage/requirements.lock")
+    for path in (".env", ".env.local", "secrets/token", "scratch/notes.txt"):
+        assert ignored(path), f"{path} would be committable"
+    # Floor: the same probe does report an ignored path it should, so a broken
+    # probe cannot pass the not-ignored assertion by never matching anything.
+    assert ignored("track.flac")
