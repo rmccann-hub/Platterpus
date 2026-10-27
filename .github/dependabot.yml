@@ -62,7 +62,64 @@ updates:
           - "version-update:semver-major"
           - "version-update:semver-minor"
           - "version-update:semver-patch"
+    # The CI tools pinned on 2026-10-27 (pip-audit, build, twine and the three
+    # linters) are held the same way and for the same reason (the follow-up
+    # review of that day, item 3).
+      - dependency-name: "pip-audit"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "build"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "twine"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "actionlint-py"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "zizmor"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "shellcheck-py"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+    # EVERY MINOR-PINNED PACKAGE GETS A GROUP OF ITS OWN, ahead of the weekly
+    # one (the follow-up review of 2026-10-27, item 3). A widened minor pin is
+    # refused by tests/test_gating_tools_are_pinned.py by design, so if one
+    # slips past the ignore above, as #303 did, it would turn the whole weekly
+    # group red and hold every other update back. In its own group it reddens
+    # only that pull request. Dependabot puts a package in the FIRST group that
+    # matches, so this one must stay above `pip-weekly`. The runtime pins
+    # (PySide6, sigstore, numpy) are grouped here but not ignored, because we
+    # want to hear of their releases. tests/test_dependabot_holds_the_pins.py
+    # derives the list from pyproject.toml, so a new minor pin can't be missed.
     groups:
+      pinned-minor:
+        applies-to: version-updates
+        patterns:
+          - "PySide6"
+          - "sigstore"
+          - "numpy"
+          - "ruff"
+          - "mypy"
+          - "pip-audit"
+          - "build"
+          - "twine"
+          - "actionlint-py"
+          - "zizmor"
+          - "shellcheck-py"
       pip-weekly:
         applies-to: version-updates
         patterns:
