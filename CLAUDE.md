@@ -305,7 +305,9 @@ they're established. Keep entries terse.*
   after that day's review; the owner adds one to the ruleset to make it required): `commit-subjects`
   (`scripts/check_commit_subjects.py` against the subject grammar below), `workflow-lint`
   (actionlint and zizmor `--offline`) and `shellcheck` (every tracked shell script outside
-  `docs/handshake/`), with their pins in pyproject's `ci-lint` extra. Two more workflows:
+  `docs/handshake/`), with their pins in pyproject's `ci-lint` extra, and `lock-check`
+  (`bash build/lock-requirements.sh --check`: every hashed lock must regenerate byte for byte
+  from the uv version and `--exclude-newer` date in its header). Two more workflows:
   `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`,
   ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main`
   and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build &

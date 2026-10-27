@@ -1732,6 +1732,18 @@ several gotchas found the hard way:
   the AppImage lock pin a shared package differently, or when a job that
   publishes, attests or gates installs anything else.
 
+  **Reading a lock cannot tell a hand edit from a generated file; regenerating
+  it can.** A package deleted from `release.lock` still parses and still sits
+  inside pyproject's ranges, so every check above passed it (the follow-up
+  review of 2026-10-27). So each lock's header records the uv version and the
+  `--exclude-newer` date it was resolved with (uv considers only files PyPI
+  received before that date), and `bash build/lock-requirements.sh --check`
+  regenerates every lock from those two fields and diffs it against the
+  committed file. CI's `lock-check` job runs it on every pull request; every
+  `setup-uv` step pins the uv the headers record, and the test holds them equal.
+  Offline, the test checks what reading can: no `# via` line names a package
+  the lock does not pin.
+
 **Releasing is tag-driven and automated** — don't hand-build or hand-upload.
 The operational steps (bump `__version__`, roll the CHANGELOG, dispatch the
 workflow) are owned by `CLAUDE.md` *CI / release*; the contract that shapes
@@ -2045,6 +2057,8 @@ fix is now a new, signed version (§6.4 step 5).
 *Amendment, 2026-10-27 (the same review, item 2.8): **`release.yml` makes the tag itself, annotated, before it creates the release.** Until then `gh release create --target` made it, and GitHub makes that tag lightweight: no tagger, no date, no message. The new step, last before publishing so a refused release leaves no tag, tags the release commit as `github-actions[bot]` and pushes it, and the publish step uses `--verify-tag`, which refuses rather than make a tag of its own. It only ever creates, so it fits the `v*` ruleset (creation allowed, moves and deletes blocked; `PLANNING.md` KDD-43): a re-run on the same commit reuses the tag, a lightweight one with a warning, and a tag already on another commit is refused, because the fix is a new version. The push hands the token to that one `git` command as an HTTP header, since the checkout keeps none (item 1.4). Tags already published stay as they are (KDD-37, D7). KDD-43 and `CLAUDE.md` still say the tag is created when the draft is published. `tests/test_release_git_steps.py` runs the step against real throwaway repositories.*
 
 *Amendment, 2026-10-27 (the same review, items 2.5, 2.9, 2.11, 2.12 and 3.6): four checks join `ci.yml`.* The **test job** fails a leg that collected fewer tests than `tests/collected-tests-baseline.txt`, because a suite that silently loses a module still passes everything it ran; and its coverage floor moved from 91 to the measured 93. Three **non-required** jobs run beside it: `commit-subjects`, which holds new subjects to the grammar in `CLAUDE.md` (a tool can enforce a convention a reviewer only notices); `workflow-lint`, actionlint and zizmor offline, because the workflows are code that runs with a token and nothing linted them; and `shellcheck`, over every tracked shell script outside the handshake records, whose list a test holds to every file with a shell shebang, so a script without `.sh` can't fall outside it. They become required when the owner adds them to the ruleset.
+
+*Amendment, 2026-10-27 (the follow-up review of that day, on the hashed locks): a **non-required** `lock-check` job joins `ci.yml`.* It runs `bash build/lock-requirements.sh --check`, which regenerates every lock with the uv version and `--exclude-newer` date its header records and diffs it against the committed file. It exists because nothing else could see a hand edit: a package deleted from `release.lock` passed `tests/test_dependency_locks.py`, which reads the file, and the first job to notice would have been the release. It needs PyPI and the exact uv, so it is a job, not a test. It also goes red when PyPI yanks a release a lock pins, which is worth a regenerated lock anyway.
 
 **When a merge conflict is in a generated block, regenerate the block, and then re-check every hand-kept line in the same file** (added 2026-10-27). Combining the review's branches, `DEPENDENCIES.md` conflicted only inside the block `scripts/emit_bom.py` writes, so the fix looked mechanical: take one side, regenerate. But one side's commit had also changed a hand-kept row above the block (pip-audit's pin), and taking the other side dropped it silently. `emit_bom.py --check` passed, because the check covers only the block it writes. The repair was `23771c10`. Before taking a side, list each conflicted commit's hunks outside the generated region (`git show <c> -- <file>`) and carry them over.
 
