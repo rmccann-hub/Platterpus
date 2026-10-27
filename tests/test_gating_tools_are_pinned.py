@@ -25,9 +25,6 @@ where it is convenient to read is how it ends up describing a file nobody runs.
 from __future__ import annotations
 
 import re
-import subprocess
-import sys
-import textwrap
 import tomllib
 from pathlib import Path
 from typing import Final
@@ -506,8 +503,10 @@ def test_the_pin_admits_both_wheels_we_actually_tested() -> None:
 # The 2026-10-27 review, item 2.1 (the configuration audit's held amendment A2):
 # `publish-pypi.yml` ran `pip install build twine`, unversioned, in the one job that
 # can publish to PyPI. They are now pinned to the minor in pyproject's `publish`
-# extra, and the job READS them from there, the same mechanism as ruff above, so
-# there is one copy of each pin.
+# extra, so there is one copy of each range. Since the review's follow-up the job no
+# longer reads the range at run time: it installs `build/locks/publish.lock`, the
+# exact, hash-verified resolution of that extra, which
+# `tests/test_dependency_locks.py` holds inside the extra's ranges.
 
 PUBLISH_WORKFLOW: Final[Path] = REPO_ROOT / ".github" / "workflows" / "publish-pypi.yml"
 
@@ -517,7 +516,7 @@ PUBLISH_TOOLS: Final[frozenset[str]] = frozenset({"build", "twine"})
 #: An install line naming one of them directly, with or without a version: either
 #: is a copy of the pin that is not pyproject's (or no pin at all, as it shipped).
 _PUBLISH_TOOL_INSTALL: Final[re.Pattern[str]] = re.compile(
-    r"pip\s+install\b[^\n]*?[\s\"'](?P<tool>build|twine)\b(?!-)"
+    r"pip\s+install\b[^\n]*?[\s\"'](?P<tool>build|twine)\b(?![-/])"
 )
 
 
@@ -537,33 +536,19 @@ def test_the_publish_tools_are_pinned_to_a_minor() -> None:
         assert not problem, f"{problem} (the PyPI publish job runs it)"
 
 
-def test_the_publish_job_installs_the_pins_rather_than_naming_the_tools() -> None:
+def test_the_publish_job_installs_the_lock_rather_than_naming_the_tools() -> None:
     lines = _executable_lines(PUBLISH_WORKFLOW.read_text(encoding="utf-8"))
     named = [ln for ln in lines if _PUBLISH_TOOL_INSTALL.search(ln)]
     assert not named, (
-        "publish-pypi.yml installs build or twine by name; read the pins from "
-        f"pyproject's `publish` extra instead: {named}"
+        "publish-pypi.yml installs build or twine by name; install "
+        f"build/locks/publish.lock (pyproject's `publish` extra, hashed) instead: {named}"
     )
-    # Floor: the job still installs something, and from the extra.
+    # Floor: the job still installs something, and from the hashed lock. That the
+    # lock's pins sit inside the extra's ranges is tests/test_dependency_locks.py's
+    # check; it replaced the run of this workflow's own range reader, which the
+    # lock made obsolete (2026-10-27).
     body = "\n".join(lines)
-    assert '["publish"]' in body and "pyproject.toml" in body
-    assert 'pip install "${pins[@]}"' in body
-
-
-def test_the_publish_jobs_reader_returns_the_pins_when_run() -> None:
-    """Run the workflow's own `python -c` reader, not a paraphrase of it."""
-    text = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
-    match = re.search(r"specs=\"\$\(python -c '\n(?P<code>.*?)\n\s*'\)\"", text, re.S)
-    assert match is not None, "the publish job's pin reader is gone"
-    done = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(match.group("code"))],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert done.returncode == 0, done.stderr
-    assert done.stdout.split() == _publish_extra(), done.stdout
+    assert "--require-hashes" in body and "-r build/locks/publish.lock" in body
 
 
 def test_the_publish_install_detector_matches_the_shipped_line() -> None:
@@ -572,3 +557,7 @@ def test_the_publish_install_detector_matches_the_shipped_line() -> None:
     assert _PUBLISH_TOOL_INSTALL.search('pip install "twine>=7.0.0,<7.1"')
     assert not _PUBLISH_TOOL_INSTALL.search('python -m pip install "${pins[@]}"')
     assert not _PUBLISH_TOOL_INSTALL.search("pip install build-tools")
+    # The lock's path names `build` too, and is the fix, not the defect.
+    assert not _PUBLISH_TOOL_INSTALL.search(
+        "python -m pip install --require-hashes -r build/locks/publish.lock"
+    )

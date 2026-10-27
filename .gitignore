@@ -20,12 +20,11 @@ src/platterpus/_build.py
 *.AppDir/
 AppDir/
 build/python-appimage/.cache/
-# Transient hash-verified wheelhouse (build_appimage.sh builds + removes it per
-# run when requirements.lock is present); never committed. requirements.lock
-# itself is NOT ignored: it is meant to be committed, as the small text pin the
-# wheelhouse is rebuilt from (build/lock-requirements.sh writes it). Check
-# `git ls-files build/python-appimage` for whether it has been; on 2026-10-27
-# it had not, and the build fell back to its version-pinned online install.
+# Transient hash-verified wheelhouse (build_appimage.sh builds + removes it on
+# every run); never committed. requirements.lock and build/locks/*.lock are NOT
+# ignored: they are committed (since 2026-10-27), the hash-pinned inputs the
+# wheelhouse and the CI installs come from (build/lock-requirements.sh writes
+# them, and tests/test_build_harness.py asks git that they stay committable).
 build/python-appimage/.wheelhouse/
 # Intermediate wheel build tree from `python -m build`
 build/lib/

@@ -139,6 +139,19 @@ publish = [
     "build>=1.6.1,<1.7",  # PEP 517 frontend: builds the wheel and sdist
     "twine>=7.0.0,<7.1",  # `twine check` on both before the upload
 ]
+# The AppImage builder (Critical rule #2), which `release.yml` runs in the job that
+# holds `id-token: write` and `attestations: write`, and `appimage.yml` runs on
+# every push to main (the 2026-10-27 review's follow-up to item 2.1). It was
+# installed there as a literal `python-appimage>=1.4,<2`, unhashed. Pinned to the
+# minor like `build` (Critical rule #11): python-appimage decides how every
+# requirements.txt line is installed into the bundle, so a minor that changes that
+# is a deliberate commit. Neither workflow reads this line directly: both install
+# `build/locks/release.lock`, which `build/lock-requirements.sh` resolves from it
+# and `tests/test_dependency_locks.py` holds inside it. 1.4.6 is PyPI's newest,
+# read 2026-10-27 (released 2026-07-23).
+appimage = [
+    "python-appimage>=1.4.6,<1.5",
+]
 
 # The linters CI runs over its own workflows and shell scripts (the 2026-10-27
 # review, items 2.5 and 3.6; added on the owner's word of 2026-10-27). They are

@@ -317,10 +317,21 @@ jobs:
                 f"carries {len(moved)} line(s) — the entries were moved.")
           PY
 
+      # EXACT VERSIONS, VERIFIED BY HASH (the 2026-10-27 review's follow-up to
+      # item 2.1). This job holds `contents`, `id-token` and `attestations`
+      # write, and it installed `build>=1,<2` and `python-appimage>=1.4,<2`:
+      # whatever PyPI served inside those ranges that minute ran here, a
+      # compromised patch release included. build/locks/release.lock names one
+      # version of every package in the closure (build, python-appimage, the
+      # build backend, and sigstore for the attestation check below) with the
+      # sha256 of every file PyPI publishes for it, and `--require-hashes`
+      # refuses anything else. It is resolved by build/lock-requirements.sh from
+      # pyproject's ranges, and tests/test_dependency_locks.py fails when it
+      # falls outside them. No `pip install --upgrade pip`: that was an unhashed
+      # install of its own, and the runner's pip reads a hashed lock.
       - name: Install build tooling
         run: |
-          python -m pip install --upgrade pip
-          pip install "build>=1,<2" "python-appimage>=1.4,<2"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock
           # zsyncmake lets the build emit the .zsync delta-update file next
           # to the AppImage (KDD-17b self-update).
           sudo apt-get update -q && sudo apt-get install -y -q zsync
@@ -427,20 +438,18 @@ jobs:
       # asset. `select_verified` is the function the installed app will run, so a
       # release whose attestation the updater would refuse fails here, before it is
       # published. The action writes JSON Lines (actions/attest appends one bundle
-      # per line); the script keeps the one line that verifies. The sigstore pin is
-      # read out of pyproject.toml, so this step cannot drift from what ships.
+      # per line); the script keeps the one line that verifies. sigstore is already
+      # installed: "Install build tooling" took it from build/locks/release.lock,
+      # hashed, and tests/test_dependency_locks.py holds that lock's sigstore to the
+      # exact version the AppImage's own lock bundles, so this step checks with the
+      # verifier that ships. (It used to `pip install` pyproject's range here,
+      # unhashed, in a job holding `id-token: write`.)
       - name: Check the attestation as the updater will, and stage it
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
-          spec="$(python -c '
-          import pathlib, tomllib
-          deps = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["dependencies"]
-          print(next(d for d in deps if d.startswith("sigstore")))
-          ')"
-          echo "pyproject pins: $spec"
-          python -m pip install "$spec"
+          python -m pip show sigstore
           python scripts/release_attestation.py \
             --bundle "$BUNDLE" \
             --artifact platterpus-x86_64.AppImage \

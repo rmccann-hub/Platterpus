@@ -365,7 +365,14 @@ def test_gitignore_keeps_the_lock_committable_and_secrets_out() -> None:
         assert result.returncode in (0, 1), result.stderr
         return result.returncode == 0
 
-    assert not ignored("build/python-appimage/requirements.lock")
+    # Every hashed lock build/lock-requirements.sh writes (2026-10-27).
+    for lock in (
+        "build/python-appimage/requirements.lock",
+        "build/locks/release.lock",
+        "build/locks/publish.lock",
+        "build/locks/audit.lock",
+    ):
+        assert not ignored(lock), f"{lock} would not be committable"
     for path in (".env", ".env.local", "secrets/token", "scratch/notes.txt"):
         assert ignored(path), f"{path} would be committable"
     # Floor: the same probe does report an ignored path it should, so a broken

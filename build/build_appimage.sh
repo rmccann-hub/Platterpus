@@ -15,14 +15,14 @@
 # Reproducibility: we pin every timestamp the build embeds via
 # SOURCE_DATE_EPOCH (below), so two builds of the *same commit* on the same
 # toolchain produce byte-identical output — verified for the wheel (identical
-# sha256 across runs). The exact dependency *bytes* are pinned too, opt-in, via
-# a hash-verified wheelhouse (see the PIP_FIND_LINKS block below): when
-# build/python-appimage/requirements.lock exists, every third-party dep is
-# downloaded with `pip --require-hashes` and installed offline, so a swapped
-# artifact for a pinned version aborts the build. python-appimage's per-line
-# install is respected — pip just resolves from the verified wheelhouse instead
-# of PyPI. Generate the lock with build/lock-requirements.sh; without it the
-# build falls back to the version-pinned (`~=`) online install.
+# sha256 across runs). The exact dependency *bytes* are pinned too, via a
+# hash-verified wheelhouse (see the PIP_FIND_LINKS block below): every
+# third-party dep in build/python-appimage/requirements.lock is downloaded with
+# `pip --require-hashes` and installed offline, so a swapped artifact for a
+# pinned version aborts the build. python-appimage's per-line install is
+# respected — pip just resolves from the verified wheelhouse instead of PyPI.
+# Regenerate the lock with build/lock-requirements.sh; the build refuses to run
+# without it (since 2026-10-27; before, it fell back to an online `~=` install).
 
 set -euo pipefail
 
@@ -52,12 +52,19 @@ export SOURCE_DATE_EPOCH
 echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH (reproducible-build timestamp)"
 
 # --- Prereq check ----------------------------------------------------------
+# The build tools, the build backend and sigstore come from ONE hashed lock,
+# build/locks/release.lock, which release.yml and appimage.yml install with
+# `pip install --require-hashes` (the 2026-10-27 review, item 2.1's follow-up).
+# The spec named on each line below is the range pyproject.toml states (the
+# `publish` and `appimage` extras); tests/test_dependency_locks.py holds the two
+# equal, and the hint points at the lock rather than at the range.
 require_python_module() {
     local module="$1"
     local pip_name="$2"
     if ! python3 -c "import ${module}" >/dev/null 2>&1; then
-        echo "Missing Python module: ${module}"
-        echo "Install with: python3 -m pip install --user ${pip_name}"
+        echo "Missing Python module: ${module} (${pip_name})"
+        echo "Install the release tools with:"
+        echo "  python3 -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock"
         exit 1
     fi
 }
@@ -67,8 +74,8 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
-require_python_module build 'build>=1,<2'
-require_python_module python_appimage 'python-appimage>=1.4,<2'
+require_python_module build 'build>=1.6.1,<1.7'
+require_python_module python_appimage 'python-appimage>=1.4.6,<1.5'
 
 # --- Stamp the build fingerprint (see src/platterpus/build_info.py) ---------
 # Write a generated _build.py INTO the source tree just before the wheel is
@@ -117,7 +124,12 @@ echo "Stamped build fingerprint: ${BUILD_FP}"
 # --- Build the wheel -------------------------------------------------------
 echo "[1/3] Building wheel from local source…"
 rm -f "$RECIPE_DIR"/platterpus-*.whl
-python3 -m build --wheel --outdir "$RECIPE_DIR"
+# `--no-isolation`: build with the setuptools and wheel already installed from
+# the hashed release lock. An isolated build makes a fresh environment and fetches
+# `setuptools>=77` and `wheel` from PyPI by range, unhashed, inside the job that
+# attests the result. `build` still checks [build-system].requires and refuses,
+# naming what is missing, when this environment does not satisfy it.
+python3 -m build --wheel --no-isolation --outdir "$RECIPE_DIR"
 ls -1 "$RECIPE_DIR"/platterpus-*.whl
 # The stamp has served its purpose (it's baked into the wheel now).
 rm -f "$BUILD_STAMP"
@@ -177,31 +189,70 @@ echo "Bundling CPython $PLATTERPUS_PYTHON_VERSION (python-appimage base)."
 # environment variable (not a PYTHON* one), so it survives pip's `-I` isolated
 # mode and applies to every per-line install.
 #
-# Reproducible-build "Option A" (opt-in — activates ONLY when the lock exists):
-# if build/python-appimage/requirements.lock is present, pre-download every
-# third-party dependency into a local wheelhouse with `--require-hashes`, which
-# ABORTS the build if any wheel's bytes differ from the recorded sha256 (the
-# supply-chain gate — defends against a swapped artifact for a pinned version).
-# Then install python-appimage's deps OFFLINE (PIP_NO_INDEX) from that verified
+# THE HASH-VERIFIED WHEELHOUSE (required since 2026-10-27; it was opt-in, and
+# the lock was never committed, so every build installed online by range).
+# build/python-appimage/requirements.lock pins every third-party dependency the
+# AppImage bundles, with the sha256 of every file PyPI publishes for it. We
+# download the closure into a local wheelhouse with `--require-hashes`, which
+# ABORTS the build if any file's bytes differ from the recorded sha256 (the
+# supply-chain gate: a swapped artifact for a pinned version cannot get in).
+# Then python-appimage's per-line installs run OFFLINE (PIP_NO_INDEX) from that
 # wheelhouse, with the locally-built platterpus wheel served from the recipe dir
-# alongside it. WITHOUT the lock the build is unchanged: the version-pinned
-# (`~=`) online install exactly as before. Generate/refresh the lock with
-# build/lock-requirements.sh (run in the release env) whenever a dep changes.
+# beside it, so the bundle can only contain what the lock names.
+#
+# The download runs on the HOST's Python, which is not the one being bundled
+# (CI runs 3.11; the AppImage bundles 3.12). numpy, cffi and pydantic-core ship
+# one wheel per CPython minor, so the download asks for the BUNDLED target: the
+# lock's own header names the Python and platform it was resolved for, and a
+# build for another Python is refused here rather than failing later, offline,
+# on a wheel the bundled pip cannot install. A missing lock is refused too: a
+# supply-chain check that quietly falls back to an unhashed install when its
+# input is absent can be satisfied by deleting a file.
+# Regenerate the lock with build/lock-requirements.sh whenever a range changes.
 WHEELHOUSE="$RECIPE_DIR/.wheelhouse"
+LOCK="$RECIPE_DIR/requirements.lock"
 rm -rf "$WHEELHOUSE"
-if [ -f "$RECIPE_DIR/requirements.lock" ]; then
-    echo "requirements.lock present — verifying deps against recorded hashes…"
-    mkdir -p "$WHEELHOUSE"
-    python3 -m pip download --require-hashes \
-        -r "$RECIPE_DIR/requirements.lock" --dest "$WHEELHOUSE"
-    export PIP_NO_INDEX=1
-    export PIP_FIND_LINKS="$WHEELHOUSE $RECIPE_DIR"
-    echo "Installing dependencies offline from the hash-verified wheelhouse."
-else
-    echo "No requirements.lock — version-pinned online install (run"
-    echo "build/lock-requirements.sh to enable hash-pinned reproducible deps)."
-    export PIP_FIND_LINKS="$RECIPE_DIR"
+if [ ! -f "$LOCK" ]; then
+    echo "error: $LOCK is missing. Regenerate it with: bash build/lock-requirements.sh" >&2
+    exit 1
 fi
+LOCK_PYTHON="$(sed -n 's/^# target-python: //p' "$LOCK")"
+LOCK_PLATFORM="$(sed -n 's/^# target-platform: //p' "$LOCK")"
+if [ -z "$LOCK_PYTHON" ] || [ -z "$LOCK_PLATFORM" ]; then
+    echo "error: $LOCK does not name its target-python and target-platform; regenerate it" >&2
+    exit 1
+fi
+if [ "$LOCK_PYTHON" != "$PLATTERPUS_PYTHON_VERSION" ]; then
+    echo "error: requirements.lock was resolved for CPython $LOCK_PYTHON, but this build" >&2
+    echo "bundles CPython $PLATTERPUS_PYTHON_VERSION. Change APPIMAGE_PYTHON in" >&2
+    echo "build/lock-requirements.sh, regenerate the lock, and commit both." >&2
+    exit 1
+fi
+# pip expands a legacy `--platform manylinux2014_x86_64` to the older tags it
+# implies, but NOT a `manylinux_2_NN` one (pip 24.0, measured 2026-10-27: given
+# only `manylinux_2_34_x86_64` it found no cffi 2.1.1, whose wheel is tagged
+# `manylinux_2_17`). So every tag a glibc of the lock's floor accepts is passed
+# explicitly, newest first: manylinux_2_NN down to _2_5, then the legacy aliases.
+if [[ ! "$LOCK_PLATFORM" =~ ^manylinux_2_([0-9]+)_([a-z0-9_]+)$ ]]; then
+    echo "error: cannot read a manylinux_2_NN platform from requirements.lock: $LOCK_PLATFORM" >&2
+    exit 1
+fi
+GLIBC_MINOR="${BASH_REMATCH[1]}"
+ARCH="${BASH_REMATCH[2]}"
+PLATFORM_ARGS=()
+for ((minor = GLIBC_MINOR; minor >= 5; minor--)); do
+    PLATFORM_ARGS+=(--platform "manylinux_2_${minor}_${ARCH}")
+done
+PLATFORM_ARGS+=(--platform "manylinux2014_${ARCH}" --platform "manylinux2010_${ARCH}" --platform "manylinux1_${ARCH}")
+echo "Verifying the AppImage's dependencies against requirements.lock"
+echo "(CPython $LOCK_PYTHON, glibc $LOCK_PLATFORM or older)…"
+mkdir -p "$WHEELHOUSE"
+python3 -m pip download --require-hashes --only-binary=:all: \
+    --implementation cp --python-version "$LOCK_PYTHON" "${PLATFORM_ARGS[@]}" \
+    -r "$LOCK" --dest "$WHEELHOUSE"
+export PIP_NO_INDEX=1
+export PIP_FIND_LINKS="$WHEELHOUSE $RECIPE_DIR"
+echo "Installing dependencies offline from the hash-verified wheelhouse."
 
 # PIN THE PLATTERPUS LINE TO THE VERSION WE JUST BUILT.
 #
@@ -270,15 +321,23 @@ PIN
 # where api.github.com is unreachable or rate-limited (HTTP 403), pre-download
 # the matching base image (from github.com/niess/python-appimage releases) and
 # point PLATTERPUS_BASE_IMAGE at it to skip the API entirely. The filename
-# must keep its upstream form, and its CPython minor should match
-# PLATTERPUS_PYTHON_VERSION above — the override REPLACES --python-version, it
-# is not checked against it — e.g.
+# must keep its upstream form, and its CPython minor must match the lock's
+# target-python — the override REPLACES --python-version, so the name is checked
+# against the lock instead — e.g.
 #   python3.12.<patch>-cp312-cp312-manylinux2014_x86_64.AppImage
 if [ -n "${PLATTERPUS_BASE_IMAGE:-}" ]; then
     if [ ! -f "$PLATTERPUS_BASE_IMAGE" ]; then
         echo "PLATTERPUS_BASE_IMAGE is set but not a file: $PLATTERPUS_BASE_IMAGE"
         exit 1
     fi
+    case "$(basename "$PLATTERPUS_BASE_IMAGE")" in
+        "python$LOCK_PYTHON".*) ;;
+        *)
+            echo "error: PLATTERPUS_BASE_IMAGE is not a CPython $LOCK_PYTHON image, which" >&2
+            echo "requirements.lock was resolved for: $PLATTERPUS_BASE_IMAGE" >&2
+            exit 1
+            ;;
+    esac
     echo "Using pre-downloaded base image: $PLATTERPUS_BASE_IMAGE"
     # A pre-downloaded base image already fixes the interpreter version, so
     # --python-version is neither needed nor passed here.
