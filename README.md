@@ -84,7 +84,7 @@ itself up by asking a couple of questions.
    - **KDE (Dolphin):** right-click the file → **Properties** → **Permissions** → tick **Is executable** → OK.
    - **GNOME (Files):** right-click → **Properties** → **Permissions** → enable **Allow executing file as program**.
 3. **Double-click it.** On first launch it will offer to:
-   - **add Platterpus to your applications menu** (so next time you just click it in the menu), and
+   - **add Platterpus to your applications menu** (so next time you click it in the menu), and
    - **set up the ripping tool** — a guided wizard installs everything ripping needs (it may ask for your password once). It takes a few minutes: it creates the container and builds the ripper. No terminal.
 4. Then in the app: **Tools → Setup & Updates… → Set up drive…** — your drive's read offset is
    filled in automatically; click **Save offset**. Insert a CD and **Start rip**.
@@ -130,9 +130,9 @@ and an AppImage you already have is left as it was.
 
 Then, inside the GUI: **Tools → Setup & Updates… → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
 
-> **Already have cyanrip + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
+> **Already have cyanrip + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and add only the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
 
-> Why two pieces under the hood? The GUI can't rip without the host stack — that's by design ([why](PLANNING.md)). `install.sh` just sets up both for you; you can still do each step by hand (below).
+> Why two pieces under the hood? The GUI can't rip without the host stack — that's by design ([why](PLANNING.md)). `install.sh` sets up both for you; you can still do each step by hand (below).
 
 
 #### Supported distributions
@@ -394,7 +394,7 @@ Every optical drive reads audio slightly off from where it "should" — by a pos
 
 **This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Setup & Updates… → Set up drive…**), which gives you two ways to get the value:
 
-- **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list (e.g. `+667` for the Pioneer BDR-209D). Just click **Save offset**.
+- **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list (e.g. `+667` for the Pioneer BDR-209D). Click **Save offset**.
 - **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if your model isn't recognised, or if you only have CD-Rs.
 
 > **Why no "detect from a disc" button?** cyanrip does have an offset finder (`-f`, which needs a disc AccurateRip knows), and on the reference drive it found the listed +667 (the 2026-10-07 run). Platterpus does not offer it yet. The drive-offset list is the reliable, disc-free source, and a rip that then verifies against AccurateRip is what confirms the offset is right for your unit.
@@ -444,7 +444,7 @@ chmod +x platterpus-x86_64.AppImage
 
 That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so there's nothing else to install on the GUI side. (You still need the host stack for ripping to work — the first-run wizard sets it up.)
 
-**Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
+**Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
 **Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum and its build attestation (an update that fails either check is not installed), installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, but [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) can't use them yet. The update-information asks GitHub for the *latest* release, GitHub leaves pre-releases out of that, and every `v0.*` release is a pre-release, so AppImageUpdate gets an HTTP 404 and updates nothing. Use Check for updates instead.)
 
@@ -474,7 +474,7 @@ Run with `platterpus` from any terminal.
 
 #### Method C — From source (for developers)
 
-> The repository is **public**, so no authentication is needed to clone over HTTPS. (If you plan to push changes, set up SSH or `gh auth login` — but for just running from source, a plain clone works.)
+> The repository is **public**, so no authentication is needed to clone over HTTPS. (If you plan to push changes, set up SSH or `gh auth login` — but for running from source only, a plain clone works.)
 
 Clone and install:
 
@@ -705,7 +705,7 @@ The full FLAC encoder reference is at [xiph.org/flac/documentation_tools_flac.ht
 When you pick a non-FLAC format, after each rip the GUI transcodes the FLAC master to
 your choice with **ffmpeg**, keeping the FLAC. It runs in the background (never freezes
 the window), writes each file atomically, and **never costs you the lossless master** —
-a transcode failure just means you still have the FLAC to retry from. Per file:
+if a transcode fails, you still have the FLAC to retry from. Per file:
 
 ```bash
 # WavPack — lossless, tags carried over (APEv2)
@@ -806,7 +806,7 @@ forwards every argument straight to the app):
 > dialog that follows, and there is nothing left in your Downloads folder. Every
 > `./platterpus-x86_64.AppImage …` command below then becomes
 > `~/Applications/platterpus-x86_64.AppImage …`; a `./`-relative command run from
-> where you downloaded it will just say *No such file or directory*. If you
+> where you downloaded it will say *No such file or directory*. If you
 > declined the offer, the file is still wherever you put it and `./` works from
 > that folder. When in doubt: `ls ~/Applications/platterpus-x86_64.AppImage`.
 
@@ -1029,7 +1029,7 @@ MusicBrainz throttles unidentified queries. The GUI already sets a User-Agent at
 
 ### AppImage won't launch
 
-Most modern Linux distros have FUSE installed and AppImages just work. On Bazzite, no extra steps. If you see "AppImages require FUSE", either install FUSE or extract the AppImage:
+Most modern Linux distros have FUSE installed, and AppImages run with no extra setup. On Bazzite, no extra steps. If you see "AppImages require FUSE", either install FUSE or extract the AppImage:
 
 ```bash
 ./platterpus-x86_64.AppImage --appimage-extract

@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`README.md` and `SECURITY.md` drop filler words** (contributor-facing). An external review of 2026-10-27 counted nine "just" in the README and one "simply" in the security policy. Five "just" went with no other change ("Click **Save offset**", "Say yes"); the two that meant "only" now say so ("add only the GUI", "running from source only"), and two sentences were reworded ("AppImages just work" now reads "AppImages run with no extra setup"). No instruction changed, and "simply" is cut from `SECURITY.md`.
+
 - **`TASKS.md` spells "behavior" the American way in its own prose** (contributor-facing). An external review of 2026-10-27 counted 25 British spellings; 21 are respelled ("behavior", "behaviors", "behavioral"). The other 4 stay as written because they quote someone else's words: the section name *revert-proof per behavioural fix* that `scripts/handshake.py` defines, the cyanrip README sentence on EAC's gap handling, and the two in Critical rule #12's sentence quoted from `CLAUDE.md`.
 
 - **The README puts Installation before Getting started, and has a Security section** (contributor-facing). An external review of 2026-10-27 found the first-rip guide ahead of the install steps and no pointer to `SECURITY.md`. The generated Getting started section moved whole, its markers with it, to follow Installation; the new Security section says how to report a vulnerability privately and links `SECURITY.md`. No section's text changed, and every in-page link still resolves, because the headings are the same. *Documentation for contributors* already serves as the development section.
