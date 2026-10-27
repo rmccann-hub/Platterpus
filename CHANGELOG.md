@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 36: our lap 13 is released, on the owner's word of 2026-10-27** ("release lap 13"). Its `HANDSHAKE-READY-TO-READ` is now `yes`, and its D1 note cites that field instead of saying the lap is held, which the announcer requires; no other line changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by hash.
+
 - **Two new CI helper scripts and their tests pass the newly enabled RUF100**, and the Distrobox link test checks the link's host rather than a substring, which CodeQL flagged (contributor-facing).
 
 - **The workflows' own shell steps pass ShellCheck** (contributor-facing). actionlint runs ShellCheck over every `run:` block when it can find it, so `workflow-lint` now installs the pinned ShellCheck rather than depend on the runner image, and the three findings it raised are fixed: the AppImage and release jobs find the bundled Python by glob instead of `ls | head -1`, the mutation sweep builds its `--tests` arguments as an array, and the release's `--prerelease` flag is quoted.

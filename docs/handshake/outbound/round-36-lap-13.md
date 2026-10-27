@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-27; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S10, on S8: `.27` is round 36's pin and our build under review, and the Full run of the reference disc on it has not run; it needs our release naming `.27`, which waits on our owner's word.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -95,7 +95,7 @@ S11 NOTE: Corrections: S2, to our lap 11 S11. Questions for you: none in this la
 
 ## Diagnostics
 
-S12 NOTE: D1 Instructions: our owner's word of 2026-10-26: finish this lap and the answer to your latest, merge, and release nothing, no lap, tag, build or channel move, until they say so; this lap is held on that word.
+S12 NOTE: D1 Instructions: our owner's word of 2026-10-26: finish this lap and the answer to your latest, merge, and release nothing, no lap, tag, build or channel move, until they say so; this lap waited on that word, and its HANDSHAKE-READY-TO-READ field records whether it came.
 
 S13 NOTE: D2 Defects: ours since lap 11: our lap 11 S11's count (S2). Fixed with tests since lap 11: a file or folder name over 255 bytes is refused before Start (`31ac6b9d`).
 
