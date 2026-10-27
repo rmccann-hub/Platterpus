@@ -12,10 +12,12 @@ on:
   push:
     tags:
       - "v*"
-  # Manual trigger that CREATES the tag itself (via `gh release create
-  # --target`). Exists because tag pushes aren't possible from every
-  # environment (the cloud session's git proxy 403s tag refs) — this lets a
-  # release be cut by dispatching the workflow on main with the tag name.
+  # Manual trigger that CREATES the tag itself (an annotated tag, made by the
+  # "Tag the release commit" step since 2026-10-27; `gh release create
+  # --target` made a lightweight one before). Exists because tag pushes aren't
+  # possible from every environment (the cloud session's git proxy 403s tag
+  # refs) — this lets a release be cut by dispatching the workflow on main
+  # with the tag name. The branch gate refuses any other branch.
   workflow_dispatch:
     inputs:
       tag:
@@ -424,6 +426,78 @@ jobs:
             --version "${TAG#v}" \
             --out platterpus-x86_64.AppImage.sigstore.json
 
+      # AN ANNOTATED TAG ON THE RELEASE COMMIT (the 2026-10-27 review, item 2.8).
+      # Until this step, `gh release create --target` made the tag, and GitHub
+      # makes that one LIGHTWEIGHT: a bare pointer with no tagger, no date and no
+      # message, so `git show vX.Y.Z` could not say who tagged what or when. This
+      # makes an annotated tag, tagged by github-actions[bot], pushes it, and the
+      # publish step below then uses `--verify-tag`, which refuses to create a tag
+      # of its own. Tags already published stay as they are (KDD-37, D7).
+      #
+      # Last before publishing, after every gate, so a refused release leaves no
+      # tag behind. It works under the repository's rules: the `v*` tag ruleset
+      # allows creation and blocks moves and deletes (KDD-43), and this step only
+      # ever creates. So a re-run is safe in both directions:
+      #   * the tag exists on THIS commit (a re-run, or a tag someone pushed):
+      #     use it, and say so; a lightweight one is used with a warning;
+      #   * the tag exists on ANOTHER commit: refuse, because a tag here cannot
+      #     move, and the fix is a new version.
+      #
+      # The push is the one git command in this workflow that needs a credential.
+      # The checkout kept none (item 1.4), so the token is handed to that one
+      # command the way actions/checkout itself does it, as an HTTP header, and
+      # nothing else in the job can read it from .git/config. Pushing with the
+      # job's own token does not start another run of this workflow: GitHub
+      # starts no workflow for a push made with GITHUB_TOKEN.
+      - name: Tag the release commit (annotated)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # What GitHub holds under this name: the tag's own object, and for an
+          # annotated tag a second `^{}` line naming the commit it points to.
+          # ls-remote prints that line only when it is asked for by name.
+          read_remote_tag() {
+            if ! listing="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")"; then
+              echo "::error::Could not read tag $TAG from GitHub, so it is unknown whether it exists. Re-run once GitHub is reachable."
+              exit 1
+            fi
+            object="$(printf '%s\n' "$listing" | awk -v r="refs/tags/$TAG" '$2 == r { print $1 }')"
+            peeled="$(printf '%s\n' "$listing" | awk -v r="refs/tags/$TAG^{}" '$2 == r { print $1 }')"
+          }
+          read_remote_tag
+          if [ -z "$object" ]; then
+            # The tagger. Set through the committer variables, which outrank
+            # any user.name / user.email in git's configuration.
+            GIT_COMMITTER_NAME="github-actions[bot]" \
+            GIT_COMMITTER_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
+                git tag -a "$TAG" -m "Platterpus $TAG" "$SHA"
+            basic="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            echo "::add-mask::$basic"
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $basic" \
+                push origin "refs/tags/$TAG"
+            # Believe GitHub, not the push's exit code: read the tag back.
+            read_remote_tag
+            if [ -z "$peeled" ] || [ "$peeled" != "$SHA" ]; then
+              echo "::error::Pushed $TAG, but GitHub does not show it as an annotated tag on $SHA (object '${object:-none}', commit '${peeled:-none}')."
+              exit 1
+            fi
+            echo "tag: created annotated $TAG on $SHA."
+            exit 0
+          fi
+          commit="${peeled:-$object}"
+          if [ "$commit" != "$SHA" ]; then
+            echo "::error::Tag $TAG already exists on $commit, not on $SHA. Tags here cannot move (the v* ruleset), so cut a new version instead."
+            exit 1
+          fi
+          if [ -z "$peeled" ]; then
+            echo "::warning::Tag $TAG already exists on $SHA but is LIGHTWEIGHT (no tagger, no date). It is used as it is, because a tag here cannot be replaced."
+          else
+            echo "tag: annotated $TAG already exists on $SHA; using it."
+          fi
+
       - name: Publish to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -476,13 +550,18 @@ jobs:
             # Error 404" (real-user report on v0.4.0). gh uploads all assets as
             # part of `create`, so by the time we flip the draft off they're all
             # present.
+            #
+            # `--verify-tag`: the step above made the annotated tag, and this
+            # refuses to run if it is missing rather than letting GitHub make a
+            # lightweight one in its place, as the old target flag did (review
+            # item 2.8).
             gh release create "$TAG" \
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
               platterpus-x86_64.AppImage.sigstore.json \
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh \
               --title "Platterpus $TAG" \
-              --target "$GITHUB_SHA" \
+              --verify-tag \
               --generate-notes \
               --draft \
               $PRERELEASE

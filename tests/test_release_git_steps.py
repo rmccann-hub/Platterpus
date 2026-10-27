@@ -3,7 +3,10 @@
 **Why this exists (the 2026-10-27 review).** Item 1.5: the CI gate checked that a
 commit's checks were green, and a commit on any branch has green checks once its
 pull request ran, so a release could be cut from a branch that never reached
-`main`. The *branch gate* now refuses that.
+`main`. The *branch gate* now refuses that. Item 2.8: `gh release create
+--target` made every tag lightweight (no tagger, no date, no message). The *tag
+step* now makes an annotated tag on the release commit, and the publish step uses
+`--verify-tag`.
 
 Each test extracts the step's own `run: |` script from `release.yml`, the way
 `tests/test_release_uploads_while_draft.py` does, and runs it with bash inside a
@@ -29,6 +32,10 @@ import pytest
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 RELEASE_YML: Final[Path] = REPO_ROOT / ".github" / "workflows" / "release.yml"
 BRANCH_GATE: Final[str] = "Branch gate — refuse to release a commit that is not on main"
+TAG_STEP: Final[str] = "Tag the release commit (annotated)"
+PUBLISH_STEP: Final[str] = "Publish to GitHub Release"
+TAG: Final[str] = "v0.7.999"
+BOT: Final[str] = "github-actions[bot]"
 
 
 def _step_script(step_name: str) -> str:
@@ -192,4 +199,92 @@ def test_the_branch_gate_fetches_main_alone_and_runs_before_the_build() -> None:
     text = RELEASE_YML.read_text(encoding="utf-8")
     assert text.index(f"- name: {BRANCH_GATE}") < text.index(
         "- name: Build the AppImage"
+    )
+
+
+# --- the annotated tag (item 2.8) --------------------------------------------
+
+
+def _tag_env(sha: str) -> dict[str, str]:
+    return {"TAG": TAG, "SHA": sha, "GH_TOKEN": "not-a-real-token"}
+
+
+def _remote_tag(origin: _Origin) -> tuple[str, str, str]:
+    """(object type, commit it points to, tagger name) of `TAG` in the bare origin."""
+    kind = _git(origin.bare, "cat-file", "-t", f"refs/tags/{TAG}")
+    commit = _git(origin.bare, "rev-parse", f"refs/tags/{TAG}^{{commit}}")
+    tagger = _git(
+        origin.bare, "for-each-ref", "--format=%(taggername)", f"refs/tags/{TAG}"
+    )
+    return kind, commit, tagger
+
+
+def test_a_new_release_gets_an_annotated_tag_on_its_commit(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    clone = origin.shallow_clone(tmp_path, "main")
+    code, out = _run_step(TAG_STEP, clone, **_tag_env(origin.d))
+    assert code == 0, out
+    assert _remote_tag(origin) == ("tag", origin.d, BOT)
+    assert f"created annotated {TAG}" in out
+
+
+def test_a_re_run_on_the_same_commit_uses_the_tag_and_moves_nothing(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    first = origin.shallow_clone(tmp_path, "main")
+    assert _run_step(TAG_STEP, first, **_tag_env(origin.d))[0] == 0
+    before = _git(origin.bare, "rev-parse", f"refs/tags/{TAG}")
+    again = tmp_path / "again"
+    _git(tmp_path, "clone", "-q", "--depth", "1", origin.url, str(again))
+    code, out = _run_step(TAG_STEP, again, **_tag_env(origin.d))
+    assert code == 0, out
+    assert "already exists" in out
+    assert _git(origin.bare, "rev-parse", f"refs/tags/{TAG}") == before
+
+
+def test_a_tag_on_another_commit_is_refused(origin: _Origin, tmp_path: Path) -> None:
+    """A tag here cannot move (the `v*` ruleset), so the fix is a new version."""
+    first = origin.shallow_clone(tmp_path, "rel")
+    assert _run_step(TAG_STEP, first, **_tag_env(origin.b))[0] == 0
+    later = origin.shallow_clone(tmp_path, "main")
+    code, out = _run_step(TAG_STEP, later, **_tag_env(origin.d))
+    assert code == 1, out
+    assert f"already exists on {origin.b}, not on {origin.d}" in out
+    assert _remote_tag(origin)[1] == origin.b
+
+
+def test_a_lightweight_tag_someone_pushed_is_used_with_a_warning(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """A hand-pushed tag (the `push: tags` trigger) is not replaced, only flagged."""
+    seed = tmp_path / "seed"
+    _git(seed, "tag", TAG, origin.d)
+    _git(seed, "push", "-q", "origin", f"refs/tags/{TAG}")
+    clone = origin.shallow_clone(tmp_path, "main")
+    code, out = _run_step(TAG_STEP, clone, **_tag_env(origin.d))
+    assert code == 0, out
+    assert "::warning::" in out and "LIGHTWEIGHT" in out
+    assert _remote_tag(origin)[0] == "commit"
+
+
+def test_an_unreadable_remote_is_a_refusal(origin: _Origin, tmp_path: Path) -> None:
+    clone = origin.shallow_clone(tmp_path, "main")
+    _git(clone, "remote", "set-url", "origin", f"file://{tmp_path / 'gone.git'}")
+    code, out = _run_step(TAG_STEP, clone, **_tag_env(origin.d))
+    assert code == 1, out
+    assert f"Could not read tag {TAG}" in out
+
+
+def test_the_publish_step_verifies_the_tag_instead_of_making_one() -> None:
+    """`--target` would let GitHub make a lightweight tag if ours were missing."""
+    publish = _step_script(PUBLISH_STEP)
+    assert "--verify-tag" in publish
+    assert "--target" not in publish
+    text = RELEASE_YML.read_text(encoding="utf-8")
+    # After every gate (the attestation check is the last), before the publish.
+    assert (
+        text.index("- name: Check the attestation as the updater will")
+        < text.index(f"- name: {TAG_STEP}")
+        < text.index(f"- name: {PUBLISH_STEP}")
     )
