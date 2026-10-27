@@ -12,6 +12,7 @@ barsnick COPR) plus flac/metaflac into the container and exports all three.
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -330,7 +331,13 @@ def test_unknown_distro_distrobox_is_a_manual_failure(tmp_path: Path) -> None:
     assert status["backend"] == "cancelled"
     distrobox = next(r for r in results if r.step_id == "distrobox")
     assert "package manager" in distrobox.detail, distrobox.detail
-    assert "https://distrobox.it/" in distrobox.detail, distrobox.detail
+    # The link is checked by its host, parsed, not as a substring of the text.
+    hosts = {
+        urlsplit(word.strip(".,;()")).hostname
+        for word in distrobox.detail.split()
+        if word.startswith("http")
+    }
+    assert "distrobox.it" in hosts, distrobox.detail
     # The point of the fix: no command at all ran on the host, so in particular
     # nothing was downloaded and nothing was handed to a root shell.
     assert runner.calls == [], runner.calls

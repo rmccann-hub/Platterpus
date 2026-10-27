@@ -117,7 +117,7 @@ def check_subject(subject: str, *, is_merge: bool = False) -> str | None:
 def _subjects_in_range(revision_range: str) -> list[tuple[str, str, bool]] | None:
     """(sha, subject, is_merge) for every commit in the range; None on error."""
     try:
-        result = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        result = subprocess.run(  # fixed argv, no shell
             ["git", "log", "--format=%H %P%x00%s%x00", revision_range],
             capture_output=True,
             text=True,

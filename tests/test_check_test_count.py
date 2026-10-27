@@ -20,7 +20,7 @@ from conftest import TEST_COUNT_FILE_ENV, write_collected_count
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 
-def _load_gate():  # noqa: ANN202 — a module object
+def _load_gate():  # a module object
     """Import the script by path (scripts/ is deliberately not a package)."""
     path = REPO_ROOT / "scripts" / "check_test_count.py"
     spec = importlib.util.spec_from_file_location("_check_test_count", path)
@@ -139,7 +139,7 @@ def test_the_writer_and_the_script_name_one_variable() -> None:
 def _git(*args: str) -> str | None:
     """Run git in the repo root; None on any failure (no git, no tag, no file)."""
     try:
-        result = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        result = subprocess.run(  # fixed argv, no shell
             ["git", *args],
             cwd=REPO_ROOT,
             capture_output=True,

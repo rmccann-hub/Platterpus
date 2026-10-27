@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Two new CI helper scripts and their tests pass the newly enabled RUF100**, and the Distrobox link test checks the link's host rather than a substring, which CodeQL flagged (contributor-facing).
+
 - **The workflows' own shell steps pass ShellCheck** (contributor-facing). actionlint runs ShellCheck over every `run:` block when it can find it, so `workflow-lint` now installs the pinned ShellCheck rather than depend on the runner image, and the three findings it raised are fixed: the AppImage and release jobs find the bundled Python by glob instead of `ls | head -1`, the mutation sweep builds its `--tests` arguments as an array, and the release's `--prerelease` flag is quoted.
 
 - **The review of 2026-10-27 is recorded** (contributor-facing): KDD-45 records the owner's word and where each held amendment of C3 now stands (A2 applied, A5 applied for pip-audit, A4 still held), KDD-43 notes the annotated tag, `CLAUDE.md`'s project operations name the new jobs, the seventh release gate, the `ci` and `build` commit types and the coverage floor of 93, and `docs/architecture.md` §6.3 says why each new check exists and how a generated-block conflict dropped a hand-kept row.

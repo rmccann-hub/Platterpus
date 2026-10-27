@@ -23,7 +23,7 @@ from hypothesis import strategies as st
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 
-def _load():  # noqa: ANN202 — a module object
+def _load():  # a module object
     """Import the script by path (scripts/ is deliberately not a package)."""
     path = REPO_ROOT / "scripts" / "check_commit_subjects.py"
     spec = importlib.util.spec_from_file_location("_check_commit_subjects", path)
@@ -124,7 +124,7 @@ def test_check_subject_never_raises(text: str, is_merge: bool) -> None:
 
 def _git(*args: str) -> str | None:
     try:
-        result = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        result = subprocess.run(  # fixed argv, no shell
             ["git", *args],
             cwd=REPO_ROOT,
             capture_output=True,
