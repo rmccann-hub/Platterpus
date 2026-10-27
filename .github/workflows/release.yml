@@ -32,6 +32,21 @@ on:
 permissions:
   contents: read
 
+# ONE RELEASE PER TAG AT A TIME, NONE CANCELLED (the 2026-10-27 review, item
+# 2.7). A release is never cut off halfway, so `cancel-in-progress` is false.
+# The group is the tag: two runs for one tag at once (a dispatch and a re-dispatch,
+# or a dispatch and a hand-pushed tag) would both build, and both upload into one
+# draft, and the draft could end up with one run's AppImage beside the other's
+# attestation, which the updater refuses. Queued, the second run starts after the
+# first has finished and meets its result: the tag step reuses the tag, and the
+# publish step finishes a leftover draft or refuses a published release. If a
+# third run for the same tag arrives while the second waits, GitHub drops the
+# waiting one, which has not started; the newest still runs. Different tags do
+# not wait for each other.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     # Needed for the `gh release` calls to create/update the release, for

@@ -223,6 +223,36 @@ def test_the_tag_comment_check_refuses_a_moving_name() -> None:
     assert not _EXACT_TAG_COMMENT.search(f"uses: a/b@{sha}")
 
 
+def test_no_workflow_cancels_a_release_a_publish_or_a_push() -> None:
+    """Concurrency may cancel superseded pull-request runs only (2026-10-27, 2.7).
+
+    A literal ``cancel-in-progress: true`` cancels every kind of run in its group,
+    a push to ``main`` and a release among them, so it is refused outright; a
+    workflow that cancels must say so in an expression that names
+    ``pull_request``. The release and the publish queue runs for one tag rather
+    than letting two upload into the same release at once, and never cancel.
+    """
+    texts = {w.name: w.read_text(encoding="utf-8") for w in _workflow_files()}
+    blanket = [
+        name
+        for name, text in texts.items()
+        if re.search(r"^\s*cancel-in-progress:\s*true\s*(#.*)?$", text, re.MULTILINE)
+    ]
+    assert not blanket, f"cancel every run in the group, pushes included: {blanket}"
+    for name, text in texts.items():
+        for match in re.finditer(r"cancel-in-progress:\s*\$\{\{(?P<e>[^}]*)\}\}", text):
+            assert "pull_request" in match.group("e"), (name, match.group("e"))
+    for name in ("release.yml", "publish-pypi.yml"):
+        block = re.search(
+            r"^concurrency:\n  group: (?P<g>[^\n]+)\n  cancel-in-progress: (?P<c>\S+)$",
+            texts[name],
+            re.MULTILINE,
+        )
+        assert block is not None, f"{name} has no workflow-level concurrency group"
+        assert block.group("c") == "false", name
+        assert "${{" in block.group("g"), f"{name}: the group must name the tag"
+
+
 def test_the_pin_check_refuses_a_tag_ref() -> None:
     """Non-triviality: the patterns above reject the shapes they exist to reject."""
     assert not _PINNED.match("actions/checkout@v4")

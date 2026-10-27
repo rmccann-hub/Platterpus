@@ -40,6 +40,16 @@ on:
 permissions:
   contents: read
 
+# ONE PUBLISH PER TAG AT A TIME, NONE CANCELLED (the 2026-10-27 review, item
+# 2.7). A publish must never be cut off halfway, so `cancel-in-progress` is
+# false. Grouping by the ref still queues a second dispatch for the same tag (a
+# retry fired while the first is running) behind the first, and `skip-existing`
+# then lets it pass over files the first uploaded. If a third arrives while the
+# second waits, GitHub drops the waiting one, which never started.
+concurrency:
+  group: publish-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     # A named image, like every other job: `ubuntu-latest` moves to a new Ubuntu

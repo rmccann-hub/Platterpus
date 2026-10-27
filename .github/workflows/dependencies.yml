@@ -19,6 +19,15 @@ on:
 permissions:
   contents: read
 
+# ONE RUN AT A TIME, NONE CANCELLED (the 2026-10-27 review, item 2.7). The job
+# looks for the one dependencies issue and opens it when there is none, so two
+# runs at once (Monday's and a hand-dispatched one) could each find none and open
+# two. Queued, the second finds the first's issue. Nothing is cancelled: this
+# never runs on a pull request, and a run in progress is a report half-written.
+concurrency:
+  group: dependencies-issue
+  cancel-in-progress: false
+
 jobs:
   outdated:
     runs-on: ubuntu-22.04
