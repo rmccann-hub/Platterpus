@@ -95,7 +95,7 @@ Outside this directory:
 | File | What it covers |
 |---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
-| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-44) |
+| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-45) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist — opens with *every open row, ranked* (P1 close now, the open round's R rows, P2, P3, and the asks for the fork), then dated sections and the closed rounds' records, then P0 (T01-T32), P1 (broader backlog, with P1.1 install/uninstall ease), P2 (future), Out of scope |
 | [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log, and *The full map*: the generated human-readable copy of [`../bom.cdx.json`](../bom.cdx.json), the CycloneDX bill of materials of everything the project has or relies on (`python3 scripts/emit_bom.py`) |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |
@@ -121,4 +121,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.113.*

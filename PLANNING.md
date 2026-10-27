@@ -2077,6 +2077,11 @@ rulesets endpoint answered `[]` and `main` read `protected: false`, so none was 
   but must **not restrict creation**, or every release fails at its last step. A re-run of
   a failed release reuses the draft and moves nothing; the re-upload path
   (`gh release upload --clobber`) replaces assets, not refs.
+  *Changed 2026-10-27 (KDD-45, review item 2.8):* `release.yml` now pushes an
+  **annotated** tag on the release commit itself, just before it publishes the draft, and
+  publishes with `--verify-tag`. Creation is still the only tag operation, still as
+  `github-actions[bot]`, so the ruleset point above stands. The first release cut this way
+  confirms it on GitHub.
 - **Every required check reports on every pull request.** `ci.yml` runs on every
   `pull_request` to `main` with no path filter, and each check name above is the job's
   name exactly (the matrix is named `test (py<version>)`). A pull request opened with a
@@ -2191,6 +2196,56 @@ route to its ripper.
 The owner then ran one script on their own machine. It worked in a temporary folder,
 checked the result before pushing, and pushed all-or-nothing with a lease on every ref.
 Its map matched the rehearsal's, sha256 `d576bdc6…`.
+
+
+### KDD-45 — The review of 2026-10-27 answered, and C3's held amendments brought up to date (decided 2026-10-27)
+
+**Context.** A new session audited `main` at `27755380` against the claude-code-skills
+standard, and a second session checked every finding: 41 held, 3 were overstated, none
+was wrong. The owner attached the review (`rmccann-hub/audit-reports`,
+`Platterpus/2026-10-27/REVIEW-2026-10-27.md`) with these words: *"Check each item against
+your code, fix by pull request as usual, and answer each item in your next lap or
+handoff. Release nothing until I say so, and keep lap 13 held."* Asked whether to add the
+three CI tools the review names and `DEPENDENCIES.md` did not list, the owner chose
+actionlint with zizmor, and ShellCheck, and not Vale.
+
+**Rulings.**
+- **The review's fix items lift C3 for themselves.** C3 of the seam-automation proposal
+  (*"No routine, CI, settings, or CLAUDE.md change until both sides answer and I
+  approve"*) held KDD-39's and KDD-40's amendments. The owner's instruction to fix the
+  review's items by pull request is that approval for the items the review lists as
+  fixes. It is not approval for the items the review leaves to the owner (2.14's choice,
+  4.2, 4.4, 4.5), and those stay as they were.
+- **Where each held amendment stands after this change:**
+  - **A2, applied:** `build` and `twine` are pinned in pyproject's `publish` extra, which
+    `publish-pypi.yml` reads (review 2.1).
+  - **A5, applied for pip-audit:** pinned to its minor in the dev extra, read by `ci.yml`
+    (review 2.2). Its other half, `cyclonedx-bom` (`>=7,<8` in `ci.yml`), is still open.
+  - **A4, still held:** no lockfile. A hashed universal lock was produced and works, but
+    installing CI from it needs uv in CI, which `DEPENDENCIES.md` does not list, and the
+    AppImage half can be proved only by a real build (review 2.3).
+  - **A6, applied 2026-10-12** (KDD-39's record).
+  - **A7 (split `CLAUDE.md`) and A22 (the update channel's `latest`), the owner's call:**
+    the review leaves both to the owner (4.2, 4.4).
+  - **A10, A14 and A25, still held:** the review does not name them.
+  - **A12, applied 2026-10-05** (KDD-41).
+- **New CI tools:** actionlint-py, zizmor and shellcheck-py, pinned to the minor in a new
+  `ci-lint` extra and run by two jobs that are not required checks yet. Vale is not
+  added.
+
+**What changed, by area.** Both audio guards match NUL-separated names from one shared
+list (`.githooks/audio-extensions.txt`), so a name git quotes can no longer pass (1.1),
+and the rig collector checks the same 18 types (1.6). Setup no longer pipes distrobox's
+installer into a root shell; it tells the user how to install it (1.2). The publishing
+jobs keep no pip cache (1.3), no checkout keeps its token (1.4), a release must be on
+`main` (1.5), and the tag is annotated (2.8). CI gained a commit-subject check (2.9), a
+coverage floor of 93 (2.11), a test-count floor (2.12) and concurrency rules (2.7).
+Python 3.15 is not in the matrix, because PySide6 6.11 declares `<3.15` (2.10). The
+accessibility gate measures in one named font (3.1). The rest is in `CHANGELOG.md`.
+
+**Next run.** The standard's trigger was *before the next release*, and 18 tags passed
+without a run (review D1). This review is that run. The next is due before the release
+after 0.7.113, or when C3 lifts for the amendments still held, whichever comes first.
 
 ---
 
