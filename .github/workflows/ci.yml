@@ -531,13 +531,17 @@ jobs:
           ls -l "$RUNNER_TEMP/dist-release"
           "$py" -m python_appimage --help > /dev/null
           "$py" -m sigstore --version
+      # actionlint is NOT run here: ci-lint.lock leaves actionlint-py out, because
+      # it ships only an sdist and the lock takes wheels only (TASKS R91). The
+      # first run of this job, on PR #401, failed on exactly that line;
+      # tests/test_dependency_locks.py now holds every tool run here to a package
+      # its lock pins.
       - name: Run each tool the other locks install
         run: |
           set -euo pipefail
           v="$RUNNER_TEMP/venvs"
           "$v/audit/bin/pip-audit" --version
           "$v/sbom/bin/cyclonedx-py" --version
-          "$v/ci-lint/bin/actionlint" --version
           "$v/ci-lint/bin/zizmor" --version
           "$v/ci-lint/bin/shellcheck" --version
 

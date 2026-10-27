@@ -869,3 +869,36 @@ def test_the_audit_reads_every_lock_with_a_floor_of_all_of_them() -> None:
     # Every lock outside build/locks/ must be named, since the glob cannot see it.
     for rel in LOCKS:
         assert rel.startswith("build/locks/") or rel in body, rel
+
+
+#: The console scripts `lock-install` runs, and the package that provides each.
+_TOOL_PACKAGE: Final[dict[str, str]] = {
+    "pip-audit": "pip-audit",
+    "cyclonedx-py": "cyclonedx-bom",
+    "actionlint": "actionlint-py",
+    "zizmor": "zizmor",
+    "shellcheck": "shellcheck-py",
+}
+
+
+def test_every_tool_lock_install_runs_is_in_the_lock_it_runs_from() -> None:
+    """`"$v/<lock>/bin/<tool>"` needs `<tool>`'s package pinned in `<lock>.lock`.
+
+    The job's first run on GitHub (PR #401) failed calling actionlint from the
+    ci-lint environment, whose lock leaves actionlint-py out. Checked here so the
+    next such line fails on a pull request's test run, not on the job.
+    """
+    text = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+    calls = re.findall(r'"\$v/(?P<env>[\w-]+)/bin/(?P<tool>[\w-]+)"', text)
+    # pip-audit, cyclonedx-py, zizmor and shellcheck on 2026-10-27.
+    assert len(calls) >= 4, calls
+    missing: list[str] = []
+    for env, tool in calls:
+        if tool in ("python", "python3", "pip"):  # every venv has these
+            continue
+        assert tool in _TOOL_PACKAGE, f"lock-install runs {tool}; name its package here"
+        lock = (REPO / "build" / "locks" / f"{env}.lock").read_text(encoding="utf-8")
+        package = _TOOL_PACKAGE[tool]
+        if not re.search(rf"^{re.escape(package)}==", lock, re.M | re.I):
+            missing.append(f"{tool} from {env}.lock ({package} is not in it)")
+    assert not missing, f"lock-install runs tools its locks do not install: {missing}"

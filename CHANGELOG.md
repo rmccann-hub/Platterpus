@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`lock-install` no longer runs actionlint from the ci-lint lock, which leaves it out** (contributor-facing). Its first run on GitHub failed there; every install and build before it passed. A test now holds each tool the job runs to a package its lock pins.
+
 - **Smaller follow-ups from the second review of 2026-10-27, item 6** (contributor-facing). The cache test now covers any job that can write (not only publishing ones), `actions/cache/restore` and `save`, and setup-uv, whose default caching is on for GitHub's runners; it found `dependencies.yml`'s issue-writing job caching, now off. `build/python-appimage/requirements.txt` no longer says the lock is uncommitted. The publish gate says why a release tag on an older `main` commit passes: a publish retry needs it.
 
 - **The flags that make a locked install hashed are each held by a test** (contributor-facing; the second follow-up review of 2026-10-27, item 3). `tests/test_lock_install_hardening.py` refuses a `python -m build` without `--no-isolation`, a hashed install without `--only-binary=:all:`, and a `pipx` or `uv` install in a workflow that publishes. It runs the AppImage build's lock check and expects it to refuse a missing lock and a lock made for another Python. Each was proven by reverting it.
