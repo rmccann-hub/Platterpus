@@ -339,7 +339,7 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 
 ### Lint / format commands
 
-- **Lint:** `ruff check src tests scripts build` (config in `pyproject.toml` `[tool.ruff]`; rules `E,F,W,I,B,UP`, `E501` off). Auto-fix: `ruff check src tests scripts build --fix`.
+- **Lint:** `ruff check src tests scripts build` (config in `pyproject.toml` `[tool.ruff]`; rules `E,F,W,I,B,UP`, a few `N` rules, `S`, `DTZ`, `BLE001` and `RUF100` (the list is `select` there), `E501` off). Auto-fix: `ruff check src tests scripts build --fix`.
 - **Format:** `ruff format src tests scripts build` (88-col, double quotes — matches the existing code). CI checks with `ruff format --check`.
 - **Type-check:** `mypy` (bare invocation; config in `pyproject.toml` `[tool.mypy]`, strict def-typing across the whole package, plus `scripts/`, `build/*.py` and `.claude/hooks`). CI runs it as the gating `typecheck` job.
 - **CI:** the `lint` job in `.github/workflows/ci.yml` runs both ruff commands in check mode on every push/PR, in parallel with `test` and `typecheck`.

@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The docs say "Analyze cache" wherever they name the drive wizard's button** (README's capability rows, TASKS R53, PLANNING's module map and parity table), matching the relabelled button; `CLAUDE.md`'s lint note names the rule sets now selected. Dated records (KDD-29's text, the session log) keep the spelling they were written with.
+
 - **The README no longer tells you to pipe Distrobox's installer into `sudo sh`** on older systems. It points to Distrobox's installation guide instead, matching the setup wizard and `setup-host.sh`, which stopped running that installer in this release cycle.
 
 - **`README.md` and `SECURITY.md` drop filler words** (contributor-facing). An external review of 2026-10-27 counted nine "just" in the README and one "simply" in the security policy. Five "just" went with no other change ("Click **Save offset**", "Say yes"); the two that meant "only" now say so ("add only the GUI", "running from source only"), and two sentences were reworded ("AppImages just work" now reads "AppImages run with no extra setup"). No instruction changed, and "simply" is cut from `SECURITY.md`.
