@@ -26,6 +26,23 @@ on:
 permissions:
   contents: read
 
+# A NEWER PUSH TO A PULL REQUEST CANCELS ITS OLDER RUN; NOTHING ELSE IS CANCELLED
+# (the 2026-10-27 review, item 2.7). A superseded pull-request run only burns
+# runner minutes: its result describes a head nobody will merge.
+#
+# A push to `main` must never be cancelled, and must never wait in a shared
+# group either: `release.yml`'s CI gate reads `main`'s own run for the merge
+# SHA it releases, and GitHub keeps at most ONE pending run per concurrency
+# group, cancelling any older pending one whatever `cancel-in-progress` says. A
+# group shared by `main`'s pushes would therefore cancel the run of a merge that
+# landed while another was running. So every run that is not a pull request gets
+# a group of its own (`github.run_id`), which nothing can supersede, and
+# `cancel-in-progress` is true for pull requests alone. Held by
+# `tests/test_ci_workflow_shape.py`.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # EVERY CHECKOUT HERE SETS `persist-credentials: false` (the 2026-10-27 review,
 # item 1.4). By default actions/checkout leaves the token in the clone's git
 # config for every later step to use, so any step, or any tool a step installs,

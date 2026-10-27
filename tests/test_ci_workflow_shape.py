@@ -58,3 +58,40 @@ def test_every_checkout_drops_its_token() -> None:
         )
     ]
     assert not missing, f"checkouts that keep their token: {missing}"
+
+
+def _top_level_block(lines: list[str], key: str) -> dict[str, str]:
+    """A column-0 mapping's two-space children, as `{child: value}`."""
+    start = next(i for i, ln in enumerate(lines) if ln == f"{key}:")
+    block: dict[str, str] = {}
+    for line in lines[start + 1 :]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line.startswith("  ") or line.startswith("   "):
+            break
+        name, _, value = line.strip().partition(":")
+        block[name] = value.strip()
+    return block
+
+
+def test_only_a_pull_request_run_can_be_cancelled() -> None:
+    """Item 2.7: superseded pull-request runs are cancelled, and nothing else.
+
+    `release.yml` gates on `main`'s own run for the merge SHA, so a push run must
+    never be cancelled, neither in progress nor while pending. GitHub cancels an
+    older PENDING run in the same group whatever `cancel-in-progress` says, so a
+    push's group must be unique to its run, not shared by every push to `main`.
+    """
+    concurrency = _top_level_block(_ci_lines(), "concurrency")
+    assert concurrency.get("cancel-in-progress") == (
+        "${{ github.event_name == 'pull_request' }}"
+    ), concurrency
+    group = concurrency.get("group", "")
+    assert "github.event.pull_request.number" in group, group
+    # The fallback for every other event (push, workflow_dispatch) is the run's
+    # own id, which no later run shares, so nothing can supersede it.
+    assert "github.run_id" in group, group
+    assert "github.ref" not in group and "github.sha" not in group, (
+        "a push group keyed on the ref or the sha is shared by later runs, and "
+        f"GitHub cancels the older pending one: {group}"
+    )
