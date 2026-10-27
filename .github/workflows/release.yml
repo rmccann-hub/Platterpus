@@ -53,10 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # NO `cache: pip` HERE, on purpose (the 2026-10-27 review, item 1.3). This
+      # job publishes what users install, and a restored pip cache is input that
+      # another run wrote: zizmor rates a build cache in a publishing workflow as
+      # cache poisoning (high). The release runs a few times a month, so the
+      # minute a cold install costs is not worth the risk.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-          cache: pip
 
       # THE HANDSHAKE RECORD, printed before every release (CLAUDE.md critical rule
       # #12 / docs/cyanrip-handshake.md §7). Protocol v8 §6b (E1), landed
