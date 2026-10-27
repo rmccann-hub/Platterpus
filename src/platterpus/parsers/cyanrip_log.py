@@ -3868,7 +3868,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if expect_gaps:
             if current is None and _GAPS_VALUE.match(line):
                 match = _GAPS_VALUE.match(line)
-                assert match is not None  # just tested
+                assert match is not None  # noqa: S101 — narrows for mypy; the same match succeeded on the line above
                 gap_lines.append(match.group("value"))
                 continue
             # Anything not an indented value ends the block; fall through so the

@@ -539,7 +539,7 @@ class CyanripImpl(RipBackend):
         # relative), so run it from the output dir.
         output_dir.mkdir(parents=True, exist_ok=True)
         log.info("cyanrip rip starting: %s (cwd=%s)", " ".join(argv), output_dir)
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # noqa: S603 — argv from the chokepoint builder, a list, no shell
             argv,
             cwd=str(output_dir),
             stdout=subprocess.PIPE,
@@ -586,7 +586,7 @@ class CyanripImpl(RipBackend):
                 return self._run([flag], strict=True).strip()
             except RipError as exc:
                 last_error = exc
-        assert last_error is not None  # VERSION_FLAGS is never empty
+        assert last_error is not None  # noqa: S101 — narrows for mypy; VERSION_FLAGS is a non-empty constant
         raise last_error
 
     def verify_log(

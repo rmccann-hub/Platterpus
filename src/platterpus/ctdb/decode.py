@@ -72,7 +72,7 @@ def _stderr_tail(stderr: str | bytes | None, lines: int = 3) -> str:
 
 
 def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 — callers pass a list argv for the flac decoder, no shell
         argv, capture_output=True, timeout=_DECODE_TIMEOUT_S, check=False
     )
 
@@ -129,7 +129,7 @@ ProbeRunner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 
 
 def _default_probe_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 — callers pass a list argv for metaflac, no shell
         argv,
         capture_output=True,
         text=True,

@@ -110,7 +110,8 @@ def validate(entries: dict[str, int]) -> None:
 def write_module(entries: dict[str, int]) -> None:
     csv = "".join(f"{k},{v}\n" for k, v in sorted(entries.items()))
     blob = base64.b64encode(gzip.compress(csv.encode("utf-8"), 9)).decode("ascii")
-    today = datetime.date.today().isoformat()
+    # UTC, as every record in this repository is stamped (ruff DTZ011).
+    today = datetime.datetime.now(datetime.UTC).date().isoformat()
     # Wrap the base64 to a sane width for the source file.
     wrapped = "\n".join(blob[i : i + 76] for i in range(0, len(blob), 76))
     OUT_PATH.write_text(

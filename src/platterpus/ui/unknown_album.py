@@ -256,7 +256,7 @@ def launch_picard_for(folder: Path) -> bool:
         # group (BUG-7) so it isn't killed when Platterpus exits and can't be
         # caught by a signal aimed at our group — consistent with the other
         # fire-and-forget launch (main_window_update.py).
-        subprocess.Popen(argv, start_new_session=True)
+        subprocess.Popen(argv, start_new_session=True)  # noqa: S603 — fixed flatpak argv plus the album folder as one argument, no shell
     except (FileNotFoundError, OSError) as exc:
         log.warning("launch_picard_for(%s) failed: %s", folder, exc)
         return False

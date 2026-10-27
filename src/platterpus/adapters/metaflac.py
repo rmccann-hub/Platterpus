@@ -148,7 +148,7 @@ class MetaflacAdapter:
         argv: list[str] = [self._binary, *args]
         frozen: tuple[str, ...] = tuple(argv)
         try:
-            proc = subprocess.run(
+            proc = subprocess.run(  # noqa: S603 — the resolved metaflac binary plus adapter-built args, a list, no shell
                 argv,
                 capture_output=True,
                 text=True,

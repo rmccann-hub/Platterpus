@@ -111,7 +111,7 @@ def center_on_anchor(widget: QWidget) -> None:
         # — the compositor may override under focus-stealing prevention.
         widget.raise_()
         widget.activateWindow()
-    except Exception:  # noqa: BLE001 — placement is cosmetic, never fatal
+    except Exception:  # noqa: BLE001, S110 — placement is cosmetic, never fatal
         pass
 
 

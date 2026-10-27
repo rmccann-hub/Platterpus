@@ -98,7 +98,7 @@ def _render(svg: Path, out: Path, size: int) -> bool:
             output_height=size,
         )
         return True
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True)  # noqa: S603 — a list argv naming a rasterizer found on PATH, no shell
     return True
 
 

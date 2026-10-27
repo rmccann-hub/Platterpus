@@ -1303,13 +1303,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1573 -> 1482** (2026-10-21, the timed rip): lowered: the `--install-ripper` body moved to `deps/ripper_install.py`, so the `install-ripper` script verb and the flag are two thin callers of one function.
     # **1573 -> 1581** (2026-10-21, TASKS P2 #5): the unattended quit's give-up asks the window to record the cut-short verification in the report before `app.quit()`.
     # **-> 1490** (2026-10-21): the entries above landed together on one branch.
-    "app.py": 1490,
+    # **1490 -> 1495** (2026-10-27, external review item 3.4): the default `--rig-session` folder is stamped in UTC, with the reason (ruff DTZ005).
+    "app.py": 1495,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
     # app-id the file is named for. A guessed string here fails silently -- the
     # pin simply stays dark -- so the derivation is worth more than the line.
-    "appimage_integration.py": 349,
+    # **349 -> 352** (2026-10-27, external review item 3.4): `gio` is launched by the path `which` found, not its bare name (ruff S607).
+    "appimage_integration.py": 352,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
     # **784 -> 806 (2026-09-23)**: `APP_STATE_FIELDS`, the one list of fields the app
     # writes for itself, which Settings carries over and the acceptance restore
@@ -1721,7 +1723,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2117 -> 2123** (2026-10-26, `.27`, round 36 lap 8 S21): the not-determined `Pre-gap length` row names what the search saw; the wording is `pregap_search.describe`.
     # **2123 -> 2189** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): a track OUR proposed time limit stopped is worded by that limit, never as reads that disagreed: `_stopped_by_time_limit`, its own `Read stability` line, the verdict line, and `_agreement_clause` split out of `_reread_shortfall` so both wordings share it. The limit itself is read in `reread_limit.py`.
     # **2189 -> 2217** (2026-10-26, peer review 2.5): `_screen_rows`, every row through `inbound_text.screen_line` at the one place the rows are joined, so a value holding a line break cannot add a row above the checksum. It belongs at the join it guards.
-    "eac_log_export.py": 2217,
+    # **2217 -> 2220** (2026-10-27, external review item 3.4): why the zone-less strptime fallback stays naive (ruff DTZ007).
+    "eac_log_export.py": 2220,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2471,7 +2474,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `QMessageBox` import it no longer needs out): every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup.
     # 934 -> 962 on 2026-09-28 (code review R8): the dependency sentence moves from a temporary status-bar message, which opening any menu wiped, to a status-bar label built here beside the one method that writes it; a silent check now replaces a sentence already on screen (it no longer vanishes on its own), which retires the overdue-only flag.
     # **962 -> 965** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
-    "ui/main_window_deps.py": 965,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **965 -> 969** (2026-10-27, external review item 3.4): the status-bar clock is made explicitly local, with why it is local (ruff DTZ005).
+    "ui/main_window_deps.py": 969,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -3181,7 +3185,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4559 -> 4564** (2026-10-21): `_QUOTATION_OR_CODE` bounded at 4000 characters a span, with five lines saying why (the regex timing sweep measured the unbounded form growing faster than its input).
     # **4564 -> 4568** (2026-10-21): K1's refusal narrowed to the same lap number, as the protocol says, with four lines of why.
     # **4568 -> 4583** (2026-10-21, the fork's round 36 lap 5 S15): the close-by report compares every later lap, either side's, with the first declaration.
-    "scripts/handshake.py": 4583,
+    # **4583 -> 4586** (2026-10-27, external review item 3.4): `--announce` dates a release in UTC, not the local day (ruff DTZ011).
+    "scripts/handshake.py": 4586,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.

@@ -385,7 +385,7 @@ def sweep(
     for path in targets:
         all_mutants.extend(_mutants_for(path))
 
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 — a seeded, reproducible sample of mutants, not a secret
     sampled = list(all_mutants)
     rng.shuffle(sampled)
     sampled = sorted(sampled[:limit], key=lambda m: (str(m.path), m.lineno, m.col))

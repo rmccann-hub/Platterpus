@@ -184,7 +184,18 @@ extend-exclude = ["src/platterpus/adapters/accuraterip_offsets_data.py"]
 [tool.ruff.lint]
 # E/W=pycodestyle, F=pyflakes, I=isort (import order), B=flake8-bugbear
 # (likely-bug patterns), UP=pyupgrade (modern 3.11+ syntax).
-select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805"]
+select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805", "S", "DTZ"]
+# `S` (flake8-bandit, security) and `DTZ` (naive datetimes) ON since 2026-10-27,
+# external review item 3.4, ruff 0.15.22. Measured before turning them on: 80
+# findings in `src`. The real ones were fixed: a rig-session folder stamped in
+# local time (now UTC), a status-bar clock made explicitly local, and a `gio`
+# launched by bare name after `which` had found a path; in `scripts`, two dates
+# that took the local day for a UTC record. Every other one carries a per-line
+# `# noqa: Sxxx — <reason>` saying why that site is safe: a list argv with no
+# shell (S603), a URL whose scheme is checked upstream (S310), a broad
+# `except … pass` already justified for BLE001 (S110), a narrowing `assert`
+# (S101, held to that shape by
+# `tests/test_critical_rules_are_enforced.py::test_asserts_in_src_only_narrow_types`).
 # `N` (pep8-naming) WAS measured and deliberately absent — 2026-08-20, ruff
 # 0.15.22, 108 findings, of which 96 were `N802 invalid-function-name` and every
 # one of those a Qt API name we do not get to choose: `isRunning`, `setValue`,
@@ -217,6 +228,14 @@ ignore = [
     # Long lines are largely comments/strings; the formatter wraps code and
     # we don't want it splitting prose or URLs. Keep E501 off.
     "E501",
+    # The hardcoded-password family matches NAMES: 26 of 26 findings in `src`
+    # (2026-10-27) were the words "token" (a parser's token) and "pass" (a rip
+    # pass), and none was a credential. A per-line marker on each would teach
+    # nothing. Credentials are gated by `gitleaks` over the full history in CI,
+    # which reads values rather than names.
+    "S105",
+    "S106",
+    "S107",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -229,7 +248,17 @@ ignore = [
 #     (`test_the_missing_branch_message_box_is_PlainText`), which is this repo's
 #     established habit and reads better than the alternative.
 # Measured 2026-08-28: 113 findings in `tests`, 0 in `src`.
-"tests/**" = ["N801", "N802", "N804", "N805"]
+#
+# Security rules in `tests` (2026-10-27, measured: 19,155 S101, 102 S603, 89
+# S607, 58 S108, 20 S311): `assert` is how pytest checks; tests spawn
+# `sys.executable`, git and fixture scripts by name with list argv; `/tmp`
+# strings are fixture paths and inputs to the code under test; `random` seeds
+# property and fuzz inputs. None of these is a security decision in a test.
+"tests/**" = ["N801", "N802", "N804", "N805", "S101", "S108", "S311", "S603", "S607"]
+# `scripts` is maintainer tooling run from a developer shell: it drives git,
+# pytest and the app by name with list argv (10 S603, 10 S607), and its 7
+# asserts are type narrowing, read on 2026-10-27; nobody runs these under -O.
+"scripts/**" = ["S101", "S603", "S607"]
 
 [tool.ruff.lint.flake8-bugbear]
 # Qt's model/view override signatures legitimately default index args to a

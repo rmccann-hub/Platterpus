@@ -347,7 +347,7 @@ def _pcm_md5(path: Path) -> str:
         check=True,
         capture_output=True,
     ).stdout
-    return hashlib.md5(out).hexdigest()
+    return hashlib.md5(out).hexdigest()  # noqa: S324 — compares two decodes within the test; no security role
 
 
 def _make_real_flac(dir_: Path) -> Path:

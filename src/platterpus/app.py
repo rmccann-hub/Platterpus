@@ -1107,7 +1107,12 @@ def main(argv: list[str] | None = None) -> int:
         # evidence — the same reasoning as giving each rip pass its own album title.
         chosen = str(args.rig_session or "")
         if not chosen:
-            stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            # UTC, like every other stamp on a record (`CLAUDE.md`, *Times*): a
+            # folder named in local time sorts wrongly beside the session folders
+            # `test_session.session_stamp` names in UTC, and jumps an hour at a
+            # DST change. Found by ruff's DTZ005 (external review 2026-10-27,
+            # item 3.4).
+            stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d-%H%M%S")
             # UNDER THE ONE PARENT, not loose in $HOME. This used to be
             # `~/platterpus-rig-<stamp>`, a fresh top-level folder per run, and
             # the acceptance session dropped another beside it — the litter the
@@ -1209,7 +1214,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"nothing to compare: {pair.reason}")
             return 1
         print(f"comparing (found automatically): {pair.reason}\n")
-        assert pair.previous is not None and pair.later is not None
+        assert pair.previous is not None and pair.later is not None  # noqa: S101 — narrows for mypy; pair.found above means both are set
         return cli_compare.run_compare(pair.previous, pair.later)
 
     # Assemble a best-of-both master folder from two rips of the same disc.

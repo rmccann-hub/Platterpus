@@ -166,7 +166,7 @@ def _default_open(url: str) -> http.client.HTTPResponse:
     really came from.
     """
     _require_https(url, "fetch an update")
-    request = urllib.request.Request(url, headers={"User-Agent": "platterpus"})
+    request = urllib.request.Request(url, headers={"User-Agent": "platterpus"})  # noqa: S310 — _require_https() on the line above refuses any other scheme
     response: http.client.HTTPResponse = _OPENER.open(request, timeout=_TIMEOUT_S)
     final = getattr(response, "url", None) or response.geturl()
     try:

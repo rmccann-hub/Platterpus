@@ -84,3 +84,47 @@ def test_the_two_unattended_flags_are_in_the_apps_own_help(
     assert len(help_text) > 500, "argparse help was not captured"
     assert "--rig-session" in help_text
     assert "--run-script" in help_text
+
+
+def test_the_default_rig_session_folder_is_stamped_in_utc(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """With no OUTPUT-DIR, `--rig-session` names its folder from the clock, and
+    that clock is UTC (ruff DTZ005, external review of 2026-10-27, item 3.4).
+    A local-time stamp sorts wrongly beside the UTC-stamped session folders and
+    jumps an hour at a DST change; every record here is stamped in UTC.
+
+    The clock is replaced with one that answers in the zone it is ASKED for, so
+    a call with no zone (the old code) yields a different folder name than a
+    call for UTC, and the assertion can tell them apart.
+    """
+    import datetime as real_datetime
+    from types import SimpleNamespace
+
+    import platterpus.app as app
+
+    asked: list[object] = []
+
+    class _Clock:
+        @staticmethod
+        def now(tz: object = None) -> real_datetime.datetime:
+            asked.append(tz)
+            moment = real_datetime.datetime(
+                2026, 10, 27, 1, 2, 3, tzinfo=real_datetime.UTC
+            )
+            # The "local" zone here is UTC-4, so a naive call reads 21:02:03 the
+            # day before, which is what a desktop in New York would have named it.
+            if tz is None:
+                return (moment - real_datetime.timedelta(hours=4)).replace(tzinfo=None)
+            return moment
+
+    monkeypatch.setattr(
+        app, "datetime", SimpleNamespace(datetime=_Clock, UTC=real_datetime.UTC)
+    )
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    chosen: list[Path] = []
+    monkeypatch.setattr(app, "_run_rig_session", lambda out: chosen.append(out) or 0)
+
+    assert app.main(["--rig-session"]) == 0
+    assert asked == [real_datetime.UTC]
+    assert chosen and chosen[0].name == "rigsession20261027-010203"

@@ -2214,7 +2214,10 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
             )
             return 2
 
-    when = on or datetime.date.today().isoformat()
+    # The UTC date, like every stamp on a lap (`CLAUDE.md`, *Times*): the local
+    # date is a day off in the evening in New York (ruff DTZ011, external
+    # review of 2026-10-27, item 3.4).
+    when = on or datetime.datetime.now(datetime.UTC).date().isoformat()
     line_new = (
         f"HANDSHAKE-READY-TO-READ: yes — released by the operator on {when}; "
         "the peer has been told it is ready to read"

@@ -135,7 +135,7 @@ def _run_bounded(argv: list[str], timeout: float) -> subprocess.CompletedProcess
     merged so callers can log and surface it; `eject` prints a line or two, so
     there is no volume concern.
     """
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 — list argv of resolved host tools (eject, pkill, fuser), no shell
         argv,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
