@@ -153,8 +153,13 @@ ensure_distrobox() {
         *arch*)                   run sudo pacman -S --noconfirm distrobox ;;
         *suse*)                   run sudo zypper --non-interactive install distrobox ;;
         *)
-            echo "Unknown distro; using the upstream installer."
-            run sh -c 'curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh'
+            # No automatic install here. This used to pipe distrobox's
+            # main-branch installer, unverified, into `sudo sh` (external
+            # review 2026-10-27, item 1.2). Distrobox is preinstalled on
+            # Bazzite/Silverblue and packaged by every family above, so the
+            # remaining case is rare: tell the user how, and stop, rather
+            # than run a downloaded script as root.
+            die "Unknown distro, so this script will not install Distrobox itself. Install it with your distribution's package manager, or follow https://distrobox.it/#installation, then re-run."
             ;;
     esac
     if [ "$DRY_RUN" -eq 0 ] && ! have distrobox; then

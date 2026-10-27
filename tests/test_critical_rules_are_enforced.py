@@ -3102,7 +3102,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/bommap/reading.py": 326,
     "scripts/bommap/render.py": 359,
     "scripts/bommap/ripper_entries.py": 340,
-    "scripts/bommap/tool_entries.py": 385,
+    "scripts/bommap/tool_entries.py": 381,
     # **472** (2026-10-07, KDD-42 W4): joined at birth, recorded with its reason
     # rather than split to hit the number. One job, a walkthrough run folder in and
     # the guide's images folder out, whose parts have no second caller: the burst

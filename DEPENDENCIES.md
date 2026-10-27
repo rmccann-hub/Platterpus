@@ -101,7 +101,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 <!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
 
-**92 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+**91 components and 14 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
 
 | Category | Entries |
 |---|---|
@@ -110,7 +110,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | The ripper (cyanrip) and its related projects | 3 |
 | The ripping container | 2 |
 | What the cyanrip fork is built from, inside the container | 13 |
-| External programs Platterpus runs or offers | 29 |
+| External programs Platterpus runs or offers | 28 |
 | Desktop interfaces | 1 |
 | Bundled data | 1 |
 | Python packages for development and tests (the dev extra) | 7 |
@@ -118,7 +118,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | GitHub Actions | 6 |
 | CI and build programs | 11 |
 | CI runner images | 1 |
-| External services | 15 |
+| External services | 14 |
 
 ### Languages, runtimes and platforms (4)
 
@@ -196,14 +196,13 @@ Details for `cyanrip (build under review)`:
 | `meson` | unconstrained | excluded | Toolchain for building the cyanrip fork; not needed to run it. | building the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
 | `ninja-build` | unconstrained | excluded | Toolchain for building the cyanrip fork; not needed to run it. | building the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
 
-### External programs Platterpus runs or offers (29)
+### External programs Platterpus runs or offers (28)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `apt-get` | unconstrained | optional | Host installer for Distrobox / podman on Debian and Ubuntu. | src/platterpus/deps/host_setup.py | — |
 | `bash` | unconstrained | optional | Runs the packaged rig_session.sh for --rig-session. That script uses ordinary shell utilities, which are not listed one by one. | src/platterpus/app.py | — |
 | `cd-paranoia` | unconstrained | optional | Optional. libcdio's cd-paranoia — the same read engine cyanrip uses. Its `-A` self-test measures whether this drive defeats its audio cache, so the EAC-compatible log's 'Defeat audio cache' line can carry a measured Yes/No instead of '(unknown)' (KDD-29). Absent only means that verdict stays unmeasured; ripping is unaffected. Installed into the container + exported by the one-time setup wizard. | src/platterpus/adapters/cache_probe.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py | src/platterpus/deps/registry.py (min_version, probed at launch) |
-| `curl` | unconstrained | optional | Fetches the upstream Distrobox installer on an unrecognised distro. | src/platterpus/deps/host_setup.py | — |
 | `distrobox` | unconstrained | required | Creates and enters the ripping container: setup, the fork build, the scoped force-stop exception, and teardown. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/drive_control.py | — |
 | `distrobox-enter` | unconstrained | required | What the exported ~/.local/bin wrappers run; the wrapper probe times it to diagnose a wrapper that hangs. | src/platterpus/deps/ripper_wrapper_probe.py | — |
 | `distrobox-export` | unconstrained | required | Exports cyanrip, flac, metaflac and cd-paranoia from the container to ~/.local/bin. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py | — |
@@ -224,7 +223,7 @@ Details for `cyanrip (build under review)`:
 | `pkexec` | unconstrained | optional | Graphical privilege prompt for installing Distrobox or podman on the host (a GUI has no terminal for sudo). | src/platterpus/deps/host_setup.py | — |
 | `pkill` | unconstrained | optional | Name-matched force-stop of the reader on cancel (host first, then the container — Critical rule #3's scoped exception). | src/platterpus/drive_control.py | — |
 | `podman` | unconstrained | required | Distrobox's container engine; the wizard installs it when no engine is present. Docker is accepted instead when it is already there. | src/platterpus/deps/host_setup.py | — |
-| `sh` | unconstrained | required | Runs the fork's build, install and verify scripts in the container, and the upstream Distrobox installer on an unrecognised distro. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py | — |
+| `sh` | unconstrained | required | Runs the fork's build, install and verify scripts in the container. | src/platterpus/deps/fork_source.py | — |
 | `sudo` | unconstrained | required | Root inside the container for dnf and the fork install. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py | — |
 | `systemd-inhibit` | unconstrained | optional | Holds idle sleep, suspend and the lid switch off during a long unattended run. | src/platterpus/sleep_inhibit.py | — |
 | `update-desktop-database` | unconstrained | optional | Refreshes the menu after AppImage integration (fire-and-forget). | src/platterpus/appimage_integration.py | — |
@@ -300,7 +299,7 @@ Details for `cyanrip (build under review)`:
 |---|---|---|---|---|---|
 | `ubuntu-22.04` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | — |
 
-### External services (15)
+### External services (14)
 
 | Service | Endpoints | When | Used in |
 |---|---|---|---|
@@ -309,7 +308,6 @@ Details for `cyanrip (build under review)`:
 | `CUETools Database (CTDB)` | `http://db.cuetools.net/lookup2.php` | runtime (optional verify after a rip) | src/platterpus/adapters/ctdb_client.py |
 | `cyanrip fork release manifest` | `https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json` | runtime (ripper update offers) | src/platterpus/deps/ripper_manifest.py |
 | `cyanrip fork source (git clone)` | `https://github.com/rmccann-hub/cyanrip.git` | setup (the wizard and --install-ripper, inside the container) | src/platterpus/deps/fork_source.py |
-| `Distrobox upstream installer` | `https://raw.githubusercontent.com/89luca89/distrobox/main/install` | setup (only on an unrecognised distro) | src/platterpus/deps/host_setup.py |
 | `Fedora container registry` | `https://registry.fedoraproject.org/` | setup (creating the container) | src/platterpus/deps/host_setup.py |
 | `Fedora COPR barsnick/non-fed` | `https://download.copr.fedorainfracloud.org/results/barsnick/non-fed/`, `https://download.copr.fedorainfracloud.org/results/barsnick/non-fed/pubkey.gpg` | setup (the stock cyanrip package) | src/platterpus/deps/host_setup.py |
 | `Fedora package repositories` | not named in Platterpus | setup (dnf inside the container) | src/platterpus/deps/host_setup.py, src/platterpus/deps/fork_source.py |
@@ -328,14 +326,14 @@ absent from the left column has dependencies Platterpus does not record.
 - `container:fedora-toolbox` → `svc:fedora-registry`
 - `container:ripping` → `container:fedora-toolbox`, `svc:fedora-repositories`, `tool-host:distrobox-export`, `tool-host:sudo`
 - `data:accuraterip-drive-offsets` → `svc:accuraterip`
-- `platterpus` → `data:accuraterip-drive-offsets`, `desktop:org.freedesktop.ScreenSaver`, `pypi:cryptography`, `pypi:musicbrainzngs`, `pypi:numpy`, `pypi:pyside6`, `pypi:sigstore`, `pypi:tomli-w`, `ripper:cyanrip-fork`, `ripper:cyanrip-fork-under-review`, `ripper:cyanrip-upstream`, `runtime:linux`, `runtime:python`, `runtime:python-appimage-bundled`, `svc:cover-art-archive`, `svc:ctdb`, `svc:fork-release-manifest`, `svc:github-release-downloads`, `svc:github-releases-api`, `tool-host:apt-get`, `tool-host:bash`, `tool-host:curl`, `tool-host:distrobox`, `tool-host:distrobox-enter`, `tool-host:dnf`, `tool-host:eject`, `tool-host:flatpak`, `tool-host:fuser`, `tool-host:gio`, `tool-host:kbuildsycoca5`, `tool-host:kbuildsycoca6`, `tool-host:pacman`, `tool-host:pgrep`, `tool-host:pkexec`, `tool-host:pkill`, `tool-host:sh`, `tool-host:systemd-inhibit`, `tool-host:update-desktop-database`, `tool-host:zypper`, `tool:cdparanoia`, `tool:ffmpeg`, `tool:flac`, `tool:metaflac`, `tool:picard`
+- `platterpus` → `data:accuraterip-drive-offsets`, `desktop:org.freedesktop.ScreenSaver`, `pypi:cryptography`, `pypi:musicbrainzngs`, `pypi:numpy`, `pypi:pyside6`, `pypi:sigstore`, `pypi:tomli-w`, `ripper:cyanrip-fork`, `ripper:cyanrip-fork-under-review`, `ripper:cyanrip-upstream`, `runtime:linux`, `runtime:python`, `runtime:python-appimage-bundled`, `svc:cover-art-archive`, `svc:ctdb`, `svc:fork-release-manifest`, `svc:github-release-downloads`, `svc:github-releases-api`, `tool-host:apt-get`, `tool-host:bash`, `tool-host:distrobox`, `tool-host:distrobox-enter`, `tool-host:dnf`, `tool-host:eject`, `tool-host:flatpak`, `tool-host:fuser`, `tool-host:gio`, `tool-host:kbuildsycoca5`, `tool-host:kbuildsycoca6`, `tool-host:pacman`, `tool-host:pgrep`, `tool-host:pkexec`, `tool-host:pkill`, `tool-host:sh`, `tool-host:systemd-inhibit`, `tool-host:update-desktop-database`, `tool-host:zypper`, `tool:cdparanoia`, `tool:ffmpeg`, `tool:flac`, `tool:metaflac`, `tool:picard`
 - `pypi:musicbrainzngs` → `svc:musicbrainz`
 - `pypi:pyside6` → `runtime:qt`
 - `pypi:sigstore` → `svc:sigstore`
 - `ripper:cyanrip-fork` → `container:ripping`, `lib:libavcodec`, `lib:libavfilter`, `lib:libavformat`, `lib:libavutil`, `lib:libcdio`, `lib:libcdio_paranoia`, `lib:libcurl`, `lib:libmusicbrainz5`, `lib:libswresample`, `svc:fork-source`
 - `ripper:cyanrip-fork-under-review` → `container:ripping`, `lib:libavcodec`, `lib:libavfilter`, `lib:libavformat`, `lib:libavutil`, `lib:libcdio`, `lib:libcdio_paranoia`, `lib:libcurl`, `lib:libmusicbrainz5`, `lib:libswresample`
 - `ripper:cyanrip-upstream` → `container:ripping`, `svc:copr-barsnick-non-fed`
-- `tool-host:distrobox` → `svc:distrobox-installer`, `tool-host:docker`, `tool-host:podman`
+- `tool-host:distrobox` → `tool-host:docker`, `tool-host:podman`
 - `tool:picard` → `svc:flathub`, `tool-host:flatpak`
 
 <!-- END GENERATED: emit_bom.py -->

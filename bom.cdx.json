@@ -73,7 +73,7 @@
       },
       {
         "name": "platterpus:count:host-tool",
-        "value": "29"
+        "value": "28"
       },
       {
         "name": "platterpus:count:desktop",
@@ -105,7 +105,7 @@
       },
       {
         "name": "platterpus:count:service",
-        "value": "15"
+        "value": "14"
       }
     ]
   },
@@ -1222,32 +1222,6 @@
     },
     {
       "type": "application",
-      "bom-ref": "tool-host:curl",
-      "name": "curl",
-      "isExternal": true,
-      "description": "Fetches the upstream Distrobox installer on an unrecognised distro.",
-      "scope": "optional",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "host-tool"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/host_setup.py"
-        },
-        {
-          "name": "platterpus:runs-in",
-          "value": "host"
-        },
-        {
-          "name": "platterpus:version-basis",
-          "value": "not checked; whatever the system provides"
-        }
-      ]
-    },
-    {
-      "type": "application",
       "bom-ref": "tool-host:distrobox",
       "name": "distrobox",
       "isExternal": true,
@@ -1842,7 +1816,7 @@
       "bom-ref": "tool-host:sh",
       "name": "sh",
       "isExternal": true,
-      "description": "Runs the fork's build, install and verify scripts in the container, and the upstream Distrobox installer on an unrecognised distro.",
+      "description": "Runs the fork's build, install and verify scripts in the container.",
       "scope": "required",
       "properties": [
         {
@@ -1851,11 +1825,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py"
+          "value": "src/platterpus/deps/fork_source.py"
         },
         {
           "name": "platterpus:runs-in",
-          "value": "ripping container; host for the Distrobox installer"
+          "value": "ripping container"
         },
         {
           "name": "platterpus:version-basis",
@@ -3174,39 +3148,6 @@
       ]
     },
     {
-      "bom-ref": "svc:distrobox-installer",
-      "provider": {
-        "name": "89luca89/distrobox"
-      },
-      "name": "Distrobox upstream installer",
-      "description": "Installs Distrobox where no known package manager applies.",
-      "endpoints": [
-        "https://raw.githubusercontent.com/89luca89/distrobox/main/install"
-      ],
-      "authenticated": false,
-      "x-trust-boundary": true,
-      "data": [
-        {
-          "flow": "inbound",
-          "classification": "installer script"
-        }
-      ],
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "service"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/host_setup.py"
-        },
-        {
-          "name": "platterpus:when",
-          "value": "setup (only on an unrecognised distro)"
-        }
-      ]
-    },
-    {
       "bom-ref": "svc:fedora-registry",
       "provider": {
         "name": "Fedora Project"
@@ -3580,7 +3521,6 @@
         "svc:github-releases-api",
         "tool-host:apt-get",
         "tool-host:bash",
-        "tool-host:curl",
         "tool-host:distrobox",
         "tool-host:distrobox-enter",
         "tool-host:dnf",
@@ -3664,7 +3604,6 @@
     {
       "ref": "tool-host:distrobox",
       "dependsOn": [
-        "svc:distrobox-installer",
         "tool-host:docker",
         "tool-host:podman"
       ]
