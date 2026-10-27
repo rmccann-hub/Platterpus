@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`CLAUDE.md`'s project-operations section is wrapped at 100 columns and its filler is gone** (contributor-facing; the follow-up review of 2026-10-27, item 8). The words are unchanged apart from three uses of "just"; two long commands stay on one line each, since a code span is never broken. The locked rules above it are untouched.
+
 - **The no-cache and no-token rules are tested in every workflow, not only `ci.yml`** (contributor-facing; the follow-up review of 2026-10-27, item 7). `tests/test_workflow_permissions.py` now requires every checkout in every workflow to drop its token, and refuses a cache in any job that holds `id-token: write` or `contents: write`, so `release.yml` and `publish-pypi.yml` no longer rely on the non-required zizmor job alone.
 
 - **The scripts and hooks decode subprocess output as UTF-8 too** (contributor-facing; the follow-up review of 2026-10-27, item 5). The 3.3 fix covered `src` only; nine calls in `scripts/` and two in `.claude/hooks/audio_guard.py` still decoded with the locale. They name `encoding="utf-8"` now, and the sweep in `tests/test_inbound_text.py` covers `scripts/`, `build/` and `.claude/hooks` as well.
