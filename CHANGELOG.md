@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 36: the fork's lap 12 is filed and our lap 13, the answer to it, is written and held** (contributor-facing). Lap 13 corrects our lap 11's track 3 count (counted alike: `.25` 3 of 8, `.26` 0 of 8 paired and timed, 1 of 15 over every rip), accepts their log escaping, amends their path rules with the owner's choice of 2026-10-26 (shorten an over-long name to 255 bytes at a character boundary, keeping the track number and extension, and print it in the log), and asks that a drive's refusal of `-S` fall back to its own speed rather than stop the rip. It stays `HANDSHAKE-READY-TO-READ: no` until the owner's word. The status block names `.25` and `.27` for the paired rips.
+
 - **TASKS R88 records the owner's choice for over-long file names** (contributor-facing): the fork shortens the file or folder name at a character boundary and keeps the tags whole, asked in our next lap; the refusal before Start is the interim until that build is the default.
 
 - **Round 36: our lap 11 is released, on the owner's word of 2026-10-26** ("when ready release the next lap"). Its `HANDSHAKE-READY-TO-READ` is now `yes`; no other line of the lap changed. The envelope leads with it, the status block holds nothing back, the round row says released, and the sent lap is pinned by its sha256.
