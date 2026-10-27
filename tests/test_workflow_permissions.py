@@ -280,3 +280,78 @@ def test_every_job_names_its_runner_image() -> None:
     assert len(labels) >= 10, labels
     moving = [(name, label) for name, label in labels if label.endswith("-latest")]
     assert not moving, f"jobs on a moving runner label: {moving}"
+
+
+# --- Every workflow, not only ci.yml (the follow-up review of 2026-10-27, item 7)
+
+
+def _jobs(text: str) -> dict[str, str]:
+    """Each job's text, keyed by its name: the lines under `jobs:` at two spaces."""
+    lines = text.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.rstrip() == "jobs:")
+    jobs: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in lines[start + 1 :]:
+        match = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if match:
+            current = match.group(1)
+            jobs[current] = []
+        elif current is not None:
+            jobs[current].append(line)
+    return {name: "\n".join(body) for name, body in jobs.items()}
+
+
+def test_every_checkout_in_every_workflow_drops_its_token() -> None:
+    """Item 1.4, across all workflows. ci.yml's own test held only ci.yml, so a
+    release.yml or publish-pypi.yml checkout that kept its token would have been
+    caught by the non-required zizmor job alone. The release job's one tag push
+    passes its token for that push only, so no checkout needs to keep it."""
+    checkouts = 0
+    missing: list[str] = []
+    for path in _workflow_files():
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if not re.match(r"^\s*- uses: actions/checkout@", line):
+                continue
+            checkouts += 1
+            indent = len(line) - len(line.lstrip(" "))
+            block: list[str] = []
+            for after in lines[i + 1 :]:
+                here = len(after) - len(after.lstrip(" "))
+                if after.strip() and here <= indent:
+                    break
+                block.append(after.strip())
+            if "persist-credentials: false" not in block:
+                missing.append(f"{path.name}:{i + 1}")
+    # 15 checkouts across the six workflows on 2026-10-27.
+    assert checkouts >= 14, checkouts
+    assert not missing, f"checkouts that keep the token in .git/config: {missing}"
+
+
+def test_no_job_that_can_publish_or_write_restores_a_cache() -> None:
+    """Item 1.3, across all workflows: a job holding `id-token: write` or a
+    `contents: write` restores no cache, since a cache is input another run
+    wrote (zizmor: cache poisoning)."""
+    privileged = 0
+    offenders: list[str] = []
+    for path in _workflow_files():
+        for name, body in _jobs(path.read_text(encoding="utf-8")).items():
+            if not re.search(r"^\s+(id-token|contents):\s*write\b", body, re.M):
+                continue
+            privileged += 1
+            if re.search(r"^\s+cache:\s*\S", body, re.M) or "actions/cache@" in body:
+                offenders.append(f"{path.name} job {name}")
+    # release.yml's build-and-release and publish-pypi.yml's publish, at least.
+    assert privileged >= 2, privileged
+    assert not offenders, f"privileged jobs that restore a cache: {offenders}"
+
+
+def test_the_cache_check_sees_a_cache_in_a_privileged_job() -> None:
+    """The check above, fed the shape it refuses."""
+    text = (
+        "jobs:\n  publish:\n    permissions:\n      id-token: write\n    steps:\n"
+        "      - uses: actions/setup-python@x\n        with:\n          cache: pip\n"
+    )
+    body = _jobs(text)["publish"]
+    assert re.search(r"^\s+(id-token|contents):\s*write\b", body, re.M)
+    assert re.search(r"^\s+cache:\s*\S", body, re.M)
