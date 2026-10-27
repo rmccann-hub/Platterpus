@@ -961,7 +961,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
     - Up: always right for the build actually installed.
     - Up: no list for either side to keep.
     - Down: one more probe, cached per build. If the help text cannot be read, the
-      app does not send the flag, which is today's behaviour.
+      app does not send the flag, which is today's behavior.
   - **C. Keep the shipped list.**
     - Down: the gap stays.
   - **Recommended: B.** The answer comes from the thing being asked about. `-h` is
@@ -1072,7 +1072,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
     - Up: easy to see.
     - Down: log checkers and library tools may read a second log and misjudge the
       rip.
-  - **C. Keep deleting it** (today's behaviour).
+  - **C. Keep deleting it** (today's behavior).
   - **Recommended: A.**
   - **Answer: A** — the maintainer, 2026-09-25.
 
@@ -2672,7 +2672,7 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   bundle files are blob-identical to ours (the 37th is their README). Ours is our lap 9
   (`2c16d819…`, 14,882 bytes, `GO`, released 2026-09-28 on the operator's word): two
   archival defects of ours fixed (the discarded verified track 3, and the partial-rip
-  CTDB claim), neither touching the pin, and three upstream behaviours sent for round 29
+  CTDB claim), neither touching the pin, and three upstream behaviors sent for round 29
   (keep-last-read at the repeat limit, "no matches found" whatever the count, and
   refusing `-Z N` with `-r` at N or less). Round 28 reads CLOSED on our gate.
 - [x] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
@@ -2928,7 +2928,7 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   `refresh_settings(config)` that blocks signals like Setup & Updates' does, so re-rendering can
   never look like a click; (3) the misnamed test is renamed and a real one added that runs the
   `set` verb against an open console and an open Setup & Updates, revert-probed. Small; no
-  behaviour change beyond the display.
+  behavior change beyond the display.
 - [x] **DONE for 0.6.59 (the maintainer's OK, 2026-09-24): the `ripping` container dies
   with whichever app or terminal started it.** Fixed in `container_scope.py`: the variable is
   removed at startup, and `--doctor` names the owner. The rig check confirmed both cases first. Found 2026-09-24 in the maintainer's journal for
@@ -3345,7 +3345,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   adopt or retire (K1 may subsume it). TASKS@b8f89a2:2928.
 - [ ] **A12. A `SEAM-COMMANDS: audited @ N` close field** — prototyped, reverted for
   want of the shared file; the round-8 bump never happened. TASKS@b8f89a2:3734.
-  - *Merged 2026-09-30, verbatim, from the duplicate row "Propose the protocol version bump in round 8" (P0, 2026-08-06) (it was `[ ]`):* **Propose the protocol version bump in round 8**, with the four-row table above as the specified behaviour, and land the gate change **in the round where both sides adopt it** — not before.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Propose the protocol version bump in round 8" (P0, 2026-08-06) (it was `[ ]`):* **Propose the protocol version bump in round 8**, with the four-row table above as the specified behavior, and land the gate change **in the round where both sides adopt it** — not before.
 - [ ] **A13. A semantic-change marker** — a derived contract diff cannot see a change
   of meaning (round 21's `Ripping errors:` recount changed no format string); pairs with
   defining `BREAKING`. KI:1364.
@@ -3791,7 +3791,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run. The 0.6.30 pairing is stale; the ledger has only `partial` rows, so the 0.7.100 gate run is still owed.
   - *Merged 2026-09-30, verbatim, from the duplicate row "More than one drive" (what v1.0.0 needs) (it was `[ ]`):* **More than one drive.** Every hardware result this project has is from one
     Pioneer BDR-209D 1.51 at offset +667. A read-offset bug, a speed-lock quirk or
-    a cache behaviour that is drive-specific is invisible in a sample of one, and
+    a cache behavior that is drive-specific is invisible in a sample of one, and
     the offset path is the single most correctness-critical thing we do.
     - *Audit 2026-09-25: not ours to verify.* Hardware coverage: every ledger row is the BDR-209D.
   - *Merged 2026-09-30, verbatim, from the duplicate row "More than one machine" (what v1.0.0 needs) (it was `[ ]`):* **More than one machine.** Bazzite + KDE Plasma 6 is the primary target and
@@ -3889,7 +3889,7 @@ most important thing on this page before round 24's lap 1 arrives.
   edit"* — so when both gates reached 4 in round 9, the v3/v4 rows stayed exempt
   for thirteen rounds. The split now follows `PROTOCOL_VERSION`, C37–C42 have
   tests, and C21–C36 are counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST` (may
-  only shrink). Some behaviours are covered under other names (the digest,
+  only shrink). Some behaviors are covered under other names (the digest,
   overrides, the lap limit); the work is one `test_C<nn>_…` per row, and any row
   whose test fails is a divergence to report, not to fix quietly.
   - *Audit 2026-09-25: partly done.* C23/C24 got test_C23_/test_C24_ on 2026-09-25 (f93bd59). The other 14 rows (C21, C22, C25–C36) are still counted in _BINDING_ROWS_WITHOUT_A_NAMED_TEST.
@@ -5338,7 +5338,7 @@ get right twice.
       hazard, since a rejected flag exits non-zero and reads to every probe as
       *"the tool is not installed"*, which is the `-V` failure exactly.
       Declared `NEXT-ROUND` in lap 4.
-  - *2026-09-25:* **Decided (D5 B): ask the binary.** Read `cyanrip -h`, look for `--consumer`, and cache the answer per build. When the help text cannot be read, send no flag (today's behaviour). This replaces the shipped accept-set, so a build newer than the app is recognised. Ready to build, as a probe through the dependency subsystem.
+  - *2026-09-25:* **Decided (D5 B): ask the binary.** Read `cyanrip -h`, look for `--consumer`, and cache the answer per build. When the help text cannot be read, send no flag (today's behavior). This replaces the shipped accept-set, so a build newer than the app is recognised. Ready to build, as a probe through the dependency subsystem.
 - [ ] **`defeat_audio_cache` carries its provenance in the EAC export and NOT in
       the report JSON — the fork's round-21 §H, accepted, and it is ours.** The EAC
       row says *"(measured for this drive with `cd-paranoia -A`, not asserted from
@@ -6119,7 +6119,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 - [x] **`mutation:settings_validation.py`** (ungated, small) — The pure validator CLAUDE.md mandates — 879 lines, 120 tests, outside scope
   - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `settings-validation`, floor 30; 40 checked of 56 generated, 65% killed. Survivors are tracked in `mutation:_survivors-20260925`.
 - [ ] **`mutation:_survivors-20260925`** (ungated, medium) — The nine new legs' first sweep left 77 survivors of 241 checked; read them and kill the real ones
-  - *2026-09-25:* Measured in a separate worktree at 24755e1 (`--limit 40 --seed 0`). By leg: cyanrip-backend 14, rig-check 14, settings-validation 14, ripper-identity 11, ctdb-diagnose 9, ctdb-decode 5, handshake-approval 4, naming 4, ctdb-toc 2. **Not all are test gaps:** several are `@dataclass(frozen=True)` flipped to `False` (naming.py:130, ripper_identity.py:63, ctdb/toc.py:40, handshake_approval.py:257), which only says no test asserts immutability. Triage each as *equivalent*, *immutability only*, or *a real missed behaviour*, and write a test for the last kind. The weekly run's artifact lists them all.
+  - *2026-09-25:* Measured in a separate worktree at 24755e1 (`--limit 40 --seed 0`). By leg: cyanrip-backend 14, rig-check 14, settings-validation 14, ripper-identity 11, ctdb-diagnose 9, ctdb-decode 5, handshake-approval 4, naming 4, ctdb-toc 2. **Not all are test gaps:** several are `@dataclass(frozen=True)` flipped to `False` (naming.py:130, ripper_identity.py:63, ctdb/toc.py:40, handshake_approval.py:257), which only says no test asserts immutability. Triage each as *equivalent*, *immutability only*, or *a real missed behavior*, and write a test for the last kind. The weekly run's artifact lists them all.
 - [x] **`mutation:_proposed_expansion`** (ungated, medium) — Concrete proposal: tier A now (+~2,900 mutants), tier B next, measured test cost 14.5 s
   - *Audit 2026-09-25: partly done.* The matrix grew to 6 legs (rip_log, eac_log, eac_log_export added); none of the other candidates listed here was added.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"mutation:adapters/cyanrip_backend.py (ungated, small) — The argv chokepoint — 5 fix …"*, which is now done (2026-09-30 audit).
@@ -6363,7 +6363,7 @@ shell wrapper is one step better than prose, not the destination.
       from every rip folder, not the newest** — the acceptance run performs seven
       rips and the one the handshake round is waiting on is not the last of them.
       Audio never enters the bundle (Critical rule #8); the suffix allowlist and
-      the post-stage sweep in the shell collector are the behaviour to port.
+      the post-stage sweep in the shell collector are the behavior to port.
   - *Audit 2026-09-25: partly done.* The acceptance-session bundle passes album_dirs from session_album_dirs. The --run-script auto-bundle (runner.py) still has none.
 - [x] **Write it to `~/Downloads`.** The folder a browser upload dialog opens in.
       Fall back rather than `mkdir`: inventing the directory puts the file
@@ -6539,7 +6539,7 @@ shell wrapper is one step better than prose, not the destination.
   proof — a held reader cannot be re-read — and it is the first clean evidence for
   it in four attempts. What is still unproven is the *second rip completing*,
   because the run stopped on an unanswered modal before it started; the tray also
-  stayed closed, which is the v0.6.16 rescue-timer behaviour holding.
+  stayed closed, which is the v0.6.16 rescue-timer behavior holding.
 - [x] Both failures descended from one unanswered "Album already ripped" dialog.
   Fixed by the `answer-dialog` verb + the script's section E + the corrected
   advice `wait-for-rip` prints. Third consecutive run with a single-cause failure
@@ -6594,7 +6594,7 @@ shell wrapper is one step better than prose, not the destination.
   means a single uncaught exception parks the batch waiting for somebody to click
   OK — the same *"an unattended run needs no attendant"* principle as the quit
   timer, which the maintainer raised on 2026-08-19. Deliberately **not** fixed
-  inside a release: it is a behaviour change (when may the app suppress its own
+  inside a release: it is a behavior change (when may the app suppress its own
   crash dialog?) and it deserves its own decision rather than being wedged in.
   Shape when it is done: the fatal dialog is non-modal — or auto-dismissed after a
   bounded wait with the reason logged — when the process was started with
@@ -6924,7 +6924,7 @@ worth re-reading and it is not what the symptom said.
   assertion fails as *"no cyanrip ran"*.
 
 - [x] **`expect secure_rerip_dynamic True` measures the operator's config, not
-  the behaviour.** *Fixed in the script, not the code: B2 now `set`s both fields
+  the behavior.** *Fixed in the script, not the code: B2 now `set`s both fields
   before asserting them. Still to correct to the fork in lap 10.* Failed on the rig (`got False`) because that install has it
   off. Round 8 lap 8 §J9 told the fork "both defaults are what B2 asserts, so B2
   passes on a default install" — accurate about a *default* install and useless
@@ -7285,7 +7285,7 @@ that tests every paramter/arguement, and give back a result. then we should be
 able to determine if all is reaching platterpus and cyanrip, then we can go from
 there."*
 
-**Right instinct — plumbing before behaviour.** Before asking whether a setting
+**Right instinct — plumbing before behavior.** Before asking whether a setting
 *works*, ask whether the script can *reach* it at all. A reachability sweep is
 the cheapest possible first test and it fails loudly rather than subtly.
 
@@ -7525,7 +7525,7 @@ and 4 are not started:
    (N of N), cache defeat measured, offset confirmed by two sources, paranoia counts
    clean, C2 status. All five facts are already collected — this is presentation, and it
    is the highest value for the least risk.
-2. **Test & Copy on by default when AccurateRip has nothing.** The behaviour change that
+2. **Test & Copy on by default when AccurateRip has nothing.** The behavior change that
    makes tier 1 mean something: if no database can vouch for the disc, earn the proof
    locally instead of shrugging. Costs a second full read (roughly doubles rip time) on
    exactly the discs where it matters. **Signed off 2026-10-20 and built (R38):** the
@@ -7802,7 +7802,7 @@ The queue as set 2026-06-09 and worked down through 2026-07 — 11 of its 15 ite
 9. **✅ Backend-independent cover art — M (elevated and SHIPPED 2026-06-13; the user's stated goal: "good music, good cover image, good everything").** As built: `adapters/cover_art.py` (CAA `/front` fetch, stdlib urllib, injectable fetcher, magic-byte image sniffing, never raises) + `MetaflacAdapter.embed_picture` (PICTURE block replace, no duplicates) + a post-rip daemon thread in MainWindow gated by `cover_art.plan_actions`. Outcome line lands in the rip log view. Hardware proof rides the next hardware session: a cyanrip rip of an identified disc should produce FLACs with embedded front covers. *Original problem statement (pre-fix, kept for the record — whipper was still a backend then):* cover art was whipper-only, because the cyanrip metadata model (-N + GUI-fed tags) deliberately skips cyanrip's own MB/CAA lookup, which is where its art came from. Fix at the right altitude: the GUI fetches the front cover itself from the **Cover Art Archive** (`coverartarchive.org/release/<MBID>/front`) using the release ID it already has — host-side, off-thread, cached per release — and embeds it in the ripped FLACs via the existing metaflac adapter (`--import-picture-from`), optionally also saving `cover.jpg` in the album folder. Works identically for BOTH backends; un-greys the cover-art Settings row under cyanrip; honors Critical Rule #5 (we query, never the ripper). Degrades silently when CAA has no art.
 10. **⬜ Remaining hardware-gated doc items — HW (user), S each.** Real-run confirmations: `setup-host.sh` / host wizard from scratch, the drive-setup wizard's "what success looks like" screens (the previous backend's `drive analyze`/`offset find` strings are gone — test-plan Tests 3–4 need re-scoping, see the Documentation backlog), README screenshots (Test 5), Picard UX (Test 6). *(PyPI Trusted-Publisher setup — Test 7 — is **DONE**: the package publishes automatically on every tagged release.)*
 11. **✅ MainWindow decomposition (KDD-19) — COMPLETE 2026-06-13 (user-requested "full refactor").** The 1707-line god-object was split into six cohesive **mixins** `MainWindow` inherits (so `window._x` test access + Qt signal wiring keep working): `main_window_helpers.py` (pure fns) + `UpdateMixin` / `RipMixin` / `ProvisioningMixin` / `DriveMixin` / `DependencyMixin`. `main_window.py` is now a ~460-line assembler (construction, menus, signal wiring, MusicBrainz slots, Settings). Every extraction was test-guarded (777 green, one concern per commit). **Lesson banked (docs/architecture.md §5, testing.md #8):** moving code between modules means moving its monkeypatch targets too. **Still open (separate from the MainWindow split):** assess the other large files (`whipper_backend`, `host_setup`, `rip_worker`, `settings_dialog`) for real seams, and a naming/comment/type-hint/import consistency sweep — see item 13.
-12. **✅ GUI-thread responsiveness sweep — DONE 2026-06-14 (started 2026-06-13).** The bug class behind the in-app-update freeze is *synchronous blocking calls on the Qt GUI thread*. Handled: `appimage_integration._default_refresh` (kbuildsycoca) and `_mark_trusted` (gio) → fire-and-forget `Popen`; **(a) launch dependency check now runs OFF the GUI thread — DONE 2026-06-14:** `run_dependency_check_async()` + `DependencyCheckWorker` probe on a worker thread, the report is applied on the GUI thread (where resolver dialogs live); `app.py` uses it at launch so a cold-container `whipper --version` can't freeze the just-shown window. The **lint/grep guard is also done** — `tests/test_gui_thread_discipline.py` (AST fitness test) fails the build on any `subprocess.run`/`urlopen`/`time.sleep` in `ui/`. **(b) `disc_info` now runs OFF the GUI thread too — DONE 2026-06-14:** `workers/disc_info_worker.py::DiscInfoWorker` probes the disc on a QThread per drive change; `_on_drive_changed` is split into the trigger (`_start_disc_info`) + `_on_disc_info_ready`/`_on_disc_info_failed` handlers — so selecting a drive (or the launch auto-select) never freezes the window. **(c) launch `list_drives` now runs OFF the GUI thread too — DONE 2026-06-14:** `workers/drive_list_worker.py::DriveListWorker` runs `list_drives` (whipper `drive list`, container entry) on a QThread; `refresh_drives` (launch + post-host-setup) populates the picker on the GUI thread via the new `DrivePicker.populate()`/`show_error()` split. The picker's own **Refresh button stays synchronous** (user-initiated). **Net: the entire launch path is now non-blocking** — all three container-entering probes (deps, drive list, disc info) are off-thread. **(d) post-rip metaflac tagging now runs OFF the GUI thread too — ✅ DONE 2026-06-17:** `_on_rip_finished` used to call `run_unknown_post_processing` synchronously, so a 16-track album froze the window for ~15-30s (a subprocess per file) right when the rip finished. Tagging and the post-rip cover-art embed both shell out to metaflac on the *same* FLAC files, so they now run **sequentially on ONE post-rip daemon thread** (`_start_post_rip_processing`: tag first, then cover art) — never concurrently, which would race two metaflac processes on one file → corrupted/lost tags or artwork. `run_unknown_post_processing` stays the synchronous worker body (tests call it directly); it's just invoked off-thread now. Behavioural regression test added (`test_unknown_rip_tagging_runs_off_the_gui_thread`: blocks metaflac on an Event, asserts the finish handler returns before tagging completes) — the AST fitness guard can't catch this one because the blocking subprocess is reached *indirectly* through the adapter. **This was the last remaining synchronous blocking call in the app — the responsiveness sweep is fully complete.**
+12. **✅ GUI-thread responsiveness sweep — DONE 2026-06-14 (started 2026-06-13).** The bug class behind the in-app-update freeze is *synchronous blocking calls on the Qt GUI thread*. Handled: `appimage_integration._default_refresh` (kbuildsycoca) and `_mark_trusted` (gio) → fire-and-forget `Popen`; **(a) launch dependency check now runs OFF the GUI thread — DONE 2026-06-14:** `run_dependency_check_async()` + `DependencyCheckWorker` probe on a worker thread, the report is applied on the GUI thread (where resolver dialogs live); `app.py` uses it at launch so a cold-container `whipper --version` can't freeze the just-shown window. The **lint/grep guard is also done** — `tests/test_gui_thread_discipline.py` (AST fitness test) fails the build on any `subprocess.run`/`urlopen`/`time.sleep` in `ui/`. **(b) `disc_info` now runs OFF the GUI thread too — DONE 2026-06-14:** `workers/disc_info_worker.py::DiscInfoWorker` probes the disc on a QThread per drive change; `_on_drive_changed` is split into the trigger (`_start_disc_info`) + `_on_disc_info_ready`/`_on_disc_info_failed` handlers — so selecting a drive (or the launch auto-select) never freezes the window. **(c) launch `list_drives` now runs OFF the GUI thread too — DONE 2026-06-14:** `workers/drive_list_worker.py::DriveListWorker` runs `list_drives` (whipper `drive list`, container entry) on a QThread; `refresh_drives` (launch + post-host-setup) populates the picker on the GUI thread via the new `DrivePicker.populate()`/`show_error()` split. The picker's own **Refresh button stays synchronous** (user-initiated). **Net: the entire launch path is now non-blocking** — all three container-entering probes (deps, drive list, disc info) are off-thread. **(d) post-rip metaflac tagging now runs OFF the GUI thread too — ✅ DONE 2026-06-17:** `_on_rip_finished` used to call `run_unknown_post_processing` synchronously, so a 16-track album froze the window for ~15-30s (a subprocess per file) right when the rip finished. Tagging and the post-rip cover-art embed both shell out to metaflac on the *same* FLAC files, so they now run **sequentially on ONE post-rip daemon thread** (`_start_post_rip_processing`: tag first, then cover art) — never concurrently, which would race two metaflac processes on one file → corrupted/lost tags or artwork. `run_unknown_post_processing` stays the synchronous worker body (tests call it directly); it's just invoked off-thread now. Behavioral regression test added (`test_unknown_rip_tagging_runs_off_the_gui_thread`: blocks metaflac on an Event, asserts the finish handler returns before tagging completes) — the AST fitness guard can't catch this one because the blocking subprocess is reached *indirectly* through the adapter. **This was the last remaining synchronous blocking call in the app — the responsiveness sweep is fully complete.**
 13. **✅ Codebase consistency sweep + large-file seam assessment — DONE 2026-06-13 (full code/doc audit).** (a) **Large files assessed → all single-responsibility, left intact** (cohesion over line count): `adapters/whipper_backend.py` (the whipper adapter: ABC + impl + handle + helpers), `deps/host_setup.py` (one idempotent bootstrap engine), `workers/rip_worker.py` (one cancellable off-thread rip + progress parsing), `ui/settings_dialog.py` (one Config-editing dialog). No real seams; splitting would hurt readability. (b) **Consistency pass:** fixed the type-hint gaps the audit found (`_default_open → http.client.HTTPResponse`, `_build_host_setup → HostSetup` via `TYPE_CHECKING`, `_show_dep_summary`'s `optional_missing → list[MissingItem] | None`, `_on_update_install_finished`'s `dialog → QProgressDialog`); fixed a CI-red `ruff format` lapse in `tests/test_ui_main_window.py`. Audit found **zero correctness bugs, zero dead code, no blocking-on-GUI-thread regressions.**
 
 14. **🟡 EAC-parity follow-up (audio-trust focus) — code SHIPPED 2026-06-28; convergence HW-gated.** Continuing the EAC-parity brief ([docs/eac-parity.md](docs/eac-parity.md), [docs/eac-parity.md](docs/eac-parity.md)). **(a) ✅ cyanrip `-Z N` "re-rip until reads match"** — `Config.secure_rerip_matches` (0=off) → `RipParameters` → backend ABC → cyanrip argv; whipper ignores it; Settings spin box greyed for whipper. The lighter, no-new-dep answer to a Track-3-class near-miss. *HW-gated:* convergence effect needs a real marginal-disc run on the BDR-209D (re-rip with it on, re-run `scripts/eac_parity.py` vs the EAC baseline). **(b) ✅ Verification verdict banner** — colour-coded at-a-glance trust headline above the results table, plus one shared `confidence ≥ 1` rule (`parsers/rip_log.track_accuraterip_verified`) across the banner, disc panel, status line, and EAC renderer (fixed a real bug: the disc panel string-matched "exact match" and under-counted cyanrip rips). **(c) ✅ Parity made routine** — `tests/test_parity.py` pins the committed cyanrip-vs-EAC result (12/14, T3+T5) as a no-hardware regression guard. **(d) ✅ Honest EAC-layout log renderer** — `eac_log_export.py` + `scripts/render_eac_log.py` render our rip into EAC's layout, clearly attributed and **never signed** (an EAC-signed log = provenance forgery; not pursued). **Decisions for the maintainer (in the feasibility doc):** tracker-accepted EAC logs (recommend no — forgery), in-app CTDB repair (defer — heavy .NET/Mono dep + blocked on CRC hardware-validation).
@@ -8014,7 +8014,7 @@ Maintainer, and it is now `docs/seam-rules.md` **S-8/S-9/S-10** (version 2): *"i
 **What we owe, and it is a real body of work:**
 
 - Duplicate of **E13. `seam-commands` structural work** — merged 2026-09-30.
-- **[~] Black-box limit probes for every argument we DO send**, run against the real binary rather than read out of the builder: the **real** accepted min/max (the declared type is not the range — `int` says nothing about whether `-1` is taken); behaviour at min, at max and **one past each**; and on a bad value the exit code, the message, and **whether the operation dies or the flag is silently ignored**. That last distinction is the difference between a bad tag and a lost rip: `-t 17=` on a 16-track disc killed a rip in two seconds and the *type* was fine.
+- **[~] Black-box limit probes for every argument we DO send**, run against the real binary rather than read out of the builder: the **real** accepted min/max (the declared type is not the range — `int` says nothing about whether `-1` is taken); behavior at min, at max and **one past each**; and on a bad value the exit code, the message, and **whether the operation dies or the flag is silently ignored**. That last distinction is the difference between a bad tag and a lost rip: `-t 17=` on a 16-track disc killed a rip in two seconds and the *type* was fine.
   - *Audit 2026-09-25: partly done.* scripts/probe_argv_surface.py probes the builder for -r/-S/-Z/-s and tag shapes, not the real binary; -d/-c/-l/-t are not probed.
 - **[ ] The same for our own surface** — every `Config` field and every CLI flag, including ones the GUI cannot set. Same columns, same rule.
 - **[x] `not-probed: <reason>` where hardware or a specific disc is required.** A recorded finding. **A blank reads as "tested and fine"**, which is the failure the file exists to prevent.
@@ -8295,7 +8295,7 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 ### P1 — Install ergonomics follow-ups (2026-06-02)
 
-- **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
+- **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioral + static smoke tests in `tests/test_setup_host_script.py`.
 
 ### ⭐ P1 — Release plan: v0.6.4 (non-beta) — SHIPPED 2026-08-07 (planned here as "PLANNED, NOT CUT")
 
@@ -8675,7 +8675,7 @@ never is.** Laps 8–20 all declare `0.9.4-rc1+platterpus.5-beta.1`, across `900
 underneath it — and one of the changes it spans is a **log value we parse** (track 1's
 `Pregap length:`, the lead-in counted twice). Our classifiers key on the build tag, so
 nothing here broke; a human reading a report's `ripper_version` could not have told which
-behaviour they had. Raised as lap 22 §D1/I2.
+behavior they had. Raised as lap 22 §D1/I2.
 
 - **[x] Platterpus test pin: `v0.6.4b4`** — published pre-release, superseding `b1`.
       Cut when the fork moved their test pin to `c5fb909`, and **the reason is the delivery
@@ -8833,7 +8833,7 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       code task — a question, queued for handshake round 14 and already written into the
       round-13 lap-1 §C3. whipper has explicit session-gap handling
       (`whipper/common/table.py:715, 750`); we have **zero** mentions repo-wide and have
-      never verified cyanrip's behaviour. If a session-2 gap is mishandled every sector
+      never verified cyanrip's behavior. If a session-2 gap is mishandled every sector
       number shifts, which breaks the disc ID and therefore both AccurateRip *and* CTDB —
       silently, across a whole class of discs. Cheap question, large downside; this is a
       "check where it could have failed" case.
@@ -9155,7 +9155,7 @@ Items that are technically achievable but represent significant effort, double t
 
 **Graduated out of the multi-format design-of-record when it was archived (2026-08-06):**
 
-- **[ ] Embed the cover art *inside* the `.wv` (the one open item from the WavPack ship).** WavPack carries art as a **binary APEv2 tag** (`Cover Art (Front)`), and **ffmpeg's WavPack muxer accepts only a single audio stream**, so the shipped transcode path physically cannot embed it. Today's behaviour is a deliberate, working fallback, not a silent gap: whenever a non-embedding format is selected, art is wanted and the disc was identified, the GUI **force-writes the front cover to the album folder as `cover.<ext>`** — even in the default "embed" cover-art mode, which normally embeds in the FLAC and deletes the folder copy. So a WavPack rip *always* has a visible cover; it is folder-level, not embedded. Closing it means registering the standalone **`wavpack`** encoder through the dependency subsystem (Critical rule #6 — no bespoke install code) and routing `.wv` through it instead of ffmpeg, which also needs hardware validation that the resulting `.wv` shows its art in real players. **Deferred, not lost** — this row exists because [`docs/archive/mp3-wav-support-2026-06.md`](docs/archive/mp3-wav-support-2026-06.md) was archived and an open item inside an archived doc is an item nobody will read again. WAV is *not* part of this: RIFF cannot hold art at all, and the UI warns rather than pretending.
+- **[ ] Embed the cover art *inside* the `.wv` (the one open item from the WavPack ship).** WavPack carries art as a **binary APEv2 tag** (`Cover Art (Front)`), and **ffmpeg's WavPack muxer accepts only a single audio stream**, so the shipped transcode path physically cannot embed it. Today's behavior is a deliberate, working fallback, not a silent gap: whenever a non-embedding format is selected, art is wanted and the disc was identified, the GUI **force-writes the front cover to the album folder as `cover.<ext>`** — even in the default "embed" cover-art mode, which normally embeds in the FLAC and deletes the folder copy. So a WavPack rip *always* has a visible cover; it is folder-level, not embedded. Closing it means registering the standalone **`wavpack`** encoder through the dependency subsystem (Critical rule #6 — no bespoke install code) and routing `.wv` through it instead of ffmpeg, which also needs hardware validation that the resulting `.wv` shows its art in real players. **Deferred, not lost** — this row exists because [`docs/archive/mp3-wav-support-2026-06.md`](docs/archive/mp3-wav-support-2026-06.md) was archived and an open item inside an archived doc is an item nobody will read again. WAV is *not* part of this: RIFF cannot hold art at all, and the UI warns rather than pretending.
 
 ---
 
