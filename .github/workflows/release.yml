@@ -196,6 +196,42 @@ jobs:
           fi
           exit "$rc"
 
+      # THE BRANCH GATE (the 2026-10-27 review, item 1.5). The CI gate above asks
+      # whether the commit's checks are green, and a commit on any branch has green
+      # checks once its pull request ran. So a dispatch on a feature branch, or a tag
+      # pushed onto one, could release code that never reached `main`. This refuses
+      # any commit `main` does not contain.
+      #
+      # It needs `main`'s history, and the checkout holds one commit: `$SHA`. A
+      # fetch with no `--depth` brings `main`'s history down to the commits the
+      # clone already has, so walking back from `main`'s tip reaches `$SHA` when
+      # `main` contains it, and never does when it doesn't. (An `--unshallow` was
+      # tried first; `scripts/revert_probe.py` showed the tests pass without it.)
+      # It fetches `main` alone, by name: a plain `git fetch` would also pull the
+      # `evidence` branch, hundreds of MB no release reads (CLAUDE.md, *Enforced
+      # safety*). The fetch is anonymous because the repository is public and the
+      # checkout kept no token (item 1.4). Tri-state like the CI gate: "not an
+      # ancestor" and "could not tell" are both refusals, with different
+      # sentences, because a failed fetch is not evidence the commit is on `main`.
+      - name: Branch gate — refuse to release a commit that is not on main
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if ! git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"; then
+            echo "::error::Could not fetch main, so there is no evidence $SHA is on it. Re-run once GitHub is reachable."
+            exit 1
+          fi
+          rc=0
+          git merge-base --is-ancestor "$SHA" refs/remotes/origin/main || rc=$?
+          case "$rc" in
+            0) echo "branch gate: $SHA is on main ($(git rev-parse --short refs/remotes/origin/main) is its tip). ✅" ;;
+            1) echo "::error::$SHA is not on main. A release is cut from main only: merge the pull request, wait for main's CI, then dispatch this workflow on main."
+               exit 1 ;;
+            *) echo "::error::git merge-base could not compare $SHA with main (exit $rc), so there is no evidence it is on main."
+               exit 1 ;;
+          esac
+
       - name: Changelog gate — refuse to tag with a non-empty [Unreleased]
         # v0.6.12 shipped with six entries still under `[Unreleased]`, describing
         # work that IS in that tag. Nothing caught it: the version-bump gate
