@@ -122,8 +122,8 @@ Fetcher = Callable[[str], bytes]
 
 
 def _default_fetcher(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310 — the coverartarchive.org https templates, or a URL that passed image_url_is_ours (http(s) on its own hosts)
+    with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:  # noqa: S310 — URLs are the coverartarchive.org https templates or a URL that passed image_url_is_ours (http(s) on its own hosts)
         # Read one byte past the cap so the caller can tell "at the cap"
         # from "over the cap".
         body: bytes = response.read(_MAX_BYTES + 1)

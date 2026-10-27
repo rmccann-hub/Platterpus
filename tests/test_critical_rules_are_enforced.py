@@ -1230,7 +1230,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1946 -> 1976** (2026-10-26, round 36 lap 7 S3): `--prefer-accuraterip-match` through the argv chokepoint on every rip, gated on the build tag beside `--prefer-disc-isrc`'s gate.
     # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **1983 -> 1998** (2026-10-26, TASKS R88, the owner's interim): the argv chokepoint calls `cyanrip_name_lengths.assert_names_fit`, so no route to the ripper skips the name-length check; the check itself lives in its own module.
-    "adapters/cyanrip_backend.py": 1998,
+    # **1998 -> 1999** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "adapters/cyanrip_backend.py": 1999,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     "adapters/musicbrainz_client.py": 618,
@@ -1302,13 +1303,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1573 -> 1482** (2026-10-21, the timed rip): lowered: the `--install-ripper` body moved to `deps/ripper_install.py`, so the `install-ripper` script verb and the flag are two thin callers of one function.
     # **1573 -> 1581** (2026-10-21, TASKS P2 #5): the unattended quit's give-up asks the window to record the cut-short verification in the report before `app.quit()`.
     # **-> 1490** (2026-10-21): the entries above landed together on one branch.
-    "app.py": 1490,
+    # **1490 -> 1495** (2026-10-27, external review item 3.4): the default `--rig-session` folder is stamped in UTC, with the reason (ruff DTZ005).
+    "app.py": 1495,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
     # app-id the file is named for. A guessed string here fails silently -- the
     # pin simply stays dark -- so the derivation is worth more than the line.
-    "appimage_integration.py": 349,
+    # **349 -> 352** (2026-10-27, external review item 3.4): `gio` is launched by the path `which` found, not its bare name (ruff S607).
+    "appimage_integration.py": 352,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
     # **784 -> 806 (2026-09-23)**: `APP_STATE_FIELDS`, the one list of fields the app
     # writes for itself, which Settings carries over and the acceptance restore
@@ -1596,7 +1599,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # evidence in different files. Roughly 40% of the lines are the comments
     # explaining why each bound and each tri-state is there, which the cohesion
     # heuristic is explicitly not meant to punish.
-    "deps/ripper_wrapper_probe.py": 510,
+    # **510 -> 511** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "deps/ripper_wrapper_probe.py": 511,
     # **663 -> 688 (2026-09-25)**: the default wizard keeps the build under review, records that it did, and says so in its 'already present' line.
     # **688 -> 695** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` build of the target is not the target installed, so the wizard builds the clean one over it.
     "deps/host_setup.py": 695,
@@ -1648,7 +1652,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
     # **565 -> 834** (2026-10-05, the fork's round 30 lap 9 S28): `second_signal_refusal`, the predicate that keeps the rescue and the shutdown stop from sending a native cyanrip our cancel already reached its second SIGTERM, and `term_unsignalled_holders` / `device_holders` / `parse_fuser_pids`, which ask `fuser` who holds the drive before signalling. Beside `free_device_holders` and `stop_reader_gracefully` because it is the first step of the same kill sequence (rule #3's one scoped exception); the most of it is the docstrings saying why each path is safe.
     # **834 -> 838** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the one `term_unsignalled_holders` arm that returned with no line (no holder, after a cancel that reached a process) now logs its outcome, because `sigterm-world` reads the outcome from the log and a silent arm reads as no rescue.
-    "drive_control.py": 838,
+    # **838 -> 839** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "drive_control.py": 839,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
     "drive_profiles.py": 452,
@@ -1718,7 +1723,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2117 -> 2123** (2026-10-26, `.27`, round 36 lap 8 S21): the not-determined `Pre-gap length` row names what the search saw; the wording is `pregap_search.describe`.
     # **2123 -> 2189** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): a track OUR proposed time limit stopped is worded by that limit, never as reads that disagreed: `_stopped_by_time_limit`, its own `Read stability` line, the verdict line, and `_agreement_clause` split out of `_reread_shortfall` so both wordings share it. The limit itself is read in `reread_limit.py`.
     # **2189 -> 2217** (2026-10-26, peer review 2.5): `_screen_rows`, every row through `inbound_text.screen_line` at the one place the rows are joined, so a value holding a line break cannot add a row above the checksum. It belongs at the join it guards.
-    "eac_log_export.py": 2217,
+    # **2217 -> 2220** (2026-10-27, external review item 3.4): why the zone-less strptime fallback stays naive (ruff DTZ007).
+    "eac_log_export.py": 2220,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1849,7 +1855,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
     # the gate itself lives in `container_gate.py`.
-    "killable.py": 323,
+    # **323 -> 324** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "killable.py": 324,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -2113,7 +2120,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **998 -> 1009** (landed 2026-09-29, written 2026-09-28 as `167e0d4c`): the reference argv's `-r`/`-Z` come from `Config()` instead of a hand-typed `-r 3 -Z 3`, a pair that can never converge and that the argv chokepoint now refuses; the comment says so.
     # **1009 -> 1012** (2026-10-06, ruling C1): `_rip_failure` phrases each pass's exit through `rip_pass_exit.PassExits`, the one phrasing every reader shares; the phrasing itself lives there.
     # **1012 -> 1018** (2026-10-13, round 32 lap 5 S11): `DIAGNOSTICS_FLAG` is imported from `diagnostics_record` rather than spelled here, with the reason (two copies could strip one spelling and append the other); the cache-probe row names `--cache-probe`.
-    "rig_check.py": 1018,
+    # **1018 -> 1020** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "rig_check.py": 1020,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
@@ -2289,7 +2297,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1209 -> 1223** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     "settings_validation.py": 1223,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
-    "sleep_inhibit.py": 600,
+    # **600 -> 601** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
+    "sleep_inhibit.py": 601,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
     # on the maintainer's "stop polluting my home directory" instruction. The
@@ -2465,7 +2474,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `QMessageBox` import it no longer needs out): every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup.
     # 934 -> 962 on 2026-09-28 (code review R8): the dependency sentence moves from a temporary status-bar message, which opening any menu wiped, to a status-bar label built here beside the one method that writes it; a silent check now replaces a sentence already on screen (it no longer vanishes on its own), which retires the overdue-only flag.
     # **962 -> 965** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
-    "ui/main_window_deps.py": 965,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **965 -> 969** (2026-10-27, external review item 3.4): the status-bar clock is made explicitly local, with why it is local (ruff DTZ005).
+    "ui/main_window_deps.py": 969,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2634,7 +2644,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 5120** (2026-10-26): the entries above landed together on one branch.
     # **5120 -> 5127** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `_merge_shipped_track` carries the limit that stopped the reads with the verdict it describes.
     # **5127 -> 5160** (2026-10-26, TASKS R88, the owner's interim): `_rip_naming_for`, the snapshot the track table checks names against at Start, built from the same `_rip_metadata_for` the rip is handed; `_only_tracks_for_rip` is the selection both now read.
-    "ui/main_window_rip.py": 5160,
+    # **5160 -> 5178** (2026-10-27, external review item 3.2): the GUI-thread check in `run_unknown_post_processing` is a raise of `OffGuiThreadWidgetRead` instead of an `assert` that `python -O` strips; the exception class sits beside the one method that raises it, with the reason it is not an assert.
+    "ui/main_window_rip.py": 5178,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3102,7 +3113,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/bommap/reading.py": 326,
     "scripts/bommap/render.py": 359,
     "scripts/bommap/ripper_entries.py": 340,
-    "scripts/bommap/tool_entries.py": 385,
+    "scripts/bommap/tool_entries.py": 381,
     # **472** (2026-10-07, KDD-42 W4): joined at birth, recorded with its reason
     # rather than split to hit the number. One job, a walkthrough run folder in and
     # the guide's images folder out, whose parts have no second caller: the burst
@@ -3174,7 +3185,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4559 -> 4564** (2026-10-21): `_QUOTATION_OR_CODE` bounded at 4000 characters a span, with five lines saying why (the regex timing sweep measured the unbounded form growing faster than its input).
     # **4564 -> 4568** (2026-10-21): K1's refusal narrowed to the same lap number, as the protocol says, with four lines of why.
     # **4568 -> 4583** (2026-10-21, the fork's round 36 lap 5 S15): the close-by report compares every later lap, either side's, with the first declaration.
-    "scripts/handshake.py": 4583,
+    # **4583 -> 4586** (2026-10-27, external review item 3.4): `--announce` dates a release in UTC, not the local day (ruff DTZ011).
+    "scripts/handshake.py": 4586,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.
@@ -3386,7 +3398,7 @@ def test_the_size_ratchet_measures_every_committed_module_outside_tests() -> Non
     `conftest.TOOLING_GLOBS`, fails here by name rather than leaving the ratchet
     green over a population that quietly stopped including it.
     """
-    listing = subprocess.run(  # noqa: S603 — fixed argv, no shell
+    listing = subprocess.run(  # fixed argv, no shell
         ["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "*.py"],
         capture_output=True,
         text=True,
@@ -3871,3 +3883,111 @@ def test_only_setup_and_the_scoped_exception_enter_the_container() -> None:
     )
     stale = sorted(set(_CONTAINER_TOOL_ALLOWED) - running)
     assert not stale, f"allowlisted but no longer running one; remove them: {stale}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# `assert` in shipped code only narrows a type; it never guards behaviour.
+#
+# `python -O` deletes every `assert`, so an assert that checks a caller's
+# precondition (which thread we are on, whether an argument is in range) is a
+# check that disappears under an interpreter flag. The one that did that —
+# `run_unknown_post_processing` asserting the GUI thread — is a raise now
+# (external review of 2026-10-27, item 3.2). What remains is the shape mypy
+# needs: `x is not None` / `isinstance(x, T)`, stating a fact the line above
+# already established, whose removal changes no behaviour a correct program
+# can reach. Anything else in an `assert` is refused here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _assert_only_narrows(test: ast.expr) -> bool:
+    """True when an assert's condition is purely type narrowing.
+
+    Allowed: ``x is not None``, ``isinstance(x, T)``, and ``and`` of those.
+    """
+    if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And):
+        return all(_assert_only_narrows(value) for value in test.values)
+    if (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], ast.IsNot)
+        and isinstance(test.comparators[0], ast.Constant)
+        and test.comparators[0].value is None
+    ):
+        return True
+    return (
+        isinstance(test, ast.Call)
+        and isinstance(test.func, ast.Name)
+        and test.func.id == "isinstance"
+    )
+
+
+def test_asserts_in_src_only_narrow_types() -> None:
+    """Every `assert` under `src/platterpus` is type narrowing, nothing more."""
+    examined = 0
+    behavioural: list[str] = []
+    for rel, tree in _src_trees():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assert):
+                examined += 1
+                if not _assert_only_narrows(node.test):
+                    behavioural.append(f"{rel}:{node.lineno}: {ast.unparse(node.test)}")
+    # Floor: 15 narrowing asserts measured on 2026-10-27. Well under that still
+    # catches a scan that walked nothing.
+    assert examined >= 8, f"only {examined} assert(s) found; the scan is blind"
+    assert not behavioural, (
+        "these asserts check behaviour, and `python -O` removes them; raise a "
+        "specific exception (or log and refuse) instead:\n  " + "\n  ".join(behavioural)
+    )
+
+
+def test_the_assert_detector_fires_and_does_not_over_fire() -> None:
+    """The detector refuses the shape that shipped and allows the narrowing ones."""
+
+    def condition(source: str) -> ast.expr:
+        statement = ast.parse(source).body[0]
+        assert isinstance(statement, ast.Assert)
+        return statement.test
+
+    # The shape that was removed from main_window_rip.py.
+    assert not _assert_only_narrows(
+        condition("assert threading.current_thread() is threading.main_thread()")
+    )
+    assert not _assert_only_narrows(condition("assert count > 0"))
+    assert not _assert_only_narrows(condition("assert x is not None and x > 0"))
+    assert not _assert_only_narrows(condition("assert x is None"))
+    assert _assert_only_narrows(condition("assert proc.stdout is not None"))
+    assert _assert_only_narrows(condition("assert isinstance(ar, Result)"))
+    assert _assert_only_narrows(
+        condition("assert a is not None and isinstance(b, int)")
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The lint rules that make a `noqa` marker mean something stay selected.
+#
+# A suppression marker is only a record of a hand-check while the rule it names
+# is enabled and `RUF100` would flag it once it stopped suppressing anything.
+# Before 2026-10-27 (external review items 3.4 and 3.5) 140 markers named rules
+# nothing enabled. These rules are what keeps that from recurring, so dropping
+# one from `select` is a decision this test makes visible.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_ruff_keeps_the_rules_that_give_noqa_markers_meaning() -> None:
+    import tomllib
+
+    lint = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "tool"
+    ]["ruff"]["lint"]
+    selected = set(lint["select"])
+    for rule in ("S", "DTZ", "BLE001", "RUF100"):
+        assert rule in selected, f"ruff no longer selects {rule}"
+    # BLE001 markers on handlers that log are required by
+    # `test_every_broad_except_says_why`, though ruff would not fire there;
+    # `external` is what stops RUF100 from deleting them.
+    assert "BLE001" in lint.get("external", []), (
+        "BLE001 is not `external`: RUF100 will remove the markers "
+        "test_every_broad_except_says_why requires"
+    )
+    # The security rules are ignored wholesale only where measured and argued.
+    assert "S" not in lint.get("ignore", []) and "DTZ" not in lint.get("ignore", [])

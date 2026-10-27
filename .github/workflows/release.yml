@@ -12,10 +12,12 @@ on:
   push:
     tags:
       - "v*"
-  # Manual trigger that CREATES the tag itself (via `gh release create
-  # --target`). Exists because tag pushes aren't possible from every
-  # environment (the cloud session's git proxy 403s tag refs) — this lets a
-  # release be cut by dispatching the workflow on main with the tag name.
+  # Manual trigger that CREATES the tag itself (an annotated tag, made by the
+  # "Tag the release commit" step since 2026-10-27; `gh release create
+  # --target` made a lightweight one before). Exists because tag pushes aren't
+  # possible from every environment (the cloud session's git proxy 403s tag
+  # refs) — this lets a release be cut by dispatching the workflow on main
+  # with the tag name. The branch gate refuses any other branch.
   workflow_dispatch:
     inputs:
       tag:
@@ -29,6 +31,21 @@ on:
 # for every workflow.
 permissions:
   contents: read
+
+# ONE RELEASE PER TAG AT A TIME, NONE CANCELLED (the 2026-10-27 review, item
+# 2.7). A release is never cut off halfway, so `cancel-in-progress` is false.
+# The group is the tag: two runs for one tag at once (a dispatch and a re-dispatch,
+# or a dispatch and a hand-pushed tag) would both build, and both upload into one
+# draft, and the draft could end up with one run's AppImage beside the other's
+# attestation, which the updater refuses. Queued, the second run starts after the
+# first has finished and meets its result: the tag step reuses the tag, and the
+# publish step finishes a leftover draft or refuses a published release. If a
+# third run for the same tag arrives while the second waits, GitHub drops the
+# waiting one, which has not started; the newest still runs. Different tags do
+# not wait for each other.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build-and-release:
@@ -51,12 +68,25 @@ jobs:
     # for six hours while a maintainer waits on a release that will never appear.
     timeout-minutes: 60
     steps:
+      # THE TOKEN IS NOT LEFT IN .git/config (the 2026-10-27 review, item 1.4).
+      # By default checkout writes this job's token, which can write to the
+      # repository, into the clone's git config, where every later step can read
+      # it: the pip installs, python-appimage's downloads and the build script
+      # among them. No step needs it there. The `gh` calls take GH_TOKEN from
+      # their own step's env, and nothing here runs `git push` or an
+      # authenticated `git fetch`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
+      # NO `cache: pip` HERE, on purpose (the 2026-10-27 review, item 1.3). This
+      # job publishes what users install, and a restored pip cache is input that
+      # another run wrote: zizmor rates a build cache in a publishing workflow as
+      # cache poisoning (high). The release runs a few times a month, so the
+      # minute a cold install costs is not worth the risk.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-          cache: pip
 
       # THE HANDSHAKE RECORD, printed before every release (CLAUDE.md critical rule
       # #12 / docs/cyanrip-handshake.md §7). Protocol v8 §6b (E1), landed
@@ -182,6 +212,42 @@ jobs:
             echo "All required CI checks are green on $SHA. ✅"
           fi
           exit "$rc"
+
+      # THE BRANCH GATE (the 2026-10-27 review, item 1.5). The CI gate above asks
+      # whether the commit's checks are green, and a commit on any branch has green
+      # checks once its pull request ran. So a dispatch on a feature branch, or a tag
+      # pushed onto one, could release code that never reached `main`. This refuses
+      # any commit `main` does not contain.
+      #
+      # It needs `main`'s history, and the checkout holds one commit: `$SHA`. A
+      # fetch with no `--depth` brings `main`'s history down to the commits the
+      # clone already has, so walking back from `main`'s tip reaches `$SHA` when
+      # `main` contains it, and never does when it doesn't. (An `--unshallow` was
+      # tried first; `scripts/revert_probe.py` showed the tests pass without it.)
+      # It fetches `main` alone, by name: a plain `git fetch` would also pull the
+      # `evidence` branch, hundreds of MB no release reads (CLAUDE.md, *Enforced
+      # safety*). The fetch is anonymous because the repository is public and the
+      # checkout kept no token (item 1.4). Tri-state like the CI gate: "not an
+      # ancestor" and "could not tell" are both refusals, with different
+      # sentences, because a failed fetch is not evidence the commit is on `main`.
+      - name: Branch gate — refuse to release a commit that is not on main
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if ! git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"; then
+            echo "::error::Could not fetch main, so there is no evidence $SHA is on it. Re-run once GitHub is reachable."
+            exit 1
+          fi
+          rc=0
+          git merge-base --is-ancestor "$SHA" refs/remotes/origin/main || rc=$?
+          case "$rc" in
+            0) echo "branch gate: $SHA is on main ($(git rev-parse --short refs/remotes/origin/main) is its tip). ✅" ;;
+            1) echo "::error::$SHA is not on main. A release is cut from main only: merge the pull request, wait for main's CI, then dispatch this workflow on main."
+               exit 1 ;;
+            *) echo "::error::git merge-base could not compare $SHA with main (exit $rc), so there is no evidence it is on main."
+               exit 1 ;;
+          esac
 
       - name: Changelog gate — refuse to tag with a non-empty [Unreleased]
         # v0.6.12 shipped with six entries still under `[Unreleased]`, describing
@@ -325,7 +391,13 @@ jobs:
         run: |
           work="$(mktemp -d)"
           (cd "$work" && "$GITHUB_WORKSPACE/platterpus-x86_64.AppImage" --appimage-extract >/dev/null)
-          py="$(ls "$work"/squashfs-root/opt/python*/bin/python3* | head -1)"
+          # The first match of the glob, as `ls | head -1` gave it, without
+          # parsing ls (ShellCheck SC2012, via actionlint).
+          py=""
+          for candidate in "$work"/squashfs-root/opt/python*/bin/python3*; do
+            if [ -f "$candidate" ]; then py="$candidate"; break; fi
+          done
+          test -n "$py"
           echo "bundled interpreter: $py"
           PYTHONNOUSERSITE=1 "$py" scripts/check_bundled_verifier.py --bundle-root "$work/squashfs-root"
 
@@ -347,7 +419,7 @@ jobs:
       # 404ing (see "Publish to GitHub Release") has to cover this asset as well.
       - name: Attest AppImage build provenance
         id: attest
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: platterpus-x86_64.AppImage
 
@@ -374,6 +446,78 @@ jobs:
             --artifact platterpus-x86_64.AppImage \
             --version "${TAG#v}" \
             --out platterpus-x86_64.AppImage.sigstore.json
+
+      # AN ANNOTATED TAG ON THE RELEASE COMMIT (the 2026-10-27 review, item 2.8).
+      # Until this step, `gh release create --target` made the tag, and GitHub
+      # makes that one LIGHTWEIGHT: a bare pointer with no tagger, no date and no
+      # message, so `git show vX.Y.Z` could not say who tagged what or when. This
+      # makes an annotated tag, tagged by github-actions[bot], pushes it, and the
+      # publish step below then uses `--verify-tag`, which refuses to create a tag
+      # of its own. Tags already published stay as they are (KDD-37, D7).
+      #
+      # Last before publishing, after every gate, so a refused release leaves no
+      # tag behind. It works under the repository's rules: the `v*` tag ruleset
+      # allows creation and blocks moves and deletes (KDD-43), and this step only
+      # ever creates. So a re-run is safe in both directions:
+      #   * the tag exists on THIS commit (a re-run, or a tag someone pushed):
+      #     use it, and say so; a lightweight one is used with a warning;
+      #   * the tag exists on ANOTHER commit: refuse, because a tag here cannot
+      #     move, and the fix is a new version.
+      #
+      # The push is the one git command in this workflow that needs a credential.
+      # The checkout kept none (item 1.4), so the token is handed to that one
+      # command the way actions/checkout itself does it, as an HTTP header, and
+      # nothing else in the job can read it from .git/config. Pushing with the
+      # job's own token does not start another run of this workflow: GitHub
+      # starts no workflow for a push made with GITHUB_TOKEN.
+      - name: Tag the release commit (annotated)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # What GitHub holds under this name: the tag's own object, and for an
+          # annotated tag a second `^{}` line naming the commit it points to.
+          # ls-remote prints that line only when it is asked for by name.
+          read_remote_tag() {
+            if ! listing="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")"; then
+              echo "::error::Could not read tag $TAG from GitHub, so it is unknown whether it exists. Re-run once GitHub is reachable."
+              exit 1
+            fi
+            object="$(printf '%s\n' "$listing" | awk -v r="refs/tags/$TAG" '$2 == r { print $1 }')"
+            peeled="$(printf '%s\n' "$listing" | awk -v r="refs/tags/$TAG^{}" '$2 == r { print $1 }')"
+          }
+          read_remote_tag
+          if [ -z "$object" ]; then
+            # The tagger. Set through the committer variables, which outrank
+            # any user.name / user.email in git's configuration.
+            GIT_COMMITTER_NAME="github-actions[bot]" \
+            GIT_COMMITTER_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
+                git tag -a "$TAG" -m "Platterpus $TAG" "$SHA"
+            basic="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            echo "::add-mask::$basic"
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $basic" \
+                push origin "refs/tags/$TAG"
+            # Believe GitHub, not the push's exit code: read the tag back.
+            read_remote_tag
+            if [ -z "$peeled" ] || [ "$peeled" != "$SHA" ]; then
+              echo "::error::Pushed $TAG, but GitHub does not show it as an annotated tag on $SHA (object '${object:-none}', commit '${peeled:-none}')."
+              exit 1
+            fi
+            echo "tag: created annotated $TAG on $SHA."
+            exit 0
+          fi
+          commit="${peeled:-$object}"
+          if [ "$commit" != "$SHA" ]; then
+            echo "::error::Tag $TAG already exists on $commit, not on $SHA. Tags here cannot move (the v* ruleset), so cut a new version instead."
+            exit 1
+          fi
+          if [ -z "$peeled" ]; then
+            echo "::warning::Tag $TAG already exists on $SHA but is LIGHTWEIGHT (no tagger, no date). It is used as it is, because a tag here cannot be replaced."
+          else
+            echo "tag: annotated $TAG already exists on $SHA; using it."
+          fi
 
       - name: Publish to GitHub Release
         env:
@@ -427,16 +571,21 @@ jobs:
             # Error 404" (real-user report on v0.4.0). gh uploads all assets as
             # part of `create`, so by the time we flip the draft off they're all
             # present.
+            #
+            # `--verify-tag`: the step above made the annotated tag, and this
+            # refuses to run if it is missing rather than letting GitHub make a
+            # lightweight one in its place, as the old target flag did (review
+            # item 2.8).
             gh release create "$TAG" \
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
               platterpus-x86_64.AppImage.sigstore.json \
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh \
               --title "Platterpus $TAG" \
-              --target "$GITHUB_SHA" \
+              --verify-tag \
               --generate-notes \
               --draft \
-              $PRERELEASE
+              ${PRERELEASE:+"$PRERELEASE"}
             # Every asset is attached — publish atomically (keeps the prerelease
             # flag set at create time).
             gh release edit "$TAG" --draft=false

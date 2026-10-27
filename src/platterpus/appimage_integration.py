@@ -238,7 +238,7 @@ def _default_refresh() -> None:
         try:
             # Popen (not run): start it and move on — never wait. start_new_session
             # detaches it so it isn't tied to our process group.
-            subprocess.Popen(
+            subprocess.Popen(  # noqa: S603 — fixed argv from the list above, each found on PATH first, no shell
                 argv,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -336,11 +336,14 @@ def _mark_trusted(shortcut: Path) -> None:
     would freeze the window — the same blocking-on-the-GUI-thread class as
     the kbuildsycoca freeze fixed 2026-06-13. We don't need the result.
     """
-    if shutil.which("gio") is None:
+    # Run the gio that `which` found, not the bare name: the check and the
+    # launch then name the same file (ruff S607, external review 2026-10-27).
+    gio = shutil.which("gio")
+    if gio is None:
         return
     try:
-        subprocess.Popen(
-            ["gio", "set", str(shortcut), "metadata::trusted", "true"],
+        subprocess.Popen(  # noqa: S603 — fixed argv with gio's resolved path, no shell
+            [gio, "set", str(shortcut), "metadata::trusted", "true"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,

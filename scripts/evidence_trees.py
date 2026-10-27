@@ -26,13 +26,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from evidence_manifest import (  # noqa: E402 - needs the path line above
+from evidence_manifest import (  # needs the path line above
     MOVING_FOLDERS,
     git,
     manifest_text,
     stays_on_default,
 )
-from laplang.evidence import (  # noqa: E402 - needs the path line above
+from laplang.evidence import (  # needs the path line above
     MANIFEST_PATH,
     Fetcher,
     parse_manifest,

@@ -157,17 +157,13 @@ def test_the_inbound_exclusion_covers_only_received_records() -> None:
 _MIN_SHELL_SCRIPTS: int = 10
 
 #: Scripts that legitimately do NOT set `pipefail`, each with the technical reason.
-#: A ratchet: it may shrink, never grow. Both entries are the same real hazard —
+#: A ratchet: it may shrink, never grow (the AppImage entrypoint left it on 2026-10-27,
+#: when its `ls | head -1` became a glob loop). The entry is a real hazard —
 #: `producer | head -1` makes the producer see SIGPIPE when `head` exits early, so
 #: under `pipefail` + `set -e` the script would abort on a working command. That is
 #: a reason to omit pipefail, not an oversight, and it is written down so the next
 #: reader does not "fix" it and break a launcher.
 _NO_PIPEFAIL_ALLOWED: dict[str, str] = {
-    "build/python-appimage/entrypoint.sh": (
-        'line 13 is `ls "$APPDIR"/opt/python*/bin/python* | head -1`; under '
-        "pipefail the early-exiting `head` makes `ls` fail and `set -e` would "
-        "abort the AppImage launcher on a healthy install"
-    ),
     "docs/rig-scripts/platterpuscollect.sh": (
         "line 60 is `... | sort -rn | head -1 | cut ...`, the same early-exit "
         "SIGPIPE shape; the script runs on an operator's machine where aborting "

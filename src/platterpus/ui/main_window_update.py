@@ -87,7 +87,7 @@ def _relaunch_env() -> dict[str, str]:
     # default mount prefix is /tmp/.mount_ — match either so we catch the mount
     # even if $APPDIR is somehow unset.
     appdir = (os.environ.get("APPDIR") or "").strip()
-    markers = [m for m in (appdir, "/tmp/.mount_") if m]
+    markers = [m for m in (appdir, "/tmp/.mount_") if m]  # noqa: S108 — the AppImage runtime's mount prefix, matched in paths, never created or written
 
     def _into_old_mount(segment: str) -> bool:
         return any(marker in segment for marker in markers)
@@ -937,7 +937,7 @@ class UpdateMixin(MainWindowShared):
         if dialog is not None:
             try:
                 dialog.close()
-            except Exception:  # noqa: BLE001 — closing UI must never block the flow
+            except Exception:  # noqa: BLE001, S110 — closing UI must never block the flow
                 pass
         self._install_worker = None
         self._install_thread = None

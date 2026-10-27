@@ -73,7 +73,7 @@
       },
       {
         "name": "platterpus:count:host-tool",
-        "value": "29"
+        "value": "28"
       },
       {
         "name": "platterpus:count:desktop",
@@ -85,11 +85,11 @@
       },
       {
         "name": "platterpus:count:python-dev",
-        "value": "7"
+        "value": "8"
       },
       {
         "name": "platterpus:count:python-build",
-        "value": "8"
+        "value": "10"
       },
       {
         "name": "platterpus:count:ci-action",
@@ -97,7 +97,7 @@
       },
       {
         "name": "platterpus:count:ci-tool",
-        "value": "11"
+        "value": "12"
       },
       {
         "name": "platterpus:count:ci-runner",
@@ -105,7 +105,7 @@
       },
       {
         "name": "platterpus:count:service",
-        "value": "15"
+        "value": "14"
       }
     ]
   },
@@ -1222,32 +1222,6 @@
     },
     {
       "type": "application",
-      "bom-ref": "tool-host:curl",
-      "name": "curl",
-      "isExternal": true,
-      "description": "Fetches the upstream Distrobox installer on an unrecognised distro.",
-      "scope": "optional",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "host-tool"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/host_setup.py"
-        },
-        {
-          "name": "platterpus:runs-in",
-          "value": "host"
-        },
-        {
-          "name": "platterpus:version-basis",
-          "value": "not checked; whatever the system provides"
-        }
-      ]
-    },
-    {
-      "type": "application",
       "bom-ref": "tool-host:distrobox",
       "name": "distrobox",
       "isExternal": true,
@@ -1842,7 +1816,7 @@
       "bom-ref": "tool-host:sh",
       "name": "sh",
       "isExternal": true,
-      "description": "Runs the fork's build, install and verify scripts in the container, and the upstream Distrobox installer on an unrecognised distro.",
+      "description": "Runs the fork's build, install and verify scripts in the container.",
       "scope": "required",
       "properties": [
         {
@@ -1851,11 +1825,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py"
+          "value": "src/platterpus/deps/fork_source.py"
         },
         {
           "name": "platterpus:runs-in",
-          "value": "ripping container; host for the Distrobox installer"
+          "value": "ripping container"
         },
         {
           "name": "platterpus:version-basis",
@@ -2129,6 +2103,39 @@
     },
     {
       "type": "library",
+      "bom-ref": "pypi:pip-audit",
+      "name": "pip-audit",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pip-audit",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml, .github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=2.10.1,<2.11"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "yes (pinned to the measured minor, Critical rule #11)"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pypi:pytest",
       "name": "pytest",
       "description": "The test runner.",
@@ -2265,6 +2272,32 @@
     },
     {
       "type": "application",
+      "bom-ref": "pypi:actionlint-py",
+      "name": "actionlint-py",
+      "description": "Lints the workflow files (syntax and expressions).",
+      "scope": "excluded",
+      "purl": "pkg:pypi/actionlint-py",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "pyproject.toml [project.optional-dependencies].ci-lint (installed by .github/workflows/ci.yml)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].ci-lint (installed by .github/workflows/ci.yml)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=1.7.12,<1.8"
+        }
+      ]
+    },
+    {
+      "type": "application",
       "bom-ref": "pypi:build",
       "name": "build",
       "description": "PEP 517 frontend: builds the wheel and sdist.",
@@ -2277,15 +2310,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh, pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; unpinned in .github/workflows/publish-pypi.yml (publish)"
+          "value": ">=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; >=1.6.1,<1.7 in pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         }
       ]
     },
@@ -2334,32 +2367,6 @@
         {
           "name": "platterpus:pin-enforced-in",
           "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
-        },
-        {
-          "name": "platterpus:constraint",
-          "value": "unpinned"
-        }
-      ]
-    },
-    {
-      "type": "application",
-      "bom-ref": "pypi:pip-audit",
-      "name": "pip-audit",
-      "description": "The gating vulnerability audit of the resolved runtime graph.",
-      "scope": "excluded",
-      "purl": "pkg:pypi/pip-audit",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "python-build"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (pip-audit)"
-        },
-        {
-          "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (pip-audit)"
         },
         {
           "name": "platterpus:constraint",
@@ -2421,6 +2428,32 @@
     },
     {
       "type": "application",
+      "bom-ref": "pypi:shellcheck-py",
+      "name": "shellcheck-py",
+      "description": "Checks the shell scripts.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/shellcheck-py",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "pyproject.toml [project.optional-dependencies].ci-lint (installed by .github/workflows/ci.yml)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].ci-lint (installed by .github/workflows/ci.yml)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=0.11.0.1,<0.12"
+        }
+      ]
+    },
+    {
+      "type": "application",
       "bom-ref": "pypi:twine",
       "name": "twine",
       "description": "Checks the wheel and sdist before the PyPI upload.",
@@ -2433,15 +2466,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/publish-pypi.yml (publish)"
+          "value": "pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/publish-pypi.yml (publish)"
+          "value": "pyproject.toml [project.optional-dependencies].publish (installed by .github/workflows/publish-pypi.yml)"
         },
         {
           "name": "platterpus:constraint",
-          "value": "unpinned"
+          "value": ">=7.0.0,<7.1"
         }
       ]
     },
@@ -2473,10 +2506,36 @@
     },
     {
       "type": "application",
+      "bom-ref": "pypi:zizmor",
+      "name": "zizmor",
+      "description": "Audits the workflow files for security problems, offline.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/zizmor",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "pyproject.toml [project.optional-dependencies].ci-lint (installed by .github/workflows/ci.yml)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].ci-lint (installed by .github/workflows/ci.yml)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=1.31.1,<1.32"
+        }
+      ]
+    },
+    {
+      "type": "application",
       "bom-ref": "gha:actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
       "group": "actions",
       "name": "attest-build-provenance",
-      "version": "v4",
+      "version": "v4.1.1",
       "description": "Signs the release AppImage's build-provenance attestation.",
       "scope": "excluded",
       "purl": "pkg:github/actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
@@ -2509,7 +2568,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v4"
+          "value": "v4.1.1"
         }
       ]
     },
@@ -2535,7 +2594,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -2560,7 +2619,7 @@
       "bom-ref": "gha:pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
       "group": "pypa",
       "name": "gh-action-pypi-publish",
-      "version": "release/v1",
+      "version": "v1.14.1",
       "description": "Publishes the wheel and sdist to PyPI.",
       "scope": "excluded",
       "purl": "pkg:github/pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
@@ -2593,7 +2652,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "release/v1"
+          "value": "v1.14.1"
         }
       ]
     },
@@ -2619,7 +2678,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -2740,6 +2799,28 @@
         {
           "name": "platterpus:version-basis",
           "value": "not pinned; whatever the runner or tool cache provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "apt:fonts-dejavu-core",
+      "name": "fonts-dejavu-core",
+      "description": "Installed with apt-get on the runner.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/fonts-dejavu-core",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
         }
       ]
     },
@@ -2990,7 +3071,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pinned",
@@ -3170,39 +3251,6 @@
         {
           "name": "platterpus:when",
           "value": "setup (the wizard and --install-ripper, inside the container)"
-        }
-      ]
-    },
-    {
-      "bom-ref": "svc:distrobox-installer",
-      "provider": {
-        "name": "89luca89/distrobox"
-      },
-      "name": "Distrobox upstream installer",
-      "description": "Installs Distrobox where no known package manager applies.",
-      "endpoints": [
-        "https://raw.githubusercontent.com/89luca89/distrobox/main/install"
-      ],
-      "authenticated": false,
-      "x-trust-boundary": true,
-      "data": [
-        {
-          "flow": "inbound",
-          "classification": "installer script"
-        }
-      ],
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "service"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/host_setup.py"
-        },
-        {
-          "name": "platterpus:when",
-          "value": "setup (only on an unrecognised distro)"
         }
       ]
     },
@@ -3580,7 +3628,6 @@
         "svc:github-releases-api",
         "tool-host:apt-get",
         "tool-host:bash",
-        "tool-host:curl",
         "tool-host:distrobox",
         "tool-host:distrobox-enter",
         "tool-host:dnf",
@@ -3664,7 +3711,6 @@
     {
       "ref": "tool-host:distrobox",
       "dependsOn": [
-        "svc:distrobox-installer",
         "tool-host:docker",
         "tool-host:podman"
       ]

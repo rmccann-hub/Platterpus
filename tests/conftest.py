@@ -231,6 +231,37 @@ def print_coverage_report(session: pytest.Session, reporter: object) -> None:
         )
 
 
+#: The variable CI sets to the file the collected-test count is written to. The
+#: same name `scripts/check_test_count.py` documents as `COUNT_FILE_ENV`.
+TEST_COUNT_FILE_ENV: str = "PLATTERPUS_TEST_COUNT_FILE"
+
+
+def write_collected_count(session: pytest.Session) -> Path | None:
+    """Write the number of tests this session collected, if CI asked for it.
+
+    Called by the CONTROLLER only. Under pytest-xdist the controller's
+    `session.testscollected` is the whole run's collection (measured 2026-10-27,
+    `-n 2` over two modules: 47, the same as a serial run), so the number speaks
+    for every worker. Returns the path written, or None when the variable is
+    unset or the write failed: a count we could not write must not change the
+    run's status, and CI's check refuses a missing count on its own.
+    """
+    import os
+
+    target = os.environ.get(TEST_COUNT_FILE_ENV, "").strip()
+    if not target:
+        return None
+    path = Path(target)
+    try:
+        path.write_text(f"{int(session.testscollected)}\n", encoding="utf-8")
+    except OSError:
+        __import__("logging").getLogger(__name__).exception(
+            "could not write the collected-test count to %s", path
+        )
+        return None
+    return path
+
+
 def is_xdist_worker(config: pytest.Config) -> bool:
     """True inside a pytest-xdist worker process, which carries ``workerinput``.
 
@@ -282,7 +313,7 @@ def _print_durations(config: pytest.Config, reporter: object) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
+def pytest_sessionfinish(session, exitstatus):
     # Defuse the intermittent PySide interpreter-shutdown SIGABRT (a Qt-internal
     # global-teardown race with offscreen + many QThread tests). We exit the
     # process HARD with the real status at the END of session finish — as a
@@ -350,6 +381,13 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     print_coverage_report(session, reporter)
     sys.stdout.flush()
     sys.stderr.flush()
+    # How MUCH ran, for CI's test-count baseline (the 2026-10-27 review, item
+    # 2.12): the sentinel below says the run finished, not that it ran as many
+    # tests as it should. Written only when CI names a file, so a local run leaves
+    # nothing behind; `scripts/check_test_count.py` compares it with
+    # `tests/collected-tests-baseline.txt`. Written BEFORE the sentinel, so a run
+    # that has a sentinel always has its count too.
+    write_collected_count(session)
     # Vouch for this run: we reached session finish, so `status` is a real verdict
     # (results final, coverage gate applied) rather than a process that vanished.
     # Written LAST, immediately before the exit, so it cannot be created by a run

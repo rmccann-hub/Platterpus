@@ -48,8 +48,8 @@ from typing import Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import evidence_manifest  # noqa: E402 - needs the path line above
-from laplang.evidence import parse_manifest  # noqa: E402
+import evidence_manifest  # needs the path line above
+from laplang.evidence import parse_manifest
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 

@@ -500,7 +500,7 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
     it, because a shared value with nothing comparing the readers is how the
     previous pair drifted for six rounds.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     offered = {c.pin for c in fork_source.ripper_choices()}
     assert offered, "the install menu is empty — nothing could be offered"
@@ -1643,7 +1643,7 @@ def test_the_retired_wrapper_check_can_actually_fail() -> None:
 _SYNTHETIC_SEQ: Final[int] = 9000
 
 
-def _offer_for(commit: str):  # noqa: ANN202 - RipperOffer, imported lazily
+def _offer_for(commit: str):  # RipperOffer, imported lazily
     """The offer the app would make when `commit` is what the fork published.
 
     Built through the real `evaluate_offer` with a real manifest row, so the flags

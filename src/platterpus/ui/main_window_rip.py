@@ -159,6 +159,16 @@ _CHECKSUM_SETTLE_TIMEOUT_S: float = 120.0
 _POST_RIP_FAILURE_LOCK: threading.Lock = threading.Lock()
 
 
+class OffGuiThreadWidgetRead(RuntimeError):
+    """A method that reads Qt widgets was called off the GUI thread.
+
+    Raised, not asserted: an ``assert`` is removed by ``python -O``, and this
+    check guards a data race on the track table's widgets (BUG-1), which is
+    exactly the behaviour that must not vanish with an interpreter flag
+    (external review of 2026-10-27, item 3.2).
+    """
+
+
 @dataclass(frozen=True)
 class TaggingResult:
     """Outcome of the post-rip unknown-album tagging pass.
@@ -2431,8 +2441,9 @@ class RipMixin(MainWindowShared):
         thread by the caller (BUG-1): this method runs on the post-rip DAEMON
         thread, where reading the Qt widgets directly is a data race. When they
         are omitted (a direct test/manual call), we read the table here — which
-        is only safe on the GUI thread, so we assert that. Public so it can be
-        exercised from tests.
+        is only safe on the GUI thread, so we refuse anything else with
+        :class:`OffGuiThreadWidgetRead`. Public so it can be exercised from
+        tests.
 
         ``rip_log`` is this rip's already-parsed log, used to scope the tagging to
         the files THIS rip wrote (see :func:`_rip_master_paths`).
@@ -2448,10 +2459,17 @@ class RipMixin(MainWindowShared):
             # Only reachable on a direct (test/GUI-thread) call — reading the
             # widgets off the GUI thread is the exact bug this signature exists
             # to prevent, so make the misuse loud rather than silently racy.
-            assert threading.current_thread() is threading.main_thread(), (
-                "run_unknown_post_processing read the track table off the GUI "
-                "thread — snapshot it on the GUI thread and pass album/tracks in"
-            )
+            # A raise, not an `assert`: `python -O` strips asserts, and this
+            # one guarded behaviour, not a type. Logged too, because the
+            # production caller's broad handler turns the raise into a
+            # TaggingResult error and the log is where a developer looks.
+            if threading.current_thread() is not threading.main_thread():
+                message = (
+                    "run_unknown_post_processing read the track table off the GUI "
+                    "thread — snapshot it on the GUI thread and pass album/tracks in"
+                )
+                log.error("%s", message)
+                raise OffGuiThreadWidgetRead(message)
             album = self._track_table.album_metadata()
             tracks = self._track_table.tracks()
         flac_files = _rip_master_paths(rip_output_dir, rip_log)

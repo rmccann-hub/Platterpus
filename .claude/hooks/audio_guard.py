@@ -59,9 +59,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
-# The same extensions, spelled the same way, as `.githooks/pre-commit` and
-# ci.yml's media-guard. `tests/test_media_guard_hook.py` compares all three, so
-# a format added to one and forgotten in another turns the suite red.
+# Same extensions, same order, as `.githooks/audio-extensions.txt`, the list the
+# pre-commit hook and ci.yml read; a literal copy, so this hook needs no file, and
+# `tests/test_media_guard_hook.py` holds the two equal so neither can drift.
 AUDIO: Final[re.Pattern[str]] = re.compile(
     r"\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$",
     re.IGNORECASE,

@@ -136,10 +136,10 @@ def parse_syndrome(text: str | None) -> tuple[int, ...]:
 
 def _default_range_fetcher(url: str, nbytes: int, cap: int) -> tuple[int, bytes]:
     """GET the first ``nbytes`` of ``url`` with a ``Range`` header, reading at most ``cap + 1``."""
-    request = urllib.request.Request(
+    request = urllib.request.Request(  # noqa: S310 — a request for a URL parity_url() already held to http(s) on cuetools.net
         url, headers={"Range": f"bytes=0-{nbytes - 1}", "User-Agent": USER_AGENT}
     )
-    with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT_S) as response:
+    with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT_S) as response:  # noqa: S310 — parity_url() admits only http(s) on cuetools.net before a URL gets here
         status = int(response.status)
         # A server that ignores Range answers 200 with the whole record, so allow
         # that much (``cap``), and one byte more to see an over-long answer.

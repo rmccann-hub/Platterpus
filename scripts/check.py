@@ -61,7 +61,7 @@ SENTINEL: Final[Path] = REPO_ROOT / ".pytest-session-complete"
 #: the authority. Stated here so a local run applies the same bar rather than a
 #: politer one — a local gate that is easier than CI's is a gate that teaches the
 #: wrong thing.
-COVERAGE_FLOOR: Final[int] = 91
+COVERAGE_FLOOR: Final[int] = 93
 
 #: Per-gate wall-clock bound. The suite measured 266 s clean and 320 s under
 #: coverage instrumentation, so 30 minutes is far above any healthy run while
@@ -190,7 +190,7 @@ def _git(repo: Path, *args: str, timeout: float) -> _GitAnswer:
     """
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     try:
-        proc = subprocess.Popen(  # noqa: S603 — fixed argv, shell=False
+        proc = subprocess.Popen(  # fixed argv, shell=False
             ["git", *args],
             cwd=repo,
             stdin=subprocess.DEVNULL,
@@ -327,7 +327,7 @@ def _captured_text(captured: bytes | str | None) -> str:
 def _run(gate: Gate) -> None:
     """Run one gate. Records the real exit code, or None if it could not run."""
     try:
-        proc = subprocess.run(  # noqa: S603 — fixed argv, shell=False
+        proc = subprocess.run(  # fixed argv, shell=False
             gate.argv,
             cwd=REPO_ROOT,
             capture_output=True,

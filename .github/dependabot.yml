@@ -3,7 +3,12 @@
 #     including the self-declared-unmaintained musicbrainzngs (DEPENDENCIES.md);
 #   * github-actions — the CI/release workflow actions, so `uses:` pins are
 #     bumped for us as new versions ship (a step toward SHA-pinning).
-# Weekly, small batches, so a bump is easy to review against the changelog rule.
+# Weekly. VERSION updates arrive GROUPED, one pull request per ecosystem per week
+# (the 2026-10-27 review, item 2.13): a session carries a bump on its own branch
+# with the BOM regenerated and a CHANGELOG bullet (PLANNING.md KDD-43, "How to
+# handle it"), so one notice a week costs less than one per package. SECURITY
+# updates stay ungrouped (`applies-to: version-updates` below), so each advisory
+# arrives as its own pull request.
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -36,9 +41,16 @@ updates:
     # third direction: a pin also has to bind against whatever is authorised to
     # CHANGE it.
     #
-    # `version-update:semver-*` is ignored rather than the package: a security
-    # advisory still reaches us, which is the one case where floating the pin is
-    # the lesser risk and a human should see the PR.
+    # **What this ignore does NOT do (corrected 2026-10-27, the review's item
+    # 2.14).** It names the `version-update:semver-*` types rather than the
+    # package, so that a security advisory could still reach us. It was meant to
+    # keep ruff and mypy bumps out, and it did not: Dependabot opened #303 anyway,
+    # widening mypy from `<2.4` to `<2.5`, and all four `test` legs went red
+    # (PLANNING.md KDD-43, "Dependabot, by design"). What holds the pins today is
+    # `tests/test_gating_tools_are_pinned.py`, which refuses a widened range, and
+    # the KDD-43 practice of treating such a pull request as a notice. KDD-43
+    # offers ignoring the two by name, without `update-types`; the owner has not
+    # chosen it, so this block is left as it was.
     ignore:
       - dependency-name: "ruff"
         update-types:
@@ -50,6 +62,11 @@ updates:
           - "version-update:semver-major"
           - "version-update:semver-minor"
           - "version-update:semver-patch"
+    groups:
+      pip-weekly:
+        applies-to: version-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -59,3 +76,8 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      actions-weekly:
+        applies-to: version-updates
+        patterns:
+          - "*"

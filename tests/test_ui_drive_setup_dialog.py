@@ -239,9 +239,9 @@ def test_cache_only_success_is_not_finished_with_issues(qapp: QApplication) -> N
 # --- Cache-only (cyanrip) analyze path (KDD-29) ------------------------------
 
 
-def test_cache_only_backend_shows_analyse_button(qapp: QApplication) -> None:
+def test_cache_only_backend_shows_analyze_button(qapp: QApplication) -> None:
     """cyanrip can't detect the offset but CAN measure the cache — so the dialog
-    offers an "Analyse cache" action even though offset detection is off."""
+    offers an "Analyze cache" action even though offset detection is off."""
     dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
     assert dialog._can_detect is False
     assert dialog._can_analyze is True
@@ -250,9 +250,36 @@ def test_cache_only_backend_shows_analyse_button(qapp: QApplication) -> None:
     assert "cache" in dialog._detect_button.text().lower()
 
 
+def test_cache_only_dialog_gives_every_button_its_own_alt_key(
+    qapp: QApplication,
+) -> None:
+    """The cyanrip (cache-only) dialog: no two controls share an Alt-key.
+
+    The cache button was "Analy&se cache", Alt+S, in the same dialog as
+    "&Save offset", also Alt+S. The conformance matrix builds this dialog with
+    a stub that CAN detect offsets, so it measured the "&Detect" variant and
+    never the one cyanrip users get. Renamed "Analy&ze cache" (Alt+Z) when the
+    label moved to American spelling (external review of 2026-10-27, section 5).
+    """
+    import re
+
+    from PySide6.QtWidgets import QAbstractButton
+
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    assert dialog._detect_button is not None
+    assert dialog._detect_button.text() == "Analy&ze cache"
+    keys: list[str] = []
+    for button in dialog.findChildren(QAbstractButton):
+        text = button.text().replace("&&", "")
+        keys += [m.group(1).casefold() for m in re.finditer(r"&([^&\s])", text)]
+    # Floor: the cache button and Save offset at least, so an empty walk fails.
+    assert len(keys) >= 2, keys
+    assert len(keys) == len(set(keys)), f"two buttons share an Alt-key: {keys}"
+
+
 def test_on_finished_emits_for_cache_only_result(qapp: QApplication) -> None:
     """A cache-only run (no offset) must still record its verdict, and the button
-    re-labels to "Re-analyse cache"."""
+    re-labels to "Re-analyze cache"."""
     dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
     captured: list[DriveSetupResult] = []
     dialog.detection_recorded.connect(captured.append)
@@ -263,7 +290,7 @@ def test_on_finished_emits_for_cache_only_result(qapp: QApplication) -> None:
 
     assert len(captured) == 1  # recorded even with no offset
     assert captured[0].can_defeat_cache is True
-    assert dialog._detect_button.text() == "Re-analyse cache"
+    assert dialog._detect_button.text() == "Re-analyze cache"
 
 
 def test_no_emit_when_nothing_measured(qapp: QApplication) -> None:

@@ -400,7 +400,7 @@ class DiagnosticLog:
         # file and the report cannot describe the same event differently.
         try:
             self._emit_to_log(item)
-        except Exception:  # noqa: BLE001 — a logging failure must not lose the item
+        except Exception:  # noqa: BLE001, S110 — a logging failure must not lose the item
             pass
 
         try:

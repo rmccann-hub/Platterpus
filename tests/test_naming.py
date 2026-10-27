@@ -352,7 +352,7 @@ def _newest_provider_contract() -> Path:
     a new copy of it: a second round parser here would be the fifth, and the
     earlier four broke on the 2026-08-04 file renaming.
     """
-    import test_ripper_error_surfacing as surfacing  # noqa: PLC0415
+    import test_ripper_error_surfacing as surfacing
 
     contracts = surfacing._newest_provider_contracts()
     assert contracts, (

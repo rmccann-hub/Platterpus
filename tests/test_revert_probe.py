@@ -27,7 +27,7 @@ import pytest
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 
-def _load_probe():  # noqa: ANN202 — a module object; annotating it adds nothing
+def _load_probe():  # a module object; annotating it adds nothing
     """Import `scripts/revert_probe.py` by path.
 
     By path rather than by package import because `scripts/` is deliberately not

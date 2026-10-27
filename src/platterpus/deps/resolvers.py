@@ -131,14 +131,15 @@ class AutoInstaller:
 
     def _install_one(self, item: MissingItem) -> InstallResult:
         """Run a single install command via subprocess."""
-        assert item.spec.install_command is not None
+        assert item.spec.install_command is not None  # noqa: S101 — narrows for mypy; resolve() passes only items that have a command
         command: list[str] = item.spec.install_command
         log.info("auto-installing %s via %r", item.spec.dep_id, command)
         try:
-            proc = subprocess.run(
+            proc = subprocess.run(  # noqa: S603 — install_command is a list from the dependency registry, no shell
                 command,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 errors="replace",
                 timeout=_INSTALL_TIMEOUT_S,
             )

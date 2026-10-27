@@ -378,7 +378,7 @@ class RipHandle:
         Iteration ends when the ripper closes its stream (i.e. exits).
         Call `.wait()` afterward to harvest the exit code.
         """
-        assert self._process.stdout is not None
+        assert self._process.stdout is not None  # noqa: S101 — narrows for mypy; the ripper is always started with stdout=PIPE
         for line in self._process.stdout:
             yield line.rstrip("\n")
 

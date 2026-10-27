@@ -253,6 +253,7 @@ class SubprocessInhibitRunner:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,  # merged: see ProbeResult
             text=True,
+            encoding="utf-8",
             errors="replace",
             timeout=timeout,
             check=False,

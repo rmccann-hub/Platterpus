@@ -746,7 +746,7 @@ def _format_cache_defeat(profile: DriveProfile | None) -> str:
     than implying a verdict. Pure; safe to call with no profile.
     """
     if profile is None or profile.cache_defeat is None:
-        return "not measured yet — Set up drive → Analyse cache"
+        return "not measured yet — Set up drive → Analyze cache"
     if profile.cache_defeat:
         return "Yes — cache defeated on re-read (measured, cd-paranoia)"
     return "No — drive returns cached audio on re-read (measured, cd-paranoia)"

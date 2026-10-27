@@ -92,7 +92,7 @@ reproduce on the newest release before reporting.
   this repo refuses everywhere.
 
   *The two entries above were added to this section on 2026-09-13. Both gates had
-  been running and gating for weeks; the security policy simply did not name them —
+  been running and gating for weeks; the security policy did not name them —
   the two most security-relevant additions since the section was written, missing
   from the document whose job is to describe them.*
 

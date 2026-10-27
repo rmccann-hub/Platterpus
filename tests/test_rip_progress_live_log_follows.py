@@ -55,7 +55,7 @@ def _pane(qapp: QApplication) -> RipProgress:
     return pane
 
 
-def _bar(pane: RipProgress):  # noqa: ANN202 — Qt scrollbar, typed at the call sites
+def _bar(pane: RipProgress):  # Qt scrollbar, typed at the call sites
     return pane._log_view.verticalScrollBar()
 
 

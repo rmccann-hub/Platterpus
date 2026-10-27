@@ -302,7 +302,9 @@ if ! cp -v "$HOME/.local/share/platterpus/log.txt"* "$OUT/logs/" \
      >"$OUT/07-log-snapshot.txt" 2>&1; then
   note "!! could not copy the app logs — see 07-log-snapshot.txt"
 fi
-note "artifact: 07-log-snapshot.txt  ($(ls -1 "$OUT/logs" | wc -l) files)"
+# Counted with find, one dot per file, so a log name holding a newline still
+# counts once (ShellCheck SC2012: don't parse ls).
+note "artifact: 07-log-snapshot.txt  ($(find "$OUT/logs" -mindepth 1 -maxdepth 1 -printf . | wc -c) files)"
 
 # ---------------------------------------------------------------- the rips ---
 # Anything already ripped under ~/Music gets audited and parity-checked. Run
@@ -565,6 +567,9 @@ else
              \( -name '*.log' -o -name '*.cue' -o -name '*.txt' -o -name '*.json' \
                 -o -name '*.md5' -o -name '*.sha256' \) -print0 2>/dev/null)
   note "copied $COPIED text artifact(s) — audio deliberately excluded"
+  # Display only: the listing is shown to the operator and written to the
+  # summary, never read back as a path.
+  # shellcheck disable=SC2012
   ls -1 "$COLLECT" 2>/dev/null | sed 's/^/      /' | tee -a "$SUMMARY" || true
   if [ "$COPIED" -eq 0 ]; then
     note "!! zero artifacts copied from a rip folder that exists — that is a finding"
@@ -574,6 +579,8 @@ fi
 # ------------------------------------------------------------------- done ----
 say "COMPLETE"
 note "artifacts:"
+# Display only, as above.
+# shellcheck disable=SC2012
 ls -1 "$OUT" | sed 's/^/      /' | tee -a "$SUMMARY" || true
 note ""
 note "Every file matters, including the empty ones — an artifact that exists and"

@@ -91,7 +91,7 @@ from pathlib import Path
 from typing import Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import tree_lock  # noqa: E402
+import tree_lock
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
@@ -277,7 +277,7 @@ def _run_tests(tests: tuple[str, ...]) -> tuple[int, str]:
     # Belt as well as braces: with no `.pyc` written, a later run cannot inherit
     # a stale one from this probe even if the purge misses a tree.
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
+    proc = subprocess.run(  # fixed argv, no shell
         [
             sys.executable,
             "-m",

@@ -230,11 +230,19 @@ fi
 # own `platterpus 0.6.60 (source)` (no build stamp, which a local wheel carries)
 # had been saying so all along. A path can only be satisfied by the file at it,
 # and pip fails loudly if the file is missing.
-PLATTERPUS_WHEEL="$(ls -1 "$RECIPE_DIR"/platterpus-*.whl | head -1)"
-if [ -z "$PLATTERPUS_WHEEL" ]; then
-    echo "error: no platterpus wheel in $RECIPE_DIR — cannot bundle it" >&2
+#
+# Found by a glob, not by parsing `ls` (review 2026-10-27, item 3.6): `ls`
+# output is text meant for people, and `| head -1` quietly picked one wheel if
+# there were ever two. Step [1/3] deletes old wheels before building, so exactly
+# one is expected; zero or several is an error, not a choice to make silently.
+shopt -s nullglob
+PLATTERPUS_WHEELS=("$RECIPE_DIR"/platterpus-*.whl)
+shopt -u nullglob
+if [ "${#PLATTERPUS_WHEELS[@]}" -ne 1 ]; then
+    echo "error: expected one platterpus wheel in $RECIPE_DIR, found ${#PLATTERPUS_WHEELS[@]} — cannot bundle it" >&2
     exit 1
 fi
+PLATTERPUS_WHEEL="${PLATTERPUS_WHEELS[0]}"
 echo "Bundling the platterpus wheel we just built: $PLATTERPUS_WHEEL"
 # Assigning these two arms the single EXIT trap installed near the top of the
 # script (see `cleanup`) — deliberately NOT a second `trap`, which would silently

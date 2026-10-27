@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from pathlib import Path
 
 from bommap.model import _P, ROOT_REF, Entry
 from bommap.reading import _project, _require
@@ -39,12 +38,9 @@ def _service_entries() -> list[Entry]:
     flathub = [
         word for word in (picard.install_command or []) if word.startswith("https://")
     ]
-    installer = host_setup.install_argv(
-        "distrobox", Path("/nonexistent/os-release"), "pkexec"
-    )
-    installer_urls = (
-        re.findall(r"https://\S+", installer[2]) if len(installer) > 2 else []
-    )
+    # No "Distrobox upstream installer" service: the setup wizard stopped
+    # downloading distrobox's install script on an unrecognised distro (external
+    # review of 2026-10-27, item 1.2), so the code contacts no such endpoint.
     download_base = asset_url("0").split("/v0/", 1)[0] + "/"
     image_registry = host_setup.DEFAULT_IMAGE.split("/", 1)[0]
     pypi_name = str(_project()["name"])
@@ -254,17 +250,6 @@ def _service_entries() -> list[Entry]:
             "MusicBrainz Picard's Flatpak.",
             data=(("inbound", "Flatpak"),),
             required_by=("tool:picard",),
-        ),
-        service(
-            "distrobox-installer",
-            "Distrobox upstream installer",
-            "89luca89/distrobox",
-            installer_urls,
-            "setup (only on an unrecognised distro)",
-            ["src/platterpus/deps/host_setup.py"],
-            "Installs Distrobox where no known package manager applies.",
-            data=(("inbound", "installer script"),),
-            required_by=("tool-host:distrobox",),
         ),
         service(
             "pypi",

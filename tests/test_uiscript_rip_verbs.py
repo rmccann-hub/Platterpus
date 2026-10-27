@@ -913,11 +913,11 @@ class _FakeTable:
     def __init__(self) -> None:
         self.current = -1
 
-    def setCurrentCell(self, row: int, column: int) -> None:  # noqa: N802 — Qt
+    def setCurrentCell(self, row: int, column: int) -> None:  # Qt
         self.current = row
 
 
-class ReleasePickerDialog:  # noqa: N801 — the name IS the interface here
+class ReleasePickerDialog:  # the name IS the interface here
     """Stand-in matched by class name, exactly as the runner matches the real one.
 
     **What it does that the real dialog does not:** it does not lay out widgets,
@@ -937,7 +937,7 @@ class ReleasePickerDialog:  # noqa: N801 — the name IS the interface here
         self.accepted = False
         self.scan_request = scan_request
 
-    def isVisible(self) -> bool:  # noqa: N802 — Qt spelling
+    def isVisible(self) -> bool:  # Qt spelling
         return self._visible
 
     def accept(self) -> None:
@@ -1151,7 +1151,7 @@ def test_a_picker_whose_internals_changed_is_reported_not_crashed(
             self._releases = [_Release("d14a7546-815b-43c6-8af6-35cff6cee1d0")]
             self.accepted = False
 
-        def isVisible(self) -> bool:  # noqa: N802 — Qt spelling
+        def isVisible(self) -> bool:  # Qt spelling
             return True
 
         def accept(self) -> None:

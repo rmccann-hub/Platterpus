@@ -344,7 +344,9 @@ def test_mark_trusted_is_non_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ai._mark_trusted(Path("/home/u/Desktop/platterpus.desktop"))
 
-    assert launched and launched[0][0] == "gio"
+    # The path `which` returned, not the bare name: the checked file is the
+    # launched file (ruff S607, external review of 2026-10-27, item 3.4).
+    assert launched and launched[0][0] == "/usr/bin/gio"
 
 
 def test_quote_exec_path_neutralises_control_chars() -> None:

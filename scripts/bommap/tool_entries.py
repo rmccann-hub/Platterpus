@@ -83,10 +83,9 @@ _TOOL_NOTES: Final[dict[str, _ToolNote]] = {
         runs_in="ripping container; host on Fedora-family systems",
     ),
     "sh": _ToolNote(
-        "Runs the fork's build, install and verify scripts in the container, and "
-        "the upstream Distrobox installer on an unrecognised distro.",
+        "Runs the fork's build, install and verify scripts in the container.",
         scope="required",
-        runs_in="ripping container; host for the Distrobox installer",
+        runs_in="ripping container",
     ),
     "pkexec": _ToolNote(
         "Graphical privilege prompt for installing Distrobox or podman on the host "
@@ -95,9 +94,6 @@ _TOOL_NOTES: Final[dict[str, _ToolNote]] = {
     "apt-get": _ToolNote("Host installer for Distrobox / podman on Debian and Ubuntu."),
     "pacman": _ToolNote("Host installer for Distrobox / podman on Arch."),
     "zypper": _ToolNote("Host installer for Distrobox / podman on openSUSE."),
-    "curl": _ToolNote(
-        "Fetches the upstream Distrobox installer on an unrecognised distro.",
-    ),
     "flatpak": _ToolNote(
         "Installs MusicBrainz Picard from Flathub and launches it for an unknown disc.",
         witnesses=(("src/platterpus/ui/unknown_album.py", "flatpak", False),),

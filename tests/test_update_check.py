@@ -326,8 +326,7 @@ def test_the_release_gate_and_the_update_offer_agree_on_stable(tag: str) -> None
     """
     payload = [{"tag_name": tag, "html_url": "https://example.invalid/r"}]
     offered = {
-        info.version
-        for info in uc._parse_releases(payload, uc.CHANNEL_STABLE) or []  # noqa: SLF001
+        info.version for info in uc._parse_releases(payload, uc.CHANNEL_STABLE) or []
     }
     bare = tag[1:] if tag.startswith("v") else tag
     assert uc.offered_on_stable_channel(tag) is (bare in offered)

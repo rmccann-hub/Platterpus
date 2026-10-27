@@ -87,12 +87,17 @@ def _installer_programs() -> set[str]:
 
     Called with the GUI's real elevation command (``HostSetup.elevate``'s
     default) and a throwaway ``os-release`` per family, plus one that does not
-    exist (the unknown-distro branch). Three shapes come back:
+    exist (the unknown-distro branch). Two shapes come back:
 
     * ``[elevate, manager, …, tool]`` — the elevation command, the package
       manager, and the tool being installed;
-    * ``["sh", "-c", "curl … | elevate sh"]`` — every command in the pipeline;
-    * ``[]`` — no safe command (podman on an unknown distro).
+    * ``[]`` — no safe command (either tool on an unknown distro).
+
+    A third shape, ``["sh", "-c", "curl … | elevate sh"]``, was the unknown-
+    distro Distrobox installer until the external review of 2026-10-27 (item
+    1.2) removed it. Anything else, that shape included, stops the run rather
+    than being mapped, so a shell pipeline cannot return to the installer
+    unnoticed.
     """
     from platterpus.deps.host_setup import HostSetup, install_argv
 
@@ -111,11 +116,6 @@ def _installer_programs() -> set[str]:
                     continue
                 if argv[0] == elevate:
                     found.update({elevate, argv[1], tool})
-                elif argv[0] == "sh" and len(argv) > 2:
-                    found.add("sh")
-                    for segment in argv[2].split("|"):
-                        words = segment.split()
-                        found.update(words[:2] if words[:1] == [elevate] else words[:1])
                 else:
                     raise GeneratorError(
                         f"install_argv returned an unknown shape: {argv[:2]}"

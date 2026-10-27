@@ -2449,8 +2449,15 @@ def test_run_unknown_post_processing_rejects_off_gui_thread_read(
     teardown_threads, tmp_path: Path
 ) -> None:
     """BUG-1: called WITHOUT a snapshot from a non-GUI thread, it must refuse
-    (assert) rather than silently race the Qt widgets."""
+    rather than silently race the Qt widgets.
+
+    The refusal is a specific exception, not an `assert` (external review of
+    2026-10-27, item 3.2): `python -O` strips asserts, so the old check vanished
+    under exactly the flag a packager might set. Catching only
+    `OffGuiThreadWidgetRead` is what makes this test fail on the old code."""
     import threading
+
+    from platterpus.ui.main_window_rip import OffGuiThreadWidgetRead
 
     window = teardown_threads()
     errors: list[str] = []
@@ -2458,7 +2465,7 @@ def test_run_unknown_post_processing_rejects_off_gui_thread_read(
     def run() -> None:
         try:
             window.run_unknown_post_processing(tmp_path, False)
-        except AssertionError as exc:
+        except OffGuiThreadWidgetRead as exc:
             errors.append(str(exc))
 
     thread = threading.Thread(target=run)
@@ -3922,7 +3929,7 @@ def test_prerelease_offer_warns_and_does_not_default_to_yes(
     )
     asked: list[tuple[str, object]] = []
 
-    def fake_question(parent, title, text, buttons=None, default=None):  # noqa: ANN001
+    def fake_question(parent, title, text, buttons=None, default=None):
         asked.append((text, default))
         return QMessageBox.StandardButton.No
 
@@ -3953,7 +3960,7 @@ def test_stable_offer_carries_no_beta_warning(
     )
     asked: list[tuple[str, object]] = []
 
-    def fake_question(parent, title, text, buttons=None, default=None):  # noqa: ANN001
+    def fake_question(parent, title, text, buttons=None, default=None):
         asked.append((text, default))
         return QMessageBox.StandardButton.No
 
@@ -12559,9 +12566,9 @@ def test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker(
     test observes how many times the app tries to *present* a picker, which is the
     thing a user experiences.
     """
-    from PySide6.QtWidgets import QDialog  # noqa: PLC0415
+    from PySide6.QtWidgets import QDialog
 
-    from platterpus.ui.release_picker import ReleasePickerDialog  # noqa: PLC0415
+    from platterpus.ui.release_picker import ReleasePickerDialog
 
     window = teardown_threads()
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
@@ -12640,7 +12647,7 @@ def test_a_lookup_that_lands_WHILE_the_picker_is_open_does_not_open_a_second(
     HAPPENED while the picker was open, because a stand-in loop that never
     delivered it would pass this test with the bug in place.
     """
-    from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal  # noqa: PLC0415
+    from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal
 
     window = teardown_threads()
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
@@ -12739,8 +12746,8 @@ def test_every_place_that_clears_the_disc_id_also_clears_the_chosen_marker() -> 
     it drifting. `docs/testing.md` §5.o: enforce a rule across the codebase, not
     at the place it was learned.
     """
-    import re  # noqa: PLC0415
-    from pathlib import Path  # noqa: PLC0415
+    import re
+    from pathlib import Path
 
     ui = Path(__file__).resolve().parents[1] / "src" / "platterpus" / "ui"
     sites: list[str] = []
@@ -13110,7 +13117,7 @@ def test_the_setup_wizard_cannot_be_opened_on_top_of_itself(
         def raise_(self) -> None:
             self.raised += 1
 
-        def activateWindow(self) -> None:  # noqa: N802 — Qt API
+        def activateWindow(self) -> None:  # Qt API
             return None
 
     monkeypatch.setattr(hsd, "HostSetupDialog", FakeDialog)
@@ -14159,7 +14166,7 @@ def _spontaneous_close():
     from PySide6.QtGui import QCloseEvent
 
     class _FromOutside(QCloseEvent):
-        def spontaneous(self) -> bool:  # noqa: D401 — Qt's own name
+        def spontaneous(self) -> bool:  # Qt's own name
             return True
 
     return _FromOutside()
@@ -14339,7 +14346,7 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     scan behind it, and `pick-release` answered the OLD picker. While it stayed
     open, the new scan's candidates for the same disc were declined (one picker
     per disc), so the new scan could never ask. A new scan now closes it."""
-    from PySide6.QtCore import QCoreApplication  # noqa: PLC0415
+    from PySide6.QtCore import QCoreApplication
 
     window = teardown_threads()
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"

@@ -78,19 +78,58 @@ elif [ "$RIPS_LISTED" = yes ]; then
 fi
 
 echo; echo "== proving no audio slipped in =="
+# Every extension the repository's audio guards refuse. This script is
+# downloaded and run on its own, so it cannot read the repository's shared list
+# (.githooks/audio-extensions.txt) and carries a copy; tests/test_media_guard_hook.py
+# holds this line equal to that file. It checked 7 of the 18 until 2026-10-27
+# (external review item 1.6), so a bundle holding a .ogg, .opus or .pcm was
+# reported "clean".
+AUDIO_EXTS="flac wav pcm raw mp3 m4a aac ogg oga opus wv ape wma aiff aif alac dsf dff"
+
+# List the bundle's audio files, one per line. Exits non-zero if `find` fails,
+# which the callers below treat as "could not look", never as "none found".
+audio_in_bundle() {
+  local args=() ext
+  for ext in $AUDIO_EXTS; do
+    if [ "${#args[@]}" -gt 0 ]; then args+=(-o); fi
+    args+=(-iname "*.$ext")
+  done
+  find "$OUT" -type f \( "${args[@]}" \)
+}
+
 # The check that lets this script print "clean". It must SUCCEED before its
 # silence means anything: with `|| true`, a `find` that failed printed "clean -
 # no audio files in the bundle" about a bundle nobody had looked at (Critical
 # rule #8; fixed 2026-10-12). If it cannot look, nothing is packed.
-if ! AUDIO=$(find "$OUT" -type f \( -iname '*.flac' -o -iname '*.wav' -o -iname '*.mp3' \
-        -o -iname '*.wv' -o -iname '*.m4a' -o -iname '*.ape' -o -iname '*.aiff' \)); then
+if ! AUDIO=$(audio_in_bundle); then
   echo "  COULD NOT CHECK the bundle for audio (find failed) -- NOT packing it." >&2
   echo "  Nothing was uploaded. Fix the error above and run this again." >&2
   exit 1
 fi
 if [ -n "$AUDIO" ]; then
-  echo "  REMOVING audio that must not be here:"; echo "$AUDIO" | sed 's/^/    /'
-  echo "$AUDIO" | while read -r f; do rm -f "$f"; done
+  echo "  REMOVING audio that must not be here:"; printf '%s\n' "$AUDIO" | sed 's/^/    /'
+  # `IFS= read -r` hands `rm` each line exactly as `find` printed it (review
+  # item 3.7). A bare `read` strips leading and trailing blanks; that could not
+  # bite here, since every line starts with "$OUT/" and ends in an extension,
+  # but the exact form costs nothing and does not rely on that. A here-string
+  # rather than a pipe keeps the loop in this shell, so a failed `rm` is
+  # reported here.
+  while IFS= read -r f; do
+    rm -f -- "$f" || echo "  could not remove: $f" >&2
+  done <<<"$AUDIO"
+  # Removal is a claim until it is checked. Look again, and refuse to pack a
+  # bundle that still holds audio (a name with a newline in it, for one, cannot
+  # survive the one-name-per-line list above).
+  if ! LEFT=$(audio_in_bundle); then
+    echo "  COULD NOT RE-CHECK the bundle after removing audio -- NOT packing it." >&2
+    exit 1
+  fi
+  if [ -n "$LEFT" ]; then
+    echo "  AUDIO IS STILL IN THE BUNDLE -- NOT packing it. Remove these by hand:" >&2
+    printf '%s\n' "$LEFT" | sed 's/^/    /' >&2
+    exit 1
+  fi
+  echo "  removed; the bundle is now clean"
 else
   echo "  clean - no audio files in the bundle"
 fi

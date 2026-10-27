@@ -25,6 +25,9 @@ where it is convenient to read is how it ends up describing a file nobody runs.
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
+import textwrap
 import tomllib
 from pathlib import Path
 from typing import Final
@@ -36,7 +39,19 @@ CI_WORKFLOW: Path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 #: The tools CLAUDE.md rule #11 names as gating. Not derived from the workflow: the
 #: rule is about *these two specifically*, because their output changes between minor
 #: releases in ways that fail a check rather than merely warn.
-GATING_TOOLS: Final[tuple[str, ...]] = ("ruff", "mypy")
+#:
+#: **`pip-audit` joined on 2026-10-27** (the external review, item 2.2; amendment
+#: A5): it is a required status check, and the job installed whichever release was
+#: newest that day. Its output changes less between minors than a formatter's, but
+#: a new release can still add a check that fails CI with no change to our code,
+#: which is the failure the rule names.
+GATING_TOOLS: Final[tuple[str, ...]] = ("ruff", "mypy", "pip-audit")
+
+
+def _normalised(name: str) -> str:
+    """A distribution name the PEP 503 way: lowercase, `-` and `.` as `_`."""
+    return re.sub(r"[-.]", "_", name).lower()
+
 
 #: A pin whose upper bound is a MINOR, e.g. ``<0.16`` or ``<2.4``. ``<1`` is not one:
 #: it admits every minor release in a major series, which is what floating means.
@@ -96,7 +111,7 @@ def _bounds_are_a_minor_pin(spec: str) -> str:
 #: bare ``pip install ruff==0.15.0``. Deliberately does NOT match the fixed form,
 #: which installs ``"$spec"`` read out of ``pyproject.toml`` at run time.
 _LITERAL_PIN: Final[re.Pattern[str]] = re.compile(
-    r"pip\s+install[^\n]*[\"']?\b(?P<tool>ruff|mypy)\s*[<>=!~]"
+    r"pip\s+install[^\n]*[\"']?\b(?P<tool>ruff|mypy|pip[-_]audit)\s*[<>=!~]"
 )
 
 
@@ -126,7 +141,7 @@ def _spec_for(tool: str) -> str:
     """The ``dev`` extra's requirement string for ``tool``."""
     for entry in _dev_extra():
         # Normalise the PEP 503 way, so `ruff` matches however it is spelled.
-        if entry.replace("-", "_").lower().startswith(tool):
+        if _normalised(entry).startswith(_normalised(tool)):
             return entry
     raise AssertionError(
         f"{tool!r} is not in pyproject's `dev` extra at all — CLAUDE.md rule #11 "
@@ -180,6 +195,32 @@ def test_the_ci_gate_installs_the_pin_rather_than_repeating_it() -> None:
         f"two drifted: pyproject said `<0.16` while the lint job said `<1`. Read the "
         f"spec out of pyproject.toml at run time so there is one source of truth."
     )
+
+
+#: A pip install that names a gating tool with NO version at all: the shape the
+#: `pip-audit` job had until 2026-10-27 (`pip install -e . pip-audit`), which the
+#: literal-pin detector above cannot see, because there is no literal to find.
+_BARE_INSTALL: Final[re.Pattern[str]] = re.compile(
+    r"pip\s+install[^\n]*?(?<![\w./-])(?P<tool>ruff|mypy|pip[-_]audit)(?![\w.-]|\s*[<>=!~\[])"
+)
+
+
+def test_no_gating_tool_is_installed_unpinned() -> None:
+    """An unversioned install floats exactly as far as `<1` does, and further.
+
+    Read off executable lines only, so this file's subject matter appearing in a
+    comment cannot trip it.
+    """
+    lines = _executable_lines(CI_WORKFLOW.read_text(encoding="utf-8"))
+    offenders = [ln.strip() for ln in lines if _BARE_INSTALL.search(ln)]
+    assert not offenders, (
+        f"{CI_WORKFLOW.name} installs a gating tool with no version: {offenders}. "
+        "Read its spec out of pyproject.toml's dev extra, as the lint job does."
+    )
+    # NON-TRIVIALITY: the detector matches the line that shipped, and not the fix.
+    assert _BARE_INSTALL.search("          python -m pip install -e . pip-audit")
+    assert not _BARE_INSTALL.search('          python -m pip install -e . "$spec"')
+    assert not _BARE_INSTALL.search("          pip-audit --progress-spinner=off")
 
 
 def _executable_lines(text: str) -> list[str]:
@@ -458,3 +499,76 @@ def test_the_pin_admits_both_wheels_we_actually_tested() -> None:
         assert tested[:2] < ceiling, (
             f"the pin's ceiling {ceiling} excludes {tested}, a wheel we verified green"
         )
+
+
+# --- The tools the PyPI publish runs, in the job holding `id-token: write` ------
+#
+# The 2026-10-27 review, item 2.1 (the configuration audit's held amendment A2):
+# `publish-pypi.yml` ran `pip install build twine`, unversioned, in the one job that
+# can publish to PyPI. They are now pinned to the minor in pyproject's `publish`
+# extra, and the job READS them from there, the same mechanism as ruff above, so
+# there is one copy of each pin.
+
+PUBLISH_WORKFLOW: Final[Path] = REPO_ROOT / ".github" / "workflows" / "publish-pypi.yml"
+
+#: The tools the publish job installs. The extra must name exactly these.
+PUBLISH_TOOLS: Final[frozenset[str]] = frozenset({"build", "twine"})
+
+#: An install line naming one of them directly, with or without a version: either
+#: is a copy of the pin that is not pyproject's (or no pin at all, as it shipped).
+_PUBLISH_TOOL_INSTALL: Final[re.Pattern[str]] = re.compile(
+    r"pip\s+install\b[^\n]*?[\s\"'](?P<tool>build|twine)\b(?!-)"
+)
+
+
+def _publish_extra() -> list[str]:
+    document = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    extra = document["project"]["optional-dependencies"]["publish"]
+    assert isinstance(extra, list)
+    return [str(entry) for entry in extra]
+
+
+def test_the_publish_tools_are_pinned_to_a_minor() -> None:
+    specs = _publish_extra()
+    names = {re.split(r"[<>=!~\[; ]", spec)[0].lower() for spec in specs}
+    assert names == PUBLISH_TOOLS, f"pyproject's `publish` extra names {names}"
+    for spec in specs:
+        problem = _bounds_are_a_minor_pin(spec)
+        assert not problem, f"{problem} (the PyPI publish job runs it)"
+
+
+def test_the_publish_job_installs_the_pins_rather_than_naming_the_tools() -> None:
+    lines = _executable_lines(PUBLISH_WORKFLOW.read_text(encoding="utf-8"))
+    named = [ln for ln in lines if _PUBLISH_TOOL_INSTALL.search(ln)]
+    assert not named, (
+        "publish-pypi.yml installs build or twine by name; read the pins from "
+        f"pyproject's `publish` extra instead: {named}"
+    )
+    # Floor: the job still installs something, and from the extra.
+    body = "\n".join(lines)
+    assert '["publish"]' in body and "pyproject.toml" in body
+    assert 'pip install "${pins[@]}"' in body
+
+
+def test_the_publish_jobs_reader_returns_the_pins_when_run() -> None:
+    """Run the workflow's own `python -c` reader, not a paraphrase of it."""
+    text = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+    match = re.search(r"specs=\"\$\(python -c '\n(?P<code>.*?)\n\s*'\)\"", text, re.S)
+    assert match is not None, "the publish job's pin reader is gone"
+    done = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(match.group("code"))],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.split() == _publish_extra(), done.stdout
+
+
+def test_the_publish_install_detector_matches_the_shipped_line() -> None:
+    """Non-triviality: the line that shipped, and a pinned literal, are both caught."""
+    assert _PUBLISH_TOOL_INSTALL.search("          pip install build twine")
+    assert _PUBLISH_TOOL_INSTALL.search('pip install "twine>=7.0.0,<7.1"')
+    assert not _PUBLISH_TOOL_INSTALL.search('python -m pip install "${pins[@]}"')
+    assert not _PUBLISH_TOOL_INSTALL.search("pip install build-tools")

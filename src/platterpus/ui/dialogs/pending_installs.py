@@ -313,7 +313,7 @@ class PendingInstallsDialog(CenteredDialog):
         Per-item progress and the final results arrive via queued signals, which
         the modal `exec()` loop delivers on the GUI thread.
         """
-        assert self._install_one is not None
+        assert self._install_one is not None  # noqa: S101 — narrows for mypy; the one caller returns first when it is None
         self.set_install_phase_active(True)
         self._results = []
         checked = {

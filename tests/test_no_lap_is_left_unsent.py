@@ -249,7 +249,7 @@ def test_the_envelope_leads_with_a_lap_of_the_CURRENT_round() -> None:
         import sys
 
         sys.path.insert(0, str(REPO_ROOT / "scripts"))
-        import handshake as hs  # noqa: PLC0415
+        import handshake as hs
 
         ours = sorted(
             (REPO_ROOT / "docs" / "handshake" / "outbound").glob(

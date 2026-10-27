@@ -12,6 +12,7 @@ barsnick COPR) plus flac/metaflac into the container and exports all three.
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -152,23 +153,38 @@ def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
     assert not any(c.startswith("sudo ") for c in flat)
 
 
-def test_unknown_distro_distrobox_install_uses_injected_elevate(tmp_path: Path) -> None:
-    """Regression (#35): the unknown-distro Distrobox fallback piped the upstream
-    installer to a hardcoded `sudo sh`, ignoring the injected elevate. From the
-    GUI (elevate=pkexec) `sudo` has no TTY and silently fails, so the one path
-    meant to work terminal-free didn't. It must use the injected elevate."""
-    os_release = tmp_path / "os-release"
-    os_release.write_text('ID=voidlinux\nID_LIKE=""\n', encoding="utf-8")
+def test_no_install_command_downloads_a_script_or_uses_a_shell(tmp_path: Path) -> None:
+    """Regression (external review 2026-10-27, item 1.2), swept over every branch.
 
-    # GUI path: pkexec, not sudo.
-    gui = install_argv("distrobox", os_release, "pkexec")
-    assert gui[:2] == ["sh", "-c"]
-    assert "| pkexec sh" in gui[2]
-    assert "sudo" not in gui[2]
-
-    # Terminal path (default) still uses sudo, unchanged.
-    term = install_argv("distrobox", os_release, "sudo")
-    assert "| sudo sh" in term[2]
+    The unknown-distro branch used to return `["sh", "-c", "curl -s <url> |
+    pkexec sh"]`. (Before #35 it was `| sudo sh` whatever the elevation; both
+    are gone.) Every install command must now be one program run directly, with
+    no shell, no pipe and no download, for every distro family and both
+    elevations. The floor makes sure the sweep looked at the real commands.
+    """
+    families = [
+        "ID=fedora\n",
+        'ID=ubuntu\nID_LIKE="debian"\n',
+        "ID=arch\n",
+        "ID=opensuse-leap\nID_LIKE=suse\n",
+        'ID=voidlinux\nID_LIKE=""\n',  # unrecognised
+    ]
+    seen = 0
+    for i, content in enumerate(families):
+        osr = tmp_path / f"os-release-{i}"
+        osr.write_text(content, encoding="utf-8")
+        for elevate in ("pkexec", "sudo"):
+            for tool in ("distrobox", "podman"):
+                argv = install_argv(tool, osr, elevate)
+                if not argv:
+                    continue
+                seen += 1
+                assert argv[0] == elevate, argv
+                joined = " ".join(argv)
+                assert "curl" not in joined and "|" not in joined, argv
+                assert argv[1] not in {"sh", "bash"}, argv
+    # 4 known families x 2 elevations x 2 tools.
+    assert seen == 16, seen
 
 
 # --- Live progress: a RUNNING ping precedes each executing step ----------
@@ -295,19 +311,51 @@ def test_failure_stops_pipeline(tmp_path: Path) -> None:
 # --- Unexpected: unknown distro can't auto-install the backend -----------
 
 
+def test_unknown_distro_distrobox_is_a_manual_failure(tmp_path: Path) -> None:
+    """Regression (external review 2026-10-27, item 1.2): no root script download.
+
+    On a distro it did not recognise, the wizard used to run distrobox's
+    main-branch installer as root (`curl -s … | pkexec sh`), unverified. Now the
+    step fails with a sentence saying how to install Distrobox by hand, NOTHING
+    is run, and the steps after it are cancelled rather than attempted.
+    """
+    osr = tmp_path / "os-release"
+    osr.write_text("ID=tinycore\n", encoding="utf-8")
+    runner = _FakeRunner()  # nothing present, so the distrobox step must act
+    setup = HostSetup(runner=runner, os_release=osr)
+
+    results = setup.run()
+
+    status = dict(_ids(results))
+    assert status["distrobox"] == "failed"
+    assert status["backend"] == "cancelled"
+    distrobox = next(r for r in results if r.step_id == "distrobox")
+    assert "package manager" in distrobox.detail, distrobox.detail
+    # The link is checked by its host, parsed, not as a substring of the text.
+    hosts = {
+        urlsplit(word.strip(".,;()")).hostname
+        for word in distrobox.detail.split()
+        if word.startswith("http")
+    }
+    assert "distrobox.it" in hosts, distrobox.detail
+    # The point of the fix: no command at all ran on the host, so in particular
+    # nothing was downloaded and nothing was handed to a root shell.
+    assert runner.calls == [], runner.calls
+
+
 def test_unknown_distro_backend_is_manual_failure(tmp_path: Path) -> None:
+    """With Distrobox already there, podman on an unknown distro is manual too."""
     osr = tmp_path / "os-release"
     osr.write_text("ID=tinycore\n", encoding="utf-8")
     runner = _FakeRunner()
-    # distrobox has an upstream installer fallback, so it "runs"; podman
-    # has no universal command → that step fails with a manual message.
+    runner.present = {"distrobox"}
     setup = HostSetup(runner=runner, os_release=osr)
     results = setup.run()
     status = dict(_ids(results))
-    assert status["distrobox"] == "ran"  # upstream installer fallback
+    assert status["distrobox"] == "done"
     assert status["backend"] == "failed"
     backend = next(r for r in results if r.step_id == "backend")
-    assert "manually" in backend.detail.lower()
+    assert "podman" in backend.detail and "package manager" in backend.detail
 
 
 # --- Dry run: nothing executes -------------------------------------------
@@ -454,10 +502,10 @@ def test_install_argv_picks_package_manager(tmp_path: Path) -> None:
         "sudo",
         "zypper",
     ]
-    # Unknown distro: distrobox falls back to the upstream installer; podman
-    # has no universal command.
+    # Unknown distro: no universal command for either tool, so the wizard shows
+    # a manual-install sentence instead (review 2026-10-27, item 1.2).
     unknown = osr("ID=plan9\n")
-    assert install_argv("distrobox", unknown)[0] == "sh"
+    assert install_argv("distrobox", unknown) == []
     assert install_argv("podman", unknown) == []
 
 

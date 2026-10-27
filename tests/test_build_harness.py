@@ -96,6 +96,46 @@ def test_entrypoint_invokes_platterpus_module() -> None:
     assert "-m" in text  # invoking as a module
 
 
+@pytest.mark.parametrize("args", [[], ["--version"]])
+def test_entrypoint_launches_under_nounset_with_a_bare_environment(
+    tmp_path: Path, args: list[str]
+) -> None:
+    """The entrypoint runs `set -eu` (review 2026-10-27, item 3.6) and still launches.
+
+    `-u` stops on any variable read unset, so this runs the real file with an
+    environment holding only PATH: no APPIMAGE, no SSL_CERT_FILE or SSL_CERT_DIR,
+    the variables a careless read would trip on. A stand-in bundled interpreter
+    prints what it was handed, so the test sees the exact `-m platterpus` call,
+    with no arguments as well as with some (`"$@"` empty under `-u`).
+    """
+    import os
+    import subprocess
+
+    text = ENTRYPOINT.read_text(encoding="utf-8")
+    assert re.search(r"^set -eu(o pipefail)?$", text, re.MULTILINE), (
+        "the entrypoint lost set -u"
+    )
+    appdir = tmp_path / "AppDir"
+    python = appdir / "opt" / "python3.12" / "bin" / "python3.12"
+    python.parent.mkdir(parents=True)
+    python.write_text('#!/bin/sh\necho "launched: $*"\n', encoding="utf-8")
+    python.chmod(0o755)
+
+    result = subprocess.run(
+        ["bash", str(ENTRYPOINT), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "APPDIR": str(appdir)},
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == " ".join(["launched: -m platterpus", *args]), (
+        result.stdout
+    )
+
+
 def test_entrypoint_points_openssl_at_host_ca_bundle() -> None:
     """The bundled CPython has no CA certs, so the entrypoint must set
     SSL_CERT_FILE from the host bundle or MusicBrainz HTTPS lookups fail
@@ -296,3 +336,38 @@ def test_release_workflow_ships_the_zsync_file() -> None:
     assert workflow.index("Verify update artifacts") < workflow.index("sha256sum")
     # Build (which embeds update info) must precede the checksum generation.
     assert workflow.index("build_appimage.sh") < workflow.index("sha256sum")
+
+
+def test_gitignore_keeps_the_lock_committable_and_secrets_out() -> None:
+    """`.gitignore` against what it promises (review 2026-10-27, items 2.4 and 4.1).
+
+    Asked of git itself (`check-ignore --no-index`), so the answer is the one a
+    `git add` would get, not a reading of the patterns. requirements.lock must
+    stay committable, since the build verifies hashes from it; local secrets and
+    scratch work must be ignored, matching what .claude/settings.json denies.
+    """
+    import shutil
+    import subprocess
+
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git is not on PATH")
+
+    def ignored(path: str) -> bool:
+        result = subprocess.run(
+            [git, "check-ignore", "-q", "--no-index", path],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # 0: ignored; 1: not ignored; anything else is git failing, not an answer.
+        assert result.returncode in (0, 1), result.stderr
+        return result.returncode == 0
+
+    assert not ignored("build/python-appimage/requirements.lock")
+    for path in (".env", ".env.local", "secrets/token", "scratch/notes.txt"):
+        assert ignored(path), f"{path} would be committable"
+    # Floor: the same probe does report an ignored path it should, so a broken
+    # probe cannot pass the not-ignored assertion by never matching anything.
+    assert ignored("track.flac")

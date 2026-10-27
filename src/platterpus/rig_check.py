@@ -248,7 +248,7 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
         year="2026",
         tracks=(TrackTag(number=1, title="One"), TrackTag(number=2, title="Two")),
     )
-    argv = backend._build_rip_argv(  # noqa: SLF001 — deliberately the real builder
+    argv = backend._build_rip_argv(  # deliberately the real builder
         device,
         unknown=False,
         cover_art="",
@@ -380,6 +380,7 @@ def check_argv_reaches_the_binary(
             full,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             errors="replace",
             timeout=PROBE_TIMEOUT_S,
             check=False,
@@ -529,6 +530,7 @@ def check_ripper_identity(manifest: Manifest, binary: str) -> str:
             [binary, "-v"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             errors="replace",
             timeout=PROBE_TIMEOUT_S,
             check=False,

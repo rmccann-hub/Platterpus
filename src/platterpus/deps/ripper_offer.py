@@ -699,7 +699,7 @@ def evaluate_offer(
     # **Does OUR OWN acceptance run demand this exact build?** Read from the same
     # constant the run's `expect-ripper-under-review` step reads, so the two cannot
     # answer differently — the whole cause of the 2026-09-03 contradiction.
-    from platterpus.deps import fork_source as _fs  # noqa: PLC0415
+    from platterpus.deps import fork_source as _fs
 
     wanted_by_the_acceptance_run = not approved_here and _fs.same_commit(
         newer.commit, _fs.PIN_UNDER_REVIEW

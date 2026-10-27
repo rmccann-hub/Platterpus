@@ -128,8 +128,8 @@ class CTDBClient(ABC):
 
 
 def _default_fetcher(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT_S) as response:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310 — a request for the constant-built CTDB URL below
+    with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT_S) as response:  # noqa: S310 — the URL is built from CTDB_SCHEME/CTDB_HOST constants, never a server value
         # Bound the read: the transport is plain HTTP (db.cuetools.net serves no
         # valid TLS cert — see CTDB_SCHEME), so a MITM or a misbehaving server
         # could otherwise return a multi-GB body and exhaust memory before the
@@ -346,7 +346,7 @@ def parse_lookup_response(raw: bytes) -> CtdbLookupResult:
     unknown shapes yield no entries rather than raising.
     """
     try:
-        root = ET.fromstring(raw)
+        root = ET.fromstring(raw)  # noqa: S314 — stdlib expat >= 2.4.1 refuses entity-expansion bombs and ElementTree never resolves external entities; defusedxml would be a new dependency
     except ET.ParseError as exc:
         raise CtdbLookupError(f"unparseable CTDB response: {exc}") from exc
 

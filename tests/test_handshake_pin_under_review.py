@@ -750,7 +750,7 @@ def test_the_PRODUCTION_pin_and_version_are_one_pairing_too() -> None:
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-    import handshake as _handshake  # noqa: PLC0415
+    import handshake as _handshake
 
     closed = {
         int(line.split(":", 1)[0].removeprefix("round-"))

@@ -199,10 +199,11 @@ class SubprocessRunner:
             extra=console_summary(f"host-setup: {console_argv(argv)}"),
         )
         try:
-            proc = subprocess.run(
+            proc = subprocess.run(  # noqa: S603 — the step engine's own list argv from the setup steps, no shell
                 argv,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 errors="replace",
                 timeout=_STEP_TIMEOUT_S,
                 stdin=subprocess.DEVNULL,  # never consume a parent stdin

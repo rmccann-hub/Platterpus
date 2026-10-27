@@ -148,7 +148,7 @@ class MetaflacAdapter:
         argv: list[str] = [self._binary, *args]
         frozen: tuple[str, ...] = tuple(argv)
         try:
-            proc = subprocess.run(
+            proc = subprocess.run(  # noqa: S603 — the resolved metaflac binary plus adapter-built args, a list, no shell
                 argv,
                 capture_output=True,
                 text=True,
@@ -157,6 +157,7 @@ class MetaflacAdapter:
                 # a GUI process with no terminal — "hung with no explanation" is the
                 # least diagnosable failure there is.
                 stdin=subprocess.DEVNULL,
+                encoding="utf-8",
                 errors="replace",  # a stray non-UTF-8 byte must not raise here
             )
         except FileNotFoundError as exc:

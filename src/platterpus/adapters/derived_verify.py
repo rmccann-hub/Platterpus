@@ -123,7 +123,7 @@ def _kill_and_reap(proc: subprocess.Popen[bytes]) -> None:
         pass
     try:
         proc.wait(timeout=5.0)
-    except Exception:  # noqa: BLE001 — reaping is best-effort; never raise
+    except Exception:  # noqa: BLE001, S110 — reaping is best-effort; never raise
         pass
 
 
@@ -149,7 +149,7 @@ def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
     ]
     digest = hashlib.sha256()
     try:
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # noqa: S603 — a list argv built here: the decoder and our own file path, no shell
             argv,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -158,7 +158,7 @@ def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
     except (FileNotFoundError, OSError) as exc:
         log.warning("derived-verify: could not launch %s: %s", binary, exc)
         return None
-    assert proc.stdout is not None
+    assert proc.stdout is not None  # noqa: S101 — narrows for mypy; stdout=PIPE above guarantees it
     # Wall-clock deadline for the WHOLE decode. `proc.wait(timeout=…)` alone only
     # bounds the wait *after* stdout hits EOF — but a stalled ffmpeg can hold the
     # pipe open without producing EOF, so the read() loop below would block

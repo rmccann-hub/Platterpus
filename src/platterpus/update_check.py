@@ -159,10 +159,10 @@ def _default_fetch(url: str) -> str:
     body raises, which ``latest_release`` turns into "couldn't check" like any
     other failure.
     """
-    request = urllib.request.Request(
+    request = urllib.request.Request(  # noqa: S310 — a request for the RELEASES_API_URL https constant
         url, headers={"Accept": "application/vnd.github+json"}
     )
-    with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
+    with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:  # noqa: S310 — only ever called with the RELEASES_API_URL https constant
         data: bytes = response.read(_MAX_BODY_BYTES + 1)
     if len(data) > _MAX_BODY_BYTES:
         raise ValueError(

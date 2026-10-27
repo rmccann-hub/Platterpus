@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import evidence_file  # noqa: E402
+import evidence_file
 
 _SIGNED = Path(__file__).parent / "fixtures" / "cyanrip_fork_golden_reference.log"
 

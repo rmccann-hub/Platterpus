@@ -222,11 +222,11 @@ def test_center_on_anchor_raises_and_activates(qapp: QApplication) -> None:
             self.raised = False
             self.activated = False
 
-        def raise_(self) -> None:  # noqa: N802 — Qt override
+        def raise_(self) -> None:  # Qt override
             self.raised = True
             super().raise_()
 
-        def activateWindow(self) -> None:  # noqa: N802 — Qt override
+        def activateWindow(self) -> None:  # Qt override
             self.activated = True
             super().activateWindow()
 

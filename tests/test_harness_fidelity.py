@@ -535,7 +535,7 @@ def test_the_window_teardown_leaves_nothing_scheduled_to_run_later(qapp) -> None
     delivered: list[int] = []
 
     class _Watch(QObject):
-        def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802
+        def eventFilter(self, obj: QObject, event: QEvent) -> bool:
             if event.type() == QEvent.Type.User:
                 delivered.append(1)
             return False

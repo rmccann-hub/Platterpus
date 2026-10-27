@@ -566,8 +566,8 @@ class CancellableFetcher:
         """
         if self._cancelled:
             raise ValueError("ripper manifest fetch cancelled before it started")
-        request = urllib.request.Request(url, headers={"Accept": "application/json"})
-        response = urllib.request.urlopen(request, timeout=_TIMEOUT_S)  # noqa: S310
+        request = urllib.request.Request(url, headers={"Accept": "application/json"})  # noqa: S310 — a request for the MANIFEST_URL https constant
+        response = urllib.request.urlopen(request, timeout=_TIMEOUT_S)  # noqa: S310 — only ever fetches the MANIFEST_URL https constant
         self._response = response
         try:
             data: bytes = response.read(_MAX_BODY_BYTES + 1)
@@ -577,7 +577,7 @@ class CancellableFetcher:
             self._response = None
             try:
                 response.close()
-            except Exception:  # noqa: BLE001 — best-effort cleanup
+            except Exception:  # noqa: BLE001, S110 — best-effort cleanup
                 pass
         if self._cancelled:
             raise ValueError("ripper manifest fetch cancelled")

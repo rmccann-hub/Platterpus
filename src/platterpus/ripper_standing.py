@@ -124,7 +124,7 @@ def name_installed_build(
     names this exact commit. Otherwise it is left out: a version read off a
     different row would name another build's version beside this commit.
     """
-    from platterpus.deps.ripper_manifest import CHANNELS  # noqa: PLC0415
+    from platterpus.deps.ripper_manifest import CHANNELS
 
     version = known_version_for_commit(commit)
     if version is None and manifest is not None and commit:

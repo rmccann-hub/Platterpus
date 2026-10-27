@@ -27,7 +27,7 @@ class _FakeThread:
         self.wait_calls: list[int] = []
         self.parent_cleared = False
 
-    def isRunning(self) -> bool:  # noqa: N802 — Qt API name
+    def isRunning(self) -> bool:  # Qt API name
         return self._running
 
     def quit(self) -> None:
@@ -37,10 +37,10 @@ class _FakeThread:
         self.wait_calls.append(ms)
         return self._stops
 
-    def objectName(self) -> str:  # noqa: N802 — Qt API name
+    def objectName(self) -> str:  # Qt API name
         return "FakeThread"
 
-    def setParent(self, parent: object) -> None:  # noqa: N802 — Qt API name
+    def setParent(self, parent: object) -> None:  # Qt API name
         self.parent_cleared = parent is None
 
 

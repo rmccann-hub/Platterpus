@@ -207,7 +207,7 @@ def test_the_cli_runs_end_to_end_without_touching_project_source(
     )
 
     before = hashlib.sha256(module.read_bytes()).hexdigest()
-    proc = subprocess.run(  # noqa: S603
+    proc = subprocess.run(
         [
             sys.executable,
             str(REPO_ROOT / "scripts" / "mutation_sweep.py"),
@@ -293,7 +293,7 @@ def test_a_sweep_leaves_NO_STALE_BYTECODE_behind(tmp_path: Path) -> None:
 
     # Prime a cache the way an ordinary import would, so the sweep is not being
     # asked about a module that has never been compiled — the easy case.
-    subprocess.run(  # noqa: S603
+    subprocess.run(
         [
             sys.executable,
             "-c",
@@ -317,7 +317,7 @@ def test_a_sweep_leaves_NO_STALE_BYTECODE_behind(tmp_path: Path) -> None:
     # property, kept even though it passes with the fix reverted. It is the thing
     # anyone actually cares about, and a test that only checks the mechanism goes
     # green the day the mechanism stops mattering.
-    probe = subprocess.run(  # noqa: S603
+    probe = subprocess.run(
         [
             sys.executable,
             "-c",

@@ -32,7 +32,11 @@ jobs:
     # manylinux CPython and builds an AppImage around it.
     timeout-minutes: 45
     steps:
+      # The token stays out of .git/config (the 2026-10-27 review, item 1.4):
+      # this job builds and uploads an artifact, and never uses git with it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -70,7 +74,13 @@ jobs:
         run: |
           work="$(mktemp -d)"
           (cd "$work" && "$GITHUB_WORKSPACE/platterpus-x86_64.AppImage" --appimage-extract >/dev/null)
-          py="$(ls "$work"/squashfs-root/opt/python*/bin/python3* | head -1)"
+          # The first match of the glob, as `ls | head -1` gave it, without
+          # parsing ls (ShellCheck SC2012, via actionlint).
+          py=""
+          for candidate in "$work"/squashfs-root/opt/python*/bin/python3*; do
+            if [ -f "$candidate" ]; then py="$candidate"; break; fi
+          done
+          test -n "$py"
           echo "bundled interpreter: $py"
           PYTHONNOUSERSITE=1 "$py" scripts/check_bundled_verifier.py --bundle-root "$work/squashfs-root"
 

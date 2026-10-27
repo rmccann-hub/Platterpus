@@ -262,7 +262,7 @@ def start_worker_thread(
         if callable(setter):
             try:
                 setter(name)
-            except Exception:  # noqa: BLE001 — naming is cosmetic, never fatal
+            except Exception:  # noqa: BLE001, S110 — naming is cosmetic, never fatal
                 pass
     log.debug("starting worker thread: %s", name)
 

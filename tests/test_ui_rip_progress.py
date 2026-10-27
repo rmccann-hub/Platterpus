@@ -273,7 +273,7 @@ def test_set_status_updates_label(qapp: QApplication) -> None:
     # every status carries the wall-clock time it was set).
     from datetime import datetime
 
-    widget._now = lambda: datetime(2026, 7, 5, 15, 20, 11)
+    widget._now = lambda: datetime(2026, 7, 5, 15, 20, 11)  # noqa: DTZ001 — a fake wall clock; the widget shows local time
     widget.set_status("All done.")
     assert widget._status_label.text() == "15:20:11 · All done."
 

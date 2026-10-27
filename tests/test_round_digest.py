@@ -28,7 +28,7 @@ import pytest
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 
-def _module():  # noqa: ANN202 - a test helper, typed at the call sites
+def _module():  # a test helper, typed at the call sites
     """Load the script by path — it is a CLI, not an installed module."""
     spec = importlib.util.spec_from_file_location(
         "round_digest", _REPO_ROOT / "scripts" / "round_digest.py"
@@ -45,7 +45,7 @@ def _module():  # noqa: ANN202 - a test helper, typed at the call sites
 _THEIR_TWO: Final[tuple[tuple[str, int], ...]] = (("inbound", 1), ("outbound", 2))
 
 
-def _lap(rd, direction: str, number: int) -> Path:  # noqa: ANN001 - module by path
+def _lap(rd, direction: str, number: int) -> Path:  # module by path
     """One lap by direction and number, asserted to exist so a rename cannot
     silently shrink a fixture into passing over fewer rows."""
     path = rd._HANDSHAKE / direction / f"round-15-lap-{number:02d}.md"

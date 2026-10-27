@@ -223,7 +223,7 @@ def run_one(
     # a future edit that appends a device or a track range to one of these argvs
     # fails here instead of hanging on an interactive prompt at 2am.
     if _looks_like_the_ripper(argv):
-        from platterpus.adapters.cyanrip_backend import (  # noqa: PLC0415
+        from platterpus.adapters.cyanrip_backend import (
             assert_metadata_lookup_disabled,
         )
 
@@ -247,6 +247,7 @@ def run_one(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
             errors="replace",
             start_new_session=True,
         )

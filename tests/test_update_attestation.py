@@ -128,8 +128,8 @@ def test_the_identity_allows_main_and_the_releases_own_tag_only() -> None:
     """Read the policy's children rather than trusting its docstring."""
     policy = update_attestation.identity_policy("0.6.61")
     signer = f"https://github.com/{update_attestation.REPOSITORY}/.github/workflows/release.yml@"
-    any_of = policy._children[2]  # noqa: SLF001 — the AnyOf of allowed signers
-    allowed = {child._value for child in any_of._children}  # noqa: SLF001
+    any_of = policy._children[2]  # the AnyOf of allowed signers
+    allowed = {child._value for child in any_of._children}
     assert allowed == {signer + "refs/heads/main", signer + "refs/tags/v0.6.61"}
 
 
@@ -180,7 +180,7 @@ def test_an_unexpected_exception_becomes_not_checked_not_a_crash() -> None:
 def test_a_signed_statement_of_the_wrong_shape_is_refused(
     statement: object, reason: str
 ) -> None:
-    result = update_attestation._check_statement(  # noqa: SLF001
+    result = update_attestation._check_statement(
         json.dumps(statement).encode(), _DIGEST
     )
     assert result.verdict == "refused" and reason in result.reason

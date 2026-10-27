@@ -734,7 +734,7 @@ def _fork_pin() -> str:
     constants that agree until the day they do not. `CLAUDE.md`: *do two surfaces
     answer this question, and do they use the same key?*
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     if fork_source.a_round_is_reviewing_a_build():
         return fork_source.PIN_UNDER_REVIEW
@@ -752,7 +752,7 @@ def _fork_banner() -> str:
     `UNDER_REVIEW_TARGET`, whose `pin` and `version` are held to the newest
     inbound lap as a pair rather than separately.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     if fork_source.a_round_is_reviewing_a_build():
         target = fork_source.UNDER_REVIEW_TARGET
@@ -782,7 +782,7 @@ def our_pin() -> str:
     rather than guessing: a wrong pin is the defect this replaces, and a skeleton
     that refuses to emit is cheaper than one that emits a plausible lie.
     """
-    from platterpus import __version__ as _app_version  # noqa: PLC0415
+    from platterpus import __version__ as _app_version
 
     # **THE PUBLISHED HISTORY IS SEARCHED FIRST, and that ordering is the whole
     # point.** Until 2026-09-26 this repository squash-merged, so every commit on
@@ -1049,7 +1049,7 @@ def _a2_versions() -> str:
     read from LSL's own table, so R6's refusal cannot name a version at which
     the structured pre-commit is not one, or leave out one at which it is."""
     _laplang_on_path()
-    from laplang.tables import LSL_VERSIONS  # noqa: PLC0415
+    from laplang.tables import LSL_VERSIONS
 
     known = [str(v) for v in sorted(LSL_VERSIONS) if "A2" in LSL_VERSIONS[v]]
     if not known:
@@ -1077,8 +1077,8 @@ def _lsl_structured_wills(text: str) -> LslWills:
     parser does not.
     """
     _laplang_on_path()
-    from laplang.grammar import parse_lap  # noqa: PLC0415
-    from laplang.tables import LSL_VERSIONS  # noqa: PLC0415
+    from laplang.grammar import parse_lap
+    from laplang.tables import LSL_VERSIONS
 
     lap = parse_lap(text, Path("lap.md"))
     # `lsl_version` is 0 for a prose lap, and for one whose `LSL: N` names a
@@ -1203,7 +1203,7 @@ def emit_outbound(round_number: int) -> str:
     sections = "\n\n".join(
         f"## {s.title}\n\n<!-- {s.why} -->\n\nTODO" for s in OUTBOUND_SECTIONS[:-2]
     )
-    from platterpus import __version__ as _app_version  # noqa: PLC0415
+    from platterpus import __version__ as _app_version
 
     # THE GENERATOR MUST EMIT A FILE THE CHECKER ACCEPTS, and it did not: this line
     # was absent, so `--emit N | --check` reported "missing required field
@@ -2076,7 +2076,7 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
       the field or was hand-written; adding one here would be inventing a declaration
       rather than changing one.
     """
-    import datetime  # noqa: PLC0415
+    import datetime
 
     if not path.is_file():
         sys.stderr.write(f"no such lap: {path}\n")
@@ -2214,7 +2214,10 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
             )
             return 2
 
-    when = on or datetime.date.today().isoformat()
+    # The UTC date, like every stamp on a lap (`CLAUDE.md`, *Times*): the local
+    # date is a day off in the evening in New York (ruff DTZ011, external
+    # review of 2026-10-27, item 3.4).
+    when = on or datetime.datetime.now(datetime.UTC).date().isoformat()
     line_new = (
         f"HANDSHAKE-READY-TO-READ: yes — released by the operator on {when}; "
         "the peer has been told it is ready to read"

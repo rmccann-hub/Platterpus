@@ -36,7 +36,7 @@ class _ReadThread:
     def __init__(self, running: bool = False) -> None:
         self.running = running
 
-    def isRunning(self) -> bool:  # noqa: N802 — Qt spelling
+    def isRunning(self) -> bool:  # Qt spelling
         return self.running
 
 

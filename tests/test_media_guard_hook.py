@@ -23,6 +23,20 @@ test for that, and it is the reason this file runs a real `git` shim rather than
 asserting on the script's text: the defect was in behaviour under a failing
 producer, and no amount of reading the source would have shown it passing.
 
+**And it passed a non-ASCII name** (external review of 2026-10-27, item 1.1).
+Without `-z`, git quotes a name holding a byte outside printable ASCII
+(`core.quotePath`): `Björk.flac` is listed as `"Bj\\303\\266rk.flac"`, closing
+quote included, so the hook's end-anchored `\\.flac$` never matched and the
+commit went through.
+`test_a_staged_audio_file_with_an_unusual_name_blocks_the_commit` is the
+regression test; the hook now lists names with `-z` and reads them back
+NUL-separated.
+
+The list of extensions lives in ONE file, `.githooks/audio-extensions.txt`,
+which the hook and CI's media-guard read.
+`test_every_audio_list_equals_the_shared_file` holds the two guards that keep
+their own copy to it.
+
 No real audio is created anywhere here (Rule #8 applies to the tests too). The
 fixtures are ordinary text files with audio *extensions*, written under
 `tmp_path` and never added to this repository.
@@ -40,6 +54,8 @@ import pytest
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 HOOK: Final[Path] = REPO_ROOT / ".githooks" / "pre-commit"
+#: The shared definition of "audio" that every guard is held to.
+EXTENSIONS_FILE: Final[Path] = REPO_ROOT / ".githooks" / "audio-extensions.txt"
 
 _GIT: Final[str | None] = shutil.which("git")
 
@@ -73,9 +89,13 @@ def repo(tmp_path: Path) -> Path:
 
 
 def _run_hook(
-    repo: Path, extra_path: Path | None = None
+    repo: Path, extra_path: Path | None = None, hook: Path = HOOK
 ) -> subprocess.CompletedProcess[str]:
-    """Invoke the hook exactly as git would: as a program, with cwd in the repo."""
+    """Invoke the hook exactly as git would: as a program, with cwd in the repo.
+
+    `hook` defaults to the committed hook. The extension-list tests pass a copy
+    placed beside a doctored list, because the hook finds its list next to itself.
+    """
     env = None
     if extra_path is not None:
         import os
@@ -83,7 +103,7 @@ def _run_hook(
         env = dict(os.environ)
         env["PATH"] = f"{extra_path}:{env.get('PATH', '')}"
     return subprocess.run(
-        ["bash", str(HOOK)],
+        ["bash", str(hook)],
         cwd=repo,
         capture_output=True,
         text=True,
@@ -106,6 +126,26 @@ def test_a_staged_audio_file_blocks_the_commit(repo: Path) -> None:
     assert "track01.flac" in result.stderr, (
         "the refusal did not name the offending file, so the operator cannot act "
         f"on it: {result.stderr!r}"
+    )
+
+
+def test_the_refusal_offers_no_bypass_that_ci_would_refuse(repo: Path) -> None:
+    """The hook must not send anyone to `--no-verify` (review 2026-10-27, item 2.15).
+
+    It used to say a verified CC0 sample could go in with `git commit
+    --no-verify`. CI's required media-guard refuses that file on push whatever
+    its licence, so the advice led to a red pull request. The refusal now says a
+    test generates its PCM, and that `--no-verify` does not get past CI.
+    """
+    (repo / "tone.wav").write_text("not audio\n", encoding="utf-8")
+    _git(repo, "add", "-f", "tone.wav")
+
+    result = _run_hook(repo)
+
+    assert result.returncode == 1, result.stderr
+    assert "truly mean it" not in result.stderr, result.stderr
+    assert "media-guard" in result.stderr and "generates it" in result.stderr, (
+        f"the refusal no longer explains the way forward: {result.stderr!r}"
     )
 
 
@@ -217,43 +257,257 @@ def test_the_shim_itself_is_not_what_causes_the_refusal(repo: Path) -> None:
     )
 
 
-def test_the_hook_and_the_ci_gate_share_one_extension_pattern() -> None:
-    """Three guards, one list — so they are compared rather than trusted to match.
+# --- Names git would quote (external review 2026-10-27, item 1.1) -----------
 
-    `ci.yml`'s media-guard says "Same audio-extension pattern as
-    .githooks/pre-commit". That sentence is not a mechanism. Two lists that must
-    be identical and are maintained separately is precisely how `release.yml`'s
-    two tag-shape lists diverged invisibly for the whole v0.x line.
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        # The reviewer's case: a byte outside ASCII, quoted under core.quotePath.
+        "Björk.flac",
+        # A tab is quoted whatever core.quotePath says.
+        "tab\there.wav",
+        # A double quote is escaped inside the quoting too.
+        'say "hi".mp3',
+    ],
+)
+def test_a_staged_audio_file_with_an_unusual_name_blocks_the_commit(
+    repo: Path, name: str
+) -> None:
+    r"""THE regression test for item 1.1: a name git quotes must still be caught.
+
+    The old hook read `git diff --name-only` without `-z`, so `Björk.flac` came
+    back as `"Bj\303\266rk.flac"`, and an end-anchored `\.flac$` saw the closing
+    quote instead of the extension. The hook said nothing and exited 0.
     """
+    assert _GIT is not None
+    # Pin the input. Quoting is git's default, but a contributor's global config
+    # could turn it off, and then this test would pass against the old hook too.
+    _git(repo, "config", "core.quotePath", "true")
+    (repo / name).write_text("not audio, just a name\n", encoding="utf-8")
+    _git(repo, "add", "-f", "--", name)
+
+    # Non-triviality: prove the fixture reproduces the condition the bug needed,
+    # that the plain listing really does quote this name. A name git happened
+    # not to quote would pass here for the wrong reason.
+    plain = subprocess.run(
+        [_GIT, "diff", "--cached", "--name-only"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert plain.startswith('"') and plain.endswith('"'), (
+        f"git did not quote {name!r} (it listed {plain!r}), so this case cannot "
+        "tell the fixed hook from the old one"
+    )
+
+    result = _run_hook(repo)
+
+    assert result.returncode == 1, (
+        f"the hook allowed a staged audio file named {name!r}, which git quotes. "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert name in result.stderr, (
+        "the refusal did not name the file as it is on disk, so the operator "
+        f"cannot find it: {result.stderr!r}"
+    )
+
+
+def test_a_non_ascii_text_file_is_allowed(repo: Path) -> None:
+    """The floor for the test above: a quoted name that is NOT audio passes.
+
+    Without it, a hook that refused every quoted name would satisfy the
+    regression test while blocking an ordinary commit of `Björk notes.md`.
+    """
+    _git(repo, "config", "core.quotePath", "true")
+    (repo / "Björk notes.md").write_text("# text\n", encoding="utf-8")
+    _git(repo, "add", "Björk notes.md")
+
+    result = _run_hook(repo)
+
+    assert result.returncode == 0, (
+        f"the hook blocked a non-ASCII text file. stderr={result.stderr!r}"
+    )
+
+
+# --- The shared extension list ----------------------------------------------
+
+
+def _shared_extensions() -> list[str]:
+    """The shared list, read the way the hook reads it, with its format checked.
+
+    The format is part of the contract. CI's media-guard reads the same file, and
+    its copy was created independently, so the bytes must be exactly one
+    lowercase word per line, a final newline, and nothing else.
+    """
+    raw = EXTENSIONS_FILE.read_bytes()
+    assert raw.endswith(b"\n") and not raw.endswith(b"\n\n"), (
+        "audio-extensions.txt must end with exactly one newline"
+    )
+    entries = raw.decode("ascii").split("\n")[:-1]
+    bad = [e for e in entries if not re.fullmatch(r"[a-z0-9]+", e)]
+    assert not bad, f"malformed lines in audio-extensions.txt: {bad!r}"
+    assert len(entries) == len(set(entries)), "duplicate lines in audio-extensions.txt"
+    # Floor: 18 extensions on 2026-10-27. The list may grow; a shorter one means
+    # a format was dropped, which should be a decision made here on purpose.
+    assert len(entries) >= 18, f"audio-extensions.txt shrank to {entries!r}"
+    return entries
+
+
+def test_every_listed_extension_blocks_the_commit(repo: Path) -> None:
+    """The hook really USES the shared file: each extension in it is refused.
+
+    Behavioural rather than textual, so it holds whatever the hook's source looks
+    like. One commit stages one file per extension, in upper case to keep the
+    case-insensitive match honest, and every one must be named in the refusal.
+    """
+    names = [f"track.{ext.upper()}" for ext in _shared_extensions()]
+    for name in names:
+        (repo / name).write_text("not audio\n", encoding="utf-8")
+    _git(repo, "add", "-f", "--", *names)
+
+    result = _run_hook(repo)
+
+    assert result.returncode == 1, result.stderr
+    missed = [n for n in names if n not in result.stderr]
+    assert not missed, f"the hook did not refuse {missed}: {result.stderr!r}"
+
+
+def _hook_beside(tmp_path: Path, list_text: str | None) -> Path:
+    """A copy of the real hook with `list_text` as its extension list (None: none)."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    copy = hooks / "pre-commit"
+    shutil.copyfile(HOOK, copy)
+    copy.chmod(0o755)
+    if list_text is not None:
+        (hooks / EXTENSIONS_FILE.name).write_text(list_text, encoding="utf-8")
+    return copy
+
+
+@pytest.mark.parametrize(
+    ("label", "list_text"),
+    [
+        ("missing", None),
+        ("empty", ""),
+        ("malformed", "flac\n.wav\n"),
+        ("pattern-syntax", "flac\n.*\n"),
+        ("blank-line", "flac\n\nwav\n"),
+    ],
+)
+def test_the_hook_refuses_without_a_usable_extension_list(
+    repo: Path, tmp_path: Path, label: str, list_text: str | None
+) -> None:
+    """No list, no pass: a guard with nothing to match against passes everything.
+
+    An ordinary text commit is staged, so the list is the only reason to refuse.
+    """
+    hook = _hook_beside(tmp_path, list_text)
+    (repo / "notes.md").write_text("# text\n", encoding="utf-8")
+    _git(repo, "add", "notes.md")
+
+    result = _run_hook(repo, hook=hook)
+
+    assert result.returncode != 0, (
+        f"the hook passed a commit with a {label} extension list, so it vouched "
+        f"for a commit it had no way to check. stderr={result.stderr!r}"
+    )
+    assert "audio-extension list" in result.stderr, result.stderr
+
+
+def test_a_copied_hook_with_the_real_list_behaves_normally(
+    repo: Path, tmp_path: Path
+) -> None:
+    """Non-triviality for the test above: copying the hook is not what refuses.
+
+    The same copy, given the real list, must pass a text commit and block audio.
+    """
+    hook = _hook_beside(tmp_path, EXTENSIONS_FILE.read_text(encoding="utf-8"))
+    (repo / "notes.md").write_text("# text\n", encoding="utf-8")
+    _git(repo, "add", "notes.md")
+    assert _run_hook(repo, hook=hook).returncode == 0
+
+    (repo / "a.flac").write_text("not audio\n", encoding="utf-8")
+    _git(repo, "add", "-f", "a.flac")
+    assert _run_hook(repo, hook=hook).returncode == 1
+
+
+def _alternation(text: str, label: str) -> list[str]:
+    r"""The extensions inside the first `\.(a|b|…)$` regular expression in `text`."""
+    match = re.search(r"\\\.\(((?:[a-z0-9]+\|)+[a-z0-9]+)\)\$", text)
+    assert match, f"no audio-extension pattern found in {label}; this test is broken"
+    return match.group(1).split("|")
+
+
+def test_every_audio_list_equals_the_shared_file() -> None:
+    """One definition of "audio", and every copy of it compared, not trusted.
+
+    `.githooks/audio-extensions.txt` is the shared list. The hook reads it (the
+    behavioural test above proves that), and so does CI's media-guard. Two guards
+    cannot read a repository file, so they keep their own copy:
+
+    * `.claude/hooks/audio_guard.py`, the agent-side guard, as a compiled regular
+      expression;
+    * `docs/rig-scripts/platterpuscollect.sh`, which an operator downloads and runs
+      on its own machine, as a `find` expression.
+
+    Each copy is held to the file here, in the file's order, so a format added in
+    one place and forgotten in another turns the suite red. Two lists maintained
+    separately is how `release.yml`'s two tag-shape lists diverged for the whole
+    v0.x line.
+    """
+    shared = _shared_extensions()
+
     hook_text = HOOK.read_text(encoding="utf-8")
+    assert EXTENSIONS_FILE.name in hook_text, (
+        "the pre-commit hook no longer names the shared list"
+    )
+    assert not re.search(r"\\\.\((?:[a-z0-9]+\|)+", hook_text), (
+        "the pre-commit hook carries its own extension pattern again, which can "
+        "drift from the shared file; read the file instead"
+    )
+
+    agent = _alternation(
+        (REPO_ROOT / ".claude" / "hooks" / "audio_guard.py").read_text(
+            encoding="utf-8"
+        ),
+        "audio_guard.py",
+    )
+    assert agent == shared, (
+        "audio_guard.py's AUDIO pattern differs from audio-extensions.txt.\n"
+        f"  shared:     {shared}\n  agent hook: {agent}"
+    )
+
+    # CI's media-guard is the server-side witness. It either reads the shared
+    # file, or the pattern it still spells inline must equal the file.
     ci_text = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
+    if EXTENSIONS_FILE.name not in ci_text:
+        ci = _alternation(ci_text, "ci.yml")
+        assert ci == shared, (
+            "ci.yml's media-guard pattern differs from audio-extensions.txt.\n"
+            f"  shared: {shared}\n  ci:     {ci}"
+        )
 
-    def _pattern(text: str) -> str:
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("pattern=") and "flac" in stripped:
-                return stripped.split("=", 1)[1].strip().strip("'\"")
-        return ""
-
-    hook_pattern = _pattern(hook_text)
-    ci_pattern = _pattern(ci_text)
-    # The third guard, the agent-side PreToolUse hook (2026-10-12), spells it as a
-    # Python raw string. Read it from its own assignment, not from a mention.
-    agent_text = (REPO_ROOT / ".claude" / "hooks" / "audio_guard.py").read_text(
-        encoding="utf-8"
+    # The rig collector spells its list as one shell assignment, which its `find`
+    # expression is built from. Read the assignment, not a mention of it.
+    collector_text = (
+        REPO_ROOT / "docs" / "rig-scripts" / "platterpuscollect.sh"
+    ).read_text(encoding="utf-8")
+    assignment = re.search(r'^AUDIO_EXTS="([a-z0-9 ]+)"$', collector_text, re.MULTILINE)
+    assert assignment, "no AUDIO_EXTS assignment in platterpuscollect.sh"
+    collector = assignment.group(1).split()
+    assert collector == shared, (
+        "platterpuscollect.sh's AUDIO_EXTS differs from audio-extensions.txt.\n"
+        f"  shared:    {shared}\n  collector: {collector}"
     )
-    agent_match = re.search(r'^\s*r"(\\\.\(flac[^"]*)",?\s*$', agent_text, re.MULTILINE)
-    agent_pattern = agent_match.group(1) if agent_match else ""
-    assert hook_pattern, "no audio pattern found in the hook — this test is broken"
-    assert ci_pattern, "no audio pattern found in ci.yml — this test is broken"
-    assert agent_pattern, (
-        "no AUDIO_PATTERN found in audio_guard.py — this test is broken"
-    )
-    assert hook_pattern == ci_pattern == agent_pattern, (
-        "the guards disagree about which extensions are audio, so one of them "
-        "lets a format through that another blocks.\n"
-        f"  pre-commit: {hook_pattern}\n  ci:         {ci_pattern}\n"
-        f"  agent hook: {agent_pattern}"
+    # And its `find` really is built from that list, so the assignment above is
+    # not a decoration beside a hand-written expression.
+    assert '-iname "*.$ext"' in collector_text and "for ext in $AUDIO_EXTS" in (
+        collector_text
+    ), "platterpuscollect.sh's audio find no longer uses AUDIO_EXTS"
+    assert not re.search(r"-iname '\*\.(?:flac|wav|mp3)'", collector_text), (
+        "platterpuscollect.sh has a hand-written audio -iname again"
     )

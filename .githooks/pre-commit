@@ -8,13 +8,78 @@
 # (dev-setup.sh does this for you.)
 set -euo pipefail
 
-# Audio/media extensions that must never be committed (mirrors .gitignore + the
-# rule's list). Case-insensitive.
-pattern='\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+# Byte-wise string handling. The names this hook inspects are whatever bytes a
+# contributor's filesystem holds, and in a UTF-8 locale bash's pattern matching
+# and case conversion can stumble over a byte sequence that is not valid UTF-8.
+# Under C every byte is one character: `${name,,}` lowercases A-Z only, which is
+# exactly what an ASCII extension needs, and nothing else is touched.
+export LC_ALL=C
 
-# Files staged for addition/copy/modify/rename in this commit.
+# Refuse the commit with a reason. Every path that cannot vouch for the commit
+# ends here, so "could not check" is never mistaken for "checked and clean".
+refuse() {
+  echo "✖ COMMIT BLOCKED — $1" >&2
+  shift
+  local line
+  for line in "$@"; do
+    echo "  $line" >&2
+  done
+  exit 1
+}
+
+# --- Which extensions count as audio ----------------------------------------
 #
-# THE PRODUCER IS CHECKED SEPARATELY FROM grep, and that separation is the whole
+# ONE LIST, READ FROM A FILE, so the guards cannot drift. `audio-extensions.txt`
+# sits beside this hook and is the shared definition: CI's media-guard reads the
+# same file, and `tests/test_media_guard_hook.py` holds the two guards that keep
+# their own copies (the agent-side `.claude/hooks/audio_guard.py`, and the rig
+# collector, which runs standalone on an operator's machine) equal to it.
+#
+# Located by THIS SCRIPT's directory, not the repository's top level, so the
+# hook finds its list however it was invoked (git runs it from the work tree;
+# the tests run the real hook against a throwaway repository).
+#
+# The file is validated, not trusted: one lowercase ASCII word per line. A
+# missing, empty or malformed list REFUSES the commit. A guard with no list
+# would match nothing and pass everything, which is the fail-open shape this
+# hook exists to avoid; a malformed entry would be a guess about intent.
+hook_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ext_file="$hook_dir/audio-extensions.txt"
+if [[ ! -r "$ext_file" ]]; then
+  refuse "the audio-extension list is missing: $ext_file" \
+    "This hook enforces Critical Rule #8 and cannot tell audio from text" \
+    "without it, so it refuses rather than passing silently." \
+    "Restore .githooks/audio-extensions.txt from the repository and retry."
+fi
+extensions=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ ! "$line" =~ ^[a-z0-9]+$ ]]; then
+    refuse "the audio-extension list has a malformed line: '$line'" \
+      "Each line of $ext_file must be one lowercase extension, no dot." \
+      "Fix the file and retry."
+  fi
+  extensions+=("$line")
+done <"$ext_file"
+if [[ ${#extensions[@]} -eq 0 ]]; then
+  refuse "the audio-extension list is empty: $ext_file" \
+    "An empty list would let every file through, so this hook refuses." \
+    "Restore .githooks/audio-extensions.txt from the repository and retry."
+fi
+
+# --- Which files this commit stages -----------------------------------------
+#
+# NUL-SEPARATED (`-z`), AND THAT IS THE 2026-10-27 FIX. Without `-z`, git quotes
+# any name holding a byte outside printable ASCII (`core.quotePath`, on by
+# default): `Björk.flac` is listed as `"Bj\303\266rk.flac"`, closing quote and
+# all, so an extension test anchored at the end of the name never matched and
+# the hook reported a clean commit. Found by the external review of 2026-10-27
+# (item 1.1), reproduced against this hook. With `-z` git writes each name's raw
+# bytes, unquoted, ended by a NUL — the only form no file name can imitate.
+#
+# A shell variable cannot hold a NUL (`$(...)` drops them), so the listing goes
+# to a temporary file and is read back one NUL-ended name at a time.
+#
+# THE PRODUCER IS CHECKED SEPARATELY FROM THE MATCH, and that separation is the
 # point. The obvious spelling —
 #
 #     offenders=$(git diff --cached ... | grep -iE "$pattern" || true)
@@ -27,32 +92,53 @@ pattern='\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|d
 # the commit proceeds unchecked — a fail-OPEN guard on the one rule in this
 # project with legal consequences (public repo, Critical Rule #8).
 #
-# So: `git diff` must SUCCEED before its silence means anything, and only grep's
-# exit is absorbed. A guard that cannot enumerate what it is guarding must
-# REFUSE — the same tri-state rule applied everywhere else here: "not determined"
-# is not a pass.
+# So: `git diff` must SUCCEED before its silence means anything. A guard that
+# cannot enumerate what it is guarding must REFUSE — the same tri-state rule
+# applied everywhere else here: "not determined" is not a pass.
 #
 # Found 2026-08-20 by an audit sweeping for `|| true`; the identical idiom was in
 # `ci.yml`'s media-guard, so the two guards meant to be INDEPENDENT witnesses
 # shared one failure mode. Both fixed together; `tests/test_media_guard_hook.py`
 # pins this branch by running the hook with a broken producer.
-if ! staged=$(git diff --cached --name-only --diff-filter=ACMR); then
-  echo "✖ COMMIT BLOCKED — could not list the staged files (git diff failed)." >&2
-  echo "  This hook enforces Critical Rule #8 and cannot vouch for a commit it" >&2
-  echo "  was unable to inspect, so it refuses rather than passing silently." >&2
-  echo "  Fix the repository state and retry." >&2
-  exit 1
+if ! listing=$(mktemp); then
+  refuse "could not create a temporary file to list the staged files in." \
+    "This hook enforces Critical Rule #8 and cannot vouch for a commit it" \
+    "was unable to inspect, so it refuses rather than passing silently."
 fi
-offenders=$(printf '%s\n' "$staged" | grep -iE "$pattern" || true)
+trap 'rm -f "$listing"' EXIT
+if ! git diff --cached --name-only -z --diff-filter=ACMR >"$listing"; then
+  refuse "could not list the staged files (git diff failed)." \
+    "This hook enforces Critical Rule #8 and cannot vouch for a commit it" \
+    "was unable to inspect, so it refuses rather than passing silently." \
+    "Fix the repository state and retry."
+fi
 
-if [[ -n "$offenders" ]]; then
+# Compare each name's ending, lowercased, against each listed extension. A
+# plain string comparison rather than a regular expression: the quoted "$ext"
+# is matched literally, so no entry can be read as pattern syntax.
+offenders=()
+while IFS= read -r -d '' name; do
+  lower="${name,,}"
+  for ext in "${extensions[@]}"; do
+    if [[ "$lower" == *."$ext" ]]; then
+      offenders+=("$name")
+      break
+    fi
+  done
+done <"$listing"
+
+if [[ ${#offenders[@]} -gt 0 ]]; then
   echo "✖ COMMIT BLOCKED — audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8):" >&2
-  while IFS= read -r f; do
+  for f in "${offenders[@]}"; do
     echo "    $f" >&2
-  done <<< "$offenders"
+  done
   echo "" >&2
   echo "Test with real audio OUTSIDE the repo (scratchpad / /tmp); commit only the text proof (logs + per-track CRCs)." >&2
-  echo "If this is a verified CC0/self-generated sample and you truly mean it: git commit --no-verify" >&2
+  # No escape hatch is offered, because none exists: CI's required media-guard
+  # refuses the same file on push, so `--no-verify` would only move the refusal
+  # to the pull request (external review of 2026-10-27, item 2.15).
+  echo "A test that needs real PCM generates it at test time (or reads it from outside the repo); it is never committed." >&2
+  echo "git commit --no-verify skips only this hook: CI's required media-guard refuses the same file on push." >&2
   exit 1
 fi
 

@@ -21,7 +21,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import evidence_manifest as em  # noqa: E402 - needs the path line above
+import evidence_manifest as em  # needs the path line above
 
 FOLDER = "docs/handshake/artifactsround99"
 FILES = {

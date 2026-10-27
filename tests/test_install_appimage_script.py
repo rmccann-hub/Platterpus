@@ -73,6 +73,58 @@ def test_install_without_appimage_errors_clearly(tmp_path: Path) -> None:
     assert "Couldn't find" in result.stderr or "find a" in result.stderr
 
 
+def test_search_skips_a_folder_named_like_an_appimage(tmp_path: Path) -> None:
+    """Regression (review 2026-10-27, item 3.6): the search no longer parses `ls`.
+
+    `ls -1 "$dir"/platterpus*.AppImage | head -1` listed a FOLDER's contents when
+    the glob matched a folder, so the search returned a bare file name from
+    inside it, which is not a path, and the install failed or copied the wrong
+    thing. A glob with a regular-file test skips the folder and goes on to the
+    real AppImage in ~/Downloads.
+    """
+    env = dict(os.environ)
+    env["HOME"] = str(tmp_path)
+    env["XDG_DATA_HOME"] = str(tmp_path / ".local" / "share")
+    work = tmp_path / "work"
+    decoy = work / "platterpus-old.AppImage"
+    decoy.mkdir(parents=True)
+    (decoy / "readme.txt").write_text("a folder, not an AppImage\n")
+    real = tmp_path / "Downloads" / "platterpus-x86_64.AppImage"
+    real.parent.mkdir()
+    real.write_text("#!/bin/sh\necho fake\n")
+    real.chmod(0o755)
+
+    result = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=str(work),
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    installed = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
+    assert installed.read_text() == real.read_text(), result.stdout
+
+
+def test_no_shell_script_here_parses_ls_output() -> None:
+    """Static sweep for item 3.6: `$(ls …)` is not used to find a file.
+
+    Covers the two scripts the review named. The floor proves both were read.
+    """
+    scripts = [SCRIPT, REPO_ROOT / "build" / "build_appimage.sh"]
+    texts = [p.read_text(encoding="utf-8") for p in scripts]
+    assert all(len(t) > 1000 for t in texts), "the sweep is not reading the scripts"
+    offenders = [
+        f"{p.name}: {line.strip()}"
+        for p, t in zip(scripts, texts, strict=True)
+        for line in t.splitlines()
+        if "$(ls " in line and not line.lstrip().startswith("#")
+    ]
+    assert not offenders, offenders
+
+
 def test_install_creates_then_removes_uninstall_shortcut(tmp_path: Path) -> None:
     """A full install drops the AppImage, an app launcher, AND an 'Uninstall
     Platterpus' shortcut + a staged copy of uninstall.sh; --uninstall removes

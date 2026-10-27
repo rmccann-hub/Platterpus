@@ -77,7 +77,7 @@ def build_diagnostics_text() -> str:
     try:
         lines += ["", handshake_approval.version_pair_line()]
         # The installed half, beside the approved one (the maintainer, 2026-09-28).
-        from platterpus import ripper_standing  # noqa: PLC0415 — only this block
+        from platterpus import ripper_standing  # only this block
 
         standing = ripper_standing.describe_installed_ripper(
             build_notes.ripper_banner(dep_manager.latest_report())

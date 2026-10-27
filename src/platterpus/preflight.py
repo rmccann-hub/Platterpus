@@ -659,7 +659,7 @@ def check_ripper_wrapper_exits(
     `NOT_DETERMINED` is reported as SKIP rather than OK: a wrapper we could not
     test is not a working wrapper.
     """
-    from platterpus.deps import ripper_wrapper_probe  # noqa: PLC0415
+    from platterpus.deps import ripper_wrapper_probe
 
     probe = run_probe or ripper_wrapper_probe.probe
     try:

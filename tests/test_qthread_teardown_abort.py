@@ -66,7 +66,7 @@ del thread                    # the module global is now the only reference
 def _run_child(body: str, timeout: float = 120.0) -> subprocess.CompletedProcess[str]:
     """Run a child interpreter with the repo importable, and return its result."""
     script = textwrap.dedent(_CHILD_PREAMBLE) + textwrap.dedent(body)
-    return subprocess.run(  # noqa: S603 — our own generated script
+    return subprocess.run(  # our own generated script
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,

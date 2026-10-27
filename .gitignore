@@ -22,7 +22,10 @@ AppDir/
 build/python-appimage/.cache/
 # Transient hash-verified wheelhouse (build_appimage.sh builds + removes it per
 # run when requirements.lock is present); never committed. requirements.lock
-# itself IS committed — it's the small text pin the wheelhouse is rebuilt from.
+# itself is NOT ignored: it is meant to be committed, as the small text pin the
+# wheelhouse is rebuilt from (build/lock-requirements.sh writes it). Check
+# `git ls-files build/python-appimage` for whether it has been; on 2026-10-27
+# it had not, and the build fell back to its version-pinned online install.
 build/python-appimage/.wheelhouse/
 # Intermediate wheel build tree from `python -m build`
 build/lib/
@@ -55,6 +58,15 @@ htmlcov/
 *.swo
 .DS_Store
 
+# Local secrets and scratch work (external review of 2026-10-27, item 4.1).
+# .claude/settings.json denies agents READING .env, .env.* and secrets/**; these
+# lines stop anyone COMMITTING them, which is the other half of the same rule.
+# scratch/ is the conventional place for throwaway work inside a checkout.
+.env
+.env.*
+secrets/
+scratch/
+
 # Claude Code: the shared, enforced .claude/settings.json IS committed (deny
 # rules + the audio-guard hook). Personal/local overrides are not.
 .claude/settings.local.json
@@ -66,8 +78,9 @@ htmlcov/
 # public; committing a music file redistributes copyrighted material, even if
 # it's only a temporary test file. We commit rip *logs* + per-track CRCs as the
 # proof, never the audio. This is a backstop for the rule, not a substitute for
-# it. (If you ever need a genuinely free/CC0/self-generated sample, override per
-# file with `git add -f` — and be sure it's not a commercial track.)
+# it. There is no override: `git add -f` meets the pre-commit hook, and past that
+# CI's required media-guard. A test that needs real PCM generates it at test
+# time, or reads it from outside the repository.
 *.flac
 *.wav
 # Raw PCM. Added 2026-09-07: the cyanrip fork's round-16 harness rips the

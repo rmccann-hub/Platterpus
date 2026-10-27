@@ -194,7 +194,7 @@ class Rig:
         lines = self.calls_log.read_text(encoding="utf-8").splitlines()
         return [json.loads(line) for line in lines]
 
-    def build(self, **overrides: object):  # noqa: ANN201 - the script's MediaReport
+    def build(self, **overrides: object):  # the script's MediaReport
         """``build_media`` over the real shot list, the desktop folder separate.
 
         Unannotated like ``tests/test_round_digest.py``'s helpers: the script is
@@ -213,7 +213,7 @@ def rig(tmp_path: Path) -> Rig:
     return Rig(tmp_path)
 
 
-def _result(report, stem: str):  # noqa: ANN001, ANN201 - the script's classes
+def _result(report, stem: str):  # the script's classes
     """The one result for ``stem``; asserted to exist, so a rename cannot skip it."""
     found = [r for r in report.results if r.shot.stem == stem]
     assert len(found) == 1, f"{stem}: {len(found)} results"

@@ -66,7 +66,7 @@ def install_channel() -> str:
             return "appimage"
         if "pipx" in Path(sys.prefix).parts:
             return "pipx"
-    except Exception:  # noqa: BLE001 — channel detection must never raise
+    except Exception:  # noqa: BLE001, S110 — channel detection must never raise
         pass
     return "source"
 
@@ -97,7 +97,7 @@ def self_invocation() -> str:
         appimage = os.environ.get("APPIMAGE", "")
         if appimage:
             return f'"{appimage}"' if any(c.isspace() for c in appimage) else appimage
-    except Exception:  # noqa: BLE001 — a hint string must never raise
+    except Exception:  # noqa: BLE001, S110 — a hint string must never raise
         pass
     return "platterpus"
 
@@ -122,17 +122,17 @@ def environment_report() -> EnvironmentBlock:
     }
     try:
         env["python"] = sys.version.split()[0]
-    except Exception:  # noqa: BLE001 — an environment field is best effort; the report must still build
+    except Exception:  # noqa: BLE001, S110 — an environment field is best effort; the report must still build
         pass
     try:
         env["platform"] = platform.platform()
-    except Exception:  # noqa: BLE001 — an environment field is best effort; the report must still build
+    except Exception:  # noqa: BLE001, S110 — an environment field is best effort; the report must still build
         pass
     try:
         import PySide6
 
         env["pyside6"] = PySide6.__version__
-    except Exception:  # noqa: BLE001 — absent/broken Qt must not break the report
+    except Exception:  # noqa: BLE001, S110 — absent/broken Qt must not break the report
         pass
     return env
 
@@ -231,7 +231,7 @@ def component_inventory(report: object) -> ComponentInventory:
         from PySide6.QtCore import qVersion
 
         qt = qVersion()
-    except Exception:  # noqa: BLE001 — an absent Qt must not break the inventory
+    except Exception:  # noqa: BLE001, S110 — an absent Qt must not break the inventory
         pass
     from platterpus import __version__
 

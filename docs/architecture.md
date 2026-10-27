@@ -296,7 +296,12 @@ Worker mechanics, all demonstrated in `workers/`:
   floor on what it examined and was revert-probed. Its first run found four real
   defects the per-dialog gates had missed — and found that the contrast rule
   examined no status line at all until windows were measured in a state that
-  shows one, which is why `STATES` exists.
+  shows one, which is why `STATES` exists. **Every condition measures in one
+  named font, DejaVu Sans at 9 pt** (`MEASURE_FONT_FAMILY`, since 2026-10-27):
+  a text-fit verdict is a statement about the font as well as the layout, and
+  the machine's default made it two verdicts on two machines (Inter failed
+  three tests that DejaVu passed). The subprocess checks with `QFontInfo` that
+  Qt really matched that family and refuses to measure in a substitute.
 - **One door per action.** An action reachable from two places has two places
   to go stale, and the second door is rarely maintained. Settings' "Check
   dependencies" and "Re-detect…" duplicated Setup & Updates buttons and were
@@ -502,6 +507,15 @@ comments accurate too — they document *which* mixin owns each concern).
   `except Exception` is acceptable *only* at a thread/GUI boundary where a
   crash would take down the app, and it must `log.exception(...)` and degrade
   gracefully (tagging must never crash the GUI).
+- **An `assert` narrows a type; it never guards behaviour.** `python -O` deletes
+  every `assert`, so a check of a caller's precondition (which thread we are on,
+  whether a value is in range) written as one disappears under an interpreter
+  flag. Raise a specific exception, or log and refuse. The one that did this,
+  `run_unknown_post_processing` asserting the GUI thread, raises
+  `OffGuiThreadWidgetRead` since 2026-10-27; what remains in `src` is
+  `x is not None` / `isinstance(...)` for mypy, and
+  `tests/test_critical_rules_are_enforced.py::test_asserts_in_src_only_narrow_types`
+  refuses anything else.
 - **Use the `logging` module, never `print`.** The user's log lives at
   `~/.local/share/platterpus/log.txt` — the first thing to ask for in a bug
   report (the Settings *debug logging* toggle raises it to verbose DEBUG). Log
@@ -518,7 +532,12 @@ comments accurate too — they document *which* mixin owns each concern).
   is a realistic source of such a byte. `tests/test_inbound_text.py` sweeps for
   it. What such a read then shows a person goes through `inbound_text` (escapes
   for control characters, a bound on line length, the count of what changed).
-  Parsers read the raw text.
+  Parsers read the raw text. **And it names the encoding:** every text-mode
+  subprocess call passes `encoding="utf-8"` beside `text=True` (2026-10-27,
+  external review item 3.3). Without it the pipe decodes with the locale's
+  encoding, and under a named non-UTF-8 locale such as ISO-8859-1 every byte
+  decodes, so cyanrip's UTF-8 tags arrive as mojibake with no U+FFFD for
+  `inbound_text` to count. The same file sweeps for that too.
 - **Two audiences, two artifacts (maintainer's call, 2026-07-01).** Platterpus's
   app log lands in exactly two places — *not* redundant — and there is **no**
   standalone `.platterpus.log` sidecar:
@@ -1612,7 +1631,7 @@ release, never the ripper's interactive prompt).
 - `pytest` from the repo root (no env vars — `pyproject.toml` sets
   `pythonpath = ["src"]`); the suite touches no real hardware, network, or
   container. CI enforces **branch coverage with a hard floor**
-  (`--cov-fail-under`, 91, ratchets up) on the 3.14 leg of a 3.11–3.14 matrix that
+  (`--cov-fail-under`, 93, ratchets up) on the 3.14 leg of a 3.11–3.14 matrix that
   runs every test in parallel, plus `ruff`
   lint + format, the gating `mypy` typecheck (strict def-typing,
   `pyproject.toml [tool.mypy]`), and the changelog / media-guard /
@@ -1991,6 +2010,14 @@ fix is now a new, signed version (§6.4 step 5).
 *Verbatim from `CLAUDE.md` at `f5305a7` (Project operations → CI / release), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **The gates that actually run at release time live in `release.yml`, not in the checklist above** — and the checklist not naming them is how one of them was written to be satisfied by finding nothing. **Six**, and three of them run before the build — the last three cannot, because they need the binary. In order, apart from the CI gate the bullet above describes: **(a)** the **handshake record** (`scripts/handshake.py --release-gate --tag`), which prints every open round, the peer file each close rests on, and any override a lap records for the tag, and **refuses nothing**: handshake protocol v8 §6b (E1, E9), landed 2026-10-11 on the maintainer's word of 2026-10-07, lets either side release on any channel once its whole suite passes on the release commit from a clean checkout, which is the CI gate. What keeps a user on a jointly verified ripper is `FORK_PIN`, which moves only when a round closes. **Until v8 this was the handshake gate**: it refused a stable release while a round was open, held every tag our updater offers on the stable channel to that rule (N4, 2026-09-23; every final `v0.*`), and let one through only under a `§6b` `HANDSHAKE-OVERRIDE` in a released lap, which every release from 0.6.54 to 0.7.102 needed. It also routed on the same tag-shape list that decides whether GitHub publishes a pre-release, so the two had to stay identical (they diverged once, invisibly for the whole v0.x line); the publish list is the only one left; **(b)** the **changelog gate**, which requires `[Unreleased]` to be empty **and** the tag's own `## [X.Y.Z]` section to exist and be non-empty — both halves, because the first version checked only emptiness and then printed *"entries were moved"*, so **deleting** them passed identically; **(c)** the built-binary version check; **(d)** the **bundled-verifier check** (2026-09-25), which runs the AppImage's *own* Python on a genuine attestation — the updater imports `sigstore` lazily, so a bundle without a working copy passes `--version` and then refuses every update it is offered; **(e)** the **attestation check** (2026-09-25), which runs the updater's own `select_verified` over the new build's attestation and stages it as a release asset, so a release no installed app could update to fails here instead of on a user's machine. **When you change a gate, ask what it can be satisfied by** — an empty `[Unreleased]` is not evidence of a move, and a substring is not a branch.
+
+*Amendment, 2026-10-27 (the claude-code-skills review of that day, item 1.5): a seventh gate, the **branch gate**, runs right after the CI gate. The CI gate asks whether the commit's checks are green, and a commit on any branch has green checks once its pull request ran, so a dispatch on a feature branch, or a tag pushed onto one, could release code `main` never received. The branch gate fetches `main` alone (never a plain `git fetch`, which would pull the `evidence` branch) and refuses unless `git merge-base --is-ancestor "$SHA" origin/main` says yes; a fetch or comparison that fails is a refusal too. `tests/test_release_git_steps.py` runs the step against real throwaway repositories. `CLAUDE.md`'s list of release-time gates does not name it yet.*
+
+*Amendment, 2026-10-27 (the same review, item 2.8): **`release.yml` makes the tag itself, annotated, before it creates the release.** Until then `gh release create --target` made it, and GitHub makes that tag lightweight: no tagger, no date, no message. The new step, last before publishing so a refused release leaves no tag, tags the release commit as `github-actions[bot]` and pushes it, and the publish step uses `--verify-tag`, which refuses rather than make a tag of its own. It only ever creates, so it fits the `v*` ruleset (creation allowed, moves and deletes blocked; `PLANNING.md` KDD-43): a re-run on the same commit reuses the tag, a lightweight one with a warning, and a tag already on another commit is refused, because the fix is a new version. The push hands the token to that one `git` command as an HTTP header, since the checkout keeps none (item 1.4). Tags already published stay as they are (KDD-37, D7). KDD-43 and `CLAUDE.md` still say the tag is created when the draft is published. `tests/test_release_git_steps.py` runs the step against real throwaway repositories.*
+
+*Amendment, 2026-10-27 (the same review, items 2.5, 2.9, 2.11, 2.12 and 3.6): four checks join `ci.yml`.* The **test job** fails a leg that collected fewer tests than `tests/collected-tests-baseline.txt`, because a suite that silently loses a module still passes everything it ran; and its coverage floor moved from 91 to the measured 93. Three **non-required** jobs run beside it: `commit-subjects`, which holds new subjects to the grammar in `CLAUDE.md` (a tool can enforce a convention a reviewer only notices); `workflow-lint`, actionlint and zizmor offline, because the workflows are code that runs with a token and nothing linted them; and `shellcheck`, over every tracked shell script outside the handshake records, whose list a test holds to every file with a shell shebang, so a script without `.sh` can't fall outside it. They become required when the owner adds them to the ruleset.
+
+**When a merge conflict is in a generated block, regenerate the block, and then re-check every hand-kept line in the same file** (added 2026-10-27). Combining the review's branches, `DEPENDENCIES.md` conflicted only inside the block `scripts/emit_bom.py` writes, so the fix looked mechanical: take one side, regenerate. But one side's commit had also changed a hand-kept row above the block (pip-audit's pin), and taking the other side dropped it silently. `emit_bom.py --check` passed, because the check covers only the block it writes. The repair was `23771c10`. Before taking a side, list each conflicted commit's hunks outside the generated region (`git show <c> -- <file>`) and carry them over.
 
 **After integrating a branch cut before the last release, check the released `CHANGELOG.md` section against its tag** (added 2026-10-21). A cherry-pick places a hunk beside the neighbours it had when its branch was cut, so a branch that predates a release puts its `[Unreleased]` bullet inside the *released* section, and git reports no conflict. Four did on 2026-10-21 (R44, the timed rip, item 11, R13), all inside the published `[0.7.111]`, caught by comparing that section with `git show v0.7.111:CHANGELOG.md` and repaired in `18471330`. The check: everything from the newest released heading down must equal the tag's text byte for byte; anything else belongs under `[Unreleased]`.
 

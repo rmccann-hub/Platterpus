@@ -319,7 +319,11 @@ class DependencyMixin(MainWindowShared):
         if label is None:
             label = _new_dependency_status_label(self.statusBar())
             self._dep_status_label = label
-        stamped = f"{datetime.now():%H:%M:%S} · {text}"
+        # The person's own wall clock, on purpose: this is a status-bar time a
+        # human reads beside the clock on their desktop, not a record. Made
+        # timezone-aware with `astimezone()` so the value says it is local
+        # rather than being naive by accident (ruff DTZ005).
+        stamped = f"{datetime.now().astimezone():%H:%M:%S} · {text}"
         label.setText(stamped)
         # The label clips a long line at the window's edge. The sentence that
         # names what was not checked is the long one, so the whole of it is kept

@@ -26,6 +26,34 @@ on:
 permissions:
   contents: read
 
+# A NEWER PUSH TO A PULL REQUEST CANCELS ITS OLDER RUN; NOTHING ELSE IS CANCELLED
+# (the 2026-10-27 review, item 2.7). A superseded pull-request run only burns
+# runner minutes: its result describes a head nobody will merge.
+#
+# A push to `main` must never be cancelled, and must never wait in a shared
+# group either: `release.yml`'s CI gate reads `main`'s own run for the merge
+# SHA it releases, and GitHub keeps at most ONE pending run per concurrency
+# group, cancelling any older pending one whatever `cancel-in-progress` says. A
+# group shared by `main`'s pushes would therefore cancel the run of a merge that
+# landed while another was running. So every run that is not a pull request gets
+# a group of its own (`github.run_id`), which nothing can supersede, and
+# `cancel-in-progress` is true for pull requests alone. Held by
+# `tests/test_ci_workflow_shape.py`.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# EVERY CHECKOUT HERE SETS `persist-credentials: false` (the 2026-10-27 review,
+# item 1.4). By default actions/checkout leaves the token in the clone's git
+# config for every later step to use, so any step, or any tool a step installs,
+# could read it. No job in this file pushes. The jobs that fetch after checkout
+# (`changelog`, `media-guard`, `tests-touched`, `test`) fetch from this PUBLIC
+# repository, which needs no token; `gitleaks` takes every branch, `evidence`
+# included, in the checkout itself, which uses the token whatever this says; and
+# `scripts/laplang/evidence.py` fetches into a temporary repository of its own,
+# which never saw the persisted token anyway. Held by
+# `tests/test_ci_workflow_shape.py`.
+
 jobs:
   # Lint + format check. Fast and dependency-light (ruff is a single binary,
   # no Qt libs needed), so it runs as its own job in parallel with the tests.
@@ -43,6 +71,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
         # Depth 1, the default (HR-2 §8b): ruff reads the tree and never history.
         # The comment that stood here explained why the TEST job needs history; it
         # was copied with the setting, and the setting fetched the whole history for
@@ -98,6 +128,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -125,6 +157,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           filter: blob:none
       # HR-2 §8b: fetch only what this job reads, by explicit refspec. Depth 1 and
       # blobless above, then the full history of HEAD and of main, still without
@@ -260,6 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           filter: blob:none
       # HR-2 §8b: fetch only what this job reads, by explicit refspec. Depth 1 and
       # blobless above, then the full history of HEAD and of main, still without
@@ -280,47 +314,72 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # Same audio-extension pattern as .githooks/pre-commit + .gitignore.
-          pattern='\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+          # THE EXTENSION LIST IS READ FROM ONE FILE, `.githooks/audio-extensions.txt`,
+          # which `.githooks/pre-commit` reads too, so the two guards cannot drift
+          # apart (`tests/test_media_guard_hook.py` compares them with the agent-side
+          # hook's list). One lowercase extension per line, no dot. A missing, empty
+          # or malformed file REFUSES: a guard with no list would match nothing and
+          # report a clean scan it never performed.
+          ext_file=.githooks/audio-extensions.txt
+          if [ ! -s "$ext_file" ]; then
+            echo "::error::$ext_file is missing or empty, so this gate has no list of audio extensions to match. Refusing rather than reporting a clean scan."
+            exit 1
+          fi
+          if grep -qvE '^[a-z0-9]+$' "$ext_file"; then
+            echo "::error::$ext_file holds a line that is not one lowercase extension (letters and digits, no dot). Refusing rather than guessing what it meant:"
+            grep -nvE '^[a-z0-9]+$' "$ext_file" >&2 || true
+            exit 1
+          fi
+          pattern="\.($(paste -sd'|' "$ext_file"))\$"
+          echo "audio extensions ($(wc -l < "$ext_file")): $pattern"
           if [ "$EVENT" = "pull_request" ]; then
             base="$PR_BASE"; head="$PR_HEAD"
           else
             base="$PUSH_BEFORE"; head="$GITHUB_SHA"
           fi
-          # THE PRODUCER IS CHECKED SEPARATELY FROM grep. `| grep ... || true`
-          # needs the `|| true` for grep's no-match exit (the normal case), but
-          # `|| true` sits outside the pipeline and so also absorbs a failure of
-          # `git ls-files` / `git diff` themselves — `set -o pipefail` cannot help,
-          # because it is the pipeline's own non-zero status being discarded. The
-          # result is an empty `offenders`, a "No audio/media files. ✅", and a
-          # green gate that inspected nothing: fail-OPEN on the one rule here with
-          # legal consequences.
+          # NUL-SEPARATED NAMES, NEVER LINES (the 2026-10-27 review, item 1.1). With
+          # `core.quotePath` on (git's default), a name outside ASCII is printed
+          # quoted and octal-escaped: `Björk.flac` comes out as "Bj\303\266rk.flac"
+          # with a closing quote, so `\.flac$` never matched it and this gate passed
+          # the file. `-z` prints every name raw and NUL-terminated, and `grep -z`
+          # matches each NUL-terminated record whole, so a quote, an escape or a
+          # newline inside a name cannot hide the extension.
           #
-          # This branch has the more reachable trigger of the two: after a
-          # force-push `$PUSH_BEFORE` can name an object that no longer exists, at
-          # which point `git diff` is fatal rather than empty.
+          # THE PRODUCER IS CHECKED SEPARATELY FROM grep. A pipe into
+          # `grep ... || true` would absorb a failure of `git ls-files` / `git diff`
+          # along with grep's no-match exit, and a fatal producer would read as
+          # "No audio/media files. ✅": fail-OPEN on the one rule here with legal
+          # consequences (found 2026-08-20; the hook had the identical idiom). So the
+          # names go to a file, the producer's own status is read, and only grep's
+          # exit 1 (no match) counts as clean; its exit 2 (an error) refuses.
           #
-          # The identical idiom was in `.githooks/pre-commit`, which CLAUDE.md calls
-          # "the canonical guard" — so the two guards meant to be INDEPENDENT
-          # witnesses shared one failure mode, which is exactly what an independent
-          # backstop is for. Found 2026-08-20; both fixed together.
-          #
+          # The range branch has the more reachable trigger: after a force-push
+          # `$PUSH_BEFORE` can name an object that no longer exists, at which point
+          # `git diff` is fatal rather than empty.
+          names="$(mktemp)"
+          offenders="$(mktemp)"
           # Manual run or a new ref with no base → scan the whole tree instead of a range.
           if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$base" | grep -qE '^0+$'; then
-            if ! candidates=$(git ls-files); then
+            if ! git ls-files -z > "$names"; then
               echo "::error::git ls-files failed, so this gate could not enumerate the tree. Refusing rather than reporting a clean scan it did not perform."
               exit 1
             fi
           else
-            if ! candidates=$(git diff --name-only --diff-filter=ACMR "$base" "$head"); then
+            if ! git diff -z --name-only --diff-filter=ACMR "$base" "$head" > "$names"; then
               echo "::error::git diff $base..$head failed (a force-push can leave \$PUSH_BEFORE naming a vanished object), so this gate could not enumerate the change. Refusing rather than reporting a clean scan it did not perform."
               exit 1
             fi
           fi
-          offenders=$(printf '%s\n' "$candidates" | grep -iE "$pattern" || true)
-          if [ -n "$offenders" ]; then
+          echo "names examined: $(tr -cd '\0' < "$names" | wc -c)"
+          status=0
+          grep -z -iE "$pattern" "$names" > "$offenders" || status=$?
+          if [ "$status" -gt 1 ]; then
+            echo "::error::grep exited $status while matching the names, so this gate cannot say whether any is audio. Refusing."
+            exit 1
+          fi
+          if [ "$status" -eq 0 ]; then
             echo "::error::Audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8). Offenders:"
-            printf '%s\n' "$offenders" >&2
+            tr '\0' '\n' < "$offenders" >&2
             exit 1
           fi
           echo "No audio/media files. ✅"
@@ -335,6 +394,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
@@ -347,7 +408,21 @@ jobs:
           # latest patched setuptools keeps the audit honest without suppressing
           # a real finding — the actual fix, not an --ignore-vuln.
           python -m pip install --upgrade pip setuptools
-          python -m pip install -e . pip-audit
+          # The pin is READ from pyproject.toml's dev extra, the same way the lint
+          # job reads ruff's (Critical rule #11; the 2026-10-27 review, item 2.2):
+          # this job is a required check, and it used to install whichever
+          # pip-audit was newest that day. Only pip-audit is taken from the extra,
+          # not the whole extra, so the audited environment stays the runtime graph
+          # plus the auditor, as before.
+          spec="$(python -c '
+          import pathlib, tomllib
+          dev = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["dev"]
+          print(next(d for d in dev if d.replace("-", "_").startswith("pip_audit")))
+          ')"
+          echo "pyproject pins: $spec"
+          python -m pip install -e . "$spec"
       - name: Audit dependencies
         run: pip-audit --progress-spinner=off
 
@@ -369,6 +444,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # Full history. A shallow clone would make this check pass by not
           # looking, which is the failure mode this repo names most often.
           fetch-depth: 0
@@ -503,6 +579,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
@@ -539,17 +617,22 @@ jobs:
           name: sbom-cyclonedx
           path: sbom.cdx.json
 
-  # Advisory (never fails): warn when src/ changes without a matching tests/
-  # change — a soft nudge toward "every change carries a test / every bug gets a
-  # regression test", mirroring the changelog gate's range logic. It only emits a
-  # GitHub ::warning:: and always exits 0, because plenty of legitimate src edits
-  # (a comment, a rename, a docstring) need no new test.
+  # GATING since 2026-08-20, and a required status check: fail when src/platterpus
+  # changes with no change under tests/, mirroring the changelog gate's range
+  # logic. Two ways through, both stated in the step below: a release commit whose
+  # only src change is the `__version__` line, or a `[no-test-needed] <reason>`
+  # line in a commit message of the range, with a real reason (a bare marker is
+  # refused). Plenty of legitimate src edits (a comment, a rename, a docstring)
+  # need no new test; they take the second door, where review can see why.
+  # (This comment called the job "Advisory (never fails)" until the 2026-10-27
+  # review, item 2.16: the prose stayed behind when the `exit 1` below landed.)
   tests-touched:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           filter: blob:none
       # HR-2 §8b: fetch only what this job reads, by explicit refspec. Depth 1 and
       # blobless above, then the full history of HEAD and of main, still without
@@ -654,6 +737,130 @@ jobs:
           echo "    [no-test-needed] <why a test cannot or should not cover this>"
           exit 1
 
+  # COMMIT SUBJECTS follow this repository's grammar (the 2026-10-27 review,
+  # item 2.9): lowercase `type(scope): summary` or `type: summary`, the grammar
+  # CLAUDE.md → Commit & PR hygiene records as a deliberate divergence from the
+  # generic SOP, plus the merge, revert and Dependabot subjects git and GitHub
+  # write. What it accepts, and why, is `scripts/check_commit_subjects.py`'s
+  # docstring; `tests/test_check_commit_subjects.py` holds it against the 400
+  # commits up to 27755380, merges included.
+  #
+  # NOT a required status check: the default-branch ruleset names the required
+  # ones, and adding this job to it is the owner's decision (PLANNING.md KDD-43).
+  commit-subjects:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          filter: blob:none
+      # HR-2 §8b: fetch only what this job reads, by explicit refspec. Subjects
+      # need commits, never file contents, so blobless is all of it.
+      - name: Fetch HEAD's and main's history, blobless, by refspec (HR-2 §8b)
+        run: |
+          set -euo pipefail
+          deepen=()
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then deepen=(--unshallow); fi
+          git fetch --no-tags "${deepen[@]}" --filter=blob:none origin '+refs/heads/main:refs/remotes/origin/main'
+          test "$(git rev-parse --is-shallow-repository)" = "false"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Check every new commit's subject
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            base="$PR_BASE"; head="$PR_HEAD"
+          else
+            base="$PUSH_BEFORE"; head="$GITHUB_SHA"
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$base" | grep -qE '^0+$'; then
+            echo "No change range to check."; exit 0
+          fi
+          python3 scripts/check_commit_subjects.py --range "$base..$head"
+
+  # The workflows and the shell scripts get linters of their own (the
+  # 2026-10-27 review, items 2.5 and 3.6, added on the owner's word that day).
+  # NOT required checks yet: the owner adds `workflow-lint` and `shellcheck` to
+  # the default-branch ruleset when they choose to. Both read their pins out of
+  # pyproject's `ci-lint` extra, as the lint job reads ruff's (Critical rule #11).
+  workflow-lint:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install actionlint, zizmor and ShellCheck (pins read from pyproject)
+        run: |
+          set -euo pipefail
+          specs="$(python -c '
+          import pathlib, tomllib
+          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["ci-lint"]
+          print("\n".join(s.split(";")[0].strip() for s in extra))
+          ')"
+          mapfile -t pins <<<"$specs"
+          test "${#pins[@]}" -eq 3
+          printf 'pyproject pins:\n'; printf '  %s\n' "${pins[@]}"
+          python -m pip install "${pins[@]}"
+      # actionlint checks every file under .github/workflows, and runs the pinned
+      # ShellCheck over each `run:` block (installed here so the result does not
+      # depend on what the runner image happens to carry); zizmor runs
+      # offline, so it judges the files as written and never calls GitHub's API.
+      # Findings a reviewer accepted carry a `# zizmor: ignore[...]` beside them.
+      - name: actionlint
+        run: actionlint -color
+      - name: zizmor (offline)
+        run: zizmor --offline --format plain .github/workflows
+
+  shellcheck:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install ShellCheck (pin read from pyproject)
+        run: |
+          set -euo pipefail
+          spec="$(python -c '
+          import pathlib, tomllib
+          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
+              "optional-dependencies"
+          ]["ci-lint"]
+          print(next(s for s in extra if s.startswith("shellcheck-py")))
+          ')"
+          echo "pyproject pin: $spec"
+          python -m pip install "$spec"
+      # Every tracked shell script, read NUL-separated so no name can split. The
+      # handshake folder is left out on purpose: its rig scripts are sent records,
+      # kept byte for byte as the peer received them. The list is held to every
+      # file with a shell shebang by tests/test_ci_lint_jobs.py, so a new script
+      # can't fall outside it.
+      - name: ShellCheck every shell script
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t scripts < <(git ls-files -z -- '*.sh' .githooks/pre-commit ':(exclude)docs/handshake/**')
+          echo "checking ${#scripts[@]} scripts"
+          test "${#scripts[@]}" -ge 10
+          shellcheck "${scripts[@]}"
+
   test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -664,8 +871,17 @@ jobs:
         # bitten by version-specific breakage before (the previous ripper's
         # pkg_resources use vs Python 3.14); a matrix catches the GUI side of that class of
         # problem early. 3.11 is the floor (pyproject `requires-python`); 3.14
-        # (2025-10) is the newest — added 2026-07-02 (nothing the project uses
-        # was removed in it; PySide6 6.11 supports it).
+        # (2025-10) was added 2026-07-02 (nothing the project uses was removed
+        # in it; PySide6 6.11 supports it).
+        #
+        # NOT 3.15, though it shipped 2026-10-09 and setup-python offers 3.15.2
+        # (the 2026-10-27 review, item 2.10, checked that day). Every PySide6
+        # 6.11.x declares `Requires-Python >=3.10,<3.15`, so on 3.15 pip finds
+        # only PySide6 6.12.0, which our minor pin (`>=6.11.1,<6.12`, Critical
+        # rule #11, held equal to the AppImage recipe) refuses: `pip install -e
+        # ".[dev]"` fails before a test runs. Measured with CPython 3.15.2 from
+        # actions/python-versions. A 3.15 leg arrives with the deliberate
+        # PySide6 6.12 bump, not before it.
         python-version: ["3.11", "3.12", "3.13", "3.14"]
         # The coverage gate runs on ONE leg (maintainer, 2026-09-26). Every leg
         # still runs every test. py3.14 measures branch coverage with
@@ -679,6 +895,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # Depth 1 here, then history + tags by refspec in the next step.
           fetch-depth: 1
 
@@ -716,6 +933,14 @@ jobs:
       # PySide6 imports a handful of system libraries even under the
       # "offscreen" Qt platform (no display needed). Install the minimal set;
       # without these the QApplication fixture in conftest.py fails to load.
+      #
+      # And ONE NAMED FONT, `fonts-dejavu-core` (the 2026-10-27 review, item
+      # 3.1). The accessibility conformance gate measures clipped text and
+      # cut-off cells with real font metrics, so its verdict depended on
+      # whatever sans-serif the runner image happened to supply: with Inter as
+      # the default, 3 conformance tests fail; with DejaVu Sans all pass. The
+      # test fixture selects "DejaVu Sans" by name and fails loudly when Qt
+      # cannot find it, so this package is what makes the gate repeatable.
       #
       # BOUNDED AND RETRIED, because this is the step that wedges. It stalled on
       # the GitHub runner four times across three runs of one branch, past 20
@@ -763,7 +988,8 @@ jobs:
                && sudo timeout -k 10 240 apt-get "${opts[@]}" install -y \
                     --no-install-recommends \
                     libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
-                    libdbus-1-3 libfontconfig1 libfreetype6; then
+                    libdbus-1-3 libfontconfig1 libfreetype6 \
+                    fonts-dejavu-core; then
               echo "::endgroup::"
               exit 0
             fi
@@ -786,7 +1012,10 @@ jobs:
 
       # Run with branch coverage and a hard floor. The gate ratchets up as
       # the suite grows — raise --cov-fail-under when TOTAL comfortably clears
-      # it; never lower it to make a red build pass.
+      # it; never lower it to make a red build pass. 91 -> 93 on 2026-10-27 (the
+      # external review, item 2.11): main's run 40425541839, this leg, measured
+      # TOTAL 93.28%, rounded DOWN to a whole number. `scripts/check.py`'s
+      # COVERAGE_FLOOR moves with it (`tests/test_check_script.py`).
       #
       # A single clean pass. The offscreen-Qt/PySide *process abort* that used to
       # flake this matrix (SIGSEGV/SIGABRT) was a wrong-thread QObject destruction
@@ -805,10 +1034,13 @@ jobs:
       - name: Run tests (coverage gate on the py3.14 leg)
         env:
           QT_QPA_PLATFORM: offscreen
+          # Where tests/conftest.py writes the collected-test count, for the
+          # baseline check below. Outside the checkout, so nothing can commit it.
+          PLATTERPUS_TEST_COUNT_FILE: ${{ runner.temp }}/pytest-collected-count
         timeout-minutes: 15
         run: >-
           pytest -n auto
-          ${{ matrix.coverage && '--cov=platterpus --cov-report=term-missing --cov-fail-under=91' || '' }}
+          ${{ matrix.coverage && '--cov=platterpus --cov-report=term-missing --cov-fail-under=93' || '' }}
 
       # The exit code above is NOT sufficient on its own. conftest.py ends the
       # session with `os._exit(status)` (to dodge a PySide teardown abort), so any
@@ -833,3 +1065,18 @@ jobs:
             exit 1
           fi
           echo "Session completed; recorded exit status: $(cat .pytest-session-complete)"
+
+      # A FINISHED run is not a COMPLETE one (the 2026-10-27 review, item 2.12).
+      # The step above proves the session reached its end; this one proves it
+      # collected at least as many tests as `tests/collected-tests-baseline.txt`
+      # records. A module that silently stops being collected leaves a finished,
+      # green run with less in it, and only a count can see that. It ratchets:
+      # the script prints a notice with the number to raise the baseline to when
+      # a change adds tests, and `tests/test_check_test_count.py` refuses a
+      # baseline below the newest release tag's. One baseline for every leg:
+      # main's run 40425541839 collected 9,313 on py3.11 and on py3.12 alike
+      # (9,292 passed + 21 skipped each), so a leg below it has lost tests.
+      - name: Refuse a run that collected fewer tests than the baseline
+        env:
+          PLATTERPUS_TEST_COUNT_FILE: ${{ runner.temp }}/pytest-collected-count
+        run: python3 scripts/check_test_count.py --count-file "$PLATTERPUS_TEST_COUNT_FILE"

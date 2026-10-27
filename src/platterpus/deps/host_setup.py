@@ -119,10 +119,8 @@ def install_argv(
     escalation command prefixed to the install: the shell script uses
     ``sudo`` (it has a TTY), but the GUI path uses ``pkexec`` so root is
     obtained via a graphical polkit prompt — a GUI subprocess has no
-    terminal for ``sudo`` to read a password from. Falls back to the
-    upstream Distrobox installer for an unknown distro when installing
-    distrobox; for podman on an unknown distro there's no safe universal
-    command, so the caller surfaces a manual message (we return []).
+    terminal for ``sudo`` to read a password from. An unrecognised distro gets
+    ``[]``: the caller shows :data:`MANUAL_INSTALL_HINTS` and stops.
     """
     ids = _os_release_ids(os_release)
     if any(d in ids for d in ("fedora", "rhel", "centos")):
@@ -133,21 +131,21 @@ def install_argv(
         return [elevate, "pacman", "-S", "--noconfirm", tool]
     if "suse" in ids:
         return [elevate, "zypper", "--non-interactive", "install", tool]
-    # Unknown distro: fall back to the upstream Distrobox installer, elevated
-    # via the INJECTED `elevate` — not a hardcoded `sudo`. From the GUI `elevate`
-    # is `pkexec` (graphical polkit); hardcoding `sudo` here meant the one path
-    # that's supposed to work without a terminal still shelled out to `sudo`,
-    # which has no TTY to read a password from and silently fails (#35). (Best-
-    # effort / hardware-gated on an actual unknown distro; the known-distro
-    # branches above are the tested, common paths.)
-    if tool == "distrobox":
-        return [
-            "sh",
-            "-c",
-            "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install "
-            f"| {elevate} sh",
-        ]
-    return []  # podman on an unknown distro → manual
+    # Unknown distro: no automatic install for either tool. This used to pipe
+    # distrobox's main-branch installer, unverified, into `pkexec sh` (review
+    # 2026-10-27, item 1.2). A pinned, checksummed download would still run a
+    # script as root, on an untested path, for almost no one: Distrobox ships
+    # on Bazzite and is packaged by every family above. So: say how, and stop.
+    return []
+
+
+#: The manual-install sentence for a step with no automatic install here.
+MANUAL_INSTALL_HINTS: dict[str, str] = {
+    "distrobox": "install Distrobox with your distribution's package manager, or "
+    "see https://distrobox.it/#installation, then run setup again",
+    "backend": "install podman (or docker) with your distribution's package "
+    "manager, then run setup again",
+}
 
 
 # --- Orchestrator -----------------------------------------------------------
@@ -545,9 +543,11 @@ class HostSetup:
                 continue
             commands = [c for c in self._commands_for(step_id) if c]
             if not commands:
-                no_plan = (
+                # Say HOW to install by hand where we can; generic otherwise.
+                no_plan = MANUAL_INSTALL_HINTS.get(
+                    step_id,
                     "no automatic install available for this system — "
-                    "install it manually and retry"
+                    "install it manually and retry",
                 )
                 record(StepResult(step_id, title, StepStatus.FAILED, no_plan))
                 diagnostics.error(

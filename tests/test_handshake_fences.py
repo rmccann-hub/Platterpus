@@ -291,7 +291,7 @@ def test_the_lap_checker_reads_no_header_inside_any_fence(
     """The lap-language checker's header reader asks the same rule."""
     if str(_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(_SCRIPTS))
-    from laplang.grammar import parse_lap  # noqa: PLC0415 - needs the path above
+    from laplang.grammar import parse_lap  # needs the path above
 
     lap = parse_lap(_DECLARED + fenced + "\nLSL: 4\n", Path("round-31-lap-05.md"))
     # The checker keys a header by its name after `HANDSHAKE-`.

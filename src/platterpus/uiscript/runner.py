@@ -787,9 +787,9 @@ class ScriptRunner(
 
     def _service_deadline(self) -> None:
         """Handle a pending `wait` / `wait-for-rip` without blocking."""
-        assert self._deadline is not None
+        assert self._deadline is not None  # noqa: S101 — narrows for mypy; the tick calls this only while a deadline is set
         step = self._deadline_step
-        assert step is not None
+        assert step is not None  # noqa: S101 — narrows for mypy; set together with the deadline
         now = time.monotonic()
         # A predicate that RAISES must end the step, not be retried every tick.
         # On the rig one `AttributeError` inside `pick-release` was re-recorded
@@ -1919,7 +1919,7 @@ class ScriptRunner(
         here without the event loop pausing with it.
         """
         job = self._pending_cyanrip
-        assert job is not None
+        assert job is not None  # noqa: S101 — narrows for mypy; the tick calls this only while the job is pending
         elapsed = time.monotonic() - job.started
         if not job.done.is_set():
             if elapsed <= CYANRIP_VERB_TIMEOUT_S + CYANRIP_VERB_GRACE_S:
@@ -2070,7 +2070,7 @@ class ScriptRunner(
         forever. An abandoned daemon thread is safe — it is not a ``QThread``.
         """
         job = self._pending_rig_check
-        assert job is not None
+        assert job is not None  # noqa: S101 — narrows for mypy; the tick calls this only while the job is pending
         elapsed = time.monotonic() - job.started
         if not job.done.is_set():
             if elapsed <= RIG_CHECK_VERB_TIMEOUT_S:
@@ -4021,7 +4021,7 @@ class ScriptRunner(
         from platterpus.deps import ripper_wrapper_probe
 
         job = self._pending_wrapper_probe
-        assert job is not None
+        assert job is not None  # noqa: S101 — narrows for mypy; the tick calls this only while the job is pending
         elapsed = time.monotonic() - job.started
         if not job.done.is_set():
             if elapsed <= WRAPPER_PROBE_VERB_TIMEOUT_S:
@@ -4830,7 +4830,7 @@ def _pin_role_phrase() -> str:
     Imported locally because `fork_source` reaches the network stack for release
     metadata and this module is imported by the script parser, which must not.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     return fork_source.pin_under_review_role()
 

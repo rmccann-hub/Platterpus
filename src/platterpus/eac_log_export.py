@@ -696,7 +696,10 @@ def _eac_date(raw: str) -> str:
     except ValueError:
         for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
             try:
-                when = datetime.strptime(text[:19], fmt)
+                # Naive on purpose: these two formats carry no zone, so there is
+                # none to attach, and the `when.tzinfo is None` branch below
+                # renders no offset label rather than inventing one.
+                when = datetime.strptime(text[:19], fmt)  # noqa: DTZ007 — the text has no zone to keep
                 break
             except ValueError:
                 continue
@@ -2048,7 +2051,7 @@ def _accuraterip_line(track: TrackResult) -> str:
     """
     for ar in (track.accuraterip_v2, track.accuraterip_v1):
         if accuraterip_is_match(ar):
-            assert isinstance(ar, AccurateRipResult)
+            assert isinstance(ar, AccurateRipResult)  # noqa: S101 — narrows for mypy; accuraterip_is_match is False for None
             crc = f"  [{ar.local_crc}]" if ar.local_crc else ""
             return f"Accurately ripped (confidence {ar.confidence}){crc}  (AR v{ar.version})"
     # No exact match — but cyanrip may still have matched the **+450 offset-variant
@@ -2067,8 +2070,8 @@ def _accuraterip_line(track: TrackResult) -> str:
     if accuraterip_is_match(offset_variant):
         # A match has a confidence of at least 1 (`accuraterip_is_match`), so it is
         # never None here; the assert states that for the type checker.
-        assert isinstance(offset_variant, AccurateRipResult)
-        assert offset_variant.confidence is not None
+        assert isinstance(offset_variant, AccurateRipResult)  # noqa: S101 — narrows for mypy; accuraterip_is_match is False for None
+        assert offset_variant.confidence is not None  # noqa: S101 — narrows for mypy; a match has a confidence of at least 1
         crc = f"  [{offset_variant.local_crc}]" if offset_variant.local_crc else ""
         return one_frame_match.eac_track_line(offset_variant.confidence, crc)
     # A track with an AR result that simply didn't match is NOT absent from the

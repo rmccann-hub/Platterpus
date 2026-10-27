@@ -164,7 +164,7 @@ def test_the_two_shared_file_lists_agree() -> None:
     test now makes impossible. Compared as sets, in both directions — a one-way
     subset check would pass with the second list empty.
     """
-    from test_handshake_tooling import _SHARED_FILE_PATHS  # noqa: PLC0415
+    from test_handshake_tooling import _SHARED_FILE_PATHS
 
     hashed = set(_SHARED_FILE_PATHS.values())
     assert hashed, "the hash-comparison list is empty — nothing would be checked"

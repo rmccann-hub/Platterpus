@@ -8,6 +8,8 @@ true no-op (prints commands, changes nothing).
 from __future__ import annotations
 
 import os
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -117,6 +119,53 @@ def test_opensuse_uses_zypper_for_distrobox_and_backend(tmp_path: Path) -> None:
     # distrobox; assert the zypper branch was taken, not the curl fallback.
     assert "zypper --non-interactive install distrobox" in out
     assert "upstream installer" not in out
+
+
+@pytest.mark.skipif(
+    shutil.which("distrobox") is not None,
+    reason="the Distrobox step is skipped on a host that already has it",
+)
+def test_unknown_distro_stops_with_instructions_instead_of_a_root_script(
+    tmp_path: Path,
+) -> None:
+    """Regression (external review 2026-10-27, item 1.2).
+
+    On an unrecognised distro the script used to run
+    `curl -s <distrobox main-branch installer> | sudo sh`: an unverified
+    download, executed as root. It now says how to install Distrobox and stops,
+    even in a dry run, and nothing it prints is a download.
+    """
+    os_release = tmp_path / "os-release"
+    os_release.write_text("ID=tinycore\n", encoding="utf-8")
+    env = dict(os.environ, OS_RELEASE_FILE=str(os_release))
+    result = subprocess.run(
+        ["bash", str(SETUP), "--dry-run", "--yes", "--no-gui"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert result.returncode != 0, result.stdout
+    assert "will not install Distrobox itself" in result.stderr, result.stderr
+    assert "package manager" in result.stderr
+    assert "curl" not in result.stdout + result.stderr
+
+
+def test_no_install_pipes_a_download_into_a_shell() -> None:
+    """Static sweep: nothing in the script feeds a download to `sh`.
+
+    The behavioural test above needs a host without Distrobox; this one holds
+    everywhere, so the fix cannot silently return on a machine that has it.
+    """
+    text = SETUP.read_text(encoding="utf-8")
+    code = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+    assert len(code) > 100, "the sweep is not reading setup-host.sh"
+    offenders = [
+        line
+        for line in code
+        if re.search(r"\|\s*(?:sudo\s+|pkexec\s+)?(?:ba)?sh\b", line)
+    ]
+    assert not offenders, offenders
 
 
 def test_both_install_paths_offer_a_zypper_branch() -> None:
