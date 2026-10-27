@@ -51,7 +51,16 @@ jobs:
     # for six hours while a maintainer waits on a release that will never appear.
     timeout-minutes: 60
     steps:
+      # THE TOKEN IS NOT LEFT IN .git/config (the 2026-10-27 review, item 1.4).
+      # By default checkout writes this job's token, which can write to the
+      # repository, into the clone's git config, where every later step can read
+      # it: the pip installs, python-appimage's downloads and the build script
+      # among them. No step needs it there. The `gh` calls take GH_TOKEN from
+      # their own step's env, and nothing here runs `git push` or an
+      # authenticated `git fetch`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # NO `cache: pip` HERE, on purpose (the 2026-10-27 review, item 1.3). This
       # job publishes what users install, and a restored pip cache is input that
