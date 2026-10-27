@@ -232,15 +232,11 @@ sudo apt install distrobox podman
 sudo zypper install distrobox podman
 ```
 
-(If your openSUSE version doesn't package `distrobox` yet, use the one-line installer under "older systems" below — but install `podman` with `zypper` first, since the installer doesn't pull a backend.)
+(If your openSUSE version doesn't package `distrobox` yet, follow "older systems" below, and install `podman` with `zypper` first, since Distrobox doesn't bring a container backend with it.)
 
 **On older systems:**
 
-Distrobox has a one-line installer:
-
-```bash
-curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh
-```
+Follow Distrobox's own installation guide, <https://distrobox.it/#installation>, and read any script before you run it as root. Platterpus and `setup-host.sh` don't run Distrobox's installer for you, because piping a script from a moving branch into a root shell runs code nobody has checked.
 
 Verify with `distrobox --version`.
 
