@@ -60,6 +60,21 @@ def test_every_checkout_drops_its_token() -> None:
     assert not missing, f"checkouts that keep their token: {missing}"
 
 
+def test_the_test_job_installs_the_font_the_conformance_gate_measures() -> None:
+    """Item 3.1: the gate's fixture selects DejaVu Sans, so CI must install it.
+
+    Read from the apt install call itself, not from a mention in a comment: the
+    package must be an argument of `apt-get ... install`.
+    """
+    text = CI_YML.read_text(encoding="utf-8")
+    install = re.search(r"apt-get \"\$\{opts\[@\]\}\" install -y(?P<args>[^;]*);", text)
+    assert install is not None, "the test job's apt-get install call was not found"
+    packages = install.group("args").replace("\\", " ").split()
+    # NON-TRIVIALITY: the call really is the Qt-libraries one.
+    assert "libfontconfig1" in packages, packages
+    assert "fonts-dejavu-core" in packages, packages
+
+
 def _top_level_block(lines: list[str], key: str) -> dict[str, str]:
     """A column-0 mapping's two-space children, as `{child: value}`."""
     start = next(i for i, ln in enumerate(lines) if ln == f"{key}:")

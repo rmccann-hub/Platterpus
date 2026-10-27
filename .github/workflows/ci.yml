@@ -837,6 +837,14 @@ jobs:
       # "offscreen" Qt platform (no display needed). Install the minimal set;
       # without these the QApplication fixture in conftest.py fails to load.
       #
+      # And ONE NAMED FONT, `fonts-dejavu-core` (the 2026-10-27 review, item
+      # 3.1). The accessibility conformance gate measures clipped text and
+      # cut-off cells with real font metrics, so its verdict depended on
+      # whatever sans-serif the runner image happened to supply: with Inter as
+      # the default, 3 conformance tests fail; with DejaVu Sans all pass. The
+      # test fixture selects "DejaVu Sans" by name and fails loudly when Qt
+      # cannot find it, so this package is what makes the gate repeatable.
+      #
       # BOUNDED AND RETRIED, because this is the step that wedges. It stalled on
       # the GitHub runner four times across three runs of one branch, past 20
       # minutes each, with no bound at all — apt's own defaults let a mirror that
@@ -883,7 +891,8 @@ jobs:
                && sudo timeout -k 10 240 apt-get "${opts[@]}" install -y \
                     --no-install-recommends \
                     libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
-                    libdbus-1-3 libfontconfig1 libfreetype6; then
+                    libdbus-1-3 libfontconfig1 libfreetype6 \
+                    fonts-dejavu-core; then
               echo "::endgroup::"
               exit 0
             fi

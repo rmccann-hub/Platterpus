@@ -97,7 +97,7 @@
       },
       {
         "name": "platterpus:count:ci-tool",
-        "value": "11"
+        "value": "12"
       },
       {
         "name": "platterpus:count:ci-runner",
@@ -2714,6 +2714,28 @@
         {
           "name": "platterpus:version-basis",
           "value": "not pinned; whatever the runner or tool cache provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "apt:fonts-dejavu-core",
+      "name": "fonts-dejavu-core",
+      "description": "Installed with apt-get on the runner.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/fonts-dejavu-core",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
         }
       ]
     },

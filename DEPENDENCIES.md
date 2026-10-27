@@ -101,7 +101,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 <!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
 
-**91 components and 14 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+**92 components and 14 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
 
 | Category | Entries |
 |---|---|
@@ -116,7 +116,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | Python packages for development and tests (the dev extra) | 7 |
 | Python packages for building, releasing and CI | 8 |
 | GitHub Actions | 6 |
-| CI and build programs | 11 |
+| CI and build programs | 12 |
 | CI runner images | 1 |
 | External services | 14 |
 
@@ -277,11 +277,12 @@ Details for `cyanrip (build under review)`:
 | `astral-sh/setup-uv` | `v10.3.0` | excluded | — | .github/workflows/dependencies.yml (outdated) | .github/workflows/dependencies.yml |
 | `actions/upload-artifact` | `v7.0.2` | excluded | Keeps a job's output (the SBOM, the AppImage, mutation reports). | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml |
 
-### CI and build programs (11)
+### CI and build programs (12)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `appimagetool` | unconstrained | excluded | Re-packs the AppImage to embed the zsync update information (the copy python-appimage caches, or the system's). | build/build_appimage.sh | — |
+| `fonts-dejavu-core` | unconstrained | excluded | Installed with apt-get on the runner. | .github/workflows/ci.yml (test) | — |
 | `gh` | unconstrained | excluded | GitHub CLI on the runner: creates the release and uploads its assets. | .github/workflows/release.yml | — |
 | `gitleaks` | `8.24.3` | excluded | The secret scanner the gitleaks job runs. | .github/workflows/ci.yml (gitleaks) | .github/workflows/ci.yml |
 | `libdbus-1-3` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
