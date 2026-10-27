@@ -10,6 +10,12 @@ name: Dependencies
 # it runs on a named image, like every other job here, because
 # tests/test_workflow_permissions.py::test_every_job_names_its_runner_image refuses a
 # moving `-latest` label. Moving every job to a newer image is its own change (TASKS R36).
+#
+# The same schedule runs a second job, `relock`, which regenerates the hashed locks
+# under build/locks/ with releases at least seven days old and proposes any change
+# as a pull request (the follow-up review of 2026-10-27, item 1). It lives here
+# because this workflow is the weekly "are the dependencies current" check, and the
+# locks are the half of that question Dependabot cannot see.
 
 on:
   schedule:
@@ -24,6 +30,8 @@ permissions:
 # runs at once (Monday's and a hand-dispatched one) could each find none and open
 # two. Queued, the second finds the first's issue. Nothing is cancelled: this
 # never runs on a pull request, and a run in progress is a report half-written.
+# The relock job relies on the same queue: two runs would otherwise race to push
+# the same relock branch.
 concurrency:
   group: dependencies-issue
   cancel-in-progress: false
@@ -116,3 +124,128 @@ jobs:
             gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
               --comment "Every dependency is on its newest release, as of the run of $(date -u +%Y-%m-%d)."
           fi
+
+  # THE LOCKS DO NOT ROT (the follow-up review of 2026-10-27, item 1). Dependabot
+  # reads pyproject.toml and requirements.txt, not build/locks/*.lock, so a range
+  # it widens changes nothing CI installs, and nothing else ever takes a newer
+  # release into a lock. Every Monday this job regenerates every lock with
+  # releases at least seven days old (Dependabot's cooldown: `--exclude-newer`
+  # is 00:00 UTC seven days back) and, when a pin or a hash changed, pushes a
+  # branch and opens a pull request with the result. Reproducible by
+  # construction: anyone can rerun `bash build/lock-requirements.sh --check` on
+  # that branch and get the same bytes.
+  #
+  # A PULL REQUEST OPENED WITH GITHUB_TOKEN STARTS NO WORKFLOW, so no CI runs on
+  # it, and it carries no CHANGELOG bullet. A session carries it through, as
+  # PLANNING.md KDD-43 describes for Dependabot's: a session branch with these
+  # locks, a CHANGELOG bullet and any regenerated files, and this one closed.
+  # And the repository may not let Actions open pull requests at all (Settings,
+  # Actions, General, "Allow GitHub Actions to create and approve pull
+  # requests"). Then the job fails, red, naming the branch it pushed and the
+  # link to open the pull request by hand; a failure nobody sees is the thing it
+  # must not be.
+  #
+  # uv at the version every lock's header records (tests/test_dependency_locks.py
+  # holds the two equal). No cache anywhere in this job: it pushes.
+  relock:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # push the relock branch
+      pull-requests: write # open its pull request, and close the one it supersedes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The generator reads pyproject.toml with tomllib, which needs 3.11.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.5"
+          enable-cache: false
+
+      - name: Regenerate every lock with releases at least seven days old
+        id: relock
+        run: |
+          set -euo pipefail
+          date="$(date -u -d '7 days ago' +%Y-%m-%dT00:00:00Z)"
+          committed="$(sed -n 's/^# exclude-newer: //p' build/locks/release.lock)"
+          echo "committed locks: exclude-newer $committed; this run: $date"
+          # A lock made by hand with a later date is newer than this run's; going
+          # back to an earlier date could only take releases away.
+          if [[ ! "$date" > "$committed" ]]; then
+            echo "The committed locks are already at $committed, not older than $date. Nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          bash build/lock-requirements.sh --exclude-newer "$date"
+          locks=(build/python-appimage/requirements.lock build/locks)
+          # A new date alone is not worth a pull request: only a pin or a hash is.
+          if git diff --quiet -I '^# exclude-newer: ' -- "${locks[@]}"; then
+            echo "No pin or hash changed with releases before $date."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --stat -- "${locks[@]}"
+          {
+            echo "changed=true"
+            echo "date=$date"
+            echo "branch=relock/${date%%T*}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push the relock branch and open its pull request
+        if: steps.relock.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATE: ${{ steps.relock.outputs.date }}
+          BRANCH: ${{ steps.relock.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" >/dev/null; then
+            echo "::notice::$BRANCH already exists. The same date gives the same locks, so it already holds this result."
+            exit 0
+          fi
+          git switch -c "$BRANCH"
+          git add -- build/python-appimage/requirements.lock build/locks
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "build(deps): regenerate the hashed locks with releases before $DATE" \
+            -m "Made by dependencies.yml's relock job (run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) with: bash build/lock-requirements.sh --exclude-newer $DATE"
+          # The token goes to this one push as an HTTP header in the environment,
+          # the way actions/checkout passes it: never on a command line, never in
+          # .git/config.
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+            git push origin "HEAD:refs/heads/$BRANCH"
+          {
+            echo "The weekly relock: every hashed lock regenerated with releases uploaded before $DATE (seven days back, Dependabot's cooldown), by \`bash build/lock-requirements.sh --exclude-newer $DATE\` with the uv every lock's header names."
+            echo
+            echo '```'
+            git diff --stat HEAD~1 HEAD
+            echo '```'
+            echo
+            echo "**No CI has run on this branch.** A pull request opened with the workflow's GITHUB_TOKEN starts no workflow, and this commit carries no CHANGELOG bullet. A session carries it through, as PLANNING.md KDD-43 describes for Dependabot's pull requests: take these locks onto a session branch with a CHANGELOG bullet and any regenerated files (\`python3 scripts/emit_bom.py\`), let CI run there, and close this one."
+            echo
+            echo "Reproduce on this branch: \`bash build/lock-requirements.sh --check\`."
+            echo "Made by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$RUNNER_TEMP/relock.md"
+          if ! url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "build(deps): regenerate the hashed locks with releases before $DATE" \
+            --body-file "$RUNNER_TEMP/relock.md")"; then
+            echo "::error::Pushed $BRANCH, but could not open its pull request. If the repository does not allow GitHub Actions to create pull requests (Settings, Actions, General), open it by hand: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH"
+            exit 1
+          fi
+          echo "opened $url"
+          # One relock pull request open at a time: this one supersedes the rest.
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("relock/")) | select(.headRefName != env.BRANCH) | .number' |
+            while read -r number; do
+              gh pr close "$number" --repo "$GITHUB_REPOSITORY" --comment "Superseded by $url."
+            done

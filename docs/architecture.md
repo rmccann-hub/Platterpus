@@ -1727,10 +1727,27 @@ several gotchas found the hard way:
   CI's `test`, `lint` and `typecheck` jobs install `build/locks/ci.lock`, one
   universal resolution for every Python of the matrix, then the project with
   `--no-index --no-deps --no-build-isolation`, so nothing but a lock reaches PyPI.
+  `mutation.yml` installs the same lock; the required `sbom` job installs
+  `build/locks/sbom.lock` (the runtime dependencies, the `sbom` extra and the
+  backend) the same way; and the linter jobs install zizmor and ShellCheck from
+  `build/locks/ci-lint.lock`. The one CI install still by range is actionlint-py,
+  which publishes no wheel (TASKS R91).
   `tests/test_dependency_locks.py` fails when a lock falls outside the ranges it
   was resolved from, when a line is not an exact hashed pin, when the CI lock and
   the AppImage lock pin a shared package differently, or when a job that
   publishes, attests or gates installs anything else.
+
+  **Reading a lock cannot tell a hand edit from a generated file; regenerating
+  it can.** A package deleted from `release.lock` still parses and still sits
+  inside pyproject's ranges, so every check above passed it (the follow-up
+  review of 2026-10-27). So each lock's header records the uv version and the
+  `--exclude-newer` date it was resolved with (uv considers only files PyPI
+  received before that date), and `bash build/lock-requirements.sh --check`
+  regenerates every lock from those two fields and diffs it against the
+  committed file. CI's `lock-check` job runs it on every pull request; every
+  `setup-uv` step pins the uv the headers record, and the test holds them equal.
+  Offline, the test checks what reading can: no `# via` line names a package
+  the lock does not pin.
 
 **Releasing is tag-driven and automated** — don't hand-build or hand-upload.
 The operational steps (bump `__version__`, roll the CHANGELOG, dispatch the
@@ -2045,6 +2062,10 @@ fix is now a new, signed version (§6.4 step 5).
 *Amendment, 2026-10-27 (the same review, item 2.8): **`release.yml` makes the tag itself, annotated, before it creates the release.** Until then `gh release create --target` made it, and GitHub makes that tag lightweight: no tagger, no date, no message. The new step, last before publishing so a refused release leaves no tag, tags the release commit as `github-actions[bot]` and pushes it, and the publish step uses `--verify-tag`, which refuses rather than make a tag of its own. It only ever creates, so it fits the `v*` ruleset (creation allowed, moves and deletes blocked; `PLANNING.md` KDD-43): a re-run on the same commit reuses the tag, a lightweight one with a warning, and a tag already on another commit is refused, because the fix is a new version. The push hands the token to that one `git` command as an HTTP header, since the checkout keeps none (item 1.4). Tags already published stay as they are (KDD-37, D7). KDD-43 and `CLAUDE.md` still say the tag is created when the draft is published. `tests/test_release_git_steps.py` runs the step against real throwaway repositories.*
 
 *Amendment, 2026-10-27 (the same review, items 2.5, 2.9, 2.11, 2.12 and 3.6): four checks join `ci.yml`.* The **test job** fails a leg that collected fewer tests than `tests/collected-tests-baseline.txt`, because a suite that silently loses a module still passes everything it ran; and its coverage floor moved from 91 to the measured 93. Three **non-required** jobs run beside it: `commit-subjects`, which holds new subjects to the grammar in `CLAUDE.md` (a tool can enforce a convention a reviewer only notices); `workflow-lint`, actionlint and zizmor offline, because the workflows are code that runs with a token and nothing linted them; and `shellcheck`, over every tracked shell script outside the handshake records, whose list a test holds to every file with a shell shebang, so a script without `.sh` can't fall outside it. They become required when the owner adds them to the ruleset.
+
+*Amendment, 2026-10-27 (the follow-up review of that day, on the hashed locks): a **non-required** `lock-check` job joins `ci.yml`.* It runs `bash build/lock-requirements.sh --check`, which regenerates every lock with the uv version and `--exclude-newer` date its header records and diffs it against the committed file. It exists because nothing else could see a hand edit: a package deleted from `release.lock` passed `tests/test_dependency_locks.py`, which reads the file, and the first job to notice would have been the release. It needs PyPI and the exact uv, so it is a job, not a test. It also goes red when PyPI yanks a release a lock pins, which is worth a regenerated lock anyway. The same review's item 5 moved the required `sbom` job (and `workflow-lint`, `shellcheck` and `mutation.yml`) onto hashed locks: a required gate that installed `pip` and `cyclonedx-bom` by range was the one gate whose own tools could change under it between two runs of the same commit, and the `pip-audit` job's floor of locks it must find rose from five to seven with them. Item 4 added a second **non-required** job, `lock-install`: each lock but `ci.lock` (which the test jobs install anyway) goes into a clean venv of its own with `--require-hashes`, `pip check` runs on each, and then the builds the releases run, short of publishing: `python -m build --no-isolation` and `twine check` from `publish.lock`, and `build_appimage.sh`'s `python -m build --wheel --no-isolation` from `release.lock`. Until then `publish.lock` was first installed by the publish itself and `release.lock` and the AppImage lock first on `main`, so a lock that could not install would have been found by a release. The AppImage lock goes into a CPython 3.12 venv, the interpreter it was resolved for. The job holds no token and no secret.
+
+*Amendment, 2026-10-27 (the same follow-up review, item 1): `dependencies.yml` gains a `relock` job.* Dependabot reads `pyproject.toml`, never the locks, so a range it widens changes nothing CI installs, and nothing took newer releases into a lock. Every Monday (and on dispatch) the job regenerates every lock with `--exclude-newer` at 00:00 UTC seven days back, Dependabot's cooldown, skips when the committed locks are already that new or when only the date line changed, and otherwise pushes a `relock/<date>` branch and opens a pull request, closing any older relock pull request it supersedes. It holds `contents: write` and `pull-requests: write` on the job alone, restores no cache (setup-uv's included), and passes its token to the one push as an environment-only HTTP header. Two limits are by design and visible: a pull request opened with `GITHUB_TOKEN` starts no workflow, so its body says no CI has run and a session carries it through on a branch of its own (KDD-43, as for Dependabot's); and when the repository does not let Actions open pull requests, the job fails red with the compare link to open one by hand.
 
 **When a merge conflict is in a generated block, regenerate the block, and then re-check every hand-kept line in the same file** (added 2026-10-27). Combining the review's branches, `DEPENDENCIES.md` conflicted only inside the block `scripts/emit_bom.py` writes, so the fix looked mechanical: take one side, regenerate. But one side's commit had also changed a hand-kept row above the block (pip-audit's pin), and taking the other side dropped it silently. `emit_bom.py --check` passed, because the check covers only the block it writes. The repair was `23771c10`. Before taking a side, list each conflicted commit's hunks outside the generated region (`git show <c> -- <file>`) and carry them over.
 

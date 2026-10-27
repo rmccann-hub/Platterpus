@@ -89,7 +89,7 @@
       },
       {
         "name": "platterpus:count:python-build",
-        "value": "10"
+        "value": "9"
       },
       {
         "name": "platterpus:count:ci-action",
@@ -2336,41 +2336,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (sbom)"
+          "value": "pyproject.toml [project.optional-dependencies].sbom (installed by .github/workflows/ci.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (sbom)"
+          "value": "pyproject.toml [project.optional-dependencies].sbom (installed by .github/workflows/ci.yml)"
         },
         {
           "name": "platterpus:constraint",
           "value": ">=7,<8"
-        }
-      ]
-    },
-    {
-      "type": "application",
-      "bom-ref": "pypi:pip",
-      "name": "pip",
-      "description": "Installs everything else.",
-      "scope": "excluded",
-      "purl": "pkg:pypi/pip",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "python-build"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
-        },
-        {
-          "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
-        },
-        {
-          "name": "platterpus:constraint",
-          "value": "unpinned"
         }
       ]
     },
@@ -2594,7 +2568,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (lock-check), .github/workflows/ci.yml (lock-install), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (outdated), .github/workflows/dependencies.yml (relock), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -2678,11 +2652,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (lock-check), .github/workflows/ci.yml (lock-install), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (relock), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml"
+          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/dependencies.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml"
         },
         {
           "name": "platterpus:pinned-ref",
@@ -2719,11 +2693,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/dependencies.yml (outdated)"
+          "value": ".github/workflows/ci.yml (lock-check), .github/workflows/dependencies.yml (outdated), .github/workflows/dependencies.yml (relock)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/dependencies.yml"
+          "value": ".github/workflows/ci.yml, .github/workflows/dependencies.yml"
         },
         {
           "name": "platterpus:pinned-ref",
@@ -3071,7 +3045,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (outdated), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (commit-subjects), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (lock-check), .github/workflows/ci.yml (lock-install), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (shellcheck), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/ci.yml (workflow-lint), .github/workflows/dependencies.yml (outdated), .github/workflows/dependencies.yml (relock), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
         },
         {
           "name": "platterpus:pinned",

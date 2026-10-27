@@ -425,15 +425,125 @@ jobs:
           locks=(build/python-appimage/requirements.lock build/locks/*.lock)
           shopt -u nullglob
           # A floor, so an audit that found no locks cannot pass as a clean one:
-          # the AppImage's lock, the three tool locks and the CI lock.
-          if [ "${#locks[@]}" -lt 5 ]; then
-            echo "::error::expected at least 5 locks to audit, found ${#locks[@]}: ${locks[*]}"
+          # the AppImage's lock, the three tool locks, the CI lock, and the sbom
+          # and ci-lint locks.
+          if [ "${#locks[@]}" -lt 7 ]; then
+            echo "::error::expected at least 7 locks to audit, found ${#locks[@]}: ${locks[*]}"
             exit 1
           fi
           args=()
           for lock in "${locks[@]}"; do args+=(-r "$lock"); done
           echo "auditing: ${locks[*]}"
           pip-audit --progress-spinner=off --disable-pip --require-hashes "${args[@]}"
+
+  # THE LOCKS ARE WHAT THEIR HEADERS SAY PRODUCED THEM (the follow-up review of
+  # 2026-10-27). Each lock records the uv version and the `--exclude-newer` date
+  # build/lock-requirements.sh resolved it with, and `--check` regenerates every
+  # lock from those two fields and diffs it against the committed file. That is
+  # the check that sees a hand edit: a package deleted from release.lock still
+  # parses and still sits inside pyproject's ranges, so tests/
+  # test_dependency_locks.py passes it, and here the diff shows the missing
+  # lines. It also goes red when PyPI yanks or removes a release a lock pins,
+  # which is worth knowing too. Needs PyPI, and nothing else.
+  #
+  # uv at the version dependencies.yml pins, which must be the one the locks'
+  # headers name (tests/test_dependency_locks.py holds the three equal). No cache:
+  # the check is about what PyPI serves today.
+  #
+  # NOT a required status check: the owner adds it to the default-branch ruleset
+  # when they choose to (PLANNING.md KDD-43).
+  lock-check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The generator reads pyproject.toml with tomllib, which needs 3.11.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.5"
+          enable-cache: false
+      - name: Regenerate every lock and diff it against the committed file
+        run: bash build/lock-requirements.sh --check
+
+  # EVERY LOCK INSTALLS, AND THE BUILDS RUN, BEFORE A RELEASE NEEDS THEM (the
+  # follow-up review of 2026-10-27, item 4). No pull request installed
+  # publish.lock, which publish-pypi.yml first met at publish time, and
+  # release.lock and the AppImage's lock were first installed by appimage.yml on
+  # main. So a lock that could not install, or a build it could not run,
+  # surfaced at the release. This job installs each lock into a clean venv of
+  # its own with `--require-hashes --only-binary=:all:`, runs `pip check` on
+  # each, then runs what the consuming job runs, short of anything that
+  # publishes: publish-pypi.yml's build and `twine check`, build_appimage.sh's
+  # wheel build, and each tool's own version line. ci.lock is not repeated
+  # here: the test, lint and typecheck jobs install it on every pull request.
+  #
+  # The AppImage's lock is for the CPython the AppImage bundles (3.12), so it
+  # gets a 3.12 venv; everything else gets 3.11, as the jobs that use it do.
+  # No secrets, no token, no cache: a clean install is the point.
+  #
+  # NOT a required status check yet: the owner adds it to the default-branch
+  # ruleset when they choose to (PLANNING.md KDD-43).
+  lock-install:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Two interpreters: the last one listed is the default `python`.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: |
+            3.12
+            3.11
+      - name: Install each lock into a clean venv, hashed, and pip check it
+        run: |
+          set -euo pipefail
+          v="$RUNNER_TEMP/venvs"
+          for name in release publish audit sbom ci-lint; do python3.11 -m venv "$v/$name"; done
+          python3.12 -m venv "$v/appimage"
+          "$v/release/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock
+          "$v/publish/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/publish.lock
+          "$v/audit/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/audit.lock
+          "$v/sbom/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/sbom.lock
+          "$v/ci-lint/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/ci-lint.lock
+          "$v/appimage/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/python-appimage/requirements.lock
+          for name in release publish audit sbom ci-lint appimage; do
+            echo "pip check: $name"
+            "$v/$name/bin/python" -m pip check
+          done
+      - name: Build the wheel and sdist and check them, as publish-pypi.yml does, without publishing
+        run: |
+          set -euo pipefail
+          py="$RUNNER_TEMP/venvs/publish/bin/python"
+          "$py" -m build --no-isolation --outdir "$RUNNER_TEMP/dist-publish"
+          "$py" -m twine check "$RUNNER_TEMP"/dist-publish/*
+      - name: Build the wheel as build_appimage.sh does, from the release lock
+        run: |
+          set -euo pipefail
+          py="$RUNNER_TEMP/venvs/release/bin/python"
+          "$py" -m build --wheel --no-isolation --outdir "$RUNNER_TEMP/dist-release"
+          ls -l "$RUNNER_TEMP/dist-release"
+          "$py" -m python_appimage --help > /dev/null
+          "$py" -m sigstore --version
+      # actionlint is NOT run here: ci-lint.lock leaves actionlint-py out, because
+      # it ships only an sdist and the lock takes wheels only (TASKS R91). The
+      # first run of this job, on PR #401, failed on exactly that line;
+      # tests/test_dependency_locks.py now holds every tool run here to a package
+      # its lock pins.
+      - name: Run each tool the other locks install
+        run: |
+          set -euo pipefail
+          v="$RUNNER_TEMP/venvs"
+          "$v/audit/bin/pip-audit" --version
+          "$v/sbom/bin/cyclonedx-py" --version
+          "$v/ci-lint/bin/zizmor" --version
+          "$v/ci-lint/bin/shellcheck" --version
 
   # SECRET SCANNING. Gitleaks over the FULL HISTORY, not just the diff.
   #
@@ -594,10 +704,18 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install project + cyclonedx
+      # A REQUIRED job, so its installs are hashed like the other gates' (the
+      # follow-up review of 2026-10-27, item 5; amendment A5's other half). It
+      # ran `pip install --upgrade pip` and `-e . "cyclonedx-bom>=7,<8"`: whatever
+      # PyPI served that minute, unhashed. build/locks/sbom.lock is the runtime
+      # dependencies, pyproject's `sbom` extra and the build backend, resolved by
+      # build/lock-requirements.sh; then the project, offline, with no
+      # dependencies and no isolated build, as the test job installs it. The SBOM
+      # therefore describes exactly the locked runtime closure plus the generator.
+      - name: Install the project and cyclonedx-bom from the hashed sbom lock
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e . "cyclonedx-bom>=7,<8"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/sbom.lock
+          python -m pip install --no-index --no-deps --no-build-isolation -e .
       - name: Generate the SBOM
         run: |
           # `--output-file`, NOT `--outfile`, and the flag belongs to the
@@ -799,8 +917,10 @@ jobs:
   # The workflows and the shell scripts get linters of their own (the
   # 2026-10-27 review, items 2.5 and 3.6, added on the owner's word that day).
   # NOT required checks yet: the owner adds `workflow-lint` and `shellcheck` to
-  # the default-branch ruleset when they choose to. Both read their pins out of
-  # pyproject's `ci-lint` extra, as the lint job reads ruff's (Critical rule #11).
+  # the default-branch ruleset when they choose to. Their pins live in
+  # pyproject's `ci-lint` extra (Critical rule #11); zizmor and ShellCheck are
+  # installed from build/locks/ci-lint.lock, resolved from it, and actionlint-py,
+  # which has no wheel to lock, by the extra's range.
   workflow-lint:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
@@ -811,20 +931,25 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - name: Install actionlint, zizmor and ShellCheck (pins read from pyproject)
+      # zizmor and ShellCheck from build/locks/ci-lint.lock, exact and hashed
+      # (the follow-up review of 2026-10-27, item 5). actionlint-py cannot be in
+      # that lock: it publishes only an sdist, whose build downloads the
+      # actionlint binary from GitHub (and checks it against the checksums the
+      # sdist carries), so it is still installed by pyproject's minor range.
+      # TASKS R91 records that gap.
+      - name: Install zizmor and ShellCheck (hashed lock), and actionlint (pyproject's range)
         run: |
           set -euo pipefail
-          specs="$(python -c '
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci-lint.lock
+          spec="$(python -c '
           import pathlib, tomllib
           extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
               "optional-dependencies"
           ]["ci-lint"]
-          print("\n".join(s.split(";")[0].strip() for s in extra))
+          print(next(s for s in extra if s.startswith("actionlint-py")))
           ')"
-          mapfile -t pins <<<"$specs"
-          test "${#pins[@]}" -eq 3
-          printf 'pyproject pins:\n'; printf '  %s\n' "${pins[@]}"
-          python -m pip install "${pins[@]}"
+          echo "pyproject pin: $spec"
+          python -m pip install "$spec"
       # actionlint checks every file under .github/workflows, and runs the pinned
       # ShellCheck over each `run:` block (installed here so the result does not
       # depend on what the runner image happens to carry); zizmor runs
@@ -846,18 +971,11 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - name: Install ShellCheck (pin read from pyproject)
+      # ShellCheck (and zizmor, which this job does not run) from the hashed
+      # lock build/lock-requirements.sh resolves from pyproject's `ci-lint` extra.
+      - name: Install ShellCheck from the hashed ci-lint lock
         run: |
-          set -euo pipefail
-          spec="$(python -c '
-          import pathlib, tomllib
-          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
-              "optional-dependencies"
-          ]["ci-lint"]
-          print(next(s for s in extra if s.startswith("shellcheck-py")))
-          ')"
-          echo "pyproject pin: $spec"
-          python -m pip install "$spec"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci-lint.lock
       # Every tracked shell script, read NUL-separated so no name can split. The
       # handshake folder is left out on purpose: its rig scripts are sent records,
       # kept byte for byte as the peer received them. The list is held to every
