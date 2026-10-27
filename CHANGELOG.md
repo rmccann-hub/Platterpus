@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Dependabot waits a week before proposing a new release, and zizmor now checks `dependabot.yml` too** (contributor-facing). Pointing zizmor at all of `.github` found that neither ecosystem had a cooldown, so a just-published release, the window in which a compromised one is usually still live, could arrive in a pull request the same day. Security updates are not delayed.
+
 - **Dependabot keeps every minor pin in a group of its own and ignores the pinned CI tools** (contributor-facing; the follow-up review of 2026-10-27, item 3). A widened pin is red by design, and in the shared weekly group it would have held every other update back; now it reddens only its own pull request. pip-audit, build, twine and the three linters join ruff and mypy in the ignore list, and `tests/test_dependabot_holds_the_pins.py` derives both lists from `pyproject.toml`.
 
 - **The PyPI publish refuses anything but a release tag on `main`** (contributor-facing; the follow-up review of 2026-10-27, item 2). `publish-pypi.yml` holds `id-token: write` and could be dispatched by hand on any ref. A new first step refuses a branch, a tag that is not `v*`, and a tag whose commit is not on `main`, before anything is built or a token is minted; its on-main half is `release.yml`'s branch gate, held equal by a test.
