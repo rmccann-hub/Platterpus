@@ -18,8 +18,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import evidence_move as em  # noqa: E402 - needs the path line above
-from laplang.evidence import parse_manifest  # noqa: E402
+import evidence_move as em  # needs the path line above
+from laplang.evidence import parse_manifest
 
 DATE = "2026-10-15T12:00:00Z"
 LISTED = ["ev/runs/round99", "ev/out/one.log"]

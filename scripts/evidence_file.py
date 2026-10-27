@@ -44,16 +44,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from evidence_names import SAFE_NAME, skip_reason, staged_name  # noqa: E402
+from evidence_names import SAFE_NAME, skip_reason, staged_name
 
-from platterpus import fun512  # noqa: E402
-from platterpus.eac_log_export import verify_eac_style_log_checksum  # noqa: E402
-from platterpus.export_identity import (  # noqa: E402
+from platterpus import fun512
+from platterpus.eac_log_export import verify_eac_style_log_checksum
+from platterpus.export_identity import (
     local_names,
     names_status,
     this_machines_hostnames,
 )
-from platterpus.export_redaction import (  # noqa: E402
+from platterpus.export_redaction import (
     CHASE_RECORD,
     KEPT_CYANRIP_SIGNED,
     KEPT_PLATTERPUS_CHECKSUM,

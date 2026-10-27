@@ -326,7 +326,7 @@ class ProvisioningMixin(MainWindowShared):
         # "No" was permanent (real-user report, 2026-09-18 — the same reporter,
         # and the same symptom, as the boolean this key replaced in June).
         # Including the version means a decline lasts exactly one release.
-        from platterpus import __version__  # noqa: PLC0415
+        from platterpus import __version__
 
         if (
             self._config.integration_declined_path == str(appimage)

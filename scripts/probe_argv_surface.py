@@ -218,7 +218,7 @@ def _probe_shape(field: str, raw: str) -> Probe:
     cause, not what a hand-written blob would look like. A row is a pass when the
     chokepoint refuses it and a finding when the argv is built and accepted.
     """
-    from platterpus.adapters.rip_backend import TrackTag  # noqa: PLC0415
+    from platterpus.adapters.rip_backend import TrackTag
 
     if field == "album_title":
         meta = RipMetadata(album_title=raw)

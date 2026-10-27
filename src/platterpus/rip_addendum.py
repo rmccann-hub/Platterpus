@@ -510,7 +510,7 @@ def read_any_log(log_path: str | Path) -> str:
 
     Never raises: a missing or unreadable log yields ``""``.
     """
-    from platterpus.parity import decode_log_bytes  # noqa: PLC0415 — avoids a cycle
+    from platterpus.parity import decode_log_bytes  # avoids a cycle
 
     path = Path(log_path)
     try:

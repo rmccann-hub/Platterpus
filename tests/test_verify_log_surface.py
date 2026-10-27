@@ -190,7 +190,7 @@ def test_an_unreadable_log_is_reported_not_silently_skipped(
     bad = tmp_path / "unreadable.log"
     bad.write_text("x\n")
 
-    def boom(self, **kwargs):  # noqa: ANN001, ANN003
+    def boom(self, **kwargs):
         raise OSError("EIO")
 
     monkeypatch.setattr(Path, "read_text", boom)

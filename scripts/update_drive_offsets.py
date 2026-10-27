@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Import the canonical normalizer so generated keys match runtime lookups.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from platterpus.adapters.accuraterip_offsets import (  # noqa: E402
+from platterpus.adapters.accuraterip_offsets import (
     normalize_drive_name,
 )
 

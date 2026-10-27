@@ -145,7 +145,7 @@ def _derived_round_state(number: int) -> str:
     test and ``--status`` cannot disagree about a round. Two surfaces answering one
     question off different keys is the defect this repo has paid for more than once.
     """
-    import importlib.util  # noqa: PLC0415
+    import importlib.util
 
     spec = importlib.util.spec_from_file_location(
         "handshake", _REPO_ROOT / "scripts" / "handshake.py"
@@ -319,7 +319,7 @@ def test_the_gate_is_not_vacuous() -> None:
 
 def _handshake_module() -> ModuleType:
     """`scripts/handshake.py`, loaded the way `_derived_round_state` loads it."""
-    import importlib.util  # noqa: PLC0415
+    import importlib.util
 
     if "handshake" in sys.modules:
         return sys.modules["handshake"]

@@ -100,7 +100,7 @@ def test_the_sweep_fires_on_a_direct_construction() -> None:
 def test_build_cyanrip_backend_uses_the_binary_it_is_given() -> None:
     backend = composition.build_cyanrip_backend("/opt/test/cyanrip")
     assert backend.__class__.__name__ == "CyanripImpl"
-    assert backend._binary == "/opt/test/cyanrip"  # noqa: SLF001
+    assert backend._binary == "/opt/test/cyanrip"
 
 
 def test_the_backend_runs_the_HOST_EXPORTED_ripper_when_it_exists(
@@ -122,10 +122,10 @@ def test_the_backend_runs_the_HOST_EXPORTED_ripper_when_it_exists(
     exported.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(composition, "CYANRIP_BINARY_DEFAULT", exported)
     backend, _ = composition.build_backend(Config())
-    assert backend._binary == str(exported)  # noqa: SLF001
+    assert backend._binary == str(exported)
 
     # And the fallback when there is no export: a PATH lookup of the ripper by
     # name, never a container command.
     monkeypatch.setattr(composition, "CYANRIP_BINARY_DEFAULT", tmp_path / "absent")
     backend, _ = composition.build_backend(Config())
-    assert backend._binary == "cyanrip"  # noqa: SLF001
+    assert backend._binary == "cyanrip"

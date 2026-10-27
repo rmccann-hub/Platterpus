@@ -226,7 +226,7 @@ def test_the_runner_names_the_release_picker_by_its_real_title(qapp: object) -> 
     dialog is ever retitled, the guard would silently fall back to the generic
     advice and nobody would notice, because the fallback still *reads* correctly.
     """
-    from platterpus.uiscript.runner import _RELEASE_PICKER_TITLE  # noqa: PLC0415
+    from platterpus.uiscript.runner import _RELEASE_PICKER_TITLE
 
     dialog = ReleasePickerDialog([])
     try:
@@ -255,9 +255,9 @@ def test_both_blocked_step_messages_send_the_operator_to_pick_release(
     of one handler would have passed while the other stayed wrong, which is exactly
     the state this replaces.
     """
-    import inspect  # noqa: PLC0415
+    import inspect
 
-    from platterpus.uiscript import runner as runner_mod  # noqa: PLC0415
+    from platterpus.uiscript import runner as runner_mod
 
     # `rip`'s refusals live in `_start_refusal` since 2026-10-26, so the waited
     # press (a scan in flight) and the immediate one share them; `_do_rip` and

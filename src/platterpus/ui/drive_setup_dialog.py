@@ -528,7 +528,7 @@ class DriveSetupDialog(CenteredDialog):
         self._worker = None
         self._thread = None
 
-    def reject(self) -> None:  # noqa: D102 — Qt override (Close button / Esc)
+    def reject(self) -> None:  # Qt override (Close button / Esc)
         self._closing = True
         self._stop_detection()
         super().reject()

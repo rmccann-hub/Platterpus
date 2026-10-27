@@ -159,7 +159,7 @@ def test_output_dir_under_unwritable_ancestor_is_error(
 
     real_access = os.access
 
-    def fake_access(path, mode):  # noqa: ANN001
+    def fake_access(path, mode):
         if str(path) == str(tmp_path) and mode == os.W_OK:
             return False
         return real_access(path, mode)

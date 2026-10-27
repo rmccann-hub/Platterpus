@@ -26,10 +26,10 @@ import pytest
 
 pytest.importorskip("PySide6.QtWidgets")
 
-from platterpus.uiscript import verbs  # noqa: E402
-from platterpus.uiscript.report import Outcome  # noqa: E402
-from platterpus.uiscript.runner import ScriptRunner  # noqa: E402
-from platterpus.uiscript.script import parse  # noqa: E402
+from platterpus.uiscript import verbs
+from platterpus.uiscript.report import Outcome
+from platterpus.uiscript.runner import ScriptRunner
+from platterpus.uiscript.script import parse
 
 _SRC: Final[Path] = Path(__file__).resolve().parents[1] / "src" / "platterpus"
 

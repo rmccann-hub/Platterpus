@@ -368,7 +368,7 @@ class CyanripImpl(RipBackend):
         # track was read in full and then could not be created. The track table
         # says this to the person before Start; this is the backstop for every
         # other route to the ripper, rendered from the schemes just computed.
-        from platterpus.adapters.cyanrip_name_lengths import (  # noqa: PLC0415
+        from platterpus.adapters.cyanrip_name_lengths import (
             assert_names_fit,  # imports this module, so it is imported here
         )
 
@@ -1294,7 +1294,7 @@ def assert_output_paths_stay_put(argv: list[str]) -> None:
     cause (S-12). A dangling ``-D`` with no value after it is a *different*
     malformation and deliberately not this function's finding.
     """
-    from platterpus import naming  # noqa: PLC0415
+    from platterpus import naming
 
     for flag, value in zip(argv, argv[1:], strict=False):
         if flag not in ("-D", "-F"):
@@ -1632,7 +1632,7 @@ def consumer_tag_for_build(build_tag: str) -> str:
     about when the flag is safe. Empty means *do not send it* — never "send it and
     hope".
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     return consumer_tag() if fork_source.accepts_consumer_flag(build_tag) else ""
 
@@ -1648,7 +1648,7 @@ def prefer_disc_isrc_args_for_build(build_tag: str) -> list[str]:
     The argv words and their gate in one place, as for ``--consumer``, so no route
     to the ripper spells the flag or re-decides when it is safe.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     return (
         [PREFER_DISC_ISRC_FLAG]
@@ -1669,7 +1669,7 @@ def prefer_accuraterip_match_args_for_build(build_tag: str) -> list[str]:
     `.27` (``5aeefc4``) alone today, the one tag in
     ``fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH``.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     return (
         [PREFER_ACCURATERIP_MATCH_FLAG]
@@ -1723,7 +1723,7 @@ def diagnostics_args_for_build(build_tag: str) -> list[str]:
     withheld: sending to a build that refuses it fails the rip, while withholding
     from one that would accept it costs a diagnostic record and nothing else.
     """
-    from platterpus.ripper_identity import identify_ripper  # noqa: PLC0415
+    from platterpus.ripper_identity import identify_ripper
 
     if (build_tag or "").strip() and identify_ripper("", build_tag).kind != "fork":
         return []
@@ -1737,7 +1737,7 @@ def consumer_tag() -> str:
     we are not. Shape fixed by the shared protocol (``docs/handshake-protocol.md``
     §7): ``<name>/<version>``.
     """
-    from platterpus import __version__  # noqa: PLC0415 — avoids an import cycle
+    from platterpus import __version__  # avoids an import cycle
 
     return f"{CONSUMER_NAME}/{__version__}"
 
@@ -1992,7 +1992,7 @@ def predicted_album_folder(track_template: str, metadata: RipMetadata | None) ->
     two glyphs a ``"`` becomes (P7d), so the overwrite guard resolves this against
     what is on disk (``ui.main_window_helpers.resolve_sanitised_paths``).
     """
-    from platterpus import naming, tag_hygiene  # noqa: PLC0415
+    from platterpus import naming, tag_hygiene
 
     scheme = album_folder_scheme(track_template, metadata) or DEFAULT_FOLDER_FOR_OUR_RIP
     meta = tag_hygiene.clean_tag_only_fields(metadata).metadata

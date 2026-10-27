@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from laplang.cli import main  # noqa: E402 - needs the path line above
+from laplang.cli import main  # needs the path line above
 
 if __name__ == "__main__":
     sys.exit(main())

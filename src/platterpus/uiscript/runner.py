@@ -4830,7 +4830,7 @@ def _pin_role_phrase() -> str:
     Imported locally because `fork_source` reaches the network stack for release
     metadata and this module is imported by the script parser, which must not.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
+    from platterpus.deps import fork_source
 
     return fork_source.pin_under_review_role()
 

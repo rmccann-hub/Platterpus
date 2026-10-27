@@ -44,8 +44,8 @@ from pathlib import Path
 from typing import Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import evidence_manifest  # noqa: E402 - needs the path line above
-from laplang.evidence import HEADER  # noqa: E402
+import evidence_manifest  # needs the path line above
+from laplang.evidence import HEADER
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 IDENTITY_NAME: Final[str] = "evidence"

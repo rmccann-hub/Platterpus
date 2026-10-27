@@ -1146,7 +1146,7 @@ class SettingsDialog(CenteredDialog):
 
     # --- Input validation (visible errors + block-on-save + logging) --------
 
-    def accept(self) -> None:  # noqa: D102 — Qt override
+    def accept(self) -> None:  # Qt override
         """OK pressed. Refuse to save while any input is a hard error — show the
         errors, mark the fields, and log them (so a bug report carries them).
         Warnings don't block. A clean/valid dialog accepts exactly as before."""

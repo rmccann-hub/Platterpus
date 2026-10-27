@@ -154,7 +154,7 @@ def test_a_rerun_at_an_old_id_checks_out_the_commit_that_replaced_it(
     import subprocess
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
-    from laplang.scratch import Scratch  # noqa: PLC0415 - needs the path line above
+    from laplang.scratch import Scratch  # needs the path line above
 
     def git(*args: str) -> str:
         return subprocess.run(

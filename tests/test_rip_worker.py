@@ -3836,7 +3836,7 @@ def test_find_log_path_skips_a_candidate_that_vanishes_mid_scan(
     (tmp_path / "bad.log").write_text("x", encoding="utf-8")
     real_stat = Path.stat
 
-    def flaky_stat(self: Path, *a: object, **k: object):  # noqa: ANN202
+    def flaky_stat(self: Path, *a: object, **k: object):
         if self.name == "bad.log":
             raise FileNotFoundError("vanished mid-scan")
         return real_stat(self, *a, **k)

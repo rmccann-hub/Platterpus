@@ -248,7 +248,7 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
         year="2026",
         tracks=(TrackTag(number=1, title="One"), TrackTag(number=2, title="Two")),
     )
-    argv = backend._build_rip_argv(  # noqa: SLF001 — deliberately the real builder
+    argv = backend._build_rip_argv(  # deliberately the real builder
         device,
         unknown=False,
         cover_art="",

@@ -263,7 +263,7 @@ class UninstallDialog(CenteredDialog):
         self._worker = None
         self._thread = None
 
-    def reject(self) -> None:  # noqa: D102 — Qt override (Close / Esc)
+    def reject(self) -> None:  # Qt override (Close / Esc)
         self._closing = True
         self._stop()
         super().reject()

@@ -184,7 +184,7 @@ extend-exclude = ["src/platterpus/adapters/accuraterip_offsets_data.py"]
 [tool.ruff.lint]
 # E/W=pycodestyle, F=pyflakes, I=isort (import order), B=flake8-bugbear
 # (likely-bug patterns), UP=pyupgrade (modern 3.11+ syntax).
-select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805", "S", "DTZ"]
+select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805", "S", "DTZ", "BLE001", "RUF100"]
 # `S` (flake8-bandit, security) and `DTZ` (naive datetimes) ON since 2026-10-27,
 # external review item 3.4, ruff 0.15.22. Measured before turning them on: 80
 # findings in `src`. The real ones were fixed: a rig-session folder stamped in
@@ -196,6 +196,22 @@ select = ["E", "F", "W", "I", "B", "UP", "N801", "N802", "N804", "N805", "S", "D
 # `except … pass` already justified for BLE001 (S110), a narrowing `assert`
 # (S101, held to that shape by
 # `tests/test_critical_rules_are_enforced.py::test_asserts_in_src_only_narrow_types`).
+#
+# `RUF100` (unused `noqa`) ON since 2026-10-27, external review item 3.5. Before
+# it, 140 markers named a rule nothing enabled (`PLC0415`, `SLF001`, `ANN*`,
+# `D102`, and `N802`/`S603` where `tests`/`scripts` ignore them) or one that
+# never fired there (`E402`, `F401`): documentation wearing the costume of
+# enforcement, the shape the `N` note below already names. Each was removed;
+# where one carried a reason, the reason stays as a plain comment.
+#
+# `BLE001` (a blind `except Exception`) ON at the same time: 0 findings, because
+# every such handler already carries `# noqa: BLE001 — <reason>`, which
+# `tests/test_critical_rules_are_enforced.py::test_every_broad_except_says_why`
+# requires. Ruff only fires BLE001 on a handler that neither re-raises nor logs
+# the exception, so about 140 of those markers suppress nothing ruff would
+# report; `external` below keeps RUF100 from deleting them, because the house
+# rule is stricter than ruff's: every broad handler says why, logged or not.
+external = ["BLE001"]
 # `N` (pep8-naming) WAS measured and deliberately absent — 2026-08-20, ruff
 # 0.15.22, 108 findings, of which 96 were `N802 invalid-function-name` and every
 # one of those a Qt API name we do not get to choose: `isRunning`, `setValue`,

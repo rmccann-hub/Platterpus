@@ -1998,7 +1998,7 @@ def test_the_production_menu_line_names_the_round_and_lap_that_approved_the_pin(
     sequence it quotes is the pin's own, and the lap it cites exists in our record,
     belongs to that round and declares `FORK_PIN` as its pin.
     """
-    from platterpus import handshake_approval  # noqa: PLC0415
+    from platterpus import handshake_approval
 
     why = fork_source.PRODUCTION_TARGET.why
     round_number = handshake_approval.APPROVED_BY_ROUND

@@ -96,7 +96,7 @@ def test_the_tally_says_nothing_about_clean_output_and_everything_about_the_rest
 @given(st.text())
 def test_screen_line_never_raises_and_leaves_nothing_invisible(line: str) -> None:
     screened = screen_line(line)
-    assert not inbound_text._FLAGGED.search(screened.text)  # noqa: SLF001
+    assert not inbound_text._FLAGGED.search(screened.text)
     assert len(screened.text) <= 4 * MAX_LINE_CHARS + 200
 
 
@@ -298,5 +298,5 @@ def test_the_inbound_screen_and_the_outbound_rule_differ_only_in_tab() -> None:
 
     for code in range(0x110000):
         ch = chr(code)
-        flagged_in = bool(inbound_text._FLAGGED.match(ch))  # noqa: SLF001
+        flagged_in = bool(inbound_text._FLAGGED.match(ch))
         assert flagged_in == (is_control_char(ch) and ch != "\t"), hex(code)

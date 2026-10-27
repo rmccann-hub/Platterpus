@@ -1103,8 +1103,8 @@ def test_the_pin_role_phrase_never_claims_an_open_round_between_rounds() -> None
     Both branches asserted, because a phrase that is right in one state and silent
     about the other is the same defect with better odds.
     """
-    from platterpus.deps import fork_source  # noqa: PLC0415
-    from platterpus.uiscript.runner import _pin_role_phrase  # noqa: PLC0415
+    from platterpus.deps import fork_source
+    from platterpus.uiscript.runner import _pin_role_phrase
 
     phrase = _pin_role_phrase()
     closed = fork_source.same_commit(fork_source.PIN_UNDER_REVIEW, fork_source.FORK_PIN)
@@ -1130,9 +1130,9 @@ def test_the_wrong_ripper_failure_names_a_command_not_a_gui_path() -> None:
     offer"* when a single pasteable command exists. An operator at 2am with a disc
     in the drive should get the command.
     """
-    import inspect  # noqa: PLC0415
+    import inspect
 
-    from platterpus.uiscript import runner as runner_mod  # noqa: PLC0415
+    from platterpus.uiscript import runner as runner_mod
 
     src = inspect.getsource(runner_mod.ScriptRunner._do_expect_ripper_under_review)
     # **Comments stripped before matching.** The first version of this assertion

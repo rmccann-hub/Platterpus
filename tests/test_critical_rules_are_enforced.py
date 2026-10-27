@@ -3398,7 +3398,7 @@ def test_the_size_ratchet_measures_every_committed_module_outside_tests() -> Non
     `conftest.TOOLING_GLOBS`, fails here by name rather than leaving the ratchet
     green over a population that quietly stopped including it.
     """
-    listing = subprocess.run(  # noqa: S603 — fixed argv, no shell
+    listing = subprocess.run(  # fixed argv, no shell
         ["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "*.py"],
         capture_output=True,
         text=True,
@@ -3960,3 +3960,34 @@ def test_the_assert_detector_fires_and_does_not_over_fire() -> None:
     assert _assert_only_narrows(
         condition("assert a is not None and isinstance(b, int)")
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The lint rules that make a `noqa` marker mean something stay selected.
+#
+# A suppression marker is only a record of a hand-check while the rule it names
+# is enabled and `RUF100` would flag it once it stopped suppressing anything.
+# Before 2026-10-27 (external review items 3.4 and 3.5) 140 markers named rules
+# nothing enabled. These rules are what keeps that from recurring, so dropping
+# one from `select` is a decision this test makes visible.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_ruff_keeps_the_rules_that_give_noqa_markers_meaning() -> None:
+    import tomllib
+
+    lint = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "tool"
+    ]["ruff"]["lint"]
+    selected = set(lint["select"])
+    for rule in ("S", "DTZ", "BLE001", "RUF100"):
+        assert rule in selected, f"ruff no longer selects {rule}"
+    # BLE001 markers on handlers that log are required by
+    # `test_every_broad_except_says_why`, though ruff would not fire there;
+    # `external` is what stops RUF100 from deleting them.
+    assert "BLE001" in lint.get("external", []), (
+        "BLE001 is not `external`: RUF100 will remove the markers "
+        "test_every_broad_except_says_why requires"
+    )
+    # The security rules are ignored wholesale only where measured and argued.
+    assert "S" not in lint.get("ignore", []) and "DTZ" not in lint.get("ignore", [])

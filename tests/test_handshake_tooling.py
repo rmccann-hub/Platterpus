@@ -774,7 +774,7 @@ def test_the_release_workflows_handshake_step_runs_as_written(tmp_path: Path) ->
     assert match is not None, "the handshake step or its run: line is gone"
     command = match.group("cmd")
     assert "--release-gate" in command, command
-    result = subprocess.run(  # noqa: S603 — a line we just read out of our own repo
+    result = subprocess.run(  # a line we just read out of our own repo
         ["sh", "-c", command.replace("python ", f"{sys.executable} ", 1)],
         cwd=Path(__file__).resolve().parents[1],
         env={**os.environ, "TAG": "v0.0.0-test"},
@@ -813,7 +813,7 @@ def test_the_tag_routing_is_run_not_read(tag: str, prerelease: bool) -> None:
     block = re.search(r'(case "\$TAG" in\n.*?PRERELEASE=.*?esac)', workflow, re.S)
     assert block is not None, "the publish step's `case` block is gone from release.yml"
     script = block.group(1) + '\necho "PRERELEASE=[$PRERELEASE]"'
-    result = subprocess.run(  # noqa: S603 — text we just read out of our own repo
+    result = subprocess.run(  # text we just read out of our own repo
         ["sh", "-c", script],
         env={"TAG": tag, "PATH": os.environ.get("PATH", "")},
         capture_output=True,

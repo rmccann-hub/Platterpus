@@ -33,7 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from platterpus import update_attestation  # noqa: E402 — after the path setup
+from platterpus import update_attestation  # after the path setup
 
 
 def _sha256(path: Path) -> str:

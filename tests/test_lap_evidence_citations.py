@@ -18,12 +18,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from laplang.evidence import (  # noqa: E402 - needs the path line above
+from laplang.evidence import (  # needs the path line above
     HEADER,
     STRICT_ENV,
     parse_manifest,
 )
-from laplang.refs import Trees, parse_artifact  # noqa: E402
+from laplang.refs import Trees, parse_artifact
 
 RUN = "docs/handshake/artifactsround99/round99full.log"
 LOG = b"line one\nline two\nline three\n"

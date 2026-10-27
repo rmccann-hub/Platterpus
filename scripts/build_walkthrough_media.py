@@ -201,7 +201,7 @@ def _run_ffmpeg(argv: list[str], timeout_s: float) -> FfmpegRun:
     the one the child was given (``args``), not the one we meant to give it.
     """
     try:
-        done = subprocess.run(  # noqa: S603 - a list argv, no shell
+        done = subprocess.run(  # a list argv, no shell
             argv,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,

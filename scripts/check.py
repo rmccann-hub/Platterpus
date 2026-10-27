@@ -190,7 +190,7 @@ def _git(repo: Path, *args: str, timeout: float) -> _GitAnswer:
     """
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     try:
-        proc = subprocess.Popen(  # noqa: S603 — fixed argv, shell=False
+        proc = subprocess.Popen(  # fixed argv, shell=False
             ["git", *args],
             cwd=repo,
             stdin=subprocess.DEVNULL,
@@ -327,7 +327,7 @@ def _captured_text(captured: bytes | str | None) -> str:
 def _run(gate: Gate) -> None:
     """Run one gate. Records the real exit code, or None if it could not run."""
     try:
-        proc = subprocess.run(  # noqa: S603 — fixed argv, shell=False
+        proc = subprocess.run(  # fixed argv, shell=False
             gate.argv,
             cwd=REPO_ROOT,
             capture_output=True,

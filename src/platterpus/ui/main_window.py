@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     # Kept importable here: tests patch `platterpus.ui.main_window.QMessageBox`
     # by path, and the class is shared, so the patch reaches every mixin.
-    QMessageBox,  # noqa: F401
+    QMessageBox,
     QScrollArea,
     QSplitter,
     QSystemTrayIcon,

@@ -29,7 +29,7 @@ import pytest
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 
-def _load_check():  # noqa: ANN202 — a module object
+def _load_check():  # a module object
     """Import `scripts/check.py` by path (scripts/ is deliberately not a package)."""
     path = REPO_ROOT / "scripts" / "check.py"
     spec = importlib.util.spec_from_file_location("_check_under_test", path)
@@ -157,7 +157,7 @@ def test_the_local_lint_paths_match_ci() -> None:
 def _git(*args: str) -> str | None:
     """Run git in the repo root; None on any failure (missing git, no repo, no tag)."""
     try:
-        result = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        result = subprocess.run(  # fixed argv, no shell
             ["git", *args],
             cwd=REPO_ROOT,
             capture_output=True,

@@ -520,7 +520,7 @@ def test_check_libdiscid_present_with_version(
     monkeypatch.setattr(ctypes.util, "find_library", lambda _name: "libdiscid.so.0")
 
     class _FakeLib:
-        class discid_get_version_string:  # noqa: N801 — mimics a ctypes func
+        class discid_get_version_string:  # mimics a ctypes func
             restype = None
 
             def __call__(self) -> bytes:

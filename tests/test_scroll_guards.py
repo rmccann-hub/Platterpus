@@ -27,9 +27,9 @@ import pytest
 
 pytest.importorskip("PySide6.QtWidgets")
 
-from PySide6.QtCore import QPoint, QPointF, Qt  # noqa: E402
-from PySide6.QtGui import QWheelEvent  # noqa: E402
-from PySide6.QtWidgets import (  # noqa: E402
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QPlainTextEdit,
@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (  # noqa: E402
     QWidget,
 )
 
-from platterpus.ui.scroll_guards import (  # noqa: E402
+from platterpus.ui.scroll_guards import (
     append_keeping_position,
     protect_value_widgets,
 )

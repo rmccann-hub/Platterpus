@@ -54,7 +54,7 @@ from pathlib import Path
 from typing import Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from laplang.evidence import (  # noqa: E402 - needs the path line above
+from laplang.evidence import (  # needs the path line above
     EVIDENCE_BRANCH,
     MANIFEST_PATH,
     Fetcher,

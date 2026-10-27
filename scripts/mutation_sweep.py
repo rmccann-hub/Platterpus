@@ -68,7 +68,7 @@ from pathlib import Path
 from typing import Final, TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import tree_lock  # noqa: E402
+import tree_lock
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 
@@ -170,7 +170,7 @@ class _Collector(ast.NodeVisitor):
     # The anchor is therefore the END of the operand before the operator, which
     # is an expression and does have a position.
 
-    def visit_Compare(self, node: ast.Compare) -> None:  # noqa: N802
+    def visit_Compare(self, node: ast.Compare) -> None:
         preceding: ast.expr = node.left
         for index, op in enumerate(node.ops):
             replacement = _CMP_SWAP.get(type(op))
@@ -182,7 +182,7 @@ class _Collector(ast.NodeVisitor):
                 preceding = node.comparators[index]
         self.generic_visit(node)
 
-    def visit_BoolOp(self, node: ast.BoolOp) -> None:  # noqa: N802
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
         replacement = _BOOL_SWAP.get(type(node.op))
         if replacement is not None and node.values:
             self.found.append(
@@ -190,7 +190,7 @@ class _Collector(ast.NodeVisitor):
             )
         self.generic_visit(node)
 
-    def visit_Constant(self, node: ast.Constant) -> None:  # noqa: N802
+    def visit_Constant(self, node: ast.Constant) -> None:
         # Booleans and small ints only. Mutating a string constant mostly finds
         # log wording, which no test should be pinning and every test would then
         # "kill" for the wrong reason — a mutant that is easy to kill inflates the
@@ -301,7 +301,7 @@ def _run_tests(tests: list[str], timeout: int) -> bool:
     # source file byte-identical to HEAD.
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     try:
-        proc = subprocess.run(  # noqa: S603 — our own pytest, fixed argv
+        proc = subprocess.run(  # our own pytest, fixed argv
             [
                 sys.executable,
                 "-m",

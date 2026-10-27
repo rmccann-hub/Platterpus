@@ -282,7 +282,7 @@ def _print_durations(config: pytest.Config, reporter: object) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
+def pytest_sessionfinish(session, exitstatus):
     # Defuse the intermittent PySide interpreter-shutdown SIGABRT (a Qt-internal
     # global-teardown race with offscreen + many QThread tests). We exit the
     # process HARD with the real status at the END of session finish — as a

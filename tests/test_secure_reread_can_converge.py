@@ -244,7 +244,7 @@ def test_retries_flag_value_is_what_the_builder_actually_sends() -> None:
 
     backend = build_cyanrip_backend("cyanrip")
     for max_retries in range(0, 101):
-        argv = backend._build_rip_argv(  # noqa: SLF001 — the real builder, on purpose
+        argv = backend._build_rip_argv(  # the real builder, on purpose
             "/dev/sr0",
             unknown=True,
             cover_art="",
@@ -620,7 +620,7 @@ def test_the_builder_refuses_exactly_the_settings_pairs_the_predicate_does() -> 
                 )
             )
             try:
-                backend._build_rip_argv(  # noqa: SLF001 — the real builder, on purpose
+                backend._build_rip_argv(  # the real builder, on purpose
                     "/dev/sr0",
                     unknown=True,
                     cover_art="",
