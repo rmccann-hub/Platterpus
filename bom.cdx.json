@@ -89,7 +89,7 @@
       },
       {
         "name": "platterpus:count:python-build",
-        "value": "10"
+        "value": "9"
       },
       {
         "name": "platterpus:count:ci-action",
@@ -2336,41 +2336,15 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (sbom)"
+          "value": "pyproject.toml [project.optional-dependencies].sbom (installed by .github/workflows/ci.yml)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (sbom)"
+          "value": "pyproject.toml [project.optional-dependencies].sbom (installed by .github/workflows/ci.yml)"
         },
         {
           "name": "platterpus:constraint",
           "value": ">=7,<8"
-        }
-      ]
-    },
-    {
-      "type": "application",
-      "bom-ref": "pypi:pip",
-      "name": "pip",
-      "description": "Installs everything else.",
-      "scope": "excluded",
-      "purl": "pkg:pypi/pip",
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "python-build"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
-        },
-        {
-          "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
-        },
-        {
-          "name": "platterpus:constraint",
-          "value": "unpinned"
         }
       ]
     },

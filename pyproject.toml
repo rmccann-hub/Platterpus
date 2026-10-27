@@ -160,6 +160,17 @@ appimage = [
 # Their own extra, because no developer or test run needs them. All three are
 # MIT-licensed wheels that carry a prebuilt binary; versions current on PyPI,
 # read 2026-10-27.
+# The SBOM generator ci.yml's required `sbom` job runs (`cyclonedx-py
+# environment`). Written in ci.yml as a literal range until the follow-up review
+# of 2026-10-27; it lives here now so build/lock-requirements.sh can resolve it
+# into build/locks/sbom.lock, which the job installs with --require-hashes. The
+# range is the one ci.yml had; pinning it to the minor (Critical rule #11, the
+# other half of amendment A5) also needs it in dependabot.yml's `pinned-minor`
+# group, so it is a separate change.
+sbom = [
+    "cyclonedx-bom>=7,<8",
+]
+
 ci-lint = [
     "actionlint-py>=1.7.12,<1.8",    # actionlint: workflow syntax and expressions
     "zizmor>=1.31.1,<1.32",          # zizmor: workflow security (offline audit)

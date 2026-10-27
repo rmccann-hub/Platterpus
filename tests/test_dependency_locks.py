@@ -86,6 +86,15 @@ LOCKS: Final[dict[str, LockSpec]] = {
     "build/locks/ci.lock": LockSpec(
         "ci", ("dependencies", "extra:dev", "build-system"), 70
     ),
+    # The follow-up review of 2026-10-27, item 5: the required sbom job (69
+    # packages that day) and the workflow linters (2: zizmor and shellcheck-py;
+    # actionlint-py ships no wheel, so it is not here, and TASKS R91 says so).
+    "build/locks/sbom.lock": LockSpec(
+        "sbom", ("dependencies", "extra:sbom", "build-system"), 55
+    ),
+    "build/locks/ci-lint.lock": LockSpec(
+        "ci-lint", ("extra:ci-lint:zizmor", "extra:ci-lint:shellcheck-py"), 2
+    ),
 }
 
 
@@ -647,6 +656,10 @@ HASHED_JOBS: Final[dict[tuple[str, str], str]] = {
     ("ci.yml", "lint"): "build/locks/ci.lock",
     ("ci.yml", "typecheck"): "build/locks/ci.lock",
     ("ci.yml", "test"): "build/locks/ci.lock",
+    # The follow-up review of 2026-10-27, item 5.
+    ("ci.yml", "sbom"): "build/locks/sbom.lock",
+    ("ci.yml", "shellcheck"): "build/locks/ci-lint.lock",
+    ("mutation.yml", ""): "build/locks/ci.lock",
 }
 
 
@@ -688,6 +701,44 @@ def test_jobs_that_publish_attest_or_gate_install_only_from_hashed_locks() -> No
         )
         examined += len(lines)
     assert examined >= len(HASHED_JOBS)
+
+
+def test_workflow_lint_installs_only_actionlint_outside_the_lock() -> None:
+    """The one range left in the linter jobs is actionlint-py's, and only it.
+
+    actionlint-py publishes no wheel, so `--only-binary :all:` cannot lock it
+    (TASKS R91). The job therefore installs ci-lint.lock hashed and actionlint-py
+    by pyproject's range; this holds the exception to exactly that one package,
+    so a second unhashed install cannot ride in beside it.
+    """
+    body = _job((WORKFLOWS / "ci.yml").read_text(encoding="utf-8"), "workflow-lint")
+    lines = _install_lines(body)
+    assert any(
+        _is_hashed_install(ln) and "-r build/locks/ci-lint.lock" in ln for ln in lines
+    ), lines
+    unhashed = [ln for ln in lines if not _is_allowed_install(ln)]
+    assert unhashed == ['python -m pip install "$spec"'], unhashed
+    assert 'if s.startswith("actionlint-py")' in body, (
+        "workflow-lint's one unhashed install no longer selects actionlint-py"
+    )
+    assert "actionlint-py" not in _lock_versions("build/locks/ci-lint.lock")
+
+
+def test_the_sbom_describes_the_versions_ci_tests() -> None:
+    """The sbom job's lock pins every package it shares with the CI lock alike.
+
+    The SBOM is published as the inventory of what CI checked; a separate
+    resolution that picked a different version of a runtime package would make
+    it describe an environment no test ran in.
+    """
+    sbom = _lock_versions("build/locks/sbom.lock")
+    ci = _lock_versions("build/locks/ci.lock")
+    shared = sorted(set(sbom) & set(ci))
+    differ = {n: (sbom[n], ci[n]) for n in shared if sbom[n] != ci[n]}
+    assert not differ, f"the sbom lock and the CI lock differ (sbom, CI): {differ}"
+    # Floor: 66 shared on 2026-10-27, the whole runtime closure among them.
+    assert len(shared) >= 50, shared
+    assert "cyclonedx-bom" in sbom
 
 
 def test_the_install_check_catches_the_lines_that_shipped() -> None:

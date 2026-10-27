@@ -213,6 +213,15 @@ def _python_build_entries(taken: set[str]) -> list[Entry]:
             "pyproject.toml [project.optional-dependencies].ci-lint "
             "(installed by .github/workflows/ci.yml)",
         )
+    # The `sbom` extra: ci.yml's sbom job installs it through build/locks/sbom.lock
+    # (the follow-up review of 2026-10-27, item 5), so the workflow names no
+    # package for the reader below to find.
+    for text in _strings(extras.get("sbom", [])):
+        add(
+            text,
+            "pyproject.toml [project.optional-dependencies].sbom "
+            "(installed by .github/workflows/ci.yml)",
+        )
     for flow in workflows():
         for job, text in flow.pip:
             add(text, _where(flow.rel, job))
@@ -260,7 +269,6 @@ def _python_build_entries(taken: set[str]) -> list[Entry]:
 _BUILD_PURPOSE: Final[dict[str, str]] = {
     "build": "PEP 517 frontend: builds the wheel and sdist.",
     "cyclonedx-bom": "Writes the CI sbom job's resolved-environment SBOM.",
-    "pip": "Installs everything else.",
     "pip-audit": "The gating vulnerability audit of the resolved runtime graph.",
     "python-appimage": "Builds the AppImage (Critical rule #2).",
     "setuptools": "The build backend.",

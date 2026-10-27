@@ -31,9 +31,13 @@
 #       attestation check (the test holds its sigstore equal to the AppImage's).
 #   build/locks/publish.lock   publish-pypi.yml: `build`, `twine`, the backend.
 #   build/locks/audit.lock     ci.yml's pip-audit job: pip-audit alone.
-#   build/locks/ci.lock        ci.yml's test, lint and typecheck jobs: the
-#       runtime dependencies, the dev extra and the backend, one universal
-#       resolution for every Python the matrix runs.
+#   build/locks/ci.lock        ci.yml's test, lint and typecheck jobs, and
+#       mutation.yml's sweep: the runtime dependencies, the dev extra and the
+#       backend, one universal resolution for every Python the matrix runs.
+#   build/locks/sbom.lock      ci.yml's sbom job: the runtime dependencies (the
+#       environment the SBOM describes), the `sbom` extra and the backend.
+#   build/locks/ci-lint.lock   ci.yml's workflow-lint and shellcheck jobs: zizmor
+#       and ShellCheck from the `ci-lint` extra (not actionlint-py; see below).
 #
 # The build backend (pyproject's [build-system].requires) is in every lock that
 # builds or installs the project, because those jobs build with
@@ -99,8 +103,11 @@ RELEASE_LOCK="build/locks/release.lock"
 PUBLISH_LOCK="build/locks/publish.lock"
 AUDIT_LOCK="build/locks/audit.lock"
 CI_LOCK="build/locks/ci.lock"
+SBOM_LOCK="build/locks/sbom.lock"
+CI_LINT_LOCK="build/locks/ci-lint.lock"
 LOCK_FILES=(
     "$APPIMAGE_LOCK" "$RELEASE_LOCK" "$PUBLISH_LOCK" "$AUDIT_LOCK" "$CI_LOCK"
+    "$SBOM_LOCK" "$CI_LINT_LOCK"
 )
 
 # The CPython python-appimage bundles. MUST equal PLATTERPUS_PYTHON_VERSION's
@@ -396,6 +403,18 @@ lock_universal "$AUDIT_LOCK" audit \
 # backend the editable install builds with (`--no-build-isolation`).
 lock_universal "$CI_LOCK" ci \
     dependencies extra:dev build-system
+# CI's required sbom job: `cyclonedx-py environment` inventories the
+# environment it runs in, so that environment is the runtime dependencies (the
+# project is then installed into it offline) plus the generator.
+lock_universal "$SBOM_LOCK" sbom \
+    dependencies extra:sbom build-system
+# CI's workflow-lint and shellcheck jobs: zizmor and ShellCheck, two wheels that
+# each carry a binary. NOT actionlint-py, the extra's third tool: it publishes
+# only an sdist (1.7.12.25, read 2026-10-27), whose build downloads the actionlint
+# binary from GitHub, so `--only-binary :all:` cannot lock it. workflow-lint
+# installs it by pyproject's range, and TASKS R91 records the gap.
+lock_universal "$CI_LINT_LOCK" ci-lint \
+    extra:ci-lint:zizmor extra:ci-lint:shellcheck-py
 
 if [ "$MODE" = "check" ]; then
     failed=0
