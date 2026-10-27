@@ -238,5 +238,10 @@ lock_universal "$LOCK_DIR/publish.lock" publish \
     extra:publish build-system
 lock_universal "$LOCK_DIR/audit.lock" audit \
     extra:dev:pip-audit
+# CI's test, lint and typecheck jobs, on every Python of the matrix (3.11 to
+# 3.14) from one resolution: the runtime dependencies, the dev extra, and the
+# backend the editable install builds with (`--no-build-isolation`).
+lock_universal "$LOCK_DIR/ci.lock" ci \
+    dependencies extra:dev build-system
 
 echo "Done. Review the diff and commit every changed lock."

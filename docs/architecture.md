@@ -1724,9 +1724,13 @@ several gotchas found the hard way:
     unhashed, so both builds run `--no-isolation` with the backend the lock
     installed.
 
+  CI's `test`, `lint` and `typecheck` jobs install `build/locks/ci.lock`, one
+  universal resolution for every Python of the matrix, then the project with
+  `--no-index --no-deps --no-build-isolation`, so nothing but a lock reaches PyPI.
   `tests/test_dependency_locks.py` fails when a lock falls outside the ranges it
-  was resolved from, when a line is not an exact hashed pin, or when a job that
-  publishes, attests or audits installs anything else.
+  was resolved from, when a line is not an exact hashed pin, when the CI lock and
+  the AppImage lock pin a shared package differently, or when a job that
+  publishes, attests or gates installs anything else.
 
 **Releasing is tag-driven and automated** — don't hand-build or hand-upload.
 The operational steps (bump `__version__`, roll the CHANGELOG, dispatch the

@@ -371,6 +371,7 @@ def test_gitignore_keeps_the_lock_committable_and_secrets_out() -> None:
         "build/locks/release.lock",
         "build/locks/publish.lock",
         "build/locks/audit.lock",
+        "build/locks/ci.lock",
     ):
         assert not ignored(lock), f"{lock} would not be committable"
     for path in (".env", ".env.local", "secrets/token", "scratch/notes.txt"):

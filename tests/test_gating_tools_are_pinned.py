@@ -285,12 +285,23 @@ def test_the_ci_gate_still_INVOKES_the_gating_tools_at_all() -> None:
             f"is supposed to run has gone missing, and the pin check above would pass "
             f"quietly for exactly that reason"
         )
-    # And a job must actually DERIVE the spec, which means reading pyproject in a
-    # command — not naming it in a comment about why we read pyproject.
-    derives = [ln for ln in lines if "pyproject.toml" in ln]
-    assert derives, (
-        "no executable line reads pyproject.toml, so nothing derives a pin — the "
-        "literal-pin check above is satisfied by a workflow that installs nothing"
+    # And a job must actually install the pinned tools from a source derived from
+    # pyproject, which means a command — not a comment about why. Since 2026-10-27
+    # that source is the hashed lock build/lock-requirements.sh resolves from
+    # pyproject's ranges (tests/test_dependency_locks.py holds it inside them);
+    # before, each job read the range out of pyproject.toml at run time.
+    derives = [
+        ln
+        for ln in lines
+        if "pip install" in ln
+        and "--require-hashes" in ln
+        and ("-r build/locks/ci.lock" in ln or "-r build/locks/audit.lock" in ln)
+    ]
+    assert len(derives) >= 2, (
+        "ci.yml no longer installs the gating tools from the hashed locks derived "
+        "from pyproject (ci.lock for ruff and mypy, audit.lock for pip-audit), so "
+        "the literal-pin check above is satisfied by a workflow that installs "
+        f"nothing it can vouch for: {derives}"
     )
     assert "pip install" in body, (
         "no executable line installs anything; the derived spec is never used"
@@ -319,6 +330,7 @@ def test_the_floors_are_not_satisfied_by_the_explanatory_comments() -> None:
             f"the floor still sees {tool!r} in a comment-only workflow"
         )
     assert not [ln for ln in lines if "pyproject.toml" in ln]
+    assert not [ln for ln in lines if "--require-hashes" in ln]
 
 
 def test_the_literal_pin_detector_actually_matches_the_shipped_defect() -> None:

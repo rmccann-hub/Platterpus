@@ -2362,11 +2362,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (lint), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep)"
+          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
         },
         {
           "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml (lint), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep)"
+          "value": ".github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
         },
         {
           "name": "platterpus:constraint",

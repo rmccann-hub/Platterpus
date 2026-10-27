@@ -83,7 +83,7 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      # Read the pin OUT OF pyproject.toml rather than repeating it here.
+      # Never a version written here: one place chooses ruff's range.
       #
       # This step used to install `ruff>=0.15,<1` — the whole 0.x line — while
       # `[project.optional-dependencies].dev` pinned `>=0.15.22,<0.16`. So the
@@ -92,22 +92,19 @@ jobs:
       # absent from the one that does. A routine ruff 0.16 release would have turned
       # this job red with zero change to our code, and it would have read as a code
       # problem — which is, word for word, the failure rule #11 describes.
+      # `tests/test_gating_tools_are_pinned.py` refuses a literal version here.
       #
-      # Deriving it means there is one place the version lives, so bumping it stays
-      # the deliberate commit the rule asks for. `tests/test_gating_tools_are_pinned.py`
-      # refuses a literal version here, so this cannot quietly regress to a copy.
-      - name: Install ruff (pin read from pyproject, so the gate cannot float)
+      # Since 2026-10-27 (the review's follow-up to item 2.3) the job installs
+      # build/locks/ci.lock: pyproject's ranges resolved by
+      # build/lock-requirements.sh to one version of every package, each with the
+      # sha256 of every file, refused otherwise. The same lock as `typecheck` and
+      # every `test` leg, so the three gates judge the code with the same tools.
+      # `tests/test_dependency_locks.py` fails when the lock leaves pyproject's
+      # ranges, so the range is still chosen in one place. Until then this step
+      # read ruff's range out of pyproject and installed whatever PyPI served in it.
+      - name: Install ruff from the hashed CI lock (the gate cannot float)
         run: |
-          python -m pip install --upgrade pip
-          spec="$(python -c '
-          import pathlib, tomllib
-          dev = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
-              "optional-dependencies"
-          ]["dev"]
-          print(next(d for d in dev if d.replace("-", "_").startswith("ruff")))
-          ')"
-          echo "pyproject pins: $spec"
-          python -m pip install "$spec"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci.lock
 
       - name: Lint (ruff check)
         run: ruff check src tests scripts build
@@ -136,10 +133,13 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      # The hashed CI lock (see the lint job), then the project itself with no
+      # index, no dependencies and no build isolation, so nothing but the lock
+      # reaches PyPI: the editable build uses the setuptools the lock installed.
       - name: Install package with dev extras (mypy + PySide6 stubs)
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci.lock
+          python -m pip install --no-index --no-deps --no-build-isolation -e .
 
       - name: Type-check (mypy)
         run: mypy
@@ -425,9 +425,9 @@ jobs:
           locks=(build/python-appimage/requirements.lock build/locks/*.lock)
           shopt -u nullglob
           # A floor, so an audit that found no locks cannot pass as a clean one:
-          # the AppImage's lock and the three tool locks.
-          if [ "${#locks[@]}" -lt 4 ]; then
-            echo "::error::expected at least 4 locks to audit, found ${#locks[@]}: ${locks[*]}"
+          # the AppImage's lock, the three tool locks and the CI lock.
+          if [ "${#locks[@]}" -lt 5 ]; then
+            echo "::error::expected at least 5 locks to audit, found ${#locks[@]}: ${locks[*]}"
             exit 1
           fi
           args=()
@@ -1015,10 +1015,19 @@ jobs:
           echo "::error::could not install the headless Qt libraries in 2 attempts"
           exit 1
 
+      # ONE hashed lock for every leg, 3.11 to 3.14 (2026-10-27, the review's
+      # follow-up to item 2.3). build/locks/ci.lock is a universal resolution of
+      # the runtime dependencies, the dev extra and the build backend, with the
+      # sha256 of every file each pinned version publishes, so every leg runs the
+      # same versions as every other, and as the AppImage lock pins for the
+      # runtime (tests/test_dependency_locks.py holds the two equal). `pip install
+      # -e ".[dev]"` resolved the newest release in each range on the day, per
+      # leg. Then the project: no index, no dependencies, no build isolation, so
+      # nothing but the lock reaches PyPI.
       - name: Install package with dev extras
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci.lock
+          python -m pip install --no-index --no-deps --no-build-isolation -e .
 
       # Run with branch coverage and a hard floor. The gate ratchets up as
       # the suite grows — raise --cov-fail-under when TOTAL comfortably clears

@@ -52,7 +52,7 @@ class LockSpec:
     #: The generator's selectors, in its order; the lock's header must say these.
     inputs: tuple[str, ...]
     #: A floor on pinned packages, so an empty or truncated lock cannot pass.
-    #: Measured 2026-10-27 with uv 0.11.32 (36, 36, 36, 29); set at about 80 %.
+    #: Measured 2026-10-27 with uv 0.11.32 (36, 36, 36, 29, 88); about 80 %.
     min_packages: int
 
 
@@ -75,6 +75,9 @@ LOCKS: Final[dict[str, LockSpec]] = {
         "publish", ("extra:publish", "build-system"), 28
     ),
     "build/locks/audit.lock": LockSpec("audit", ("extra:dev:pip-audit",), 22),
+    "build/locks/ci.lock": LockSpec(
+        "ci", ("dependencies", "extra:dev", "build-system"), 70
+    ),
 }
 
 
@@ -308,8 +311,9 @@ def test_every_lock_pins_its_inputs_inside_the_ranges_they_state() -> None:
                     f"regenerate with bash build/lock-requirements.sh"
                 )
                 checked += 1
-    # Floor: 6 AppImage inputs + 5 release + 4 publish + 1 audit on 2026-10-27.
-    assert checked >= 14, f"only {checked} input ranges were checked"
+    # Floor: 6 AppImage inputs + 5 release + 4 publish + 1 audit + 22 CI on
+    # 2026-10-27.
+    assert checked >= 30, f"only {checked} input ranges were checked"
 
 
 def test_the_currency_check_refuses_a_lock_outside_its_range() -> None:
@@ -365,9 +369,31 @@ def test_locks_that_share_a_package_pin_the_same_version() -> None:
     appimage = _lock_versions(APPIMAGE_LOCK)
     release = _lock_versions("build/locks/release.lock")
     publish = _lock_versions("build/locks/publish.lock")
+    audit = _lock_versions("build/locks/audit.lock")
+    ci = _lock_versions("build/locks/ci.lock")
     assert release["sigstore"] == appimage["sigstore"]
     for name in ("build", "setuptools", "wheel"):
-        assert release[name] == publish[name], name
+        assert release[name] == publish[name] == ci.get(name, publish[name]), name
+    assert audit["pip-audit"] == ci["pip-audit"]
+
+
+def test_ci_tests_the_versions_the_appimage_ships() -> None:
+    """Every package both the CI lock and the AppImage lock pin, they pin alike.
+
+    CI's suite is evidence about the AppImage only if it ran the same PySide6,
+    numpy, sigstore and the rest of their closure. A universal resolution and a
+    3.12-only one could pick differently; this says so the day they do.
+    """
+    appimage = _lock_versions(APPIMAGE_LOCK)
+    ci = _lock_versions("build/locks/ci.lock")
+    shared = sorted(set(appimage) & set(ci))
+    differ = {n: (appimage[n], ci[n]) for n in shared if appimage[n] != ci[n]}
+    assert not differ, (
+        f"the CI lock and the AppImage lock pin these differently (AppImage, CI): "
+        f"{differ}. Regenerate both with bash build/lock-requirements.sh."
+    )
+    # Floor: the whole AppImage closure is in the CI lock (36 of 36 on 2026-10-27).
+    assert len(shared) >= 30, f"only {len(shared)} packages shared: {shared}"
 
 
 def _default_python(text: str) -> str:
@@ -435,11 +461,29 @@ HASHED_JOBS: Final[dict[tuple[str, str], str]] = {
     ("appimage.yml", ""): "build/locks/release.lock",
     ("publish-pypi.yml", ""): "build/locks/publish.lock",
     ("ci.yml", "pip-audit"): "build/locks/audit.lock",
+    ("ci.yml", "lint"): "build/locks/ci.lock",
+    ("ci.yml", "typecheck"): "build/locks/ci.lock",
+    ("ci.yml", "test"): "build/locks/ci.lock",
 }
 
 
 def _is_hashed_install(line: str) -> bool:
     return "--require-hashes" in line and " -r build/" in line
+
+
+def _is_offline_project_install(line: str) -> bool:
+    """The project itself, after the lock: no index, no deps, no isolated build.
+
+    None of the three may go: `--no-index` keeps it from fetching anything,
+    `--no-deps` from resolving past the lock, and `--no-build-isolation` from an
+    isolated build environment that would fetch setuptools by range.
+    """
+    flags = ("--no-index", "--no-deps", "--no-build-isolation")
+    return all(f in line.split() for f in flags) and line.rstrip().endswith("-e .")
+
+
+def _is_allowed_install(line: str) -> bool:
+    return _is_hashed_install(line) or _is_offline_project_install(line)
 
 
 def test_jobs_that_publish_attest_or_gate_install_only_from_hashed_locks() -> None:
@@ -450,7 +494,7 @@ def test_jobs_that_publish_attest_or_gate_install_only_from_hashed_locks() -> No
         body = _job(text, job) if job else text
         lines = _install_lines(body)
         assert lines, f"{workflow} {job}: no pip install at all"
-        unhashed = [ln for ln in lines if not _is_hashed_install(ln)]
+        unhashed = [ln for ln in lines if not _is_allowed_install(ln)]
         assert not unhashed, (
             f"{workflow} {job or '(every job)'} installs without a hashed lock: "
             f"{unhashed}. Add the package to pyproject's ranges, regenerate with "
@@ -471,11 +515,18 @@ def test_the_install_check_catches_the_lines_that_shipped() -> None:
         'python -m pip install "${pins[@]}"',
         'python -m pip install -e . "$spec"',
         'python -m pip install "$spec"',
+        'pip install -e ".[dev]"',
+        # The project install with one of its three guards missing.
+        "python -m pip install --no-deps --no-build-isolation -e .",
+        "python -m pip install --no-index --no-build-isolation -e .",
+        "python -m pip install --no-index --no-deps -e .",
     ):
         assert _install_lines(shipped) == [shipped]
-        assert not _is_hashed_install(shipped), shipped
+        assert not _is_allowed_install(shipped), shipped
     fixed = "python -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock"
-    assert _is_hashed_install(fixed)
+    assert _is_allowed_install(fixed)
+    project = "python -m pip install --no-index --no-deps --no-build-isolation -e ."
+    assert _is_allowed_install(project) and not _is_hashed_install(project)
     # A comment about installing is not an install.
     assert _install_lines("# python -m pip install foo") == []
 
