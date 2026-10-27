@@ -134,7 +134,11 @@ if [[ ${#offenders[@]} -gt 0 ]]; then
   done
   echo "" >&2
   echo "Test with real audio OUTSIDE the repo (scratchpad / /tmp); commit only the text proof (logs + per-track CRCs)." >&2
-  echo "If this is a verified CC0/self-generated sample and you truly mean it: git commit --no-verify" >&2
+  # No escape hatch is offered, because none exists: CI's required media-guard
+  # refuses the same file on push, so `--no-verify` would only move the refusal
+  # to the pull request (external review of 2026-10-27, item 2.15).
+  echo "A test that needs real PCM generates it at test time (or reads it from outside the repo); it is never committed." >&2
+  echo "git commit --no-verify skips only this hook: CI's required media-guard refuses the same file on push." >&2
   exit 1
 fi
 

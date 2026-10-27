@@ -43,11 +43,13 @@ directory stores **logs and cue sheets, never the decoded audio**:
 - **Repo bloat.** Full-album audio is hundreds of MB and would live in git
   history forever.
 
-If a test ever genuinely needs real PCM to exercise the decode/CRC path, use a
-**short, freely-licensed or self-generated** sample (CC0 / public-domain / a
-synthetic tone with a known CRC), and keep it tiny (kilobytes,
-not megabytes) — never a commercial track. (The pre-commit hook blocks audio
-extensions; a verified CC0 sample goes in via `git commit --no-verify`.)
+If a test ever genuinely needs real PCM to exercise the decode/CRC path, it
+**generates** it at test time (a synthetic tone with a known CRC, written under
+the test's temporary folder) or reads a freely-licensed sample from **outside**
+the repo — never a commercial track. Nothing with an audio extension is
+committed, not even a CC0 sample: the pre-commit hook blocks it, and
+`git commit --no-verify` does not get past CI, whose required `media-guard`
+refuses the same file on push.
 
 ## Layout — backend × format
 
@@ -222,4 +224,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.113.*

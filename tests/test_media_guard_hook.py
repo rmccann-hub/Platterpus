@@ -129,6 +129,26 @@ def test_a_staged_audio_file_blocks_the_commit(repo: Path) -> None:
     )
 
 
+def test_the_refusal_offers_no_bypass_that_ci_would_refuse(repo: Path) -> None:
+    """The hook must not send anyone to `--no-verify` (review 2026-10-27, item 2.15).
+
+    It used to say a verified CC0 sample could go in with `git commit
+    --no-verify`. CI's required media-guard refuses that file on push whatever
+    its licence, so the advice led to a red pull request. The refusal now says a
+    test generates its PCM, and that `--no-verify` does not get past CI.
+    """
+    (repo / "tone.wav").write_text("not audio\n", encoding="utf-8")
+    _git(repo, "add", "-f", "tone.wav")
+
+    result = _run_hook(repo)
+
+    assert result.returncode == 1, result.stderr
+    assert "truly mean it" not in result.stderr, result.stderr
+    assert "media-guard" in result.stderr and "generates it" in result.stderr, (
+        f"the refusal no longer explains the way forward: {result.stderr!r}"
+    )
+
+
 def test_the_extension_match_is_case_insensitive(repo: Path) -> None:
     """`.FLAC` off a Windows-ish tool must not slip past a lowercase pattern."""
     (repo / "TRACK.FLAC").write_text("not audio\n", encoding="utf-8")
