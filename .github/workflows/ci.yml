@@ -797,8 +797,17 @@ jobs:
         # bitten by version-specific breakage before (the previous ripper's
         # pkg_resources use vs Python 3.14); a matrix catches the GUI side of that class of
         # problem early. 3.11 is the floor (pyproject `requires-python`); 3.14
-        # (2025-10) is the newest — added 2026-07-02 (nothing the project uses
-        # was removed in it; PySide6 6.11 supports it).
+        # (2025-10) was added 2026-07-02 (nothing the project uses was removed
+        # in it; PySide6 6.11 supports it).
+        #
+        # NOT 3.15, though it shipped 2026-10-09 and setup-python offers 3.15.2
+        # (the 2026-10-27 review, item 2.10, checked that day). Every PySide6
+        # 6.11.x declares `Requires-Python >=3.10,<3.15`, so on 3.15 pip finds
+        # only PySide6 6.12.0, which our minor pin (`>=6.11.1,<6.12`, Critical
+        # rule #11, held equal to the AppImage recipe) refuses: `pip install -e
+        # ".[dev]"` fails before a test runs. Measured with CPython 3.15.2 from
+        # actions/python-versions. A 3.15 leg arrives with the deliberate
+        # PySide6 6.12 bump, not before it.
         python-version: ["3.11", "3.12", "3.13", "3.14"]
         # The coverage gate runs on ONE leg (maintainer, 2026-09-26). Every leg
         # still runs every test. py3.14 measures branch coverage with
