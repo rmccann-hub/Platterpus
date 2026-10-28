@@ -128,4 +128,4 @@ is in place. That can't be done in a sandbox that can't run the AppImage build.
 
 ---
 
-*Last updated for Platterpus v0.7.113.*
+*Last updated for Platterpus v0.7.114.*
