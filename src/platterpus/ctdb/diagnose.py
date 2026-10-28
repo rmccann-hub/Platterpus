@@ -193,9 +193,10 @@ def _run_calibration(
 
     Re-runs the lookup to collect the database's expected CRC(s), decodes the
     disc to PCM, and reports which offset (ideally 0) reproduces an expected CRC.
-    A hit confirms the algorithm on a real, in-database disc — paste it back so
-    ``CRC_VALIDATED`` can be flipped True with this vector as the regression
-    fixture.
+    A hit confirms the algorithm on a real, in-database disc. While
+    ``CRC_VALIDATED`` is False the output asks for the vector to be pasted back so
+    the flag can be flipped with it as the regression fixture; once it is True,
+    the output says there is nothing to paste back.
     """
     out("\n=== CTDB CRC calibration (KDD-16) ===")
     if not decode.flac_available():
@@ -245,10 +246,19 @@ def _run_calibration(
             out(
                 f"   offset={m.offset:+d} → CRC {m.crc:08x} (confidence {conf}){aligned}"
             )
-        out(
-            "Paste this back: CRC_VALIDATED flips to True with this vector as the "
-            "regression fixture (front/back trim + offset + CRC)."
-        )
+        # Ask for the vector only while the algorithm is unvalidated. It has been
+        # validated since 2026-07-07 (KDD-16), and on 2026-10-28 this line still
+        # told the owner to paste back a vector that flips a flag already True.
+        if crc_mod.CRC_VALIDATED:
+            out(
+                "The algorithm is already validated (CRC_VALIDATED is True); "
+                "nothing to paste back."
+            )
+        else:
+            out(
+                "Paste this back: CRC_VALIDATED flips to True with this vector as "
+                "the regression fixture (front/back trim + offset + CRC)."
+            )
     else:
         no_off = crc_at_offset(pcm, 0)
         no_off_str = f"{no_off:08x}" if no_off is not None else "(disc too short)"

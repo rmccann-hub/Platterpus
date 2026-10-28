@@ -117,6 +117,41 @@ def test_calibrate_finds_the_offset(
     assert "confidence 1347" in text
 
 
+@pytest.mark.parametrize("validated", [True, False])
+def test_calibrate_asks_for_the_vector_only_while_unvalidated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, validated: bool
+) -> None:
+    """A match asks the user to paste the vector back only while the flag is False.
+
+    On 2026-10-28 the owner's run on EAC's FLAC session printed "Paste this back:
+    CRC_VALIDATED flips to True" though the flag had been True since 2026-07-07.
+    """
+    from platterpus.ctdb import crc as crc_mod
+
+    flacs, pcm = _make_flacs(tmp_path, n=2)
+    expected_crc = crc_mod.ctdb_crc_offset0(pcm * 2)
+    assert expected_crc is not None
+    client = _FakeClient(
+        CtdbLookupResult(entries=(CtdbEntry(crc=expected_crc, confidence=7),))
+    )
+    monkeypatch.setattr(decode_mod, "flac_available", lambda: True)
+    monkeypatch.setattr(crc_mod, "CRC_VALIDATED", validated)
+    lines, out = _capture()
+    rc = diagnose.run_diagnostics(
+        tmp_path,
+        calibrate_crc=True,
+        out=out,
+        client=client,
+        decoder=_decoder_for(pcm),
+        samples_probe=_probe,
+    )
+    assert rc == 0
+    text = "\n".join(lines)
+    assert "MATCH — the CTDB-CRC algorithm is confirmed" in text
+    assert ("Paste this back" in text) is not validated
+    assert ("nothing to paste back" in text) is validated
+
+
 def test_calibrate_bails_when_not_in_db(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

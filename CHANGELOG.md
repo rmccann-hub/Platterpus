@@ -12,12 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **`--ctdb-calibrate` no longer asks you to paste back a result that changes nothing.** After a match it said *"Paste this back: CRC_VALIDATED flips to True"*, though that flag has been True since 2026-07-07; it now says the algorithm is already validated. Held by `tests/test_ctdb_diagnose.py`.
+
 ### Changed
 
+- **CTDB sample localisation is confirmed on real audio** (TASKS R43). The owner ran `--ctdb-calibrate` on EAC's FLACs of the reference disc, and it located track 5's difference as EAC's own log does: 3 samples at 02:24:59 from the 1,419-submission entry.
+- **TASKS R97 records a stray `cdparanoia.log` in the user's home folder** (contributor-facing). The drive-cache check runs `cd-paranoia -A`, which always writes its log to its working folder, and we set none, so a Full run left a 325 KB log in the owner's home folder.
+- **The fork's round 36 lap 16 is filed, and our lap 17 is released, `GO`** (contributor-facing). Their lap 16 is filed byte for byte (`HOLD` on track 9's pregap, unexplained in the logs that do not rip that track). Our lap 17 says `GO` on the owner's approval of `.27`, reproduces their counts, corrects our one-log reading of the run, and carries the round summary. The status block, the round row, the envelope and the sent-lap pin follow.
 - **The 2026-10-28 Full run on 0.7.114 with `.27` under review is filed and graded `full-green`** (contributor-facing). 553 pass, 0 fail, 0 error, 0 blocked, E2 unreachable on this drive; filed on `evidence` at `4e3830ca` with its 152 manifest rows, every signed log verified first. The field-evidence ledger's sixth `full-green` row, still on one machine and one distro.
-
-### Changed
-
 - **Round 36 lap 15 is released, answering the fork's lap 14** (contributor-facing). It files their lap 14 byte for byte, announces 0.7.114 naming `.27`, accepts their four changes since `.27` and amends the fifth (a diagnostics record that cannot be written keeps exit 0), corrects our lap 13's sentence about the speed lock, and asks that corrections to a sentence come back corrected in full, both ways. The status block, the round row, the envelope and the sent-lap pins follow.
 
 ## [0.7.114] — 2026-10-28
