@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Round 36 lap 15 is released, answering the fork's lap 14** (contributor-facing). It files their lap 14 byte for byte, announces 0.7.114 naming `.27`, accepts their four changes since `.27` and amends the fifth (a diagnostics record that cannot be written keeps exit 0), corrects our lap 13's sentence about the speed lock, and asks that corrections to a sentence come back corrected in full, both ways. The status block, the round row, the envelope and the sent-lap pins follow.
+
 ## [0.7.114] — 2026-10-28
 
 The release the Full run of the reference disc on `.27` goes through. It names `.27`
