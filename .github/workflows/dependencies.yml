@@ -175,10 +175,16 @@ jobs:
           date="$(date -u -d '7 days ago' +%Y-%m-%dT00:00:00Z)"
           committed="$(sed -n 's/^# exclude-newer: //p' build/locks/release.lock)"
           echo "committed locks: exclude-newer $committed; this run: $date"
-          # A lock made by hand with a later date is newer than this run's; going
-          # back to an earlier date could only take releases away.
-          if [[ ! "$date" > "$committed" ]]; then
-            echo "The committed locks are already at $committed, not older than $date. Nothing to do."
+          # The date is computed here, every run, and the locks are regenerated at
+          # it whenever the committed date differs, in EITHER direction. A
+          # committed date later than this run's breaks the seven-day wait: the
+          # locks of 2026-10-27 carried their own creation day, and the old
+          # "only ever move forward" rule kept them there (the third follow-up
+          # review of that day, item 1). Going back may take releases away,
+          # and that is the point: a release inside its first week is not yet
+          # trusted.
+          if [ "$date" = "$committed" ]; then
+            echo "The committed locks are already at $date. Nothing to do."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
