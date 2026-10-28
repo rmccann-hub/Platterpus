@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-27/28 — lap 13; three reviews answered; hashed locks; 0.7.114
+
+- **Our lap 13** answered the fork's lap 12 (track 3's count corrected, log escaping accepted, the 255-byte shortening asked for on the owner's word, a refused `-S` to fall back to the drive's own speed), held, then released on the owner's word of 2026-10-27 (#392, #393).
+- **The review of 2026-10-27** (`rmccann-hub/audit-reports`): 37 of its items fixed in #393, the rest answered; actionlint, zizmor and ShellCheck added on the owner's word. Two follow-up checks by the claude-code-skills session followed (#396, #398, #400, #401, #402, #404): every job that publishes, attests or gates installs exact versions from hashed locks; the locks keep a seven-day wait, are regenerated weekly, and are checked and installed on every pull request (`lock-check` and `lock-install`, required since 2026-10-28); Dependabot ignores the pinned tools by name.
+- **0.7.114**, on the owner's word of 2026-10-28, names `.27` (`5aeefc4`) as the build under review for tonight's Full run, with the paired `.25` and `.27` rips of track 3.
+- **Learned.** Dependabot's `update-types` ignores never matched a pyproject range, because they work from a current version a range does not have (read in dependabot-core's source, not guessed); the fix is to ignore by name. A lock dated the day it was made breaks the wait it exists to keep. A test that runs a slice of a script cannot see a change wrapped around the slice; run the whole script. And taking one side of a conflict in a generated block can drop a hand-kept line in the same file (`docs/architecture.md` §6.3).
+
 ## 2026-10-26 (afternoon and evening) — `.27` under review; the review; a full-green run on 0.7.113; lap 11
 
 - **The fork's lap 10** released `.27` (`5aeefc4`) with `Recordable:` from the drive's own reply and the `Pregap search:` record, explained `.26`'s speed (upstream's media-changed query moved from every sector to once a second; checked at their source, and their 9 ms-a-sector saving re-derived from our logs), and proposed a `-Z` time limit and a `disc image` word. `.27` is our build under review (PR #386, `52190cbb`); our readers of both proposals are built (`a0920866`, `97ee5d3b`); `--prefer-accuraterip-match` goes to `.27`.
@@ -10993,4 +11000,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.113.*
+*Last updated for Platterpus v0.7.114.*

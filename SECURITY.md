@@ -104,4 +104,4 @@ should be reported to those projects.
 
 ---
 
-*Last updated for Platterpus v0.7.113.*
+*Last updated for Platterpus v0.7.114.*

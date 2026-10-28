@@ -12,7 +12,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.114] — 2026-10-28
+
+The release the Full run of the reference disc on `.27` goes through. It names `.27`
+(`5aeefc4`) as the build under review, so the acceptance script's section A accepts it and
+P5 and P6 install it, with the paired `.25` and `.27` rips of track 3; the default ripper
+stays `.25` (`5f1d036`) until a round approves another. It also carries the three reviews
+of 2026-10-27: every job that publishes, attests or gates installs exact versions checked by
+hash, from locks that keep a seven-day wait and are checked and installed on every pull
+request; both audio guards catch a name git quotes; the PyPI publish refuses anything but a
+release tag on `main`; releases get an annotated tag; and the drive wizard's button reads
+"Analyze cache".
+
 ### Changed
+
+- **A property test no longer draws a year the argv builder refuses** (contributor-facing). Since 2026-10-26 the builder refuses a year of `.` or `..`, which would put a rip folder outside the output directory, so a refused year has no argv to read back; a saved Hypothesis example of `year='.'` failed the test. It now draws only years the builder's own rule accepts, and the refusal stays held by the year tests.
 
 - **`lock-check` and `lock-install` are required checks** (contributor-facing; the third follow-up review of 2026-10-27, item 2). The owner added both to the default-branch ruleset on 2026-10-28, so an edited or deleted lock entry now stops a merge; `CLAUDE.md`, KDD-43 and `docs/architecture.md` §6.3 list the 14 required checks.
 
@@ -19559,7 +19573,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...HEAD
+[0.7.114]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...v0.7.114
 [0.7.113]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...v0.7.113
 [0.7.112]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...v0.7.112
 [0.7.111]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.110...v0.7.111
@@ -19643,4 +19658,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.113.*
+*Last updated for Platterpus v0.7.114.*
