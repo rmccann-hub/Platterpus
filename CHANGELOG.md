@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The 2026-10-28 Full run on 0.7.114 with `.27` under review is filed and graded `full-green`** (contributor-facing). 553 pass, 0 fail, 0 error, 0 blocked, E2 unreachable on this drive; filed on `evidence` at `4e3830ca` with its 152 manifest rows, every signed log verified first. The field-evidence ledger's sixth `full-green` row, still on one machine and one distro.
+
+### Changed
+
 - **Round 36 lap 15 is released, answering the fork's lap 14** (contributor-facing). It files their lap 14 byte for byte, announces 0.7.114 naming `.27`, accepts their four changes since `.27` and amends the fifth (a diagnostics record that cannot be written keeps exit 0), corrects our lap 13's sentence about the speed lock, and asks that corrections to a sentence come back corrected in full, both ways. The status block, the round row, the envelope and the sent-lap pins follow.
 
 ## [0.7.114] — 2026-10-28
