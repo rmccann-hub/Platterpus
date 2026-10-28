@@ -1,0 +1,30 @@
+REM MUSICBRAINZ_ID "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+REM DISCID "E20DFE0E"
+REM MEDIA "CD"
+REM COMMENT "cyanrip 0.9.4-rc3+platterpus.27"
+REM TOTALDISCS "1"
+REM DISC "1"
+REM DATE "2003"
+REM MUSICBRAINZ_ALBUMID "65282302-368b-4ba2-953a-483bcdef2410"
+REM ARTIST "The Police"
+PERFORMER "The Police"
+TITLE "timing B1 20261028t030746 platterpus-fork-g5aeefc4"
+FILE "01 - Roxanne.flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "Roxanne"
+    PERFORMER "The Police"
+    ISRC GBAAM7800003
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "Can’t Stand Losing You"
+    PERFORMER "The Police"
+    ISRC GBAAM7800006
+    INDEX 00 03:11:02
+FILE "02 - Can’t Stand Losing You.flac" WAVE
+    INDEX 01 00:00:00
+FILE "03 - Message in a Bottle.flac" WAVE
+  TRACK 03 AUDIO
+    TITLE "Message in a Bottle"
+    PERFORMER "The Police"
+    ISRC GBAAM7900002
+    INDEX 01 00:00:00

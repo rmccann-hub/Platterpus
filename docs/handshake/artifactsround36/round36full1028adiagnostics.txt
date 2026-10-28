@@ -1,0 +1,172 @@
+=== Platterpus diagnostics ===
+
+Approved pair: Platterpus 0.7.110 + cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036) — verified by handshake round 35. This app is Platterpus 0.7.114, which that round did NOT approve — it verified this ripper build with Platterpus 0.7.110 and never saw this app. The pair is what the record APPROVES, not what is installed — the ripper build that produced a given rip is named in that rip's own log and report.
+Installed ripper: cyanrip 0.9.4-rc3+platterpus.27 (commit 5aeefc4, fork release 38), the Platterpus fork of cyanrip. ⓘ Being tested, not approved yet: handshake round 36 is testing this build now, and the acceptance test needs it. Until a handshake round approves it, every rip records its ripper as unapproved in its rip report. The audio is unaffected: a rip whose own checks pass is still bit-perfect. Keep it until the round closes.
+
+--- Environment ---
+install_channel: appimage
+platform: Linux-7.2.11-ogc4.1.fc44.x86_64-x86_64-with-glibc2.43
+pyside6: 6.11.2
+python: 3.12.15
+
+--- Dependencies ---
+measured 2 hours ago (03:08 UTC)
+cdparanoia: present=True version=10.2 min_version_met=True
+cyanrip: present=True version=0.9.4 build=0.9.4-rc3+platterpus.27 min_version_met=True
+ffmpeg: present=True version=8.1.3 min_version_met=True
+flac: present=True version=1.5.0 min_version_met=True
+metaflac: present=True version=1.5.0 min_version_met=True
+musicbrainzngs: present=True version=0.7.1 min_version_met=True
+numpy: present=True version=2.4.6 min_version_met=True
+picard: present=True version=3.0.2 min_version_met=True
+
+--- Diagnostics ---
+errors: 0  warnings: 3  info: 16
+worst: warning
+scope: process session (not only this rip)
+
+[warning] deps.command_failed @ 2026-10-28T03:08:06+00:00
+  cyanrip exited 137
+  tool: cyanrip
+  exit code: 137
+  argv: ~/.local/bin/cyanrip -I -N -d /dev/sr0
+  where: adapters.rip_backend.run_capture
+  detail:
+    Checking /dev/sr0 for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    
+    Trying to quit
+
+[warning] deps.command_failed @ 2026-10-28T03:08:10+00:00
+  cyanrip exited 125
+  tool: cyanrip
+  exit code: 125
+  argv: ~/.local/bin/cyanrip -I -N -d /dev/sr0
+  where: adapters.rip_backend.run_capture
+  detail:
+    Error: unable to start container "2abb8858c807d9d4dd36ee927645c67a0cc982a4d18d378f33dccbd2874db979": creating temporary passwd file for container 2abb8858c807d9d4dd36ee927645c67a0cc982a4d18d378f33dccbd2874db979: container 2abb8858c807d9d4dd36ee927645c67a0cc982a4d18d378f33dccbd2874db979: open ~/.local/share/containers/storage/overlay/e4cb26579af3546e45ac1a845b11775a542c585248f1b43d093d751ee00a17bc/merged/etc/passwd: no such file or directory
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T03:30:56+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T03:34:33+00:00
+  Done; (2 out of 2 matches for current checksum E0036697)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:05:39+00:00
+  Done; (2 out of 2 matches for current checksum B0D122E7)
+  tool: cyanrip
+  track: 1
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:08:57+00:00
+  Done; (2 out of 2 matches for current checksum 985AAE32)
+  tool: cyanrip
+  track: 2
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:13:51+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:18:36+00:00
+  Done; (2 out of 2 matches for current checksum 60D796AE)
+  tool: cyanrip
+  track: 4
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:23:29+00:00
+  Done; (2 out of 2 matches for current checksum E0036697)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:26:58+00:00
+  Done; (2 out of 2 matches for current checksum B32769D6)
+  tool: cyanrip
+  track: 6
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:30:31+00:00
+  Done; (2 out of 2 matches for current checksum CCBFF669)
+  tool: cyanrip
+  track: 7
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:33:29+00:00
+  Done; (2 out of 2 matches for current checksum D723C1B0)
+  tool: cyanrip
+  track: 8
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:35:50+00:00
+  Done; (2 out of 2 matches for current checksum 6F6E4A5F)
+  tool: cyanrip
+  track: 9
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:38:57+00:00
+  Done; (2 out of 2 matches for current checksum 3A33519F)
+  tool: cyanrip
+  track: 10
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:42:34+00:00
+  Done; (2 out of 2 matches for current checksum 56BFC63D)
+  tool: cyanrip
+  track: 11
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:46:11+00:00
+  Done; (2 out of 2 matches for current checksum D78CEAEF)
+  tool: cyanrip
+  track: 12
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:49:35+00:00
+  Done; (2 out of 2 matches for current checksum DA6A4DAF)
+  tool: cyanrip
+  track: 13
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-10-28T04:52:52+00:00
+  Done; (2 out of 2 matches for current checksum 787BA2D6)
+  tool: cyanrip
+  track: 14
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] deps.command_failed @ 2026-10-28T04:57:05+00:00
+  cyanrip exited 64
+  tool: cyanrip
+  exit code: 64
+  argv: ~/.local/bin/cyanrip -N -l 1
+  where: adapters.rip_backend.run_capture
+  detail:
+    Checking /dev/cdrom for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    Offset is unset! To continue with an offset of 0, run with -s 0!
+    Paranoia status counts:
+      none
+    
+    Ripping errors: 0
+    Encoder errors: not applicable; no track was encoded
+    Read stalls:    none (no read exceeded 10s)
+    Rip completed:  no (aborted, 0 of 14 tracks)
+    Ripping finished at 2026-10-28T00:57:05-04:00
+
+--- Where the rest lives ---
+app log: ~/.local/share/platterpus/log.txt
+per-rip report: a `.platterpus.json` beside each album's audio — it embeds the ripper's own output and that session's debug log.
