@@ -22,8 +22,12 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
+    # NO `labels:` (the third follow-up review of 2026-10-27, item 4). Naming
+    # labels makes Dependabot use exactly those, and neither "dependencies" nor
+    # "ci" existed in this repository, so it posted a label error on every pull
+    # request (#397, #399). With none named, it applies its default
+    # "dependencies" label and creates it if missing.
+    # tests/test_dependabot_holds_the_pins.py refuses a `labels:` key.
     # THE TWO TOOLS THAT GATE CI ARE HELD HERE, DELIBERATELY.
     #
     # `CLAUDE.md` Critical rule #11 — *a tool that gates CI must not float* —
@@ -116,9 +120,6 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "ci"
     groups:
       actions-weekly:
         applies-to: version-updates

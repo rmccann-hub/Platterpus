@@ -34,11 +34,14 @@ gate install from it, and only from it.** A lock nobody installs is decoration.
 
 from __future__ import annotations
 
+import datetime
 import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+
+import pytest
 
 REPO: Final[Path] = Path(__file__).resolve().parents[1]
 PYPROJECT: Final[Path] = REPO / "pyproject.toml"
@@ -112,7 +115,11 @@ def _normalise(name: str) -> str:
 # integers. Every version in every lock is checked to be one, so a shape this
 # reader does not understand fails loudly rather than comparing wrongly.
 
-_NUMERIC_VERSION: Final[re.Pattern[str]] = re.compile(r"\d+(?:\.\d+)*")
+#: A release number, with an optional PEP 440 post-release (`2.9.0.post0`, which
+#: python-dateutil ships; the first lock to carry one, regenerated 2026-10-28,
+#: was refused by a parser that took dotted integers only). Pre-releases
+#: (`a1`, `rc2`) and dev releases stay refused: uv does not choose them.
+_NUMERIC_VERSION: Final[re.Pattern[str]] = re.compile(r"\d+(?:\.\d+)*(?:\.post\d+)?")
 _REQUIREMENT: Final[re.Pattern[str]] = re.compile(
     r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?"
     r"\s*(?P<specs>[^;]*?)\s*(?:;.*)?$"
@@ -123,8 +130,11 @@ _CLAUSE: Final[re.Pattern[str]] = re.compile(
 
 
 def _version(text: str) -> tuple[int, ...]:
-    assert _NUMERIC_VERSION.fullmatch(text), f"not a dotted-integer version: {text!r}"
-    return tuple(int(part) for part in text.split("."))
+    """The release as integers; a post-release sorts just after its release."""
+    assert _NUMERIC_VERSION.fullmatch(text), f"not a PEP 440 release: {text!r}"
+    release, _, post = text.partition(".post")
+    parts = tuple(int(part) for part in release.split("."))
+    return parts + (int(post),) if post else parts
 
 
 def _padded(a: tuple[int, ...], b: tuple[int, ...]) -> tuple[tuple[int, ...], ...]:
@@ -329,6 +339,36 @@ def test_every_lock_records_the_uv_and_the_date_that_reproduce_it() -> None:
     )
 
 
+#: Dependabot's cooldown, and the generator's default: a release this new is not
+#: yet trusted, so no lock may take it.
+_LOCK_WAIT: Final[datetime.timedelta] = datetime.timedelta(days=7)
+
+
+def test_no_lock_takes_a_release_less_than_a_week_old() -> None:
+    """The seven-day wait holds for the committed locks, not only for the job.
+
+    The locks of 2026-10-27 were made with that day's date, so they took releases
+    hours old, which the wait exists to keep out (the third follow-up review of
+    that day, item 1). Their date must be at least seven days before now; a lock
+    regenerated at the default date always is, and stays so as time passes.
+    """
+    now = datetime.datetime.now(datetime.UTC)
+    late: list[str] = []
+    for rel in LOCKS:
+        date = _header(_read(rel), "exclude-newer")
+        when = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=datetime.UTC
+        )
+        if now - when < _LOCK_WAIT:
+            late.append(f"{rel} ({date})")
+    assert len(LOCKS) >= 5, LOCKS
+    assert not late, (
+        f"these locks take releases less than {_LOCK_WAIT.days} days old: {late}. "
+        "Regenerate with bash build/lock-requirements.sh (its default date is "
+        "seven days back)."
+    )
+
+
 def _lock_files_in_generator() -> set[str]:
     """The paths the generator's LOCK_FILES array names: the set `--check` diffs."""
     text = GENERATOR.read_text(encoding="utf-8")
@@ -525,7 +565,10 @@ def test_the_currency_check_refuses_a_lock_outside_its_range() -> None:
         "cyclonedx-python-lib"
     )
     # A shape the reader does not understand fails, rather than comparing wrongly.
-    for unreadable in ("1.0rc1", "1.0.post1"):
+    # A post-release is understood since 2026-10-28 (python-dateutil 2.9.0.post0);
+    # its ordering is held by test_the_version_parser_orders_a_post_release_...
+    assert _satisfies("2.9.0.post0", "python-dateutil>=2.9,<3")
+    for unreadable in ("1.0rc1", "1.0.dev1"):
         try:
             _version(unreadable)
         except AssertionError:
@@ -637,14 +680,37 @@ def _job(text: str, job: str) -> str:
     return match.group("body")
 
 
+#: Any pip that installs or downloads: `pip`, `pip3`, `pip3.12`, `python -m pip`,
+#: `"$py" -m pip` and `uv pip` all contain this. Matched per COMMAND, so a line
+#: chaining a hashed install with an unhashed one is two commands, and the second
+#: is judged on its own (the third follow-up review of 2026-10-27, item 3: both
+#: `pip3 install twine` and `... -r build/locks/release.lock && python -m pip
+#: install twine` passed the line-based check).
+_PIP_INSTALL: Final[re.Pattern[str]] = re.compile(
+    r"\bpip(?:3(?:\.\d+)?)?\s+(?:install|download|wheel)\b"
+)
+
+#: What separates commands on one shell line.
+_COMMAND_SEPARATOR: Final[re.Pattern[str]] = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
+
+
 def _install_lines(text: str) -> list[str]:
-    """Executable `pip install` commands, backslash continuations joined."""
+    """Every executable pip install or download, one entry per COMMAND.
+
+    Backslash continuations are joined first, comment lines dropped, and each
+    line split on `&&`, `||`, `;` and `|`, so nothing can ride on the same line
+    as a command that passes.
+    """
     joined = re.sub(r"\\\s*\n\s*", " ", text)
-    return [
-        line.strip()
-        for line in joined.splitlines()
-        if not line.strip().startswith("#") and re.search(r"\bpip\s+install\b", line)
-    ]
+    commands: list[str] = []
+    for line in joined.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        for command in _COMMAND_SEPARATOR.split(stripped):
+            if _PIP_INSTALL.search(command):
+                commands.append(command.strip())
+    return commands
 
 
 #: (workflow, job or "" for the whole file) -> the lock that job must install.
@@ -820,6 +886,12 @@ def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
     assert 'bash build/lock-requirements.sh --exclude-newer "$date"' in executable
     # A new date alone is no reason for a pull request.
     assert "git diff --quiet -I '^# exclude-newer: '" in executable
+    # It regenerates whenever the committed date DIFFERS from this run's, in
+    # either direction: the old `[[ ! "$date" > "$committed" ]]` only ever moved
+    # forward, so locks dated their own creation day (2026-10-27) stayed inside
+    # the seven-day wait (the third follow-up review of that day, item 1).
+    assert '[ "$date" = "$committed" ]' in executable
+    assert '> "$committed"' not in executable
     # It writes, so it restores no cache, setup-uv's default included.
     assert "enable-cache: false" in body
     assert not re.search(r"^\s+cache:\s*\S", body, re.M)
@@ -854,6 +926,15 @@ def test_the_install_check_catches_the_lines_that_shipped() -> None:
     assert _is_allowed_install(project) and not _is_hashed_install(project)
     # A comment about installing is not an install.
     assert _install_lines("# python -m pip install foo") == []
+    # The third follow-up review's two misses: another spelling of pip, and an
+    # unhashed install riding on a hashed one's line.
+    assert _install_lines("pip3 install twine") == ["pip3 install twine"]
+    assert not _is_allowed_install("pip3 install twine")
+    chained = f"{fixed} && python -m pip install twine"
+    assert _install_lines(chained) == [fixed, "python -m pip install twine"]
+    assert not all(_is_allowed_install(c) for c in _install_lines(chained))
+    for spelling in ("pip3.12 install x", '"$py" -m pip install x', "uv pip install x"):
+        assert _install_lines(spelling) == [spelling], spelling
 
 
 def test_the_audit_reads_every_lock_with_a_floor_of_all_of_them() -> None:
@@ -902,3 +983,11 @@ def test_every_tool_lock_install_runs_is_in_the_lock_it_runs_from() -> None:
         if not re.search(rf"^{re.escape(package)}==", lock, re.M | re.I):
             missing.append(f"{tool} from {env}.lock ({package} is not in it)")
     assert not missing, f"lock-install runs tools its locks do not install: {missing}"
+
+
+def test_the_version_parser_orders_a_post_release_after_its_release() -> None:
+    assert _version("2.9.0.post0") > _version("2.9.0")
+    assert _version("2.9.0.post0") < _version("2.9.1")
+    for refused in ("3.0.0rc1", "1.2a1", "1.0.dev3", "x"):
+        with pytest.raises(AssertionError):
+            _version(refused)

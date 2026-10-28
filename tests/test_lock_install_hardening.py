@@ -12,9 +12,9 @@ path into a privileged job. One test per revert:
   distribution runs its own build code at install time; wheels only.
 - **Another installer in a privileged workflow** (`pipx`, `uv`, `uvx`), which the
   `pip install` check does not read.
-- **The AppImage build's refusal without its lock**, run, not read: the block that
-  checks `requirements.lock` is executed against a recipe folder with the lock
-  missing, and against one made for another Python.
+- **The AppImage build's refusal without its lock**, run, not read: the WHOLE
+  build script runs in a copy of the tree with a stub `python3` that records each
+  call, without the lock and with one made for another Python.
 
 The fifth revert the review named, a package deleted from a lock, is caught by
 the lock currency check, which regenerates each lock and compares it.
@@ -121,53 +121,110 @@ def test_the_installer_check_sees_what_it_refuses() -> None:
     )
 
 
-def _lock_check_block() -> str:
-    """The build script's requirements.lock refusals, from its first line to the download."""
-    text = BUILD_SCRIPT.read_text(encoding="utf-8")
-    start = text.index('WHEELHOUSE="$RECIPE_DIR/.wheelhouse"')
-    end = text.index(
-        'echo "Verifying the AppImage\'s dependencies against requirements.lock"'
-    )
-    return text[start:end]
+#: A stand-in `python3` that records every call and does the least each needs:
+#: `-c` succeeds (the prerequisite imports), `-m build` drops a placeholder wheel
+#: where it was told to, and `-` swallows its heredoc. Everything else, the pip
+#: and python_appimage calls above all, succeeds without doing anything, so the
+#: record shows exactly what the real script would have run.
+_STUB_PYTHON: Final[str] = """#!/bin/sh
+printf '%s\\n' "$*" >> "$CALL_LOG"
+if [ "$1" = "-m" ] && [ "$2" = "build" ]; then
+    out=""
+    while [ $# -gt 0 ]; do
+        if [ "$1" = "--outdir" ]; then out="$2"; fi
+        shift
+    done
+    : > "$out/platterpus-0.0.0-py3-none-any.whl"
+fi
+if [ "$1" = "-" ]; then cat > /dev/null; fi
+exit 0
+"""
 
 
-def _run_block(
-    recipe: Path, python_version: str = "3.12"
-) -> subprocess.CompletedProcess[str]:
+def _run_whole_build(
+    tmp_path: Path, lock: str | None, python_version: str = "3.12"
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run the WHOLE build_appimage.sh in a copy of the tree, with a stub python3.
+
+    The third follow-up review of 2026-10-27 (item 3) wrapped the refusal in
+    `if [ -f lock ]` with an online fallback and the old test, which ran only the
+    refusal block, still passed. Run end to end, the fallback's install is a
+    recorded call, and the exit code is the script's own. ``lock`` is the
+    requirements.lock to place, or None for none.
+    """
     bash = shutil.which("bash")
     if bash is None:
         pytest.skip("bash is not installed")
-    script = f'set -euo pipefail\nRECIPE_DIR="{recipe}"\nPLATTERPUS_PYTHON_VERSION="{python_version}"\n'
-    return subprocess.run(
-        [bash, "-c", script + _lock_check_block() + '\necho "LOCK ACCEPTED"\n'],
+    tree = tmp_path / "tree"
+    shutil.copytree(
+        REPO / "build" / "python-appimage", tree / "build" / "python-appimage"
+    )
+    shutil.copy(BUILD_SCRIPT, tree / "build" / BUILD_SCRIPT.name)
+    (tree / "src" / "platterpus").mkdir(parents=True)
+    placed = tree / "build" / "python-appimage" / "requirements.lock"
+    placed.unlink(missing_ok=True)
+    if lock is not None:
+        placed.write_text(lock, encoding="utf-8")
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    stub = stubs / "python3"
+    stub.write_text(_STUB_PYTHON, encoding="utf-8")
+    stub.chmod(0o755)
+    log = tmp_path / "calls.log"
+    log.touch()
+    result = subprocess.run(
+        [bash, str(tree / "build" / BUILD_SCRIPT.name)],
+        cwd=tree,
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=60,
+        timeout=120,
         check=False,
+        env={
+            "PATH": f"{stubs}:/usr/bin:/bin",
+            "HOME": str(tmp_path),
+            "CALL_LOG": str(log),
+            "PLATTERPUS_PYTHON_VERSION": python_version,
+            "SOURCE_DATE_EPOCH": "315532800",
+        },
     )
+    return result, log.read_text(encoding="utf-8").splitlines()
 
 
-def test_the_build_refuses_to_run_without_its_lock(tmp_path: Path) -> None:
-    result = _run_block(tmp_path)
+def _fetches(calls: list[str]) -> list[str]:
+    """Calls that would reach an index or build the AppImage."""
+    return [c for c in calls if re.search(r"-m pip\b|-m python_appimage\b", c)]
+
+
+def test_the_whole_build_refuses_to_run_without_its_lock(tmp_path: Path) -> None:
+    result, calls = _run_whole_build(tmp_path, lock=None)
     assert result.returncode == 1, result.stdout + result.stderr
     assert "requirements.lock is missing" in result.stderr
-    assert "LOCK ACCEPTED" not in result.stdout
-
-
-def test_the_build_refuses_a_lock_for_another_python(tmp_path: Path) -> None:
-    (tmp_path / "requirements.lock").write_text(
-        "# target-python: 3.11\n# target-platform: manylinux_2_34_x86_64\n",
-        encoding="utf-8",
+    # Non-triviality: the script really ran up to the check (it built the wheel).
+    assert any(c.startswith("-m build") for c in calls), calls
+    assert not _fetches(calls), (
+        f"the build fetched or packaged without its lock: {calls}"
     )
-    result = _run_block(tmp_path, python_version="3.12")
+
+
+def test_the_whole_build_refuses_a_lock_for_another_python(tmp_path: Path) -> None:
+    lock = "# target-python: 3.11\n# target-platform: manylinux_2_34_x86_64\n"
+    result, calls = _run_whole_build(tmp_path, lock=lock, python_version="3.12")
     assert result.returncode == 1, result.stdout + result.stderr
     assert "resolved for CPython 3.11" in result.stderr
+    assert not _fetches(calls), calls
 
 
-def test_the_build_accepts_the_committed_lock(tmp_path: Path) -> None:
-    """The floor for the two above: the real lock passes the same block."""
-    shutil.copy(REPO / "build" / "python-appimage" / "requirements.lock", tmp_path)
-    result = _run_block(tmp_path)
-    assert result.returncode == 0, result.stderr
-    assert "LOCK ACCEPTED" in result.stdout
+def test_the_whole_build_downloads_from_the_committed_lock(tmp_path: Path) -> None:
+    """The floor for the two above: with the real lock, the first fetch is the
+    hash-checked download, wheels only, and nothing installs from an index."""
+    lock = (REPO / "build" / "python-appimage" / "requirements.lock").read_text(
+        encoding="utf-8"
+    )
+    _, calls = _run_whole_build(tmp_path, lock=lock)
+    fetches = _fetches(calls)
+    assert fetches, calls
+    first = fetches[0]
+    assert first.startswith("-m pip download"), fetches
+    assert "--require-hashes" in first and "--only-binary=:all:" in first, first
+    assert not any(c.startswith("-m pip install") for c in fetches), fetches
