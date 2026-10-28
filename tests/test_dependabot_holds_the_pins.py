@@ -150,3 +150,13 @@ def test_both_ecosystems_wait_a_week_before_proposing_a_release() -> None:
         assert int(match.group(1)) >= _MIN_COOLDOWN_DAYS, (
             f"{ecosystem} waits {match.group(1)} days; the floor is {_MIN_COOLDOWN_DAYS}"
         )
+
+
+def test_no_ecosystem_names_labels() -> None:
+    """Named labels that do not exist make Dependabot post an error on every pull
+    request (#397, #399); with none named it creates its default `dependencies`."""
+    for ecosystem in ("pip", "github-actions"):
+        assert not re.search(r"^    labels:", _ecosystem_block(ecosystem), re.M), (
+            f"{ecosystem} names labels; create them in the repository first, or "
+            "leave Dependabot its default"
+        )
