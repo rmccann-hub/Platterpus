@@ -54,6 +54,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -1091,7 +1092,33 @@ def _measure_real_cyanrip_windows() -> dict[str, object]:
     window = _main_window()
 
     def measure_the_wizard(_self: object, build: object) -> None:
-        measured[REAL_CYANRIP_WINDOWS[0]] = _measure_one(build())  # type: ignore[operator]  # the wizard factory
+        # The wizard starts its run on the first event-loop turn after it is
+        # shown (`start_immediately`), and the stand-in host finishes at once,
+        # so the status line changes to the longer "did not complete" text while
+        # the window is being measured. Measured mid-change, a run could catch
+        # the new text before the layout had grown the label for it: CI's py3.11
+        # leg read 14px of 56px on #406 (2026-10-28), one line of four. So the
+        # run is let finish first, and the window measured once it has settled.
+        from PySide6.QtWidgets import QApplication
+
+        dialog = build()  # type: ignore[operator]  # the wizard factory
+        dialog.show()
+        app = QApplication.instance()
+        assert app is not None
+        # Waited on the final text, not on `_thread`: the thread is also None
+        # BEFORE the run starts, which is the state a first try of this loop
+        # stopped at, measuring an empty status line.
+        deadline = time.monotonic() + 10.0
+        while (
+            "did not complete" not in dialog._status_label.text()
+            and time.monotonic() < deadline
+        ):
+            app.processEvents()
+        assert "did not complete" in dialog._status_label.text(), (
+            f"the wizard's stand-in run never finished: {dialog._status_label.text()!r}"
+        )
+        assert dialog._thread is None
+        measured[REAL_CYANRIP_WINDOWS[0]] = _measure_one(dialog)
 
     with (
         mock.patch.object(host_setup, "HostSetup", lambda **_kw: _FakeHost(False)),

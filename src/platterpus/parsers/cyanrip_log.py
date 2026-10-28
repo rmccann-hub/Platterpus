@@ -80,6 +80,7 @@ from platterpus import (
 )
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
+from platterpus.parsers.cyanrip_preemphasis import PREEMPHASIS_LABEL, preemphasis_text
 from platterpus.parsers.rip_log import (
     ACCURATE_STREAM_DECLARED_SUPPORTED,
     ACCURATE_STREAM_DECLARED_UNSUPPORTED,
@@ -935,7 +936,6 @@ _READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S(?:.*\S)?)\s*$")
 # beside intact text, never `0`.
 _READ_STALLS_COUNT = re.compile(r"^(?P<count>\d{1,6})\s+reads?\s+exceeded\b")
 _READ_STALLS_NONE = re.compile(r"^none\b")
-_PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # The disc's own ISRC for a track, `.24`+ (`cyanrip@dd60143:src/cyanrip_log.c:530-545`,
 # P2 rows `Disc ISRC:     %s` and `Disc ISRC:     %s (%s)`, round 35 lap 1 S4): the
 # code the disc returned, or `none (<reason>)` where libcdio answered with no usable
@@ -3229,7 +3229,7 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_pregap_source", _PREGAP_SOURCE),
     # `.27`: what the sub-channel search saw, below `Pregap source:`.
     ("track_pregap_search", _PREGAP_SEARCH),
-    ("track_preemphasis", _PREEMPHASIS),
+    ("track_preemphasis", PREEMPHASIS_LABEL),  # read by `preemphasis_text`
     # `+platterpus.24`: the disc's own ISRC, beside the metadata's (R20).
     ("track_disc_isrc", _DISC_ISRC),
     ("track_eac_crc", _EAC_CRC),
@@ -4365,9 +4365,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                         )
                 continue
 
-            match = _PREEMPHASIS.match(line)
-            if match:
-                current.pre_emphasis = not match.group("text").startswith("none")
+            preemphasis = preemphasis_text(line)
+            if preemphasis is not None:
+                current.pre_emphasis = not preemphasis.startswith("none")
                 continue
 
             match = _DISC_ISRC.match(line)
