@@ -16,8 +16,8 @@
 # which expresses the same bounds without any shell-special characters:
 #   PySide6 ~=6.7  ==  >=6.7,<7.0      tomli-w ~=1.0  ==  >=1.0,<2.0
 #
-# LIMITATION — no `pip --require-hashes` byte-pinning here (tracked). Full
-# reproducibility pins each third-party dependency to an exact version + sha256.
+# Hash pinning lives in requirements.lock, not here. Full reproducibility pins
+# each third-party dependency to an exact version + sha256.
 # The naive `--require-hashes` per line can't work here (python-appimage installs
 # each line in its own `pip install`, and hash mode then demands hashes for that
 # line's TRANSITIVE deps too — e.g. PySide6 → shiboken6 — unavailable in a

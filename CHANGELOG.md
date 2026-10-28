@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS records the third follow-up review's open items, and two stale references are fixed** (contributor-facing). R93 (relock pull requests get no CI) and R94 (the publish gate's older-commit case) are new; R91 no longer points at the removed `pinned-minor` group, and `build/python-appimage/requirements.txt` no longer says it has no hash pinning.
+
 - **Dependabot no longer names labels that do not exist** (contributor-facing; the third follow-up review of 2026-10-27, item 4). It named `dependencies` and `ci`, neither of which this repository has, so it posted a label error on every pull request (#397, #399). With none named it applies its default `dependencies` label and creates it. A test refuses a `labels:` key.
 
 - **The AppImage build's lock refusal is tested by running the whole script** (contributor-facing; the third follow-up review of 2026-10-27, item 3). The old test ran only the refusal block, so wrapping it in an `if` with an online fallback still passed. Now `build_appimage.sh` runs end to end in a copy of the tree, with a stub `python3` that records every call: without the lock, or with a lock for another Python, it must refuse before any `pip` or `python_appimage` call; with the real lock, its first fetch must be the hash-checked download.
