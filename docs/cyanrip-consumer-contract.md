@@ -114,7 +114,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_pregap_source_two_searches` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+sub-channel \\(not signalled by TOC; two searches read (?P<first>-?\\d{1,9}) and (?P<second>-?\\d{1,9}) frames, the first is used\\)\\s*$` |
 | `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,198}\\S)?)\\s*$` |
 | `track_pregap_search` **(fork-only)** | indented | `^\\s{1,8}Pregap search:\\s{1,8}(?P<value>\\S.*)$` |
-| `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `track_preemphasis` | indented | `^\\s+Preemphasis:\\s` |
 | `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<unused>[^\\s()][^()\\n]{0,39}?) \\((?P<unused_reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
 | `track_data_crc32` | indented | `^\\s+CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})\\s*$` |

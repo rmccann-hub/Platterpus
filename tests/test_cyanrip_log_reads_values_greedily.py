@@ -81,7 +81,9 @@ _REWRITES: list[tuple[str, str, str]] = [
     ("_PARANOIA_LEVEL", r"^Paranoia level:\s+(?P<text>.+?)\s*$", "Paranoia level:"),
     ("_OUTPUTS", r"^Outputs:\s+(?P<value>.+?)\s*$", "Outputs:"),
     ("_SPEED_CAP", r"^Speed:\s+(?P<text>.+?)\s*$", "Speed:"),
-    ("_PREEMPHASIS", r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$", "    Preemphasis:"),
+    # `_PREEMPHASIS` was here until 2026-10-28, when its value regex became the
+    # string function `cyanrip_preemphasis.preemphasis_text`; tests/test_preemphasis_reads_as_the_
+    # regex_did.py holds that function to the regex, and times it the same way.
     (
         "_FINISHED_AT",
         r"^Ripping finished at\s+(?P<when>.+?)\s*$",
@@ -289,11 +291,12 @@ def test_every_rewrite_but_the_linear_one_is_timed() -> None:
     A generated population can empty, and pytest then reports the sweep as one
     skip, exit 0 (`tests/test_dynamic_sweeps_declare_a_floor.py`). So the timed set
     is held to every rewrite but the one with a stated reason, and to the 20 it
-    had when it was written (2026-10-06).
+    had when it was written (2026-10-06), less `_PREEMPHASIS`, which stopped being
+    a regex on 2026-10-28 and is timed in its own file.
     """
     timed = [name for name, _label in _TIMED]
     assert set(timed) == set(_IDS) - {"_PREGAP_SOURCE"}
-    assert len(timed) == len(set(timed)) >= 20
+    assert len(timed) == len(set(timed)) >= 19
 
 
 @pytest.mark.parametrize(
