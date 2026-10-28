@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The AppImage build's lock refusal is tested by running the whole script** (contributor-facing; the third follow-up review of 2026-10-27, item 3). The old test ran only the refusal block, so wrapping it in an `if` with an online fallback still passed. Now `build_appimage.sh` runs end to end in a copy of the tree, with a stub `python3` that records every call: without the lock, or with a lock for another Python, it must refuse before any `pip` or `python_appimage` call; with the real lock, its first fetch must be the hash-checked download.
+
 - **The locks now keep the seven-day wait** (contributor-facing; the third follow-up review of 2026-10-27, item 1). They were dated the day they were made, so they took releases hours old. Regenerated at seven days back, 20 pins moved to older releases, among them PySide6 6.11.2 and python-dateutil 2.9.0.post0; the full suite passes on them. A test refuses a lock dated within the last week, the weekly `relock` job now regenerates whenever the stored date differs from its own (not only when it moves forward), and the lock test reads a post-release version, which it used to refuse.
 
 - **`lock-install` no longer runs actionlint from the ci-lint lock, which leaves it out** (contributor-facing). Its first run on GitHub failed there; every install and build before it passed. A test now holds each tool the job runs to a package its lock pins.
