@@ -26,6 +26,8 @@ release tag on `main`; releases get an annotated tag; and the drive wizard's but
 
 ### Changed
 
+- **A property test no longer draws a year the argv builder refuses** (contributor-facing). Since 2026-10-26 the builder refuses a year of `.` or `..`, which would put a rip folder outside the output directory, so a refused year has no argv to read back; a saved Hypothesis example of `year='.'` failed the test. It now draws only years the builder's own rule accepts, and the refusal stays held by the year tests.
+
 - **`lock-check` and `lock-install` are required checks** (contributor-facing; the third follow-up review of 2026-10-27, item 2). The owner added both to the default-branch ruleset on 2026-10-28, so an edited or deleted lock entry now stops a merge; `CLAUDE.md`, KDD-43 and `docs/architecture.md` §6.3 list the 14 required checks.
 
 - **TASKS records the third follow-up review's open items, and two stale references are fixed** (contributor-facing). R93 (relock pull requests get no CI) and R94 (the publish gate's older-commit case) are new; R91 no longer points at the removed `pinned-minor` group, and `build/python-appimage/requirements.txt` no longer says it has no hash pinning.

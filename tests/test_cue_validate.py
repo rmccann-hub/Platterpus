@@ -62,7 +62,7 @@ from platterpus.cue_validate import (
     sent_track_metadata,
     validate_cue,
 )
-from platterpus.settings_validation import path_segment_issue
+from platterpus.settings_validation import path_reference_issue, path_segment_issue
 
 _REFERENCE = (
     Path(__file__).resolve().parent.parent / "output_reference" / "cyanrip_fork_flac"
@@ -1110,7 +1110,15 @@ def _sent_metadata(draw: st.DrawFn) -> tuple[RipMetadata, int | None]:
     meta = RipMetadata(
         album_artist=draw(_PATH_VALUE),
         album_title=draw(_PATH_VALUE),
-        year=draw(_SEPARATOR_HEAVY),
+        # Only a year the builder ACCEPTS: since 2026-10-26 it refuses `.` and
+        # `..` (padded or not) before any argv exists, because `%y` puts the year
+        # in the path verbatim, so a refused year has no argv to read back. The
+        # rule is the builder's own, `path_reference_issue`, not a copy of it; the
+        # refusal itself is held by the year tests. A saved Hypothesis example of
+        # `year='.'` failed this test on 2026-10-28.
+        year=draw(
+            _SEPARATOR_HEAVY.filter(lambda y: not path_reference_issue("Year", y))
+        ),
         genre=draw(_SEPARATOR_HEAVY),
         catalog_number=draw(_SEPARATOR_HEAVY),
         barcode=draw(_SEPARATOR_HEAVY),
