@@ -301,15 +301,16 @@ they're established. Keep entries terse.*
   ten components), and **`tests-touched`** (GATING since 2026-08-20: it fails when `src/platterpus`
   changes with no change under `tests/`, unless a commit in the range carries
   `[no-test-needed] <reason>` — a bare marker is refused — or the only src change is the
-  `__version__` bump of a release commit). **Non-gating jobs** in the same file (added 2026-10-27,
-  after that day's review; the owner adds one to the ruleset to make it required): `commit-subjects`
-  (`scripts/check_commit_subjects.py` against the subject grammar below), `workflow-lint`
-  (actionlint and zizmor `--offline`) and `shellcheck` (every tracked shell script outside
-  `docs/handshake/`), with their pins in pyproject's `ci-lint` extra, and `lock-check`
-  (`bash build/lock-requirements.sh --check`: every hashed lock must regenerate byte for byte
-  from the uv version and `--exclude-newer` date in its header), and `lock-install` (every lock
-  into a clean venv with `--require-hashes` and `pip check`, then the publish and AppImage wheel
-  builds, without publishing). Two more workflows:
+  `__version__` bump of a release commit), **`lock-check`** (`bash build/lock-requirements.sh
+  --check`: every hashed lock must regenerate byte for byte from the uv version and
+  `--exclude-newer` date in its header) and **`lock-install`** (every lock into a clean venv with
+  `--require-hashes` and `pip check`, then the publish and AppImage wheel builds, without
+  publishing); both required since 2026-10-28, on the owner's change to the ruleset. **Non-gating
+  jobs** in the same file (added 2026-10-27, after that day's review; the owner adds one to the
+  ruleset to make it required): `commit-subjects` (`scripts/check_commit_subjects.py` against the
+  subject grammar below), `workflow-lint` (actionlint and zizmor `--offline`) and `shellcheck`
+  (every tracked shell script outside `docs/handshake/`), with their pins in pyproject's `ci-lint`
+  extra. Two more workflows:
   `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`,
   ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main`
   and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build &
@@ -427,9 +428,10 @@ wherever the generic SOP differs.** What we actually do:
   exemption therefore keys on the pull request's author or its `dependabot/*` branch, and on a push
   to `main` on the commits the push brings in (every non-merge commit Dependabot's), never on the
   head commit's author, which a merge commit makes whoever merged
-  (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all nine gating
+  (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all eleven gating
   jobs**: the `pytest` 3.11–3.14 matrix (coverage floor on 3.14), `ruff` lint/format, `mypy`
-  typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**, and
+  typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**,
+  **`lock-check`** and **`lock-install`** (both required since 2026-10-28), and
   **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the
   same file said so under *CI / release* two sections above, so this was one document disagreeing
   with itself). Don't open a PR unless asked.
@@ -443,8 +445,9 @@ wherever the generic SOP differs.** What we actually do:
   premise no longer holds: this repository is public, and on GitHub Free a public repository gets
   rulesets at no cost). A **default-branch ruleset** blocks deletion and force pushes and requires a
   pull request with **no approvals**, with these required status checks: `lint`, `typecheck`,
-  `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, and `test (py3.11)`
-  to `test (py3.14)`. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
+  `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, `test (py3.11)` to
+  `test (py3.14)`, and, since 2026-10-28, `lock-check` and `lock-install` (14 in all, read from
+  `GET /repos/rmccann-hub/Platterpus/rules/branches/main` that day). A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
   (2026-10-14, HR-2 point 3), blocks its deletion and force pushes. What every session must keep
   true under them: every change lands through a pull request (it already does); nothing pushes to
   `main`, moves or deletes a `v*` tag, or force-pushes; **merge commits are the only merge method**

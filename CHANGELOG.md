@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`lock-check` and `lock-install` are required checks** (contributor-facing; the third follow-up review of 2026-10-27, item 2). The owner added both to the default-branch ruleset on 2026-10-28, so an edited or deleted lock entry now stops a merge; `CLAUDE.md`, KDD-43 and `docs/architecture.md` §6.3 list the 14 required checks.
+
 - **TASKS records the third follow-up review's open items, and two stale references are fixed** (contributor-facing). R93 (relock pull requests get no CI) and R94 (the publish gate's older-commit case) are new; R91 no longer points at the removed `pinned-minor` group, and `build/python-appimage/requirements.txt` no longer says it has no hash pinning.
 
 - **Dependabot no longer names labels that do not exist** (contributor-facing; the third follow-up review of 2026-10-27, item 4). It named `dependencies` and `ci`, neither of which this repository has, so it posted a label error on every pull request (#397, #399). With none named it applies its default `dependencies` label and creates it. A test refuses a `labels:` key.

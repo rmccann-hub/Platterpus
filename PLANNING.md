@@ -2055,6 +2055,9 @@ decision and for a check that nothing the sessions do breaks under it.
   required, with **no approvals** (there is one maintainer); required status checks `lint`,
   `typecheck`, `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`,
   and `test (py3.11)` to `test (py3.14)`.
+  *Changed 2026-10-28:* the owner added `lock-check` and `lock-install` (the third
+  follow-up review of 2026-10-27, item 2), so a deleted or edited lock entry stops a merge;
+  14 required checks, read from the branch's rules that day.
 - A **release-tag ruleset** on `v*`.
 - `CLAUDE.md` divergence (5) now records this in place of the decline, and
   `docs/github-workflow-sop.md` §7.2's banner says which of its settings do not apply here.
