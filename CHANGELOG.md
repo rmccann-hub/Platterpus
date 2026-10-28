@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS R97 records a stray `cdparanoia.log` in the user's home folder** (contributor-facing). The drive-cache check runs `cd-paranoia -A`, which always writes its log to its working folder, and we set none, so a Full run left a 325 KB log in the owner's home folder.
 - **The fork's round 36 lap 16 is filed, and our lap 17 is written and held** (contributor-facing). Their lap 16 is filed byte for byte (`HOLD` on track 9's pregap, unexplained in the logs that do not rip that track). Our lap 17 says `GO` on the owner's approval of `.27`, reproduces their counts, corrects our one-log reading of the run, and carries the round summary; it stays `HANDSHAKE-READY-TO-READ: no` until the owner releases it.
 - **The 2026-10-28 Full run on 0.7.114 with `.27` under review is filed and graded `full-green`** (contributor-facing). 553 pass, 0 fail, 0 error, 0 blocked, E2 unreachable on this drive; filed on `evidence` at `4e3830ca` with its 152 manifest rows, every signed log verified first. The field-evidence ledger's sixth `full-green` row, still on one machine and one distro.
 
