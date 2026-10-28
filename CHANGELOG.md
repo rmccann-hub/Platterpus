@@ -26,6 +26,8 @@ release tag on `main`; releases get an annotated tag; and the drive wizard's but
 
 ### Changed
 
+- **The cyanrip log's `Preemphasis:` pattern bounds its indent** (contributor-facing). The regex timing test failed CI's py3.11 leg on its leading `\s+`; on the owner's instruction the pattern is fixed rather than the leg re-run. The indent is now `\s{1,16}`, eight times the two spaces the fork prints (`cyanrip@597dee8:src/cyanrip_log.c:573`). `tests/test_regex_rewrites_read_the_same.py` keeps the old form and shows the new one reads every line indented 16 or fewer the same way; a line indented further is no longer read, on purpose, and a test pins that.
+
 - **A property test no longer draws a year the argv builder refuses** (contributor-facing). Since 2026-10-26 the builder refuses a year of `.` or `..`, which would put a rip folder outside the output directory, so a refused year has no argv to read back; a saved Hypothesis example of `year='.'` failed the test. It now draws only years the builder's own rule accepts, and the refusal stays held by the year tests.
 
 - **`lock-check` and `lock-install` are required checks** (contributor-facing; the third follow-up review of 2026-10-27, item 2). The owner added both to the default-branch ruleset on 2026-10-28, so an edited or deleted lock entry now stops a merge; `CLAUDE.md`, KDD-43 and `docs/architecture.md` §6.3 list the 14 required checks.

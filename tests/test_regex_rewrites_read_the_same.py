@@ -96,6 +96,24 @@ def _field_lines() -> st.SearchStrategy[str]:
     )
 
 
+def _preemphasis_lines() -> st.SearchStrategy[str]:
+    """A `Preemphasis:` line: an indent of up to 16 blanks, the word (or a near
+    miss), blanks, a value, blanks. The indent stops at the new bound, 16; past it
+    the rewrite reads nothing on purpose, which its own test pins."""
+    word = st.sampled_from(["Preemphasis:", "Preemphasis", "preemphasis:", ""])
+    indent = st.text(alphabet=_BLANKS, max_size=16)
+    return _joined(
+        indent,
+        word,
+        _blanks(),
+        _text("noyes0é"),
+        _RUN,
+        _text("noyes0é"),
+        _RUN,
+        st.sampled_from(["", "\n", "x", " \n"]),
+    )
+
+
 def _eta_values() -> st.SearchStrategy[str]:
     """cyanrip ETA values (`1h 5m`, `3m`, `42s`) and near misses, token by token."""
     token = st.one_of(
@@ -155,6 +173,12 @@ _REWRITES: list[tuple[str, str, str, st.SearchStrategy[str]]] = [
         r"round-0*\d+-lap-0*(\d+)",
         _lap_references(),
     ),
+    (
+        "src/platterpus/parsers/cyanrip_log.py",
+        "_PREEMPHASIS",
+        r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$",
+        _preemphasis_lines(),
+    ),
 ]
 
 _IDS: list[str] = [
@@ -162,7 +186,7 @@ _IDS: list[str] = [
 ]
 
 
-def test_the_population_is_the_six_patterns_rewritten() -> None:
+def test_the_population_is_the_seven_patterns_rewritten() -> None:
     """The floor for both sweeps below, which parametrize over `_REWRITES`.
 
     `_REWRITES` holds Hypothesis strategies, so it is built rather than written
@@ -178,6 +202,7 @@ def test_the_population_is_the_six_patterns_rewritten() -> None:
             "rip_log.py:_FIELD",
             "rip_worker.py:_CYANRIP_ETA_VALUE",
             "handshake.py:_SOURCE_NAMED_LAP",
+            "cyanrip_log.py:_PREEMPHASIS",
         ]
     )
 
@@ -278,6 +303,17 @@ _EXAMPLES: dict[str, list[str]] = {
         "round--lap-1",
         "lap 9",
     ],
+    "_PREEMPHASIS": [
+        "  Preemphasis:   none",
+        "  Preemphasis:   yes",
+        "  Preemphasis:   ",
+        "  Preemphasis: none (no flag)  ",
+        " " * 16 + "Preemphasis:   yes",
+        "Preemphasis:   none",
+        "  Preemphasis:" + " " * 3000 + "x",
+        "  Preemphasis:   none" + " " * 3000,
+        "  Pre-emphasis:   none",
+    ],
 }
 
 
@@ -297,3 +333,22 @@ def test_each_rewrite_agrees_on_the_inputs_written_out(
     assert not differing, f"{name} reads these differently: {differing!r}"
     matched = sum(reference.search(text) is not None for text in examples)
     assert matched >= 3, f"only {matched} of these inputs matched {name}'s old form"
+
+
+def test_the_preemphasis_rewrite_narrows_only_past_the_ripper_s_indent() -> None:
+    """The one place the bounded `_PREEMPHASIS` reads differently, written out.
+
+    The fork's real line, two spaces in, still reads; a line indented by 16 still
+    reads; 17 no longer does, where the old `\\s+` would have read it. That is the
+    deliberate narrowing of 2026-10-28, a bound eight times the real indent.
+    """
+    old = re.compile(r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
+    new = _pattern_assigned_to("src/platterpus/parsers/cyanrip_log.py", "_PREEMPHASIS")
+    real = "  Preemphasis:   none"
+    assert _readings(new, real) == _readings(old, real)
+    found = new.match(real)
+    assert found is not None and found.group("text") == "none"
+    sixteen = " " * 16 + "Preemphasis:   yes"
+    assert new.match(sixteen) is not None
+    seventeen = " " * 17 + "Preemphasis:   yes"
+    assert old.match(seventeen) is not None and new.match(seventeen) is None

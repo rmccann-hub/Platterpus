@@ -935,7 +935,15 @@ _READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S(?:.*\S)?)\s*$")
 # beside intact text, never `0`.
 _READ_STALLS_COUNT = re.compile(r"^(?P<count>\d{1,6})\s+reads?\s+exceeded\b")
 _READ_STALLS_NONE = re.compile(r"^none\b")
-_PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
+# The indent is BOUNDED, `\s{1,16}`, not `\s+` (2026-10-28):
+# tests/test_regex_bounded_time.py failed CI's py3.11 leg on this pattern, timing a
+# run of blanks at the line's start, and the owner asked for the pattern fixed
+# rather than the leg re-run. The fork prints two spaces before the word
+# (`cyanrip@597dee8:src/cyanrip_log.c:573`, `"  Preemphasis:   "`), so sixteen is
+# eight times the real indent. Every line it read before with an indent of 16 or
+# fewer it reads the same (tests/test_regex_rewrites_read_the_same.py keeps the old
+# form); a line indented further is no longer read, on purpose.
+_PREEMPHASIS = re.compile(r"^\s{1,16}Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # The disc's own ISRC for a track, `.24`+ (`cyanrip@dd60143:src/cyanrip_log.c:530-545`,
 # P2 rows `Disc ISRC:     %s` and `Disc ISRC:     %s (%s)`, round 35 lap 1 S4): the
 # code the disc returned, or `none (<reason>)` where libcdio answered with no usable
