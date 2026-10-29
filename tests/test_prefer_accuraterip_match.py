@@ -69,7 +69,9 @@ def test_only_27_is_listed() -> None:
 
 def test_no_other_build_is_sent_it() -> None:
     for tag in (
-        f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}",  # `.25`
+        # `.25`, named by its commit: until round 36 closed it was FORK_PIN, and
+        # `.27`, which takes the flag, is FORK_PIN from 2026-10-28.
+        "platterpus-fork-g5f1d036",
         "platterpus-fork-gca0f097",  # `.26`
         _TAG_27_UNRELEASED_BUILD,
         "release",  # stock cyanrip

@@ -27,9 +27,9 @@ sends. It is not a claim about any other version of either side.
 - **Platterpus:** `0.7.114` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
-- **Verified against ripper build:** `cyanrip 0.9.4-rc3+platterpus.25 (platterpus-fork-g5f1d036)` — the build a
-  closed handshake round approved (round 35, for Platterpus
-  `0.7.110`). Rows in §1 were checked against that build's output;
+- **Verified against ripper build:** `cyanrip 0.9.4-rc3+platterpus.27 (platterpus-fork-g5aeefc4)` — the build a
+  closed handshake round approved (round 36, for Platterpus
+  `0.7.114`). Rows in §1 were checked against that build's output;
   a newer ripper may emit lines this document does not list, which is a
   handshake event rather than a defect.
 - **Ripper build under review:** see `HANDSHAKE-PIN` /

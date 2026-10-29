@@ -276,7 +276,16 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: one failure of our script's (it expected exit 1 where `.25` exits 64, as agreed),
 #: filed on our `evidence` branch at `37482669`. Their manifest at `eca33dc7` still
 #: carries `.25` on beta with `round_closed: false`, until their gate reads our lap.
-FORK_PIN: Final[str] = "5f1d036"
+#: **Rolled to `5aeefc4` (`+platterpus.27`, upstream rc3) on round 36's close
+#: (2026-10-28)**: our lap 17 `GO` against their lap 18 `GO`
+#: (`docs/handshake/inbound/round-36-lap-18.md`, sha256 `5ee8bdff…`, released at
+#: `cyanrip@6f401cb`); both gates read the round CLOSED. `5aeefc4` is round 36's
+#: pin from its release on 2026-10-26, held by R4 since. Its evidence is the
+#: 2026-10-28 Full run on 0.7.114, 553 pass and none failed, filed on our `evidence`
+#: branch at `4e3830ca`, approved on that run on the owner's word *"1. approve it"*
+#: with the fork's track 9 record fixed before their closing lap (`14f9298`). Their
+#: manifest at `14fb252` carries `.27` on beta with `round_closed: true`.
+FORK_PIN: Final[str] = "5aeefc4"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -646,7 +655,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: **Rolled to `0.9.4-rc3+platterpus.25` on 2026-10-20, with `FORK_PIN`**, read off
 #: round 35 lap 17's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc3+platterpus.25
 #: (platterpus-fork-g5f1d036)`, and cross-checked against `meson.build` at `5f1d036`.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.25"
+#: **Rolled to `0.9.4-rc3+platterpus.27` on 2026-10-28, with `FORK_PIN`**, read off
+#: round 36 lap 18's `HANDSHAKE-RIPPER-VERSION` and cross-checked against
+#: `meson.build:21` at `5aeefc4`, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.27"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -1756,7 +1768,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 # full commit fails the suite rather than silently weakening the build check.
 
 #: :data:`FORK_PIN` in full.
-FORK_PIN_FULL: Final[str] = "5f1d036ef0621330b6e84004c9574d3395b3a117"
+FORK_PIN_FULL: Final[str] = "5aeefc43ae46c7171424bf84de6f762982c9c7b4"
 #: :data:`PIN_UNDER_REVIEW` in full.
 PIN_UNDER_REVIEW_FULL: Final[str] = "5aeefc43ae46c7171424bf84de6f762982c9c7b4"
 #: :data:`FORK_TEST_PIN` in full.
@@ -2174,19 +2186,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 35 approved, GO on both sides: the round's pin, moved once "
-        "from +platterpus.24 on the fork operator's override of rule R4 and then held "
-        f"fixed (cyanrip {FORK_EXPECTED_VERSION}, release_seq 36, read from their "
+        "the build round 36 approved, GO on both sides: the round's pin from its "
+        "release, held fixed by rule R4 for the whole round "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 38, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). Over +platterpus.23 it "
-        "checks a disc's ISRC (ISO 3901) before preferring it, bounds the overread "
-        "past the disc's end, records error positions and every read's counters in "
-        "its diagnostics record, and exits with a class: 64 for a refused argument, "
-        "74 for a disc or drive failure, 128 + N for a run stopped by signal N. "
-        "Round 35's evidence on it is the Full run on a drive, installed through "
-        "Platterpus 0.7.110: 434 steps passed, and the one failure was the test "
-        "script's own, expecting the old exit code. See "
-        "docs/handshake/inbound/round-35-lap-17.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.25 it "
+        "reads about three times faster, asks the drive whether the disc is "
+        "recordable, reads each track's ISRC from the disc, records the pregap "
+        "search, and can prefer a read AccurateRip verifies at the repeat limit. "
+        "Round 36's evidence on it is the Full run on a drive, installed through "
+        "Platterpus 0.7.114: 553 steps passed and none failed; it was approved on "
+        "that run on the owner's word. See "
+        "docs/handshake/inbound/round-36-lap-18.md"
     ),
 )
 
