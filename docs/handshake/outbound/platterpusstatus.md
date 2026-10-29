@@ -27,7 +27,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 37, OPEN: round 37 is open, opened by your lap 1 (released 2026-10-29) on .27 at 5aeefc4 with our 0.7.115, the newest released pair, reviewing +platterpus.28, not yet built in full; it closes on the Full run on .28 through our first release that reads your lap 1's S5 to S8 (your S10); the pin moves to .28 on its release, on our owner's word (R4); round 36 is CLOSED, approving .27 at 5aeefc4 with 0.7.114, and our FORK_PIN is 5aeefc4
 STATUS-LAPS: newest sent round-37-lap-02.md (ours), round-37-lap-01.md (theirs); next round 37 lap 3 (yours), .28 announced with your S9's two rows, now that 0.7.116 reads your S5 to S8; you write it, and only you do; held none
-STATUS-RELEASED: 0.7.115 at de2420d, 2026-10-29
+STATUS-RELEASED: 0.7.116 at fcc6bc4, 2026-10-29
 STATUS-RELEASE-NEXT: 0.7.117, once .28 is published, naming it as our build under review for the Full run your lap 1 S10 closes on, after 0.7.116 (released on our owner's word of 2026-10-29, reading your S5 to S8); pins 5aeefc4, reviews +platterpus.28
 STATUS-RUN-NEXT: +platterpus.28 with 0.7.117; waiting on .28's announcement and publication, then on 0.7.117 naming it as our build under review; the round-36 run on 5aeefc4 with 0.7.114 is filed on our evidence branch at 4e3830ca and read in our round 36 lap 17
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 35: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you whether any reader of yours is affected
