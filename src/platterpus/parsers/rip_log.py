@@ -82,6 +82,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Final
 
+from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
 from platterpus.pregap_search import PregapSearch
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
 from platterpus.safe_int import int_or_none
@@ -229,6 +230,10 @@ class RippingInfo:
     reread_time_limit_seconds: int | None = None
     reread_time_limit_state: str = TIME_LIMIT_NOT_PRESENT
     reread_time_limit_text: str = ""
+    # `.28`'s disc-level blocks (`parsers.cyanrip_disc_blocks`): each searched
+    # track's `Pregap search:` record, ripped or not, and each shortened name.
+    pregap_searches: tuple[tuple[int, str], ...] = ()
+    names_shortened: tuple[ShortenedName, ...] = ()
 
 
 @dataclass(frozen=True)

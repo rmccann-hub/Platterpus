@@ -1591,7 +1591,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2957 -> 3081** (2026-10-26, the claude-code-skills review, item 2.1): the full commit beside each named pin (`FORK_PIN_FULL`, `PIN_UNDER_REVIEW_FULL`, `FORK_TEST_PIN_FULL`, `full_commit_for`, `ForkTarget.full_commit`) and the build script's refusals of a wrong HEAD, a dirty tree and a `-dirty` banner. Kept here rather than split out: the build script and the pins it checks are the one fact this module owns, and the build script is a string the step engine passes whole, so moving half of it would put the HEAD check and the checkout it checks in two files.
     # **3081 -> 3113** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `is_dirty_build`, the one predicate for a `-dirty` build, beside `release_seq_for_commit`, which still orders one at its release, and `is_the_build_under_review` refusing one.
     # **3113 -> 3124** (2026-10-28): the roll to `5aeefc4` on round 36's close, recorded beside `FORK_PIN` and `FORK_EXPECTED_VERSION`, as each roll is.
-    "deps/fork_source.py": 3124,
+    # **3124 -> 3126** (2026-10-29): `PIN_UNDER_REVIEW_ROUND` 37, with round 37's opening recorded beside it.
+    "deps/fork_source.py": 3126,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1993,7 +1994,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4408 -> 4450** (2026-10-26, `.27`, round 36 lap 8 S21): the `Pregap search:` line pattern with its citations, its listing, its `_TrackAcc` slot and its handler beside `Pregap source:`, which logs a reworded value. The value itself is read by `pregap_search.py`.
     # **4450 -> 4551** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the `time limit` arm of `_SECURE_DONE_FAIL` with why it must read as not converged, the `Re-read limit:` line rule, `secure_rerip_limit_stop` (the claim made here), the buffered and in-block handling, and the listings. Which limit a claimed line names, and the header's seconds, are read in `reread_limit.py`.
     # **4551 -> 4618** (2026-10-26, peer review 2.4, TASKS R86): `_TRACK_ECHO_HEADER`, its listing, `_TrackAcc.echo_reached`, `_is_track_verdict_row`, the latch in the block loop and its counted warning, so a value cyanrip echoes (the disc's CD-TEXT) cannot set a track's verdict. It must sit in the block loop it guards; the citations for the print order are the reason it is safe.
-    "parsers/cyanrip_log.py": 4618,
+    # **4618 -> 4651** (2026-10-29, round 37 lap 1): the loop's state and dispatch for `.28`'s `Pregap searches:` and `Names shortened:` blocks, their two fields and four contract-table rows, and `Speed:`'s `failed` arm; the reading itself lives in `parsers/cyanrip_disc_blocks.py`.
+    "parsers/cyanrip_log.py": 4651,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2024,7 +2026,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1179 -> 1187** (2026-10-26, `.27`, round 36 lap 7 S6): `RipLog.not_written_whole` and its total, beside the other footer fields.
     # **1187 -> 1195** (2026-10-26, `.27`, round 36 lap 8 S21): `TrackResult.pregap_search`, with why None is never "no search" or "a clean search".
     # **1195 -> 1209** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `TrackResult.secure_rerip_limit_stop` and `RippingInfo.reread_time_limit_*`; the dataclass and states live in `reread_limit.py`.
-    "parsers/rip_log.py": 1209,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1209 -> 1214** (2026-10-29, round 37 lap 1): `RippingInfo.pregap_searches` and `names_shortened`, with the import of their type.
+    "parsers/rip_log.py": 1214,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -3037,7 +3040,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4307 -> 4425** (2026-10-21, TASKS R7, the verified-read chase): `_rip_once` keeps a chase read's exit status off the securing pass's field (`verified_reread`), `_auto_fix_tracks` calls the chase before the unstable list and the addendum, and `_chase_verified_reads` / `_read_once_for_chase` apply what it kept. The decision is `verified_read_chase.py` and the loop `workers/verified_read_run.py`; only the worker owns `_rip_once` and the swap records.
     # **-> 4280** (2026-10-21): the entries above landed together on one branch.
     # **4280 -> 4324** (2026-10-26, run B of the 0.7.112 Full runs): `_record_unfinished_refix` swaps in a stopped securing pass's finished, AccurateRip-verified re-read and records why each other track was not, and its call passes the swap's inputs. The decision, the file-whole check and the sentence are `unfinished_refix.py`; only the worker owns the swap and its records.
-    "workers/rip_worker.py": 4324,
+    # **4324 -> 4327** (2026-10-29, TASKS R95): the speed lock engages on an unknown answer too, with the reason beside it.
+    "workers/rip_worker.py": 4327,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

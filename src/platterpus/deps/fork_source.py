@@ -991,7 +991,9 @@ PIN_UNDER_REVIEW: Final[str] = "5aeefc4"
 #: is open (`round_closed: false`), so its review is round 36's closing run.
 #: **Still 36 for `.27` from 2026-10-26**: the same, one build along (`release_seq`
 #: 38, `handshake_round` 36, `round_closed: false`).
-PIN_UNDER_REVIEW_ROUND: Final[int] = 36
+#: **37 from 2026-10-29**: their lap 1 opens round 37 on `.27`, the newest released
+#: pair; the pin moves to `.28` when it is released, on the owner's word (R4).
+PIN_UNDER_REVIEW_ROUND: Final[int] = 37
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:

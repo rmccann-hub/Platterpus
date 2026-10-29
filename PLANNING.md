@@ -404,6 +404,7 @@ Platterpus/
         │   ├── cd_info.py               # shared DiscInfo + the legacy cd-info format parser
         │   ├── cyanrip_info.py          # parse `cyanrip -I` into the same DiscInfo (KDD-18)
         │   ├── cyanrip_log.py           # parse cyanrip's per-album log into the shared RipLog (KDD-18)
+        │   ├── cyanrip_disc_blocks.py   # read `.28`'s `Pregap searches:` and `Names shortened:` blocks
         │   ├── cyanrip_preemphasis.py   # read the per-track `Preemphasis:` row with string operations
         │   └── eac_log.py               # parse EAC rip logs (per-track Copy CRCs; the parity baseline)
         │
@@ -702,6 +703,7 @@ Subprocess output parsing per CLAUDE.md (named-group regexes, robust to minor-ve
 - **`cd_info.py`** — defines the shared `DiscInfo` (TOC, MusicBrainz disc ID, MB match status, AccurateRip availability) and parses the legacy cd-info output format into one — kept for old paths and test fixtures; cyanrip's disc info is parsed by `cyanrip_info.py`. `DiscInfo` is deliberately backend-neutral — it survived the swap to cyanrip unchanged (KDD-18).
 - **`cyanrip_info.py`** — parses the `cyanrip -I` start report into the same `DiscInfo` (Disc tracks / DiscID / CDDB ID / the MusicBrainz URL printed on the line after its label). Labels verified against cyanrip master's `cyanrip_log_start_report`.
 - **`cyanrip_log.py`** — parses cyanrip's per-album `.log` into the shared `RipLog` (KDD-18), so the GUI's fidelity verdict is backend-neutral; `looks_like_cyanrip_log` lets the finish handler sniff which ripper wrote a log. Never raises.
+- **`cyanrip_disc_blocks.py`** — reads the two disc-level blocks the fork's `.28` adds, proposed in their round 37 lap 1 before it is built: `Pregap searches:` (each searched track's `Pregap search:` record, ripped or not) and `Names shortened:` (each path component shortened to 255 bytes, with the length it would have had). Recognition patterns for the contract tables; values read with string operations, split from the right on the fixed suffix. Never raises.
 - **`cyanrip_preemphasis.py`** — reads the per-track `Preemphasis:` row of a cyanrip log with string operations, not a regex (2026-10-28, on the owner's instruction, after the regex timing test failed a CI leg on noise), giving exactly what the regex it replaced gave; `cyanrip_log` recognises the row with the label pattern here and reads it with the function. Never raises.
 - **`eac_log.py`** — parses an Exact Audio Copy rip log's per-track Copy CRCs (`looks_like_eac_log` / `parse_eac_copy_crcs`), the bit-perfect baseline `parity.py` measures rips against. `eac_log_producer` says which program's EAC-layout log a text is (EAC's or our own export), and `eac_log_producer_line` returns the line it read that from, so a caller quotes the deciding line. BOM-tolerant; never raises.
 

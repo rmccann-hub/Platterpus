@@ -80,6 +80,7 @@ from platterpus import (
 )
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
+from platterpus.parsers import cyanrip_disc_blocks as _blocks
 from platterpus.parsers.cyanrip_preemphasis import PREEMPHASIS_LABEL, preemphasis_text
 from platterpus.parsers.rip_log import (
     ACCURATE_STREAM_DECLARED_SUPPORTED,
@@ -1913,6 +1914,8 @@ class _Disc:
     overread_lead_out: bool | None = None
     overread_mode: str = ""
     speed_changeable: bool | None = None
+    pregap_searches: list[tuple[int, str]] = field(default_factory=list)
+    names_shortened: list[_blocks.ShortenedName] = field(default_factory=list)
     album: str = ""
     album_artist: str = ""
     c2_pointers: bool | None = None
@@ -2496,6 +2499,10 @@ def _take_speed_cap(disc: _Disc, match: re.Match[str]) -> bool:
     text = match.group("text").lower()
     # "unchangeable" contains "changeable", so test the negative first.
     if "unchangeable" in text:
+        disc.speed_changeable = False
+    # `.28`: `default (setting 8x failed)`, -S asked and refused (round 37 lap 1
+    # S8); `default (disc image, 8x not applied)` names no drive, so stays None.
+    elif "failed" in text:
         disc.speed_changeable = False
     elif "changeable" in text or (text and text[0].isdigit()):
         disc.speed_changeable = True
@@ -3132,6 +3139,8 @@ _ALL_LINE_RULES: tuple[_LineRule, ...] = (
 # reads it would flag them as unhandled.
 _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("gaps_section", _GAPS_HEADER),
+    ("pregap_searches_section", _blocks.PREGAP_SEARCHES_HEADER),
+    ("names_shortened_section", _blocks.NAMES_SHORTENED_HEADER),
     ("paranoia_counts_section", _PARANOIA_HEADER),
     ("album_loudness_section", _ALBUM_LOUDNESS_HEADER),
     ("track_block_start", _TRACK_START),
@@ -3206,6 +3215,8 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("gaps_value", _GAPS_VALUE),
+    ("pregap_searches_track", _blocks.PREGAP_SEARCHES_LINE),
+    ("names_shortened_component", _blocks.NAMES_SHORTENED_LINE),
     # The per-track `Paranoia status counts:` header. Indented, unlike the
     # disc-level one at column 0 — which is why fourteen of these per rip went
     # unread until 2026-08-24. Listed here so the generated consumer contract
@@ -3651,6 +3662,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # Section / lookahead state. Every one of these means "the next line(s) are
     # inside this block", which is precisely why they can't become table rows.
     expect_gaps = False
+    disc_block: str | None = None  # inside `Pregap searches:` / `Names shortened:`
     # Every indented line of the `Gaps:` block, in order.
     gap_lines: list[str] = []
     in_paranoia = False
@@ -3881,6 +3893,25 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if _GAPS_HEADER.match(line) and current is None:
             expect_gaps = True
             gap_lines = []
+            continue
+
+        # `.28`'s two disc-level blocks (`cyanrip_disc_blocks`, round 37 lap 1).
+        if disc_block == "searches" and (
+            searched := _blocks.parse_pregap_search_line(line)
+        ):
+            disc.pregap_searches.append(searched)
+            continue
+        if disc_block == "shortened" and (
+            shortened := _blocks.parse_shortened_name_line(line)
+        ):
+            disc.names_shortened.append(shortened)
+            continue
+        disc_block = None
+        if current is None and _blocks.PREGAP_SEARCHES_HEADER.match(line):
+            disc_block = "searches"
+            continue
+        if current is None and _blocks.NAMES_SHORTENED_HEADER.match(line):
+            disc_block = "shortened"
             continue
 
         # Disc-level rows the old if-chain tested AFTER the "Gaps:" block.
@@ -4575,6 +4606,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
             reread_time_limit_seconds=disc.reread_time_limit_seconds,
             reread_time_limit_state=disc.reread_time_limit_state,
             reread_time_limit_text=disc.reread_time_limit_text,
+            pregap_searches=tuple(disc.pregap_searches),
+            names_shortened=tuple(disc.names_shortened),
         ),
         tracks=tuple(tracks),
         accuraterip_summary=disc.accuraterip_summary,

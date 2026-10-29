@@ -1888,8 +1888,11 @@ class RipWorker(QObject):
             # only (real-hardware finding, 2026-07-01). Pass 1 always runs at max
             # (no `-S`), so an unchangeable drive is detected before any `-S` is
             # ever sent — the abort can't happen.
+            # Locked unless the log says the speed CAN change: an unknown answer
+            # locks too (round 36 lap 15 S5, TASKS R95), since a build that
+            # aborts on a refused `-S` may print a wording we read as None.
             info = getattr(parsed_log, "ripping_info", None)
-            if getattr(info, "speed_changeable", None) is False:
+            if getattr(info, "speed_changeable", None) is not True:
                 self._speed_locked = True
             # "Clean" means the pass completed (exit 0) and read without
             # unrecoverable errors. It deliberately does NOT fold in read

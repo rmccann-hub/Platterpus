@@ -489,6 +489,39 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     assert zs == [0, 2, 3]
 
 
+@pytest.mark.parametrize(
+    ("speed", "locked"),
+    [
+        ("default (unchangeable)", True),
+        # `.28`'s refused `-S` (the fork's round 37 lap 1 S8): the drive took no
+        # speed, so asking again is futile.
+        ("default (setting 8x failed)", True),
+        # Answers we read as "not determined" lock too (TASKS R95, our round 36
+        # lap 15 S5): upstream rc3's bare `default`, and the wording the fork's
+        # round 36 lap 12 S11 proposed for a drive not asked.
+        ("default", True),
+        ("default (drive not asked whether it can change speed)", True),
+        ("default (disc image, 8x not applied)", True),
+        # The control: a drive that says it can change speed is sent `-S`, so
+        # the rows above cannot pass because the ladder never sends it.
+        ("default (changeable)", False),
+    ],
+)
+def test_the_speed_lock_engages_unless_the_log_says_the_speed_can_change(
+    qapp: QApplication, tmp_path: Path, speed: str, locked: bool
+) -> None:
+    backend = _per_pass_backend(tmp_path, [(_stock_log(errors=3, speed=speed), 1)])
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) >= 2, speed
+    sent_speed = any(call["read_speed"] != 0 for call in backend.rip_calls)
+    assert sent_speed is not locked, (speed, backend.rip_calls)
+
+
 # --- The ladder steps down on a pass the DRIVE could not read cleanly --------
 #
 # cyanrip exits 1 whenever its drive error count is non-zero
