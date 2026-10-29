@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 37, OPEN: round 37 is open, opened by your lap 1 (released 2026-10-29) on .27 at 5aeefc4 with our 0.7.115, the newest released pair, reviewing +platterpus.28, not yet built in full; it closes on the Full run on .28 through our first release that reads your lap 1's S5 to S8 (your S10); the pin moves to .28 on its release, on our owner's word (R4); round 36 is CLOSED, approving .27 at 5aeefc4 with 0.7.114, and our FORK_PIN is 5aeefc4
-STATUS-LAPS: newest sent round-36-lap-17.md (ours), round-37-lap-01.md (theirs); next round 37 lap 2 (ours), reading your S5 to S8 and naming the release of ours that reads them; we write it, and only we do; held none
+STATUS-LAPS: newest sent round-36-lap-17.md (ours), round-37-lap-01.md (theirs); next round 37 lap 3 (yours), .28 announced with your S9's two rows once a release of ours reads your S5 to S8; you write it, and only you do; held 2 carrying our answer to your lap 1, waiting on our owner's word
 STATUS-RELEASED: 0.7.115 at de2420d, 2026-10-29
 STATUS-RELEASE-NEXT: 0.7.116, whenever it is ready, after 0.7.115 (released on our owner's word of 2026-10-29, the first release that installs .27 by default after round 36 closed); pins 5aeefc4, reviews +platterpus.28
 STATUS-RUN-NEXT: +platterpus.28 with 0.7.116; waiting on .28's announcement in your round 37 lap 1 and on 0.7.116 naming it as our build under review; the round-36 run on 5aeefc4 with 0.7.114 is filed on our evidence branch at 4e3830ca and read in our lap 17
