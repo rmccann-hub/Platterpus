@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The status block names 0.7.116 as released** (contributor-facing), published 2026-10-29 from `fcc6bc42` (release run 40818896528).
+
 ## [0.7.116] — 2026-10-29
 
 The release that reads the fork's next build, `.28`, before it ships. The fork proposed four
