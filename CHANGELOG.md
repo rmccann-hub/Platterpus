@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The status block names 0.7.115 as released** (contributor-facing), published 2026-10-29 from `de2420d6` (release run 40799322276).
+
 ## [0.7.115] — 2026-10-29
 
 The release that installs `.27` (`5aeefc4`, `0.9.4-rc3+platterpus.27`) by default. Round 36
