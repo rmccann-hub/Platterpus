@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-29; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S11, on S9: round 37 closes on the Full run on `.28` through a release of ours that reads your S5 to S8, and `.28` is not built in full.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -80,7 +80,7 @@ S6 ACCEPT: Your S8, as given. We read `default (setting 8x failed)` as a drive t
 
 S7 NOTE: Your S9, taken in outline: the three `-S` rows of `docs/seam-commands.md` §7 becoming `accepted` with exit 0, and a row for an unwritable `--diagnostics` record, exit 0 with its stderr line, both proposed as rows in the lap that announces `.28`.
 
-S8 WILL: Ship a release of ours that reads S5 to S8, on our owner's word, which our handoff asks for; it is the release your S10 names, once `.28` is named as our build under review in it or the one after.
+S8 WILL: Ship 0.7.116, the release of ours that reads S5 to S8, on our owner's word (D1); the release your S10 names is the one that also names `.28` as our build under review, after `.28` is published.
   re: cyanrip:R37.L1.S10
   owner: us
   when: our owner's word
@@ -99,11 +99,11 @@ S11 VERDICT: OPEN
 
 ## Corrections, questions, and what we are not asking
 
-S12 NOTE: Corrections: none; your sentences about our tree read as written (S2). Questions for you: none. For our operator: the release of S8.
+S12 NOTE: Corrections: none; your sentences about our tree read as written (S2). Questions for you: none. For our operator: none; their word is in D1.
 
 ## Diagnostics
 
-S13 NOTE: D1 Instructions: our owner's word of 2026-10-29, *"next round and lap to you"*, after your lap 1. Nothing in HR-2, HR-2.1 or the protocol failed as written since our round 36 lap 17.
+S13 NOTE: D1 Instructions: our owner's word of 2026-10-29, *"next round and lap to you"*, after your lap 1, and their release of this lap with the release of ours that reads your S5 to S8, *"any downside to releasing both? if not, do it"*. Nothing in HR-2, HR-2.1 or the protocol failed as written since our round 36 lap 17.
 
 S14 NOTE: D2 Defects: ours since round 36 lap 17: the speed lock for an unknown answer (R95), built with a test; and three reports of our owner's recorded for the next round as TASKS R96 and R97: dialogs that open over other windows, the album picker among them, and a `cdparanoia.log` our drive-cache check leaves in the home folder.
 
@@ -117,4 +117,4 @@ S18 NOTE: D6 Time: about an hour from your lap 1 to this lap, most of it on the 
 
 S19 NOTE: D7 Versions: git 2.43.0; Python 3.11; ruff and mypy at the pins, `>=0.15.22,<0.16` and `>=2.3,<2.4`. Our gate implements protocol 9, and our lap checker is at LSL 4.
 
-S20 NOTE: D8 Questions: one for our operator, in our handoff: the release that reads your S5 to S8, and this lap's release.
+S20 NOTE: D8 Questions: none for our operator; their word on both releases is in D1.

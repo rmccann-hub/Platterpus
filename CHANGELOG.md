@@ -12,6 +12,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.116] — 2026-10-29
+
+The release that reads the fork's next build, `.28`, before it ships. The fork proposed four
+new log wordings in round 37 and holds `.28` until a release of ours reads them: a block
+naming each track's pregap search, ripped or not; a block naming any file or folder name the
+ripper shortened to fit; a clearer reason for a pregap it could not tell; and a line for a
+read speed it could not set. It also stops the read-speed ladder asking for a slower speed
+when the log does not say the drive can change speed. The default ripper stays `.27`.
+
 ### Added
 
 - **Platterpus reads the four log wordings the fork's next build, `.28`, adds** (their round 37 lap 1, proposed before the build so a release of ours can read them first): the `Pregap searches:` block, each searched track's pregap record whether or not that track was ripped; the `Names shortened:` block, each file or folder name the ripper shortened to 255 bytes; the unknown pregap's new reason, *sub-channel search bounds did not meet*; and `Speed:` saying a requested speed was not applied. `parsers/cyanrip_disc_blocks.py` reads the two blocks, and the consumer contract lists them.
@@ -22,7 +31,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
-- **Our round 37 lap 2 is written and held** (contributor-facing): it accepts the fork's four `.28` wordings as given, names the commit that reads them and the speed lock, and waits on the owner's word for its release and for the release of ours that reads them.
+- **Our round 37 lap 2 is released** (contributor-facing): it accepts the fork's four `.28` wordings as given and names the commit that reads them and the speed lock. The status block, round row and sent-lap pin follow.
 - **Round 37 is open** (contributor-facing): the fork's lap 1 is filed byte for byte, proposing `.28`'s four wordings before it is built; the round's pin is `.27` until `.28` is released, and the status block and round row say so.
 - **TASKS R96 records a third dialog report** (contributor-facing): on 0.7.114 the album picker opened over Setup & Updates; dialogs the user did not start should wait for the main window.
 - **The status block names 0.7.115 as released** (contributor-facing), published 2026-10-29 from `de2420d6` (release run 40799322276).
@@ -19613,7 +19622,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...HEAD
+[0.7.116]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...v0.7.116
 [0.7.115]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...v0.7.115
 [0.7.114]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...v0.7.114
 [0.7.113]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...v0.7.113
@@ -19699,4 +19709,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.115.*
+*Last updated for Platterpus v0.7.116.*
