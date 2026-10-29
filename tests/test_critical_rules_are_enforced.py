@@ -1161,7 +1161,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **372 -> 378** (2026-09-29): a cache probe our cancel ended returns no measurement
     # and records no tool failure (`killable.was_cancelled`).
     # **378 -> 388** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the saved cd-paranoia output keeps head and tail (`diagnostics.bounded_output`), and the comment says why: the verdict is the last thing it prints, and the 2,000-character cut dropped it.
-    "adapters/cache_probe.py": 388,
+    # **388 -> 409** (2026-10-29, TASKS R97): the probe runs in a folder of its own, so `probe_cache_defeat` wraps the old body (`_probe`) and returns the tool's log; the folder handling itself lives in `adapters/cache_probe_folder.py`.
+    "adapters/cache_probe.py": 409,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **567 -> 635** (2026-10-26, peer review 2.8): the manifest is a server's answer: `_manifest_images` (any shape is no images, never an exception), `image_url_is_ours` (only the archive's own http(s) hosts are fetched) and `MAX_EXTRA_IMAGES`; all three belong beside the one function that reads the manifest.
     "adapters/cover_art.py": 635,

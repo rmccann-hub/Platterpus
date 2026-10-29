@@ -341,6 +341,7 @@ Platterpus/
         │
         ├── adapters/                    # ALL calls into external tools/services go through here
         │   ├── cache_probe.py           # measured drive cache-defeat probe via cd-paranoia -A (KDD-25/29)
+        │   ├── cache_probe_folder.py    # a folder of its own for cd-paranoia -A's cdparanoia.log (TASKS R97)
         │   ├── accuraterip_offsets_data.py  # GENERATED: the bundled AccurateRip drive-offset table
         │   ├── __init__.py
         │   ├── rip_backend.py           # RipBackend ABC (+ RipMetadata); the previous backend's impl removed 2026-06-30 (KDD-18)
@@ -626,6 +627,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`atomic_write.py`** — durable atomic file writes (temp → fsync → replace → fsync-dir), the one shared implementation behind every small state file (`config.py`, `drive_profile_store.py`, `rip_report.py`) so "crash-safe" also means "power-loss-safe".
 - **`build_info.py`** — build + runtime environment facts (build fingerprint, platform) for the JSON report's `environment` block; tiny and Qt-free so `rip_report` can import it without PySide6.
 - **`rip_compare.py`** — compares two `.platterpus.json` reports of the same disc ("you've ripped this before"): which tracks are byte-identical, which differ, and which rip is the better master. Pure; powers the post-rip banner and the CLI. The prior-report scan covers the output root plus any extra roots (the auto-move library folder).
+- **`adapters/cache_probe_folder.py`** — a fresh folder under the app's data folder for the cache probe to run in, because `cd-paranoia -A` writes `cdparanoia.log` wherever it starts (TASKS R97: a Full run left 325 KB of it in the owner's home folder). Reads the log back bounded head and tail, then removes the folder; a folder that cannot be made means the probe does not run.
 - **`adapters/cache_probe.py`** — the `cd-paranoia -A` cache-defeat probe (KDD-29): builds the argv, runs it off the GUI thread with a generous timeout (the analysis takes minutes, not seconds), and parses the verdict into a measured `Yes`/`No` — or leaves it honestly `(unknown)` when inconclusive.
 - **`library_move.py`** — moves a finished rip's album folder into the user's library folder (Settings "Move finished rips to"; the caller gates it on post-rip settlement). Pure, never raises, returns a `MoveResult`; never overwrites (collisions get a "(N)" sibling) and refuses self-nesting/workspace-root moves.
 - **`cli_compare.py`** — terminal glue for `--compare` / `--assemble-best-of`; printing + exit codes only, all logic (and tests) in `rip_compare`.
