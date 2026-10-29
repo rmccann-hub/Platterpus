@@ -12,6 +12,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.115] — 2026-10-29
+
+The release that installs `.27` (`5aeefc4`, `0.9.4-rc3+platterpus.27`) by default. Round 36
+closed on 2026-10-28 with both sides `GO`, approving `.27` on the owner's Full run of the
+reference disc through 0.7.114 (553 pass, 0 fail): it reads about three times faster than
+`.25`, says whether the disc is recordable, reads each track's ISRC from the disc, and records
+its pregap search. It also stops `--ctdb-calibrate` asking you to paste back a result once the
+CTDB algorithm is validated.
+
 ### Fixed
 
 - **`--ctdb-calibrate` no longer asks you to paste back a result that changes nothing.** After a match it said *"Paste this back: CRC_VALIDATED flips to True"*, though that flag has been True since 2026-07-07; it now says the algorithm is already validated. Held by `tests/test_ctdb_diagnose.py`.
@@ -19589,7 +19598,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...HEAD
+[0.7.115]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...v0.7.115
 [0.7.114]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...v0.7.114
 [0.7.113]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.112...v0.7.113
 [0.7.112]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.111...v0.7.112
@@ -19674,4 +19684,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.115.*
