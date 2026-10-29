@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The 2026-10-29 Full run on 0.7.115 is filed and graded `full-green`** (contributor-facing): the first with `.27` as the approved default, 440 pass and 0 fail, filed on `evidence` at `7a5cff47` with its 82 manifest rows; P5 and P6, which compare two builds, did not run because there was one.
 - **The status block names 0.7.116 as released** (contributor-facing), published 2026-10-29 from `fcc6bc42` (release run 40818896528).
 
 ## [0.7.116] — 2026-10-29
