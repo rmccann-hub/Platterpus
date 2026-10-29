@@ -1724,10 +1724,12 @@ several gotchas found the hard way:
     unhashed, so both builds run `--no-isolation` with the backend the lock
     installed.
 
-  CI's `test`, `lint` and `typecheck` jobs install `build/locks/ci.lock`, one
+  CI's `test` and `typecheck` jobs install `build/locks/ci.lock`, one
   universal resolution for every Python of the matrix, then the project with
   `--no-index --no-deps --no-build-isolation`, so nothing but a lock reaches PyPI.
-  `mutation.yml` installs the same lock; the required `sbom` job installs
+  `mutation.yml` installs the same lock; the `lint` job installs
+  `build/locks/lint.lock`, ruff alone at the version ci.lock pins (2026-10-29,
+  after a stalled 175 MB PySide6 download ran it out of time); the required `sbom` job installs
   `build/locks/sbom.lock` (the runtime dependencies, the `sbom` extra and the
   backend) the same way; and the linter jobs install zizmor and ShellCheck from
   `build/locks/ci-lint.lock`. The one CI install still by range is actionlint-py,

@@ -98,6 +98,8 @@ LOCKS: Final[dict[str, LockSpec]] = {
     "build/locks/ci-lint.lock": LockSpec(
         "ci-lint", ("extra:ci-lint:zizmor", "extra:ci-lint:shellcheck-py"), 2
     ),
+    # 2026-10-29: the lint job's own lock, ruff alone (one package).
+    "build/locks/lint.lock": LockSpec("lint", ("extra:dev:ruff",), 1),
 }
 
 
@@ -719,7 +721,7 @@ HASHED_JOBS: Final[dict[tuple[str, str], str]] = {
     ("appimage.yml", ""): "build/locks/release.lock",
     ("publish-pypi.yml", ""): "build/locks/publish.lock",
     ("ci.yml", "pip-audit"): "build/locks/audit.lock",
-    ("ci.yml", "lint"): "build/locks/ci.lock",
+    ("ci.yml", "lint"): "build/locks/lint.lock",
     ("ci.yml", "typecheck"): "build/locks/ci.lock",
     ("ci.yml", "test"): "build/locks/ci.lock",
     # The follow-up review of 2026-10-27, item 5.
@@ -808,10 +810,19 @@ def test_the_sbom_describes_the_versions_ci_tests() -> None:
 
 
 #: Locks the lock-install job need not repeat: ci.lock is installed on every
-#: pull request by the test, lint and typecheck jobs already.
+#: pull request by the test and typecheck jobs, and lint.lock by the lint job.
 _INSTALLED_ELSEWHERE_ON_EVERY_PULL_REQUEST: Final[frozenset[str]] = frozenset(
-    {"build/locks/ci.lock"}
+    {"build/locks/ci.lock", "build/locks/lint.lock"}
 )
+
+
+def test_the_lint_lock_pins_the_ruff_the_ci_lock_pins() -> None:
+    """The lint job installs ruff alone (lint.lock) since 2026-10-29, and the
+    test and typecheck jobs ci.lock: both gates must judge with one ruff."""
+    lint = _lock_versions("build/locks/lint.lock")
+    ci = _lock_versions("build/locks/ci.lock")
+    assert set(lint) == {"ruff"}, lint
+    assert lint["ruff"] == ci["ruff"], (lint["ruff"], ci["ruff"])
 
 
 def test_every_lock_is_installed_and_built_from_on_pull_requests() -> None:

@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **CI's lint job installs ruff alone, from its own hashed lock** (contributor-facing, `build/locks/lint.lock`). It installed the whole CI lock, PySide6's 175 MB included, to run one tool, and on 0.7.116's merge commit that download stalled at 186 kB/s and hit the job's 15-minute bound. The lint lock is resolved from the same range at the same date as the CI lock, and a test holds their two ruff versions equal.
+
 ## [0.7.116] — 2026-10-29
 
 The release that reads the fork's next build, `.28`, before it ships. The fork proposed four
