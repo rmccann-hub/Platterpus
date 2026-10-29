@@ -819,8 +819,12 @@ def test_ctdb_names_the_data_track_rather_than_a_partial_rip(tmp_path: object) -
         ("default (changeable)", True),
         ("8x", True),
         # Upstream rc3's wording, which the fork did NOT take (their §3): not
-        # determined, so the speed lock is not engaged.
+        # determined. From 2026-10-29 the speed lock engages on that too (TASKS
+        # R95; `tests/test_rip_worker.py`).
         ("default", None),
+        # `.28` (the fork's round 37 lap 1 S8): `-S` asked and not applied.
+        ("default (setting 8x failed)", False),
+        ("default (disc image, 8x not applied)", None),
     ],
 )
 def test_the_speed_line_still_decides_the_speed_lock(

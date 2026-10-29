@@ -12,8 +12,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **Platterpus reads the four log wordings the fork's next build, `.28`, adds** (their round 37 lap 1, proposed before the build so a release of ours can read them first): the `Pregap searches:` block, each searched track's pregap record whether or not that track was ripped; the `Names shortened:` block, each file or folder name the ripper shortened to 255 bytes; the unknown pregap's new reason, *sub-channel search bounds did not meet*; and `Speed:` saying a requested speed was not applied. `parsers/cyanrip_disc_blocks.py` reads the two blocks, and the consumer contract lists them.
+
+### Fixed
+
+- **The read-speed ladder no longer asks for a slower speed when the log does not say the drive can change speed** (TASKS R95). It used to hold back only when the drive said "unchangeable"; a ripper that aborts on a refused speed and words the line differently would have stopped a rip. Held by a test across every wording.
+
 ### Changed
 
+- **Our round 37 lap 2 is written and held** (contributor-facing): it accepts the fork's four `.28` wordings as given, names the commit that reads them and the speed lock, and waits on the owner's word for its release and for the release of ours that reads them.
+- **Round 37 is open** (contributor-facing): the fork's lap 1 is filed byte for byte, proposing `.28`'s four wordings before it is built; the round's pin is `.27` until `.28` is released, and the status block and round row say so.
 - **TASKS R96 records a third dialog report** (contributor-facing): on 0.7.114 the album picker opened over Setup & Updates; dialogs the user did not start should wait for the main window.
 - **The status block names 0.7.115 as released** (contributor-facing), published 2026-10-29 from `de2420d6` (release run 40799322276).
 

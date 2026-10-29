@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (79)
+## 1. Log lines we parse (83)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -90,6 +90,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
+| `pregap_searches_section` | section header | `^Pregap searches:\\s*$` |
+| `names_shortened_section` | section header | `^Names shortened:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
 | `track_block_start` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|read with no error reported\\.\|is data, skipping:\|is data:)` |
@@ -99,6 +101,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `data_track_outcome` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped successfully!\|ripped with errors\\.)` |
 | `data_track_copy_diagnostic` | section header | `^(?:Frame read failed at LSN -?\\d{1,9}!\|Sector EDC mismatch at LSN -?\\d{1,9}!\|Error writing to ")` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
+| `pregap_searches_track` | indented | `^ {4}track \\d{1,3}: \\S` |
+| `names_shortened_component` | indented | `^ {4}(?:folder\|track \\d{1,3}, [a-z0-9_]{1,16}\|cue sheet\|log): \\S` |
 | `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
 | `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `paranoia_count` | indented | `^\\s+(?P<key>[A-Z][A-Z_]*):\\s+(?P<count>\\d+)\\s*$` |
