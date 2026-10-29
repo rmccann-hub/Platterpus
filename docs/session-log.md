@@ -17,6 +17,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 - **The fork's lap 16 held** on track 9's pregap, unexplained in 21 of 23 `.27` logs. Our reading had said GO from one log; lap 17 corrected that in the full-sentence form, on the owner's approval of `.27` on this run (*"1. approve it"*), and said `GO` (#410). Their lap 18 said `GO` with their track 9 record fixed, and round 36 closed; `FORK_PIN` moved to `5aeefc4`.
 - **CTDB localisation on real audio**: the owner's `--ctdb-calibrate` on EAC's FLACs located track 5's 3 samples at 02:24:59, as EAC's log does (R43); its stale "paste this back" line fixed.
 - **Recorded for next round:** dialogs stacking behind other windows (R96) and the `cdparanoia.log` the cache check leaves at home (R97).
+- **0.7.115** on the owner's word of 2026-10-29 (*"then release it and let me know when done"*): the first release that installs `.27` by default.
 - **Learned.** Count every log of a run before writing a verdict on it; one log is a sample. A command handed to the owner names the full path of the program and writes to `~/platterpus-rig/`, never to the home folder or the current one.
 
 ## 2026-10-27/28 — lap 13; three reviews answered; hashed locks; 0.7.114
@@ -11011,4 +11012,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.115.*
