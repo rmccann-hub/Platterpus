@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS R96 records a third dialog report** (contributor-facing): on 0.7.114 the album picker opened over Setup & Updates; dialogs the user did not start should wait for the main window.
 - **The status block names 0.7.115 as released** (contributor-facing), published 2026-10-29 from `de2420d6` (release run 40799322276).
 
 ## [0.7.115] — 2026-10-29
