@@ -22,7 +22,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
-- **Our round 37 lap 2 is written and held** (contributor-facing): it accepts the fork's four `.28` wordings as given, names the commit that reads them and the speed lock, and waits on the owner's word for its release and for the release of ours that reads them.
+- **Our round 37 lap 2 is released** (contributor-facing): it accepts the fork's four `.28` wordings as given and names the commit that reads them and the speed lock. The status block, round row and sent-lap pin follow.
 - **Round 37 is open** (contributor-facing): the fork's lap 1 is filed byte for byte, proposing `.28`'s four wordings before it is built; the round's pin is `.27` until `.28` is released, and the status block and round row say so.
 - **TASKS R96 records a third dialog report** (contributor-facing): on 0.7.114 the album picker opened over Setup & Updates; dialogs the user did not start should wait for the main window.
 - **The status block names 0.7.115 as released** (contributor-facing), published 2026-10-29 from `de2420d6` (release run 40799322276).
