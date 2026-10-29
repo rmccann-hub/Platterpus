@@ -94,17 +94,18 @@ jobs:
       # problem — which is, word for word, the failure rule #11 describes.
       # `tests/test_gating_tools_are_pinned.py` refuses a literal version here.
       #
-      # Since 2026-10-27 (the review's follow-up to item 2.3) the job installs
-      # build/locks/ci.lock: pyproject's ranges resolved by
-      # build/lock-requirements.sh to one version of every package, each with the
-      # sha256 of every file, refused otherwise. The same lock as `typecheck` and
-      # every `test` leg, so the three gates judge the code with the same tools.
-      # `tests/test_dependency_locks.py` fails when the lock leaves pyproject's
-      # ranges, so the range is still chosen in one place. Until then this step
-      # read ruff's range out of pyproject and installed whatever PyPI served in it.
-      - name: Install ruff from the hashed CI lock (the gate cannot float)
+      # Since 2026-10-29 the job installs build/locks/lint.lock: ruff alone,
+      # resolved from the dev extra's range at the same date as ci.lock, so the
+      # same ruff the `test` and `typecheck` jobs install
+      # (`tests/test_dependency_locks.py` holds the two versions equal, and fails
+      # when either lock leaves pyproject's range). From 2026-10-27 it installed
+      # ci.lock whole, PySide6's 175 MB of wheels included, to run one tool; on
+      # 0.7.116's merge commit that download ran at 186 kB/s and the job hit its
+      # 15-minute bound with ruff never run. Before 2026-10-27 this step read
+      # ruff's range out of pyproject and installed whatever PyPI served in it.
+      - name: Install ruff from its hashed lock (the gate cannot float)
         run: |
-          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci.lock
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/lint.lock
 
       - name: Lint (ruff check)
         run: ruff check src tests scripts build
@@ -425,10 +426,10 @@ jobs:
           locks=(build/python-appimage/requirements.lock build/locks/*.lock)
           shopt -u nullglob
           # A floor, so an audit that found no locks cannot pass as a clean one:
-          # the AppImage's lock, the three tool locks, the CI lock, and the sbom
-          # and ci-lint locks.
-          if [ "${#locks[@]}" -lt 7 ]; then
-            echo "::error::expected at least 7 locks to audit, found ${#locks[@]}: ${locks[*]}"
+          # the AppImage's lock, the three tool locks, the CI lock, and the sbom,
+          # ci-lint and lint locks.
+          if [ "${#locks[@]}" -lt 8 ]; then
+            echo "::error::expected at least 8 locks to audit, found ${#locks[@]}: ${locks[*]}"
             exit 1
           fi
           args=()

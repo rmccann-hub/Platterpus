@@ -31,7 +31,9 @@
 #       attestation check (the test holds its sigstore equal to the AppImage's).
 #   build/locks/publish.lock   publish-pypi.yml: `build`, `twine`, the backend.
 #   build/locks/audit.lock     ci.yml's pip-audit job: pip-audit alone.
-#   build/locks/ci.lock        ci.yml's test, lint and typecheck jobs, and
+#   build/locks/lint.lock      ci.yml's lint job: ruff alone, the version ci.lock
+#       pins (tests/test_dependency_locks.py holds the two equal).
+#   build/locks/ci.lock        ci.yml's test and typecheck jobs, and
 #       mutation.yml's sweep: the runtime dependencies, the dev extra and the
 #       backend, one universal resolution for every Python the matrix runs.
 #   build/locks/sbom.lock      ci.yml's sbom job: the runtime dependencies (the
@@ -105,9 +107,10 @@ AUDIT_LOCK="build/locks/audit.lock"
 CI_LOCK="build/locks/ci.lock"
 SBOM_LOCK="build/locks/sbom.lock"
 CI_LINT_LOCK="build/locks/ci-lint.lock"
+LINT_LOCK="build/locks/lint.lock"
 LOCK_FILES=(
     "$APPIMAGE_LOCK" "$RELEASE_LOCK" "$PUBLISH_LOCK" "$AUDIT_LOCK" "$CI_LOCK"
-    "$SBOM_LOCK" "$CI_LINT_LOCK"
+    "$SBOM_LOCK" "$CI_LINT_LOCK" "$LINT_LOCK"
 )
 
 # The CPython python-appimage bundles. MUST equal PLATTERPUS_PYTHON_VERSION's
@@ -398,7 +401,7 @@ lock_universal "$PUBLISH_LOCK" publish \
     extra:publish build-system
 lock_universal "$AUDIT_LOCK" audit \
     extra:dev:pip-audit
-# CI's test, lint and typecheck jobs, on every Python of the matrix (3.11 to
+# CI's test and typecheck jobs, on every Python of the matrix (3.11 to
 # 3.14) from one resolution: the runtime dependencies, the dev extra, and the
 # backend the editable install builds with (`--no-build-isolation`).
 lock_universal "$CI_LOCK" ci \
@@ -415,6 +418,13 @@ lock_universal "$SBOM_LOCK" sbom \
 # installs it by pyproject's range, and TASKS R91 records the gap.
 lock_universal "$CI_LINT_LOCK" ci-lint \
     extra:ci-lint:zizmor extra:ci-lint:shellcheck-py
+# CI's lint job: ruff alone, from the dev extra's range. Until 2026-10-29 lint
+# installed ci.lock, PySide6's 175 MB of wheels included, to run one tool: on
+# 0.7.116's merge commit that download ran at 186 kB/s and the job hit its
+# 15-minute bound with ruff never run. Same range and same date as ci.lock, so
+# the same ruff; tests/test_dependency_locks.py holds the two versions equal.
+lock_universal "$LINT_LOCK" lint \
+    extra:dev:ruff
 
 if [ "$MODE" = "check" ]; then
     failed=0

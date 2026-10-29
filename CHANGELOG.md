@@ -31,6 +31,7 @@ when the log does not say the drive can change speed. The default ripper stays `
 
 ### Changed
 
+- **CI's lint job installs ruff alone, from its own hashed lock** (contributor-facing, `build/locks/lint.lock`). It installed the whole CI lock, PySide6's 175 MB included, to run one tool, and on 0.7.116's merge commit that download stalled at 186 kB/s and hit the job's 15-minute bound. The lint lock is resolved from the same range at the same date as the CI lock, and a test holds their two ruff versions equal.
 - **Our round 37 lap 2 is released** (contributor-facing): it accepts the fork's four `.28` wordings as given and names the commit that reads them and the speed lock. The status block, round row and sent-lap pin follow.
 - **Round 37 is open** (contributor-facing): the fork's lap 1 is filed byte for byte, proposing `.28`'s four wordings before it is built; the round's pin is `.27` until `.28` is released, and the status block and round row say so.
 - **TASKS R96 records a third dialog report** (contributor-facing): on 0.7.114 the album picker opened over Setup & Updates; dialogs the user did not start should wait for the main window.
