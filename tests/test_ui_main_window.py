@@ -14374,7 +14374,8 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
 
     monkeypatch.setattr(ReleasePickerDialog, "exec", _fake_exec)
     first_scan = window._disc_retries.request
-    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window"):
+    # `platterpus.ui`: the picker's lines come from `ui.main_window_picker`.
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
         window._on_mb_releases(disc, releases)
 
     assert pickers[0].scan_request == first_scan

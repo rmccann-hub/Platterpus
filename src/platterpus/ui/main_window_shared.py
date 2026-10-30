@@ -125,6 +125,7 @@ if TYPE_CHECKING:
     # reference below is a string mypy resolves and the interpreter never does.
     from platterpus.ui.main_window_rip import _PendingBundle
     from platterpus.ui.post_rip_record import PostRipRecord
+    from platterpus.ui.release_picker import ReleasePickerDialog
     from platterpus.ui.rip_controls import RipControls
     from platterpus.ui.rip_progress import RipProgress
     from platterpus.ui.track_table import TrackTable
@@ -191,6 +192,11 @@ class MainWindowShared(_SeamBase):
     #: silently replaced the tags already chosen. Seven of that run's seven
     #: failures descend from it.
     _mb_release_chosen_for: str
+    #: The disc whose release picker is open, waiting to open, and that picker
+    #: (``ui/main_window_picker.py``); "" and None when there is none.
+    _mb_picker_open_for: str
+    _mb_picker_held_for: str
+    _open_release_picker: ReleasePickerDialog | None
     _current_num_tracks: int
     #: True when this launch is driving the GUI from a script rather than for a
     #: person (``--run-script``, or the saved autorun pair). Set by ``app.py``
@@ -409,6 +415,8 @@ class MainWindowShared(_SeamBase):
         def _start_disc_info(
             self, device: str, *, automatic_retry: bool = ...
         ) -> None: ...
+        def _is_stale_mb_result(self, context: str) -> bool: ...
+        def _fetch_release_detail(self, mbid: str, context: str) -> None: ...
 
         # Defined in DiscReturnMixin (main_window_disc_return.py):
         def _park_disc(self) -> None: ...

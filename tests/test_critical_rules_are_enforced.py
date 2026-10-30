@@ -2455,7 +2455,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1819 -> 1821** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the typed `_last_*` working copies.
     # **1821 -> 1833** (2026-10-26, run A on 0.7.112, the drive flicker): `DiscReturnMixin` in the class list and its import, `_parked_disc` initialised beside the disc-id fields it parks, a drive change (Rescan) dropping it, and `_on_disc_info_ready` restoring the same disc's release instead of a new lookup. The logic is in `ui/main_window_disc_return.py`; these are the call sites it needs on the window.
     # **1833 -> 1869** (2026-10-26, run A on 0.7.112, the script's `rescan` then `pick-release`): a new disc scan closes the release picker an older scan left open (`_close_superseded_picker`, called where a new read request begins), each picker carries the scan that asked it, and the slot logs a superseded close apart from a cancel. These are the MusicBrainz slots and the picker they own, which live here.
-    "ui/main_window.py": 1869,
+    # **1869 -> 1792** (2026-10-29, TASKS R96): down: the release picker and `_close_superseded_picker` moved to `ui/main_window_picker.py` (`ReleasePickerMixin`), so the picker can wait for the main window; the slot keeps one call and the one-held-picker guard.
+    "ui/main_window.py": 1792,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2677,7 +2678,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **458 -> 469** (2026-10-26, run A on 0.7.112, the drive flicker): `_parked_disc` and the three cross-mixin methods `DiscReturnMixin` and `DriveMixin` call on each other, declared so mypy resolves them.
     # **458 -> 463** (2026-10-26, run B): the seam declares `_album_folder_settled` and `_post_rip_still_running`, which the acceptance session now asks before it packs.
     # **-> 474** (2026-10-26): the entries above landed together on one branch.
-    "ui/main_window_shared.py": 474,
+    # **474 -> 482** (2026-10-29, TASKS R96): the three release-picker fields and the two MainWindow methods `ReleasePickerMixin` uses, declared so mypy resolves them.
+    "ui/main_window_shared.py": 482,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

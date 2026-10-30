@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The album picker no longer opens over another Platterpus window you are using** (TASKS R96). On 0.7.114 it opened over Setup & Updates when a disc's lookup found more than one release. It now waits until the main window is the one in use, then opens if the disc is still the same one. Questions a running task is waiting on still open at once.
 - **The drive-cache check no longer leaves `cdparanoia.log` in your home folder** (TASKS R97). `cd-paranoia -A` writes that log wherever it is started, and Platterpus started it wherever the app was launched. It now runs in a folder of its own inside Platterpus's data folder, the log is kept with the run's results, and the folder is removed.
 
 ### Changed
