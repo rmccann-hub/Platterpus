@@ -268,7 +268,9 @@ tiers. "I added a happy-path test" is not done.
 5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14),
    each leg in parallel (`pytest -n auto`). The coverage floor runs on the 3.14
    leg only (2026-09-26), because its `sys.monitoring` tracer is the fast one;
-   every leg still runs every test. Add a version when users move to it; we've
+   every leg runs every test but the UI conformance matrix, which since
+   2026-11-02 runs once, in the `ui-conformance` job: it measures Qt's layout,
+   which the Python version does not change, and it was each leg's long pole. Add a version when users move to it; we've
    been bitten by version-specific breakage before.
 6. **The hardware gate is explicit.** Anything that can only be proven on real
    hardware goes in [test-plan.md](test-plan.md) with a checkbox, and the code is

@@ -14,11 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The AppImage builds again** (TASKS R98). The build fetched its packing tool, appimagetool, from a release that changes whenever upstream pushes, and the version published on 2026-11-01 refused to pack it, so every build from 2026-11-02 failed, a release included. The build now uses a fixed appimagetool release, checked by sha256.
 - **The album picker no longer opens over another Platterpus window you are using** (TASKS R96). On 0.7.114 it opened over Setup & Updates when a disc's lookup found more than one release. It now waits until the main window is the one in use, then opens if the disc is still the same one. Questions a running task is waiting on still open at once.
 - **The drive-cache check no longer leaves `cdparanoia.log` in your home folder** (TASKS R97). `cd-paranoia -A` writes that log wherever it is started, and Platterpus started it wherever the app was launched. It now runs in a folder of its own inside Platterpus's data folder, the log is kept with the run's results, and the folder is removed.
 
 ### Changed
 
+- **CI runs the UI conformance matrix once, in a job of its own, instead of in every Python version's test run** (contributor-facing). It took about four minutes of one worker's time, and it made each of the four test runs take 4 to 10 minutes for the same work. What it measures, window layout in one named font, does not change with the Python version. The new job is `ui-conformance`; a test holds that the test runs leave the file out and this job runs it.
 - **A test that leaves a main window on screen now fails itself, not a later test** (contributor-facing). The check that fails a test for a dialog it left showing now covers main windows too. The release-picker tests left the real window showing, and a later test on the same CI worker read its labels and failed `main`'s CI after #420; those tests now put their window away. The rescan timing test arms its timer when the rescan begins, so a loaded CI worker cannot fail it.
 - **The hashed locks are regenerated to 2026-10-26, and four CI actions are updated** (contributor-facing). Eight tool pins moved, none of them a runtime dependency of the app; `pypa/gh-action-pypi-publish` moves to v1.14.3, which fixes GHSA-5xjx-3w67-w9x9. The weekly relock's branch and Dependabot's #403 are carried here, as KDD-43 describes.
 - **The 2026-10-29 Full run on 0.7.115 is filed and graded `full-green`** (contributor-facing): the first with `.27` as the approved default, 440 pass and 0 fail, filed on `evidence` at `7a5cff47` with its 82 manifest rows; P5 and P6, which compare two builds, did not run because there was one.
