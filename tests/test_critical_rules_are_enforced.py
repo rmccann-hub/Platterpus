@@ -1161,7 +1161,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **372 -> 378** (2026-09-29): a cache probe our cancel ended returns no measurement
     # and records no tool failure (`killable.was_cancelled`).
     # **378 -> 388** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the saved cd-paranoia output keeps head and tail (`diagnostics.bounded_output`), and the comment says why: the verdict is the last thing it prints, and the 2,000-character cut dropped it.
-    "adapters/cache_probe.py": 388,
+    # **388 -> 409** (2026-10-29, TASKS R97): the probe runs in a folder of its own, so `probe_cache_defeat` wraps the old body (`_probe`) and returns the tool's log; the folder handling itself lives in `adapters/cache_probe_folder.py`.
+    "adapters/cache_probe.py": 409,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **567 -> 635** (2026-10-26, peer review 2.8): the manifest is a server's answer: `_manifest_images` (any shape is no images, never an exception), `image_url_is_ours` (only the archive's own http(s) hosts are fetched) and `MAX_EXTRA_IMAGES`; all three belong beside the one function that reads the manifest.
     "adapters/cover_art.py": 635,
@@ -2454,7 +2455,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1819 -> 1821** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the imports for the typed `_last_*` working copies.
     # **1821 -> 1833** (2026-10-26, run A on 0.7.112, the drive flicker): `DiscReturnMixin` in the class list and its import, `_parked_disc` initialised beside the disc-id fields it parks, a drive change (Rescan) dropping it, and `_on_disc_info_ready` restoring the same disc's release instead of a new lookup. The logic is in `ui/main_window_disc_return.py`; these are the call sites it needs on the window.
     # **1833 -> 1869** (2026-10-26, run A on 0.7.112, the script's `rescan` then `pick-release`): a new disc scan closes the release picker an older scan left open (`_close_superseded_picker`, called where a new read request begins), each picker carries the scan that asked it, and the slot logs a superseded close apart from a cancel. These are the MusicBrainz slots and the picker they own, which live here.
-    "ui/main_window.py": 1869,
+    # **1869 -> 1792** (2026-10-29, TASKS R96): down: the release picker and `_close_superseded_picker` moved to `ui/main_window_picker.py` (`ReleasePickerMixin`), so the picker can wait for the main window; the slot keeps one call and the one-held-picker guard.
+    "ui/main_window.py": 1792,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2676,7 +2678,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **458 -> 469** (2026-10-26, run A on 0.7.112, the drive flicker): `_parked_disc` and the three cross-mixin methods `DiscReturnMixin` and `DriveMixin` call on each other, declared so mypy resolves them.
     # **458 -> 463** (2026-10-26, run B): the seam declares `_album_folder_settled` and `_post_rip_still_running`, which the acceptance session now asks before it packs.
     # **-> 474** (2026-10-26): the entries above landed together on one branch.
-    "ui/main_window_shared.py": 474,
+    # **474 -> 482** (2026-10-29, TASKS R96): the three release-picker fields and the two MainWindow methods `ReleasePickerMixin` uses, declared so mypy resolves them.
+    "ui/main_window_shared.py": 482,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

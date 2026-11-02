@@ -56,6 +56,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from platterpus import diagnostics
+from platterpus.adapters.cache_probe_folder import probe_folder, take_analysis_log
 from platterpus.killable import KillableCommand, was_cancelled
 from platterpus.paths import CDPARANOIA_BINARY_DEFAULT
 
@@ -157,6 +158,8 @@ class CacheProbeResult:
     raw_output: str = ""
     error: str = ""
     exit_code: int | None = None
+    # `cdparanoia.log`, bounded, from the probe's own folder (TASKS R97).
+    analysis_log: str = ""
 
 
 def build_argv(device: str, binary: Path = CDPARANOIA_BINARY_DEFAULT) -> list[str]:
@@ -309,10 +312,12 @@ def cancel_active_probe() -> None:
     _PROBE.cancel()
 
 
-def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
+def _default_runner(
+    argv: list[str], cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run cd-paranoia, capturing text output; no stdin (can't block on a TTY),
     bounded by a timeout so a wedged drive can't hang the worker forever."""
-    return _PROBE.run(argv, timeout=_PROBE_TIMEOUT_S)
+    return _PROBE.run(argv, timeout=_PROBE_TIMEOUT_S, cwd=cwd)
 
 
 def probe_cache_defeat(
@@ -320,15 +325,31 @@ def probe_cache_defeat(
     *,
     binary: Path = CDPARANOIA_BINARY_DEFAULT,
     runner: Runner | None = None,
+    work_dir: Path | None = None,
 ) -> CacheProbeResult:
     """Measure whether ``device`` defeats its audio cache. NEVER raises.
+
+    Runs in a folder of its own under ``work_dir`` (default the app's data folder),
+    because ``-A`` writes ``cdparanoia.log`` where it starts (TASKS R97); the log
+    comes back as ``analysis_log`` and the folder is removed.
+    """
+    with probe_folder(work_dir) as folder:
+        if folder is None:
+            return CacheProbeResult(error="no folder of its own to run in; not run")
+        result = _probe(
+            device, binary, runner or (lambda argv: _default_runner(argv, folder))
+        )
+        return replace(result, analysis_log=take_analysis_log(folder))
+
+
+def _probe(device: str, binary: Path, run: Runner) -> CacheProbeResult:
+    """`probe_cache_defeat` once its folder is made. NEVER raises.
 
     Runs ``cd-paranoia -A -d <device>`` (off the GUI thread — the caller supplies
     a worker) and parses the result. A missing binary, a timeout, or any OS error
     yields an ``analyzed=False`` result with ``error`` set and ``defeat=None`` —
     the caller records "(unknown)", never a forged verdict.
     """
-    run = runner or _default_runner
     argv = build_argv(device, binary)
     try:
         proc = run(argv)

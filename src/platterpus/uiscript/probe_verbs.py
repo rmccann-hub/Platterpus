@@ -235,6 +235,17 @@ class ProbeVerbsMixin:
                     detail += f"; its output could not be saved ({exc!r})"
                 else:
                     detail += f"; output in {name}"
+                # The tool's own `cdparanoia.log`, from its folder (TASKS R97),
+                # kept beside the output so the bundle carries it.
+                if result.analysis_log:
+                    log_name = f"cacheprobe{step.line_no:04d}log.txt"
+                    log_text = inbound_text.screen_text(result.analysis_log).text
+                    try:
+                        (directory / log_name).write_text(log_text, encoding="utf-8")
+                    except OSError as exc:
+                        log.error("cannot write %s: %r", log_name, exc)
+                    else:
+                        detail += f"; its log in {log_name}"
             self._deadline_detail = detail
             return True
 
