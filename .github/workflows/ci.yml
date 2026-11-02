@@ -1231,9 +1231,8 @@ jobs:
   # each, 4 to 10 minutes for the same work, competing with that leg's own
   # workers for four CPUs. What it measures is Qt's layout with one named font,
   # which the Python version does not change, so it runs here once, on the
-  # newest Python, with the runner's CPUs to itself. It gates as the `test` legs
-  # do once the owner adds `ui-conformance` to the default-branch ruleset's
-  # required checks.
+  # newest Python, with the runner's CPUs to itself. A required check of the
+  # default-branch ruleset from 2026-11-02, as the `test` legs are.
   ui-conformance:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
