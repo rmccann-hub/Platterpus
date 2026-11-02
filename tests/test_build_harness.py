@@ -379,3 +379,34 @@ def test_gitignore_keeps_the_lock_committable_and_secrets_out() -> None:
     # Floor: the same probe does report an ignored path it should, so a broken
     # probe cannot pass the not-ignored assertion by never matching anything.
     assert ignored("track.flac")
+
+
+def test_appimagetool_is_pinned_where_python_appimage_reads_it() -> None:
+    """2026-11-02: python-appimage fetched appimagetool's floating "continuous"
+    release, whose build of 2026-11-01 refused our AppDir, and every AppImage
+    build from the #420 merge on failed. The build now fetches a fixed release,
+    checks its sha256, and installs it at the path python-appimage uses when it
+    exists, so the floating copy is never downloaded (Critical rule #11)."""
+    import re
+
+    script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
+    tag = re.search(r'^APPIMAGETOOL_TAG="(?P<v>[^"]+)"$', script, re.MULTILINE)
+    digest = re.search(r'^APPIMAGETOOL_SHA256="(?P<v>[^"]+)"$', script, re.MULTILINE)
+    assert tag is not None and digest is not None, "the pin is not stated"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", tag.group("v")), tag.group("v")
+    assert re.fullmatch(r"[0-9a-f]{64}", digest.group("v")), digest.group("v")
+    # The path python-appimage 1.4.x reads: `.appimagetool-<version>.appdir.<arch>`
+    # with APPIMAGETOOL_VERSION = 'continuous' (python_appimage/utils/deps.py).
+    assert (
+        'APPIMAGETOOL_DIR="$HOME/.cache/python-appimage/bin/'
+        '.appimagetool-continuous.appdir.$(uname -m)"' in script
+    )
+    # The download is checked, and the install runs BEFORE python-appimage does.
+    assert 'sha256sum -c --quiet -' in script
+    install = script.index("\ninstall_pinned_appimagetool\n")
+    assert install < script.index("python3 -m python_appimage build app")
+    # And the zsync pass uses the same copy before anything else it could find.
+    finder = script[script.index("find_appimagetool() {") :]
+    assert finder.index('"$APPIMAGETOOL_DIR/AppRun"') < finder.index(
+        "command -v appimagetool"
+    )

@@ -75,18 +75,23 @@ def _ci_entries() -> list[Entry]:
         )
 
     for program, rel, literal, purpose in _CI_PROGRAMS:
+        pin = _program_pin(program, rel)
         entries.append(
             Entry(
                 ref=f"ci:{program}",
                 category="ci-tool",
                 name=program,
+                version=pin,
                 scope="excluded",
                 description=purpose,
                 used_in=(_require(rel, literal, why=f"CI program {program}"),),
+                enforced_in=(rel,) if pin else (),
                 properties=(
                     (
                         _P + "version-basis",
-                        "not pinned; whatever the runner or tool cache provides",
+                        f"pinned by sha256 in {rel}"
+                        if pin
+                        else "not pinned; whatever the runner or tool cache provides",
                     ),
                 ),
             )
@@ -208,6 +213,18 @@ _APT_PURPOSE: Final[dict[str, str]] = {
 }
 
 
+def _program_pin(program: str, rel: str) -> str:
+    """The release a script pins ``program`` to, read from the script, or "".
+
+    Read, not restated: ``build/build_appimage.sh`` names appimagetool's release
+    as ``APPIMAGETOOL_TAG="<tag>"`` beside its sha256 (2026-11-02, after the
+    floating "continuous" build of 2026-11-01 refused our AppDir).
+    """
+    variable = re.sub(r"[^A-Z0-9]", "_", program.upper()) + "_TAG"
+    found = re.search(rf'^{variable}="([^"]+)"$', _text(rel), re.MULTILINE)
+    return found.group(1) if found else ""
+
+
 #: Programs a build or workflow runs that no package list names. Each carries
 #: its witness, so an entry the scripts stopped using stops the run.
 _CI_PROGRAMS: Final[tuple[tuple[str, str, str, str], ...]] = (
@@ -215,7 +232,7 @@ _CI_PROGRAMS: Final[tuple[tuple[str, str, str, str], ...]] = (
         "appimagetool",
         "build/build_appimage.sh",
         "appimagetool",
-        "Re-packs the AppImage to embed the zsync update information (the copy python-appimage caches, or the system's).",
+        "Packs the AppImage for python-appimage, and re-packs it to embed the zsync update information; a fixed release the build fetches and checks by sha256.",
     ),
     (
         "gh",

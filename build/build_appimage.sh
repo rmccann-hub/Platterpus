@@ -169,6 +169,51 @@ Path("build/python-appimage/io.github.rmccann_hub.Platterpus.png").write_bytes(p
 PY
 fi
 
+# --- Pin appimagetool -------------------------------------------------------
+# python-appimage downloads appimagetool from its floating "continuous" release
+# (python_appimage/utils/deps.py, APPIMAGETOOL_VERSION = 'continuous'), so the
+# tool that packs every AppImage we ship changed under us whenever upstream
+# pushed. It did on 2026-11-01: build 368 carries "Check AppDir permissions and
+# validate .DirIcon before packaging" (appimagetool b082d2e, 2026-10-29), which
+# refuses python-appimage's AppDir because python-appimage makes it mode 0700,
+# and every build from the #420 merge on failed with "Could not build AppImage".
+# Critical rule #11: a tool that gates must not float. So we fetch a fixed
+# release, check its bytes, and put it where python-appimage looks first: it
+# uses ~/.cache/python-appimage/bin/.appimagetool-continuous.appdir.<arch>/AppRun
+# whenever that file exists, and our zsync step below reuses the same copy.
+#
+# 1.9.1 (tag 8c8c91f, 2025-11-18) is the newest fixed release and predates the
+# permission check. The sha256 is of the file GitHub served on 2026-11-02;
+# upstream publishes no checksum. To move the pin: fix the AppDir modes first
+# (TASKS), then change both values together.
+APPIMAGETOOL_TAG="1.9.1"
+APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
+APPIMAGETOOL_DIR="$HOME/.cache/python-appimage/bin/.appimagetool-continuous.appdir.$(uname -m)"
+
+install_pinned_appimagetool() {
+    local url tmp
+    url="https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_TAG}/appimagetool-$(uname -m).AppImage"
+    tmp="$(mktemp -d)"
+    echo "Fetching appimagetool $APPIMAGETOOL_TAG (pinned by sha256)…"
+    curl -fsSL --retry 3 -o "$tmp/appimagetool.AppImage" "$url"
+    if ! echo "$APPIMAGETOOL_SHA256  $tmp/appimagetool.AppImage" | sha256sum -c --quiet -; then
+        echo "error: appimagetool $APPIMAGETOOL_TAG does not match its recorded sha256;" >&2
+        echo "refusing to pack an AppImage with a tool whose bytes changed." >&2
+        rm -rf "$tmp"
+        exit 1
+    fi
+    chmod +x "$tmp/appimagetool.AppImage"
+    # Extract rather than run it mounted: CI runners have no FUSE.
+    (cd "$tmp" && ./appimagetool.AppImage --appimage-extract >/dev/null)
+    # Replaces any copy a previous build left, which may be a floating one.
+    rm -rf "$APPIMAGETOOL_DIR"
+    mkdir -p "$(dirname "$APPIMAGETOOL_DIR")"
+    mv "$tmp/squashfs-root" "$APPIMAGETOOL_DIR"
+    rm -rf "$tmp"
+    echo "appimagetool $APPIMAGETOOL_TAG at $APPIMAGETOOL_DIR/AppRun"
+}
+install_pinned_appimagetool
+
 # --- Build the AppImage ----------------------------------------------------
 echo "[2/3] Building AppImage via python-appimage…"
 
@@ -385,8 +430,13 @@ fi
 UPDATE_INFO="gh-releases-zsync|rmccann-hub|Platterpus|latest|platterpus-${arch}.AppImage.zsync"
 
 find_appimagetool() {
-    # A system appimagetool wins; otherwise reuse the copy python-appimage
-    # just cached for its own build (~/.cache/python-appimage/bin).
+    # The pinned copy first, the one python-appimage just packed with, so both
+    # passes use the same tool; then a system appimagetool; then any copy
+    # python-appimage cached (~/.cache/python-appimage/bin).
+    if [ -x "$APPIMAGETOOL_DIR/AppRun" ]; then
+        echo "$APPIMAGETOOL_DIR/AppRun"
+        return 0
+    fi
     command -v appimagetool 2>/dev/null && return 0
     local candidate
     # NOTE: python-appimage caches the tool in a DOT-prefixed directory

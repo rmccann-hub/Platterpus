@@ -2705,7 +2705,8 @@
       "type": "application",
       "bom-ref": "ci:appimagetool",
       "name": "appimagetool",
-      "description": "Re-packs the AppImage to embed the zsync update information (the copy python-appimage caches, or the system's).",
+      "version": "1.9.1",
+      "description": "Packs the AppImage for python-appimage, and re-packs it to embed the zsync update information; a fixed release the build fetches and checks by sha256.",
       "scope": "excluded",
       "properties": [
         {
@@ -2717,8 +2718,12 @@
           "value": "build/build_appimage.sh"
         },
         {
+          "name": "platterpus:pin-enforced-in",
+          "value": "build/build_appimage.sh"
+        },
+        {
           "name": "platterpus:version-basis",
-          "value": "not pinned; whatever the runner or tool cache provides"
+          "value": "pinned by sha256 in build/build_appimage.sh"
         }
       ]
     },
