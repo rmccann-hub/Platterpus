@@ -19,6 +19,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A test that leaves a main window on screen now fails itself, not a later test** (contributor-facing). The check that fails a test for a dialog it left showing now covers main windows too. The release-picker tests left the real window showing, and a later test on the same CI worker read its labels and failed `main`'s CI after #420; those tests now put their window away. The rescan timing test arms its timer when the rescan begins, so a loaded CI worker cannot fail it.
+- **The hashed locks are regenerated to 2026-10-26, and four CI actions are updated** (contributor-facing). Eight tool pins moved, none of them a runtime dependency of the app; `pypa/gh-action-pypi-publish` moves to v1.14.3, which fixes GHSA-5xjx-3w67-w9x9. The weekly relock's branch and Dependabot's #403 are carried here, as KDD-43 describes.
 - **The 2026-10-29 Full run on 0.7.115 is filed and graded `full-green`** (contributor-facing): the first with `.27` as the approved default, 440 pass and 0 fail, filed on `evidence` at `7a5cff47` with its 82 manifest rows; P5 and P6, which compare two builds, did not run because there was one.
 - **The status block names 0.7.116 as released** (contributor-facing), published 2026-10-29 from `fcc6bc42` (release run 40818896528).
 

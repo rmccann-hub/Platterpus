@@ -77,7 +77,18 @@ def test_rescan_waits_for_its_scan_to_identify_the_disc(qapp, process_until) -> 
         win._disc_info_thread.running = False
         win._current_release_id = _MBID
 
-    QTimer.singleShot(400, _identified)
+    # The scan is timed from when the rescan BEGINS, inside the step, so the
+    # step's own clock is already running. Armed before the step, a loaded CI
+    # worker could spend over 100 ms before the step started its clock, and the
+    # 0.3 s floor below failed on a step that had waited correctly (0.25 s
+    # measured, 2026-11-02, with eight workers).
+    start_rescan = win._on_drive_changed
+
+    def _rescan_then_identify(device: str) -> None:
+        start_rescan(device)
+        QTimer.singleShot(400, _identified)
+
+    win._on_drive_changed = _rescan_then_identify
     step = _step_outcome(ScriptRunner(win), qapp, process_until, "rescan")
     assert step.outcome is Outcome.PASS, step.detail
     assert win.rescanned == ["/dev/sr0"]

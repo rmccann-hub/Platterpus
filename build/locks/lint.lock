@@ -6,7 +6,7 @@
 # inputs: extra:dev:ruff
 # target: universal, Python >= 3.11
 # uv: 0.13.5
-# exclude-newer: 2026-10-21T00:00:00Z
+# exclude-newer: 2026-10-26T00:00:00Z
 #
 ruff==0.15.22 \
     --hash=sha256:11c1c715af53a09f714e011106bffc419751ec8232fcb5da42173284ea3fec6f \
