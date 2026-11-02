@@ -20,6 +20,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 37 lap 4 is written and held for the owner's release** (contributor-facing): it accepts the fork's `Drive used:` wording for a disc image, the one answer `.28`'s publication waits on, and gives our `--reread-time-limit` cell for the shared `seam-commands.md`.
 - **The fork's round 37 lap 3 is filed, and the shared `docs/seam-commands.md` is their copy at `cyanrip@64ca463`** (contributor-facing): `.28` built and not released; `-S` accepted with its new wordings, `--reread-time-limit` listed, and an unwritable `--diagnostics` record keeping exit 0.
 - **The AppImage runs on Python 3.14** (it was 3.12, which gets security fixes only). 3.14 also gets bug fixes and is faster; the whole test suite already ran on it.
 - **The regex timing test no longer fails on one noisy reading** (contributor-facing, TASKS R90). It flags a pattern only when every one of up to three larger-scale measurements grows too fast, and takes the lowest; it failed a pull request that day over a pattern measured at a third of a millisecond.
