@@ -53,7 +53,7 @@ def fetch(arg: str | None) -> bytes:
     if arg:
         return Path(arg).read_bytes()
     print(f"downloading {SOURCE_URL} …")
-    with urllib.request.urlopen(SOURCE_URL, timeout=60) as resp:  # noqa: S310
+    with urllib.request.urlopen(SOURCE_URL, timeout=60) as resp:
         # typeshed types `urlopen`'s result as `Any`, because it can be several
         # response classes; for an http:// URL it is `http.client.HTTPResponse`,
         # whose `read()` returns bytes. Checked rather than annotated, so the
