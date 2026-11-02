@@ -220,9 +220,18 @@ def _program_pin(program: str, rel: str) -> str:
     as ``APPIMAGETOOL_TAG="<tag>"`` beside its sha256 (2026-11-02, after the
     floating "continuous" build of 2026-11-01 refused our AppDir).
     """
-    variable = re.sub(r"[^A-Z0-9]", "_", program.upper()) + "_TAG"
-    found = re.search(rf'^{variable}="([^"]+)"$', _text(rel), re.MULTILINE)
-    return found.group(1) if found else ""
+    # String operations, not a pattern built from the name: a computed pattern
+    # is one `tests/test_regex_bounded_time.py` cannot time.
+    variable = "".join(c if c.isalnum() else "_" for c in program.upper()) + "_TAG"
+    prefix = f'{variable}="'
+    for line in _text(rel).splitlines():
+        if (
+            line.startswith(prefix)
+            and line.endswith('"')
+            and len(line) > len(prefix) + 1
+        ):
+            return line[len(prefix) : -1]
+    return ""
 
 
 #: Programs a build or workflow runs that no package list names. Each carries

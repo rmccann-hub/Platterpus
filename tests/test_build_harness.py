@@ -402,7 +402,7 @@ def test_appimagetool_is_pinned_where_python_appimage_reads_it() -> None:
         '.appimagetool-continuous.appdir.$(uname -m)"' in script
     )
     # The download is checked, and the install runs BEFORE python-appimage does.
-    assert 'sha256sum -c --quiet -' in script
+    assert "sha256sum -c --quiet -" in script
     install = script.index("\ninstall_pinned_appimagetool\n")
     assert install < script.index("python3 -m python_appimage build app")
     # And the zsync pass uses the same copy before anything else it could find.
