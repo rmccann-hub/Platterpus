@@ -223,9 +223,12 @@ echo "[2/3] Building AppImage via python-appimage…"
 # release build with "No matching distribution found for PySide6" (v0.5.7
 # release attempt, 2026-07-24). Pinning a stable, PySide6-supported interpreter
 # makes the bundled Python deterministic and immune to a new upstream beta
-# appearing. 3.12 is mature and fully covered by our PySide6 pin; override via
+# appearing. 3.14 since 2026-11-02 (TASKS R100, on the owner's word that day;
+# 3.12 before, which has had security fixes only since April 2025): it still
+# gets bug fixes, CI runs the whole suite and the coverage gate on it, and
+# PySide6 6.11 and numpy 2.5 ship wheels for it. Override via
 # PLATTERPUS_PYTHON_VERSION if a future bump is wanted.
-PLATTERPUS_PYTHON_VERSION="${PLATTERPUS_PYTHON_VERSION:-3.12}"
+PLATTERPUS_PYTHON_VERSION="${PLATTERPUS_PYTHON_VERSION:-3.14}"
 echo "Bundling CPython $PLATTERPUS_PYTHON_VERSION (python-appimage base)."
 
 # Tell pip where to find the locally-built platterpus wheel. python-appimage
@@ -369,7 +372,7 @@ PIN
 # must keep its upstream form, and its CPython minor must match the lock's
 # target-python — the override REPLACES --python-version, so the name is checked
 # against the lock instead — e.g.
-#   python3.12.<patch>-cp312-cp312-manylinux2014_x86_64.AppImage
+#   python3.14.<patch>-cp314-cp314-manylinux2014_x86_64.AppImage
 if [ -n "${PLATTERPUS_BASE_IMAGE:-}" ]; then
     if [ ! -f "$PLATTERPUS_BASE_IMAGE" ]; then
         echo "PLATTERPUS_BASE_IMAGE is set but not a file: $PLATTERPUS_BASE_IMAGE"

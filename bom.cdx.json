@@ -195,7 +195,7 @@
       "bom-ref": "runtime:python-appimage-bundled",
       "group": "CPython",
       "name": "python (bundled in the AppImage)",
-      "version": "3.12",
+      "version": "3.14",
       "description": "The interpreter python-appimage bundles into the AppImage; pinned so a new upstream beta cannot become the release's runtime.",
       "scope": "required",
       "externalReferences": [

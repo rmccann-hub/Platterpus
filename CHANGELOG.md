@@ -20,6 +20,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The AppImage runs on Python 3.14** (it was 3.12, which gets security fixes only). 3.14 also gets bug fixes and is faster; the whole test suite already ran on it.
 - **The regex timing test no longer fails on one noisy reading** (contributor-facing, TASKS R90). It flags a pattern only when every one of up to three larger-scale measurements grows too fast, and takes the lowest; it failed a pull request that day over a pattern measured at a third of a millisecond.
 - **Installing with pip or pipx now needs Python 3.12 or newer** (it was 3.11). Python 3.11 kept Platterpus on numpy 2.4, which has had no fixes since May; numpy moves to 2.5.4, and the AppImage, which brings its own Python, uses it too. On a system whose Python is 3.11, such as Debian 12, use the AppImage.
 - **The linter and formatter move from ruff 0.15 to 0.17** (contributor-facing). No Python changed format; Markdown files are left out of formatting, because 0.17 would have edited the Python inside them, handshake records included.

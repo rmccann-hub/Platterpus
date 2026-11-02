@@ -1712,7 +1712,8 @@ several gotchas found the hard way:
   them bite:
   - **The AppImage's lock is for the BUNDLED interpreter, not the host's.**
     numpy, cffi and pydantic-core ship one wheel per CPython minor, and the
-    release job runs 3.11 while the AppImage bundles 3.12. The lock's header
+    release job runs 3.12 while the AppImage bundles 3.14 (3.11 and 3.12 until
+    2026-11-02). The lock's header
     names its target (`target-python`, `target-platform`), the build downloads
     for that target and refuses a build for another one, and the test holds the
     generator's `APPIMAGE_PYTHON` equal to the build's default.

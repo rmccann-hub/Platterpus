@@ -5,8 +5,8 @@
 # for the target below and installs the AppImage's dependencies offline from that.
 # lock: appimage
 # inputs: recipe
-# target: CPython 3.12 on manylinux_2_34_x86_64 (the interpreter python-appimage bundles)
-# target-python: 3.12
+# target: CPython 3.14 on manylinux_2_34_x86_64 (the interpreter python-appimage bundles)
+# target-python: 3.14
 # target-platform: manylinux_2_34_x86_64
 # uv: 0.13.5
 # exclude-newer: 2026-10-26T00:00:00Z
