@@ -265,7 +265,8 @@ tiers. "I added a happy-path test" is not done.
    the floor prints a notice with the number to raise it to, so raise it in the
    change that adds tests; `tests/test_check_test_count.py` refuses a baseline
    below the newest release tag's.
-5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14),
+5. **Version matrix.** CI runs the suite on every supported Python (3.12–3.14;
+   3.11 until 2026-11-02, `PLANNING.md` KDD-46),
    each leg in parallel (`pytest -n auto`). The coverage floor runs on the 3.14
    leg only (2026-09-26), because its `sys.monitoring` tracer is the fast one;
    every leg runs every test but the UI conformance matrix, which since

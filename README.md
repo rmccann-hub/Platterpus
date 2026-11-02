@@ -450,6 +450,8 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 `pipx` installs Python applications in isolated environments and adds them to your `PATH`.
 
+It needs **Python 3.12 or newer** on your system (`python3 --version`). Bazzite, Fedora, Arch and Ubuntu 24.04 have it; on Debian 12, whose Python is 3.11, use the AppImage (Method A), which brings its own Python.
+
 Install pipx if you don't have it (Bazzite ships with it):
 
 ```bash
@@ -1134,7 +1136,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-45)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-46)
 - [`TASKS.md`](TASKS.md) — active task checklist: dated, ranked lists and handshake-round sections first, then the original P0 (T01-T32, complete), P1.1, P1, P2 and Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 

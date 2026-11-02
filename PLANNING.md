@@ -34,7 +34,7 @@ Platterpus/
 ├── .claude/                             # settings.json (deny list + hooks) and hooks/ (audio guard, session start)
 │
 ├── .github/workflows/                   # CI + release automation
-│   ├── ci.yml                           # NINE gating jobs: test (3.11-3.14 + coverage floor), lint,
+│   ├── ci.yml                           # NINE gating jobs: test (3.12-3.14 + coverage floor), lint,
 │   │                                    #   typecheck, changelog, media-guard, pip-audit, gitleaks,
 │   │                                    #   sbom, tests-touched. tests-touched is GATING since
 │   │                                    #   2026-08-20 (this line called it advisory until 2026-09-13,
@@ -2286,6 +2286,34 @@ accessibility gate measures in one named font (3.1). The rest is in `CHANGELOG.m
 **Next run.** The standard's trigger was *before the next release*, and 18 tags passed
 without a run (review D1). This review is that run. The next is due before the release
 after 0.7.113, or when C3 lifts for the amendments still held, whichever comes first.
+
+### KDD-46 — Python 3.12 is the floor, and numpy moves to 2.5 (decided 2026-11-02)
+
+**Context.** The owner asked that every dependency be at its newest release, or a big move
+be planned, and then whether the old versions still need supporting, weighing the end
+user's experience, security and the work. numpy 2.5 requires Python 3.12 (PyPI
+`requires_python`, read 2026-11-02), so `requires-python = ">=3.11"` held the project on
+numpy 2.4, whose last release was 2.4.6 on 2026-05-18: no fix had reached that line since
+2.5.0 on 2026-06-21, and the AppImage bundles the same range, so every user carried it.
+Python 3.11 itself has had security fixes only since 2024 and ends in October 2027. It
+served pip and pipx installs on a system Python of 3.11, chiefly Debian 12; the AppImage,
+the main channel, brings its own Python, and the primary targets (Bazzite and Fedora,
+Arch) ship 3.13 or newer. Ubuntu 24.04 LTS ships 3.12.
+
+**Decision (the owner's, answering "Drop 3.11 (Recommended)").** `requires-python` is
+`>=3.12`; ruff's `target-version`, mypy's `python_version` and the lock generator's tool
+floor follow it; CI's matrix is 3.12 to 3.14, and every tool job runs 3.12; numpy is
+`>=2.5.4,<2.6` in pyproject and `~=2.5.4` in the AppImage recipe. `CLAUDE.md`'s locked
+Stack line changes on that answer. The CTDB localisation tests, the reason numpy is
+minor-pinned, ran against 2.5.4 on 3.12 before the change merged: 292 passed. Python 3.14 in
+the AppImage (TASKS R100) was approved in the same answer and is its own change.
+
+**Consequences.** A Debian 12 user installs the AppImage, or runs pipx with a newer Python.
+Three packages needed only on 3.11 leave the locks (`backports-tarfile`,
+`importlib-metadata`, `zipp`). 3.12 syntax is open to the code, and ruff's `UP` rules ask
+for it: the three `TypeAlias` aliases became `type` statements and the two generic helpers
+in `main_window_rip.py` use type parameters. `test (py3.11)` leaves the default-branch
+ruleset's required checks with the leg, an owner's change, made before the change merged.
 
 ---
 

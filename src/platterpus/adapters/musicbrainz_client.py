@@ -27,7 +27,7 @@ import socket
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, TypeAlias
+from typing import Any
 
 import musicbrainzngs
 
@@ -378,8 +378,8 @@ def _release_detail(
 # `.get()`. Values are coerced where they leave this module (`_safe_int`,
 # `isinstance`, `str(...)`). Naming them took the module off the
 # `disallow_any_generics` opt-out list (2026-10-19).
-_MbObject: TypeAlias = dict[str, Any]  # one JSON object (release, medium, track)
-_MbArray: TypeAlias = list[Any]  # one JSON array; its items are unchecked
+type _MbObject = dict[str, Any]  # one JSON object (release, medium, track)
+type _MbArray = list[Any]  # one JSON array; its items are unchecked
 
 
 def _is_not_found(exc: musicbrainzngs.ResponseError) -> bool:

@@ -80,7 +80,7 @@ jobs:
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       # Never a version written here: one place chooses ruff's range.
@@ -131,7 +131,7 @@ jobs:
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       # The hashed CI lock (see the lint job), then the project itself with no
@@ -409,7 +409,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
       # pip-audit at an EXACT version, VERIFIED BY HASH: it was pinned to a minor
       # range read from pyproject's dev extra (the review, item 2.2), which still
@@ -463,7 +463,7 @@ jobs:
       # The generator reads pyproject.toml with tomllib, which needs 3.11.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
         with:
           version: "0.13.5"
@@ -484,7 +484,8 @@ jobs:
   # here: the test, lint and typecheck jobs install it on every pull request.
   #
   # The AppImage's lock is for the CPython the AppImage bundles (3.12), so it
-  # gets a 3.12 venv; everything else gets 3.11, as the jobs that use it do.
+  # gets a 3.12 venv; everything else gets 3.12 too, pyproject's floor, as the
+  # jobs that use it do (3.11 until 2026-11-02, TASKS R99).
   # No secrets, no token, no cache: a clean install is the point.
   #
   # NOT a required status check yet: the owner adds it to the default-branch
@@ -499,14 +500,12 @@ jobs:
       # Two interpreters: the last one listed is the default `python`.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: |
-            3.12
-            3.11
+          python-version: "3.12"
       - name: Install each lock into a clean venv, hashed, and pip check it
         run: |
           set -euo pipefail
           v="$RUNNER_TEMP/venvs"
-          for name in release publish audit sbom ci-lint; do python3.11 -m venv "$v/$name"; done
+          for name in release publish audit sbom ci-lint; do python3.12 -m venv "$v/$name"; done
           python3.12 -m venv "$v/appimage"
           "$v/release/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock
           "$v/publish/bin/python" -m pip install --require-hashes --only-binary=:all: -r build/locks/publish.lock
@@ -667,7 +666,7 @@ jobs:
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Check the evidence manifest, branch, tags and citing laps (HR-2 §8a)
         env:
@@ -703,7 +702,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
       # A REQUIRED job, so its installs are hashed like the other gates' (the
       # follow-up review of 2026-10-27, item 5; amendment A5's other half). It
@@ -895,7 +894,7 @@ jobs:
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Check every new commit's subject
         env:
@@ -931,7 +930,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       # zizmor and ShellCheck from build/locks/ci-lint.lock, exact and hashed
       # (the follow-up review of 2026-10-27, item 5). actionlint-py cannot be in
       # that lock: it publishes only an sdist, whose build downloads the
@@ -971,7 +970,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       # ShellCheck (and zizmor, which this job does not run) from the hashed
       # lock build/lock-requirements.sh resolves from pyproject's `ci-lint` extra.
       - name: Install ShellCheck from the hashed ci-lint lock
@@ -999,7 +998,8 @@ jobs:
         # Test across the Python versions our users actually run. We've been
         # bitten by version-specific breakage before (the previous ripper's
         # pkg_resources use vs Python 3.14); a matrix catches the GUI side of that class of
-        # problem early. 3.11 is the floor (pyproject `requires-python`); 3.14
+        # problem early. 3.12 is the floor (pyproject `requires-python`; 3.11 until
+        # 2026-11-02, dropped with the owner's word that day, TASKS R99); 3.14
         # (2025-10) was added 2026-07-02 (nothing the project uses was removed
         # in it; PySide6 6.11 supports it).
         #
@@ -1011,7 +1011,7 @@ jobs:
         # ".[dev]"` fails before a test runs. Measured with CPython 3.15.2 from
         # actions/python-versions. A 3.15 leg arrives with the deliberate
         # PySide6 6.12 bump, not before it.
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.12", "3.13", "3.14"]
         # The coverage gate runs on ONE leg (maintainer, 2026-09-26). Every leg
         # runs every test but the UI conformance matrix, which has a job of its
         # own (`ui-conformance`, below). py3.14 measures branch coverage with
@@ -1135,7 +1135,7 @@ jobs:
           echo "::error::could not install the headless Qt libraries in 2 attempts"
           exit 1
 
-      # ONE hashed lock for every leg, 3.11 to 3.14 (2026-10-27, the review's
+      # ONE hashed lock for every leg, 3.12 to 3.14 (2026-10-27, the review's
       # follow-up to item 2.3). build/locks/ci.lock is a universal resolution of
       # the runtime dependencies, the dev extra and the build backend, with the
       # sha256 of every file each pinned version publishes, so every leg runs the

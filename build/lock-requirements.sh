@@ -130,7 +130,7 @@ APPIMAGE_PLATFORM="x86_64-manylinux_2_34"
 APPIMAGE_PIP_PLATFORM="manylinux_2_34_x86_64"
 # The oldest Python the tool and CI locks must install on: pyproject's
 # requires-python floor. The resolution is universal above it.
-TOOLS_PYTHON="3.11"
+TOOLS_PYTHON="3.12"
 
 usage() {
     echo "usage: bash build/lock-requirements.sh [--exclude-newer YYYY-MM-DDTHH:MM:SSZ | --check]"

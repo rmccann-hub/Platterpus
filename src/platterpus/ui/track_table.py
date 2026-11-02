@@ -23,7 +23,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
-from typing import TypeAlias
 
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -58,10 +57,11 @@ from platterpus.settings_validation import path_reference_issue, path_segment_is
 # LSP (Liskov) violation. Both member types expose the .isValid()/.row()/
 # .column() we actually call, so widening the annotation is a pure signature
 # match — no behaviour change (Qt still passes a plain QModelIndex at runtime).
-# The explicit TypeAlias marker is load-bearing: mypy 2.3 stopped inferring a
-# bare ``X | Y`` assignment of these Qt wrapper types as a type alias and
-# started rejecting it wherever it was used as an annotation.
-_Index: TypeAlias = QModelIndex | QPersistentModelIndex
+# The explicit alias is load-bearing: mypy 2.3 stopped inferring a bare
+# ``X | Y`` assignment of these Qt wrapper types as a type alias and started
+# rejecting it wherever it was used as an annotation. A `type` statement since
+# Python 3.12 became the floor (2026-11-02); it was a `TypeAlias` annotation.
+type _Index = QModelIndex | QPersistentModelIndex
 
 log = logging.getLogger(__name__)
 
