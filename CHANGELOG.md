@@ -20,6 +20,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The regex timing test no longer fails on one noisy reading** (contributor-facing, TASKS R90). It flags a pattern only when every one of up to three larger-scale measurements grows too fast, and takes the lowest; it failed a pull request that day over a pattern measured at a third of a millisecond.
 - **The linter and formatter move from ruff 0.15 to 0.17** (contributor-facing). No Python changed format; Markdown files are left out of formatting, because 0.17 would have edited the Python inside them, handshake records included.
 - **The type checker moves from mypy 2.3 to 2.4** (contributor-facing). mypy 2.4.0 finds no errors in the 333 files it checks, so nothing else changed.
 - **CI runs the UI conformance matrix once, in a job of its own, instead of in every Python version's test run** (contributor-facing). It took about four minutes of one worker's time, and it made each of the four test runs take 4 to 10 minutes for the same work. What it measures, window layout in one named font, does not change with the Python version. The new job is `ui-conformance`, a required check from 2026-11-02; a test holds that the test runs leave the file out and this job runs it. A PR's CI went from 9 to 10 minutes to 5.8.

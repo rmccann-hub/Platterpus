@@ -559,6 +559,10 @@ def _series(attempts: list[Growth]) -> str:
 #: CSV row that started this file, the longer line would take about a minute.
 _STALL_S = 0.1
 
+#: How many times a suspect's larger-scale growth is measured before it is
+#: believed. Each is a fresh pair of timings; the LOWEST ratio is the verdict.
+_CONFIRM_ATTEMPTS = 3
+
 
 def _confirm_at_scale(
     pattern: str, shape: Shape, how: str, first_large_s: float
@@ -579,12 +583,26 @@ def _confirm_at_scale(
     if first_large_s >= _STALL_S:
         return True, first_large_s / _STALL_S, first_large_s
     compiled = re.compile(pattern)
-    base = _seconds_per_search(compiled, _text(shape, _LARGE), how=how)
-    bigger = _seconds_per_search(
-        compiled, _text(shape, _LARGE * 4), enough_s=0.25, how=how
-    )
-    ratio = bigger / max(base, 1e-12)
-    return ratio > _MAX_GROWTH, ratio, bigger
+    # THE LOWEST OF UP TO `_CONFIRM_ATTEMPTS` RATIOS, the rule each timing
+    # already follows (`_TIMING_ROUNDS`): noise only ever inflates a ratio, so
+    # the smallest reading is the honest one, and a real offender is over the
+    # line on every attempt (a quadratic grows ~16x per 4x). One attempt that
+    # stays under the line clears the pattern. Before this, one noisy
+    # confirmation failed a run: PR #424's py3.13 leg (2026-11-02) read
+    # `scripts/handshake.py:2824` at 8.6x, then 8.3x at 0.34 ms, a pattern
+    # whose every position fails in a few steps (TASKS R90).
+    lowest = (float("inf"), 0.0)
+    for _ in range(_CONFIRM_ATTEMPTS):
+        base = _seconds_per_search(compiled, _text(shape, _LARGE), how=how)
+        bigger = _seconds_per_search(
+            compiled, _text(shape, _LARGE * 4), enough_s=0.25, how=how
+        )
+        ratio = bigger / max(base, 1e-12)
+        if ratio < lowest[0]:
+            lowest = (ratio, bigger)
+        if ratio <= _MAX_GROWTH:
+            break
+    return lowest[0] > _MAX_GROWTH, lowest[0], lowest[1]
 
 
 def _fill_only_shapes(_pattern: str) -> Sequence[Shape]:
@@ -1456,3 +1474,30 @@ def test_the_timings_do_not_count_time_spent_off_the_cpu() -> None:
     while _clock() - start < 0.02:
         total += 1
     assert total > 0
+
+
+def test_a_suspect_is_confirmed_only_when_every_attempt_grows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TASKS R90, PR #424's py3.13 leg (2026-11-02): one noisy confirmation
+    failed a run. Noise only inflates a ratio, so the lowest reading decides,
+    and a reading under the line clears the pattern; a real offender is over
+    it every time. The timer is replaced by fixed readings so the rule itself
+    is tested, not the runner's load."""
+    import test_regex_bounded_time as sweep
+
+    def readings(*ratios: float) -> None:
+        # Each attempt times the `_LARGE` text, then the 4x one.
+        seq: list[float] = []
+        for ratio in ratios:
+            seq += [1e-4, ratio * 1e-4]
+        it = iter(seq)
+        monkeypatch.setattr(sweep, "_seconds_per_search", lambda *a, **k: next(it))
+
+    shape = sweep._FILL_ONLY[0]
+    readings(8.6, 3.9)  # a noisy reading, then a linear one
+    confirmed, ratio, _ = sweep._confirm_at_scale("x", shape, "search", 1e-3)
+    assert not confirmed and ratio == pytest.approx(3.9)
+    readings(16.0, 9.0, 15.0)  # a real offender: over the line every time
+    confirmed, ratio, _ = sweep._confirm_at_scale("x", shape, "search", 1e-3)
+    assert confirmed and ratio == pytest.approx(9.0)
