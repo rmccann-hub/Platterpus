@@ -1013,7 +1013,8 @@ jobs:
         # PySide6 6.12 bump, not before it.
         python-version: ["3.11", "3.12", "3.13", "3.14"]
         # The coverage gate runs on ONE leg (maintainer, 2026-09-26). Every leg
-        # still runs every test. py3.14 measures branch coverage with
+        # runs every test but the UI conformance matrix, which has a job of its
+        # own (`ui-conformance`, below). py3.14 measures branch coverage with
         # `sys.monitoring`, and 3.11-3.13 pay for it with the slower C tracer,
         # which is most of why their legs took 590-640 s against 3.14's 394 s.
         # The floor is still enforced on every push and PR, on this leg.
@@ -1176,8 +1177,11 @@ jobs:
           # baseline check below. Outside the checkout, so nothing can commit it.
           PLATTERPUS_TEST_COUNT_FILE: ${{ runner.temp }}/pytest-collected-count
         timeout-minutes: 15
+        # `--ignore` the UI conformance matrix: it runs once, in `ui-conformance`.
+        # `tests/test_ci_workflow_shape.py` holds the two jobs to the same file, so
+        # it cannot drop out of both.
         run: >-
-          pytest -n auto
+          pytest -n auto --ignore=tests/test_ui_conformance.py
           ${{ matrix.coverage && '--cov=platterpus --cov-report=term-missing --cov-fail-under=93' || '' }}
 
       # The exit code above is NOT sufficient on its own. conftest.py ends the
@@ -1218,3 +1222,77 @@ jobs:
         env:
           PLATTERPUS_TEST_COUNT_FILE: ${{ runner.temp }}/pytest-collected-count
         run: python3 scripts/check_test_count.py --count-file "$PLATTERPUS_TEST_COUNT_FILE"
+
+  # THE UI CONFORMANCE MATRIX, ONCE (the owner's word of 2026-11-02, "yes, do
+  # it"). `tests/test_ui_conformance.py` builds every window in 22 screen
+  # conditions in subprocesses, and its module fixture took 246 s of one
+  # worker's time measured locally with four workers on 2026-11-02, against 24 s
+  # for the next slowest test. Run in every `test` leg it was the long pole of
+  # each, 4 to 10 minutes for the same work, competing with that leg's own
+  # workers for four CPUs. What it measures is Qt's layout with one named font,
+  # which the Python version does not change, so it runs here once, on the
+  # newest Python, with the runner's CPUs to itself. It gates as the `test` legs
+  # do once the owner adds `ui-conformance` to the default-branch ruleset's
+  # required checks.
+  ui-conformance:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      # The same libraries and the same named font as the `test` job: the
+      # matrix's fixture selects DejaVu Sans, so the font must be installed here
+      # (`tests/test_ci_workflow_shape.py` reads every apt install call).
+      - name: Install headless Qt system libraries
+        timeout-minutes: 18
+        run: |
+          set -euo pipefail
+          opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=20
+                -o Acquire::https::Timeout=20)
+          for attempt in 1 2; do
+            echo "::group::apt attempt ${attempt}"
+            if sudo timeout -k 10 240 apt-get "${opts[@]}" update \
+               && sudo timeout -k 10 240 apt-get "${opts[@]}" install -y \
+                    --no-install-recommends \
+                    libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
+                    libdbus-1-3 libfontconfig1 libfreetype6 \
+                    fonts-dejavu-core; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::apt attempt ${attempt} failed or timed out"
+            [ "${attempt}" -eq 2 ] || sleep 15
+          done
+          echo "::error::could not install the headless Qt libraries in 2 attempts"
+          exit 1
+
+      - name: Install package with dev extras
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci.lock
+          python -m pip install --no-index --no-deps --no-build-isolation -e .
+
+      # One process, no `-n`: the matrix runs its own measurements in parallel
+      # subprocesses, and its module fixture is then built exactly once. A file
+      # that collected nothing makes pytest exit 5, so a renamed file fails here.
+      - name: Run the UI conformance matrix
+        env:
+          QT_QPA_PLATFORM: offscreen
+        timeout-minutes: 15
+        run: pytest tests/test_ui_conformance.py
+
+      - name: Confirm the suite actually finished
+        run: |
+          if [ ! -f .pytest-session-complete ]; then
+            echo "::error::The pytest session never reached session-finish."
+            exit 1
+          fi
+          echo "Session completed; recorded exit status: $(cat .pytest-session-complete)"

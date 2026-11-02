@@ -60,19 +60,75 @@ def test_every_checkout_drops_its_token() -> None:
     assert not missing, f"checkouts that keep their token: {missing}"
 
 
-def test_the_test_job_installs_the_font_the_conformance_gate_measures() -> None:
+def test_every_qt_job_installs_the_font_the_conformance_gate_measures() -> None:
     """Item 3.1: the gate's fixture selects DejaVu Sans, so CI must install it.
 
-    Read from the apt install call itself, not from a mention in a comment: the
-    package must be an argument of `apt-get ... install`.
+    Read from the apt install calls themselves, not from a mention in a comment:
+    the package must be an argument of `apt-get ... install`. EVERY such call,
+    since 2026-11-02: the matrix moved to the `ui-conformance` job, and a check
+    that read only the first call would have passed with the font missing from
+    the job that measures with it.
     """
     text = CI_YML.read_text(encoding="utf-8")
-    install = re.search(r"apt-get \"\$\{opts\[@\]\}\" install -y(?P<args>[^;]*);", text)
-    assert install is not None, "the test job's apt-get install call was not found"
-    packages = install.group("args").replace("\\", " ").split()
-    # NON-TRIVIALITY: the call really is the Qt-libraries one.
-    assert "libfontconfig1" in packages, packages
-    assert "fonts-dejavu-core" in packages, packages
+    installs = re.findall(r"apt-get \"\$\{opts\[@\]\}\" install -y([^;]*);", text)
+    # NON-TRIVIALITY: both Qt jobs, `test` and `ui-conformance`, were found.
+    assert len(installs) >= 2, f"found {len(installs)} apt install call(s)"
+    for args in installs:
+        packages = args.replace("\\", " ").split()
+        assert "libfontconfig1" in packages, packages
+        assert "fonts-dejavu-core" in packages, packages
+
+
+#: The file the `ui-conformance` job runs and the `test` legs leave out.
+_CONFORMANCE: Final[str] = "tests/test_ui_conformance.py"
+
+
+def _job_block(lines: list[str], job: str) -> list[str]:
+    """The lines of one job under `jobs:`, up to the next job."""
+    start = lines.index(f"  {job}:")
+    block = [lines[start]]
+    for line in lines[start + 1 :]:
+        if re.match(r"^  [a-z][a-z0-9-]*:$", line) or re.match(r"^\S", line):
+            break
+        block.append(line)
+    return block
+
+
+def _pytest_calls(block: list[str]) -> list[str]:
+    """Each `pytest ...` command in a job: a line that runs it (``run: pytest``
+    or a folded line opening with ``pytest``), joined with the lines below it
+    at the same indentation, which are the rest of a folded command."""
+    calls: list[str] = []
+    for i, line in enumerate(block):
+        body = line.strip().removeprefix("run: ")
+        if not body.startswith("pytest "):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        parts = [body]
+        for more in block[i + 1 :]:
+            if not more.strip() or len(more) - len(more.lstrip(" ")) != indent:
+                break
+            parts.append(more.strip())
+        calls.append(" ".join(parts))
+    return calls
+
+
+def test_the_conformance_matrix_runs_in_exactly_one_job() -> None:
+    """2026-11-02: the matrix left the `test` legs for a job of its own. The two
+    halves are one claim: the legs `--ignore` the file AND `ui-conformance` runs
+    it. Either half alone would lose it (ignored and run nowhere) or pay for it
+    five times (run everywhere), so the relation is what is held."""
+    lines = _ci_lines()
+    legs = _pytest_calls(_job_block(lines, "test"))
+    own = _pytest_calls(_job_block(lines, "ui-conformance"))
+    assert len(legs) == 1 and len(own) == 1, (legs, own)
+    assert f"--ignore={_CONFORMANCE}" in legs[0].split(), legs[0]
+    assert own[0].split()[1:] == [_CONFORMANCE], own[0]
+    # NON-TRIVIALITY: the file is real and holds the matrix.
+    root = CI_YML.parents[2]
+    assert "def test_every_window_passes_every_rule_in_every_condition" in (
+        root / _CONFORMANCE
+    ).read_text(encoding="utf-8")
 
 
 def _top_level_block(lines: list[str], key: str) -> dict[str, str]:
