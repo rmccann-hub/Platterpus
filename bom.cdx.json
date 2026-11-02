@@ -2452,13 +2452,13 @@
     },
     {
       "type": "application",
-      "bom-ref": "gha:actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
+      "bom-ref": "gha:actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8",
       "group": "actions",
       "name": "attest-build-provenance",
-      "version": "v4.1.1",
+      "version": "v4.2.2",
       "description": "Signs the release AppImage's build-provenance attestation.",
       "scope": "excluded",
-      "purl": "pkg:github/actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
+      "purl": "pkg:github/actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2480,7 +2480,7 @@
         },
         {
           "name": "platterpus:pinned-ref",
-          "value": "0f67c3f4856b2e3261c31976d6725780e5e4c373"
+          "value": "4d101475d8b20a2381f78447822ac1eab6504dd8"
         },
         {
           "name": "platterpus:pinned-to-commit-sha",
@@ -2488,7 +2488,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v4.1.1"
+          "value": "v4.2.2"
         }
       ]
     },
@@ -2536,13 +2536,13 @@
     },
     {
       "type": "application",
-      "bom-ref": "gha:pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
+      "bom-ref": "gha:pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086",
       "group": "pypa",
       "name": "gh-action-pypi-publish",
-      "version": "v1.14.1",
+      "version": "v1.14.3",
       "description": "Publishes the wheel and sdist to PyPI.",
       "scope": "excluded",
-      "purl": "pkg:github/pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
+      "purl": "pkg:github/pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2564,7 +2564,7 @@
         },
         {
           "name": "platterpus:pinned-ref",
-          "value": "ba38be9e461d3875417946c167d0b5f3d385a247"
+          "value": "7245906fb61fa33a13554f9d5fb856fe61758086"
         },
         {
           "name": "platterpus:pinned-to-commit-sha",
@@ -2572,19 +2572,19 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v1.14.1"
+          "value": "v1.14.3"
         }
       ]
     },
     {
       "type": "application",
-      "bom-ref": "gha:actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+      "bom-ref": "gha:actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
       "group": "actions",
       "name": "setup-python",
-      "version": "v7.0.0",
+      "version": "v7.1.0",
       "description": "Installs the job's Python.",
       "scope": "excluded",
-      "purl": "pkg:github/actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+      "purl": "pkg:github/actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2606,7 +2606,7 @@
         },
         {
           "name": "platterpus:pinned-ref",
-          "value": "5fda3b95a4ea91299a34e894583c3862153e4b97"
+          "value": "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"
         },
         {
           "name": "platterpus:pinned-to-commit-sha",
@@ -2614,18 +2614,18 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v7.0.0"
+          "value": "v7.1.0"
         }
       ]
     },
     {
       "type": "application",
-      "bom-ref": "gha:astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+      "bom-ref": "gha:astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa",
       "group": "astral-sh",
       "name": "setup-uv",
-      "version": "v10.3.0",
+      "version": "v10.3.1",
       "scope": "excluded",
-      "purl": "pkg:github/astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+      "purl": "pkg:github/astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2647,7 +2647,7 @@
         },
         {
           "name": "platterpus:pinned-ref",
-          "value": "1c37ad07a6a961277cf70c0d37d6f313000f5884"
+          "value": "18d369b23da25a81e9458561248e1aafff6a70fa"
         },
         {
           "name": "platterpus:pinned-to-commit-sha",
@@ -2655,7 +2655,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v10.3.0"
+          "value": "v10.3.1"
         }
       ]
     },
