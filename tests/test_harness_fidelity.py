@@ -904,3 +904,24 @@ def test_a_dialog_left_on_screen_is_named_and_hidden(qapp) -> None:
     finally:
         dialog.close()
         dialog.deleteLater()
+
+
+def test_a_main_window_left_on_screen_is_named_and_hidden(qapp) -> None:
+    """A shown main window released with `deleteLater()` alone stays visible, and
+    a later test's visible-label check reads it (2026-11-02, after #420)."""
+    from conftest import put_away_leftover_dialogs
+    from PySide6.QtWidgets import QMainWindow
+
+    window = QMainWindow()
+    window.setWindowTitle("left on screen")
+    window.show()
+    try:
+        assert window.isVisible(), "premise: the window is on screen"
+        assert put_away_leftover_dialogs() == [
+            "QMainWindow 'left on screen' (on screen)"
+        ]
+        assert not window.isVisible()
+        assert put_away_leftover_dialogs() == [], "a clean state reported a leftover"
+    finally:
+        window.close()
+        window.deleteLater()

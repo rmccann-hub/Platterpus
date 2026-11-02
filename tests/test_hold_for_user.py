@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 from conftest import stop_window_threads
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 from test_ui_main_window import _make_window
 
@@ -57,8 +57,16 @@ def make_window(qapp: QApplication) -> Iterator[Callable[..., Any]]:
     for window in created:
         for child in window.findChildren(QDialog):
             child.close()
+        # Hidden, and its deferred delete run below: these tests show the real
+        # window, and a shown window outlives `deleteLater` until a loop runs, so
+        # a later test on the same worker that read every visible label read this
+        # one's ("2 matches found — pick one") and failed `main`'s CI after #420.
+        # Either step alone puts it away (`scripts/revert_probe.py`); with
+        # neither, conftest's leftover check fails the test that leaked it.
+        window.hide()
         stop_window_threads(window)
         window.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 @pytest.fixture()

@@ -922,6 +922,12 @@ def put_away_leftover_dialogs() -> list[str]:
       outside an event loop is not run by `processEvents()`, so the window stays
       up until some later test happens to run a nested `exec()` loop), and
       `close()` on a `QMessageBox` with no escape button, which Qt refuses.
+    * **A main window on screen.** A top-level `QMainWindow` still visible. It is
+      not a dialog, so `_active_dialog()` does not see it, but every check that
+      reads the visible labels does: on 2026-11-02 `tests/test_hold_for_user.py`
+      showed the real window and released it with `deleteLater()` alone, and a
+      later `callout` test on the same worker read its "2 matches found — pick
+      one" and failed `main`'s CI after #420 and PR #421's.
     * **Armed.** A `QProgressDialog` that is hidden but whose force-show timer is
       running. Qt starts that timer in the CONSTRUCTOR, for `minimumDuration`
       (4 s by default), so a progress dialog that is built and never shown or
@@ -940,14 +946,14 @@ def put_away_leftover_dialogs() -> list[str]:
     down. A progress dialog is `reset()` first, which is what stops its timer.
     """
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QDialog, QProgressDialog
+    from PySide6.QtWidgets import QDialog, QMainWindow, QProgressDialog
 
     if QApplication.instance() is None:
         return []
     found: list[str] = []
     for widget in QApplication.topLevelWidgets():
         try:
-            if not isinstance(widget, QDialog):
+            if not isinstance(widget, (QDialog, QMainWindow)):
                 continue
             visible = widget.isVisible()
             armed = isinstance(widget, QProgressDialog) and any(
@@ -993,15 +999,17 @@ def _no_test_leaves_a_dialog_behind() -> Generator[None, None, None]:
     leftovers = put_away_leftover_dialogs()
     if leftovers:
         pytest.fail(
-            "this test left a dialog behind, which every later `rip` step on "
-            "this worker would refuse to start behind ('a dialog is waiting for "
-            "an answer'):\n  "
+            "this test left a dialog or main window on screen, which every "
+            "later `rip` step on this worker would refuse to start behind ('a "
+            "dialog is waiting for an answer'), and every visible-label check "
+            "would read:\n  "
             + "\n  ".join(leftovers)
             + "\nClose it before the test ends: `close()` then `deleteLater()`. "
             "`deleteLater()` alone leaves it on screen; a QMessageBox with no "
             "escape button (no Cancel/RejectRole) REFUSES `close()`, so use "
             "`done(0)`; and a QProgressDialog that is never shown or closed "
-            "shows itself after minimumDuration.",
+            "shows itself after minimumDuration. A shown QMainWindow needs "
+            "`hide()` before `deleteLater()`.",
             pytrace=False,
         )
 
