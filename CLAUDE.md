@@ -292,8 +292,8 @@ they're established. Keep entries terse.*
   `test` (pytest on the 3.11–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14
   leg; every test but the UI conformance matrix), **`ui-conformance`** (that matrix,
   `tests/test_ui_conformance.py`, once, on 3.14, since 2026-11-02: it was the long pole of every
-  leg, and what it measures does not change with the Python version; gating once the owner adds it
-  to the ruleset's required checks), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in
+  leg, and what it measures does not change with the Python version; a required check from
+  2026-11-02, on the owner's change to the ruleset), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in
   `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package, plus `scripts/`,
   `build/*.py` and `.claude/hooks`), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8
   backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the full
@@ -451,8 +451,9 @@ wherever the generic SOP differs.** What we actually do:
   pull request with **no approvals**, with these required status checks: `lint`, `typecheck`,
   `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, `test (py3.11)` to
   `test (py3.14)`, and, since 2026-10-28, `lock-check` and `lock-install` (14 in all, read from
-  `GET /repos/rmccann-hub/Platterpus/rules/branches/main` that day); `ui-conformance` joins them
-  when the owner adds it (asked 2026-11-02), so read the live list rather than this one. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
+  `GET /repos/rmccann-hub/Platterpus/rules/branches/main` that day), and since 2026-11-02
+  `ui-conformance` (15 in all, read from the same endpoint at 22:48 UTC that day); read the live
+  list rather than this one. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
   (2026-10-14, HR-2 point 3), blocks its deletion and force pushes. What every session must keep
   true under them: every change lands through a pull request (it already does); nothing pushes to
   `main`, moves or deletes a `v*` tag, or force-pushes; **merge commits are the only merge method**

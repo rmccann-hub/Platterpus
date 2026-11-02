@@ -11,6 +11,16 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-29 to 2026-11-02 — R96 and R97; dependencies carried; CI from 9 minutes to 6; the AppImage builds again
+
+- **R97** (#420): the drive-cache check runs `cd-paranoia -A` in a folder of its own under the app's data folder, keeps its `cdparanoia.log` with the run, and removes the folder; nothing is left in the folder Platterpus was started from.
+- **R96, the album picker** (#420): it waits until the main window is the one in use (`ui/hold_for_user.py`, a modal dialog or another visible window of ours counts as busy, the script console excepted), then opens if the disc is the same; one held picker per disc. The other dialogs that open on their own are sorted in TASKS R96, still to do.
+- **`main` went red after #420, and it was ours**: the new picker tests left the real window on screen, and a later `callout` test on the same CI worker read its labels. Fixed in the tests, and conftest's leftover check now fails a test that leaves a `QMainWindow` up, not only a dialog (#421).
+- **Dependencies carried** (#421): the weekly relock, whose job pushed its branch but could not open a pull request, and Dependabot's #403, four actions, `pypa/gh-action-pypi-publish` 1.14.3 among them. Branches cleaned: the remote holds `main`, `evidence` and the session branch.
+- **CI from 9 to 10 minutes to 5.8** (#422, the owner's *"yes, do it"*): the UI conformance matrix, 246 s of one worker's setup, runs once in `ui-conformance` instead of in all four `test` legs; coverage unchanged at 93.27%. The owner made it a required check (15 in all).
+- **The AppImage builds again** (#422): python-appimage fetches appimagetool's floating `continuous` release, whose build of 2026-11-01 refuses mode-0700 AppDir folders, so every build from the #420 merge failed. Pinned to 1.9.1 by sha256; proved by a dispatched build and by `main`'s. The modes are TASKS R98.
+- **Learned.** A test that shows a real window must put it away, and the check that catches a leak must cover every kind of top-level window, or the leak fails a stranger. A tool fetched from a floating release gates the build as surely as a pinned one, so it is pinned the same way (Critical rule #11). Measure before answering "can CI be faster": one fixture was most of every leg. mypy 2.3.1's incremental cache twice reported `platterpus.paths` missing locally where a fresh cache and CI did not.
+
 ## 2026-10-28 (evening) — the Full run on `.27`; laps 16 to 18; round 36 closed; `.27` approved
 
 - **The owner's Full run on 0.7.114 with `.27`** (03:07 UTC): 553 pass, 0 fail, graded `full-green` and filed on `evidence` at `4e3830ca` (#409). `Recordable:` answers; track 3 right in 2 of 6 on each build.
