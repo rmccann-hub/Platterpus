@@ -2204,7 +2204,7 @@
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=0.15.22,<0.16"
+          "value": ">=0.17.2,<0.18"
         },
         {
           "name": "platterpus:imported-by",
