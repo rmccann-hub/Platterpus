@@ -2477,7 +2477,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1869 -> 1792** (2026-10-29, TASKS R96): down: the release picker and `_close_superseded_picker` moved to `ui/main_window_picker.py` (`ReleasePickerMixin`), so the picker can wait for the main window; the slot keeps one call and the one-held-picker guard.
     # **1792 -> 1791** (2026-11-03, TASKS R96): down: the unknown-album offer's guard moved into `ReleasePickerMixin._hold_unknown_album_offer`, so `_handle_no_mb_match` makes one call.
     # **1792 -> 1795** (2026-11-03, TASKS R62, who cancelled a rip): `_rip_cancel_cause`, declared beside `_rip_cancelled`, and its import.
-    "ui/main_window.py": 1794,
+    # **1794 -> 1809** (2026-11-03, TASKS R107): the first-run offer runs on a child timer of the window, so it cannot fire on a torn-down one, and six config writes go through `_save_config_or_report`, which logs a failed write instead of raising into Qt.
+    "ui/main_window.py": 1809,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2710,7 +2711,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **474 -> 482** (2026-10-29, TASKS R96): the three release-picker fields and the two MainWindow methods `ReleasePickerMixin` uses, declared so mypy resolves them.
     # **482 -> 483** (2026-11-03, TASKS R96, the unknown-album offer): `open_unknown_album_dialog` declared, which `ReleasePickerMixin`'s held offer calls, so mypy resolves it; the hold itself lives in `main_window_picker.py`, keeping `main_window.py` at its cap.
     # **482 -> 484** (2026-11-03, TASKS R62, who cancelled a rip): the seam declares `_rip_cancel_cause`.
-    "ui/main_window_shared.py": 485,
+    # **485 -> 488** (2026-11-03, TASKS R107): the seam declares `_save_config_or_report`.
+    "ui/main_window_shared.py": 488,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2731,6 +2733,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1004 -> 1006** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1006 -> 1087** (2026-11-03, TASKS R96): the automatic cyanrip offer waits for the main window instead of being dropped (`_hold_automatic_ripper_offer`), and `_interruption_blocker` is split into the reasons that drop a held offer (`_no_one_to_ask`) and those that delay it (`_rip_blocker`, `_modal_floor_blocker`), with the docstrings that say why the user-started check is not held. Beside the check whose answer it holds.
     "ui/main_window_update.py": 1087,
+    # One record type and the per-album store it lives in, cohesive. **-> 304** (2026-11-03, TASKS R51 and R62 meeting): `EacLogRender` keeps what the EAC-layout log was rendered from, who cancelled included, so CTDB's later answer renders it the same way.
+    "ui/post_rip_record.py": 304,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
@@ -2938,7 +2942,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4829 -> 4836** (2026-10-26, section P6, the owner's paired rips of track 3): the `AccuracyVerbsMixin` in the class list and its import, and the `record-accuracy` records with their reset, beside the timings. The handlers live in `accuracy_verbs.py`.
     # **-> 4859** (2026-10-26): P6 merged onto the run A and run C fixes; the number is the merged file's line count.
     # **4859 -> 4869** (2026-11-03, TASKS R62, who cancelled a rip): `stop` and `_cancel_own_rip` name the run (`run_ended`, or `time_limit` when a `wait-for-rip` ran out), and `cancel-rip` names its step, when they call the window's Cancel.
-    "uiscript/runner.py": 4869,
+    # **4869 -> 4882** (2026-11-03, TASKS R104): the evidence bundle's thread takes plain values read on the GUI thread, so it never holds the last reference to the runner.
+    "uiscript/runner.py": 4882,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
