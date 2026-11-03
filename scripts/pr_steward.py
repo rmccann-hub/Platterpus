@@ -14,7 +14,7 @@ blocks a merge for good. The skill tells the whole story; this decides by rule.
 branch's ruleset requires (`rules/branches/<branch>`), every check run on the
 commit, and every workflow run for it. The verdict:
 
-* ``GREEN``     every required check passed and nothing else on the commit failed;
+* ``GREEN``     every required check passed, and nothing else failed or still runs;
 * ``FAILED``    a check failed, or timed out (required or not: a red
                 ``appimage.yml`` on ``main`` is a red ``main``);
 * ``CANCELLED`` the newest run of a required check was cancelled, which is
@@ -149,16 +149,16 @@ def classify(
         else:
             failed.append(run)
 
-    # A check nobody requires still counts when it FAILS: a red appimage.yml on
-    # main is a red main. Its passing, pending or cancelled runs decide nothing.
+    # A check nobody requires counts when it FAILS (a red appimage.yml on main is
+    # a red main) and while it RUNS (it read GREEN mid-build, 2026-11-03).
     for name, run in sorted(newest.items()):
         if name in required:
             continue
-        if run.status == "completed" and run.conclusion in _FAILING:
+        if run.status != "completed":
+            pending.append(name)
+        elif run.conclusion in _FAILING:
             failed.append(run)
-        elif run.status == "completed" and run.conclusion not in _PASSING | {
-            "cancelled"
-        }:
+        elif run.conclusion not in _PASSING | {"cancelled"}:
             notes.append(f"{name}: unrecognised conclusion {run.conclusion!r}")
 
     if not required:

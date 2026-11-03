@@ -106,6 +106,17 @@ def test_a_failing_check_nobody_requires_still_fails_main() -> None:
     assert [r.name for r in report.failed] == ["build"]
 
 
+def test_a_check_nobody_requires_that_is_still_running_is_pending() -> None:
+    """appimage.yml on main's merge commit read GREEN while it was still building
+    (2026-11-03): every required check had passed, and nothing waited for it."""
+    runs = _all_green() + [_run("build", "", "in_progress", rid=8)]
+    report = steward.classify(REQUIRED, runs, workflows_finished=False)
+    assert report.verdict == steward.PENDING
+    assert report.pending == ("build",)
+    runs = _all_green() + [_run("build", rid=8)]
+    assert steward.classify(REQUIRED, runs, True).verdict == steward.GREEN
+
+
 def test_a_failure_is_never_hidden_behind_something_pending() -> None:
     runs = [_run("lint", "failure", rid=1), _run("test (py3.12)", "", "in_progress", 2)]
     report = steward.classify(REQUIRED, runs, workflows_finished=False)

@@ -52,7 +52,7 @@ wins, in this order:
 | `FAILED` | 1 | a check failed or timed out, required or not | `--logs`, reproduce, fix (below) |
 | `BLOCKED` | 3 | a required check never reported, and every workflow has finished | the ruleset names a job that does not run: the owner's change |
 | `CANCELLED` | 4 | the newest run of a required check was cancelled | a newer push superseded it: judge the newest head |
-| `PENDING` | 2 | something is queued or running, and nothing above | wait, without a tight loop |
+| `PENDING` | 2 | something is queued or running, required or not, and nothing above | wait, without a tight loop |
 | `GREEN` | 0 | every required check passed, and nothing failed | merge, then judge `main` |
 | (none) | 5 | the API could not be read | no verdict; try again, and never report green |
 
