@@ -1078,6 +1078,44 @@ def test_a_finished_rip_teaches_the_drive_its_speed_but_a_uniform_rip_does_not(
     window._active_rip_params = None
 
 
+def test_a_track_with_paranoia_skips_does_not_teach_the_drive_its_speed(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """TASKS R63 (the plan of record, Appendix H §3): disc 1's 8,548 s track 18,
+    read with 2,076 skips, made the drive read at 0.38x and the next estimate
+    about 2.6 times too long. The struggled track is left out, and the log says so."""
+    import logging
+    from types import SimpleNamespace
+
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    clean = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=50.0
+    )
+    hard = SimpleNamespace(
+        start_sector=7500,
+        end_sector=14999,
+        extraction_elapsed_seconds=8548.0,
+        paranoia_counts={"READ": 519522, "SKIP": 2076},
+    )
+    window._rip_cancelled = True  # the run's time limit stopped it
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    with caplog.at_level(logging.INFO):
+        window._learn_read_rate(SimpleNamespace(tracks=[clean, hard]), success=False)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is not None
+    assert profile.read_rate.multiple == 0.5, profile.read_rate
+    assert "left out 1 track(s) with paranoia skips" in caplog.text
+    window._active_rip_params = None
+
+
 def test_rip_lock_greys_conflicting_ui(teardown_threads) -> None:
     """During a rip the drive picker and conflicting menu actions grey out; Quit
     stays available (it force-stops on exit). Unlock restores.

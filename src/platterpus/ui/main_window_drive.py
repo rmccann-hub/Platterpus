@@ -337,7 +337,8 @@ class DriveMixin(MainWindowShared):
         Only a first pass that read each track once: a uniform ``-Z`` rip's
         extraction times hold every read of a track, which would make the drive
         look several times slower. A failed rip teaches nothing; a cancelled one
-        teaches the tracks it finished, as its log records them.
+        teaches the tracks it finished, as its log records them, less any track
+        paranoia skipped on (`rip_estimate.struggled`, TASKS R63).
         """
         from dataclasses import replace
 
@@ -349,9 +350,16 @@ class DriveMixin(MainWindowShared):
                 return
             if params.secure_rerip_matches > 0 and not params.secure_rerip_dynamic:
                 return
-            sample = rip_estimate.first_pass_sample(
-                getattr(rip_log, "tracks", ()) or ()
-            )
+            tracks = getattr(rip_log, "tracks", ()) or ()
+            sample = rip_estimate.first_pass_sample(tracks)
+            # Said, so a reader of the log knows the figure is not the whole rip.
+            hard = sum(1 for track in tracks if rip_estimate.struggled(track))
+            if hard:
+                log.info(
+                    "drive reading speed: left out %d track(s) with paranoia skips, "
+                    "whose time measures the disc, not the drive",
+                    hard,
+                )
             drive = self._drive_picker.current_drive()
             if sample is None or drive is None:
                 return

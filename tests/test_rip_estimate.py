@@ -204,6 +204,42 @@ def test_the_first_pass_sample_counts_only_complete_tracks() -> None:
     assert rip_estimate.first_pass_sample([]) is None
 
 
+class _Read(_Track):
+    def __init__(self, start: int, end: int, took: float, counts: object) -> None:
+        super().__init__(start, end, took)
+        self.paranoia_counts = counts
+
+
+def test_a_track_paranoia_skipped_on_does_not_teach_the_drive_its_speed() -> None:
+    """The plan of record, Appendix H §3 (TASKS R63), on disc 1's shape.
+
+    The 2026-10-21 Full run's whole-disc log (`round36full1021bwholedisc.log`,
+    evidence `08de9851`): track 17 read 15,037 sectors in 139.36 s with 28
+    skips and track 18 20,063 sectors in 8,548.47 s with 2,076; track 1, clean,
+    13,035 in 26.53 s. With every track the sample read at 0.38x, and the next
+    estimate for the drive was about 2.6 times too long.
+    """
+    tracks = [
+        _Read(0, 13034, 26.53, {"READ": 1058, "VERIFY": 71, "OVERLAP": 13}),
+        _Read(227425, 242461, 139.36, {"READ": 10513, "SKIP": 28}),
+        _Read(242462, 262524, 8548.47, {"READ": 519522, "SKIP": 2076}),
+    ]
+    assert [rip_estimate.struggled(t) for t in tracks] == [False, True, True]
+    sample = rip_estimate.first_pass_sample(tracks)
+    assert sample == (13035 / 75, 26.53)
+    # Floor: the skipped tracks WOULD have dominated, so leaving them out matters.
+    everything = sum(t.extraction_elapsed_seconds for t in tracks)
+    assert everything > 100 * sample[1]
+
+
+@pytest.mark.parametrize(
+    "counts", [None, {}, {"SKIP": 0}, {"SKIP": "3"}, {"SKIP": True}]
+)
+def test_no_skip_count_is_not_a_struggle(counts: object) -> None:
+    """Tri-state at the edge: a missing, zero or malformed count leaves the track in."""
+    assert not rip_estimate.struggled(_Read(0, 74, 1.0, counts))
+
+
 # --- the sentences ----------------------------------------------------------
 
 
