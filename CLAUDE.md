@@ -519,7 +519,7 @@ wherever the generic SOP differs.** What we actually do:
   recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the
   reverted line. Spec format is in the script's docstring; exits non-zero unless every revert
   behaved as expected.
-- **Judge a commit's checks (the `pr-steward` skill, DRAFT, `.claude/skills/pr-steward/SKILL.md`):**
+- **Judge a commit's checks (the `steward` skill, DRAFT, `.claude/skills/steward/SKILL.md`):**
   `python3 scripts/pr_steward.py --pr <N>` or `--sha <merge sha> [--logs]` — `GREEN` / `FAILED` /
   `PENDING` / `BLOCKED` / `CANCELLED` (exit 0 / 1 / 2 / 3 / 4; 5 when the API cannot be read),
   from the ruleset's required checks and the commit's runs, never a count copied into a loop.

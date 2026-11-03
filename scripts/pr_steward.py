@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Say whether a commit's checks are green, and if not, exactly why not.
 
-The mechanical half of the `pr-steward` skill (`.claude/skills/pr-steward/SKILL.md`),
+The mechanical half of the `steward` skill (`.claude/skills/steward/SKILL.md`),
 which carries the judgement. A DRAFT, owned by this repository.
 
 **Why this exists (2026-11-02).** `main` went red twice after a merge with

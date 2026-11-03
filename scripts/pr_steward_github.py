@@ -1,6 +1,6 @@
 """Read what `scripts/pr_steward.py` judges from the GitHub API.
 
-The reading half of the `pr-steward` skill (`.claude/skills/pr-steward/SKILL.md`),
+The reading half of the `steward` skill (`.claude/skills/steward/SKILL.md`),
 split from the judging half in `pr_steward.py` because they are two jobs: what
 the API says, and what it means. Everything here is read; nothing is written,
 merged or re-run. A DRAFT, owned by this repository.

@@ -1,9 +1,9 @@
 ---
-name: pr-steward
+name: steward
 description: DRAFT. Drive a Platterpus pull request to a green merge and keep main green after it. Use after opening or pushing to a pull request, after every merge to main, before any release is dispatched, at the start of a session, and whenever asked to watch, babysit or steward a PR. Judges a commit's checks with scripts/pr_steward.py (GREEN, FAILED, PENDING, BLOCKED, CANCELLED) and says what to do about each.
 ---
 
-# PR steward — DRAFT
+# Steward — DRAFT
 
 **Status: DRAFT, owned by this repository** (the owner's word of 2026-11-03:
 *"Be clear that you should own it, but the skill checker should give a
@@ -12,6 +12,11 @@ change with this repo, in the same commit as whatever they describe. The
 claude-code-skills checker supplies the framework: where a skill lives, its
 frontmatter, how it is checked. When that framework changes, change this file's
 shape to match and keep its content.
+
+**Where it lives:** `.claude/skills/steward/`, the folder a session driving a
+pull request looks for (or `babysit/`); the fork's is at the same path. It was
+first written under `pr-steward/`, where no session found it (the owner,
+2026-11-03). The script keeps its name, `scripts/pr_steward.py`.
 
 ## Why it exists
 

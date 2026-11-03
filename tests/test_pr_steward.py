@@ -1,7 +1,7 @@
 """`scripts/pr_steward.py`: the verdict on a commit's checks, decided by rule.
 
 Each case is one of the three ways hand-written waits went wrong on 2026-11-02,
-or a guard around them (`.claude/skills/pr-steward/SKILL.md`). The classifier
+or a guard around them (`.claude/skills/steward/SKILL.md`). The classifier
 and the log reader are pure, so these run without the network; the fetching
 half is exercised through `main` with the fetchers replaced.
 """
@@ -18,7 +18,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = REPO / ".claude" / "skills" / "pr-steward" / "SKILL.md"
+SKILL = REPO / ".claude" / "skills" / "steward" / "SKILL.md"
 
 
 def _load() -> ModuleType:
@@ -191,9 +191,17 @@ def test_the_skill_states_what_the_script_decides() -> None:
     """The skill and the script describe one tool; a verdict or exit code the
     script has and the skill does not name is a drift, caught here."""
     text = SKILL.read_text(encoding="utf-8")
-    assert text.startswith("---\nname: pr-steward\n"), "frontmatter first, named"
+    assert text.startswith("---\nname: steward\n"), "frontmatter first, named"
     assert "scripts/pr_steward.py" in text
     for verdict, code in steward.EXIT_CODES.items():
         assert f"`{verdict}`" in text and f"| {code} |" in text, (verdict, code)
     assert f"| {steward.EXIT_UNREAD} |" in text
     assert "DRAFT" in text
+
+
+def test_the_skill_lives_where_a_session_driving_a_pr_looks() -> None:
+    """Sessions driving a pull request look for `steward/` (or `babysit/`), as
+    the fork's does; under `pr-steward/` it was not found (the owner, 2026-11-03)."""
+    skills = REPO / ".claude" / "skills"
+    assert SKILL.is_file() and SKILL.parent.name == "steward"
+    assert not (skills / "pr-steward").exists(), "the old folder is not found"
