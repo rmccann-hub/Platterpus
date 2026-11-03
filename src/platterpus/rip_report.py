@@ -46,6 +46,7 @@ from platterpus.handshake_approval import (
 )
 from platterpus.isrc_provenance import findings as isrc_findings
 from platterpus.kept_read import NOT_PRESENT as KEPT_READ_NOT_PRESENT
+from platterpus.paranoia_scope import counts_block
 from platterpus.parsers.rip_log import (
     DRIVE_FACT_NOT_PRESENT,
     RECORDABLE_CDRW,
@@ -665,6 +666,10 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      was recorded from the rip's start, and `earlier_in_session` (`count`,
 #      `codes`, `worst_severity`) counts the session's earlier ones once instead
 #      of repeating them (`diagnostics_scope.py`; `scope` says which).
+#      Also v42, still unreleased, additions only (review B4, 2026-11-03):
+#      `outcome.securing_pass_paranoia_counts`, the securing pass's own disc
+#      paranoia block from its kept log, null when none was read; the top-level
+#      `paranoia_counts` is the album pass's and left out that second run.
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -1186,6 +1191,7 @@ def build_outcome(
     ripper_record: RipperEnding | None = None,
     securing_pass_record: RecordFate | None = None,
     cancelled_by: object = None,
+    securing_pass_paranoia_counts: object = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -1292,6 +1298,9 @@ def build_outcome(
             wrapper_code=securing_pass_exit_code,
             ending=getattr(securing_pass_record, "ending", None),
         ),
+        # v42 (B4): the securing pass's own disc paranoia block, from its kept
+        # log; never summed into the album pass's top-level `paranoia_counts`.
+        "securing_pass_paranoia_counts": counts_block(securing_pass_paranoia_counts),
         # A list (JSON has no tuples) of the argv as spawned. Empty argv is
         # serialized as null, not [], so "we never launched it" and "we launched
         # it with no arguments" stay distinguishable.

@@ -232,6 +232,8 @@ class OutcomeBlock(TypedDict):
     #: v42 (TASKS R64): the securing pass's exit status as the wrapper we reaped
     #: and as cyanrip's own record, each named; `None` when it never ran.
     securing_pass_exit_codes: SecuringExitsBlock | None
+    #: v42 (B4): the securing pass's own disc paranoia block, from its kept log.
+    securing_pass_paranoia_counts: dict[str, int] | None
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's

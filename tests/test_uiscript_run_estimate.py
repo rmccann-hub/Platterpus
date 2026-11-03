@@ -144,9 +144,7 @@ def test_an_incomplete_figure_is_about_never_at_least() -> None:
     took 2 h 22 min: the drive read at 2.6x to 4.5x. What the figure counts is a
     forecast a faster drive beats, so a part left out cannot turn it into a floor.
     Both shapes: rips with no figure, and a section never measured."""
-    rip_left_out = "\n".join(
-        ["select-tracks 1", "rip", "select-tracks 1,99", "rip"]
-    )
+    rip_left_out = "\n".join(["select-tracks 1", "rip", "select-tracks 1,99", "rip"])
     unmeasured = "log --- Z9. a section nobody measured ---\nexpect-tracks 2+"
     for source in (rip_left_out, unmeasured):
         figure = _estimate(source)

@@ -906,6 +906,8 @@ class RipWorker(QObject):
         # `_securing_pass_started`; otherwise the pass never ran.
         self._securing_pass_started: bool = False
         self._securing_pass_exit_code: int | None = None
+        # The kept securing pass log's disc paranoia block (B4); None until read.
+        self._securing_pass_paranoia_counts: dict[str, int] | None = None
         # The last verified-read chase read's exit status (TASKS R7), its own
         # field so a chase read is never reported as the securing pass's.
         self._chase_exit_code: int | None = None
@@ -3435,6 +3437,9 @@ class RipWorker(QObject):
             source = max(logs, key=lambda p: p.stat().st_mtime)
             target = securing_pass_log_path_for(album_log_path)
             shutil.copyfile(source, target)
+            parsed = self._parse_log(str(target))
+            counts = getattr(parsed, "paranoia_counts", None)
+            self._securing_pass_paranoia_counts = dict(counts or {})
         except Exception:  # noqa: BLE001 — runs in a `finally`; must not abort the rip
             log.exception("could not keep the securing pass's own log")
             return
@@ -3822,6 +3827,11 @@ class RipWorker(QObject):
     def securing_pass_started(self) -> bool:
         """Whether this rip's securing pass started (its ripper was spawned)."""
         return self._securing_pass_started
+
+    @property
+    def securing_pass_paranoia_counts(self) -> dict[str, int] | None:
+        """The kept securing pass log's own disc paranoia block, or None (B4)."""
+        return self._securing_pass_paranoia_counts
 
     @property
     def securing_pass_exit_code(self) -> int | None:

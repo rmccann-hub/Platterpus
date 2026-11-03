@@ -2127,7 +2127,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1084 -> 1087** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `ripper_health_status`, the ripper's own sentence beside `health_status`.
     # **1094 -> 1110** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): `FirstPassRereadBlock` and `TrackBlock.first_pass_reread` (schema v42).
     # **1110 -> 1139** (2026-11-03, TASKS R117, records that reached no reader): `PregapSearchesEntry`, `NameShortenedEntry`, `EarlierDiagnosticsBlock` and their keys on `RipBlock` and `DiagnosticsBlock` (schema v42).
-    "report_types.py": 1139,
+    # **1094 -> 1096** (2026-11-03, review B4): `OutcomeBlock.securing_pass_paranoia_counts`, the securing pass's own disc paranoia block (the album's `paranoia_counts` left that run out).
+    "report_types.py": 1141,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2149,7 +2150,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1009 -> 1012** (2026-10-06, ruling C1): `_rip_failure` phrases each pass's exit through `rip_pass_exit.PassExits`, the one phrasing every reader shares; the phrasing itself lives there.
     # **1012 -> 1018** (2026-10-13, round 32 lap 5 S11): `DIAGNOSTICS_FLAG` is imported from `diagnostics_record` rather than spelled here, with the reason (two copies could strip one spelling and append the other); the cache-probe row names `--cache-probe`.
     # **1018 -> 1020** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
-    "rig_check.py": 1020,
+    # **1020 -> 942** (2026-11-03, review B4): the paranoia row moved to `paranoia_scope.py` and now reads the securing pass's own log too; what stays is finding that log beside the album's.
+    "rig_check.py": 942,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
@@ -2271,7 +2273,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3516 -> 3538** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: the v42 note, `health_status` asked with the placement, and `ripper_health_status`.
     # **3583 -> 3621** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the schema-42 note, `_first_pass_block` beside `_limit_stop_block` and `_kept_read_block` it reuses, the per-track key, and the `heavy_reread` message naming what replaced the pass. They must be dict literals in this file (`tests/test_report_types_completeness.py`); the sentences are `first_pass_reread.sentences`.
     # **3621 -> 3669** (2026-11-03, TASKS R117, records that reached no reader): the schema-42 note, `rip.pregap_searches` and `rip.names_shortened` with their two builders beside the other block builders (the `rip` keys must be literals here, `tests/test_report_types_completeness.py`), and `diagnostics` handed to `diagnostics_scope.scoped_to_rip`, where the scoping lives.
-    "rip_report.py": 3669,
+    # **3583 -> 3592** (2026-11-03, review B4): `outcome.securing_pass_paranoia_counts` with its v42 schema note; the coercion is `paranoia_scope.counts_block`.
+    "rip_report.py": 3681,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2706,7 +2709,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5268 -> 5272** (2026-11-03, TASKS R113): the finish handler hands the disc panel the disc's track count.
     # **5272 -> 5275** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): a rip's start blanks the disc panel's AccurateRip row.
     # **5275 -> 5278** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): the finish handler ends the track table's live status.
-    "ui/main_window_rip.py": 5287,
+    # **5268 -> 5271** (2026-11-03, review B4): hands the worker's securing-pass paranoia counts to `build_outcome`.
+    "ui/main_window_rip.py": 5290,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3114,7 +3118,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4324 -> 4327** (2026-10-29, TASKS R95): the speed lock engages on an unknown answer too, with the reason beside it.
     # **4327 -> 4338** (2026-11-03, TASKS R65): `_record_unfinished_refix` adds a stopped pass's finished, unconverged, unreplaced tracks to the unstable list, so `read_speed.unstable_tracks` agrees with the verdict after the AccurateRip trigger too.
     # **4338 -> 4341** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the addendum row carries the predicate's answer for the read that shipped.
-    "workers/rip_worker.py": 4341,
+    # **4338 -> 4348** (2026-11-03, review B4): `securing_pass_paranoia_counts`: the kept securing log is parsed where it is copied, on the worker's thread, so the report can carry that run's own counters.
+    "workers/rip_worker.py": 4351,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

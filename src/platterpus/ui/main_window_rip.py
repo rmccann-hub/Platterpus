@@ -1956,6 +1956,9 @@ class RipMixin(MainWindowShared):
             ),
             # Who cancelled it, as the caller of the Cancel said (v42, R62).
             cancelled_by=self._rip_cancel_cause,
+            securing_pass_paranoia_counts=getattr(
+                self._rip_worker, "securing_pass_paranoia_counts", None
+            ),
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
