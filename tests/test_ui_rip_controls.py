@@ -344,3 +344,17 @@ def test_start_passes_force_overread_from_config(qapp: QApplication) -> None:
         ).force_overread
         is False
     )
+
+
+def test_the_output_format_reaches_the_rip_for_its_free_space_floor(
+    qapp: QApplication,
+) -> None:
+    """The free-space check counts the derived format beside the FLAC master
+    (review C10); a WAV choice is the largest, so it must reach the worker."""
+    controls = RipControls(Config(output_dir="/music", output_format="wav"))
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+    assert captured[0].output_format == "wav"

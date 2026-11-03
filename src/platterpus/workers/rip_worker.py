@@ -36,6 +36,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from platterpus import (
     diagnostics,
     diagnostics_record,
+    disk_space,
     drive_control,
     inbound_text,
     record_fate,
@@ -190,6 +191,8 @@ class RipParameters:
     # after the scan would otherwise be filed under the scanned disc's tags.
     # "" = no scan ID to compare against, which reads as "not determined".
     lookup_disc_id: str = ""
+    # Settings' output format, for the free-space floor before the rip (C10).
+    output_format: str = "flac"
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -1097,6 +1100,18 @@ class RipWorker(QObject):
         self._accuraterip_standing: str | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
+    def _space_refusal(self) -> str:
+        """Why this rip cannot fit in its output folder, or "" (`disk_space`)."""
+        params = self._params
+        result = disk_space.check_output_space(
+            params.output_dir,
+            params.metadata.tracks if params.metadata is not None else (),
+            params.only_tracks,
+            params.output_format,
+        )
+        self.log_line.emit(f"[plan]   {result.message}")
+        return result.message if result.refuse else ""
+
     def _make_estimate(self) -> rip_estimate.RipEstimate | None:
         """The up-front estimate for this rip, from its tracks' lengths. Never raises.
 
@@ -1797,6 +1812,13 @@ class RipWorker(QObject):
         estimate_line = f"[plan]   {rip_estimate.describe(self._estimate, known=self._estimate_known)}"
         log.info("%s", estimate_line)
         self.log_line.emit(estimate_line)
+        # Before anything spawns, on this thread (never the GUI's): a rip whose
+        # output folder clearly has too little room is refused (C10).
+        space = self._space_refusal()
+        if space:
+            self.error.emit(space)
+            self.finished.emit(False, "")
+            return
 
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()

@@ -3124,7 +3124,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4327 -> 4338** (2026-11-03, TASKS R65): `_record_unfinished_refix` adds a stopped pass's finished, unconverged, unreplaced tracks to the unstable list, so `read_speed.unstable_tracks` agrees with the verdict after the AccurateRip trigger too.
     # **4338 -> 4341** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the addendum row carries the predicate's answer for the read that shipped.
     # **4338 -> 4348** (2026-11-03, review B4): `securing_pass_paranoia_counts`: the kept securing log is parsed where it is copied, on the worker's thread, so the report can carry that run's own counters.
-    "workers/rip_worker.py": 4351,
+    # **4348 -> 4370** (2026-11-03, review C10): `_space_refusal`, the free-space check before anything spawns, on the worker's thread so a stalled mount cannot freeze the window; the floor itself is `disk_space.py`, and `RipParameters.output_format` carries the derived format to it.
+    "workers/rip_worker.py": 4373,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
