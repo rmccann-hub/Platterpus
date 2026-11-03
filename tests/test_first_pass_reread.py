@@ -198,17 +198,22 @@ def test_our_time_limit_is_never_worded_as_reads_that_disagreed() -> None:
     ]
 
 
-@pytest.mark.parametrize(
-    "first",
-    [None, FirstPassReread(rip_count=3, converged=True), FirstPassReread()],
-)
-def test_nothing_is_said_without_a_measured_non_convergence(
-    first: FirstPassReread | None,
-) -> None:
-    track = TrackResult(2, rip_count=3, first_pass_reread=first)
-    assert not did_not_converge(track)
-    assert clause(track) == ""
-    assert sentences(RipLog(tracks=(track,))) == []
+def test_nothing_is_said_without_a_measured_non_convergence() -> None:
+    """No record, a converged first pass, and an empty one each say nothing.
+
+    A plain loop over a literal list rather than a parametrize: the dynamic-sweep
+    guard reads a constructor call in a parametrize list as a computed population.
+    """
+    cases: list[FirstPassReread | None] = [
+        None,
+        FirstPassReread(rip_count=3, converged=True),
+        FirstPassReread(),
+    ]
+    for first in cases:
+        track = TrackResult(2, rip_count=3, first_pass_reread=first)
+        assert not did_not_converge(track), first
+        assert clause(track) == "", first
+        assert sentences(RipLog(tracks=(track,))) == [], first
 
 
 def test_snapshot_of_a_track_never_re_read_is_none() -> None:
