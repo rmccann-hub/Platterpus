@@ -211,6 +211,26 @@ class ProvisioningMixin(MainWindowShared):
                 "script, so there is nobody to answer them"
             )
             return
+        # **They wait for the main window (TASKS R96).** Nothing is stopped on
+        # these answers, so they are dialogs that *can hold*: if another window
+        # of ours is in use when the launch gets here (the launch dependency
+        # report, or Setup & Updates), they open once the main window is free.
+        # The unattended flag is asked again before each try, where they open.
+        from platterpus.ui.hold_for_user import hold_until_free
+
+        hold_until_free(
+            self,
+            self._make_first_run_offers,
+            still_wanted=lambda: not self._unattended,
+            what="first-run offers",
+        )
+
+    def _make_first_run_offers(self) -> None:
+        """The offers themselves, in order, once the main window is free.
+
+        Sequential, each its own modal: one closes before the next opens, so
+        the main window is free between them and they need no hold of their own.
+        """
         # Anything the config load had to throw away comes first: it tells the
         # user their settings are not what the file says, which changes how they
         # read every offer below it (a reset read_offset in particular).

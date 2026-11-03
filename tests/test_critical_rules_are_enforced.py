@@ -2558,7 +2558,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1814 -> 1816** (2026-10-07, KDD-42 W6): the first-run setup question names Help → Getting started, the offer W6 asks for, without a fourth launch-time modal.
     # **1816 -> 1875** (2026-10-26, run B): `_acceptance_post_rip_at_end` waits, bounded, for the last rip's post-rip checks before the session restores settings and packs, and the bundle's facts say what it waited for or what was still running; beside `_acceptance_rip_at_end`, the same shape one step earlier.
     # **1875 -> 1910** (2026-11-03, TASKS R106): the settings restore logs each field with the run's value and the user's, the bundle's facts carry the same list and the Overread state, and when Overread comes back on both closing dialogs and the log say so. The pure halves (`RestoredSetting`, `restored_settings`, `overread_restored`, the note) are in `user_settings.py`; what stays here is the restore itself and the two dialogs it feeds.
-    "ui/main_window_provision.py": 1910,
+    # **1910 -> 1930** (2026-11-03, TASKS R96): the first-run offers wait for the main window through `hold_until_free`, the unattended check asked again where they open; the offers themselves moved into `_make_first_run_offers` beside the gate that schedules them.
+    "ui/main_window_provision.py": 1930,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME

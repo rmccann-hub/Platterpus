@@ -354,3 +354,96 @@ def test_a_duplicate_no_match_while_the_offer_is_open_does_not_ask_again(
     _wait(3 * hold_for_user.RETRY_MS / 1000)
     assert len(opened) == 1, "the same scan's offer was asked twice"
     assert window._unknown_offer_held_for is None
+
+
+# --- The first-run offers (`_maybe_offer_first_run_setup`) ------------------
+#
+# The config-reset notice, the AppImage menu offer, the host setup offer and the
+# drive setup offer open by themselves at launch, one after another. Nothing is
+# stopped on their answers, so the group holds as one: each is its own modal
+# and closes before the next opens, so the main window is free between them.
+
+
+def _record_first_run_offers(window: Any, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Replace each first-run offer with a recorder; the host stack is ready,
+    so the sequence runs to the drive offer.
+
+    The window's constructor queued the REAL launch call
+    (`QTimer.singleShot(0, ...)`), which would otherwise fire inside the first
+    event pump of the test and record a launch the test did not drive. It is
+    delivered here while the window counts as unattended, so it makes no offer
+    and holds nothing, and each test then makes its own call.
+    """
+    window._unattended = True
+    QCoreApplication.processEvents()
+    window._unattended = False
+    fired: list[str] = []
+    monkeypatch.setattr(
+        window, "_show_config_reset_notice", lambda: fired.append("notice")
+    )
+    monkeypatch.setattr(
+        window, "_maybe_offer_appimage_integration", lambda: fired.append("appimage")
+    )
+    monkeypatch.setattr(window, "_host_stack_ready", lambda: True)
+    monkeypatch.setattr(
+        window, "_maybe_offer_drive_setup", lambda: fired.append("drive")
+    )
+    return fired
+
+
+def test_the_first_run_offers_wait_while_setup_and_updates_is_in_use(
+    make_window: Callable[..., Any],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    window = make_window()
+    fired = _record_first_run_offers(window, monkeypatch)
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        window._maybe_offer_first_run_setup()
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert fired == [], f"first-run offers opened over Setup & Updates: {fired}"
+    assert "first-run offers: held until the main window is in use" in caplog.text
+
+    setup.close()
+    _activate(window)
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert fired == ["notice", "appimage", "drive"], fired
+
+
+def test_the_first_run_offers_open_at_once_when_the_main_window_is_in_use(
+    make_window: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control: nothing else of ours in use, the offers run in the call."""
+    window = make_window()
+    fired = _record_first_run_offers(window, monkeypatch)
+    _activate(window)
+    window._maybe_offer_first_run_setup()
+    assert fired == ["notice", "appimage", "drive"], fired
+
+
+def test_held_first_run_offers_are_dropped_if_the_launch_turns_unattended(
+    make_window: Callable[..., Any],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The unattended rule (rig, 2026-08-18) is asked where they OPEN, not only
+    where they were held: a script that started meanwhile has nobody to answer."""
+    window = make_window()
+    fired = _record_first_run_offers(window, monkeypatch)
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    window._maybe_offer_first_run_setup()
+
+    window._unattended = True
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert "first-run offers: no longer wanted" in caplog.text, caplog.text
+    setup.close()
+    _activate(window)
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert fired == [], fired
