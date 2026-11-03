@@ -1017,6 +1017,50 @@ the upstream maintainer's call, and we never fake provenance.*
 
 ---
 
+### Filed, and the next notes held until upstream takes the first (2026-11-03)
+
+**Filed:** items 1 to 23 of the fork's generated list went upstream on 2026-10-16,
+by the owner, as one issue, <https://github.com/cyanreg/cyanrip/issues/167>. **The
+owner's rule, 2026-11-03:** *"we sent notes before. You can give details for the
+next notes to send, but we will wait for the old ones to be included"*. So nothing
+more is filed until upstream has taken #167's items in; what follows is the next
+batch, ready, and filed by the owner when that happens.
+
+**Ready (the fork's list, items 24 to 28,** generated in the fork's
+`cyanrip@239adda:docs/upstream/issues-to-file.md` by `tools/gen-upstream-issues.py`, each with a
+reproduction, read against upstream `master` at `648b1dd` and the fork's fix):
+
+| Item | Title | Fork's fix |
+|---|---|---|
+| 24 | An argument that is only its separator crashes with no message (`-c /`, `-p =`, exit 139) | `58f5151` |
+| 25 | A number past `INT_MAX` wraps and is used (`-c`, `-p`, `-P`, `-R`, `-C`, `-t`) | `716a99b` |
+| 26 | The AccurateRip tally divides by a count that includes data tracks | `779549a` |
+| 27 | A value the log echoes can start a line of its own (a newline or U+0085 in a tag) | `46cec2a` |
+| 28 | A path over 1,003 bytes is cut there, extension and all (`AV_BPRINT_SIZE_AUTOMATIC`) | `cfd738e` |
+
+**Candidates from the Full run of 2026-11-03, not yet ready.** Each goes on the
+list only once the fork confirms it holds on upstream's own code, not only on the
+fork's (`docs/cyanrip-handshake.md` §7.7e: an upstream defect is the easiest to
+misattribute, because the fork is the binary in front of us). Asked in our round 37
+lap 6 S12.
+
+- **The footer's tally counts the whole disc on a rip of some tracks.** `-l 1`
+  prints `Tracks ripped accurately: 1/14`. Upstream's line is the same one:
+  `cyanrip_log.c:366` at `648b1dd` divides by `ctx->nb_tracks`. Item 26 covers data
+  tracks only; this is its other half.
+- **`-H` on a disc without HDCD writes quieter audio under a CRC taken before the
+  filter.** Track 1 peaked at -6.3 dBFS with `-H` against -0.5 dBFS without, with
+  the same CRC and `accurately ripped`. Upstream has the same filter path
+  (`cyanrip_encode.c`); the fork is asked whether libavfilter's `hdcd` output level
+  is the cause.
+- **A cancelled rip counts the cancel as a ripping error** (`Ripping errors: 1`).
+  Not yet traced in upstream's source.
+
+Not for upstream: `Track N read with errors.` beside `Ripping errors: 0` is the
+fork's own securing-pass wording (no such line at `648b1dd`), and the cue's missing
+`INDEX 00` for an undecided pregap comes from the fork's pregap search; both are
+asked of the fork (round 37 lap 6 S11 and S12).
+
 ### The one question you asked first: "do I need to be a collaborator?"
 
 **No.** For *every* target here you do **not** need collaborator / write access.
@@ -1353,4 +1397,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.117.*
