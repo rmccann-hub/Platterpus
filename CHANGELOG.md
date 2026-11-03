@@ -12,6 +12,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.117] — 2026-11-03
+
+The release that names the fork's `.28` as the build under review, for the Full run that
+closes round 37. `.28` is published on the fork's beta channel; install it from
+**Tools → Setup & Updates… → Choose a build…**. The default ripper stays `.27`. This release
+also needs Python 3.12 or newer for a pip or pipx install, runs the AppImage on Python 3.14,
+builds the AppImage again, and keeps the album picker from opening over another window you
+are using.
+
 ### Fixed
 
 - **The AppImage builds again** (TASKS R98). The build fetched its packing tool, appimagetool, from a release that changes whenever upstream pushes, and the version published on 2026-11-01 refused to pack it, so every build from 2026-11-02 failed, a release included. The build now uses a fixed appimagetool release, checked by sha256.
@@ -19646,7 +19655,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...HEAD
+[0.7.117]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...v0.7.117
 [0.7.116]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...v0.7.116
 [0.7.115]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...v0.7.115
 [0.7.114]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...v0.7.114
@@ -19733,4 +19743,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.116.*
+*Last updated for Platterpus v0.7.117.*

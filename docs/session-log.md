@@ -11,6 +11,14 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-03 — the steward skill; lap 4; #425 merged; `.28` under review; 0.7.117
+
+- **A draft steward skill** (R102): `scripts/pr_steward.py` judges a commit's checks from the ruleset and the API, and the skill says what to do about each verdict. On the owner's word it moved to `.claude/skills/steward/`, the folder sessions look in, as the fork's is.
+- **Our round 37 lap 4**, released on the owner's word, accepts the fork's `Drive used:` wording for an image and gives `--reread-time-limit`'s cell. It crossed the fork's lap 4, which released `.28` at `3f288fb` before our answer, on their owner's word. The two laps' round digests agree.
+- **#425 merged** (`cfbe39c7`): Python 3.12 floor and numpy 2.5 (R99), the AppImage on Python 3.14 (R100), appimagetool pinned (R98), and the picker hold (R96).
+- **`.28` named under review** (R105), and 0.7.117 cut on the owner's word of 2026-11-03. Filing `.28`'s contract found two real faults. A check had been backed by the wrong line, because the renderer skipped `%.*f`. And a "never printed" exclusion would have hidden a message `.28` really prints.
+- **Learned.** When a dependency's change trips a check, ask whether the check had been passing on the line that moved. Here it had been, and only the move showed it.
+
 ## 2026-10-29 to 2026-11-02 — R96 and R97; dependencies carried; CI from 9 minutes to 6; the AppImage builds again
 
 - **R97** (#420): the drive-cache check runs `cd-paranoia -A` in a folder of its own under the app's data folder, keeps its `cdparanoia.log` with the run, and removes the folder; nothing is left in the folder Platterpus was started from.
@@ -11026,4 +11034,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.116.*
+*Last updated for Platterpus v0.7.117.*
