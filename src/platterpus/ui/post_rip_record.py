@@ -92,6 +92,9 @@ class EacLogRender:
     disc_track_total: int | None
     secure_rerip: SecureReripBlock | None
     replaced_reads: ErrorsInReplacedReads | None
+    #: Who cancelled a cancelled rip, worded (TASKS R62); "" otherwise. Kept so a
+    #: render when CTDB answers says it as the first write did.
+    cancelled_by: str = ""
 
     def render(self, ctdb_result: object | None = None) -> tuple[str, list[str]]:
         """The log text and its defused lines, naming CTDB per track if it answered."""
@@ -106,6 +109,7 @@ class EacLogRender:
             disc_track_total=self.disc_track_total,
             secure_rerip=self.secure_rerip,
             replaced_reads=self.replaced_reads,
+            cancelled_by=self.cancelled_by,
             ctdb_result=ctdb_result,
         )
 
