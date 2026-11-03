@@ -257,3 +257,22 @@ def test_the_round_36_bundles_members_have_filed_names(rel: str, name: str) -> N
     from evidence_names import staged_name
 
     assert staged_name(rel) == name
+
+
+def test_the_cache_probes_own_log_has_a_filed_name() -> None:
+    """`cache-probe` keeps cd-paranoia's `cdparanoia.log` beside its output since
+    0.7.116 (TASKS R97), and the filing tool refused the 2026-11-03 bundle for
+    want of a name for it. The name is built here as the producer builds it, so
+    a change to one side fails here rather than at the next filing."""
+    from evidence_names import staged_name
+
+    line_no = 1364
+    producer = f"cacheprobe{line_no:04d}log.txt"  # uiscript/probe_verbs.py
+    source = (
+        Path(__file__).resolve().parents[1] / "src/platterpus/uiscript/probe_verbs.py"
+    )
+    assert 'f"cacheprobe{step.line_no:04d}log.txt"' in source.read_text(
+        encoding="utf-8"
+    )
+    assert staged_name(f"session/run/{producer}") == "cacheprobelog.txt"
+    assert staged_name("session/run/cacheprobe1364.txt") == "cacheprobe.txt"
