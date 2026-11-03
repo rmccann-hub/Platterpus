@@ -51,10 +51,17 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
+# `report_writer` is imported HERE, at load, and never inside a method (R118).
+# The close path flushes through it, and a close can come from a session logout
+# that has already taken the AppImage's mount away: on 0.7.115 the first import
+# of this module happened inside `closeEvent` after SIGTERM, found no file, and
+# raised `ImportError` out of the close. A module the window holds from start-up
+# needs no file system on the way out.
 from platterpus import (
     cancel_cause,
     drive_control,
     exit_work,
+    report_writer,
     rip_addendum,
     rip_files,
     tag_hygiene,
@@ -3530,7 +3537,7 @@ class RipMixin(MainWindowShared):
         post-rip check (see :meth:`_launch_post_rip_daemon`). Best-effort: the
         pure ``rip_compare`` helpers never raise.
         """
-        from platterpus import report_writer, rip_compare, rip_report
+        from platterpus import rip_compare, rip_report
 
         report_path = rip_report.report_path_for(log_file)
         output_root = Path(self._config.output_dir)
@@ -4550,8 +4557,6 @@ class RipMixin(MainWindowShared):
         # nobody looked. Corrected there too.
         from functools import partial
 
-        from platterpus import report_writer
-
         if record.log_file is None:
             # A record whose rip never reached the finish handler has no album on
             # disk to describe. Both callers already check; this is the floor, so a
@@ -4982,8 +4987,7 @@ class RipMixin(MainWindowShared):
         if record is not None and record.log_file is not None:
             self._write_rip_report(record)
         if wait:
-            from platterpus import report_writer
-
+            # No import here: the close path (see the import block, R118).
             if not report_writer.writer().stop():
                 # Said, not swallowed. The report on disk may be one revision
                 # behind, and a silent return here would be indistinguishable

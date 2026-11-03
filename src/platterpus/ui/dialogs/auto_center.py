@@ -193,6 +193,15 @@ class DialogCenterFilter(QObject):
     stored on that dialog (see :data:`CENTERED_PROPERTY`). One instance is
     installed on the ``QApplication`` for the whole session, so "no per-dialog
     bookkeeping" also means "nothing that grows for the life of the app".
+
+    **A traceback full of this filter's first line is not a recursion** (TASKS
+    R118). It sees every event of the app, so when some other Python override of
+    a Qt virtual raises (a ``closeEvent``, say), PySide keeps that exception
+    pending while Qt finishes the operation, and each call to this filter in the
+    meantime fails on ``event.type()`` with it, adding one frame. 0.7.115's log
+    showed 65+ such frames; measured, the filter was never entered twice at once
+    (``tests/test_close_never_raises.py``). Look below these frames for the
+    override that raised.
     """
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt API

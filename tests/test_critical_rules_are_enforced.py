@@ -2485,7 +2485,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1792 -> 1791** (2026-11-03, TASKS R96): down: the unknown-album offer's guard moved into `ReleasePickerMixin._hold_unknown_album_offer`, so `_handle_no_mb_match` makes one call.
     # **1792 -> 1795** (2026-11-03, TASKS R62, who cancelled a rip): `_rip_cancel_cause`, declared beside `_rip_cancelled`, and its import.
     # **1794 -> 1809** (2026-11-03, TASKS R107): the first-run offer runs on a child timer of the window, so it cannot fire on a torn-down one, and six config writes go through `_save_config_or_report`, which logs a failed write instead of raising into Qt.
-    "ui/main_window.py": 1809,
+    # **1809 -> 1821** (2026-11-03, TASKS R118): `closeEvent` logs a failed report flush instead of raising it into Qt, which left the close half done and failed every Python event filter Qt called while the exception was pending.
+    "ui/main_window.py": 1821,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2691,7 +2692,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5178 -> 5200** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_replaced_reads_of`, handed to the status line and the EAC-layout log.
     # **5200 -> 5243** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `_rewrite_eac_log_with_ctdb`, called from `_on_ctdb_verified` before the report write; the inputs it renders from are `post_rip_record.EacLogRender`.
     # **5268 -> 5273** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the merge snapshots the album pass's -Z facts before it replaces them; the snapshot is `first_pass_reread.snapshot`.
-    "ui/main_window_rip.py": 5273,
+    # **5268 -> 5272** (2026-11-03, TASKS R118): `report_writer` is imported at module load, with why, so the close path imports nothing after a logout has taken the AppImage's mount.
+    "ui/main_window_rip.py": 5277,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

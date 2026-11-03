@@ -1078,7 +1078,19 @@ class MainWindow(
         # six to eight times per rip), so on the way out someone has to wait for
         # the bytes to land or the final report dies with the process. Bounded,
         # and it reports rather than swallows when the deadline passes.
-        self._flush_rip_report(wait=True)
+        #
+        # AND IT MUST NOT RAISE OUT OF HERE (R118: on 0.7.115 a SIGTERM close
+        # raised `ImportError` from it). An exception leaving a Qt virtual stays
+        # pending while Qt finishes the close and fails every Python event filter
+        # Qt calls meanwhile (`auto_center.DialogCenterFilter`'s docstring). So it
+        # is logged, with its traceback, and Qt's own close still runs.
+        try:
+            self._flush_rip_report(wait=True)
+        except Exception:  # noqa: BLE001 — a close must finish; the failure is logged
+            log.exception(
+                "closing: the rip report could not be flushed; the report on disk "
+                "may be missing its last revision"
+            )
         super().closeEvent(event)  # type: ignore[arg-type]
 
     # --- Menus --------------------------------------------------------------
