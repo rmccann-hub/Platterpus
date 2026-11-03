@@ -55,6 +55,7 @@ from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
+from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
 from platterpus.uiscript.install_verbs import InstallVerbsMixin
 from platterpus.uiscript.offset_grading import drive_in_offset_list, selected_device
@@ -396,6 +397,7 @@ class ScriptRunner(
     TimingVerbsMixin,
     AccuracyVerbsMixin,
     ScanVerbsMixin,
+    DeemphasisVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.

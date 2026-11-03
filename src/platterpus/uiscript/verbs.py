@@ -958,6 +958,19 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-exit <code|refused> — assert the last cyanrip exit code; "
         "`refused` is the build's own code for refusing to start (1, or 64 from .25)",
     ),
+    # Section P3, round 16's clause 2: `deemphasis_verbs.py`. Checksums are taken
+    # on the read and, from the fork's .20, loudness on the delivered audio, so
+    # equal CRCs with moved loudness is the one reading that can settle it.
+    Verb(
+        "expect-deemphasis-pair",
+        2,
+        2,
+        "expect-deemphasis-pair <forced-folder> <disabled-folder> — read this "
+        "run's cyanrip log in each -D folder (de-emphasis forced first): pass when "
+        "every EAC CRC32 agrees and the integrated loudness differs by at least "
+        "0.3 LU; fail when either does not hold; blocked (not determined) when a "
+        "log or value is missing or the build measures loudness before the filter",
+    ),
     Verb(
         "rig-check",
         0,

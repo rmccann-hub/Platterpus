@@ -119,6 +119,7 @@ text is taken verbatim as one value.
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (device) to the selected drive (as -d, refused when none is selected), (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code|refused> — assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25) |
+| `expect-deemphasis-pair` | 2 | ready | expect-deemphasis-pair <forced-folder> <disabled-folder> — read this run's cyanrip log in each -D folder (de-emphasis forced first): pass when every EAC CRC32 agrees and the integrated loudness differs by at least 0.3 LU; fail when either does not hold; blocked (not determined) when a log or value is missing or the build measures loudness before the filter |
 | `rig-check` | 0+ (rest of line) | ready | rig-check [album-folder] — run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only |
 
 A verb marked **NOT IMPLEMENTED** is listed on purpose rather than
@@ -958,6 +959,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-exit <code|refused> \u2014 assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25)"
+    },
+    {
+      "name": "expect-deemphasis-pair",
+      "min_args": 2,
+      "max_args": 2,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-deemphasis-pair <forced-folder> <disabled-folder> \u2014 read this run's cyanrip log in each -D folder (de-emphasis forced first): pass when every EAC CRC32 agrees and the integrated loudness differs by at least 0.3 LU; fail when either does not hold; blocked (not determined) when a log or value is missing or the build measures loudness before the filter"
     },
     {
       "name": "rig-check",

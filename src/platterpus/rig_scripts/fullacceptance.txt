@@ -1451,7 +1451,9 @@ snapshot afterc1
 # `(deemphasis applied)` and the cue still omitted `FLAGS PRE`, because both read
 # the SETTING rather than the audio — so **audio, log and cue were
 # self-consistently wrong** and checking any one against another found agreement.
-# That is why this step asserts nothing about the log: the log cannot tell you.
+# That is why the grade below reads no SETTING the log echoes (`deemphasis
+# applied`, `FLAGS PRE`): only two MEASUREMENTS, the read's CRC and the
+# delivered audio's loudness.
 #
 # THE SEPARATING INPUT IS BOTH FLAGS AT ONCE, which their suite had never used.
 # With only one of the two set, selecting and composing are byte-identical, so a
@@ -1471,87 +1473,45 @@ snapshot afterc1
 # `cyanrip_main.c:1603`, `folder_scheme`, *"Directory naming scheme"* — so these
 # two land beside the run's other output rather than anywhere absolute.
 #
-# THIS STEP DOES NOT DECIDE THE CLAUSE, AND THAT IS DELIBERATE. Our script
-# language has no verb that compares two captures, and inventing one hours before
-# an unattended run is how a run gets lost to its own instrumentation. What the
-# step does is CAPTURE: the `cyanrip` verb records the exact argv, the exit code
-# and the complete output of both runs into the transcript, which the bundle
-# carries. cyanrip prints its per-track checksum there, so the verdict is read off
-# the returned artifact afterwards, by one comparison:
+# THIS SECTION DECIDES THE CLAUSE, with `expect-deemphasis-pair` after the two
+# arms, and until 2026-11-03 this comment said it could not. Two values, read
+# from each arm's own log, and neither alone settles it:
 #
-# THIS STEP SETTLES NOTHING, AND EVERY EARLIER VERSION OF THIS COMMENT SAID
-# OTHERWISE. Read the next four paragraphs before citing these two runs.
+#   * THE CHECKSUMS ARE TAKEN ON THE READ, before the filter graph: EAC CRC32
+#     and both AccurateRip sums (`crip_process_checksums` at
+#     `cyanrip@239adda:src/cyanrip_main.c:1680`, before
+#     `cyanrip_send_pcm_to_encoders` at `:1685`). So the two arms MUST print the
+#     same CRC whatever de-emphasis did. Equal CRCs say both arms read the same
+#     samples, which is what makes a difference after the filter attributable to
+#     it.
+#   * THE LOUDNESS IS MEASURED ON THE DELIVERED AUDIO, after de-emphasis, since
+#     the fork's .20 (`measure_frame`, `cyanrip@239adda:src/cyanrip_encode.c:818`,
+#     fed the filter graph's output at `:909`; absent at .19's `174a134`). The
+#     2026-09-22 session's P3 is what found it measured before the filter.
 #
-# WHAT THIS COMMENT USED TO SAY, AND WHY IT WAS WRONG. It said cyanrip's printed
-# per-track checksum "is over the DECODED SAMPLES", and therefore that *"the two
-# runs' track-1 checksums, AS PRINTED BY cyanrip IN THE TRANSCRIPT, MUST DIFFER"*,
-# with identical checksums meaning the cascade was still selecting. **Both
-# sentences are false, and the second is the dangerous one.**
+# So the grade is: every CRC agrees AND the integrated loudness differs by at
+# least 0.3 LU (three times the 0.1 LU the log prints; identical delivered audio
+# prints the same figure twice). The 2026-11-03 Full run on .28 read B0D122E7 for
+# both arms and -20.7 LUFS forced against -19.9 disabled: 0.8 LU. A missing log,
+# CRC or loudness line, or a build that measures before the filter, is BLOCKED
+# (not determined), never a pass. The fork is asked to confirm the measurement
+# point (our round 37 lap 6, S12 (d)); until they do, the grade rests on CRC
+# equality and the R128 difference only, and its answer says so.
 #
-# DERIVED FROM THEIR SOURCE AT `ddc1e8c`, not inferred: every checksum cyanrip
-# prints is accumulated by `crip_process_checksums(&checksum_ctx, data, bytes)`
-# over `data`, the buffer as it came off the drive. It is called at
-# `src/cyanrip_main.c:818`, `:872` and `:965`, and at all three sites it runs
-# BEFORE `cyanrip_send_pcm_to_encoders(..., t->dec_ctx, ...)` at `:821`, `:879`
-# and `:968` -- which is where the filter graph, and therefore `aemphasis`,
-# lives. `src/checksums.h:62-90` shows the accumulation itself: EAC CRC32 and
-# both AccurateRip sums, straight over the raw bytes. **A checksum taken before
-# a filter cannot record what the filter did.**
+# WHAT THIS COMMENT USED TO SAY, AND WHY IT WAS WRONG. Before 2026-09-11 it said
+# the two arms' printed checksums MUST DIFFER, identical ones meaning the fork's
+# `b866900` cascade defect was still present. They are taken before the filter,
+# so they agree on every run: that rule reported a defect against the fork on a
+# run where the filter worked. Then it said nothing here could decide the clause,
+# which stopped being true with the fork's .20 and is what the verb now does.
 #
-# SO THE TWO ARMS ARE ARITHMETICALLY FORCED TO PRINT THE SAME CHECKSUM, whether
-# de-emphasis worked, failed, or was never reached. The old rule therefore
-# reported the fork's `b866900` defect as STILL PRESENT on every run that will
-# ever be made, including one where the filter composes perfectly -- a false
-# BLOCKING finding against a peer, generated by our own harness, which is the
-# thing `CLAUDE.md` forbids most plainly. It was not hypothetical: the
-# 2026-09-11 rig run printed `B0D122E7` for both arms, exactly as it must.
-#
-# WHAT MAKES THIS THE WORST SHAPE OF MISTAKE, kept because the next reader will
-# be tempted the same way. The old comment argued carefully that `md5sum *.flac`
-# gives *"a CONFIRMING answer from an input that cannot confirm anything"* --
-# and then chose an input that cannot confirm anything either, for the mirror
-# reason, while citing the fork as the source of the insight. **The fork had it
-# right and we misread why.** Their script prints the container md5s, says in
-# its own output that a difference there is "necessary and not sufficient", and
-# then DECODES with `ffmpeg -f md5` for the comparison that counts, reporting
-# `UNPROBED` rather than a pass when ffmpeg is absent
-# (round-16-lap-02-rig-round16.sh:181-212). The decode is the whole mechanism.
-# We dropped it because we believed cyanrip had already done it for us.
-#
-# WHAT THESE TWO RUNS ARE FOR, STATED HONESTLY. They exercise the `-H -E` and
-# `-H -W` code paths on real hardware and record the exact argv, the exit code
-# and the complete output of each. That is worth having and it is all it is.
-# **Clause 2 RAN here and this section's result cannot settle it either way — it
-# is UNPROBED in the "ran and got no answer" sense, not the "we chose not to"
-# sense — and it is closed only by Run A**, the
-# fork's own `tools/rig-round16.sh`, which rips both arms with `-o pcm` and
-# compares the decoded samples. Their grader does the same
-# (`tools/round16-accept.py`, clause 2). Do not read these two arms as evidence
-# for the clause in either direction -- agreement here is the null result, and
-# disagreement would mean something other than de-emphasis had changed.
-#
-# NEITHER OBVIOUS READING WORKS, AND THEY FAIL FOR OPPOSITE REASONS. Whoever
-# reads this at 2am will reach for one of two commands, and both lie:
-#
-#   * `md5sum *.flac` over the two output folders returns DIFFERENT values for
-#     byte-identical audio, because a FLAC container carries a creation
-#     timestamp. That is a CONFIRMING answer from an input that cannot confirm
-#     anything -- the clause reads as settled while the cascade is still broken.
-#   * the checksums cyanrip PRINTS return the SAME value whatever the filter did,
-#     per the derivation above. That is a REFUTING answer from an input that
-#     cannot refute anything -- and it accuses the fork of a defect they fixed.
-#
-# One false pass and one false failure, from the two inputs nearest to hand. The
-# only reading that works decodes the samples, which is what Run A does.
-#
-# WHY THIS IS NOT FIXED HERE WITH `-o pcm`. It could be: raw samples on disk
-# would make a digest meaningful. But the digest would have to be computed ON
-# THE RIG -- raw PCM of a commercial disc is exactly what Critical rule #8 keeps
-# out of this repository and out of the evidence bundle -- and the script
-# language has no verb that digests a file. Adding one hours before an
-# unattended run is how a run is lost to its own instrumentation. It is filed in
-# `TASKS.md` instead, which is the honest place for a capability we have not
-# built.
+# NEITHER OF THE TWO NEAREST READINGS WORKS, which is why the verb reads these
+# two values and nothing else. `md5sum *.flac` differs for byte-identical audio,
+# because a FLAC carries a creation timestamp: a false pass, from an input that
+# cannot confirm. The printed CRCs agree whatever the filter did: a false
+# failure, from an input that cannot refute. The fork's own
+# `tools/rig-round16.sh` decodes the samples (`ffmpeg -f md5`) and remains the
+# stronger evidence where it has been run.
 #
 # EVERY LOG OF A RUN NAMES ITS CALLER AND HAS A RECORD (the fork's round 32
 # lap 9 S9, their data register's X8). These two rips call cyanrip directly, so
@@ -1574,6 +1534,7 @@ run-size full
 cyanrip -N -d (device) -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
+expect-deemphasis-pair r16deemphon r16deemphoff
 
 # --- P5. S15: A TIMED RIP, THE APPROVED BUILD AGAINST THE ONE UNDER REVIEW --
 # The owner asked for it, and the fork's round 36 lap 1 S15 proposed the method
