@@ -2498,7 +2498,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **668 -> 670** (2026-10-05): the disc-removal reset keeps the drive rows (2026-10-04 rig runs).
     # **670 -> 742** (2026-10-05): `_read_rate_for_current_drive` and `_learn_read_rate`: the drive's own measured speed (else the rig's for its model) goes to the rip, and each finished first pass folds into the profile (operator's request for an overall rip estimate, 2026-10-05).
     # **742 -> 752** (2026-10-26, run A on 0.7.112, the drive flicker): the media poll handles the watcher's new RETURNED event and parks the disc before a believed removal clears it. The poll is the watcher's only reader; the handler itself is in `ui/main_window_disc_return.py`.
-    "ui/main_window_drive.py": 752,
+    # **752 -> 760** (2026-11-03, TASKS R109): `_record_drive_fact` builds from the existing profile so `read_rate` survives a drive sighting, with the comment that says why.
+    "ui/main_window_drive.py": 760,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2913,6 +2914,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4829 -> 4836** (2026-10-26, section P6, the owner's paired rips of track 3): the `AccuracyVerbsMixin` in the class list and its import, and the `record-accuracy` records with their reset, beside the timings. The handlers live in `accuracy_verbs.py`.
     # **-> 4859** (2026-10-26): P6 merged onto the run A and run C fixes; the number is the merged file's line count.
     "uiscript/runner.py": 4859,
+    # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
+    "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.

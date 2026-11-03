@@ -411,9 +411,17 @@ class DriveMixin(MainWindowShared):
             new_cache = cache_defeat
             new_cache_source = source
 
+        # Built FROM the existing profile, so a field this writer does not set
+        # survives it. It used to build a fresh DriveProfile, and `read_rate`
+        # (added after this writer) was dropped on every drive sighting: the
+        # speed a rip had just learned was gone by the next rescan, so every
+        # estimate fell back to the rig's seed (found 2026-11-03, TASKS R109).
+        from dataclasses import replace
+
+        base = existing or DriveProfile(fingerprint=fingerprint, vendor="", model="")
         self._drive_profiles.upsert(
-            DriveProfile(
-                fingerprint=fingerprint,
+            replace(
+                base,
                 vendor=getattr(drive, "vendor", ""),
                 model=getattr(drive, "model", ""),
                 release=getattr(drive, "release", ""),

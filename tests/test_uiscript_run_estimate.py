@@ -253,3 +253,54 @@ def test_the_window_reader_never_raises(qapp: Any) -> None:
         win, parse("rip"), run_size="full", tick_s=_TICK, wait_cap_s=MAX_WAIT_S
     )
     assert text.startswith("Run estimate: none") and "no profile store" in text
+
+
+def test_a_section_the_run_will_mark_na_is_left_out_of_the_estimate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P5 and P6 are N/A when the build under review is the approved one, and the
+    2026-10-29 Full run's estimate still counted their twelve rips: "at least
+    6h 40m" for a run whose steps summed to 1h 37m (TASKS R109). The estimate asks
+    the verb's own predicate, so it skips exactly when the runner does."""
+    from platterpus.uiscript import timing_verbs
+
+    source = "\n".join(
+        [
+            "log --- A. a rip ---",
+            "run-size full",
+            "select-tracks 1",
+            "rip",
+            "log --- P5. two builds ---",
+            "run-size full",
+            "skip-if-same-build (fork-pin) (under-review)",
+            "select-tracks 1-3",
+            "rip",
+            "rip",
+            "log --- Q. after ---",
+            "run-size full",
+            "select-tracks 1",
+            "rip",
+        ]
+    )
+    monkeypatch.setattr(timing_verbs, "section_will_skip", lambda args: True)
+    monkeypatch.setattr(est, "section_will_skip", lambda args: True)
+    one = _estimate(source, size="full")
+    assert one.rips == 2, "the N/A section's rips were counted"
+    monkeypatch.setattr(est, "section_will_skip", lambda args: False)
+    two = _estimate(source, size="full")
+    assert two.rips == 4, "the skip reached past its section, or never applied"
+
+
+def test_the_skip_predicate_matches_the_runners_on_the_record() -> None:
+    """One question, two callers: the runner's handler and the estimate resolve
+    the same placeholders. On today's record the two are different builds
+    exactly when `PIN_UNDER_REVIEW` is not `FORK_PIN`."""
+    from platterpus.deps import fork_source
+    from platterpus.uiscript.timing_verbs import section_will_skip
+
+    differ = fork_source.PIN_UNDER_REVIEW != fork_source.FORK_PIN
+    assert section_will_skip(["(fork-pin)", "(under-review)"]) is (not differ)
+    assert section_will_skip(["(fork-pin)", "(fork-pin)"]) is True
+    assert (
+        section_will_skip(["(fork-pin)"]) is False
+    )  # malformed: the runner refuses it

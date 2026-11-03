@@ -14385,3 +14385,81 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     window._current_disc_id = disc
     window._on_mb_releases(disc, releases)
     assert len(pickers) == 2 and pickers[1].scan_request == first_scan + 1
+
+
+def test_recording_a_drive_fact_keeps_every_field_it_does_not_set(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_record_drive_fact` runs on every drive sighting. It rebuilt the profile
+    from scratch and dropped `read_rate`, so the speed a rip had just learned was
+    gone by the next rescan and every run's estimate fell back to the rig's seed
+    (TASKS R109; the rig's app log said "folded over 1 rip(s)" on every rip).
+    Every field the writer does not set is checked, derived from the dataclass,
+    so a field added later is held too."""
+    import dataclasses
+
+    from platterpus.drive_profiles import DriveProfile
+    from platterpus.rip_estimate import ReadRate
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        dataclasses.replace(
+            DriveProfile(
+                fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D"
+            ),
+            read_rate=ReadRate(1800.0, 600.0, 3),
+        )
+    )
+    before = window._drive_profiles.get(_PIONEER_FP)
+    window._record_drive_fact(_PIONEER)
+    after = window._drive_profiles.get(_PIONEER_FP)
+    assert before is not None and after is not None
+    written = {
+        "vendor",
+        "model",
+        "release",
+        "serial",
+        "wwn",
+        "offset",
+        "cache_defeat",
+        "cache_defeat_source",
+        "last_seen_device",
+        "last_seen_at",
+    }
+    kept = [f.name for f in dataclasses.fields(DriveProfile) if f.name not in written]
+    assert "read_rate" in kept and len(kept) >= 2, "nothing left to check"
+    for name in kept:
+        assert getattr(after, name) == getattr(before, name), name
+    assert after.read_rate == ReadRate(1800.0, 600.0, 3)
+
+
+def test_a_second_rip_folds_into_the_first_across_a_rescan(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The symptom, end to end: learn, see the drive again, learn again; the
+    second rip is folded over two, not one."""
+    from types import SimpleNamespace
+
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    track = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=50.0
+    )
+    rip_log = SimpleNamespace(tracks=[track])
+    window._rip_cancelled = False
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    window._learn_read_rate(rip_log, success=True)
+    window._record_drive_fact(_PIONEER)  # a rescan sees the drive again
+    window._learn_read_rate(rip_log, success=True)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is not None
+    assert profile.read_rate.rips == 2
+    window._active_rip_params = None
