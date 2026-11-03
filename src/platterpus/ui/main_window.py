@@ -786,9 +786,24 @@ class MainWindow(
 
         # First-run: if no read offset is configured yet, offer the drive-setup
         # wizard once (dismissible). Deferred to the event loop so it appears
-        # after the window is shown; in tests (no exec loop) it never fires, so
-        # it can't interfere — _should_offer_drive_setup() is tested directly.
-        QTimer.singleShot(0, self._maybe_offer_first_run_setup)
+        # after the window is shown.
+        #
+        # A CHILD TIMER, not `QTimer.singleShot` (TASKS R107, 2026-11-03). This
+        # comment used to say "in tests it never fires", and that was wrong: a
+        # bare `singleShot(0, callback)` lives on an internal timer nothing can
+        # reach, so any LATER test that pumped events ran it on a window an
+        # earlier test had torn down (a test that made the config write fail had
+        # its first-run offer raise inside an unrelated settings-dialog test). A
+        # child timer dies with the window and is stopped by anything that stops
+        # the window's timers. The context form, `singleShot(0, self, callback)`,
+        # was tried first and is worse: PySide6 6.11.2 keeps the callback, and
+        # with it the whole window, alive forever when the posted call is
+        # dropped or the window is destroyed before it runs (measured).
+        self._first_run_timer: QTimer = QTimer(self)
+        self._first_run_timer.setSingleShot(True)
+        self._first_run_timer.setInterval(0)
+        self._first_run_timer.timeout.connect(self._maybe_offer_first_run_setup)
+        self._first_run_timer.start()
         # The automatic cyanrip check is armed by `app.py`, NOT here — see
         # `schedule_ripper_update_check` below for why constructing a window must
         # not schedule it.

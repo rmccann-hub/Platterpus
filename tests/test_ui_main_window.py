@@ -19,7 +19,7 @@ import pytest
 
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
-from conftest import HardExitCalled, stop_window_threads
+from conftest import HardExitCalled, drain_mb_queue, stop_window_threads
 from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -149,6 +149,21 @@ def _detail() -> ReleaseDetail:
             TrackSummary(number=2, title="Two"),
         ),
     )
+
+
+def _mb_answering_a_fetch() -> _FakeMb:
+    """A `_FakeMb` whose release fetch has an answer.
+
+    A test that makes the window settle on a release (one candidate, or a picker
+    answered) starts a REAL queued `fetch_release` on `_mb_thread`. With the
+    default fake that fetch asserts on the worker thread, PySide prints the
+    traceback and swallows it, and the run stayed green while printing it
+    (TASKS R107). The harness now fails a test whose slot raised, so a test that
+    reaches the fetch gives it something to return.
+    """
+    mb = _FakeMb()
+    mb.mbid_result = _detail()
+    return mb
 
 
 def _make_window(
@@ -545,11 +560,15 @@ def test_a_stale_release_detail_does_not_rewrite_the_panel_line(
     must not relabel disc B's panel any more than it may retag disc B's tracks —
     the wrong-album bug, arriving through the line added to fix a different one.
     """
-    window = teardown_threads()
+    mb = _mb_answering_a_fetch()
+    window = teardown_threads(mb_client=mb)
     window._current_disc_id = "disc-B"
+    # One candidate, so the window fetches it: that fetch runs on `_mb_thread`.
     window._on_mb_releases(
         "disc-B", [ReleaseSummary(mbid="b", title="B", artist_credit="Beta")]
     )
+    assert drain_mb_queue(window), "the fetch for disc B never ran"
+    assert mb.mbid_calls == ["b"]
     before = window._disc_info_panel._mb_match_value.text()
 
     window._on_mb_release_detail("disc-A", _detail())
@@ -12304,7 +12323,8 @@ def test_multiple_candidates_log_the_wait_before_it_starts(
 def test_choosing_a_release_logs_which_one(
     teardown_threads, caplog: pytest.LogCaptureFixture, monkeypatch
 ) -> None:
-    window = teardown_threads()
+    mb = _mb_answering_a_fetch()
+    window = teardown_threads(mb_client=mb)
     window._current_disc_id = "disc-A"
     monkeypatch.setattr(
         ReleasePickerDialog, "exec", lambda self: QDialog.DialogCode.Accepted
@@ -12314,6 +12334,9 @@ def test_choosing_a_release_logs_which_one(
         window._on_mb_releases("disc-A", _releases(4))
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "user chose mbid-2" in text
+    # And the choice the line names is the one fetched.
+    assert drain_mb_queue(window), "the fetch for the chosen release never ran"
+    assert mb.mbid_calls == ["mbid-2"]
 
 
 def test_accepted_with_no_selection_is_a_warning_not_a_silent_return(
@@ -12357,13 +12380,17 @@ def test_a_single_candidate_does_not_claim_a_picker_was_opened(
     lines may appear — otherwise the lines above would be satisfied by a
     `log.info` at the top of the method, which proves nothing.
     """
-    window = teardown_threads()
+    mb = _mb_answering_a_fetch()
+    window = teardown_threads(mb_client=mb)
     window._current_disc_id = "disc-A"
     with caplog.at_level(logging.INFO):
         window._on_mb_releases("disc-A", _releases(1))
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "release picker" not in text
     assert "candidates" not in text
+    # "Straight to the fetch" is the claim, so the fetch is asserted too.
+    assert drain_mb_queue(window), "the single candidate was never fetched"
+    assert mb.mbid_calls == ["mbid-0"]
 
 
 # --- The cancel rescue must not eject a drive the cancel already freed -------
@@ -12904,7 +12931,8 @@ def test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker(
 
     from platterpus.ui.release_picker import ReleasePickerDialog
 
-    window = teardown_threads()
+    # The picker's answer is fetched for real on `_mb_thread` (TASKS R107).
+    window = teardown_threads(mb_client=_mb_answering_a_fetch())
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
     window._current_disc_id = disc
     window._mb_release_chosen_for = ""

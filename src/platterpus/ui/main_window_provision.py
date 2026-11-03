@@ -300,7 +300,7 @@ class ProvisioningMixin(MainWindowShared):
             new_path = ai.relocate_to_applications(appimage)
             ai.integrate(new_path)
             self._config.appimage_integration_prompted = True
-            self._save_config(self._config)
+            self._save_config_or_report("the menu-entry offer was answered")
             moved = (
                 f"The app file was moved to {new_path}. "
                 if new_path != appimage
@@ -371,7 +371,7 @@ class ProvisioningMixin(MainWindowShared):
             self._config.integration_declined_path = str(appimage)
             self._config.integration_declined_version = __version__
             self._config.appimage_integration_prompted = True  # legacy flag
-            self._save_config(self._config)
+            self._save_config_or_report("the menu-entry offer was declined")
             return
         try:
             # Give the file a proper home FIRST, then point the menu entry at
@@ -382,7 +382,7 @@ class ProvisioningMixin(MainWindowShared):
             self._config.integration_declined_path = ""
             self._config.integration_declined_version = ""
             self._config.appimage_integration_prompted = True  # legacy flag
-            self._save_config(self._config)
+            self._save_config_or_report("the menu entry was added")
             if new_path != appimage:
                 detail = (
                     f"Platterpus now lives at {new_path} and is in your "
@@ -418,7 +418,7 @@ class ProvisioningMixin(MainWindowShared):
         if self._config.host_setup_prompted:
             return
         self._config.host_setup_prompted = True
-        self._save_config(self._config)
+        self._save_config_or_report("the host-setup offer was made")
         choice = message_boxes.question(
             self,
             "Set up Platterpus",

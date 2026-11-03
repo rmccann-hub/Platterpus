@@ -144,7 +144,7 @@ class DriveMixin(MainWindowShared):
         # Record the offer first so a decline (or any path out) never re-nags;
         # afterwards calibration lives on Tools → Setup & Updates… → Set up drive….
         self._config.drive_setup_prompted = True
-        self._save_config(self._config)
+        self._save_config_or_report("the drive-setup offer was made")
         choice = message_boxes.question(
             self,
             "Set up your drive",
@@ -231,7 +231,7 @@ class DriveMixin(MainWindowShared):
         self._config.read_offset = value
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
-        self._save_config(self._config)
+        self._save_config_or_report(f"The read offset {value:+d}", tell_user=True)
         # Setup & Updates shows the offset beside Set up drive…; keep it true.
         self._refresh_setting_views()
         return True

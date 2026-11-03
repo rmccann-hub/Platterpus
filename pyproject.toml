@@ -579,6 +579,15 @@ addopts = "-q --strict-markers"
 # write the measurement down next to it.
 faulthandler_timeout = 300
 faulthandler_exit_on_timeout = true
+# AN EXCEPTION NOTHING CAUGHT FAILS THE TEST IT HAPPENED IN (TASKS R107).
+# pytest records an exception that kills a `threading.Thread` and, by default,
+# only WARNS about it, so a worker that died mid-job left a green run behind it.
+# Made an error here. The Qt half (an exception in a slot, which PySide hands to
+# `sys.excepthook` and never to `threading.excepthook`) is caught by
+# `tests/conftest.py::harness_excepthook`.
+filterwarnings = [
+    "error::pytest.PytestUnhandledThreadExceptionWarning",
+]
 
 # Coverage config (consumed when CI runs `pytest --cov`). Branch coverage is
 # stricter than line coverage — it requires both sides of every if/try taken.

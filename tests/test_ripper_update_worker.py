@@ -530,14 +530,26 @@ def test_constructing_a_window_does_not_arm_the_automatic_check() -> None:
         for node in window.body
         if isinstance(node, ast.FunctionDef) and node.name == "__init__"
     )
+    # Both ways `__init__` schedules a method: `QTimer.singleShot(ms, self.<m>)`,
+    # and a child timer's `<timer>.timeout.connect(self.<m>)`. The first-run offer
+    # moved from the first to the second on 2026-11-03 (TASKS R107), and a
+    # detector that read only `singleShot` would have stopped seeing the very
+    # shape it polices: re-arming this check from a child timer passed it.
     scheduled = [
-        node.args[1].attr
+        node.args[-1].attr
         for node in ast.walk(init)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "singleShot"
-        and len(node.args) >= 2
-        and isinstance(node.args[1], ast.Attribute)
+        and len(node.args) >= 1
+        and isinstance(node.args[-1], ast.Attribute)
+        and (
+            (node.func.attr == "singleShot" and len(node.args) >= 2)
+            or (
+                node.func.attr == "connect"
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr == "timeout"
+            )
+        )
     ]
     assert "_maybe_check_ripper_updates" not in scheduled, (
         "MainWindow.__init__ arms the automatic cyanrip check again. It must be "
@@ -548,10 +560,15 @@ def test_constructing_a_window_does_not_arm_the_automatic_check() -> None:
     # The floor: this must be looking at a real `__init__` that really does schedule
     # things, or it passes by finding nothing.
     assert scheduled, (
-        "no `QTimer.singleShot(..., self.<method>)` found in MainWindow.__init__ at "
+        "no `QTimer.singleShot(..., self.<method>)` or `<timer>.timeout.connect("
+        "self.<method>)` found in MainWindow.__init__ at "
         "all — the detector is not seeing the population it polices, so the "
         "assertion above is vacuous"
     )
+    # And the floor names its subject: the first-run offer is the one method
+    # `__init__` is known to schedule, by a child timer, so a detector blind to
+    # that shape fails here rather than passing on the other timers.
+    assert "_maybe_offer_first_run_setup" in scheduled, scheduled
 
 
 def test_the_launch_path_does_arm_it() -> None:

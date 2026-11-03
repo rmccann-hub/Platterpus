@@ -76,7 +76,7 @@ def test_no_qt_worker_thread_outlives_the_test_that_started_it(
     running = [
         thread
         for thread in _live_qthreads()
-        if thread is not QThread.currentThread() and thread.isRunning()
+        if thread is not QThread.currentThread() and _is_running(thread)
     ]
     assert not running, (
         f"{len(running)} QThread(s) from earlier tests are still running; "
@@ -100,6 +100,23 @@ def test_the_deferred_delete_queue_is_drained_between_tests(
     gc.collect()
 
 
+def _is_running(thread: QThread) -> bool:
+    """``thread.isRunning()``, and False for a wrapper whose C++ thread is gone.
+
+    A wrapper can outlive its C++ ``QThread`` (an object of an earlier test
+    still holds the window whose child it was), and calling a method on it
+    raises ``RuntimeError``. That made this check fail, order-dependently, about
+    one run in three of the window test files (measured 2026-11-03, at
+    `2522a1bb`, before any R107 change). A deleted ``QThread`` is not running:
+    Qt aborts the process rather than destroy a running one, so the process
+    being alive to ask is the proof.
+    """
+    try:
+        return thread.isRunning()
+    except RuntimeError:
+        return False
+
+
 def _live_qthreads() -> list[QThread]:
     """Every QThread Python still has a wrapper for.
 
@@ -116,3 +133,25 @@ def _live_qthreads() -> list[QThread]:
             # A dead wrapper mid-collection — not a live thread by definition.
             continue
     return threads
+
+
+def test_a_wrapper_whose_thread_is_gone_reads_as_not_running(
+    qapp: QApplication,
+) -> None:
+    """The flake `_is_running` removes, reproduced on purpose: a Python wrapper
+    kept for a `QThread` whose C++ owner was destroyed raised `RuntimeError` from
+    `isRunning()`, which failed the sweep above whenever an earlier test left one
+    reachable."""
+    from PySide6.QtCore import QObject
+
+    owner = QObject()
+    child = QThread(owner)
+    owner.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    try:
+        child.isRunning()
+    except RuntimeError:
+        pass
+    else:  # pragma: no cover - the premise, stated so a PySide change shows up
+        raise AssertionError("premise: the wrapper's C++ thread was not deleted")
+    assert _is_running(child) is False

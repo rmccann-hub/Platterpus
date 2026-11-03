@@ -39,7 +39,7 @@ os.environ["XDG_CONFIG_HOME"] = os.path.join(
 os.environ["XDG_DATA_HOME"] = os.path.join(os.environ["PLATTERPUS_TEST_HOME"], "data")
 
 import pytest
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus import hard_exit
@@ -47,6 +47,12 @@ from platterpus.ui import message_boxes
 
 #: The per-process folder standing in for the user's config and data homes.
 TEST_HOME: Path = Path(os.environ["PLATTERPUS_TEST_HOME"])
+
+#: ``QTimer.singleShot`` as Qt supplies it, taken before any test can replace it.
+#: Several tests monkeypatch ``QTimer.singleShot`` to capture what a window
+#: schedules, and the teardown helper :func:`drain_mb_queue` must still reach
+#: the real one while their patch is in place.
+_REAL_SINGLE_SHOT = QTimer.singleShot
 
 # --- No wall-clock deadline on Hypothesis examples ------------------------
 #
@@ -334,6 +340,20 @@ def pytest_sessionfinish(session, exitstatus):
     import sys
 
     status = int(session.exitstatus)
+    # An exception that reached sys.excepthook after the LAST test's check (a
+    # worker thread that outlived the final test of this process) has no test to
+    # fail, so it fails the session (TASKS R107). KNOWN GAP: on an xdist worker
+    # the status below only sets that worker's process exit code, which the
+    # controller does not read once the worker has reported; the traceback is
+    # printed to the worker's stderr either way.
+    leftover = take_unhandled_exceptions()
+    if leftover:
+        sys.stderr.write(
+            f"\n{len(leftover)} exception(s) reached sys.excepthook after the last "
+            "test's check, so no test could be failed for them:\n\n"
+            + "\n".join(leftover)
+        )
+        status = status or 1
     if is_xdist_worker(session.config):
         # **A worker does not speak for the run, and must not exit here.** xdist
         # sends the worker's results to the controller in its own session-finish,
@@ -505,6 +525,94 @@ def _no_test_leaves_the_crash_dialog_armed() -> Generator[None, None, None]:
         _sys.excepthook, threading.excepthook = sys_before, thread_before
 
 
+#: Every exception that reached ``sys.excepthook`` and has not yet been charged to
+#: a test, formatted when it arrived (thread name first). Filled by
+#: :func:`harness_excepthook`, drained by :func:`take_unhandled_exceptions`.
+UNHANDLED_EXCEPTIONS: list[str] = []
+_UNHANDLED_LOCK: threading.Lock = threading.Lock()
+
+
+def harness_excepthook(
+    exc_type: type[BaseException],
+    exc_value: BaseException,
+    exc_tb: object,
+) -> None:
+    """Record an exception nothing caught, then print it as the default hook does.
+
+    **Where a Qt slot's exception goes** (TASKS R107, 2026-11-03). PySide6 does
+    not let an exception raised inside a slot propagate: it hands it to
+    ``sys.excepthook`` and returns to the event loop — on whatever thread the
+    slot ran, a worker's ``QThread`` included (measured with PySide6 6.11.2: a
+    queued slot raising on a worker thread called the hook from ``Dummy-1``).
+    The default hook prints and nothing else happens, so a fake that asserted
+    inside a MusicBrainz fetch printed a traceback into the middle of a passing
+    run and the run stayed green. pytest's own ``threadexception`` plugin does
+    not see these: it hooks ``threading.excepthook``, which a Qt slot never
+    reaches.
+
+    So the harness owns ``sys.excepthook`` for the session and charges what it
+    records to a test (:func:`_excepthook_fails_the_test_it_reached`). It still
+    prints, through ``sys.__excepthook__``: capture without surfacing is the
+    same bug from the reader's side.
+    """
+    import traceback
+
+    text = f"in thread {threading.current_thread().name!r}:\n" + "".join(
+        traceback.format_exception(exc_type, exc_value, exc_tb)  # type: ignore[arg-type]  # a traceback or None, as sys.excepthook is called
+    )
+    with _UNHANDLED_LOCK:
+        UNHANDLED_EXCEPTIONS.append(text)
+    import sys as _sys
+
+    _sys.__excepthook__(exc_type, exc_value, exc_tb)  # type: ignore[arg-type]  # same object sys.excepthook was handed
+
+
+def take_unhandled_exceptions() -> list[str]:
+    """Every recorded exception not yet charged to a test, removing them."""
+    with _UNHANDLED_LOCK:
+        taken = list(UNHANDLED_EXCEPTIONS)
+        UNHANDLED_EXCEPTIONS.clear()
+    return taken
+
+
+def fail_on_unhandled_exceptions(taken: list[str]) -> None:
+    """``pytest.fail`` naming every exception in ``taken``; nothing when empty."""
+    if not taken:
+        return
+    pytest.fail(
+        f"{len(taken)} exception(s) reached sys.excepthook during this test (or "
+        "after the previous test's check: a worker that outlived an earlier test "
+        "is charged to the next one). In a Qt slot that is an exception PySide "
+        "printed and swallowed, so the work the slot was doing never finished. "
+        "Usually a fake that was not configured for a call the test triggers "
+        "(TASKS R107):\n\n" + "\n".join(taken),
+        pytrace=False,
+    )
+
+
+@pytest.fixture(autouse=True)
+def _excepthook_fails_the_test_it_reached() -> Generator[None, None, None]:
+    """FAIL a test during which an exception reached ``sys.excepthook``.
+
+    See :func:`harness_excepthook` for why. Named to sort before the
+    ``_join_leaked_*`` fixtures: pytest orders autouse fixtures of one plugin by
+    name (``dir()``), and teardown runs in reverse, so this check runs AFTER they
+    have joined the test's leftover threads, and a worker the backstop had to
+    join still has its exception charged to the test that started it.
+
+    The hook is re-installed at setup because the crash-dialog fixture restores
+    whatever ``sys.excepthook`` was when its test began, and a test that set
+    its own and never restored it would otherwise switch this off for the rest
+    of the session. Anything recorded before setup (between tests) is charged
+    to this test rather than dropped, and the message says it may be earlier.
+    """
+    import sys as _sys
+
+    _sys.excepthook = harness_excepthook
+    yield
+    fail_on_unhandled_exceptions(take_unhandled_exceptions())
+
+
 #: The three round states the app can be in, named for `supply_round_state`.
 ROUND_STATES: tuple[str, ...] = ("no-round", "round-open", "round-with-test-pin")
 
@@ -578,6 +686,34 @@ def supply_round_state(monkeypatch: pytest.MonkeyPatch, state: str) -> None:
     ), state
 
 
+def drain_mb_queue(window: object, timeout_s: float = 2.0) -> bool:
+    """Wait until ``window``'s MusicBrainz thread has run everything queued to it.
+
+    Posts a marker to the worker's thread with ``QTimer.singleShot(0, worker,
+    ...)``; posted events are delivered in order, so the marker runs after every
+    fetch or lookup queued before it. Returns whether it ran within
+    ``timeout_s`` (``True`` too when there is no running MusicBrainz thread, so
+    nothing is queued). Read via ``getattr`` like the rest of the teardown, so a
+    stand-in window degrades to "nothing to drain".
+    """
+    from PySide6.QtCore import QObject
+
+    worker = getattr(window, "_mb_worker", None)
+    thread = getattr(window, "_mb_thread", None)
+    if not isinstance(worker, QObject) or not isinstance(thread, QThread):
+        return True
+    try:
+        if not thread.isRunning():
+            return True
+        reached = threading.Event()
+        # The real singleShot, not `QTimer.singleShot`: the test whose teardown
+        # this is may have patched that, and its patch is still in place here.
+        _REAL_SINGLE_SHOT(0, worker, reached.set)
+    except RuntimeError:
+        return True  # the C++ objects are already gone: nothing can be queued
+    return reached.wait(timeout_s)
+
+
 def stop_window_threads(window: object) -> None:
     """Join every QThread a MainWindow owns, before it is destroyed.
 
@@ -613,6 +749,17 @@ def stop_window_threads(window: object) -> None:
     raising during teardown. Waits are bounded: a wedged worker should slow a
     test down, not hang the suite.
     """
+    # THE MUSICBRAINZ QUEUE RUNS TO THE END FIRST (TASKS R107). A test that makes
+    # the window pick a release queues `fetch_release` onto `_mb_thread`, and
+    # whether that fetch ran before the `quit()` below was a race: usually it did,
+    # sometimes `quit()` won and it never ran. So a fake that asserted inside the
+    # fetch printed a traceback on some runs and nothing on others. Waiting here
+    # for a marker queued BEHIND every fetch the test caused makes the fetch run,
+    # every time, inside this test's teardown, where
+    # `_excepthook_fails_the_test_it_reached` charges its exception to this test.
+    # Bounded: a fake that blocks costs two seconds, not the suite.
+    drain_mb_queue(window)
+
     # Qt worker threads. `quit()` is delivered to each thread's own event loop
     # directly (not via a queued `finished` → `quit`), so it works even when the
     # test never pumped the GUI event loop. EVERY QThread slot
@@ -1097,10 +1244,10 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
 
     We track every `QThread.start()` during the test, then at teardown — which
     runs BEFORE the test's locals (and their threads) are GC'd — quit + bounded-
-    wait any that are still running, pumping the loop so a queued `finished` can
-    fire first. Leaking isn't failed (it's a latent abort risk, not a behaviour
-    bug, and some daemon-style flows are legitimately in flight) but it's warned
-    so a chronically-leaking test gets noticed. The real fix in the test is to
+    wait any that are still running. A thread that stops when asked is warned
+    (a slip: the test returned before driving its worker home); a thread STILL
+    running 3 s after `quit()` fails the test (TASKS R107, 2026-11-03), because
+    it has outlived the test and the abort it risks lands in a later one. The real fix in the test is to
     drive the worker to completion (see `docs/testing.md` — bounded
     `processEvents` pump); this is the backstop that keeps a slip from aborting
     everyone else's tests.
@@ -1121,6 +1268,7 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
 
     leaked = 0
     names: list[str] = []
+    unstoppable: list[str] = []
     for thread in started:
         try:
             if not thread.isRunning():
@@ -1141,9 +1289,22 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
             # cooperative loop; wait() is bounded.
             thread.requestInterruption()
             thread.quit()
-            thread.wait(3000)
+            if not thread.wait(3000):
+                unstoppable.append(names[-1])
         except RuntimeError:
             pass
+    if unstoppable:
+        # A thread still running 3 s after `quit()` OUTLIVES its test, and the
+        # next test's garbage collection is where the abort lands (TASKS R107).
+        # Failed, not warned: the warning below covers a thread that stopped the
+        # moment it was asked, which is a slip; this is a worker nothing could
+        # stop. No run of the whole suite produced one (2026-11-03, -n 4).
+        pytest.fail(
+            f"{len(unstoppable)} QThread(s) were still running 3 s after the test "
+            f"ended and quit() was called: {', '.join(unstoppable)}. Give the "
+            "worker a cancel() and stop it in the test, or drive it to completion.",
+            pytrace=False,
+        )
     if leaked:
         warnings.warn(
             f"{leaked} QThread(s) were still running at test teardown and were "
@@ -1172,15 +1333,15 @@ def _join_leaked_worker_threads():
 
     Only threads started **during the test** are tracked, and only ones that are
     still alive at teardown are waited on, so the normal case costs nothing. The
-    wait is bounded and a timeout warns rather than fails: a wedged worker should
-    make itself known without turning one slow test into a red suite.
+    wait is bounded, and a thread still alive after it FAILS the test (warned
+    until 2026-11-03, TASKS R107): five seconds past the end of its test, a
+    worker has outlived it, and the abort it risks lands in someone else's test.
 
     Note the deliberate absence of `processEvents()` here — same reason the
     QThread backstop avoids it. Pumping can fire a stale `QTimer.singleShot` left
     by a half-destroyed window, which is its own crash.
     """
     import threading
-    import warnings
 
     started: list[threading.Thread] = []
     original_start = threading.Thread.start
@@ -1195,22 +1356,46 @@ def _join_leaked_worker_threads():
     finally:
         threading.Thread.start = original_start  # type: ignore[method-assign]
 
+    fail_on_stubborn_threads(join_or_name_stubborn(started, timeout_s=5.0))
+
+
+def join_or_name_stubborn(
+    started: list[threading.Thread], timeout_s: float
+) -> list[str]:
+    """Join each live thread in ``started`` for up to ``timeout_s``; name the rest.
+
+    The calling thread is skipped. Split out of `_join_leaked_worker_threads` so
+    the harness test can run it with a short bound.
+    """
     current = threading.current_thread()
     stubborn: list[str] = []
     for worker in started:
         if worker is current or not worker.is_alive():
             continue
-        worker.join(5.0)
+        worker.join(timeout_s)
         if worker.is_alive():
             stubborn.append(worker.name)
-    if stubborn:
-        warnings.warn(
-            f"{len(stubborn)} worker thread(s) were still running 5s after the "
-            f"test ended and could not be joined: {', '.join(stubborn)}. A live "
-            "thread during a later garbage collection can abort the process — "
-            "drive the worker to completion in the test (see docs/testing.md).",
-            stacklevel=2,
-        )
+    return stubborn
+
+
+def fail_on_stubborn_threads(stubborn: list[str]) -> None:
+    """``pytest.fail`` naming threads that outlived their test; nothing if none.
+
+    FAILED since 2026-11-03 (TASKS R107), where it used to warn: a thread still
+    alive 5 s after its test ended outlives it, and a live thread during a later
+    garbage collection is the suite's recorded abort. No run of the whole suite
+    produced one that day (`-n 4`), so this fails only a test that genuinely
+    leaves a worker behind.
+    """
+    if not stubborn:
+        return
+    pytest.fail(
+        f"{len(stubborn)} worker thread(s) were still running 5s after the "
+        f"test ended and could not be joined: {', '.join(stubborn)}. A live "
+        "thread during a later garbage collection can abort the process — "
+        "drive the worker to completion in the test (see docs/testing.md).",
+        pytrace=False,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -1304,6 +1489,12 @@ TREE_WALK_MARKER = "tree_walk"
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    # The harness owns sys.excepthook for the whole session (TASKS R107): see
+    # `harness_excepthook`. Installed here as well as per test so an exception
+    # that arrives before the first test still has somewhere to be recorded.
+    import sys as _sys
+
+    _sys.excepthook = harness_excepthook
     config.addinivalue_line(
         "markers",
         f"{TREE_WALK_MARKER}: a sweep over the whole tree, which may open run "
