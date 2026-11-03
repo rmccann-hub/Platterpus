@@ -2005,7 +2005,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4450 -> 4551** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the `time limit` arm of `_SECURE_DONE_FAIL` with why it must read as not converged, the `Re-read limit:` line rule, `secure_rerip_limit_stop` (the claim made here), the buffered and in-block handling, and the listings. Which limit a claimed line names, and the header's seconds, are read in `reread_limit.py`.
     # **4551 -> 4618** (2026-10-26, peer review 2.4, TASKS R86): `_TRACK_ECHO_HEADER`, its listing, `_TrackAcc.echo_reached`, `_is_track_verdict_row`, the latch in the block loop and its counted warning, so a value cyanrip echoes (the disc's CD-TEXT) cannot set a track's verdict. It must sit in the block loop it guards; the citations for the print order are the reason it is safe.
     # **4618 -> 4651** (2026-10-29, round 37 lap 1): the loop's state and dispatch for `.28`'s `Pregap searches:` and `Names shortened:` blocks, their two fields and four contract-table rows, and `Speed:`'s `failed` arm; the reading itself lives in `parsers/cyanrip_disc_blocks.py`.
-    "parsers/cyanrip_log.py": 4651,
+    # **4651 -> 4732** (2026-11-03, TASKS R86): the disc header's echo guards. Each held row's `echo_latch` and the ONCE rows' `clear` in the rule tables (most of the growth is those entries no longer fitting one line), the five clearers beside the `_LineRule` they serve, one check in `_apply_line_rules`, one call in the loop and the clearing after it. They must sit at the dispatch they guard; the state, the order argument and the logging live in `parsers/cyanrip_echo_guard.py`.
+    "parsers/cyanrip_log.py": 4732,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one

@@ -81,6 +81,7 @@ from platterpus import (
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers import cyanrip_disc_blocks as _blocks
+from platterpus.parsers import cyanrip_echo_guard as _echo
 from platterpus.parsers.cyanrip_preemphasis import PREEMPHASIS_LABEL, preemphasis_text
 from platterpus.parsers.rip_log import (
     ACCURATE_STREAM_DECLARED_SUPPORTED,
@@ -1908,6 +1909,8 @@ class _Disc:
 
     log_creator: str = ""
     ripper_build: str = ""
+    # The disc header's guard against rows forged by an echoed value (R86).
+    echo_guard: _echo.EchoGuard = field(default_factory=_echo.EchoGuard)
     creation_date: str = ""
     drive: str = ""
     read_offset: int | None = None
@@ -2234,6 +2237,32 @@ class _LineRule:
     # block, and the per-track copy must not overwrite the disc's — the old chain
     # spelled this `if match and current is None`.
     disc_level_only: bool = False
+    # The disc-header echo guard holding this row (`cyanrip_echo_guard`), or "".
+    echo_latch: str = ""
+    # For an `ECHO_LATCH_ONCE` row: what to put back when a second copy makes it
+    # not determined (the value it held before cyanrip said anything).
+    clear: Callable[[_Disc], None] | None = None
+
+
+def _clear_paranoia_level(disc: _Disc) -> None:
+    disc.paranoia_level = ""
+
+
+def _clear_outputs(disc: _Disc) -> None:
+    disc.output_formats = ""
+
+
+def _clear_tracks_to_rip(disc: _Disc) -> None:
+    disc.tracks_to_rip = ""
+    disc.tracks_to_rip_numbers = None
+
+
+def _clear_disc_id(disc: _Disc) -> None:
+    disc.disc_id = ""
+
+
+def _clear_cddb_id(disc: _Disc) -> None:
+    disc.cddb_id = ""
 
 
 def _take_version(disc: _Disc, match: re.Match[str]) -> bool:
@@ -3028,22 +3057,43 @@ def _take_album_true_peak_level(disc: _Disc, match: re.Match[str]) -> bool:
 # claimed *after* it does not.) It costs four one-line dispatch calls to keep the
 # behaviour provably identical, which is the right trade for the file that turns
 # a ripper's text into a bit-perfection claim.
+_BEFORE_CDTEXT: Final[str] = _echo.ECHO_LATCH_BEFORE_CDTEXT
+_ONCE: Final[str] = _echo.ECHO_LATCH_ONCE
 _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
     _LineRule("version_banner", _HEADER, _take_version),
-    _LineRule("invoked_as", _INVOKED_AS, _take_invoked_as),
-    _LineRule("drive", _DRIVE, _take_drive),
-    _LineRule("read_offset", _OFFSET, _take_offset),
-    _LineRule("overread_mode", _OVERREAD_MODE, _take_overread_mode),
+    # `echo_latch`: the disc header's echo guards (`cyanrip_echo_guard`, R86).
+    _LineRule("invoked_as", _INVOKED_AS, _take_invoked_as, echo_latch=_BEFORE_CDTEXT),
+    _LineRule("drive", _DRIVE, _take_drive, echo_latch=_BEFORE_CDTEXT),
+    _LineRule("read_offset", _OFFSET, _take_offset, echo_latch=_BEFORE_CDTEXT),
+    _LineRule(
+        "overread_mode", _OVERREAD_MODE, _take_overread_mode, echo_latch=_BEFORE_CDTEXT
+    ),
     _LineRule("album", _ALBUM, _take_album, disc_level_only=True),
     _LineRule("album_artist", _ALBUM_ARTIST, _take_album_artist, disc_level_only=True),
-    _LineRule("c2_errors", _C2, _take_c2),
+    _LineRule("c2_errors", _C2, _take_c2, echo_latch=_BEFORE_CDTEXT),
     # `.26` onward, directly below `C2 errors:`; absent means `not_present` on
     # every older build. Disc-level only: header rows, never a track's.
     _LineRule(
-        "accurate_stream", _ACCURATE_STREAM, _take_accurate_stream, disc_level_only=True
+        "accurate_stream",
+        _ACCURATE_STREAM,
+        _take_accurate_stream,
+        disc_level_only=True,
+        echo_latch=_BEFORE_CDTEXT,
     ),
-    _LineRule("recordable", _RECORDABLE, _take_recordable, disc_level_only=True),
-    _LineRule("paranoia_level", _PARANOIA_LEVEL, _take_paranoia_level),
+    _LineRule(
+        "recordable",
+        _RECORDABLE,
+        _take_recordable,
+        disc_level_only=True,
+        echo_latch=_BEFORE_CDTEXT,
+    ),
+    _LineRule(
+        "paranoia_level",
+        _PARANOIA_LEVEL,
+        _take_paranoia_level,
+        echo_latch=_ONCE,
+        clear=_clear_paranoia_level,
+    ),
     # PROPOSED by the fork (round 36 lap 10 S11), below `Retry limit:`, printed
     # only when `--reread-time-limit` was given. Disc-level only: a header row.
     _LineRule(
@@ -3056,10 +3106,27 @@ _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
 
 _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule("swap_addendum_crc", _ADDENDUM_CRC, _take_addendum_crc),
-    _LineRule("outputs", _OUTPUTS, _take_outputs, disc_level_only=True),
-    _LineRule("tracks_to_rip", _TRACKS_TO_RIP, _take_tracks_to_rip),
-    _LineRule("disc_id", _DISC_ID, _take_disc_id),
-    _LineRule("cddb_id", _CDDB_ID, _take_cddb_id),
+    _LineRule(
+        "outputs",
+        _OUTPUTS,
+        _take_outputs,
+        disc_level_only=True,
+        echo_latch=_ONCE,
+        clear=_clear_outputs,
+    ),
+    _LineRule(
+        "tracks_to_rip",
+        _TRACKS_TO_RIP,
+        _take_tracks_to_rip,
+        echo_latch=_ONCE,
+        clear=_clear_tracks_to_rip,
+    ),
+    _LineRule(
+        "disc_id", _DISC_ID, _take_disc_id, echo_latch=_ONCE, clear=_clear_disc_id
+    ),
+    _LineRule(
+        "cddb_id", _CDDB_ID, _take_cddb_id, echo_latch=_ONCE, clear=_clear_cddb_id
+    ),
     # `+platterpus.23` / upstream rc3 onward; absent means absent on every older
     # build. Disc-level only: it is a start-report row, never a track's.
     _LineRule(
@@ -3076,7 +3143,9 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
         disc_level_only=True,
     ),
     _LineRule("release_id", _RELEASE_ID, _take_release_id),
-    _LineRule("speed_capability", _SPEED_CAP, _take_speed_cap),
+    _LineRule(
+        "speed_capability", _SPEED_CAP, _take_speed_cap, echo_latch=_BEFORE_CDTEXT
+    ),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
 )
 
@@ -3563,6 +3632,10 @@ def _apply_line_rules(
         match = rule.pattern.match(line)
         if match is None:
             continue
+        # A forged copy is claimed and not read (TASKS R86): claiming keeps the
+        # flow the handler's `return True` gave it, minus the write.
+        if disc.echo_guard.claims(rule.echo_latch, rule.name, in_track=in_track):
+            return True
         if rule.handle(disc, match):
             return True
     return False
@@ -3865,6 +3938,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # dispatch can change it without also skipping to the next line, so a
         # single snapshot is honest.
         in_track = current is not None
+        disc.echo_guard.note_line(line, in_track=in_track)  # before any rule
 
         # Disc-level rows the old if-chain tested BEFORE the "Gaps:" block.
         if _apply_line_rules(_RULES_BEFORE_GAPS, line, disc, in_track=in_track):
@@ -4546,6 +4620,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
             for tr in disc.tracks
         ]
     truncated, last_incomplete = _detect_truncation(text, disc.tracks)
+    # A ONCE row seen twice is not determined (`cyanrip_echo_guard`), cleared
+    # once every copy has been seen; driven by the table, so no row loses its
+    # clearer.
+    for rule in _ALL_LINE_RULES:
+        if rule.name in disc.echo_guard.ambiguous and rule.clear is not None:
+            rule.clear(disc)
+    disc.echo_guard.report()
     if echoed_verdict_rows:
         # A warning, not debug: cyanrip never prints one of these after the echo,
         # so each is a value that carried a line break (the disc's CD-TEXT, or a
