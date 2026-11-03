@@ -27,7 +27,7 @@ import socket
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 import musicbrainzngs
 
@@ -43,6 +43,18 @@ log = logging.getLogger(__name__)
 # each call and restore it after (below), rather than globally at import, so the
 # adapter has no surprising process-wide side effect.
 _MB_TIMEOUT_S: float = 30.0
+
+# The one server every lookup goes to, over certificate-verified HTTPS. Set by
+# the adapter itself (`MusicBrainzNgsImpl.__init__`), not inherited from
+# musicbrainzngs' module default, because it is the premise of a decision (TASKS
+# R89): musicbrainzngs reads a response body whole, with no size cap we can set
+# (`musicbrainzngs/musicbrainz.py`, `_safe_read`: `return f.read()`), and we
+# accept that read because only MusicBrainz itself, authenticated by TLS, can
+# answer it. If anything pointed the library at another host, or at plain
+# HTTP, that acceptance would no longer hold, so the adapter states the host
+# rather than trusting that nothing changed it. The full statement, with what
+# is and is not bounded, is `docs/dependency-contracts.md` → *musicbrainzngs*.
+MB_HOST: Final[str] = "musicbrainz.org"
 
 
 @contextlib.contextmanager
@@ -222,7 +234,12 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
 
         Per MB's policy, `contact` should be a real email or project URL
         so a human can be reached if our client misbehaves.
+
+        Also points musicbrainzngs at `MB_HOST` over HTTPS, explicitly: the
+        library's ``set_hostname`` defaults to plain HTTP when called without
+        ``use_https``, so a module default is not a guarantee (see `MB_HOST`).
         """
+        musicbrainzngs.set_hostname(MB_HOST, use_https=True)
         self.set_user_agent(app, version, contact)
 
     def set_user_agent(self, app: str, version: str, contact: str) -> None:

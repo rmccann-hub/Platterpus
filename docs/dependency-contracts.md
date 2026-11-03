@@ -639,6 +639,31 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
 - All wrapped so `musicbrainzngs.WebServiceError`/`ResponseError` surface as our
   own error type; the adapter is the seam for this unmaintained dependency
   (Critical rule #1).
+- **Host:** `set_hostname(MB_HOST, use_https=True)` in the adapter's constructor,
+  `MB_HOST = "musicbrainz.org"`. Stated by us rather than inherited, because the
+  library's own `set_hostname` defaults to plain HTTP, and the read below is
+  accepted only for this host over TLS.
+- **The response body is read whole, with no size cap (decided 2026-11-03, TASKS
+  R89).** musicbrainzngs 0.7.1 opens its own urllib opener and returns
+  `f.read()` (`musicbrainzngs/musicbrainz.py`, `_safe_read`), with no hook to bound
+  it short of monkey-patching, which the code conventions forbid. The other four
+  fetchers (Cover Art Archive, CTDB, the update check, the attestation bundle) cap
+  their bodies; this one is accepted unbounded, for these reasons, each held by a
+  test in `tests/test_server_answers_never_raise.py`:
+  - only MusicBrainz can answer: the request goes to `MB_HOST` over HTTPS with
+    urllib's default certificate check, checked at the URL the library opens;
+  - XML entity expansion is refused, not expanded (expat's amplification limit,
+    expat 2.6.1 measured with Python 3.12), and reaches us as
+    `MusicBrainzQueryError`;
+  - every call runs on the MusicBrainz worker thread, never the GUI thread.
+
+  **What is NOT bounded, said rather than implied:** the body's size in memory,
+  and the call's total time. `_MB_TIMEOUT_S` (30 s) is a *per-read* socket
+  timeout, so a server trickling a byte at a time never trips it, and
+  `_safe_read` retries up to 8 times with growing sleeps. If this ever matters,
+  the exit is the adapter seam: a second `MusicBrainzClient` that fetches with a
+  capped read and parses with `musicbrainzngs.mbxml.parse_message`, with its own
+  1-request-per-second limit, since it would bypass the library's.
 
 ## ffmpeg — derived-file verification (`adapters/derived_verify.py`)
 
