@@ -149,11 +149,8 @@ def classify(
         else:
             failed.append(run)
 
-    # A check nobody requires still counts when it FAILS: a red appimage.yml on
-    # main is a red main. And while it RUNS, the verdict waits for it: until
-    # 2026-11-03 a running appimage.yml read GREEN on main's merge commit, which
-    # is a claim about a build that had not finished. Passing or cancelled, it
-    # decides nothing.
+    # A check nobody requires counts when it FAILS (a red appimage.yml on main is
+    # a red main) and while it RUNS (it read GREEN mid-build, 2026-11-03).
     for name, run in sorted(newest.items()):
         if name in required:
             continue
