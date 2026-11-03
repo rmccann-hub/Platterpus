@@ -8,11 +8,13 @@ AccurateRip matches, at confidence 1 or more, the higher winning
 **`.27` is released (2026-10-26, `5aeefc4`, their round 36 lap 10 S4)** and P1 of its
 filed contract lists the option
 (`round-36-lap-10-provider-contract-g580c46c.md:61`), so its tag,
-`platterpus-fork-g5aeefc4`, is the one tag in the set. cyanrip refuses an option it
+`platterpus-fork-g5aeefc4`, joined the set. **`.28` joined on 2026-11-03** (`3f288fb`,
+their round 37 lap 4 S2), P1 of ITS filed contract listing the option
+(`round-37-lap-04-provider-contract-gef413b1.md:61`). cyanrip refuses an option it
 does not know, and every availability probe reads a refused run as a missing ripper,
-so the gate is the whole safety of the flag: these tests hold that `.27` gets it on
-every rip and that no other build does, including `.26`, `.25` and the fork's
-unreleased lap-7 build of the same option.
+so the gate is the whole safety of the flag: these tests hold that `.27` and `.28`
+get it on every rip and that no other build does, including `.26`, `.25` and the
+fork's unreleased lap-7 build of the same option.
 """
 
 from __future__ import annotations
@@ -30,6 +32,11 @@ from platterpus.deps import fork_source
 #: `0.9.4-rc3+platterpus.27`, and their lap 10's RIPPER-VERSION names
 #: `platterpus-fork-g5aeefc4`.
 _TAG_27 = "platterpus-fork-g5aeefc4"
+
+#: `.28`'s build tag: `meson.build` line 21 at `3f288fb` declares
+#: `0.9.4-rc3+platterpus.28`, and their round 37 lap 4's RIPPER-VERSION names
+#: `platterpus-fork-g3f288fb`.
+_TAG_28 = "platterpus-fork-g3f288fb"
 
 #: The fork's lap-7 build (`platterpus-fork-g709337a`), which carries the option and
 #: was never released. Unlisted: a build joins on its own filed contract, not on
@@ -49,22 +56,25 @@ def _argv(tag: str, **options: object) -> list[str]:
     )
 
 
-@pytest.fixture
-def listed() -> str:
-    """`.27`'s tag, asserted to be in the real set, not patched in."""
-    assert _TAG_27 in fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH
-    return _TAG_27
+@pytest.fixture(params=[_TAG_27, _TAG_28], ids=[".27", ".28"])
+def listed(request: pytest.FixtureRequest) -> str:
+    """Each listed tag, asserted to be in the real set, not patched in."""
+    tag: str = request.param
+    assert tag in fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH
+    return tag
 
 
-# --- today: `.27` alone accepts it ----------------------------------------------------
+# --- today: `.27` and `.28` accept it -------------------------------------------------
 
 
-def test_only_27_is_listed() -> None:
+def test_only_27_and_28_are_listed() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH == frozenset(
-        {_TAG_27}
+        {_TAG_27, _TAG_28}
     )
-    # Non-triviality: the build under review IS `.27`, so a rig on it sends the flag.
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_27
+    # Non-triviality: the production pin IS `.27` and the build under review IS
+    # `.28`, so a rig on either sends the flag.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_27
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_28
 
 
 def test_no_other_build_is_sent_it() -> None:
