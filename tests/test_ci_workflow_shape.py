@@ -166,3 +166,33 @@ def test_only_a_pull_request_run_can_be_cancelled() -> None:
         "a push group keyed on the ref or the sha is shared by later runs, and "
         f"GitHub cancels the older pending one: {group}"
     )
+
+
+def _release_required_checks() -> list[str]:
+    """The check names `release.yml`'s CI gate requires, from its NAMES block."""
+    text = (CI_YML.parent / "release.yml").read_text(encoding="utf-8")
+    block = text.split("required=$(cat <<'NAMES'\n", 1)[1].split(
+        "\n          NAMES\n", 1
+    )[0]
+    return [line.strip() for line in block.splitlines() if line.strip()]
+
+
+def test_the_release_requires_every_test_leg_and_the_conformance_job() -> None:
+    """2026-11-02: `release.yml` names the checks a release needs green, apart
+    from ci.yml, and it had drifted twice. It never gained `ui-conformance`
+    when #422 moved the matrix there, so a release could go out without the
+    layout check; and it named `test (py3.11)`, which TASKS R99 removes. The
+    legs are read from ci.yml's matrix, so the two cannot disagree again."""
+    lines = _ci_lines()
+    matrix = next(ln for ln in lines if ln.strip().startswith("python-version: ["))
+    versions = re.findall(r'"(\d+\.\d+)"', matrix)
+    # NON-TRIVIALITY: a real matrix was read.
+    assert len(versions) >= 3, matrix
+    legs = {f"test (py{v})" for v in versions}
+    required = _release_required_checks()
+    assert legs <= set(required), sorted(legs - set(required))
+    stale = {n for n in required if n.startswith("test (py")} - legs
+    assert not stale, (
+        f"release.yml requires legs ci.yml no longer runs: {sorted(stale)}"
+    )
+    assert "ui-conformance" in required, required

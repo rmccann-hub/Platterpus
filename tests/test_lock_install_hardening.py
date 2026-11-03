@@ -141,8 +141,19 @@ exit 0
 """
 
 
+def _committed_target_python() -> str:
+    """The CPython the committed AppImage lock targets (`# target-python:`)."""
+    lock = (REPO / "build" / "python-appimage" / "requirements.lock").read_text(
+        encoding="utf-8"
+    )
+    for line in lock.splitlines():
+        if line.startswith("# target-python: "):
+            return line.removeprefix("# target-python: ").strip()
+    raise AssertionError("the committed requirements.lock names no target-python")
+
+
 def _run_whole_build(
-    tmp_path: Path, lock: str | None, python_version: str = "3.12"
+    tmp_path: Path, lock: str | None, python_version: str | None = None
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     """Run the WHOLE build_appimage.sh in a copy of the tree, with a stub python3.
 
@@ -184,7 +195,11 @@ def _run_whole_build(
             "PATH": f"{stubs}:/usr/bin:/bin",
             "HOME": str(tmp_path),
             "CALL_LOG": str(log),
-            "PLATTERPUS_PYTHON_VERSION": python_version,
+            # The committed lock's own target unless a test asks for another: a
+            # build for a different CPython is refused before it downloads, so
+            # a stale default here reads as "the build never fetched" (the
+            # 3.12 default failed every leg once the lock moved to 3.14).
+            "PLATTERPUS_PYTHON_VERSION": python_version or _committed_target_python(),
             "SOURCE_DATE_EPOCH": "315532800",
         },
     )

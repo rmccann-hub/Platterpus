@@ -86,7 +86,7 @@ jobs:
       # minute a cold install costs is not worth the risk.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       # THE HANDSHAKE RECORD, printed before every release (CLAUDE.md critical rule
       # #12 / docs/cyanrip-handshake.md §7). Protocol v8 §6b (E1), landed
@@ -144,14 +144,14 @@ jobs:
           # auto-update to comes out, so the two lists move together.
           #
           # Newline-delimited and read with `while read`, because a check name contains
-          # a space ("test (py3.11)") and word-splitting would shred it. This is the
+          # a space ("test (py3.12)") and word-splitting would shred it. This is the
           # boring way on purpose — the first draft split on a sed-inserted delimiter,
           # which is the kind of cleverness that breaks the day somebody renames a job.
           required=$(cat <<'NAMES'
-          test (py3.11)
           test (py3.12)
           test (py3.13)
           test (py3.14)
+          ui-conformance
           lint
           typecheck
           changelog

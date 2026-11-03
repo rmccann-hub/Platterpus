@@ -118,7 +118,7 @@ LOCK_FILES=(
 # CPython minor, so a lock for another minor names wheels the bundled pip cannot
 # install. build_appimage.sh refuses a lock whose target differs from the build's,
 # and tests/test_dependency_locks.py holds the two defaults equal.
-APPIMAGE_PYTHON="3.12"
+APPIMAGE_PYTHON="3.14"
 # uv's spelling of the AppImage's platform. manylinux_2_34 is the glibc PySide6
 # 6.11's x86_64 wheels require, and the lowest that resolves (measured
 # 2026-10-27 with uv 0.11.32: manylinux_2_28 has no PySide6 6.11 wheel, and 2_35
@@ -130,7 +130,7 @@ APPIMAGE_PLATFORM="x86_64-manylinux_2_34"
 APPIMAGE_PIP_PLATFORM="manylinux_2_34_x86_64"
 # The oldest Python the tool and CI locks must install on: pyproject's
 # requires-python floor. The resolution is universal above it.
-TOOLS_PYTHON="3.11"
+TOOLS_PYTHON="3.12"
 
 usage() {
     echo "usage: bash build/lock-requirements.sh [--exclude-newer YYYY-MM-DDTHH:MM:SSZ | --check]"

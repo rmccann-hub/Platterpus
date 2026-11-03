@@ -10,7 +10,7 @@ Linux GUI front-end for the `cyanrip` audio-CD ripping CLI. EAC-equivalent archi
 
 ## Stack (locked)
 
-- Python 3.11+
+- Python 3.12+ (3.11 until 2026-11-02, dropped on the owner's word that day; `PLANNING.md` KDD-46)
 - PySide6 (Qt6) for the GUI
 - `subprocess` for the ripper CLI invocation (cyanrip — the sole backend, KDD-18; whipper was removed 2026-06-30)
 - `python-musicbrainzngs` for MusicBrainz lookups (so the ripper never shows its own interactive prompt)
@@ -289,7 +289,7 @@ they're established. Keep entries terse.*
 ### CI / release
 
 - **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:**
-  `test` (pytest on the 3.11–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14
+  `test` (pytest on the 3.12–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14
   leg; every test but the UI conformance matrix), **`ui-conformance`** (that matrix,
   `tests/test_ui_conformance.py`, once, on 3.14, since 2026-11-02: it was the long pole of every
   leg, and what it measures does not change with the Python version; a required check from
@@ -432,7 +432,7 @@ wherever the generic SOP differs.** What we actually do:
   to `main` on the commits the push brings in (every non-merge commit Dependabot's), never on the
   head commit's author, which a merge commit makes whoever merged
   (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all twelve gating
-  jobs**: the `pytest` 3.11–3.14 matrix (coverage floor on 3.14), **`ui-conformance`** (since
+  jobs**: the `pytest` 3.12–3.14 matrix (coverage floor on 3.14), **`ui-conformance`** (since
   2026-11-02), `ruff` lint/format, `mypy`
   typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**,
   **`lock-check`** and **`lock-install`** (both required since 2026-10-28), and
@@ -450,7 +450,7 @@ wherever the generic SOP differs.** What we actually do:
   rulesets at no cost). A **default-branch ruleset** blocks deletion and force pushes and requires a
   pull request with **no approvals**, with these required status checks: `lint`, `typecheck`,
   `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, `test (py3.11)` to
-  `test (py3.14)`, and, since 2026-10-28, `lock-check` and `lock-install` (14 in all, read from
+  `test (py3.14)` (`test (py3.11)` left with the 3.11 leg, KDD-46), and, since 2026-10-28, `lock-check` and `lock-install` (14 in all, read from
   `GET /repos/rmccann-hub/Platterpus/rules/branches/main` that day), and since 2026-11-02
   `ui-conformance` (15 in all, read from the same endpoint at 22:48 UTC that day); read the live
   list rather than this one. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
@@ -502,11 +502,11 @@ wherever the generic SOP differs.** What we actually do:
   a verdict through a pipe; if you do pipe something, read the status with `${PIPESTATUS[0]}` or
   `set -o pipefail`. (What it refuses, and why it exists: `docs/testing.md` §7.)
 - `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
-- **What CI enforces:** every test on a **Python 3.11–3.14 matrix**, each leg in parallel
+- **What CI enforces:** every test on a **Python 3.12–3.14 matrix**, each leg in parallel
   (`pytest -n auto`, pytest-xdist), and branch coverage with a hard floor —
   `--cov=platterpus --cov-report=term-missing --cov-fail-under=93` — **on the 3.14 leg**
   (maintainer, 2026-09-26: 3.14's `sys.monitoring` tracer is the fast one, and 3.11–3.13 paid most
-  of their time for coverage). The gate **ratchets up, never down** (91 until 2026-10-27, raised to
+  of their time for coverage; 3.11 left the matrix on 2026-11-02, KDD-46). The gate **ratchets up, never down** (91 until 2026-10-27, raised to
   the measured 93.28%). Each leg also fails if it collected fewer tests than
   `tests/collected-tests-baseline.txt`, which is raised in the change that adds tests. A bare local
   `pytest` stays serial; `scripts/check.py` passes `-n auto` like CI.
@@ -519,6 +519,11 @@ wherever the generic SOP differs.** What we actually do:
   recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the
   reverted line. Spec format is in the script's docstring; exits non-zero unless every revert
   behaved as expected.
+- **Judge a commit's checks (the `steward` skill, DRAFT, `.claude/skills/steward/SKILL.md`):**
+  `python3 scripts/pr_steward.py --pr <N>` or `--sha <merge sha> [--logs]` — `GREEN` / `FAILED` /
+  `PENDING` / `BLOCKED` / `CANCELLED` (exit 0 / 1 / 2 / 3 / 4; 5 when the API cannot be read),
+  from the ruleset's required checks and the commit's runs, never a count copied into a loop.
+  After every merge, judge `main`'s merge commit, `appimage.yml` included.
 - **Compute a handshake round digest:**
   `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` — the
   `HANDSHAKE-ROUND-DIGEST` field, by **the cyanrip fork's method** (adopted round 15 lap 4), over

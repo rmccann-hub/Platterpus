@@ -40,7 +40,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic as _monotonic
-from typing import TYPE_CHECKING, Final, TypeVar
+from typing import TYPE_CHECKING, Final
 
 from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
@@ -271,12 +271,12 @@ def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> b
     )
 
 
-# Field-preserving merge below: one TypeVar so the "keep what we had" rule is
-# checked against each field's real type instead of collapsing to Any.
-_T = TypeVar("_T")
+# Field-preserving merge below: one type parameter, `T`, so the "keep what we
+# had" rule is checked against each field's real type instead of collapsing to
+# Any (a module-level TypeVar until Python 3.12 became the floor, 2026-11-02).
 
 
-def _reported(new: _T, current: _T) -> _T:
+def _reported[T](new: T, current: T) -> T:
     """``new`` when the re-rip's log actually reported it, else ``current``.
 
     The re-rip log is external output, so a field it didn't print parses as None /
@@ -287,7 +287,7 @@ def _reported(new: _T, current: _T) -> _T:
     return current if new is None or new == "" or new == {} else new
 
 
-def _verified_by_this_read(new: _T, current: _T, *, track: int, field: str) -> _T:
+def _verified_by_this_read[T](new: T, current: T, *, track: int, field: str) -> T:
     """A verification claim the SHIPPED read must earn for itself. No fallback.
 
     This is the sibling of :func:`_reported` and it deliberately does the opposite

@@ -315,7 +315,14 @@ def test_build_script_pins_the_bundled_python_version() -> None:
     script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
     # A concrete default pin is set…
     assert "PLATTERPUS_PYTHON_VERSION" in script
-    assert ':-3.12}"' in script or ":-3.12}'" in script
+    # A concrete MAJOR.MINOR, read rather than restated, so moving the pin (3.12
+    # to 3.14 on 2026-11-02, TASKS R100) does not need this line edited;
+    # tests/test_dependency_locks.py holds it equal to the lock's target.
+    import re
+
+    assert re.search(r'PLATTERPUS_PYTHON_VERSION:-3\.\d{2}\}"', script), (
+        "build_appimage.sh has no concrete default for PLATTERPUS_PYTHON_VERSION"
+    )
     # …and it's actually passed to the (default, non-base-image) build call.
     assert '--python-version "$PLATTERPUS_PYTHON_VERSION"' in script
 

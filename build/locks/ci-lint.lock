@@ -4,7 +4,7 @@
 # Install with: python -m pip install --require-hashes --only-binary=:all: -r <this file>
 # lock: ci-lint
 # inputs: extra:ci-lint:zizmor extra:ci-lint:shellcheck-py
-# target: universal, Python >= 3.11
+# target: universal, Python >= 3.12
 # uv: 0.13.5
 # exclude-newer: 2026-10-26T00:00:00Z
 #
