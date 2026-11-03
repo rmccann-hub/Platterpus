@@ -1713,6 +1713,30 @@ def test_a_replaced_reads_errors_are_placed_on_every_surface_the_finish_writes(
     assert report["ripper_health_status"] == "2 ripping errors"
 
 
+def test_a_cancelled_rips_track_does_not_stay_ripping(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASKS R113, through the finish handler: the 2026-11-03 Full run's cancel
+    left the track it was reading at "⟳ Ripping" after the rip had ended."""
+    from platterpus.ui.track_table import _COL_STATUS
+
+    window = teardown_threads()
+    window._track_table.set_release(_detail())
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint=""
+    )
+    window._active_rip_params = None
+    window._rip_cancelled = True
+    window._auto_retry_done = True
+    window._track_table.mark_track_ripping(1)
+
+    window._on_rip_finished(False, "")
+    report_writer.writer().flush()
+
+    model = window._track_table._model
+    assert model.data(model.index(0, _COL_STATUS)) == "⚠ Stopped"
+
+
 def test_the_disc_panel_names_a_subset_rip_as_the_last_rip(
     teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

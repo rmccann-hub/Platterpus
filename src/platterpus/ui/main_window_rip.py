@@ -1681,6 +1681,9 @@ class RipMixin(MainWindowShared):
     def _on_rip_finished(self, success: bool, log_path: str) -> None:
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
+        # Nothing is being read any more, whatever the outcome: a track still
+        # shown as "⟳ Ripping" (a cancel, a failure) is shown as stopped (R113).
+        self._track_table.end_track_status()
 
         # **DISARM THE FORCE-STOP RESCUE — the reader is already gone.**
         #

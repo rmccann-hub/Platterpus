@@ -2705,7 +2705,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5268 -> 5272** (2026-11-03, TASKS R118): `report_writer` is imported at module load, with why, so the close path imports nothing after a logout has taken the AppImage's mount.
     # **5268 -> 5272** (2026-11-03, TASKS R113): the finish handler hands the disc panel the disc's track count.
     # **5272 -> 5275** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): a rip's start blanks the disc panel's AccurateRip row.
-    "ui/main_window_rip.py": 5284,
+    # **5275 -> 5278** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): the finish handler ends the track table's live status.
+    "ui/main_window_rip.py": 5287,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2817,7 +2818,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **867 -> 889** (2026-10-26, run A on 0.7.112, the drive flicker): `restore_edits`, putting back what `album_metadata`/`tracks`/`selected_track_numbers` returned, so the same disc returned to the drive keeps the user's typing. It writes the widget's own fields, so it lives beside the readers it inverts.
     # **889 -> 893** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **893 -> 914** (2026-10-26, TASKS R88, the owner's interim): `validate` refuses a name over 255 bytes with the specific message, beside the other point-of-entry path checks; the rendering is `cyanrip_name_lengths`.
-    "ui/track_table.py": 914,
+    # **914 -> 928** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): `STATUS_STOPPED` and `end_track_status`: a track still shown as ripping when the rip ends reads "⚠ Stopped".
+    "ui/track_table.py": 928,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces

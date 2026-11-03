@@ -204,6 +204,25 @@ def test_widget_status_helpers_and_reset(qapp: QApplication) -> None:
     assert model.data(model.index(1, _COL_STATUS)) == ""
 
 
+def test_a_track_still_ripping_when_the_rip_ends_reads_stopped(
+    qapp: QApplication,
+) -> None:
+    """TASKS R113 (the 2026-11-03 Full run): after a cancel, the track being read
+    kept "⟳ Ripping". When the rip ends, a track still ripping reads "⚠ Stopped";
+    a finished track keeps "✓ Done" and an untouched one stays blank."""
+    from platterpus.ui.track_table import _COL_STATUS
+
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget.mark_track_ripping(1)
+    widget.mark_track_done(1)
+    widget.mark_track_ripping(2)
+    widget.end_track_status()
+    model = widget._model
+    assert model.data(model.index(0, _COL_STATUS)) == "✓ Done"
+    assert model.data(model.index(1, _COL_STATUS)) == "⚠ Stopped"
+
+
 def test_set_tracks_resets_status(qapp: QApplication) -> None:
     from platterpus.ui.track_table import _COL_STATUS
 
