@@ -83,3 +83,51 @@ class RecordVerbsMixin:
             folder,
             lambda _path, report: record_grading.grade_read_offset(report),
         )
+
+    def _do_expect_derived_files(self, step: Step) -> None:
+        """Each derived file's own length, tags, art and encoder (C4).
+
+        ``expect-derived-files <mp3|wavpack|wav> [quality]``: the quality is the
+        ``mp3_vbr_quality`` the script set, required for MP3 and refused for the
+        others, so the step states what it proves rather than reading Settings
+        back (a setting checked against itself).
+        """
+        from platterpus.uiscript import derived_grading
+
+        fmt = step.args[0]
+        if fmt not in derived_grading.FORMATS:
+            self._record(step, Outcome.ERROR, f"{fmt!r} is not mp3, wavpack or wav")
+            return
+        quality: int | None = None
+        if len(step.args) > 1:
+            if fmt != "mp3" or not (step.args[1].isascii() and step.args[1].isdigit()):
+                self._record(
+                    step,
+                    Outcome.ERROR,
+                    f"{step.args[1]!r}: only mp3 takes a quality, a whole number",
+                )
+                return
+            quality = int(step.args[1])
+        elif fmt == "mp3":
+            self._record(step, Outcome.ERROR, "name the mp3_vbr_quality the script set")
+            return
+        folder = self._rip_album_dir(step)
+        if folder is None:
+            return
+        expected = self._expected_tags(folder)
+        if expected is None:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"no record of the tags the rip in {folder.name} was handed, so "
+                "there is nothing to compare its derived files with",
+            )
+            return
+        mode = str(getattr(getattr(self._window, "_config", None), "cover_art", ""))
+        self._grade_when_settled(
+            step,
+            folder,
+            lambda _path, report: derived_grading.grade_derived_files(
+                report, folder, fmt, expected, mode, quality
+            ),
+        )

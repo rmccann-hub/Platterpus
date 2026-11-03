@@ -670,6 +670,10 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `outcome.securing_pass_paranoia_counts`, the securing pass's own disc
 #      paranoia block from its kept log, null when none was read; the top-level
 #      `paranoia_counts` is the album pass's and left out that second run.
+#      Also v42, still unreleased, so additions only (review C4 of the 2026-11-03
+#      Full run): `verification.transcode.encoder_argv`, the ffmpeg argv the first
+#      derived file was encoded with, as spawned (null when none encoded), so the
+#      encoder and the MP3 quality that reached it are on the record.
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -2530,6 +2534,9 @@ def _transcode(result: object | None) -> dict | None:
         "error": getattr(result, "error", "") or None,
         # v39: MP3 only, the ReplayGain measured on the MP3s; null otherwise.
         "replaygain": _transcode_replaygain(result),
+        # v42: the argv the first file that encoded was encoded with, as spawned;
+        # null when none encoded. Which encoder and quality reached ffmpeg.
+        "encoder_argv": list(getattr(result, "encoder_argv", ()) or ()) or None,
     }
 
 

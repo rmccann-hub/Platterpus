@@ -449,6 +449,8 @@ class TranscodeBlock(TypedDict):
     error: str | None
     #: v39: MP3 only; null for the other formats.
     replaygain: Mp3ReplayGainBlock | None
+    #: v42: the ffmpeg argv the first derived file was encoded with; null if none.
+    encoder_argv: list[str] | None
 
 
 class DerivedBlock(TypedDict):

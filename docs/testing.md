@@ -3950,7 +3950,11 @@ F and N, `expect-read-offset` grades the report's `rip.read_offset_check`
 (2026-11-03, review C3): the drive list agrees or AccurateRip confirmed the
 offset, and the `-s` sent is the offset the log applied. H adds the
 per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
-`file` and `complete` cover-art modes. §I asks only the two audit questions a
+`file` and `complete` cover-art modes. K1 to K3 also open the derived files
+(`expect-derived-files`, 2026-11-03, review C4): each one's length against its
+master's, its tags and cover, and the codec and MP3 `-q:a` that ran, read from the
+report's `verification.transcode.encoder_argv`; before that they graded only the
+FLAC masters. §I asks only the two audit questions a
 cancel leaves standing. The graders delegate to the product's own predicates
 (`uiscript/artifact_grading.py`, `uiscript/record_grading.py`,
 `uiscript/tag_grading.py`); the reasons are in their docstrings. **J2 (2026-10-05)** rips one track with the settings no

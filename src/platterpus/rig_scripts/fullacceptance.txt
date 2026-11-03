@@ -1092,9 +1092,15 @@ expect prefer_disc_isrc on
 #                quality knob. `mp3_vbr_quality 2` is a real VBR setting, not the
 #                default, so a knob that reaches nothing would show up.
 #   * WavPack  — the second lossless format. Tags and art survive.
-#   * WAV      — raw PCM, NO tags and NO art. The UI warns about this and the
-#                warning is the point: a format that silently dropped metadata
-#                without saying so is the defect.
+#   * WAV      — raw PCM and NO embedded art. Its title says only what K3
+#                checks (2026-11-03, review C4): the Settings warning is not
+#                graded here, and ffmpeg copies title, artist, album and track
+#                into RIFF INFO, which `expect-derived-files wav` reports.
+#
+# `expect-derived-files` OPENS each derived file (review C4, 2026-11-03): its
+# length against its master's, its own tags and cover (MP3, WavPack), and the
+# encoder and MP3 `-q:a` that ran, read from the report's `encoder_argv`. Until
+# then K1-K3's `expect-tags` and `expect-cover-art` graded the FLAC masters.
 #
 # Two tracks each. The transcode path is per-file and a third track adds a row,
 # not a discriminator.
@@ -1142,6 +1148,7 @@ snapshot aftermp3
 screenshot aftermp3
 expect-rip-complete
 expect-derived-output mp3
+expect-derived-files mp3 2
 # The derived gate is graded by the line above; CTDB and FLAC integrity ran
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
@@ -1169,6 +1176,7 @@ wait-for-rip 3600
 snapshot afterwavpack
 expect-rip-complete
 expect-derived-output wavpack
+expect-derived-files wavpack
 # The derived gate is graded by the line above; CTDB and FLAC integrity ran
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
@@ -1180,7 +1188,7 @@ expect-tags
 expect-cover-art
 rig-check
 
-log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
+log --- K3. WAV: raw PCM, its master's length, no embedded art ---
 run-size full
 set output_format wav
 expect output_format wav
@@ -1196,6 +1204,7 @@ log A4 (TASKS "Three screenshot steps found no window on screen"): the next scre
 screenshot afterwav
 expect-rip-complete
 expect-derived-output wav
+expect-derived-files wav
 # The derived gate is graded by the line above; CTDB and FLAC integrity ran
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.

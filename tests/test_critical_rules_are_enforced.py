@@ -1072,6 +1072,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # takes a release-page URL from the answer only when it is one of ours. One
     # job still: read the releases answer into what the update offer shows.
     "update_check.py": 316,
+    # 344 (2026-11-03, review C4 of the 0.7.117 Full run): born over 300. **Kept as one module
+    # deliberately**: one job, reading a derived file's tags, pictures and length without a tool,
+    # for the three containers the transcode adapter writes (MP3, WavPack, WAV). Each reader is a
+    # few dozen lines beside the one dataclass and dispatch they share; split, each file would
+    # restate the bounds and the never-raises contract its property test holds.
+    "derived_metadata.py": 344,
     # 300 -> 309 (2026-11-03, TASKS R66): crossed 300 by `plan_chase` counting the
     # read a limit-hit loop prints no value for, from the `at most M reads agreed`
     # line. One job still: whether a track is chased, and the chase's record.
@@ -1275,7 +1281,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **467 -> 473** (2026-09-25, the property-test batches): exit 127 from the wrapper is a missing ripper, not an altered log (`binary_missing`, as `flac_verify`).
     "adapters/ripper_log_verify.py": 473,
     # **305 -> 324** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): the encode drops the FLAC's loudness tags and `transcode_files` hands every written MP3 to `mp3_replaygain.apply`, with whether the set is the whole album; `TranscodeResult.replaygain` records the outcome. The measuring and retagging live in `mp3_replaygain`; only the hand-off is here.
-    "adapters/transcode.py": 324,
+    # **324 -> 333** (2026-11-03, review C4 of the 0.7.117 Full run): `TranscodeResult.encoder_argv`, the argv the first file that encoded ran with, so the MP3 quality that reached ffmpeg is on the record. Where the argv is built and run, so it lives here.
+    "adapters/transcode.py": 333,
     # **new at 345** (2026-10-21): `adapters/mp3_replaygain.py` does one job, the ReplayGain of a derived MP3: drop the FLAC's figures, measure the MP3 with ebur128, write the figures in cyanrip's format. Over the heuristic by its docstring, which records why each choice was made (cyanrip's formulae, the 0.1 dB resolution, why no R128 tags, why a failure leaves a file untagged).
     "adapters/mp3_replaygain.py": 345,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
@@ -2131,7 +2138,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1094 -> 1110** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): `FirstPassRereadBlock` and `TrackBlock.first_pass_reread` (schema v42).
     # **1110 -> 1139** (2026-11-03, TASKS R117, records that reached no reader): `PregapSearchesEntry`, `NameShortenedEntry`, `EarlierDiagnosticsBlock` and their keys on `RipBlock` and `DiagnosticsBlock` (schema v42).
     # **1094 -> 1096** (2026-11-03, review B4): `OutcomeBlock.securing_pass_paranoia_counts`, the securing pass's own disc paranoia block (the album's `paranoia_counts` left that run out).
-    "report_types.py": 1141,
+    # **1094 -> 1096** (2026-11-03, review C4): `TranscodeBlock.encoder_argv`, beside the block it types.
+    "report_types.py": 1143,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2277,7 +2285,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3583 -> 3621** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the schema-42 note, `_first_pass_block` beside `_limit_stop_block` and `_kept_read_block` it reuses, the per-track key, and the `heavy_reread` message naming what replaced the pass. They must be dict literals in this file (`tests/test_report_types_completeness.py`); the sentences are `first_pass_reread.sentences`.
     # **3621 -> 3669** (2026-11-03, TASKS R117, records that reached no reader): the schema-42 note, `rip.pregap_searches` and `rip.names_shortened` with their two builders beside the other block builders (the `rip` keys must be literals here, `tests/test_report_types_completeness.py`), and `diagnostics` handed to `diagnostics_scope.scoped_to_rip`, where the scoping lives.
     # **3583 -> 3592** (2026-11-03, review B4): `outcome.securing_pass_paranoia_counts` with its v42 schema note; the coercion is `paranoia_scope.counts_block`.
-    "rip_report.py": 3681,
+    # **3583 -> 3590** (2026-11-03, review C4): `verification.transcode.encoder_argv` serialised, and its line in the schema history (v42, additions only).
+    "rip_report.py": 3688,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -3041,7 +3050,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1083 -> 1096** (2026-11-03, review C5): the `expect-deemphasis-pair` declaration, section P3's grade. The table is the vocabulary's security boundary, so a verb is an entry here by design; the handler is a new mixin, `deemphasis_verbs.py`.
     # **1096 -> 1121** (2026-11-03, review C9): the `expect-config-saved`, `wait-for-status` and `expect-no-rip` declarations, which let sections D2, H2 and the unknown-disc run's G assert what a user's press did. The table is the vocabulary's security boundary, so a verb is an entry here by design; the handlers are a new mixin, `control_verbs.py`.
     # **1082 -> 1090** (2026-11-03, review C3 of the 0.7.117 Full run): the `expect-read-offset` declaration, beside `expect-ctdb`. The table is the vocabulary's security boundary, so a verb is an entry here.
-    "uiscript/verbs.py": 1129,
+    # **1090 -> 1098** (2026-11-03, review C4): the `expect-derived-files` declaration, beside `expect-read-offset`.
+    "uiscript/verbs.py": 1137,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

@@ -558,6 +558,14 @@ _VERB_LIST: tuple[Verb, ...] = (
         "and the -s we sent is what the log applied (not determined never passes)",
     ),
     Verb(
+        "expect-derived-files",
+        1,
+        2,
+        "expect-derived-files <mp3|wavpack|wav> [quality] — open each derived file: "
+        "its master's length, its tags and cover (MP3, WavPack), and the encoder "
+        "and MP3 -q:a that ran, from the report; MP3 names the quality the script set",
+    ),
+    Verb(
         "expect-tags",
         0,
         0,
