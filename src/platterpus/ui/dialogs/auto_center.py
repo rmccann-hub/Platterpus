@@ -32,6 +32,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 from platterpus.ui.dialogs.centering import CenteredDialog, center_on_anchor
 from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
 from platterpus.ui.dialogs.message_box_fit import fit_message_box
+from platterpus.ui.dialogs.stacking import stack_above_window_it_blocks
 
 log = logging.getLogger(__name__)
 
@@ -199,6 +200,11 @@ class DialogCenterFilter(QObject):
         # what makes marking free — the DynamicPropertyChange event that
         # mark_as_centered triggers is rejected right here.
         if event.type() == QEvent.Type.Show and isinstance(obj, QDialog):
+            # Every dialog, every show: a question opened over another window
+            # of ours is stacked above that window, not only above its parent
+            # (TASKS R96, `stacking.py`). A `CenteredDialog` asks again in its
+            # own showEvent, which is harmless: the second call finds it done.
+            stack_above_window_it_blocks(obj)
             # CenteredDialog already self-centres; don't double-handle it — and
             # don't mark it either, since the mark means "*we* placed this".
             if not isinstance(obj, CenteredDialog) and not has_been_centered(obj):
