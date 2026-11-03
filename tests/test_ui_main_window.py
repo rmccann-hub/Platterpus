@@ -15069,3 +15069,49 @@ def test_a_second_rip_folds_into_the_first_across_a_rescan(
     assert profile is not None and profile.read_rate is not None
     assert profile.read_rate.rips == 2
     window._active_rip_params = None
+
+
+def test_a_learned_reading_speed_survives_a_rescan_and_a_restart_on_disk(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 2026-11-03 Full run's symptom, through the file: the run estimate said
+    "at 1.0x" (the rig's seed) while the drive read at 2.6x to 4.5x, because each
+    rescan rewrote the profile without `read_rate` and SAVED it. The in-memory
+    tests above cannot see the save; this one learns, rescans the way the media
+    poll does (`_refresh_drive_profile_display`, which saves), reloads the store
+    from disk as the next launch does, and asks for the estimate's rate."""
+    from types import SimpleNamespace
+
+    from platterpus.drive_profile_store import DriveProfileStore
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    track = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=25.0
+    )
+    window._rip_cancelled = False
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    try:
+        window._learn_read_rate(SimpleNamespace(tracks=[track]), success=True)
+    finally:
+        window._active_rip_params = None
+    learned = window._drive_profiles.get(_PIONEER_FP)
+    assert learned is not None and learned.read_rate is not None
+    assert learned.read_rate.multiple == 0.25, "the fixture taught no 4x rate"
+
+    window._refresh_drive_profile_display()  # a rescan: records and saves
+    window._drive_profiles = DriveProfileStore.load()  # the next launch
+    window._refresh_drive_profile_display()  # the drive is seen again
+
+    rate = window._read_rate_for_current_drive()
+    assert rate is not None, "the learned speed did not survive"
+    assert rate.rips == 1, f"the estimate fell back to the seed: {rate}"
+    assert rate.multiple == 0.25, rate
+    on_disk = DriveProfileStore.load().get(_PIONEER_FP)
+    assert on_disk is not None and on_disk.read_rate == learned.read_rate

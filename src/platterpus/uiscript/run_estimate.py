@@ -15,9 +15,11 @@ the script's rips and adds the other steps. The parts, each with its source:
 * the runner's pause between steps (``TICK_MS``).
 
 **Tri-state: unknown is not zero.** A rip with no estimate (no track length yet,
-or no measured speed) and a section no filed run had are counted and NAMED, and
-the figure becomes "at least". Pure; the window reader is
-``estimate_verbs.estimate_for_window``, which never raises.
+or no measured speed) and a section no filed run had are counted and NAMED after
+the figure as NOT counted. The figure stays "about", never "at least": what it
+counts is a forecast a faster drive beats (2026-11-03: "at least 6h 40m", run
+took 2 h 22 min), and a floor real runs come in under is not a floor. Pure; the
+window reader is ``estimate_verbs.estimate_for_window``, which never raises.
 """
 
 from __future__ import annotations
@@ -257,9 +259,8 @@ def estimate_run(
 def describe(est: RunEstimate) -> str:
     """One sentence for the transcript, the console and the log.
 
-    "about" only when nothing that will run was left out; otherwise "at least",
-    with what was left out named after it, because a floor read as a forecast is
-    the figure a tired operator plans the night around.
+    Always "about", with anything left out named after it as NOT counted (the
+    module's docstring says why "at least" was dropped).
     """
     other = est.measured_s + est.waits_s + est.ticks_s
     measured = f"measured on the {MEASURED_ON} Full run, plus this script's waits"
@@ -268,11 +269,10 @@ def describe(est: RunEstimate) -> str:
         sentence = (
             f"Run estimate ({est.run_size}): no total yet, because its {est.rips} "
             f"rip(s) have no figure: {est.rip_unknown_reason}. The other steps take "
-            f"at least {rough(other)} ({measured})"
+            f"about {rough(other)} ({measured})"
         )
     else:
-        word = "about" if est.complete else "at least"
-        sentence = f"Run estimate ({est.run_size}): {word} {rough(est.low_s)}"
+        sentence = f"Run estimate ({est.run_size}): about {rough(est.low_s)}"
         if est.high_s > est.low_s:
             sentence += (
                 f", up to {rough(est.high_s)} if reads disagree and tracks need "
@@ -303,5 +303,5 @@ def describe(est: RunEstimate) -> str:
             "never measured on a filed run"
         )
     if missing:
-        sentence += "; NOT counted, so the figure is a floor: " + "; ".join(missing)
+        sentence += "; NOT counted, so add them to it: " + "; ".join(missing)
     return sentence + "."

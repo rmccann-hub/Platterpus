@@ -9,11 +9,12 @@
 #   What it costs:  it depends on the RUN SIZE you pick when it starts:
 #                     Quick     about 15 minutes  (does it still work?)
 #                     Standard  about an hour     (is a normal rip right?)
-#                     Full      typically 2 to 3 hours on a healthy disc:
-#                               about 3 hours while a round compares two
+#                     Full      about 2.5 hours on a healthy disc in the
+#                               rig's drive while a round compares two
 #                               builds (P5 and P6 run), under 2 hours when
-#                               it does not (START IT AND LEAVE IT: a damaged
-#                               or unknown disc can take many hours more).
+#                               it does not (START IT AND LEAVE IT: a slower
+#                               drive, a damaged or an unknown disc can take
+#                               many hours more).
 #                               These are typical figures, not a record: the
 #                               run states its own estimate when it starts
 #                               and after section E (run-estimate), and the

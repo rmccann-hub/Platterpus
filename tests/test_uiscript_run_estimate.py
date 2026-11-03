@@ -129,14 +129,33 @@ def test_a_drive_with_no_measured_speed_is_unknown_not_zero() -> None:
     assert "reading speed is not known" in est.describe(figure)
 
 
-def test_a_section_no_filed_run_had_makes_the_figure_a_floor_and_is_named() -> None:
+def test_a_section_no_filed_run_had_is_named_as_not_counted() -> None:
     source = (
         "log --- Z9. a section nobody measured ---\nrun-size quick\nexpect-tracks 2+"
     )
     figure = _estimate(source)
     assert figure.unmeasured == ("Z9",) and not figure.complete
     text = est.describe(figure)
-    assert "at least" in text and "Z9" in text and "floor" in text
+    assert "Z9" in text and "NOT counted" in text, text
+
+
+def test_an_incomplete_figure_is_about_never_at_least() -> None:
+    """The 2026-11-03 Full run was estimated at "at least 6h 40m ... at 1.0x" and
+    took 2 h 22 min: the drive read at 2.6x to 4.5x. What the figure counts is a
+    forecast a faster drive beats, so a part left out cannot turn it into a floor.
+    Both shapes: rips with no figure, and a section never measured."""
+    rip_left_out = "\n".join(
+        ["select-tracks 1", "rip", "select-tracks 1,99", "rip"]
+    )
+    unmeasured = "log --- Z9. a section nobody measured ---\nexpect-tracks 2+"
+    for source in (rip_left_out, unmeasured):
+        figure = _estimate(source)
+        assert not figure.complete and figure.low_s > 0, figure
+        text = est.describe(figure)
+        assert "at least" not in text, text
+        assert "floor" not in text, text
+        assert text.startswith(f"Run estimate ({figure.run_size}): about "), text
+        assert "NOT counted" in text, text
 
 
 def test_a_smaller_run_counts_only_the_rips_it_runs_and_their_settings() -> None:
