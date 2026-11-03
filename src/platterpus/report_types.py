@@ -575,6 +575,19 @@ class LimitStopBlock(TypedDict):
     reads: int | None
 
 
+class FirstPassRereadBlock(TypedDict):
+    """The album pass's own `-Z` facts for a track a securing read replaced (v42)."""
+
+    #: Its read count and re-read verdict, as the album pass's log printed them.
+    rip_count: int | None
+    secure_rerip_converged: bool | None
+    #: How many of its reads agreed, and whether the log proves it (else a floor).
+    most_reads_agreed: int | None
+    most_reads_agreed_exact: bool | None
+    secure_rerip_kept_read: KeptReadBlock | None
+    secure_rerip_limit_stop: LimitStopBlock | None
+
+
 class TrackProofBlock(TypedDict):
     #: v40: one of `track_proof.PROOF_KINDS` ("accuraterip", "verified_reread",
     #: "ctdb", "reads_agree", "none") and the line the EAC-layout log prints.
@@ -596,6 +609,9 @@ class TrackBlock(TypedDict):
     secure_rerip_kept_read: KeptReadBlock | None
     #: Schema 41: which limit stopped a re-read that did not converge.
     secure_rerip_limit_stop: LimitStopBlock | None
+    #: v42 (TASKS R114): the album pass's own facts for a track a securing read
+    #: replaced; None when nothing replaced them.
+    first_pass_reread: FirstPassRereadBlock | None
     extraction_speed: float | None
     extraction_quality: float | None
     pre_emphasis: bool | None

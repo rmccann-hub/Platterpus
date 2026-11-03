@@ -467,6 +467,18 @@ The limit is read by `reread_limit.py`; the words go to the fork in our next lap
 since they diff this log. *At most* is the fork's own word for the exact
 count, so their line and ours say the same thing about one track.
 
+**A first pass a securing read replaced (TASKS R114, 2026-11-03).** When a track
+hit the limit and the securing pass then converged, the Test/Copy pair describes
+the securing pass and the parenthetical keeps the first pass beside it, in the
+same words: `Copy CRC 59D352DD  (Test and Copy CRC identical — confirmed across 3
+secure re-reads; the first pass did not converge after 5 reads (repeat limit hit;
+at most 2 of 5 reads agreed))`, track 3 of the 2026-11-03 Full run's section N
+(`round37full1103asecurereread.log:293`, `…securingpass.txt`; evidence
+`1bb98a2c`). Until then it read `confirmed across 3 secure re-reads` alone. It is
+our parenthetical on our own state, like the caveat above; no EAC line is added.
+The report keeps the same fact in `tracks[].first_pass_reread` (schema 42) and
+names the track in `heavy_reread` (`first_pass_reread.py`).
+
 **The parity reasoning.** (1) Nothing EAC-shaped was added: no new line, no new
 field, and none of the strings a logchecker keys on (Part D §2). `Copy OK` (the clean
 verdict) and `Copy aborted` (an automatic zero) stay out of the track block.

@@ -1738,7 +1738,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2220 -> 2229** (2026-11-03, TASKS R62, who cancelled a rip): `cancelled_by` threads from the renderers to `_interrupted_securing_line`, which no longer says "you cancelled the rip" for a cancel the user did not make; the words are `cancel_cause.py`'s.
     # **2220 -> 2239** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_health_lines` takes the placement and prints EAC's sentence for the reads kept with the line of ours beside it; the kwarg runs through the three render entry points.
     # **2239 -> 2268** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `ctdb_result` runs through the three render entry points to each track block's `Proof:` row, so the log is rendered again with CTDB's per-track answer.
-    "eac_log_export.py": 2277,
+    # **2277 -> 2282** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the Copy CRC note adds the first pass's clause; the words and the slot live in `first_pass_reread.py`.
+    "eac_log_export.py": 2282,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2040,7 +2041,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1187 -> 1195** (2026-10-26, `.27`, round 36 lap 8 S21): `TrackResult.pregap_search`, with why None is never "no search" or "a clean search".
     # **1195 -> 1209** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `TrackResult.secure_rerip_limit_stop` and `RippingInfo.reread_time_limit_*`; the dataclass and states live in `reread_limit.py`.
     # **1209 -> 1214** (2026-10-29, round 37 lap 1): `RippingInfo.pregap_searches` and `names_shortened`, with the import of their type.
-    "parsers/rip_log.py": 1214,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1214 -> 1222** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): `TrackResult.first_pass_reread` with its comment, and `track_read_effort_flag` asking `first_pass_reread.did_not_converge`; the dataclass and the reading live in that module.
+    "parsers/rip_log.py": 1222,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2120,7 +2122,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1084 -> 1088** (2026-11-03, TASKS R64): `OutcomeBlock.securing_pass_exit_codes` (schema v42) and its import.
     # **1088 -> 1091** (2026-11-03, TASKS R62, who cancelled a rip): `OutcomeBlock.cancelled_by` (schema v42) and its import.
     # **1084 -> 1087** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `ripper_health_status`, the ripper's own sentence beside `health_status`.
-    "report_types.py": 1094,
+    # **1094 -> 1110** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): `FirstPassRereadBlock` and `TrackBlock.first_pass_reread` (schema v42).
+    "report_types.py": 1110,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2259,7 +2262,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3516 -> 3539** (2026-11-03, TASKS R64 and R66): the schema-42 history note and `build_outcome`'s `securing_pass_exit_codes`; the pair is built by `securing_exit.py`.
     # **3539 -> 3560** (2026-11-03, TASKS R62, who cancelled a rip): the schema-42 note for `outcome.cancelled_by`, `build_outcome`'s parameter and docstring, and the `rip_cancelled` issue naming who; the words are `cancel_cause.py`'s.
     # **3516 -> 3538** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: the v42 note, `health_status` asked with the placement, and `ripper_health_status`.
-    "rip_report.py": 3583,
+    # **3583 -> 3621** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the schema-42 note, `_first_pass_block` beside `_limit_stop_block` and `_kept_read_block` it reuses, the per-track key, and the `heavy_reread` message naming what replaced the pass. They must be dict literals in this file (`tests/test_report_types_completeness.py`); the sentences are `first_pass_reread.sentences`.
+    "rip_report.py": 3621,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2682,7 +2686,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5178 -> 5203** (2026-11-03, TASKS R62, who cancelled a rip): `_on_rip_cancel(cause)` records and logs who, a hand-pressed Force stop is the user, the outcome and the EAC-layout log are told, and the bundle's facts say who; the words are `cancel_cause.py`'s.
     # **5178 -> 5200** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_replaced_reads_of`, handed to the status line and the EAC-layout log.
     # **5200 -> 5243** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `_rewrite_eac_log_with_ctdb`, called from `_on_ctdb_verified` before the report write; the inputs it renders from are `post_rip_record.EacLogRender`.
-    "ui/main_window_rip.py": 5268,
+    # **5268 -> 5273** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the merge snapshots the album pass's -Z facts before it replaces them; the snapshot is `first_pass_reread.snapshot`.
+    "ui/main_window_rip.py": 5273,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

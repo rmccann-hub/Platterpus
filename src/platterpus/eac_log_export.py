@@ -51,6 +51,7 @@ from datetime import datetime
 
 from platterpus import diagnostics, inbound_text, one_frame_match
 from platterpus.data_tracks import audio_track_totals, is_data_track
+from platterpus.first_pass_reread import clause as first_pass_clause
 from platterpus.parsers.cyanrip_log import (
     INTERRUPTED_MID_READ,
     INTERRUPTED_NOT_DETERMINED,
@@ -2003,6 +2004,10 @@ def _crc_lines(track: TrackResult) -> list[str]:
             )
         else:
             note = "  (Test and Copy CRC identical — reads converged)"
+        # A first pass a securing read replaced keeps its own verdict (TASKS
+        # R114): "confirmed across 3" alone hid that it read 4 ways in 5 reads.
+        if first := first_pass_clause(track):
+            note = f"{note[:-1]}; {first})"
         out.append(f"     Test CRC {crc}")
         out.append(f"     Copy CRC {crc}{note}")
     else:

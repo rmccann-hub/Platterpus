@@ -36,6 +36,8 @@ from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
 from platterpus.error_positions import findings as error_position_findings
+from platterpus.first_pass_reread import FirstPassReread
+from platterpus.first_pass_reread import sentences as first_pass_sentences
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -59,6 +61,7 @@ from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
     EnvironmentBlock,
+    FirstPassRereadBlock,
     KeptReadBlock,
     LimitStopBlock,
     ReportReadSpeedBlock,
@@ -640,6 +643,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      ripper's N ripping error(s) were all in the first read of track(s) …"
 #      (`replaced_read_errors.py`). Otherwise both say the same. v41 shipped in
 #      0.7.114, so this is a new number.
+#      Also v42, still unreleased, so additions only (TASKS R114): per track
+#      `first_pass_reread`, the album pass's own `rip_count`,
+#      `secure_rerip_converged`, `most_reads_agreed` (with `_exact`),
+#      `secure_rerip_kept_read` and `secure_rerip_limit_stop` for a track a
+#      securing read replaced; null when nothing replaced them. The track's own
+#      fields stay the shipped read's. The 2026-11-03 Full run's track 3 did not
+#      converge after 5 reads and its record kept only the securing pass's 3.
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -658,6 +668,24 @@ def _limit_stop_block(stop: object) -> LimitStopBlock | None:
         "time_limit_seconds": _count("time_limit_seconds"),
         "repeat_limit_reads": _count("repeat_limit_reads"),
         "reads": _count("reads"),
+    }
+
+
+def _first_pass_block(first: object) -> FirstPassRereadBlock | None:
+    """A track's `first_pass_reread` for the report, or None. Never raises."""
+    if not isinstance(first, FirstPassReread):
+        return None
+    agreement = first.agreement
+    agreed = getattr(agreement, "most_reads_agreed", None)
+    return {
+        "rip_count": first.rip_count,
+        "secure_rerip_converged": first.converged,
+        "most_reads_agreed": agreed if isinstance(agreed, int) else None,
+        "most_reads_agreed_exact": getattr(agreement, "exact", None)
+        if isinstance(agreed, int)
+        else None,
+        "secure_rerip_kept_read": _kept_read_block(first.kept_read),
+        "secure_rerip_limit_stop": _limit_stop_block(first.limit_stop),
     }
 
 
@@ -1789,6 +1817,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
+        heavy_reread_first_pass=first_pass_sentences(rip_log),
         health_findings=health_findings(rip_log) + written_whole.findings(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
         log_parse=log_parse_block,
@@ -2237,6 +2266,11 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         # repeat limit or the fork's proposed time limit (round 36 lap 10 S11).
         "secure_rerip_limit_stop": _limit_stop_block(
             getattr(track, "secure_rerip_limit_stop", None)
+        ),
+        # Schema 42 (TASKS R114): the album pass's own -Z facts for a track a
+        # securing read replaced; the fields above describe the shipped read.
+        "first_pass_reread": _first_pass_block(
+            getattr(track, "first_pass_reread", None)
         ),
         # Per-track extraction diagnostics cyanrip logs (None on legacy-format logs):
         # the drive speed this track read at (×), the extraction quality (%),
@@ -2696,6 +2730,8 @@ def _issues(
     read_speed: dict | None,
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
+    # `first_pass_reread.sentences`: what a securing read replaced (TASKS R114).
+    heavy_reread_first_pass: list[str] | None = None,
     # `rip_health.health_findings`: a skipped track AccurateRip did not confirm,
     # and error lines under a zero summary. Computed there, added here as-is.
     health_findings: list[tuple[str, str, str]] | None = None,
@@ -3083,11 +3119,13 @@ def _issues(
     # even when the ladder never ran.
     if heavy_reread_tracks:
         listed = ", ".join(str(t) for t in heavy_reread_tracks)
+        first_pass = "; ".join(heavy_reread_first_pass or ())
         add(
             "warning",
             "heavy_reread",
             f"track(s) {listed} needed unusually heavy re-reading — a sign the "
-            "read may not be reproducible; consider re-ripping to confirm",
+            "read may not be reproducible; consider re-ripping to confirm"
+            + (f" ({first_pass})" if first_pass else ""),
         )
 
     # THE TWO WAYS "No errors occurred" COULD SIT OVER A RIP THAT WAS NOT CLEAN

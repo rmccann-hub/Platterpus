@@ -77,6 +77,7 @@ from platterpus.cancel_cause import CancelCause
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
+from platterpus.first_pass_reread import snapshot as first_pass_snapshot
 from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -369,6 +370,10 @@ def _merge_shipped_track(
     """
     from dataclasses import replace
 
+    # The album pass's own -Z facts, kept in their own slot before anything below
+    # replaces them (TASKS R114; `first_pass_reread.py` says why).
+    if shipped is not None or track.number in verdicts:
+        track = replace(track, first_pass_reread=first_pass_snapshot(track))
     if shipped is not None:
         track = replace(
             track,
