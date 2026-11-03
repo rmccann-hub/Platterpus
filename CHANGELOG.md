@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.118] — 2026-11-03
+The release that fixes what the 2026-11-03 Full run and its review found, ahead of anything new. A track AccurateRip says is wrong is never called clean, matched or confirmed, on any surface; a CTDB match its own database outvotes no longer passes a step; a rip refuses to start when the output folder clearly lacks the space; and the acceptance run checks the read offset, the derived MP3, WavPack and WAV files themselves, and the pre-emphasis pair. The fixes also include a shutdown that could fail after a logout, 1,942 false warnings a run, and a hidden update dialog left behind. The default ripper stays `.27`; `.28` stays the build under review until round 37 closes.
+
 ### Changed
 
 - **The collected-test floor rises from 9,735 to 9,762** (contributor-facing): the 27 tests added for TASKS R114, R115, R117 and R119, so a leg that stops collecting them fails.
@@ -19739,7 +19742,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.118...HEAD
+[0.7.118]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...v0.7.118
 [0.7.117]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...v0.7.117
 [0.7.116]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...v0.7.116
 [0.7.115]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...v0.7.115
@@ -19827,4 +19831,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.117.*
+*Last updated for Platterpus v0.7.118.*

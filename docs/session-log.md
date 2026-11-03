@@ -11,6 +11,15 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-03 (later) — the Full run read; lap 6 `GO`; the review's fixes; 0.7.118
+
+- **The owner's Full run on 0.7.117 with `.28`** (02:38 to 05:00 UTC, 553 pass, 0 fail) filed on `evidence` at `1bb98a2c` and graded `full-green`, the ledger's eighth. Filing it found two tool faults of ours: no filed name for the cache probe's own log, and no local test of the manifest's order (CI's `gitleaks` caught it). Both fixed with tests (#434).
+- **Our round 37 lap 6, `GO` on `.28`**, released on the owner's word (*"Do 1 and 3"*) and merged at `8aca65d3` (#435). Revised before release on the claude-code-skills session's review: the crossed laps 5's order (theirs reached `platterpus-fork` first, 02:31:06 UTC), the pre-commit's dropped second clause, and a held-lap clause for the K1 amendment, which the fork's lap 7 accepts. The fork's lap 7 is `GO`, and held on their side for the owner's word; round 37 closes when it is released.
+- **Seven agents, one integration branch.** R112 to R119 from the run and the review's A to C and E1, E2: one verdict for a contradicted track on every surface, an outvoted CTDB match failing its step, the learned speed surviving a reload, a free-space check before a rip, the shutdown that failed after a logout (not a recursion, as R118 had it: each filter added one frame while Qt finished the close), 1,942 false warnings, the hidden update dialog, and acceptance steps that can now fail on their subjects (the read offset, the derived files, the pre-emphasis pair, planted faults). Recorded in TASKS R112 to R128.
+- **The next upstream notes are held** until upstream takes #167's 23 items (the owner); the fork's items 24 to 28 and three candidates are written down in `docs/cyanrip-upstream.md` Part B.
+- **0.7.118 cut** on the owner's word (*"Release all when ready"*, *"don't wait for the fork"*), with `.27` the default and `.28` under review.
+- **Learned.** (a) A count quoted in a handoff came from memory of reading the files (20 of 20) and the files said 19 of 19: recount from the filing before quoting. (b) A checker that counts `answers:` does not read `re:`; our lap 2 and 4 answers needed naming again in lap 6. (c) Switching branches in the tree a background gate is reading invalidates the gate; run gates in their own worktree. (d) A cherry-pick of a branch's commits in `git log` order, not `git rev-list --reverse` order, conflicts where the branch did not.
+
 ## 2026-11-03 — the steward skill; lap 4; #425 merged; `.28` under review; 0.7.117
 
 - **A draft steward skill** (R102): `scripts/pr_steward.py` judges a commit's checks from the ruleset and the API, and the skill says what to do about each verdict. On the owner's word it moved to `.claude/skills/steward/`, the folder sessions look in, as the fork's is.
@@ -11040,4 +11049,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.117.*
+*Last updated for Platterpus v0.7.118.*
