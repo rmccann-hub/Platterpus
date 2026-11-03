@@ -2794,7 +2794,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1718 -> 1747** (2026-10-26, the owner's EAC-parity plan of record, row 8): `_status_cell`, the Status column's ⚠ for a track AccurateRip contradicts, where it showed the ripper's "ripped successfully". The rule is `verdict.track_accuraterip_contradiction` and the tooltip's words are `track_proof.contradiction_sentence`; this is the cell that shows them.
     # **-> 1750** (2026-10-26): the entries above landed together on one branch.
     # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
-    "ui/rip_progress.py": 1759,
+    # **1759 -> 1834** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 1): a CTDB-only disagreement is a NOTE, never WRONG. The note line under the status line (built, named, cleared), `_render_ctdb_note` (rewrites each row's Status cell when the rip log or the CTDB answer arrives, whichever is last) and `_status_cell`'s ⓘ branch. The decision and the wording are the new focused module `ctdb_disagreement.py`; this is the pane that shows them.
+    "ui/rip_progress.py": 1834,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
