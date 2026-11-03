@@ -103,6 +103,7 @@ from platterpus.verdict import (
     REREAD_KEPT_FOR_ACCURATERIP,
     REREAD_KEPT_FOR_CONVERGENCE,
     reread_supersedes,
+    track_accuraterip_contradiction,
 )
 from platterpus.workers.verified_read_run import (
     SingleRead,
@@ -3678,6 +3679,8 @@ class RipWorker(QObject):
             accuraterip_offset=_ar("accuraterip_offset"),
             secure_reread=reread,
             previous_crc=previous_crc,
+            # The verdict's one predicate, on the read that shipped (TASKS R112).
+            contradiction=track_accuraterip_contradiction(track) or "",
         )
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:

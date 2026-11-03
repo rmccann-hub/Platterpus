@@ -31,6 +31,7 @@ Pure; no Qt, no I/O; reads with ``getattr`` and never raises.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Final
 
 from platterpus.replaced_read_errors import (
@@ -38,11 +39,16 @@ from platterpus.replaced_read_errors import (
     applies_to,
     kept_reads_health,
 )
-from platterpus.verdict import track_has_unverified_skips
+from platterpus.verdict import accuraterip_contradictions, track_has_unverified_skips
 
 #: The sentence the parser writes for ``Ripping errors: 0``; every reader of
 #: health treats exactly this string as clean.
 CLEAN_HEALTH: Final[str] = "No errors occurred"
+
+#: EAC's own disc-level sentence for a rip with errors (string 1224), which the
+#: EAC-layout log prints over a track AccurateRip contradicts; the report's
+#: ``health_status`` leads with it in the same case (TASKS R112, review A1).
+DISC_HAD_ERRORS: Final[str] = "There were errors"
 
 #: ``issues`` code: the ripper printed a diagnostic its own zero count leaves out.
 ISSUE_ERROR_LINES_UNDER_ZERO_SUMMARY: Final[str] = (
@@ -110,7 +116,18 @@ def effective_health_status(
     16): the ripper's tally describes reads the album no longer holds, and is
     stated, never dropped. The tally itself is the report's own field,
     ``ripper_health_status``. Never raises.
+
+    **Never clean over a track AccurateRip contradicts** (TASKS R112; review A1
+    of the 2026-11-03 Full run, whose report said "No errors occurred" beside
+    track 5's ``accuraterip_contradiction: "wrong"``): the sentence then leads
+    with :data:`DISC_HAD_ERRORS` and names the tracks, by the verdict's one
+    predicate, as the EAC-layout log's health lines do.
     """
+    return _with_contradictions(_reads_health(rip_log, placed), rip_log)
+
+
+def _reads_health(rip_log: object, placed: ErrorsInReplacedReads | None) -> str:
+    """:func:`effective_health_status` before AccurateRip's findings are added."""
     if applies_to(rip_log, placed) and placed is not None:
         return kept_reads_health(placed)
     health = str(getattr(rip_log, "health_status", "") or "")
@@ -124,6 +141,29 @@ def effective_health_status(
     if health in ("", CLEAN_HEALTH):
         return note
     return f"{health}; {note}"
+
+
+def _with_contradictions(health: str, rip_log: object) -> str:
+    """``health``, naming each track AccurateRip contradicts; never clean over one."""
+    return contradicted_health(
+        health, [number for number, _kind in accuraterip_contradictions(rip_log)]
+    )
+
+
+def contradicted_health(health: str, numbers: Sequence[object]) -> str:
+    """``health`` with the tracks AccurateRip contradicts named; ``health`` if none.
+
+    Public so the self-check, which reads the report rather than the log, can
+    tell this sentence from a tally the ripper itself made (TASKS R112). Pure.
+    """
+    if not numbers:
+        return health
+    note = f"AccurateRip contradicts track(s) {', '.join(str(n) for n in numbers)}"
+    if health == CLEAN_HEALTH:
+        return f"{DISC_HAD_ERRORS}: {note}, which the ripper's count of no errors leaves out"
+    if health.startswith(CLEAN_HEALTH):  # the reads kept (TASKS R59)
+        return f"{DISC_HAD_ERRORS}: {note}. {health}"
+    return f"{health}; {note}" if health else note
 
 
 def health_reads_clean(

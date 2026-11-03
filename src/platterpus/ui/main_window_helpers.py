@@ -31,6 +31,7 @@ from platterpus.rip_health import (
 )
 from platterpus.track_proof import contradicted_tracks_sentence
 from platterpus.verdict import (
+    accuraterip_contradictions,
     track_accuraterip_contradiction,
     track_has_unverified_skips,
 )
@@ -515,9 +516,7 @@ def fidelity_summary(
     # cleanly" over track 5, which only matched frame 450).
     kinds = [(t, track_accuraterip_contradiction(t)) for t in tracks]
     contradicted = {id(t) for t, kind in kinds if kind}
-    wrong = contradicted_tracks_sentence(
-        (getattr(t, "number", "?"), k) for t, k in kinds
-    )
+    wrong = contradicted_tracks_sentence(accuraterip_contradictions(rip_log))
     # The one-frame note names a subset of these tracks more softly ("the rest
     # unverified"), so it gives way to the sentence that says WRONG.
     partial = "" if wrong else _partial_accurate_clause(rip_log)

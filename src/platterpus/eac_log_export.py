@@ -73,6 +73,7 @@ from platterpus.replaced_read_errors import ErrorsInReplacedReads, count_line
 from platterpus.report_types import SecureReripBlock
 from platterpus.reread_limit import stopped_by_time_limit
 from platterpus.rip_health import CLEAN_HEALTH
+from platterpus.rip_health import DISC_HAD_ERRORS as RIP_HEALTH_DISC_HAD_ERRORS
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
 from platterpus.track_proof import (
@@ -81,6 +82,7 @@ from platterpus.track_proof import (
     verified_reread_numbers,
 )
 from platterpus.verdict import (
+    accuraterip_contradictions,
     accuraterip_lookup_happened,
     expected_track_total,
     track_accuraterip_contradiction,
@@ -654,8 +656,9 @@ CONTRADICTED_VERDICT: str = "Copy finished"
 
 #: EAC's own disc-level sentence for a rip with errors (string 1224, which OPS's
 #: checker marks as bad, `src/Logchecker.php:896`), agreed for this log in round
-#: 36: our lap 3 S11, the fork's lap 5 S9, our lap 6 S3.
-DISC_HAD_ERRORS: str = "There were errors"
+#: 36: our lap 3 S11, the fork's lap 5 S9, our lap 6 S3. Defined in `rip_health`,
+#: which the report's `health_status` shares (TASKS R112).
+DISC_HAD_ERRORS: str = RIP_HEALTH_DISC_HAD_ERRORS
 
 # The TOC's columns are too narrow for the sentence above, so an unmeasured cell
 # gets this instead. Same rule: name the gap, never compute a value from nothing.
@@ -1378,9 +1381,7 @@ def _health_lines(
     """
     health = rip_log.health_status
     contradicted = [
-        track.number
-        for track in rip_log.tracks
-        if track_accuraterip_contradiction(track) is not None
+        n for n, _kind in accuraterip_contradictions(rip_log) if isinstance(n, int)
     ]
     line = count_line(rip_log, replaced_reads, _listed_tracks(contradicted))
     if line:

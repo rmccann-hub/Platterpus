@@ -57,6 +57,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from platterpus.track_proof import contradicted_tracks_sentence
+
 log: Final[logging.Logger] = logging.getLogger(__name__)
 
 #: Suffix appended to the ripper log's stem. Deliberately long and namespaced:
@@ -101,6 +103,14 @@ _OUTCOME_SENTENCE: Final[dict[str, str]] = {
 }
 
 
+#: The outcome row for a re-read that reproduced a read AccurateRip contradicts:
+#: the two CRCs agree, and that is all they show.
+_REPRODUCED_BUT_CONTRADICTED: Final[str] = (
+    "the re-read reproduced the first pass byte for byte (same CRC32), and "
+    "AccurateRip contradicts that audio, so nothing is confirmed"
+)
+
+
 @dataclass(frozen=True)
 class SupersededTrack:
     """Everything the re-rip measured about the file that actually shipped.
@@ -137,6 +147,12 @@ class SupersededTrack:
     #: serious, so the outcome is now derived per track from the two CRCs and is
     #: **tri-state**: confirmed, replaced, or not determined.
     previous_crc: str = ""
+    #: What ``verdict.track_accuraterip_contradiction`` said of the shipped read
+    #: ("wrong", "differs"), or "" when it does not contradict it. A re-read that
+    #: reproduces a read AccurateRip contradicts confirms nothing: the drive can
+    #: return the same wrong audio twice (TASKS R112, review A2 of the 2026-11-03
+    #: Full run, whose addendum called track 5 "CONFIRMED").
+    contradiction: str = ""
 
     @property
     def outcome(self) -> str:
@@ -232,20 +248,29 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         "the disc reproduced.",
         "",
     ]
+    if any(entry.contradiction for entry in swapped):
+        lines.extend(
+            [
+                "A read AccurateRip contradicts is not confirmed by reading it again:",
+                "the drive can return the same wrong audio twice. Such a track says so.",
+                "",
+            ]
+        )
     for entry in swapped:
         shown = entry.filename or f"track {entry.number}"
         # The "  Track N (name): CRC XXXXXXXX" line keeps the exact shape the
         # appended version used, because our parser matches on it and a real
         # rig log in output_reference/ still carries it inline.
         lines.append(f"  Track {entry.number} ({shown}): CRC {entry.crc or 'n/a'}")
-        lines.append(
-            _row(
-                "Re-read outcome:",
-                _OUTCOME_SENTENCE[entry.outcome].format(
-                    previous=entry.previous_crc or "n/a"
-                ),
-            )
+        outcome = _OUTCOME_SENTENCE[entry.outcome].format(
+            previous=entry.previous_crc or "n/a"
         )
+        if entry.contradiction and entry.outcome == OUTCOME_CONFIRMED:
+            outcome = _REPRODUCED_BUT_CONTRADICTED
+        lines.append(_row("Re-read outcome:", outcome))
+        wrong = contradicted_tracks_sentence([(entry.number, entry.contradiction)])
+        if wrong:
+            lines.append(_row("AccurateRip verdict:", wrong))
         lines.append(_row("AccurateRip v1:", entry.accuraterip_v1))
         lines.append(_row("AccurateRip v2:", entry.accuraterip_v2))
         # cyanrip's `Accurip 450`: ONE frame's checksum (see `one_frame_match`).
@@ -458,6 +483,7 @@ def _addendum_from_report(log_path: str | Path) -> str:
                 accuraterip_v2=v2,
                 accuraterip_offset=offset,
                 secure_reread=reread,
+                contradiction=_text(track, "accuraterip_contradiction"),
             )
         )
     trigger = ""

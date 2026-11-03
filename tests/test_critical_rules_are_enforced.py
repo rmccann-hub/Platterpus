@@ -1740,7 +1740,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2220 -> 2239** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_health_lines` takes the placement and prints EAC's sentence for the reads kept with the line of ours beside it; the kwarg runs through the three render entry points.
     # **2239 -> 2268** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `ctdb_result` runs through the three render entry points to each track block's `Proof:` row, so the log is rendered again with CTDB's per-track answer.
     # **2277 -> 2282** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the Copy CRC note adds the first pass's clause; the words and the slot live in `first_pass_reread.py`.
-    "eac_log_export.py": 2282,
+    # **2277 -> 2278** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `_health_lines` asks `verdict.accuraterip_contradictions` and takes `DISC_HAD_ERRORS` from `rip_health`, which the report's `health_status` shares.
+    "eac_log_export.py": 2283,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2154,7 +2155,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
     # **511 -> 532** (2026-10-05): `securing_pass_log_path_for`, the sidecar the securing pass's own ripper log is kept in, beside the addendum's, with why it is `.txt` and never `.log`.
     # **532 -> 536** (2026-10-19): an unrecorded re-read reason renders as not recorded, not as instability (TASKS D2).
-    "rip_addendum.py": 536,
+    # **536 -> 562** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `SupersededTrack.contradiction`, and a reproduced read AccurateRip contradicts is never called CONFIRMED; the row is `track_proof.contradicted_tracks_sentence`.
+    "rip_addendum.py": 562,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -2175,7 +2177,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1628 -> 1641** (2026-10-26, runs A and D): `cue_integrity` hands `validate_cue` the disc's ISRCs from the report when the first-pass argv carried `--prefer-disc-isrc`; the judging is `cue_validate.py`.
     # **1641 -> 1654** (2026-10-26, `.27`, round 36 lap 8 S21): an unknown pre-gap's finding names what the sub-channel search saw, the counts that tell CRC failures from misplaced frames. The sentence is `pregap_search.describe`.
     # **1654 -> 1667** (2026-11-03, TASKS R112): the completion grade withholds its OK when the report records a track AccurateRip contradicts, worded by `track_proof.contradicted_tracks_sentence`.
-    "rip_audit.py": 1667,
+    # **1667 -> 1684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the completion grade reads the report's per-track contradiction, recognises the `health_status` sentence `rip_health.contradicted_health` writes, and keeps the clean word out of its OK.
+    "rip_audit.py": 1684,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,
@@ -2423,7 +2426,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **396 -> 404** (2026-10-05): `clear_disc_state(keep_drive_rows=)`: a disc leaving the drive keeps the drive's own offset and cache rows, which nothing refilled (2026-10-04 rig runs).
     # **404 -> 410** (2026-10-21, TASKS R13): the AccurateRip row counts audio tracks only.
     # **410 -> 424** (2026-11-03, TASKS R113): the AccurateRip row takes the disc's track count and names a subset rip as the last rip's, never as the disc's, and counts one track in English.
-    "ui/disc_info_panel.py": 424,
+    # **424 -> 438** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the AccurateRip row names a contradicted track, and `clear_accuraterip_result` blanks it when a rip starts.
+    "ui/disc_info_panel.py": 438,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
@@ -2549,7 +2553,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **652 -> 653** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `fidelity_summary` takes the placement.
     # **653 -> 681** (2026-11-03, TASKS R112, the Full run of that day): `fidelity_summary` asks `verdict.track_accuraterip_contradiction` and counts a contradicted track not clean, with a branch that names it. The sentence is `track_proof.contradicted_tracks_sentence`, shared with the self-check.
     # **681 -> 685** (2026-11-03, TASKS R113): the status line counts a one-track rip in English ("1 of 1 track", "AccurateRip: 1 of 1 verified").
-    "ui/main_window_helpers.py": 685,
+    # **685 -> 684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the status line takes its sentence from `verdict.accuraterip_contradictions` (lowered: one line fewer).
+    "ui/main_window_helpers.py": 684,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2699,7 +2704,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5268 -> 5273** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the merge snapshots the album pass's -Z facts before it replaces them; the snapshot is `first_pass_reread.snapshot`.
     # **5268 -> 5272** (2026-11-03, TASKS R118): `report_writer` is imported at module load, with why, so the close path imports nothing after a logout has taken the AppImage's mount.
     # **5268 -> 5272** (2026-11-03, TASKS R113): the finish handler hands the disc panel the disc's track count.
-    "ui/main_window_rip.py": 5281,
+    # **5272 -> 5275** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): a rip's start blanks the disc panel's AccurateRip row.
+    "ui/main_window_rip.py": 5284,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3048,7 +3054,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **926 -> 962** (2026-10-26, section P6): `track_accuraterip_state`, the one summary of a track's two AccurateRip columns, beside the per-column `accuraterip_state` it ranks, so the paired-rip tally counts "verified" by the verdict's own word.
     # **926 -> 962** (2026-10-26, the owner's EAC-parity plan of record, row 8): `track_accuraterip_contradiction` and its two values, the one predicate every surface asks before printing a clean word over a track; `accuraterip_rejected_count` now counts with it. It needs `accuraterip_state` and `track_accuraterip_partial`, both defined here; the words for it live in `track_proof.py`.
     # **-> 998** (2026-10-26): the two 962 entries above landed together on one branch.
-    "verdict.py": 998,
+    # **998 -> 1024** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `accuraterip_contradictions`, the rip-level form of the one predicate, and the banner says WRONG for a one-frame match.
+    "verdict.py": 1024,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -3104,7 +3111,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4280 -> 4324** (2026-10-26, run B of the 0.7.112 Full runs): `_record_unfinished_refix` swaps in a stopped securing pass's finished, AccurateRip-verified re-read and records why each other track was not, and its call passes the swap's inputs. The decision, the file-whole check and the sentence are `unfinished_refix.py`; only the worker owns the swap and its records.
     # **4324 -> 4327** (2026-10-29, TASKS R95): the speed lock engages on an unknown answer too, with the reason beside it.
     # **4327 -> 4338** (2026-11-03, TASKS R65): `_record_unfinished_refix` adds a stopped pass's finished, unconverged, unreplaced tracks to the unstable list, so `read_speed.unstable_tracks` agrees with the verdict after the AccurateRip trigger too.
-    "workers/rip_worker.py": 4338,
+    # **4338 -> 4341** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the addendum row carries the predicate's answer for the read that shipped.
+    "workers/rip_worker.py": 4341,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

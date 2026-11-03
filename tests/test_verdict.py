@@ -899,7 +899,7 @@ def test_a_converged_or_never_re_read_track_adds_nothing() -> None:
     )
     message, _ = accuraterip_verdict(quiet, disc_track_total=14)
     assert "converge" not in message
-    assert message.endswith("the rest of each is unverified (see the table)")
+    assert message.endswith("so AccurateRip says each is WRONG (see the table)")
 
 
 def test_an_exactly_verified_track_is_never_named_for_its_re_reads() -> None:

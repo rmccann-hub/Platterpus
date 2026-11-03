@@ -1091,6 +1091,9 @@ class RipMixin(MainWindowShared):
         # Fresh rip → clear any leftover per-track status from a previous run so
         # the live Status column starts all-pending.
         self._track_table.reset_track_status()
+        # And the disc panel's AccurateRip row, which described the LAST rip
+        # (review B1, 2026-11-03 Full run); the finish handler refills it.
+        self._disc_info_panel.clear_accuraterip_result()
 
         # Make the in-progress rip reachable from the moment it starts: Open rip
         # folder → the output directory (the album subfolder appears inside as

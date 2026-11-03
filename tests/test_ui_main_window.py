@@ -3951,6 +3951,51 @@ def test_start_rip_worker_snapshots_track_table_metadata(
     ]
 
 
+def test_starting_a_rip_blanks_the_disc_panels_accuraterip_row(
+    teardown_threads, monkeypatch
+) -> None:
+    """Review B1 of the 2026-11-03 Full run: the row kept the last rip's result
+    for the whole of the next rip. It is blanked when a rip's worker starts, and
+    the finish handler fills it again."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._disc_info_panel._accuraterip_value.setText("13 of 14 tracks matched")
+
+    class _NoopWorker:
+        def __init__(self, backend, params):
+            pass
+
+        def moveToThread(self, thread):
+            pass
+
+        def start_rip(self):
+            pass
+
+        class _Sig:
+            def connect(self, *_a, **_k):
+                pass
+
+        log_line = progress = status = current_track = track_completed = error = (
+            finished
+        ) = _Sig()
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
+    )
+    window._start_rip_worker(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="some-mbid",
+            output_dir=Path("/tmp/out"),
+            track_template="t",
+            disc_template="d",
+        )
+    )
+    assert window._disc_info_panel._accuraterip_value.text() == "—"
+
+
 def test_the_tags_a_rip_was_handed_are_kept_on_its_record(
     teardown_threads, monkeypatch
 ) -> None:

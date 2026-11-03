@@ -104,14 +104,18 @@ def eac_summary_line(count: int) -> str:
 
 
 def count_sentence(matched: int, population: int) -> str:
-    """``1 of 14 tracks matched AccurateRip on one frame only (the rest unverified)``.
+    """``1 of 14 tracks matched AccurateRip on one frame only, so it is WRONG``.
+
+    WRONG is the verdict's word for this case (``verdict.track_accuraterip_contradiction``;
+    TASKS R112): frame 450 places the pressing and the whole track misses it.
 
     The noun agrees with the POPULATION, not the count: "1 of 14 tracks". Pure and
     never raises; negative or odd numbers are rendered as given, since the caller
     counted them and this only words them.
     """
     noun = "track" if population == 1 else "tracks"
+    which = "it is" if matched == 1 else "each is"
     return (
-        f"{matched} of {population} {noun} matched AccurateRip on one frame only "
-        "(the rest unverified)"
+        f"{matched} of {population} {noun} matched AccurateRip on one frame only, "
+        f"so AccurateRip says {which} WRONG"
     )

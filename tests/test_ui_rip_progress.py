@@ -234,7 +234,8 @@ def test_verdict_surfaces_offset_variant_partial_matches() -> None:
     message, level = accuraterip_verdict(log)
     assert level == "warn"
     assert "2 of 3" in message
-    assert "only one frame matched" in message and "unverified" in message
+    # WRONG, the EAC-layout log's word for it (TASKS R112, review A2).
+    assert "only one frame matched" in message and "says it is WRONG" in message
     # Never claims the partial track is bit-perfect / exactly verified.
     assert "3 of 3" not in message
 

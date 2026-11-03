@@ -216,6 +216,26 @@ def track_accuraterip_contradiction(track: object) -> str | None:
         return None
 
 
+def accuraterip_contradictions(rip_log: object) -> list[tuple[object, str]]:
+    """``(track number, finding)`` for each track :func:`track_accuraterip_contradiction`
+    contradicts, in log order; ``[]`` when none is.
+
+    The rip-level form of that one predicate, for every surface that words a
+    whole rip: the status line, the report's ``health_status``, the EAC-layout
+    log's health lines and the disc panel's AccurateRip row (TASKS R112, the
+    2026-11-03 Full run's review A1/A2). Never raises.
+    """
+    try:
+        tracks = getattr(rip_log, "tracks", ()) or ()
+        return [
+            (getattr(t, "number", "?"), kind)
+            for t in tracks
+            if (kind := track_accuraterip_contradiction(t)) is not None
+        ]
+    except (AttributeError, TypeError, ValueError):
+        return []
+
+
 # --- The one AccurateRip state classification --------------------------------
 #
 # Lifted here from `ui/rip_progress` (2026-07-30). Two surfaces render this fact
@@ -758,6 +778,11 @@ def _accuraterip_verdict(
     # Past here not every track verified exactly, so a track whose re-reads did
     # not converge either is named in the headline (see `_unconverged_clause`).
     unconverged = _unconverged_clause(audio)
+    # A one-frame match is the WRONG case of `track_accuraterip_contradiction`
+    # (partial implies contradicted), so the banner says so in the EAC-layout
+    # log's word rather than "the rest unverified" (TASKS R112, review A2 of the
+    # 2026-11-03 Full run: one verdict on every surface).
+    wrong = "it is WRONG" if partial == 1 else "each is WRONG"
     if verified > 0:
         if partial and verified + partial == total:
             # Every track has SOME AccurateRip finding: some exact, the rest
@@ -767,11 +792,11 @@ def _accuraterip_verdict(
             return (
                 f"⚠ {verified} of {total} tracks verified exactly against "
                 f"AccurateRip; on the other {partial}, only one frame matched, so "
-                f"the rest of each is unverified{unconverged} (see the table)",
+                f"AccurateRip says {wrong}{unconverged} (see the table)",
                 "warn",
             )
         tail = (
-            f"; on {partial}, only one frame matched (the rest unverified)"
+            f"; on {partial}, only one frame matched, so AccurateRip says {wrong}"
             if partial
             else ""
         )
@@ -796,7 +821,8 @@ def _accuraterip_verdict(
     if partial:
         return (
             f"⚠ AccurateRip: on {partial} of {total} tracks only one frame "
-            f"matched, so none is verified{unconverged} — see the table",
+            f"matched, so it says {wrong} and none is verified{unconverged} — "
+            "see the table",
             "warn",
         )
     # Nothing matched. When the tracks were read more than once (the second read

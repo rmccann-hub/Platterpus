@@ -38,8 +38,10 @@ from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.track_proof import contradicted_tracks_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.album_menu import build_album_menu, popup_album_menu
+from platterpus.verdict import accuraterip_contradictions
 
 # Placeholder shown in fields we don't have data for yet.
 _PLACEHOLDER: str = "—"
@@ -250,7 +252,19 @@ class DiscInfoPanel(QWidget):
             text = f"verified — all {total} tracks matched"
         else:
             text = f"{matched} of {total} tracks matched"
-        self._accuraterip_value.setText(text)
+        # A track AccurateRip contradicts is named, by the verdict's one predicate,
+        # so this row never reads as a tally the WRONG track merely missed
+        # (review A2 of the 2026-11-03 Full run: "13 of 14 tracks matched").
+        wrong = contradicted_tracks_sentence(accuraterip_contradictions(rip_log))
+        self._accuraterip_value.setText(f"{text} · ⚠ {wrong}" if wrong else text)
+
+    def clear_accuraterip_result(self) -> None:
+        """Blank the AccurateRip row: a rip has started, so the last one's is stale.
+
+        Review B1 of the 2026-11-03 Full run: the row kept the previous rip's
+        result for the whole of the next rip.
+        """
+        self._accuraterip_value.setText(_PLACEHOLDER)
 
     # --- Disc info (from the ripper's disc probe, `cyanrip -I`) -------------
 
