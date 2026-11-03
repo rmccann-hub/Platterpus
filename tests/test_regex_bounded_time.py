@@ -1249,6 +1249,11 @@ _PREFIXED_OFFENDERS: list[tuple[str, str, str]] = [
         "0h" + " " * 8_000 + "x",
     ),
     ("scripts/handshake.py", "_SOURCE_NAMED_LAP", "round-" + "0" * 30_000 + "x"),
+    # Found 2026-11-03 while timing the evidence-bundle tests, and invisible to the
+    # sweep: it compiles a literal WITHOUT its flags, so `^` under `re.M` is never
+    # a start position mid-string. The old `^\s*` took 1.5 s on these 1,000 blank
+    # lines (0.54 s on 600; it grows with the square of the run).
+    ("src/platterpus/export_identity.py", "HOST_FIELD", (" " * 79 + "\n") * 1_000),
 ]
 
 
@@ -1274,6 +1279,45 @@ def test_the_prefixed_offenders_stay_fast_on_the_line_that_found_them(
         f"{rel}:{name} took {elapsed * 1000:.1f} ms on a {len(line)}-character "
         "line: a lazy capture before trailing whitespace has come back"
     )
+
+
+#: The `HOST_FIELD` the fork wrote and we used until 2026-11-03, kept as the
+#: reference the rewrite must agree with.
+_OLD_HOST_FIELD = (
+    r"^\s*\"?(?:host|hostname|node)\"?\s*[:=]\s*\"?([A-Za-z0-9][A-Za-z0-9._-]*)\"?\s*$"
+)
+
+#: Text built from the pieces `HOST_FIELD` branches on: blank lines of every
+#: kind, the three field names in either case, quotes, both separators.
+_HOST_FIELD_TEXT = st.lists(
+    st.sampled_from(
+        [
+            "\n",
+            "\r\n",
+            " ",
+            "\t",
+            "host",
+            "HostName",
+            "node",
+            '"',
+            ":",
+            "=",
+            "box-1",
+            "x",
+        ]
+    ),
+    max_size=30,
+).map("".join)
+
+
+@settings(max_examples=300)
+@given(_HOST_FIELD_TEXT)
+def test_the_rewritten_host_field_finds_what_the_old_one_found(text: str) -> None:
+    """The quadratic fix changes where a match STARTS (on the field's own line,
+    not on a blank line before it), never which hostnames it finds."""
+    old = re.compile(_OLD_HOST_FIELD, re.MULTILINE | re.IGNORECASE)
+    new = _pattern_assigned_to("src/platterpus/export_identity.py", "HOST_FIELD")
+    assert new.findall(text) == old.findall(text), text
 
 
 #: The pattern `_REQUIREMENT` replaced, kept as the reference its rewrite must
