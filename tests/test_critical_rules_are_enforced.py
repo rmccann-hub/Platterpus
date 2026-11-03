@@ -1665,7 +1665,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **565 -> 834** (2026-10-05, the fork's round 30 lap 9 S28): `second_signal_refusal`, the predicate that keeps the rescue and the shutdown stop from sending a native cyanrip our cancel already reached its second SIGTERM, and `term_unsignalled_holders` / `device_holders` / `parse_fuser_pids`, which ask `fuser` who holds the drive before signalling. Beside `free_device_holders` and `stop_reader_gracefully` because it is the first step of the same kill sequence (rule #3's one scoped exception); the most of it is the docstrings saying why each path is safe.
     # **834 -> 838** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the one `term_unsignalled_holders` arm that returned with no line (no holder, after a cancel that reached a process) now logs its outcome, because `sigterm-world` reads the outcome from the log and a silent arm reads as no rescue.
     # **838 -> 839** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
-    "drive_control.py": 839,
+    # **839 -> 842** (2026-11-03, review B9): the rescue's docstring says its SIGTERM reaches every holder of the node and points to where that is argued, with the precondition that this app is never one.
+    "drive_control.py": 842,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
     "drive_profiles.py": 452,
@@ -2540,7 +2541,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **742 -> 752** (2026-10-26, run A on 0.7.112, the drive flicker): the media poll handles the watcher's new RETURNED event and parks the disc before a believed removal clears it. The poll is the watcher's only reader; the handler itself is in `ui/main_window_disc_return.py`.
     # **752 -> 760** (2026-11-03, TASKS R109): `_record_drive_fact` builds from the existing profile so `read_rate` survives a drive sighting, with the comment that says why.
     # **760 -> 768** (2026-11-03, TASKS R63): `_learn_read_rate` logs how many tracks it left out of the drive's speed for paranoia skips; the rule is `rip_estimate.struggled`.
-    "ui/main_window_drive.py": 768,
+    # **768 -> 784** (2026-11-03, review B9): `_drive_being_freed`: the media poll and a retry's check never open the drive while a force-stop thread runs, so a device-wide `fuser -k` cannot signal this app.
+    "ui/main_window_drive.py": 784,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.

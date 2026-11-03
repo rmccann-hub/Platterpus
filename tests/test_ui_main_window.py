@@ -15115,3 +15115,44 @@ def test_a_learned_reading_speed_survives_a_rescan_and_a_restart_on_disk(
     assert rate.multiple == 0.25, rate
     on_disk = DriveProfileStore.load().get(_PIONEER_FP)
     assert on_disk is not None and on_disk.read_rate == learned.read_rate
+
+
+def test_the_app_never_opens_the_drive_while_a_device_wide_signal_is_out(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The precondition `docs/dependency-contracts.md` relies on for the rescue's
+    device-wide SIGTERM (review B9, 2026-11-03): `fuser -s -k -TERM <device>`
+    signals every process holding the drive's node, and this app opens it for the
+    media-status ioctl. Were it holding the node at that instant, the rescue would
+    SIGTERM Platterpus itself, and its handler closes the window. So while any
+    force-stop thread runs, neither the media poll nor a retry's check opens it.
+    Both directions: with no such thread, both do."""
+    import threading
+
+    window = teardown_threads()
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
+    opened: list[str] = []
+
+    def probe(device: str) -> str:
+        opened.append(device)
+        return "disc"
+
+    monkeypatch.setattr(window, "_disc_status_probe", probe)
+    window._rip_thread = None
+    window._disc_info_thread = None
+    release = threading.Event()
+    holder = threading.Thread(target=release.wait, daemon=True)
+    holder.start()
+    window._force_stop_thread = holder
+    try:
+        window._poll_disc_media()
+        conditions = window._disc_retry_conditions("/dev/sr0", 0)
+        assert opened == [], f"the drive was opened while being freed: {opened}"
+        assert conditions.drive_being_freed is True
+    finally:
+        release.set()
+        holder.join(timeout=2)
+    window._poll_disc_media()
+    window._disc_retry_conditions("/dev/sr0", 0)
+    assert opened == ["/dev/sr0", "/dev/sr0"], opened
+    window._force_stop_thread = None
