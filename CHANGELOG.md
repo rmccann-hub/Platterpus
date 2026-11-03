@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **The steward no longer reports a commit green while a check nobody requires is still running** (contributor-facing, TASKS R102). On 0.7.117's day it read `main`'s merge commit as green while the AppImage build was still running; a running check of any kind now keeps the verdict pending.
+
 ## [0.7.117] — 2026-11-03
 
 The release that names the fork's `.28` as the build under review, for the Full run that
