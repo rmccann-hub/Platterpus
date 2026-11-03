@@ -390,11 +390,20 @@ def test_completed_with_ripping_errors_is_a_warning_naming_them() -> None:
 
 
 def _errors_in_track_2(
-    *, kept_read: str, verified: bool, skips: int = 2, track1_skips: int = 0
+    *,
+    kept_read: str,
+    verified: bool,
+    skips: int = 2,
+    track1_skips: int = 0,
+    kept_counts: dict[str, int] | None = None,
 ) -> dict[str, object]:
     """Run C section N's shape on the 2-track fixture: the album pass counted
     2 ripping errors, both paranoia skips in track 2 (per its `-j` record), and
-    the verified-read chase replaced track 2 with a read AccurateRip verified."""
+    the verified-read chase replaced track 2 with a read AccurateRip verified.
+
+    ``kept_counts`` is the replacing read's own paranoia counters; run C's chase
+    read 5 printed READ, VERIFY and OVERLAP and no SKIP
+    (`round36full1022asecurerereadverifiedread.txt`, its last block)."""
     report = _healthy()
     report["health_status"] = "2 ripping errors"
     report["disc"] = {
@@ -416,6 +425,11 @@ def _errors_in_track_2(
     for track in report["tracks"]:
         if track["number"] == 2:
             track["accuraterip_verified"] = verified
+            track["paranoia_counts"] = (
+                {"READ": 1205, "VERIFY": 85, "OVERLAP": 17}
+                if kept_counts is None
+                else kept_counts
+            )
     report["read_speed"] = {
         "retried_tracks": [
             {
@@ -453,6 +467,12 @@ def test_errors_in_a_kept_or_unverified_read_still_warn() -> None:
         _errors_in_track_2(kept_read="verified_reread", verified=True, skips=1),
         # Per-track counts summing past the tally: the population is not closed.
         _errors_in_track_2(kept_read="verified_reread", verified=True, track1_skips=1),
+        # The replacement skipped too, or printed no counters at all (TASKS R59):
+        # "no errors in the reads it keeps" would then be a claim nobody checked.
+        _errors_in_track_2(
+            kept_read="verified_reread", verified=True, kept_counts={"SKIP": 1}
+        ),
+        _errors_in_track_2(kept_read="verified_reread", verified=True, kept_counts={}),
     ):
         album = rip_audit.AlbumAudit(folder=Path("x"))
         rip_audit._audit_completion(report, album)
@@ -1755,7 +1775,7 @@ def test_agreement_against_the_real_ripper_log_is_still_ok() -> None:
 def test_errors_in_replaced_reads_never_raises_and_declines_garbage() -> None:
     """The attribution reads a report written by another process: anything it
     cannot read is not determined (None), never an exception or a guess."""
-    from platterpus.rip_health import errors_in_replaced_reads
+    from platterpus.replaced_read_errors import errors_in_replaced_reads
 
     for garbage in (
         {},

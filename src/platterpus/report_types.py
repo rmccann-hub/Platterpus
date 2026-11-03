@@ -941,6 +941,9 @@ class RipReport(TypedDict):
     #: whatever audio was read, which is the album only on a whole-disc rip.
     album_loudness_covers: AlbumLoudnessCoverage | None
     health_status: str | None
+    #: v42: the ripper's own health sentence for the album pass, verbatim;
+    #: `health_status` describes the reads the album keeps.
+    ripper_health_status: str | None
     sha256_hash: str | None
     log_checksum: str | None
     log_parse: LogParseBlock

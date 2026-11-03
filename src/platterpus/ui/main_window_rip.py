@@ -87,6 +87,10 @@ from platterpus.parsers.rip_log import (
     parse_rip_log,
 )
 from platterpus.paths import LOG_PATH
+from platterpus.replaced_read_errors import (
+    ErrorsInReplacedReads,
+    errors_in_replaced_reads_of,
+)
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.rip_pass_exit import PassExits, securing_fact
@@ -2133,6 +2137,7 @@ class RipMixin(MainWindowShared):
                         rip_log,
                         expected_track_total=expected_total,
                         cancelled=finished_status == "cancelled",
+                        replaced_reads=self._replaced_reads_of(rip_log),
                     )
                     self._rip_progress.set_status(status + record_says)
                     # A rip that MATCHED AccurateRip confirms the applied read
@@ -4120,6 +4125,20 @@ class RipMixin(MainWindowShared):
             log.warning("could not apply auto-fix results", exc_info=True)
             return rip_log
 
+    def _replaced_reads_of(self, rip_log: object) -> ErrorsInReplacedReads | None:
+        """Where this rip's counted errors were (TASKS R59), from what the report reads.
+
+        The same two inputs the report builder hands the same function: the
+        ``-j`` record's per-track counts in ``_last_disc`` and the worker's
+        ``_last_retried_tracks``, both snapshotted at finish.
+        """
+        disc = getattr(self, "_last_disc", None)
+        return errors_in_replaced_reads_of(
+            rip_log,
+            disc.get("error_positions") if isinstance(disc, dict) else None,
+            getattr(self, "_last_retried_tracks", None),
+        )
+
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
         """Write an EAC-layout companion log beside ``log_file`` (best-effort).
 
@@ -4176,6 +4195,9 @@ class RipMixin(MainWindowShared):
                 secure_rerip=getattr(self, "_last_secure_rerip", None),
                 # Who cancelled it, as the report says (R62).
                 cancelled_by=cancel_cause.sentence_from_outcome(outcome),
+                # Where the ripper's counted errors were, so the health line is
+                # about the reads kept (TASKS R59), as the report's is.
+                replaced_reads=self._replaced_reads_of(rip_log),
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")

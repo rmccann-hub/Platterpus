@@ -1390,6 +1390,8 @@ def test_schema_version_is_27() -> None:
     # v42 added `outcome.securing_pass_exit_codes`: the securing pass's exit
     # status as the wrapper we reaped and as cyanrip's own record, each named
     # (TASKS R64). v41 had shipped in 0.7.117.
+    # v42 also added `ripper_health_status` (the ripper's own sentence) and
+    # narrowed `health_status` to the reads the album keeps (TASKS R59).
     assert REPORT_SCHEMA_VERSION == 42
 
 

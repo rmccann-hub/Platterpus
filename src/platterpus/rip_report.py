@@ -54,6 +54,7 @@ from platterpus.pregap_search import report_block as pregap_search_block
 from platterpus.read_offset_check import OffsetLookup, check_read_offset
 from platterpus.read_offset_check import issue_for as read_offset_issue
 from platterpus.record_fate import RecordFate, missing_issue, outcome_block
+from platterpus.replaced_read_errors import errors_in_replaced_reads_of
 from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
@@ -629,6 +630,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `status` is `cancelled`. The `rip_cancelled` issue carries the sentence.
 #      Disc 1 of 2026-10-21 was cancelled by the run's six-hour limit and said
 #      "you cancelled the rip".
+#      Also v42, still unreleased (TASKS R59): `ripper_health_status`, the
+#      ripper's own health sentence for the album
+#      pass, verbatim from the parser ("2 ripping errors"); and `health_status`
+#      NARROWS to the reads the album keeps (TASKS R59, run C of 2026-10-22):
+#      when every counted error was in a first read the album replaced with a
+#      read AccurateRip verified, and each replacement printed no READERR or
+#      SKIP of its own, it reads "No errors occurred in the reads kept; the
+#      ripper's N ripping error(s) were all in the first read of track(s) …"
+#      (`replaced_read_errors.py`). Otherwise both say the same. v41 shipped in
+#      0.7.114, so this is a new number.
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -1926,8 +1937,19 @@ def _build(
         "album_loudness_covers": album_loudness.coverage(rip_log),
         # Never "No errors occurred" over an error line the ripper's own zero
         # count leaves out (`rip_health`, 2026-10-21); the same function the
-        # window's status line asks.
-        "health_status": effective_health_status(rip_log) or None,
+        # window's status line asks. About the reads KEPT (v42, TASKS R59): when
+        # every counted error was in a read the album replaced, it says so and
+        # names them; the ripper's own sentence stays in `ripper_health_status`.
+        "health_status": effective_health_status(
+            rip_log,
+            errors_in_replaced_reads_of(
+                rip_log,
+                (disc or {}).get("error_positions"),
+                (read_speed_block or {}).get("retried_tracks"),
+            ),
+        )
+        or None,
+        "ripper_health_status": getattr(rip_log, "health_status", "") or None,
         "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
         # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
         # signed log checksum, the one archival-forensic field we were dropping.
@@ -1993,6 +2015,7 @@ _LEAD_KEYS_FIRST: Final[tuple[str, ...]] = (
     "diagnostics",
     "issues",
     "health_status",
+    "ripper_health_status",
     "accuraterip_summary",
     "partially_accurate_summary",
     "partially_accurate_reported",

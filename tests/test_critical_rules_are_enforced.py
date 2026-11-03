@@ -1736,7 +1736,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2189 -> 2217** (2026-10-26, peer review 2.5): `_screen_rows`, every row through `inbound_text.screen_line` at the one place the rows are joined, so a value holding a line break cannot add a row above the checksum. It belongs at the join it guards.
     # **2217 -> 2220** (2026-10-27, external review item 3.4): why the zone-less strptime fallback stays naive (ruff DTZ007).
     # **2220 -> 2229** (2026-11-03, TASKS R62, who cancelled a rip): `cancelled_by` threads from the renderers to `_interrupted_securing_line`, which no longer says "you cancelled the rip" for a cancel the user did not make; the words are `cancel_cause.py`'s.
-    "eac_log_export.py": 2229,
+    # **2220 -> 2239** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_health_lines` takes the placement and prints EAC's sentence for the reads kept with the line of ours beside it; the kwarg runs through the three render entry points.
+    "eac_log_export.py": 2248,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2117,7 +2118,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1063 -> 1084** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `LimitStopBlock`, `TrackBlock.secure_rerip_limit_stop` and `RipBlock.reread_time_limit_*`, schema 41.
     # **1084 -> 1088** (2026-11-03, TASKS R64): `OutcomeBlock.securing_pass_exit_codes` (schema v42) and its import.
     # **1088 -> 1091** (2026-11-03, TASKS R62, who cancelled a rip): `OutcomeBlock.cancelled_by` (schema v42) and its import.
-    "report_types.py": 1091,
+    # **1084 -> 1087** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `ripper_health_status`, the ripper's own sentence beside `health_status`.
+    "report_types.py": 1094,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2255,7 +2257,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3509 -> 3516** (2026-10-26, the fork's round 36 lap 10 S12, TASKS R82): the schema-41 note for `disc image` and `disc_read_meaning`.
     # **3516 -> 3539** (2026-11-03, TASKS R64 and R66): the schema-42 history note and `build_outcome`'s `securing_pass_exit_codes`; the pair is built by `securing_exit.py`.
     # **3539 -> 3560** (2026-11-03, TASKS R62, who cancelled a rip): the schema-42 note for `outcome.cancelled_by`, `build_outcome`'s parameter and docstring, and the `rip_cancelled` issue naming who; the words are `cancel_cause.py`'s.
-    "rip_report.py": 3560,
+    # **3516 -> 3538** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: the v42 note, `health_status` asked with the placement, and `ripper_health_status`.
+    "rip_report.py": 3583,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2529,7 +2532,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **618 -> 633** the 2026-10-21 known-fixes item 3: `fidelity_summary` reads health through `rip_health` and names an error line the ripper's zero count leaves out.
     # **-> 644** (2026-10-21): the entries above landed together on one branch.
     # **644 -> 652** (2026-10-26, `.27`, round 36 lap 7 S6): the status line names the files the ripper says are not written whole, by `written_whole.status_clause`.
-    "ui/main_window_helpers.py": 652,
+    # **652 -> 653** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `fidelity_summary` takes the placement.
+    "ui/main_window_helpers.py": 653,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2674,7 +2678,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5127 -> 5160** (2026-10-26, TASKS R88, the owner's interim): `_rip_naming_for`, the snapshot the track table checks names against at Start, built from the same `_rip_metadata_for` the rip is handed; `_only_tracks_for_rip` is the selection both now read.
     # **5160 -> 5178** (2026-10-27, external review item 3.2): the GUI-thread check in `run_unknown_post_processing` is a raise of `OffGuiThreadWidgetRead` instead of an `assert` that `python -O` strips; the exception class sits beside the one method that raises it, with the reason it is not an assert.
     # **5178 -> 5203** (2026-11-03, TASKS R62, who cancelled a rip): `_on_rip_cancel(cause)` records and logs who, a hand-pressed Force stop is the user, the outcome and the EAC-layout log are told, and the bundle's facts say who; the words are `cancel_cause.py`'s.
-    "ui/main_window_rip.py": 5203,
+    # **5178 -> 5200** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_replaced_reads_of`, handed to the status line and the EAC-layout log.
+    "ui/main_window_rip.py": 5225,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

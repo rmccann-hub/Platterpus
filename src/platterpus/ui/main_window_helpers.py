@@ -24,10 +24,10 @@ from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.replaced_read_errors import ErrorsInReplacedReads
 from platterpus.rip_health import (
-    CLEAN_HEALTH,
-    effective_health_status,
     error_lines_contradicting_summary,
+    health_reads_clean,
 )
 from platterpus.verdict import track_has_unverified_skips
 
@@ -453,6 +453,7 @@ def fidelity_summary(
     *,
     expected_track_total: int | None = None,
     cancelled: bool = False,
+    replaced_reads: ErrorsInReplacedReads | None = None,
 ) -> str:
     """One-line rip-quality verdict for the status label.
 
@@ -526,9 +527,9 @@ def fidelity_summary(
             if getattr(t, "status", "") == "ripped successfully" and t not in skipped
         )
         # Health by the one function the report also asks (`rip_health`), so an
-        # error line the ripper printed under its own "Ripping errors: 0" cannot
-        # read clean here while the report says otherwise.
-        no_errors = effective_health_status(rip_log) == CLEAN_HEALTH
+        # error line under "Ripping errors: 0", or errors only in a replaced read
+        # (TASKS R59), cannot read one way here and another in the report.
+        no_errors = health_reads_clean(rip_log, replaced_reads)
         contradicting = error_lines_contradicting_summary(rip_log)
         if clean == total and no_errors:
             summary = lead(f"all {total} tracks ripped cleanly, no read errors.")

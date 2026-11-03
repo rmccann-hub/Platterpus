@@ -68,6 +68,7 @@ from platterpus.parsers.rip_log import (
     accuraterip_is_match,
 )
 from platterpus.pregap_search import describe as describe_pregap_search
+from platterpus.replaced_read_errors import ErrorsInReplacedReads, count_line
 from platterpus.report_types import SecureReripBlock
 from platterpus.reread_limit import stopped_by_time_limit
 from platterpus.rip_health import CLEAN_HEALTH
@@ -313,6 +314,7 @@ def render_eac_style_log(
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
     cancelled_by: str = "",
+    replaced_reads: ErrorsInReplacedReads | None = None,
 ) -> str:
     """The rendered log text; see :func:`render_eac_style_log_and_defused`."""
     text, _defused = render_eac_style_log_and_defused(
@@ -324,6 +326,7 @@ def render_eac_style_log(
         disc_track_total=disc_track_total,
         secure_rerip=secure_rerip,
         cancelled_by=cancelled_by,
+        replaced_reads=replaced_reads,
     )
     return text
 
@@ -338,6 +341,7 @@ def render_eac_style_log_and_defused(
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
     cancelled_by: str = "",
+    replaced_reads: ErrorsInReplacedReads | None = None,
 ) -> tuple[str, list[str]]:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``,
     and the lines rewritten so metadata could not forge a signature (D16).
@@ -357,6 +361,8 @@ def render_eac_style_log_and_defused(
       was closed mid-pass) is a fact the JSON report carried and the durable log
       did not, so the archival artifact was the more reassuring of the two —
       the exact asymmetry this module exists to prevent (audit, 2026-07-28).
+    * ``replaced_reads`` — where the album pass's counted errors were
+      (:mod:`platterpus.replaced_read_errors`), for the disc-level health line.
 
     The honesty gate still holds: any value not supplied is **omitted, never
     invented**, the cyanrip source line is left exactly as parsed, and EAC's own
@@ -379,6 +385,7 @@ def render_eac_style_log_and_defused(
             disc_track_total=disc_track_total,
             secure_rerip=secure_rerip,
             cancelled_by=cancelled_by,
+            replaced_reads=replaced_reads,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -399,6 +406,7 @@ def _render(
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
     cancelled_by: str = "",
+    replaced_reads: ErrorsInReplacedReads | None = None,
 ) -> tuple[str, list[str]]:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -580,6 +588,7 @@ def _render(
             + _interrupted_securing_line(secure_rerip, outcome_status, cancelled_by)
             + _verified_reread_line(secure_rerip),
             disc_track_total=disc_track_total,
+            replaced_reads=replaced_reads,
         )
     )
     lines.append("")
@@ -1148,6 +1157,7 @@ def _status_report(
     extra: list[str] | None = None,
     *,
     disc_track_total: int | None = None,
+    replaced_reads: ErrorsInReplacedReads | None = None,
 ) -> list[str]:
     """EAC's end-of-rip status report, in EAC's own wording and order.
 
@@ -1269,7 +1279,7 @@ def _status_report(
     # counts read errors, and a track can read the same wrong audio four times
     # with none (the Police disc's track 3, 2026-10-21). See `_health_lines`.
     if rip_log.health_status:
-        out.extend(_health_lines(rip_log))
+        out.extend(_health_lines(rip_log, replaced_reads))
         out.append("")
     # THE RIPPER'S OWN COMPLETION RECORD, which this document used to discard.
     #
@@ -1330,8 +1340,10 @@ def _status_report(
     return out
 
 
-def _health_lines(rip_log: RipLog) -> list[str]:
-    """The disc-level health sentence: the ripper's, unless AccurateRip contradicts a track.
+def _health_lines(
+    rip_log: RipLog, replaced_reads: ErrorsInReplacedReads | None = None
+) -> list[str]:
+    """The disc-level health sentence: the ripper's, unless the reads kept say otherwise.
 
     The ripper's sentence verbatim when it already reads not clean, or when no
     track is contradicted. Otherwise EAC's :data:`DISC_HAD_ERRORS` and one line
@@ -1339,6 +1351,10 @@ def _health_lines(rip_log: RipLog) -> list[str]:
     ripper said is dropped: ``Ripper's own count  : Ripping errors: 0 — not
     counted: track(s) 3, 5, which AccurateRip contradicts``. The count is
     quoted as the ripper printed it when the parser read one, else its sentence.
+
+    When every counted error was in a read the album replaced (TASKS R59,
+    ``replaced_reads``), the sentence is about the reads kept and the line of
+    ours says where the count was (:func:`replaced_read_errors.count_line`).
     """
     health = rip_log.health_status
     contradicted = [
@@ -1346,6 +1362,9 @@ def _health_lines(rip_log: RipLog) -> list[str]:
         for track in rip_log.tracks
         if track_accuraterip_contradiction(track) is not None
     ]
+    line = count_line(rip_log, replaced_reads, _listed_tracks(contradicted))
+    if line:
+        return [DISC_HAD_ERRORS if contradicted else CLEAN_HEALTH, line]
     if health != CLEAN_HEALTH or not contradicted:
         return [health]
     count = rip_log.ripping_errors

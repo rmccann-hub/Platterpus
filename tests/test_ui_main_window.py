@@ -1626,6 +1626,74 @@ def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
     assert "⚠ Platterpus recorded the rip as finished" in fidelity[-1], fidelity
 
 
+def test_a_replaced_reads_errors_are_placed_on_every_surface_the_finish_writes(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """TASKS R59 (b), through the finish handler: run C's shape (2 skips in track
+    2's first read, replaced by a chase read AccurateRip verified that printed
+    none). The status line, the EAC-layout log and the report each state the
+    reads kept, and the two that have room say what the replaced read had.
+
+    All three call sites are driven here: a placement computed but not handed to
+    one of them leaves that surface on the ripper's "2 ripping errors"."""
+    from types import SimpleNamespace
+
+    from test_replaced_read_errors import _error_positions, _retried, _rip_log
+
+    import platterpus.ui.main_window_rip as main_window_rip
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            write_eac_log_after_rip=True,
+        )
+    )
+    from platterpus.read_speed_ladder import SpeedAttempt
+
+    # Every pass a real worker runs appends a SpeedAttempt (`rip_worker`), and
+    # the report's `read_speed` block, which carries `retried_tracks`, is None
+    # without one: a stand-in with none would test a report no rip writes.
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False,
+        failure_hint="",
+        retried_tracks=_retried(),
+        speed_attempts=[SpeedAttempt(1, 0, 0, clean=False)],
+    )
+    # The worker's `-j` reading, as `disc.error_positions` records it.
+    monkeypatch.setattr(
+        main_window_rip, "error_positions_block", lambda _reading: _error_positions()
+    )
+    rip_log = _rip_log()
+    monkeypatch.setattr(window, "parse_rip_log_from_disk", lambda _path: rip_log)
+    window._active_rip_params = None
+    window._rip_cancelled = False
+    window._auto_retry_done = True
+    statuses: list[str] = []
+    monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+    report_writer.writer().flush()
+
+    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    assert fidelity and "all 2 tracks ripped cleanly, no read errors" in fidelity[-1]
+    eac = (tmp_path / "Album (EAC-compatible).log").read_text(encoding="utf-8")
+    assert (
+        "Ripper's own count  : Ripping errors: 2 — all in the first read of "
+        "track(s) 2, replaced by a read AccurateRip verified"
+    ) in eac
+    report = json.loads((tmp_path / "Album.platterpus.json").read_text("utf-8"))
+    assert report["health_status"].startswith("No errors occurred in the reads kept")
+    assert report["ripper_health_status"] == "2 ripping errors"
+
+
 def test_no_auto_heal_when_not_flagged(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
