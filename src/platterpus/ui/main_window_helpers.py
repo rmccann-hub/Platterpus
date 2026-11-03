@@ -522,6 +522,10 @@ def fidelity_summary(
     # unverified"), so it gives way to the sentence that says WRONG.
     partial = "" if wrong else _partial_accurate_clause(rip_log)
 
+    # Counted in English for a one-track rip (TASKS R113: "all 1 tracks").
+    all_n = f"all {total} tracks" if total > 1 else "1 of 1 track"
+    noun = "tracks" if total > 1 else "track"
+
     def lead(body: str) -> str:
         if cancelled:
             return (
@@ -551,10 +555,10 @@ def fidelity_summary(
         no_errors = health_reads_clean(rip_log, replaced_reads)
         contradicting = error_lines_contradicting_summary(rip_log)
         if clean == total and no_errors:
-            summary = lead(f"all {total} tracks ripped cleanly, no read errors.")
+            summary = lead(f"{all_n} ripped cleanly, no read errors.")
         elif contradicting:
             summary = lead(
-                f"{clean}/{total} tracks ripped, but the ripper printed an error its "
+                f"{clean}/{total} {noun} ripped, but the ripper printed an error its "
                 f"own count of 0 errors leaves out: “{contradicting[0].strip()}”. "
                 "See the Rip log tab." + (f" ⚠ {wrong}." if wrong else "")
             )
@@ -567,19 +571,19 @@ def fidelity_summary(
                 else ""
             )
             summary = lead(
-                f"{clean}/{total} tracks ripped cleanly. ⚠ {wrong}.{also} "
+                f"{clean}/{total} {noun} ripped cleanly. ⚠ {wrong}.{also} "
                 "See the Rip log tab."
             )
         elif skipped:
             listed = ", ".join(str(getattr(t, "number", "?")) for t in skipped)
             summary = lead(
-                f"{clean}/{total} tracks ripped cleanly; on track(s) {listed} the "
+                f"{clean}/{total} {noun} ripped cleanly; on track(s) {listed} the "
                 "ripper could not verify every read and AccurateRip did not confirm "
                 "the audio. See the Rip log tab."
             )
         else:
             summary = lead(
-                f"{clean}/{total} tracks ripped cleanly; "
+                f"{clean}/{total} {noun} ripped cleanly; "
                 # Name the TAB, not "the log". This means the rip's own log, which is
                 # on screen right now behind a button — naming the place beats naming
                 # a file the user would have to go find.
@@ -600,12 +604,12 @@ def fidelity_summary(
         and getattr(t, "test_crc", "") == getattr(t, "copy_crc", "")
     )
     if wrong:
-        summary = lead(f"{verified}/{total} tracks read alike twice. ⚠ {wrong}.")
+        summary = lead(f"{verified}/{total} {noun} read alike twice. ⚠ {wrong}.")
     elif verified == total:
-        summary = lead(f"all {total} tracks read consistently, Test/Copy CRCs match.")
+        summary = lead(f"{all_n} read consistently, Test/Copy CRCs match.")
     else:
         summary = lead(
-            f"{verified}/{total} tracks CRC-verified; see the Rip log tab for the rest."
+            f"{verified}/{total} {noun} CRC-verified; see the Rip log tab for the rest."
         )
     clause = _accuraterip_clause(rip_log)
     if clause is None:  # no per-track AR data → legacy summary-string fallback
@@ -677,5 +681,5 @@ def _accuraterip_clause(rip_log: object) -> str | None:
     if verified == 0:
         return ""
     if verified == total:
-        return f" AccurateRip: all {total} verified."
+        return f" AccurateRip: {'all' if total > 1 else '1 of'} {total} verified."
     return f" AccurateRip: {verified}/{total} verified."

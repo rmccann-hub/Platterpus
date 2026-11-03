@@ -2010,7 +2010,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4551 -> 4618** (2026-10-26, peer review 2.4, TASKS R86): `_TRACK_ECHO_HEADER`, its listing, `_TrackAcc.echo_reached`, `_is_track_verdict_row`, the latch in the block loop and its counted warning, so a value cyanrip echoes (the disc's CD-TEXT) cannot set a track's verdict. It must sit in the block loop it guards; the citations for the print order are the reason it is safe.
     # **4618 -> 4651** (2026-10-29, round 37 lap 1): the loop's state and dispatch for `.28`'s `Pregap searches:` and `Names shortened:` blocks, their two fields and four contract-table rows, and `Speed:`'s `failed` arm; the reading itself lives in `parsers/cyanrip_disc_blocks.py`.
     # **4651 -> 4732** (2026-11-03, TASKS R86): the disc header's echo guards. Each held row's `echo_latch` and the ONCE rows' `clear` in the rule tables (most of the growth is those entries no longer fitting one line), the five clearers beside the `_LineRule` they serve, one check in `_apply_line_rules`, one call in the loop and the clearing after it. They must sit at the dispatch they guard; the state, the order argument and the logging live in `parsers/cyanrip_echo_guard.py`.
-    "parsers/cyanrip_log.py": 4732,
+    # **4732 -> 4736** (2026-11-03, TASKS R113): the health line says "1 ripping error", not "1 ripping errors", with the comment that says why.
+    "parsers/cyanrip_log.py": 4736,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2547,7 +2548,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **644 -> 652** (2026-10-26, `.27`, round 36 lap 7 S6): the status line names the files the ripper says are not written whole, by `written_whole.status_clause`.
     # **652 -> 653** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `fidelity_summary` takes the placement.
     # **653 -> 681** (2026-11-03, TASKS R112, the Full run of that day): `fidelity_summary` asks `verdict.track_accuraterip_contradiction` and counts a contradicted track not clean, with a branch that names it. The sentence is `track_proof.contradicted_tracks_sentence`, shared with the self-check.
-    "ui/main_window_helpers.py": 681,
+    # **681 -> 685** (2026-11-03, TASKS R113): the status line counts a one-track rip in English ("1 of 1 track", "AccurateRip: 1 of 1 verified").
+    "ui/main_window_helpers.py": 685,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix

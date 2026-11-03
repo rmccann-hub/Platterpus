@@ -2113,6 +2113,52 @@ def test_fidelity_summary_no_tracks() -> None:
     assert _fidelity_summary(RipLog(tracks=())) == "Done."
 
 
+def test_a_one_track_rip_is_counted_in_english() -> None:
+    """TASKS R113 (the 2026-11-03 Full run): every one-track rip's status line
+    read "Done — all 1 tracks ripped cleanly, no read errors. AccurateRip: all 1
+    verified.", the offset check "matched 1 of 1 tracks", and a cancelled rip's
+    health line "1 ripping errors". Each now counts one in the singular."""
+    from dataclasses import replace
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+    from platterpus.read_offset_check import _reconfirmation
+
+    verified = AccurateRipResult(
+        version=2, result="accurately ripped", confidence=200, local_crc="AAAA1111"
+    )
+    track = TrackResult(
+        number=1,
+        copy_crc="AAAA1111",
+        status="ripped successfully",
+        accuraterip_v2=verified,
+    )
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.4", tracks=(track,), health_status="No errors occurred"
+    )
+    assert _fidelity_summary(rip_log) == (
+        "Done — 1 of 1 track ripped cleanly, no read errors. AccurateRip: 1 of 1 verified."
+    )
+    two = RipLog(
+        log_creator="cyanrip 0.9.4",
+        tracks=(track, replace(track, number=2)),
+        health_status="No errors occurred",
+    )
+    assert _fidelity_summary(two).startswith(
+        "Done — all 2 tracks ripped cleanly, no read errors. AccurateRip: all 2 verified."
+    )
+    why = _reconfirmation([track])[3]
+    assert "matched 1 of 1 track at this offset" in why, why
+    assert parse_cyanrip_log("Ripping errors: 1\n").health_status == "1 ripping error"
+    assert parse_cyanrip_log("Ripping errors: 2\n").health_status == "2 ripping errors"
+    # The placement of counted errors reads the new spelling and the old one,
+    # which every report written before 2026-11-03 carries.
+    from platterpus.replaced_read_errors import _COUNTED_ERRORS
+
+    for tally in ("1 ripping error", "1 ripping errors"):
+        match = _COUNTED_ERRORS.match(tally)
+        assert match is not None and match.group("count") == "1", tally
+
+
 def test_fidelity_summary_cyanrip_clean_rip() -> None:
     """cyanrip has no test+copy dual read — the verdict is worded around
     its actual checks (paranoia error count + AccurateRip)."""
@@ -2172,7 +2218,7 @@ def test_skips_on_a_track_accuraterip_verified_do_not_count_against_it() -> None
         ),
         health_status="No errors occurred",
     )
-    assert "all 1 tracks ripped cleanly, no read errors" in _fidelity_summary(rip_log)
+    assert "1 of 1 track ripped cleanly, no read errors" in _fidelity_summary(rip_log)
 
 
 def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -> None:
@@ -2185,7 +2231,7 @@ def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -
     summary = _fidelity_summary(rip_log, cancelled=True)
     assert summary.startswith("Rip cancelled after the read finished")
     assert "Done" not in summary
-    assert "All 1 tracks ripped cleanly" in summary
+    assert "stopped. 1 of 1 track ripped cleanly" in summary
     assert _fidelity_summary(rip_log).startswith("Done — ")
 
 

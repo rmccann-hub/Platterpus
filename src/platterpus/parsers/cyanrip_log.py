@@ -2935,7 +2935,11 @@ def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
     # that is the purpose of the fork's change (their round 30 lap 9 S12). Only
     # the ladder subtracts the skips, through `RipLog.drive_read_errors`.
     disc.health_status = (
-        "No errors occurred" if count == 0 else f"{count} ripping errors"
+        "No errors occurred"
+        if count == 0
+        # One error is "1 ripping error" (TASKS R113: the report, the EAC-layout
+        # log and the self-check all printed "1 ripping errors").
+        else f"{count} ripping error{'' if count == 1 else 's'}"
     )
     return True
 
