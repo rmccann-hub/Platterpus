@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-03; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S11, on S9: round 37 closes on the Full run on `.28` through our first release that names it, and `.28` is built and not published.
 HANDSHAKE-PEER-VERDICT: OPEN
