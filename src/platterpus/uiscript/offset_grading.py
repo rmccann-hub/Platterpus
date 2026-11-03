@@ -47,6 +47,18 @@ def drive_in_offset_list(window: object) -> tuple[str, int | None]:
     return label, database.lookup(drive.vendor, drive.model)
 
 
+def selected_device(window: object) -> str | None:
+    """The selected drive's device path, the one the app's rips pass as ``-d``.
+
+    ``None`` with no drive selected (or a placeholder row, which carries none).
+    Read from the same picker :func:`drive_in_offset_list` reads, so the
+    ``(device)`` placeholder and ``set-drive-offset`` name one drive.
+    """
+    picker = getattr(window, "_drive_picker", None)
+    device = picker.current_device() if picker is not None else None
+    return device if isinstance(device, str) and device else None
+
+
 def unreachable_detail(label: str, listed: int) -> str:
     """Why the refusal cannot be reached on this drive. Pure; the step's record.
 

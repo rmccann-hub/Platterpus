@@ -48,7 +48,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 
 | Flag | Meaning | When Platterpus passes it |
 |------|---------|---------------------------|
-| `-d <dev>` | drive device | always, when a device is known |
+| `-d <dev>` | drive device | always, when a device is known; a script's `cyanrip` step sends it as `-d (device)`, the selected drive, and is refused when none is selected |
 | `-s <int>` | read offset (samples, signed) | when `override_read_offset` is on (cyanrip has no config file — it needs the offset every run) |
 | `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
 | `-r <int>` | **two limits in one flag**: libcdio-paranoia's per-frame retries (rounded up to a multiple of 5 by the fork's `crip_frame_retry_limit()`) **and** the ceiling on whole-track reads in a `-Z` secure re-read, which keeps the value as given (`cyanrip@faec4a8:src/cyanrip_main.c:1010`) | when `max_retries > 0`. For 0 **no `-r` is sent** and cyanrip applies its own default of **10** (`cyanrip@faec4a8:src/cyanrip_main.c:1593`), not zero — `cyanrip_cli.retries_flag_value` is that mapping, and everything that predicts the argv's `-r` calls it |

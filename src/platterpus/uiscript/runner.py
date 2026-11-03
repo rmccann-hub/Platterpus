@@ -57,7 +57,7 @@ from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
 from platterpus.uiscript.install_verbs import InstallVerbsMixin
-from platterpus.uiscript.offset_grading import drive_in_offset_list
+from platterpus.uiscript.offset_grading import drive_in_offset_list, selected_device
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
 from platterpus.uiscript.pregap_verbs import PregapVerbsMixin
@@ -72,10 +72,13 @@ from platterpus.uiscript.report import (
 )
 from platterpus.uiscript.scan_verbs import ScanVerbsMixin, superseded_picker
 from platterpus.uiscript.script import (
+    DEVICE_PLACEHOLDER,
     LAST_TRACK_PLACEHOLDER,
     OFFSET_PLACEHOLDER,
     Step,
     args_as_preflight_sees_them,
+    device_problem,
+    expand_device,
     expand_identity,
     expand_last_track,
     expand_offset,
@@ -1796,6 +1799,18 @@ class ScriptRunner(
                 )
                 return
             args = expand_offset(args, self._drive_offset)
+        # `(device)` is the selected drive, the one the app's rips pass as `-d`.
+        if any(DEVICE_PLACEHOLDER in arg for arg in args):
+            device = selected_device(self._window) or ""
+            problem = device_problem(device) if device else "no drive is selected"
+            if problem:
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"{DEVICE_PLACEHOLDER} could not be expanded: {problem}",
+                )
+                return
+            args = expand_device(args, device)
         # `(lasttrack)` is the loaded disc's last track number, from the track
         # table the rip steps read; with no disc loaded there is nothing to name.
         if any(LAST_TRACK_PLACEHOLDER in arg for arg in args):

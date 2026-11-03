@@ -1304,6 +1304,11 @@ rig-check
 # searches them for AccurateRip's checksum, and rips nothing
 # (`cyanrip@174a134:src/cyanrip_main.c:594-692`).
 #
+# `-d (device)` IN O, P, P2 AND P3: the drive the window has selected, the one
+# `set-drive-offset` read the offset for and the app's own rips pass as `-d`.
+# Without it cyanrip opens its default drive, which on a machine with two drives
+# need not be that one. With no drive selected the step is refused, not guessed.
+#
 # NO `-s`, AND THAT IS RIGHT, not the refusal section P2 provokes: `-f` sets the
 # offset to 0 itself and is exempt from the unset-offset refusal (lines 2089-2096
 # and 2115-2116). `-N` for the sanitiser, as everywhere.
@@ -1316,7 +1321,7 @@ rig-check
 # never confirmed.
 log --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
 run-size standard
-cyanrip -N -f
+cyanrip -N -d (device) -f
 expect-exit 0
 expect-found-offset
 
@@ -1374,7 +1379,7 @@ expect-found-offset
 # folder, so the figure travels with the text it was read from.
 log --- P. T3: the fork's cache probe, probe-only ---
 run-size standard
-cyanrip -N --cache-probe -I
+cyanrip -N -d (device) --cache-probe -I
 expect-exit 0
 expect-cyanrip Cache probe
 cache-probe
@@ -1429,7 +1434,7 @@ snapshot aftercacheprobe
 
 log --- P2. C1: does a no-offset refusal hang the drive? ---
 run-size standard
-cyanrip -N -l 1
+cyanrip -N -d (device) -l 1
 expect-exit refused
 expect-cyanrip Offset is unset
 snapshot afterc1
@@ -1560,13 +1565,13 @@ snapshot afterc1
 
 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
+cyanrip -N -d (device) -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphon
 
 log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
+cyanrip -N -d (device) -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
 
