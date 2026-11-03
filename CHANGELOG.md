@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Settings says exactly what a WAV file keeps and loses.** It used to say WAV "can't store tags or cover art", which was wrong: our WAV files keep the title, artist, album, track number, year and genre. What they lose is the album artist, the disc number, the MusicBrainz IDs, any other tags and the cover art, and the warning, the format's name in the list, its tooltip, the help and the README now say so. Checked against a WAV our own transcode writes (ffmpeg 6.1.1).
 - **After a rip, the results table under the progress bars opens showing about four tracks instead of one or two.** The window now gives the lower half of its height to the rip pane (half, up from 40%) and 30% to the track list above it, so the status line, the verdict banner and the tabs no longer squeeze the Tracks table to a row and a half. On a small screen the track list still opens on at least four rows. The dividers drag as before. Measured offscreen at the default 1000×860 after a rip: Tracks table 2 → 4 whole rows, track list 6 → 4.
 - **Our standing status says 0.7.118 is published** (contributor-facing): released 2026-11-03 from `deae5871` (release run 41654326078, and PyPI), naming `.28` as the build under review with `.27` the default; the next run is our owner's Full run on it.
 

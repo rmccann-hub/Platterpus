@@ -395,7 +395,7 @@ class Config:
     # --- Output format (Settings → Output format) ---
     # Which audio format the rip delivers. "flac" (default, the lossless
     # archival master) | "wavpack" (.wv, lossless, with tags) | "mp3" (lossy,
-    # best-practice VBR, with tags + cover) | "wav" (raw PCM, no tags/art).
+    # best-practice VBR, with tags + cover) | "wav" (raw PCM, basic tags only, no art).
     # cyanrip always rips to FLAC; for a non-FLAC choice the GUI keeps that
     # FLAC as the master and derives the chosen format with a post-rip ffmpeg
     # transcode (adapters/transcode.py). Design of record:

@@ -657,7 +657,8 @@ ffmpeg, so the front cover is force-saved to the album folder as `cover.<ext>`.
 2. Settings → **Output format → WavPack** → Save. Re-rip the same disc. Repeat for
    **MP3** and **WAV**. (Each rip re-creates the FLAC + the chosen sibling; watch
    the rip log for `Transcode: N file(s) written.`) When you pick **WAV**, confirm
-   the dialog shows the **⚠ "WAV can't store tags or cover art…"** warning, and
+   the dialog shows the **⚠ "WAV keeps only basic tags: title, artist, album, track
+   number, year and genre…"** warning, and
    that it is **hidden** for FLAC/WavPack/MP3.
 
 **Verify**
@@ -678,7 +679,10 @@ ffmpeg, so the front cover is force-saved to the album folder as `cover.<ext>`.
    - **MP3:** ID3 tags **and** an embedded cover —
      `ffprobe -hide_banner "$D"/01*.mp3 2>&1 | grep -iE "title|artist|album|Video:"`
      (a `Video:` stream == the APIC cover).
-   - **WAV:** no tags/art expected (RIFF) — confirms the warning was honest.
+   - **WAV:** only title, artist, album, track number, year and genre in the RIFF
+     INFO chunk, no album artist, no cover —
+     `ffprobe -hide_banner "$D"/01*.wav 2>&1 | grep -iE "title|artist|album|track|date|genre"`
+     — confirms the warning was honest.
 6. **Best-practice MP3:** the encode is VBR `-V0` (≈245 kbps). `ffprobe` should
    report a VBR-ish bitrate well above 128k; it's lossy by design (not bit-compared).
 
@@ -915,4 +919,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.118.*

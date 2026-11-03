@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
+import pytest
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
@@ -419,6 +422,123 @@ def test_wav_warning_only_visible_for_wav(qapp: QApplication) -> None:
     dialog = SettingsDialog(Config())
     dialog._format_combo.setCurrentIndex(dialog._format_combo.findData("wav"))
     assert dialog._wav_warning_label.isVisibleTo(dialog) is True
+
+
+def test_the_wav_warning_says_what_a_wav_keeps_and_what_it_loses(
+    qapp: QApplication,
+) -> None:
+    """THE REGRESSION (TASKS R122, C4's note): it said WAV "can't store tags".
+
+    Measured with ffmpeg 6.1: our WAV holds title, artist, album and track
+    number (and year and genre) in its RIFF INFO chunk. A warning that says
+    "no tags" is wrong in the direction that makes the user throw away a
+    format that works for them; this one names what is kept and what is lost.
+    """
+    from platterpus.ui.settings_dialog import WAV_KEPT_TAGS
+
+    dialog = SettingsDialog(Config(output_format="wav"))
+    warning = dialog._wav_warning_label.text()
+    assert WAV_KEPT_TAGS in warning, warning
+    for lost in ("Album artist", "cover art", "lost"):
+        assert lost in warning, f"the warning does not say {lost!r} is lost"
+    assert "can't store tags" not in warning
+    wav_label = dialog._format_combo.itemText(dialog._format_combo.findData("wav"))
+    assert "No Tags" not in wav_label and "Basic Tags" in wav_label, wav_label
+    assert "can't store tags" not in dialog._format_combo.toolTip()
+
+
+#: RIFF INFO field -> the word `WAV_KEPT_TAGS` uses for it. ISFT is ffmpeg's own
+#: "encoded by" field, not a tag of ours, so it is set aside, not counted.
+_INFO_WORDS: dict[bytes, str] = {
+    b"INAM": "title",
+    b"IART": "artist",
+    b"IPRD": "album",
+    b"IPRT": "track number",
+    b"ITRK": "track number",
+    b"ICRD": "year",
+    b"IGNR": "genre",
+}
+
+
+def _riff_info(path: Path) -> dict[bytes, bytes]:
+    """Every field of a WAV's LIST/INFO chunk, read straight off the bytes."""
+    import struct
+
+    data = path.read_bytes()
+    assert data[:4] == b"RIFF" and data[8:12] == b"WAVE", "not a WAV"
+    fields: dict[bytes, bytes] = {}
+    at = 12
+    while at + 8 <= len(data):
+        cid, size = data[at : at + 4], struct.unpack("<I", data[at + 4 : at + 8])[0]
+        body = data[at + 8 : at + 8 + size]
+        if cid == b"LIST" and body[:4] == b"INFO":
+            sub = 4
+            while sub + 8 <= len(body):
+                key = body[sub : sub + 4]
+                length = struct.unpack("<I", body[sub + 4 : sub + 8])[0]
+                fields[key] = body[sub + 8 : sub + 8 + length].rstrip(b"\0")
+                sub += 8 + length + (length & 1)
+        at += 8 + size + (size & 1)
+    return fields
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg")
+def test_the_wav_kept_tags_are_what_our_own_transcode_writes(tmp_path: Path) -> None:
+    """The wording, checked against the artifact, not against a belief about it.
+
+    A generated tone (Critical rule #8) tagged the way our masters are, with a
+    cover, through `transcode_files` itself, so the argv is the one a rip uses.
+    """
+    from platterpus.adapters.transcode import transcode_files
+    from platterpus.derived_metadata import read_derived_metadata
+    from platterpus.ui.settings_dialog import WAV_KEPT_TAGS
+
+    cover = tmp_path / "cover.png"
+    subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+         "color=c=red:s=32x32:d=1", "-frames:v", "1", str(cover)],
+        check=True, timeout=60,
+    )  # fmt: skip
+    tags = {
+        "TITLE": "Ti", "ARTIST": "Ar", "ALBUM": "Al", "ALBUMARTIST": "AlbumArtist",
+        "TRACKNUMBER": "3", "DATE": "1995", "GENRE": "Rock", "DISCNUMBER": "2",
+        "TOTALDISCS": "3", "MUSICBRAINZ_ALBUMID": "mbid-album-x",
+    }  # fmt: skip
+    master = tmp_path / "01.flac"
+    subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+         "sine=frequency=440:duration=1", "-i", str(cover), "-map", "0:a",
+         "-map", "1:v", "-ac", "2", "-ar", "44100", "-c:a", "flac", "-c:v", "png",
+         "-disposition:v", "attached_pic",
+         *[arg for k, v in tags.items() for arg in ("-metadata", f"{k}={v}")],
+         str(master)],
+        check=True, timeout=60,
+    )  # fmt: skip
+    result = transcode_files([master], fmt="wav")
+    assert result.transcoded == 1 and not result.error, result
+    info = _riff_info(master.with_suffix(".wav"))
+    # FLOOR: the WAV really has an INFO chunk, so an empty one cannot pass.
+    assert len(info) >= 4, f"no INFO chunk to check: {info}"
+    unknown = set(info) - set(_INFO_WORDS) - {b"ISFT"}
+    assert not unknown, f"the WAV holds fields the warning does not name: {unknown}"
+    kept = {_INFO_WORDS[key] for key in info if key in _INFO_WORDS}
+    claimed = set(WAV_KEPT_TAGS.replace(" and ", ", ").split(", "))
+    assert kept == claimed, (
+        f"the WAV keeps {sorted(kept)}; the warning names {sorted(claimed)}"
+    )
+    # And what the warning says is lost really is lost.
+    held = b"\n".join(info.values())
+    for lost in (b"AlbumArtist", b"mbid-album-x"):
+        assert lost not in held, f"{lost!r} survived into the WAV"
+    assert info.get(b"IPRT") == b"3", "the track number did not survive"
+    # The master carries a cover (the floor: ffmpeg's own stream count says so);
+    # the WAV holds none.
+    streams = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-i", str(master)],
+        capture_output=True, text=True, timeout=60, check=False,
+    ).stderr  # fmt: skip
+    assert "attached pic" in streams, "the master under test carries no cover"
+    assert read_derived_metadata(master.with_suffix(".wav")).pictures == 0
 
 
 def test_to_config_preserves_one_time_prompt_flags(qapp: QApplication) -> None:

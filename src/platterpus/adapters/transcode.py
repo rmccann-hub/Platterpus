@@ -30,9 +30,11 @@ docs/archive/mp3-wav-support-2026-06.md §3):
     folder as ``cover.<ext>`` via the cover-art step (the universal image
     guarantee). Embedding art *inside* the ``.wv`` needs the standalone
     ``wavpack`` tool (APEv2 binary tag) — a documented future enhancement.
-  * **WAV** — 16-bit LE PCM (CD format). RIFF carries **no** rich tags or cover
-    art; the GUI warns about that separately (WavPack is the lossless-with-tags
-    answer instead).
+  * **WAV** — 16-bit LE PCM (CD format). ffmpeg copies the master's tags by
+    default, but RIFF's INFO chunk holds only title, artist, album, track number,
+    year and genre: album artist, disc number, the MusicBrainz IDs and the cover
+    art are lost. The GUI warns about that separately (WavPack is the
+    lossless-with-tags answer instead).
 
 Each file is encoded to a sibling temp and then **atomically renamed in**, so a
 failure (or a crash) never leaves a half-written output. Best-effort; **never
@@ -224,7 +226,9 @@ def _build_argv(
         ]
     # WAV: 16-bit LE PCM (CD format). `-map 0:a` = audio only — explicitly
     # excludes any embedded cover (RIFF can't carry it), so a FLAC with art
-    # transcodes cleanly. RIFF carries no tags either, so none mapped.
+    # transcodes cleanly. No `-map_metadata`, but ffmpeg copies the global tags
+    # by default, and the RIFF INFO chunk keeps the ones it has a field for:
+    # title, artist, album, track number, year, genre (measured, ffmpeg 6.1.1).
     return base + ["-map", "0:a", "-c:a", "pcm_s16le", "-f", "wav", str(tmp)]
 
 

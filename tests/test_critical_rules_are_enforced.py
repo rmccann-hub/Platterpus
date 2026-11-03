@@ -1282,7 +1282,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/ripper_log_verify.py": 473,
     # **305 -> 324** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): the encode drops the FLAC's loudness tags and `transcode_files` hands every written MP3 to `mp3_replaygain.apply`, with whether the set is the whole album; `TranscodeResult.replaygain` records the outcome. The measuring and retagging live in `mp3_replaygain`; only the hand-off is here.
     # **324 -> 333** (2026-11-03, review C4 of the 0.7.117 Full run): `TranscodeResult.encoder_argv`, the argv the first file that encoded ran with, so the MP3 quality that reached ffmpeg is on the record. Where the argv is built and run, so it lives here.
-    "adapters/transcode.py": 333,
+    # **333 -> 337** (2026-11-03, the WAV warning): the WAV docstring and argv comment say what ffmpeg copies into the RIFF INFO chunk, where they said nothing is copied.
+    "adapters/transcode.py": 337,
     # **new at 345** (2026-10-21): `adapters/mp3_replaygain.py` does one job, the ReplayGain of a derived MP3: drop the FLAC's figures, measure the MP3 with ebur128, write the figures in cyanrip's format. Over the heuristic by its docstring, which records why each choice was made (cyanrip's formulae, the 0.1 dB resolution, why no R128 tags, why a failure leaves a file untagged).
     "adapters/mp3_replaygain.py": 345,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
@@ -1928,7 +1929,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **661 -> 664** the 2026-10-21 known-fixes item 12: the amber banner's help says a disc with some matches is in AccurateRip and names the tracks that differ.
     # **661 -> 664** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 667** (2026-10-21): items 3+12 and R43 each added 3 lines of help text; both landed on one branch.
-    "help_content.py": 667,
+    # **667 -> 668** (2026-11-03, the WAV warning): the Output format help says WAV keeps basic tags only, naming them, where it said WAV has none.
+    "help_content.py": 668,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2831,7 +2833,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1373 -> 1390** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC` checkbox, its tooltip and save key.
     # **1390 -> 1412** (2026-10-20, the owner's word "yes, read twice by default"): the second-read checkbox and its tooltip, which says what turning it off gives up.
     # **1412 -> 1415** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
-    "ui/settings_dialog.py": 1415,
+    # **1415 -> 1427** (2026-11-03, the WAV warning): the WAV warning says what a WAV keeps and loses (title, artist, album, track number, year and genre kept; album artist, disc number, the MusicBrainz IDs and cover lost), from `WAV_KEPT_TAGS`, the measured list a test checks against our own transcode's output, built from that value, so it states PlainText.
+    "ui/settings_dialog.py": 1427,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
