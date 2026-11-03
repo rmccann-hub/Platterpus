@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 37 lap 5 is released, on the owner's word of 2026-11-03** (contributor-facing): it tells the fork 0.7.117 names `.28` as our build under review, and that our lap 4 crossed theirs and already answers it. The status block and the sent-lap pin follow.
 - **The status block names 0.7.117 as released** (contributor-facing), published 2026-11-03 from `104c82d2` (release run 41563982544), and our round 37 lap 5 is written and held: it tells the fork 0.7.117 names `.28`, and that our lap 4 crossed theirs.
 
 ### Fixed
