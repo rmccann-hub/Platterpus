@@ -112,8 +112,8 @@ text is taken verbatim as one value.
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
 | `install-ripper` | 1 | ready | install-ripper <commit|(pin)|(under-review)|(fork-pin)> — build and install that cyanrip fork build with the step engine --install-ripper uses, then read the host export's banner back; only a build our record knows (a numbered fork release, the approved pin, the build under review). (pin) is the build section A accepts |
 | `skip-if-same-build` | 2 | ready | skip-if-same-build <A> <B> — when A and B (as install-ripper reads them) name one build, say 'nothing to compare' (info) and mark the rest of this section N/A instead of running it |
-| `record-timing` | 1 | ready | record-timing <label> — record the last rip's per-track Elapsed: seconds and the build its log names, under <label> (info; an untimed track or an unnamed build is an error, not determined) |
-| `compare-timings` | 2–4 | ready | compare-timings <base> <candidate> [<base2> <candidate2>] — the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05 (info, a measurement; refused as not determined when the tracks, the read counts or the builds do not allow it) |
+| `record-timing` | 1 | ready | record-timing <label> — record the last rip's per-track Elapsed: seconds, AccurateRip results and log-named build, under <label> (info; an untimed track or an unnamed build is an error, not determined) |
+| `compare-timings` | 2–4 | ready | compare-timings <base> <candidate> [<base2> <candidate2>] — the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05; names each timed read AccurateRip did not verify (info, a measurement; not determined when the tracks, read counts or builds do not allow it) |
 | `record-accuracy` | 1 | ready | record-accuracy <label> — record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32 and extraction speed, and the build its log names, under <label> (info; a log naming no build is an error, not determined) |
 | `compare-accuracy` | 2–16 | ready | compare-accuracy <label> <label>… — per build and per track, right in N of M rips, with the distinct CRC32s each build read (info, a measurement; refused as not determined when a log names no build, the tracks differ, only one build is named, or AccurateRip gave no answer) |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
@@ -909,7 +909,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "record-timing <label> \u2014 record the last rip's per-track Elapsed: seconds and the build its log names, under <label> (info; an untimed track or an unnamed build is an error, not determined)"
+      "help": "record-timing <label> \u2014 record the last rip's per-track Elapsed: seconds, AccurateRip results and log-named build, under <label> (info; an untimed track or an unnamed build is an error, not determined)"
     },
     {
       "name": "compare-timings",
@@ -917,7 +917,7 @@ found nothing wrong*.
       "max_args": 4,
       "takes_paths": false,
       "implemented": true,
-      "help": "compare-timings <base> <candidate> [<base2> <candidate2>] \u2014 the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05 (info, a measurement; refused as not determined when the tracks, the read counts or the builds do not allow it)"
+      "help": "compare-timings <base> <candidate> [<base2> <candidate2>] \u2014 the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05; names each timed read AccurateRip did not verify (info, a measurement; not determined when the tracks, read counts or builds do not allow it)"
     },
     {
       "name": "record-accuracy",

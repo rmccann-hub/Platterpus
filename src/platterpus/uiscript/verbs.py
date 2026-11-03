@@ -896,8 +896,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         1,
         "record-timing <label> — record the last rip's per-track Elapsed: "
-        "seconds and the build its log names, under <label> (info; an "
-        "untimed track or an unnamed build is an error, not determined)",
+        "seconds, AccurateRip results and log-named build, under <label> (info; "
+        "an untimed track or an unnamed build is an error, not determined)",
     ),
     Verb(
         "compare-timings",
@@ -905,9 +905,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         4,
         "compare-timings <base> <candidate> [<base2> <candidate2>] — the "
         "ratio of candidate's summed Elapsed: to base's over the same tracks; "
-        "with four labels, both ratios and whether they agree within 0.05 "
-        "(info, a measurement; refused as not determined when the tracks, the "
-        "read counts or the builds do not allow it)",
+        "with four labels, both ratios and whether they agree within 0.05; "
+        "names each timed read AccurateRip did not verify (info, a measurement; "
+        "not determined when the tracks, read counts or builds do not allow it)",
     ),
     # --- Paired rips: does the build decide a track's accuracy? (P6) ----------
     # The owner's word of 2026-10-26; `accuracy_verbs.py`, section P6.
