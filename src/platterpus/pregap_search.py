@@ -46,7 +46,7 @@ from dataclasses import dataclass
 from typing import Final, TypedDict
 
 from platterpus import diagnostics, inbound_text
-from platterpus.safe_int import int_or_none
+from platterpus.safe_int import int_or_none, present_int_or_none
 
 #: The line's value exactly as the fork's source prints it
 #: (``cyanrip@b2ffd42:src/cyanrip_log.c:483-487``): five ``%i`` counts, a ``%+i``
@@ -164,10 +164,12 @@ def read_search(value: object) -> PregapSearch:
         if number is None:  # unreachable with the bounded pattern; kept honest
             return PregapSearch(unrecognised=_kept(text))
         numbers[name] = number
-    undecided_from = int_or_none(
+    # The `LSN … to … undecided` clause is optional, so its groups are None when
+    # the line has none: absent, not unusable, and silent (TASKS R116).
+    undecided_from = present_int_or_none(
         match.group("undecided_from"), field="Pregap search undecided from"
     )
-    undecided_to = int_or_none(
+    undecided_to = present_int_or_none(
         match.group("undecided_to"), field="Pregap search undecided to"
     )
     return PregapSearch(
