@@ -7038,7 +7038,7 @@ def test_run_dependency_check_async_probes_off_thread_and_applies(
     applied: list[bool] = []
     applied_on_main_thread: list[bool] = []
 
-    def fake_apply(_mgr, _report, show_summary: bool) -> None:
+    def fake_apply(_mgr, _report, show_summary: bool, **_k: object) -> None:
         applied.append(show_summary)
         applied_on_main_thread.append(
             threading.current_thread() is threading.main_thread()
@@ -13520,7 +13520,7 @@ def test_a_dependency_report_waits_for_the_floor_instead_of_stacking(
     from PySide6.QtCore import QTimer
 
     monkeypatch.setattr(
-        QTimer, "singleShot", staticmethod(lambda ms, _cb: deferred.append(ms))
+        QTimer, "singleShot", staticmethod(lambda ms, *_cb: deferred.append(ms))
     )
 
     required = SimpleNamespace(spec=SimpleNamespace(optional=False))
@@ -13534,11 +13534,13 @@ def test_a_dependency_report_waits_for_the_floor_instead_of_stacking(
 def test_a_deferred_dependency_report_gives_up_loudly_not_forever(
     teardown_threads, monkeypatch, caplog
 ) -> None:
-    """The bound, and that it says so.
+    """The bound, and that it says so — for a report that only summarises.
 
-    Without it a modal the user never closes leaves a timer firing for the life
-    of the process. Giving up is correct; giving up *silently* would be the
-    no-op-failure shape this project forbids, so the log line is the assertion.
+    A summary the user asked for that surfaces minutes later is attached to
+    nothing they are doing. Giving up is correct; giving up *silently* would be
+    the no-op-failure shape this project forbids, so the log line is the
+    assertion. A report with a missing REQUIRED tool has no bound since TASKS
+    R96: the test below.
     """
     import logging as _logging
 
@@ -13551,19 +13553,62 @@ def test_a_deferred_dependency_report_gives_up_loudly_not_forever(
     )
     from PySide6.QtCore import QTimer
 
-    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, *_cb: None))
 
-    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
-    report = SimpleNamespace(missing=[required], install_results=[])
+    report = SimpleNamespace(missing=[], install_results=[])
     with caplog.at_level(_logging.WARNING):
         for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS + 1):
-            window._apply_dependency_report(object(), report, show_summary=False)
+            window._apply_dependency_report(object(), report, show_summary=True)
 
     assert any("gave up re-delivering" in r.message for r in caplog.records), (
         "the deferral budget ran out without saying so"
     )
     # And the budget resets, so a later report is not born already exhausted.
     assert window._dep_resolve_deferrals == 0
+
+
+def test_a_held_report_of_a_missing_required_tool_is_never_given_up(
+    teardown_threads, monkeypatch, caplog
+) -> None:
+    """TASKS R96: "deferred, never dropped" now holds past the old 30 s.
+
+    A missing required tool is what stops the app working, and a user can stay
+    in another dialog for minutes. Ten budgets' worth of holds later the report
+    is still held, still re-armed, and delivered the moment the floor is free.
+    """
+    import logging as _logging
+
+    from platterpus.ui import main_window_deps
+
+    window = teardown_threads()
+    resolved: list[object] = []
+    monkeypatch.setattr(window, "_resolve_missing_unified", resolved.append)
+    monkeypatch.setattr(window, "_show_dep_summary", lambda *_a, **_k: None)
+    busy = ["a dialog has the floor"]
+    monkeypatch.setattr(window, "_modal_floor_blocker", lambda: busy[0])
+    from PySide6.QtCore import QTimer
+
+    armed: list[object] = []
+    monkeypatch.setattr(
+        QTimer, "singleShot", staticmethod(lambda _ms, *cb: armed.append(cb[-1]))
+    )
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    report = SimpleNamespace(missing=[required], install_results=[])
+    holds = 10 * main_window_deps._DEP_RESOLVE_MAX_DEFERRALS
+    with caplog.at_level(_logging.INFO):
+        window._apply_dependency_report(object(), report, show_summary=False)
+        for _ in range(holds):
+            armed[-1]()  # the retry, as the timer would fire it
+
+    assert "gave up re-delivering" not in caplog.text, "a missing tool was dropped"
+    assert len(armed) == holds + 1, "a hold was not re-armed"
+    assert resolved == [], "resolved over a dialog that had the floor"
+    assert caplog.text.count("holding the dependency report") <= 12, (
+        "a hold with no bound logged every attempt"
+    )
+    busy[0] = ""
+    armed[-1]()
+    assert resolved == [report], "the held report was not delivered once free"
 
 
 # --- The Setup & Updates window's one piece of logic ------------------------
@@ -13971,7 +14016,7 @@ def test_giving_up_on_a_user_check_says_so_on_screen(
     monkeypatch.setattr(
         window, "_modal_floor_blocker", lambda: "a dialog has the floor"
     )
-    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, *_cb: None))
 
     report = SimpleNamespace(missing=[], install_results=[])
     window._apply_dependency_report(object(), report, show_summary=True)
@@ -14007,7 +14052,7 @@ def test_a_report_held_for_another_dialog_keeps_its_optional_tools(
     window = teardown_threads()
     held: list[Any] = []
     monkeypatch.setattr(
-        QTimer, "singleShot", staticmethod(lambda _ms, cb: held.append(cb))
+        QTimer, "singleShot", staticmethod(lambda _ms, *cb: held.append(cb[-1]))
     )
     busy = ["a dialog has the floor"]
     monkeypatch.setattr(window, "_modal_floor_blocker", lambda: busy[0])

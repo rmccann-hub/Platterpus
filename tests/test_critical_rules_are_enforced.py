@@ -2511,7 +2511,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 934 -> 962 on 2026-09-28 (code review R8): the dependency sentence moves from a temporary status-bar message, which opening any menu wiped, to a status-bar label built here beside the one method that writes it; a silent check now replaces a sentence already on screen (it no longer vanishes on its own), which retires the overdue-only flag.
     # **962 -> 965** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **965 -> 969** (2026-10-27, external review item 3.4): the status-bar clock is made explicitly local, with why it is local (ruff DTZ005).
-    "ui/main_window_deps.py": 969,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **969 -> 1058** (2026-11-03, TASKS R96, the launch dependency report): the launch-only marker (`_dep_check_is_launch`, set by `app.main` alone, because About's Check again and the re-check after host setup are silent too), the check generation that lets a newer check drop a held report, and the hold itself: the launch report also waits while another window of ours is in use, and a report of a missing REQUIRED tool is never given up on the 30 s clock. It lives in the deferral it extends, beside the reasons each wait exists.
+    "ui/main_window_deps.py": 1058,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2720,7 +2721,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **482 -> 483** (2026-11-03, TASKS R96, the unknown-album offer): `open_unknown_album_dialog` declared, which `ReleasePickerMixin`'s held offer calls, so mypy resolves it; the hold itself lives in `main_window_picker.py`, keeping `main_window.py` at its cap.
     # **482 -> 484** (2026-11-03, TASKS R62, who cancelled a rip): the seam declares `_rip_cancel_cause`.
     # **485 -> 488** (2026-11-03, TASKS R107): the seam declares `_save_config_or_report`.
-    "ui/main_window_shared.py": 488,
+    # **488 -> 490** (2026-11-03, TASKS R96): the seam declares `run_dependency_check_async`'s `launch` marker, which the formatter wraps onto three lines.
+    "ui/main_window_shared.py": 490,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
