@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.rip_addendum import with_addendum
 from platterpus.uiscript import deemphasis_grading as grading
 from platterpus.uiscript.pregap_verbs import MAX_LOG_BYTES, run_start_epoch
 from platterpus.uiscript.probe_verbs import _start
@@ -105,6 +106,11 @@ def read_arm(root: Path, name: str, *, since: float) -> grading.Arm:
             ),
         )
     path, text = logs[0]
+    # Through the sanctioned reader's join, so a sidecar addendum (an auto-fix's
+    # superseded tracks) is read with the log, as every read-back must be
+    # (`rip_addendum`); read here rather than by `read_log_with_addendum` so an
+    # unreadable file is named above instead of reading as an empty log.
+    text = with_addendum(text, path)
     return grading.arm_from_log(name, str(path), parse_cyanrip_log(text))
 
 
