@@ -49,6 +49,7 @@ from platterpus.disc_identity import (
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
 from platterpus.replaced_read_errors import errors_in_replaced_reads
+from platterpus.track_proof import contradicted_tracks_sentence
 
 log = logging.getLogger(__name__)
 
@@ -397,6 +398,9 @@ def _grade_a_reported_completion(
     * **The error tally must be clean.** The same footer carries
       ``Ripping errors:``; a completed rip that counted errors is a WARN naming
       them. An absent tally beside a present footer is a NOTE.
+
+    And a fourth, which only withholds the OK: a track the report records as
+    contradicted by AccurateRip turns "no errors" into a WARN naming it (R112).
     """
     n_done, n_total = _count(done), _count(total)
     asked = _count((report.get("completeness") or {}).get("tracks_expected"))
@@ -451,9 +455,18 @@ def _grade_a_reported_completion(
         and clean
     ):
         subset = f", the {asked} asked for" if asked and asked < n_total else ""
-        album.add(
-            LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks{subset}, {clean})"
+        done_line = f"rip completed ({n_done} of {n_total} tracks{subset}, {clean})"
+        # The report's per-track `accuraterip_contradiction` is the verdict's one
+        # predicate, recorded; a track it contradicts withholds the OK (TASKS R112).
+        wrong = contradicted_tracks_sentence(
+            (t.get("number"), t.get("accuraterip_contradiction"))
+            for t in report.get("tracks") or ()
+            if isinstance(t, dict)
         )
+        if wrong:
+            album.add(LEVEL_WARN, f"{done_line}, but {wrong}: not a clean rip")
+        else:
+            album.add(LEVEL_OK, done_line)
 
 
 def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:

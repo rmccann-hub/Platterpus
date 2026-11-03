@@ -29,7 +29,11 @@ from platterpus.rip_health import (
     error_lines_contradicting_summary,
     health_reads_clean,
 )
-from platterpus.verdict import track_has_unverified_skips
+from platterpus.track_proof import contradicted_tracks_sentence
+from platterpus.verdict import (
+    track_accuraterip_contradiction,
+    track_has_unverified_skips,
+)
 
 log = logging.getLogger(__name__)
 
@@ -505,6 +509,19 @@ def fidelity_summary(
     if not tracks:
         return "Rip cancelled." if cancelled else "Done."
 
+    # A track AccurateRip contradicts is never counted clean, by the one predicate
+    # the EAC-layout log's `Proof:` row, the report and the results table ask
+    # (TASKS R112: the 2026-11-03 Full run's line said "all 14 tracks ripped
+    # cleanly" over track 5, which only matched frame 450).
+    kinds = [(t, track_accuraterip_contradiction(t)) for t in tracks]
+    contradicted = {id(t) for t, kind in kinds if kind}
+    wrong = contradicted_tracks_sentence(
+        (getattr(t, "number", "?"), k) for t, k in kinds
+    )
+    # The one-frame note names a subset of these tracks more softly ("the rest
+    # unverified"), so it gives way to the sentence that says WRONG.
+    partial = "" if wrong else _partial_accurate_clause(rip_log)
+
     def lead(body: str) -> str:
         if cancelled:
             return (
@@ -524,7 +541,9 @@ def fidelity_summary(
         clean = sum(
             1
             for t in tracks
-            if getattr(t, "status", "") == "ripped successfully" and t not in skipped
+            if getattr(t, "status", "") == "ripped successfully"
+            and t not in skipped
+            and id(t) not in contradicted
         )
         # Health by the one function the report also asks (`rip_health`), so an
         # error line under "Ripping errors: 0", or errors only in a replaced read
@@ -537,6 +556,18 @@ def fidelity_summary(
             summary = lead(
                 f"{clean}/{total} tracks ripped, but the ripper printed an error its "
                 f"own count of 0 errors leaves out: “{contradicting[0].strip()}”. "
+                "See the Rip log tab." + (f" ⚠ {wrong}." if wrong else "")
+            )
+        elif wrong:
+            # The paranoia note is a second fact, kept even for a track named above.
+            listed = ", ".join(str(getattr(t, "number", "?")) for t in skipped)
+            also = (
+                f" On track(s) {listed} the ripper could not verify every read."
+                if skipped
+                else ""
+            )
+            summary = lead(
+                f"{clean}/{total} tracks ripped cleanly. ⚠ {wrong}.{also} "
                 "See the Rip log tab."
             )
         elif skipped:
@@ -561,19 +592,16 @@ def fidelity_summary(
         # Which files the ripper says are damaged (`.27`'s `not written whole:`),
         # named right after the tally: the one thing on this line the user must
         # act on, and the log is the only other place it is said.
-        return (
-            summary
-            + written_whole.status_clause(rip_log)
-            + clause
-            + _partial_accurate_clause(rip_log)
-        )
+        return summary + written_whole.status_clause(rip_log) + clause + partial
     verified = sum(
         1
         for t in tracks
         if getattr(t, "test_crc", "")
         and getattr(t, "test_crc", "") == getattr(t, "copy_crc", "")
     )
-    if verified == total:
+    if wrong:
+        summary = lead(f"{verified}/{total} tracks read alike twice. ⚠ {wrong}.")
+    elif verified == total:
         summary = lead(f"all {total} tracks read consistently, Test/Copy CRCs match.")
     else:
         summary = lead(
@@ -585,7 +613,7 @@ def fidelity_summary(
         clause = (
             " AccurateRip confirmed." if "exact match" in ar or "found" in ar else ""
         )
-    return summary + clause + _partial_accurate_clause(rip_log)
+    return summary + clause + partial
 
 
 def _partial_accurate_clause(rip_log: object) -> str:

@@ -272,3 +272,29 @@ def track_proof_among(
     return track_proof(
         track, verified_reread=number in chased, ctdb_track=ctdb_rows.get(number)
     )
+
+
+def contradicted_tracks_sentence(found: Iterable[tuple[object, object]]) -> str:
+    """``AccurateRip says track 5 is WRONG …`` for the status line and the audit.
+
+    ``found`` pairs each track number with what
+    :func:`~platterpus.verdict.track_accuraterip_contradiction` said of it; None
+    pairs are skipped. "" when nothing is contradicted. One wording for the two
+    summaries that count tracks (TASKS R112: the status line said "all 14 tracks
+    ripped cleanly" over the track the ``Proof:`` row called WRONG). Never raises.
+    """
+    pairs = [(str(n), kind) for n, kind in found if kind]
+    parts: list[str] = []
+    for wrong, said in (
+        (
+            True,
+            "WRONG (only frame 450 matched, so the audio differs from the pressing)",
+        ),
+        (False, "different (nothing matched, most likely a misread)"),
+    ):
+        numbers = [n for n, k in pairs if (k == AR_CONTRADICTION_WRONG) is wrong]
+        if numbers:
+            many = len(numbers) > 1
+            noun = f"track{'s' if many else ''} {', '.join(numbers)}"
+            parts.append(f"{noun} {'are' if many else 'is'} {said}")
+    return f"AccurateRip says {' and '.join(parts)}" if parts else ""

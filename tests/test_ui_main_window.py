@@ -2101,8 +2101,11 @@ def test_fidelity_summary_does_not_call_a_track_with_unverified_skips_clean() ->
     assert rip_log.tracks[17].paranoia_counts.get("SKIP") == 2586, "floor: the subject"
     summary = _fidelity_summary(rip_log, expected_track_total=18)
     assert "ripped cleanly, no read errors" not in summary
-    assert "17/18 tracks ripped cleanly" in summary
-    assert "on track(s) 18 the ripper could not verify every read" in summary
+    # 12, not 17 (TASKS R112): tracks 12-15, 17 and 18 matched frame 450 only, and
+    # the verdict's one predicate calls each WRONG, as the EAC-layout log does.
+    assert "12/18 tracks ripped cleanly" in summary
+    assert "tracks 12, 13, 14, 15, 17, 18 are WRONG" in summary
+    assert "On track(s) 18 the ripper could not verify every read" in summary
 
 
 def test_skips_on_a_track_accuraterip_verified_do_not_count_against_it() -> None:
@@ -2138,9 +2141,11 @@ def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -
 
 
 def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
-    """A track that only matched the +450-frame offset variant is called out as
-    'partially accurate' — so a 'verified' shortfall reads as a pressing-offset
-    quirk, not a bad rip (mirrors the real Police 'Classics' rip)."""
+    """A track that only matched frame 450 is called WRONG, not "partially
+    accurate" and not clean: the owner's yardstick (plan of record, 2026-10-26)
+    reads a frame match beside a whole-track miss as audio that differs from the
+    pressing, and the EAC-layout log says so (TASKS R112). This test used to pin
+    the softer one-frame note, which now gives way to the sentence naming it."""
     rip_log = RipLog(
         log_creator="cyanrip 0.9.3",
         tracks=(
@@ -2160,10 +2165,9 @@ def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
         health_status="No errors occurred",
     )
     summary = _fidelity_summary(rip_log)
-    assert (
-        "On 1 track, only one frame matched AccurateRip (the rest unverified)."
-        in summary
-    )
+    assert summary.startswith("Done — 1/2 tracks ripped cleanly. ⚠ "), summary
+    assert "AccurateRip says track 2 is WRONG (only frame 450 matched" in summary
+    assert "the rest unverified" not in summary
 
 
 def test_fidelity_summary_prefers_per_track_ar_over_summary_string() -> None:
