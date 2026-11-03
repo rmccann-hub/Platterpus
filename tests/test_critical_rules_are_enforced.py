@@ -1593,7 +1593,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3081 -> 3113** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `is_dirty_build`, the one predicate for a `-dirty` build, beside `release_seq_for_commit`, which still orders one at its release, and `is_the_build_under_review` refusing one.
     # **3113 -> 3124** (2026-10-28): the roll to `5aeefc4` on round 36's close, recorded beside `FORK_PIN` and `FORK_EXPECTED_VERSION`, as each roll is.
     # **3124 -> 3126** (2026-10-29): `PIN_UNDER_REVIEW_ROUND` 37, with round 37's opening recorded beside it.
-    "deps/fork_source.py": 3126,
+    # **3126 -> 3159** (2026-11-03, round 37's pin moves to `.28` at its release, the fork's lap 4): `PIN_UNDER_REVIEW` `3f288fb`, its release sequence 39, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version, each with the source it was read from.
+    "deps/fork_source.py": 3159,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2281,7 +2282,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
     # **1332 -> 1362** (2026-10-19): regenerated from `.25`'s contract (`round-35-lap-15-provider-contract-g3e978f9.md`), 142 P5 and 11 P5a; the nine argument errors their lap 15 S10 restored. Generated, not hand-grown.
     # **1362 -> 1421** (2026-10-19): six `.24` wordings `.25` reworded kept in `RETAINED_BEYOND_P5` with their reasons, since an install may still run `.24`, and the hand-kept "Offset is unset!" row removed now that `.25`'s P5 carries it.
-    "ripper_message_inventory.py": 1421,
+    # **1421 -> 1599** (2026-11-03): regenerated from `.28`'s contract (`round-37-lap-04-provider-contract-gef413b1.md`), 161 P5 and 14 P5a, generated; five `.27` wordings `.28` dropped or reworded kept in `RETAINED_BEYOND_P5`, since `.27` is `FORK_PIN` and the default ripper until round 37 closes; and three new P5a rows decided in `P5A_NOT_RETAINED`; and `.28`'s lone closing quote excluded from surfacing with its reason, the fused cover-art exclusion replaced by why it left.
+    "ripper_message_inventory.py": 1609,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own

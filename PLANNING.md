@@ -2320,4 +2320,4 @@ ruleset's required checks with the leg, an owner's change, made before the chang
 
 ---
 
-*Last updated for Platterpus v0.7.116.*
+*Last updated for Platterpus v0.7.117.*

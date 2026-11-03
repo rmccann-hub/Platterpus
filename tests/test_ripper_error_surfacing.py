@@ -497,6 +497,10 @@ def test_the_convergence_success_message_is_never_a_failure_hint() -> None:
     # 4 -> 5 on 2026-10-15: `.23`'s P5 lists a bare `%s` at `musicbrainz.c:491`, the
     # MusicBrainz submission URL printed after a SUCCESSFUL forced lookup; it cannot
     # be patterned and is not a failure, as its entry's reason says.
+    # 5 -> 6 -> 5 on 2026-11-03: `.28`'s P5 lists the closing quote of libcdio's
+    # message lines alone (`cyanrip_main.c:398`), excluded (one character is no
+    # fingerprint, and the opening `cdio: "` line surfaces); and `.28` prints the
+    # fused cover-art text for real (`coverart.c:334`), so that entry left.
     assert len(SURFACING_EXCLUDED) == 5, (
         f"the surfacing exclusion list changed to {SURFACING_EXCLUDED} — each entry "
         f"is a message the user will never be shown, so a new one is a decision"
@@ -541,7 +545,7 @@ def test_every_other_inventory_row_still_reaches_the_user() -> None:
         f"surfacing exclusions: {sorted(set(ALL_FORMATS) ^ expected)}"
     )
     assert len(ALL_FORMATS) == len(set(ALL_FORMATS)), "ALL_FORMATS carries a duplicate"
-    assert len(SURFACING_EXCLUDED) == 5  # the bare `%s` from `.23`, 2026-10-15
+    assert len(SURFACING_EXCLUDED) == 5  # `.28`'s lone `"` in; its cover-art text out
     assert len(ALL_FORMATS) >= 125, (
         f"surfacing coverage collapsed to {len(ALL_FORMATS)}"
     )
@@ -1081,3 +1085,24 @@ def test_the_two_19_convergence_refusals_are_surfaced_as_written() -> None:
         assert ripper_error_lines.RIPPER_ERROR_RE.search(line), line
     for line in ("Ripping track 1, progress - 12.34%", "Zero errors so far"):
         assert not ripper_error_lines.RIPPER_ERROR_RE.search(line), line
+
+
+def test_no_text_excluded_as_never_printed_is_in_the_current_inventory() -> None:
+    """An exclusion that says a text was never printed cannot hold a text the
+    current P5 lists: `.28` began printing the fused cover-art text for real
+    (`coverart.c:334`, 2026-11-03), and the stale exclusion hid it from the matcher.
+    The floor makes sure the check reads both lists."""
+    from platterpus.ripper_message_inventory import (
+        _FUSED_BY_A_GENERATOR_DEFECT,
+        MESSAGES,
+        SURFACING_EXCLUDED,
+    )
+
+    fused = {
+        text for text, why in SURFACING_EXCLUDED if why == _FUSED_BY_A_GENERATOR_DEFECT
+    }
+    assert fused and len(MESSAGES) >= 150, "the check found nothing to compare"
+    printed = {m.text for m in MESSAGES}
+    assert not (fused & printed), (
+        f"excluded as never printed, but listed in the current P5: {sorted(fused & printed)}"
+    )

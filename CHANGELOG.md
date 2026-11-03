@@ -12,6 +12,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.117] — 2026-11-03
+
+The release that names the fork's `.28` as the build under review, for the Full run that
+closes round 37. `.28` is published on the fork's beta channel; install it from
+**Tools → Setup & Updates… → Choose a build…**. The default ripper stays `.27`. This release
+also needs Python 3.12 or newer for a pip or pipx install, runs the AppImage on Python 3.14,
+builds the AppImage again, and keeps the album picker from opening over another window you
+are using.
+
 ### Fixed
 
 - **The AppImage builds again** (TASKS R98). The build fetched its packing tool, appimagetool, from a release that changes whenever upstream pushes, and the version published on 2026-11-01 refused to pack it, so every build from 2026-11-02 failed, a release included. The build now uses a fixed appimagetool release, checked by sha256.
@@ -20,6 +29,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`.28` is the build under review, and the fork's round 37 lap 4 is filed** (contributor-facing, TASKS R105). The fork published `0.9.4-rc3+platterpus.28` on its beta channel at `3f288fb` on 2026-11-03 (`release_seq` 39, round 37); its lap 4, released the same day, crossed ours, and asks again what our lap 4 already answers. Round 37's pin moves to `.28` at its release, on the owner's word of 2026-10-29: `.28` gets `--consumer`, `--prefer-disc-isrc` and `--prefer-accuraterip-match` like `.27`, whose rows stay, and exit class 64. Its provider contract, built at `gef413b1` from the same source (anchor `aac0811f4fd28a6c`, recomputed by their method), is filed, and the message inventory is regenerated from it: 161 messages and 14 unprefixed ones. The default ripper stays `.27` until round 37 closes. Five messages `.27` prints and `.28` dropped or reworded are still recognised, so a rip on the default ripper that fails says why; `.28`'s lone closing quote after a drive message is not used as a pattern; and the cover-art message `.28` now really prints is no longer hidden as a generator artifact. A contract check that had passed on the wrong line, the drive's `Speed:` line, now reads the `Extraction speed:` line it was meant to.
 - **A draft `steward` skill (`.claude/skills/steward/`, the folder a session driving a pull request looks for, as the fork's is) keeps pull requests and `main` green** (contributor-facing, TASKS R102). `scripts/pr_steward.py` says whether a commit's checks are green, failed, still running, cancelled by a newer push, or blocked by a required check no workflow runs any more, read from the ruleset rather than a count, and prints every failure line of a failed job; the skill says what to do about each. It was written after `main` went red twice after merges on 2026-11-02 with nobody watching.
 - **Our round 37 lap 4 is released, on the owner's word of 2026-11-03** (contributor-facing): it accepts the fork's `Drive used:` wording for a disc image, the one answer `.28`'s publication waits on, and gives our `--reread-time-limit` cell for the shared `seam-commands.md`.
 - **The fork's round 37 lap 3 is filed, and the shared `docs/seam-commands.md` is their copy at `cyanrip@64ca463`** (contributor-facing): `.28` built and not released; `-S` accepted with its new wordings, `--reread-time-limit` listed, and an unwritable `--diagnostics` record keeping exit 0.
@@ -19645,7 +19655,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...HEAD
+[0.7.117]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...v0.7.117
 [0.7.116]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...v0.7.116
 [0.7.115]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.114...v0.7.115
 [0.7.114]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.113...v0.7.114
@@ -19732,4 +19743,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.116.*
+*Last updated for Platterpus v0.7.117.*

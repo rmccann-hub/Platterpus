@@ -120,9 +120,16 @@ def _render(fmt: str) -> str:
     ``%`` in the string, which can stop a pattern matching a line the *real* log would
     match — a false pass in the one check this file exists for. Round 12's P3 has four
     ``%llds`` rows and round 12's ``genopt.h`` block three more.
+
+    **A ``*`` precision is handled** (``%.*f``, ``%.*s``), and its omission was the
+    same false pass (2026-11-03): ``Extraction speed:  %.*fx`` never rendered, so
+    ``track_extraction_speed`` was backed only by the drive line ``Speed:  %ix``,
+    which our ``Speed:`` alternative also matches. `.28` reworded that line to
+    ``Speed:  %s`` and the rule read as unbacked, though the row that does back
+    it had been in every contract.
     """
     return re.sub(
-        r"%0?\d*[.]?\d*(?:hh|h|ll|l|z|j|t)?(?P<conv>[iudxXsfc])",
+        r"%0?\d*[.]?(?:\d+|\*)?(?:hh|h|ll|l|z|j|t)?(?P<conv>[iudxXsfc])",
         lambda m: (
             "7"
             if m.group("conv") in "iudxX"
@@ -509,14 +516,11 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
     # `.27`'s own contract was filed the same day
     # (`round-36-lap-10-provider-contract-g580c46c.md`, P2 lines 341, 295 and 309);
     # the stale check below then required their removal.
-    "reread_time_limit": (
-        "the fork's PROPOSED `-Z` time limit's disc header line, not built: their "
-        "round 36 lap 10 S11 (`cyanrip@52501ed:docs/handshake/round-36-lap-10.md`) "
-        "gives it as `Re-read limit:  600 s a track, checked between whole-track "
-        "reads`, and round 20's order has our reader take it before any build "
-        "prints it. No provider contract can list it yet. Retires when the "
-        "contract of the build that prints it is filed"
-    ),
+    # `reread_time_limit`, the `-Z` time limit's disc header line, sat here from
+    # 2026-10-26 (their round 36 lap 10 S11, read before any build printed it)
+    # until `.28`'s own contract was filed on 2026-11-03
+    # (`round-37-lap-04-provider-contract-gef413b1.md`); the stale check below then
+    # required its removal.
 }
 
 
