@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our standing status says 0.7.119 is published** (contributor-facing): released 2026-11-03 from `3e041997` (release run 41715497154), the first release installing `.28` by default; PyPI's publish passed on its second attempt, after Sigstore's transparency log returned HTTP 502 while signing the attestation, before any upload.
+
 ## [0.7.119] — 2026-11-03
 The first release that installs the fork's `.28` as the default ripper, now that round 37 has closed with both sides at `GO` on the 2026-11-03 Full run. It also carries four changes the owner chose that day: a track that only CTDB disagrees with gets a note, never "WRONG"; the Tracks table opens with four rows; an output folder Platterpus cannot write to is refused before the rip, with a message naming it; and the WAV warning says exactly what a WAV keeps and loses.
 
