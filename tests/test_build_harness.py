@@ -417,3 +417,96 @@ def test_appimagetool_is_pinned_where_python_appimage_reads_it() -> None:
     assert finder.index('"$APPIMAGETOOL_DIR/AppRun"') < finder.index(
         "command -v appimagetool"
     )
+
+
+def _appdir_mode_wrapper(script: str) -> str:
+    """The wrapper body `build_appimage.sh` writes over appimagetool's AppRun."""
+    marker = "<<'APPDIR_MODES'\n"
+    start = script.index(marker) + len(marker)
+    return script[start : script.index("\nAPPDIR_MODES\n", start) + 1]
+
+
+def test_appdir_is_made_readable_by_everyone_before_appimagetool_packs_it(
+    tmp_path: Path,
+) -> None:
+    """TASKS R98 (2026-11-02): python-appimage 1.4.6 makes its AppDir mode 0700,
+    so every folder in the AppImage was owner-only, and appimagetool from b082d2e
+    on refuses to pack it, which is why the pin is held at 1.9.1. The build moves
+    the real AppRun aside and puts a wrapper in its place that runs
+    `chmod -R a+rX` on every directory argument first. This runs the wrapper's
+    own text against a fake tool that records the modes it was handed."""
+    import os
+    import stat
+    import subprocess
+
+    script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
+    # Installed by the step that installs the pinned tool, which runs before
+    # python-appimage does, and the real tool keeps its folder.
+    installer = script[script.index("install_appdir_mode_wrapper() {") :]
+    assert (
+        'mv "$APPIMAGETOOL_DIR/AppRun" "$APPIMAGETOOL_DIR/AppRun.pinned"' in installer
+    )
+    pinned = script[script.index("install_pinned_appimagetool() {") :]
+    assert "\n    install_appdir_mode_wrapper\n" in pinned[: pinned.index("\n}\n")]
+
+    tool = tmp_path / "tool"
+    tool.mkdir()
+    wrapper = tool / "AppRun"
+    wrapper.write_text(_appdir_mode_wrapper(script), encoding="utf-8")
+    wrapper.chmod(0o755)
+    # The fake real tool: records its own arguments and the octal mode of
+    # everything under the directory it is given, then exits 3.
+    real = tool / "AppRun.pinned"
+    real.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s\\n" "$@" > "$RECORD.args"\n'
+        '(cd "$2" && find . -exec stat -c "%a %n" {} + | sort) > "$RECORD.modes"\n'
+        "exit 3\n",
+        encoding="utf-8",
+    )
+    real.chmod(0o755)
+
+    work = tmp_path / "work"
+    appdir = work / "AppDir"
+    (appdir / "usr" / "lib").mkdir(parents=True)
+    data = appdir / "usr" / "lib" / "data.txt"
+    data.write_text("x")
+    data.chmod(0o600)
+    (appdir / "AppRun").write_text("#!/bin/sh\n")
+    (appdir / "AppRun").chmod(0o700)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("x")
+    outside.chmod(0o600)
+    (appdir / "link").symlink_to(outside)
+    for folder in (appdir / "usr" / "lib", appdir / "usr", appdir):
+        folder.chmod(0o700)
+
+    record = tmp_path / "record"
+    result = subprocess.run(
+        [str(wrapper), "--no-appstream", "AppDir", "out.AppImage"],
+        cwd=work,
+        env={**os.environ, "RECORD": str(record)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 3, result.stdout + result.stderr  # the tool's own
+    assert (tmp_path / "record.args").read_text().split() == [
+        "--no-appstream",
+        "AppDir",
+        "out.AppImage",
+    ]
+    modes: dict[str, str] = {}
+    for line in (tmp_path / "record.modes").read_text().splitlines():
+        mode, name = line.split(" ", 1)
+        modes[name] = mode
+    assert modes["."] == "755"
+    assert modes["./usr"] == "755"
+    assert modes["./usr/lib"] == "755"
+    assert modes["./usr/lib/data.txt"] == "644"  # readable, not made executable
+    assert modes["./AppRun"] == "755"
+    # A symlink inside the AppDir is not followed out of it.
+    assert stat.S_IMODE(outside.stat().st_mode) == 0o600
+    # Floor: the fake saw the whole tree, so the checks above examined something.
+    assert len(modes) >= 5, modes

@@ -22,6 +22,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Every folder in the AppImage is readable by everyone again, not by its owner only** (TASKS R98). python-appimage makes the folders it bundles mode 0700, which newer appimagetool builds refuse to pack; the build now runs `chmod -R a+rX` on the AppDir just before appimagetool packs it, through a small wrapper at the path python-appimage runs the tool from. appimagetool stays pinned to 1.9.1 until an AppImage CI build proves a newer one packs through the wrapper.
 - **The steward no longer reports a commit green while a check nobody requires is still running** (contributor-facing, TASKS R102). On 0.7.117's day it read `main`'s merge commit as green while the AppImage build was still running; a running check of any kind now keeps the verdict pending.
 
 ## [0.7.117] — 2026-11-03
