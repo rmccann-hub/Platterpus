@@ -2282,6 +2282,62 @@ def test_the_quit_helpers_predicate_has_a_real_subject(
     )
 
 
+def test_the_bundle_thread_does_not_keep_the_runner_alive(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The runner must die on the GUI thread, never on the bundle thread (R104).
+
+    CI's py3.14 leg hung once (2026-11-03, run 41557841640) with the
+    `uiscript-bundle` thread on `threading.py:1028`, the `del self._target`
+    that ends `Thread.run()`, and the GUI thread inside a `QLineEdit`
+    constructor. The accused test made its runner as a temporary, so the
+    thread's closure, which captured `self`, held the LAST reference: the del
+    ran `~QObject` on the bundle thread while the GUI thread built a widget.
+
+    Held here by behaviour, not by reading the closure: the archive is parked
+    on an event, the test drops its runner, and the runner must be gone while
+    the thread is still running. Before the fix it stayed alive, owned by the
+    thread, until the thread let go of it.
+    """
+    import gc
+    import weakref
+
+    from platterpus import evidence_bundle
+
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    release = threading.Event()
+    entered = threading.Event()
+    real_build = evidence_bundle.build_bundle
+
+    def _parked_build(**kwargs: Any) -> Any:
+        entered.set()
+        release.wait(30)
+        return real_build(**kwargs)
+
+    monkeypatch.setattr(evidence_bundle, "build_bundle", _parked_build)
+    runner = ScriptRunner(_window())
+    _run_to_end(runner, "log hello", process_until)
+    thread = runner._bundle_thread
+    assert thread is not None, "the run started no bundle, so nothing is tested"
+    try:
+        assert entered.wait(10), "the bundle thread never reached the archive"
+        alive = weakref.ref(runner)
+        del runner
+        gc.collect()
+        still_held = alive() is not None
+        assert thread.is_alive(), "the precondition: the thread is still working"
+    finally:
+        release.set()
+        thread.join(30)
+    assert not still_held, (
+        "the bundle thread's closure holds the ScriptRunner, so when every other "
+        "reference is gone the thread drops the last one and ~QObject runs off "
+        "the GUI thread (TASKS R104)"
+    )
+
+
 def test_a_contained_run_writes_into_its_folder_and_packs_no_bundle(
     qapp, process_until, tmp_path, monkeypatch
 ) -> None:

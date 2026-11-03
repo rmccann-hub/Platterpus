@@ -4334,6 +4334,20 @@ class ScriptRunner(
         log_dir = LOG_PATH.parent
         counts = self._report.counts() if hasattr(self._report, "counts") else {}
         stamp = self._report.started_at
+        # EVERYTHING THE THREAD NEEDS IS READ HERE, on the GUI thread, and the
+        # closure below captures only these plain values, never `self` (TASKS
+        # R104, 2026-11-03). Capturing `self` made the thread an owner of this
+        # QObject: when every other reference to the runner had already gone (a
+        # test that made its runner as a temporary; in the product, a console
+        # closed while the archive was still being written), the thread's final
+        # `del self._target` dropped the LAST reference and ran `~QObject` on the
+        # bundle thread. Destroying a QObject off its own thread is undefined in
+        # Qt, and CI's py3.14 leg hung once with the bundle thread on exactly that
+        # line and the GUI thread inside a `QLineEdit` constructor.
+        steps = str(len(self._report.steps))
+        results = (
+            ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "(not counted)"
+        )
 
         def work() -> None:
             result = evidence_bundle.build_bundle(
@@ -4342,9 +4356,8 @@ class ScriptRunner(
                 app_version=__version__,
                 outcome="test script run",
                 facts={
-                    "steps": str(len(self._report.steps)),
-                    "results": ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
-                    or "(not counted)",
+                    "steps": steps,
+                    "results": results,
                     "run folder": str(directory),
                 },
                 log_dir=log_dir,
