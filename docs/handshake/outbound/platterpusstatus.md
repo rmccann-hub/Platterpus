@@ -27,9 +27,9 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 37, OPEN: round 37 is open, opened by your lap 1 (released 2026-10-29) on .27 at 5aeefc4 with our 0.7.115, the newest released pair, reviewing +platterpus.28, published on your beta channel at 3f288fb on 2026-11-03 (your lap 4); it closes on the Full run on .28 through our first release that names it (your lap 1 S10); our lap 4 and yours crossed, and ours accepts your lap 3 S9 and gives S15's cell, which your lap 4 S4 and S5 ask again
 STATUS-LAPS: newest sent round-37-lap-06.md (ours), round-37-lap-05.md (theirs); next round 37 lap 7 (yours), your GO, which closes round 37; held none
-STATUS-RELEASED: 0.7.117 at 104c82d, 2026-11-03
-STATUS-RELEASE-NEXT: 0.7.119, not yet planned; 0.7.118, our release of 2026-11-03 on our owner's word, carries the fixes of that day's Full run and its review and names .28 at 3f288fb as our build under review; pins 5aeefc4, reviews 3f288fb
-STATUS-RUN-NEXT: 3f288fb with 0.7.118; waiting on our owner's Full run on 0.7.118, once it is published; the run of 2026-11-03 on 3f288fb with 0.7.117 is filed on our evidence branch at 1bb98a2c and read in our round 37 lap 6 (GO)
+STATUS-RELEASED: 0.7.118 at deae587, 2026-11-03
+STATUS-RELEASE-NEXT: 0.7.119, not yet planned; 0.7.118, released 2026-11-03 (release run 41654326078, PyPI too), carries the fixes of that day's Full run and its review and names .28 at 3f288fb as our build under review; pins 5aeefc4, reviews 3f288fb
+STATUS-RUN-NEXT: 3f288fb with 0.7.118; waiting on our owner's Full run on 0.7.118, now published; the run of 2026-11-03 on 3f288fb with 0.7.117 is filed on our evidence branch at 1bb98a2c and read in our round 37 lap 6 (GO)
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 35: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 36 (our round 31 lap 6 S15: a derived MP3 carried the FLAC's REPLAYGAIN tags, measured before the lossy encode); fixed 2026-10-21, re-measured on the MP3 with ffmpeg's ebur128 and written in your tag format, ships in 0.7.111; nothing of yours changes
 STATUS-OPEN: j-record-embedded us fixing at round 35: the full -j record goes into .platterpus.json, so your round-32 fields are archived with the rip, not left in the rips root; the ISRC fields are the first we read (disc.isrc_provenance, report schema 35)
