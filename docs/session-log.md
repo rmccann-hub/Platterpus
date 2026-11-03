@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-03 (evening) — round 37 closed; `.28` the default; 0.7.119
+
+- **The owner's four decisions** ("do 1 - 4 as recommended", #438): a CTDB-only disagreement is a note and never "WRONG"; the Tracks table opens with four rows; an unwritable output folder is refused before the rip; the WAV warning names what a WAV keeps, measured through our own transcode. Critical rule 4 amended to match, on the owner's word ("update rule 4", #439).
+- **Round 37 closed** when the fork's PR #85 brought their lap 7 (`GO`) to `platterpus-fork` at 19:42 UTC; `FORK_PIN` rolled to `3f288fb` with the approval record at round 37 (#440). The roll would have dropped `.27` from the `--verify-log` set, which a test caught; `.27` is now named in it.
+- **0.7.119 cut** on the owner's word ("release 0.7.119"), the first release installing `.28` by default.
+- **Learned.** A watch on another repository's pull request is the right wait for a lap released only on that side's branch: under the K1 amendment both sides accepted, a lap is sent when it reaches the default branch, so the branch flip alone is not yet the send.
+
 ## 2026-11-03 (later) — the Full run read; lap 6 `GO`; the review's fixes; 0.7.118
 
 - **The owner's Full run on 0.7.117 with `.28`** (02:38 to 05:00 UTC, 553 pass, 0 fail) filed on `evidence` at `1bb98a2c` and graded `full-green`, the ledger's eighth. Filing it found two tool faults of ours: no filed name for the cache probe's own log, and no local test of the manifest's order (CI's `gitleaks` caught it). Both fixed with tests (#434).

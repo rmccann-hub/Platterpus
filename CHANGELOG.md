@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.119] — 2026-11-03
+The first release that installs the fork's `.28` as the default ripper, now that round 37 has closed with both sides at `GO` on the 2026-11-03 Full run. It also carries four changes the owner chose that day: a track that only CTDB disagrees with gets a note, never "WRONG"; the Tracks table opens with four rows; an output folder Platterpus cannot write to is refused before the rip, with a message naming it; and the WAV warning says exactly what a WAV keeps and loses.
+
 ### Changed
 
 - **`.28` becomes the default ripper: round 37 is closed** (`FORK_PIN` `3f288fb`, cyanrip `0.9.4-rc3+platterpus.28`). The fork's lap 7 says `GO` beside ours, both gates read the round closed, and the approval record moves to round 37 with 0.7.117, on the Full run of 2026-11-03 (553 pass). A new install, and **Tools → Setup & Updates**, offer `.28` by default from the next release. `.27` stays recognised: it keeps `--verify-log` and the AccurateRip preference for rigs still running it.
@@ -19754,7 +19757,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.118...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.119...HEAD
+[0.7.119]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.118...v0.7.119
 [0.7.118]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...v0.7.118
 [0.7.117]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...v0.7.117
 [0.7.116]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.115...v0.7.116
@@ -19843,4 +19847,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.118.*
+*Last updated for Platterpus v0.7.119.*
