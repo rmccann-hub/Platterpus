@@ -1068,3 +1068,56 @@ def test_a_thread_that_outlives_its_test_is_named_and_fails_it() -> None:
     with pytest.raises(pytest.fail.Exception, match="stuck-worker"):
         fail_on_stubborn_threads(named)
     fail_on_stubborn_threads([])  # nothing outlived it: not a failure
+
+
+def test_the_modal_watchdog_closes_a_dialog_nobody_answers(qapp) -> None:
+    """A modal `exec()` nobody answers returns, rejected, and is recorded.
+
+    The watchdog exists because a test once sat 300 s in
+    `open_unknown_album_dialog` (TASKS R107's note); a detector that never fires
+    would be decoration, so it is fired here, with a short limit.
+    """
+    import time
+
+    from conftest import ModalWatchdog
+    from PySide6.QtWidgets import QDialog
+
+    watchdog = ModalWatchdog(limit_s=0.2)
+    exec_ = watchdog.wrap(QDialog.exec)
+    dialog = QDialog()
+    dialog.setWindowTitle("nobody answers")
+    started = time.monotonic()
+    result = exec_(dialog)  # type: ignore[operator]  # the wrapped QDialog.exec
+    elapsed = time.monotonic() - started
+    assert result == int(QDialog.DialogCode.Rejected)
+    assert watchdog.closed == ["QDialog ('nobody answers')"], watchdog.closed
+    assert elapsed < 10.0, f"the watchdog took {elapsed:.1f} s to close the dialog"
+    dialog.deleteLater()
+
+
+def test_every_test_runs_under_the_modal_watchdog(
+    _no_test_waits_on_a_modal: object,
+) -> None:
+    """The autouse fixture really patches `QDialog.exec`, with the stated limit."""
+    from conftest import MODAL_WATCHDOG_S
+    from PySide6.QtWidgets import QDialog
+
+    assert QDialog.exec.__name__ == "exec_with_watchdog", QDialog.exec
+    # And the fixture's teardown asks the watchdog (read from the source: the
+    # teardown runs after this test's body, where no assertion can see it).
+    source = (Path(__file__).parent / "conftest.py").read_text(encoding="utf-8")
+    teardown = source.split("    yield watchdog\n", 1)[1].split("\n\n", 1)[0]
+    assert teardown.strip() == "fail_if_a_modal_was_closed(watchdog)", teardown
+    assert _no_test_waits_on_a_modal.limit_ms == int(MODAL_WATCHDOG_S * 1000)  # type: ignore[attr-defined]  # a ModalWatchdog
+
+
+def test_a_dialog_the_watchdog_closed_fails_the_test() -> None:
+    """Closing the dialog is half of it: the test that left it must FAIL, naming
+    the dialog, or the next 300 s hang becomes a 20 s pass nobody reads."""
+    from conftest import ModalWatchdog, fail_if_a_modal_was_closed
+
+    watchdog = ModalWatchdog()
+    fail_if_a_modal_was_closed(watchdog)  # nothing closed: not a failure
+    watchdog.closed.append("UnknownAlbumDialog ('Unknown album')")
+    with pytest.raises(pytest.fail.Exception, match="UnknownAlbumDialog"):
+        fail_if_a_modal_was_closed(watchdog)

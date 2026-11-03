@@ -14752,9 +14752,32 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     drive flicker started stayed open 338 s; the script's `rescan` started a new
     scan behind it, and `pick-release` answered the OLD picker. While it stayed
     open, the new scan's candidates for the same disc were declined (one picker
-    per disc), so the new scan could never ask. A new scan now closes it."""
+    per disc), so the new scan could never ask. A new scan now closes it.
+
+    **The rescan is a real probe, and its answer opens a modal** (TASKS R107's
+    note: this test once sat 300 s in `open_unknown_album_dialog`). The fake
+    drive's empty `DiscInfo` has no disc ID, so the probe's result offers the
+    unknown-album rip, a modal `exec()`. Where that result landed was a race:
+    inside this test's `processEvents()` on a loaded machine, or in whatever
+    later code pumped events. The offer is answered here, and the test waits for
+    it, so it lands in this test every time and is asserted, never left behind."""
     from PySide6.QtCore import QCoreApplication
 
+    from platterpus.ui import main_window_rip as mwr
+
+    offered: list[str] = []
+
+    class _Offer:
+        """The unknown-album offer, answered "no" without a nested event loop."""
+
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def exec(self) -> int:
+            offered.append("asked")
+            return int(QDialog.DialogCode.Rejected)
+
+    monkeypatch.setattr(mwr, "UnknownAlbumDialog", _Offer)
     window = teardown_threads()
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
     window._current_disc_id = disc
@@ -14792,6 +14815,14 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     window._current_disc_id = disc
     window._on_mb_releases(disc, releases)
     assert len(pickers) == 2 and pickers[1].scan_request == first_scan + 1
+
+    # The rescan's own result, delivered here rather than in a later test: its
+    # empty answer offers the unknown-album rip exactly once.
+    deadline = time.monotonic() + 10.0
+    while not offered and time.monotonic() < deadline:
+        QCoreApplication.processEvents()
+        time.sleep(0.01)
+    assert offered == ["asked"], "the rescan's result never arrived in this test"
 
 
 def test_recording_a_drive_fact_keeps_every_field_it_does_not_set(
