@@ -1713,6 +1713,55 @@ def test_a_replaced_reads_errors_are_placed_on_every_surface_the_finish_writes(
     assert report["ripper_health_status"] == "2 ripping errors"
 
 
+def test_the_disc_panel_names_a_subset_rip_as_the_last_rip(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """TASKS R113, through the finish handler: the panel is handed the DISC's
+    count, so a one-track rip of a 14-track disc does not read "verified — all 1
+    tracks matched" as the disc's AccurateRip status (2026-11-03 Full run)."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint=""
+    )
+    verified = AccurateRipResult(
+        version=2, result="accurately ripped", confidence=200, local_crc="AAAA1111"
+    )
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AAAA1111",
+                status="ripped successfully",
+                accuraterip_v2=verified,
+            ),
+        ),
+        health_status="No errors occurred",
+    )
+    monkeypatch.setattr(window, "parse_rip_log_from_disk", lambda _path: rip_log)
+    window._active_rip_params = None
+    window._rip_cancelled = False
+    window._auto_retry_done = True
+    window._current_num_tracks = 14
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    text = window._disc_info_panel._accuraterip_value.text()
+    assert text == "last rip, 1 of 14 tracks: 1 matched", text
+
+
 def test_no_auto_heal_when_not_flagged(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:

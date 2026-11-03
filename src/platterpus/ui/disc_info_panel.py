@@ -34,7 +34,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QFormLayout, QLabel, QMenu, QWidget
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
-from platterpus.data_tracks import is_data_track
+from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import track_accuraterip_verified
@@ -206,7 +206,9 @@ class DiscInfoPanel(QWidget):
 
     # --- AccurateRip outcome (from the parsed rip log) ----------------------
 
-    def set_accuraterip_result(self, rip_log: object) -> None:
+    def set_accuraterip_result(
+        self, rip_log: object, *, disc_track_total: int | None = None
+    ) -> None:
         """Show the real AccurateRip outcome after a rip finishes.
 
         AccurateRip can only *verify* a track when that exact pressing is in
@@ -219,6 +221,11 @@ class DiscInfoPanel(QWidget):
         surfaces never disagree about how many tracks matched — a string check
         here would silently miss every cyanrip match ("accurately ripped,
         confidence N" has no "exact match" substring).
+
+        ``disc_track_total`` is the DISC's track count. A rip of fewer tracks is
+        named as the last rip's, never as the disc's: on the 2026-11-03 Full run
+        a one-track rip left this row reading "verified — all 1 tracks matched"
+        on a disc whose track 5 AccurateRip had just called wrong (TASKS R113).
         """
         # Audio tracks only, the banner's population (TASKS R13): a data track has
         # no AccurateRip result, so counting it made a mixed disc whose every audio
@@ -230,13 +237,20 @@ class DiscInfoPanel(QWidget):
         if total == 0:
             self._accuraterip_value.setText(_PLACEHOLDER)
             return
+        on_disc, _logged = audio_track_totals(rip_log, disc_track_total)
         matched = sum(1 for track in tracks if track_accuraterip_verified(track))
-        if matched == 0:
-            self._accuraterip_value.setText("not in database")
+        if total < on_disc:
+            found = "not in database" if matched == 0 else f"{matched} matched"
+            text = f"last rip, {total} of {on_disc} tracks: {found}"
+        elif matched == 0:
+            text = "not in database"
+        elif total == 1:  # one track, said in English (R113: "all 1 tracks")
+            text = "verified — 1 of 1 track matched"
         elif matched == total:
-            self._accuraterip_value.setText(f"verified — all {total} tracks matched")
+            text = f"verified — all {total} tracks matched"
         else:
-            self._accuraterip_value.setText(f"{matched} of {total} tracks matched")
+            text = f"{matched} of {total} tracks matched"
+        self._accuraterip_value.setText(text)
 
     # --- Disc info (from the ripper's disc probe, `cyanrip -I`) -------------
 

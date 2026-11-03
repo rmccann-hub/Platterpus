@@ -2421,7 +2421,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 377 -> 396 on 2026-09-28: `set_no_disc` (a removal said nothing but dashes) and every value label pinned to PlainText, since the error line carries the ripper's own words (TASKS' unswept QLabel row names `ui/disc_info_panel.py`).
     # **396 -> 404** (2026-10-05): `clear_disc_state(keep_drive_rows=)`: a disc leaving the drive keeps the drive's own offset and cache rows, which nothing refilled (2026-10-04 rig runs).
     # **404 -> 410** (2026-10-21, TASKS R13): the AccurateRip row counts audio tracks only.
-    "ui/disc_info_panel.py": 410,
+    # **410 -> 424** (2026-11-03, TASKS R113): the AccurateRip row takes the disc's track count and names a subset rip as the last rip's, never as the disc's, and counts one track in English.
+    "ui/disc_info_panel.py": 424,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
@@ -2695,7 +2696,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5200 -> 5243** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `_rewrite_eac_log_with_ctdb`, called from `_on_ctdb_verified` before the report write; the inputs it renders from are `post_rip_record.EacLogRender`.
     # **5268 -> 5273** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the merge snapshots the album pass's -Z facts before it replaces them; the snapshot is `first_pass_reread.snapshot`.
     # **5268 -> 5272** (2026-11-03, TASKS R118): `report_writer` is imported at module load, with why, so the close path imports nothing after a logout has taken the AppImage's mount.
-    "ui/main_window_rip.py": 5277,
+    # **5268 -> 5272** (2026-11-03, TASKS R113): the finish handler hands the disc panel the disc's track count.
+    "ui/main_window_rip.py": 5281,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

@@ -2143,7 +2143,11 @@ class RipMixin(MainWindowShared):
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
                 # the old misleading static "verified during rip".
-                self._disc_info_panel.set_accuraterip_result(rip_log)
+                # The DISC's count, so a subset rip is named as one (TASKS R113).
+                self._disc_info_panel.set_accuraterip_result(
+                    rip_log,
+                    disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
+                )
                 if success:
                     status = fidelity_summary(
                         rip_log,
