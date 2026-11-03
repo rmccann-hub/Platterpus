@@ -2082,3 +2082,147 @@ def test_an_unknown_size_is_refused_before_anything_is_created(window, session) 
     with pytest.raises(ValueError, match="unknown run size"):
         win.run_acceptance_session(size="medium")
     assert win._acceptance_layout is None
+
+
+# --- What the restore SAYS it put back (TASKS R106) ---------------------------
+#
+# The owner's Settings before the 0.7.117 Full run had Overread ticked. The run
+# turned it off and was safe; the restore then turned it back on and logged only
+# `restored your settings (the run had changed force_overread, …)`, no values.
+# `-O` hung the owner's BDR-209D for about 23 minutes, and its bound is not yet
+# verified on that drive (`docs/rig-session.md` → *Before you start*). So each
+# restored field is logged with both values, the same list reaches the bundle's
+# manifest facts, and Overread coming back on is said in the log and the
+# closing dialog, without changing the user's choice.
+
+
+def _run_that_changed(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch, **user: object
+) -> tuple[MainWindow, dict[str, object]]:
+    """Arm a session over the user's ``user`` settings, let the "script" switch
+    Overread off and WAV on, finish the run, and return the window and the
+    facts the bundle was handed."""
+    captured: dict[str, object] = {}
+
+    def spy(layout: object, **kwargs: object) -> BundleResult:
+        captured["facts"] = kwargs["facts"]
+        return BundleResult(path=Path("/dev/null"))
+
+    monkeypatch.setattr("platterpus.test_session.finish_session", spy)
+    win = window()
+    win._config = dataclasses.replace(win._config, **user)  # type: ignore[arg-type]  # Config fields by name
+    assert win.run_acceptance_session() is True
+    assert process_until(lambda: session.runs)
+    # What `fullacceptance.txt` does to the live config while it runs.
+    win._config = dataclasses.replace(
+        win._config, force_overread=False, output_format="wav"
+    )
+    _finish(win, process_until)
+    facts = captured["facts"]
+    assert isinstance(facts, dict)
+    return win, facts
+
+
+def test_each_restored_setting_is_logged_with_the_runs_value_and_yours(
+    window, session, process_until, monkeypatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="platterpus"):
+        win, facts = _run_that_changed(
+            window, session, process_until, monkeypatch, force_overread=True
+        )
+    assert "restored force_overread: the run had False, yours is True" in caplog.text, (
+        caplog.text
+    )
+    assert "restored output_format: the run had 'wav', yours is 'flac'" in (
+        caplog.text
+    ), caplog.text
+    # The same list, in the facts the bundle's manifest renders.
+    said = str(facts["your settings"])
+    assert "force_overread: the run had False, yours is True" in said, said
+    assert "output_format: the run had 'wav', yours is 'flac'" in said, said
+
+
+def test_overread_coming_back_on_is_said_in_the_log_and_the_closing_dialog(
+    window,
+    session,
+    process_until,
+    monkeypatch,
+    shown_boxes,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """And the user's choice is KEPT: the warning names the risk, it does not
+    untick the box."""
+    import logging
+
+    from platterpus.user_settings import OVERREAD_RESTORED_NOTE
+
+    with caplog.at_level(logging.INFO, logger="platterpus"):
+        win, facts = _run_that_changed(
+            window, session, process_until, monkeypatch, force_overread=True
+        )
+    assert win._config.force_overread is True, "the restore changed the choice"
+    warned = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and OVERREAD_RESTORED_NOTE in r.getMessage()
+    ]
+    assert warned, caplog.text
+    assert shown_boxes, "no closing dialog"
+    closing = shown_boxes[-1].text()
+    assert "Acceptance run finished" == shown_boxes[-1].windowTitle()
+    assert OVERREAD_RESTORED_NOTE in closing, closing
+    assert "23 minutes" in closing
+    assert str(facts["overread after the run"]).startswith("ON, put back"), facts
+
+
+def test_no_overread_warning_when_the_user_had_it_off(
+    window,
+    session,
+    process_until,
+    monkeypatch,
+    shown_boxes,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The control: the run changed other settings, Overread stayed off, and a
+    warning about it would be a false alarm."""
+    import logging
+
+    from platterpus.user_settings import OVERREAD_RESTORED_NOTE
+
+    with caplog.at_level(logging.INFO, logger="platterpus"):
+        win, facts = _run_that_changed(
+            window, session, process_until, monkeypatch, force_overread=False
+        )
+    assert OVERREAD_RESTORED_NOTE not in caplog.text
+    assert OVERREAD_RESTORED_NOTE not in shown_boxes[-1].text()
+    assert facts["overread after the run"] == "off"
+    assert "output_format: the run had 'wav', yours is 'flac'" in str(
+        facts["your settings"]
+    )
+
+
+def test_a_run_with_nothing_to_send_also_says_overread_is_back_on(
+    window, session, shown_boxes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other closing dialog: a precondition abort packs no archive, and the
+    restore still ran, so the warning belongs in its text as well."""
+    from platterpus.user_settings import OVERREAD_RESTORED_NOTE
+
+    win = window()
+    monkeypatch.setattr(
+        type(win), "_launch_acceptance_bundle", lambda self, *a, **k: None
+    )
+    win._acceptance_layout = object()  # type: ignore[assignment]  # armed enough
+    win._acceptance_user_config = dataclasses.replace(win._config, force_overread=True)
+    win._config = dataclasses.replace(win._config, force_overread=False)
+
+    win._on_acceptance_run_finished(
+        _report_with(("expect-ripper-under-review", "fail"), ("rip", "blocked"))
+    )
+
+    said = shown_boxes[-1].text()
+    assert "nothing to send" in said.casefold(), said
+    assert OVERREAD_RESTORED_NOTE in said, said
+    assert win._config.force_overread is True

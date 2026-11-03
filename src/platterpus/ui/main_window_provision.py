@@ -55,6 +55,7 @@ if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
         SetupCenterDialog as SetupCenterDialogT,
     )
     from platterpus.ui.host_setup_dialog import HostSetupDialog as HostSetupDialogT
+    from platterpus.user_settings import RestoredSetting
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +141,9 @@ class ProvisioningMixin(MainWindowShared):
     #: run"* — asked by someone whose Archival Exact goal, beta ripper channel,
     #: debug logging and EAC log would all have been switched off by the run.
     _acceptance_user_config: Config | None = None
+    #: The closing dialog's warning when the restore put Overread back on, else
+    #: "". Set by every first restore, so a previous session's cannot linger.
+    _acceptance_overread_note: str = ""
     #: The session folder, kept past the end of the session so the "the bundle
     #: could not be written" dialog can still point at the complete workspace.
     _acceptance_root: Path | None = None
@@ -1100,10 +1104,18 @@ class ProvisioningMixin(MainWindowShared):
             # in the `finally`, so an exception while reading them cannot leave
             # the user on the run's test values.
             restored = self._restore_settings_after_acceptance()
+        # Each field with both values (TASKS R106): the manifest's reader learns
+        # the user's own settings, not only which names the run touched.
         facts["your settings"] = (
-            "restored after the run; it had changed " + ", ".join(restored)
+            "restored after the run; it had changed "
+            + "; ".join(r.describe() for r in restored)
             if restored
             else "unchanged by the run"
+        )
+        facts["overread after the run"] = (
+            "ON, put back to your setting: " + self._acceptance_overread_note
+            if self._acceptance_overread_note
+            else ("on" if self._config.force_overread else "off")
         )
 
         # **A RUN WITH NOTHING IN IT GETS NO ARCHIVE AND NO FOLDER PROMPT.**
@@ -1280,6 +1292,11 @@ class ProvisioningMixin(MainWindowShared):
             "transcript of this attempt is kept"
             + (f" in {artifact_dir}" if artifact_dir is not None else "")
             + "."
+            + (
+                f"\n\n{self._acceptance_overread_note}"
+                if self._acceptance_overread_note
+                else ""
+            )
         )
         self._acceptance_message(
             QMessageBox.Icon.Warning,
@@ -1605,6 +1622,8 @@ class ProvisioningMixin(MainWindowShared):
         error = str(getattr(result, "error", "") or "")
         note = self._acceptance_inhibit_note or "Sleep lock: not determined."
         note += "\n" + (self._acceptance_screen_note or "Screen lock: not determined.")
+        if self._acceptance_overread_note:
+            note += "\n\n" + self._acceptance_overread_note
         if error or path is None:
             reason = error or "the bundler returned no path and no error"
             log.error("acceptance session bundle failed: %s", reason)
@@ -1695,8 +1714,13 @@ class ProvisioningMixin(MainWindowShared):
         # ripping WAV. So the restore belongs to every exit, not to the script.
         self._restore_settings_after_acceptance()
 
-    def _restore_settings_after_acceptance(self) -> list[str]:
-        """Put the user's settings back; return which fields the run had changed.
+    def _restore_settings_after_acceptance(self) -> list[RestoredSetting]:
+        """Put the user's settings back; return each field the run had changed.
+
+        Each comes with the run's value and the user's, and each is logged with
+        both (TASKS R106). When Overread comes back ON, that is said in the log
+        and in the closing dialog (:data:`OVERREAD_RESTORED_NOTE`), and the
+        user's choice is kept: the restore changes no setting the user made.
 
         Safe to call more than once — the snapshot is consumed, so the second
         call is a no-op and cannot restore a stale copy over a later edit.
@@ -1709,15 +1733,19 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_user_config = None
         if saved is None:
             return []
-        from platterpus.user_settings import changed_settings
+        from platterpus.user_settings import (
+            OVERREAD_RESTORED_NOTE,
+            overread_restored,
+            restored_settings,
+        )
 
         # The user's SETTINGS only. The app's own bookkeeping moves on during a
         # run for real reasons (a first-run offer made and answered), and putting
         # the old value back would re-ask a question the user already answered —
         # the first version of this did exactly that with `host_setup_prompted`.
-        changed = changed_settings(saved, self._config)
+        changed = restored_settings(saved, self._config)
         restored = dataclasses.replace(
-            self._config, **{name: getattr(saved, name) for name in changed}
+            self._config, **{r.name: getattr(saved, r.name) for r in changed}
         )
         self._config = restored
         self._rip_controls.set_config(restored)
@@ -1730,8 +1758,15 @@ class ProvisioningMixin(MainWindowShared):
             log.warning("acceptance session: could not save restored settings: %s", exc)
         log.info(
             "acceptance session: restored your settings (the run had changed %s)",
-            ", ".join(changed) or "nothing",
+            ", ".join(r.name for r in changed) or "nothing",
         )
+        for setting in changed:
+            log.info("acceptance session: restored %s", setting.describe())
+        self._acceptance_overread_note = (
+            OVERREAD_RESTORED_NOTE if overread_restored(changed) else ""
+        )
+        if self._acceptance_overread_note:
+            log.warning("acceptance session: %s", self._acceptance_overread_note)
         return changed
 
     def _on_run_acceptance_action(self) -> None:
