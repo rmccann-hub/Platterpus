@@ -1737,11 +1737,14 @@ def _complete_disc_log() -> RipLog:
 
 
 def test_a_cancelled_securing_pass_names_the_cancel_as_the_cause() -> None:
+    from platterpus.cancel_cause import USER, sentence
+
     text = render_eac_style_log(
         _complete_disc_log(),
         outcome_status="cancelled",
         disc_track_total=14,
         secure_rerip={"interrupted": True},
+        cancelled_by=sentence(USER),
     )
     assert "the securing pass was INTERRUPTED (you cancelled the rip)" in text, (
         "the log says the securing pass stopped but not that the user stopped it, "
@@ -1754,6 +1757,35 @@ def test_a_cancelled_securing_pass_names_the_cancel_as_the_cause() -> None:
     assert "INCOMPLETE RIP" not in text
     assert "RIP STOPPED (cancelled)" in text
     assert "every one of the 14 disc track(s) is present" in text
+
+
+def test_a_cancel_the_user_did_not_make_is_never_said_to_be_theirs() -> None:
+    """TASKS R62 (the plan of record, Appendix H §3): on 2026-10-21 the
+    acceptance run's six-hour limit cancelled disc 1, and this line said "you
+    cancelled the rip" (`round36full1021bwholedisceac.log:325`, evidence
+    `08de9851`). It now says who, and a cancel whose cause it was not told
+    says that instead of guessing the user."""
+    from platterpus.cancel_cause import BY_TIME_LIMIT, CancelCause, sentence
+
+    limit = sentence(CancelCause(BY_TIME_LIMIT, "`wait-for-rip 21600` (L325)"))
+    text = render_eac_style_log(
+        _complete_disc_log(),
+        outcome_status="cancelled",
+        disc_track_total=14,
+        secure_rerip={"interrupted": True},
+        cancelled_by=limit,
+    )
+    assert "INTERRUPTED (the test run, whose time limit for the rip ran out" in text
+    assert "`wait-for-rip 21600` (L325)" in text
+    assert "you cancelled" not in text
+    untold = render_eac_style_log(
+        _complete_disc_log(),
+        outcome_status="cancelled",
+        disc_track_total=14,
+        secure_rerip={"interrupted": True},
+    )
+    assert "INTERRUPTED (the rip was cancelled) before" in untold
+    assert "you cancelled" not in untold
 
 
 def test_an_interrupted_securing_pass_with_no_cancel_does_not_invent_one() -> None:

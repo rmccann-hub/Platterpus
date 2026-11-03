@@ -45,6 +45,7 @@ from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
 )
+from platterpus.cancel_cause import CancelCause
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
 from platterpus.disc_probe_retry import DiscReadRetries
@@ -464,6 +465,8 @@ class MainWindow(
         # Set when the user hits Cancel, so the finish handler reports a
         # cancellation rather than a failure.
         self._rip_cancelled: bool = False
+        # WHO cancelled it, named by the caller (TASKS R62, `cancel_cause.py`).
+        self._rip_cancel_cause: CancelCause | None = None
         # Guards the one-shot auto-heal (rip-as-unknown) per Start.
         self._auto_retry_done: bool = False
         # Auto-escalation: after Cancel, if the in-container reader keeps the

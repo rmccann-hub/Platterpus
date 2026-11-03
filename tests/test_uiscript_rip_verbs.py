@@ -155,7 +155,7 @@ def _window(**overrides: Any):
     win.cancelled = False
     win.saved = []
     win._on_drive_changed = win.rescanned.append
-    win._on_rip_cancel = lambda: setattr(win, "cancelled", True)
+    win._on_rip_cancel = lambda cause=None: setattr(win, "cancelled", cause or True)
     win._save_config = win.saved.append
     return win
 
@@ -494,6 +494,10 @@ def test_cancel_rip_reaches_the_windows_cancel_handler(qapp, process_until) -> N
     runner._execute(cancel)
     assert runner._report.steps[-1].outcome is Outcome.PASS
     assert process_until(lambda: win.cancelled), "the deferred call never landed"
+    # Who: the script's step, named, never "the user" (TASKS R62).
+    from platterpus.cancel_cause import BY_SCRIPT_STEP
+
+    assert win.cancelled.by == BY_SCRIPT_STEP and "cancel-rip" in win.cancelled.detail
 
 
 def test_cancel_rip_refuses_a_rip_its_last_rip_step_did_not_start(
@@ -606,6 +610,12 @@ def test_a_wait_for_rip_that_runs_out_ends_the_run_and_cancels_its_rip(
     assert any(
         r.outcome is Outcome.INFO and "cancelled" in r.detail for r in report.steps
     ), "the cancel is not in the transcript"
+    # TASKS R62: disc 1 of 2026-10-21 was cancelled this way, and the app log and
+    # the EAC-layout log both said the user had done it. The cause names the limit.
+    from platterpus.cancel_cause import BY_TIME_LIMIT
+
+    assert win.cancelled.by == BY_TIME_LIMIT, win.cancelled
+    assert "wait-for-rip 1" in win.cancelled.detail
 
 
 def test_stopping_a_run_cancels_only_its_own_rip(qapp, process_until) -> None:
@@ -621,6 +631,9 @@ def test_stopping_a_run_cancels_only_its_own_rip(qapp, process_until) -> None:
     runner._timer.start()  # what `start()` does, so `stop()` sees a live run
     runner.stop("stopped by the user")
     assert own.cancelled, "Stop left the run's own rip reading"
+    from platterpus.cancel_cause import BY_RUN_ENDED
+
+    assert own.cancelled.by == BY_RUN_ENDED, own.cancelled  # TASKS R62
 
     # The 2026-10-04 shape: an earlier `rip` step started a rip (F), and the
     # last one was refused because that rip was still reading (I). The rip

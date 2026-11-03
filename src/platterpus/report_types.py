@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
+from platterpus.cancel_cause import CancelledByBlock
 from platterpus.disc_identity import DiscIdentityBlock
 from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
@@ -171,6 +172,8 @@ class RipperRecordBlock(TypedDict):
 
 class OutcomeBlock(TypedDict):
     status: str
+    #: v42 (TASKS R62): who cancelled a cancelled rip; `None` otherwise.
+    cancelled_by: CancelledByBlock | None
     failure_hint: str | None
     auto_unknown_retry: AutoUnknownRetryBlock
     # v13: the two facts that make a failure reproducible, and both were being

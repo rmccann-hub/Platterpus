@@ -30,6 +30,8 @@ from platterpus import (
     written_whole,
 )
 from platterpus.atomic_write import atomic_write_text
+from platterpus.cancel_cause import outcome_block as cancel_outcome_block
+from platterpus.cancel_cause import sentence_from_outcome
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
@@ -619,6 +621,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      distinct_reads_seen` counts the read a limit-hit loop prints no value
 #      for, where the fork's `at most M reads agreed` line proves it (N reads,
 #      at most M agreeing, hold at least ceil(N / M) values).
+#      Also v42, still unreleased, so additions only (TASKS R62):
+#      `outcome.cancelled_by`, who cancelled a cancelled rip, as the caller of
+#      the window's one Cancel named itself (`cancel_cause.py`): `by` (`user`,
+#      `time_limit`, `run_ended`, `script_step`, or `not_recorded`), `detail`
+#      (the script step or the run's reason) and `sentence`. Null unless
+#      `status` is `cancelled`. The `rip_cancelled` issue carries the sentence.
+#      Disc 1 of 2026-10-21 was cancelled by the run's six-hour limit and said
+#      "you cancelled the rip".
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -1096,6 +1106,7 @@ def build_outcome(
     securing_pass_exit_code: int | None = None,
     ripper_record: RipperEnding | None = None,
     securing_pass_record: RecordFate | None = None,
+    cancelled_by: object = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -1134,6 +1145,10 @@ def build_outcome(
 
     ``securing_pass_record`` is what became of the securing pass's own record
     (v34, TASKS R9), written by :func:`~platterpus.record_fate.outcome_block`.
+
+    ``cancelled_by`` is the :class:`~platterpus.cancel_cause.CancelCause` the
+    caller of the Cancel named (v42, TASKS R62); null unless ``status`` is
+    ``cancelled``, and ``not_recorded`` when a cancelled rip's cause was not said.
     """
     argv = tuple(ripper_argv or ())
     # The FIRST invocation, when the rip took more than one.
@@ -1157,6 +1172,7 @@ def build_outcome(
     build_tag = ripper_build_tag.strip() if isinstance(ripper_build_tag, str) else ""
     return {
         "status": status,
+        "cancelled_by": cancel_outcome_block(cancelled_by, status=status),
         "failure_hint": failure_hint or None,
         "auto_unknown_retry": {
             "fired": bool(auto_unknown_retry_fired),
@@ -2747,7 +2763,12 @@ def _issues(
             or "the rip did not complete successfully",
         )
     elif status == "cancelled":
-        add("warning", "rip_cancelled", "the rip was cancelled before it finished")
+        who = sentence_from_outcome(outcome)
+        add(
+            "warning",
+            "rip_cancelled",
+            "the rip was cancelled before it finished" + (f": {who}" if who else ""),
+        )
 
     # Ranked as an ERROR, above the cancel it usually accompanies, because it
     # invalidates the other entries rather than adding to them: a truncated log

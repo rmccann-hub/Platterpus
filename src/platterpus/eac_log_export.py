@@ -312,6 +312,7 @@ def render_eac_style_log(
     outcome_status: str = "",
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
+    cancelled_by: str = "",
 ) -> str:
     """The rendered log text; see :func:`render_eac_style_log_and_defused`."""
     text, _defused = render_eac_style_log_and_defused(
@@ -322,6 +323,7 @@ def render_eac_style_log(
         outcome_status=outcome_status,
         disc_track_total=disc_track_total,
         secure_rerip=secure_rerip,
+        cancelled_by=cancelled_by,
     )
     return text
 
@@ -335,6 +337,7 @@ def render_eac_style_log_and_defused(
     outcome_status: str = "",
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
+    cancelled_by: str = "",
 ) -> tuple[str, list[str]]:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``,
     and the lines rewritten so metadata could not forge a signature (D16).
@@ -375,6 +378,7 @@ def render_eac_style_log_and_defused(
             outcome_status=outcome_status,
             disc_track_total=disc_track_total,
             secure_rerip=secure_rerip,
+            cancelled_by=cancelled_by,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -394,6 +398,7 @@ def _render(
     outcome_status: str = "",
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
+    cancelled_by: str = "",
 ) -> tuple[str, list[str]]:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -572,7 +577,7 @@ def _render(
             rip_log,
             _read_stability_line(rip_log)
             + _appended_silence_line(rip_log)
-            + _interrupted_securing_line(secure_rerip, outcome_status)
+            + _interrupted_securing_line(secure_rerip, outcome_status, cancelled_by)
             + _verified_reread_line(secure_rerip),
             disc_track_total=disc_track_total,
         )
@@ -1496,7 +1501,9 @@ def _appended_silence_line(rip_log: RipLog) -> list[str]:
 
 
 def _interrupted_securing_line(
-    secure_rerip: SecureReripBlock | None, outcome_status: str = ""
+    secure_rerip: SecureReripBlock | None,
+    outcome_status: str = "",
+    cancelled_by: str = "",
 ) -> list[str]:
     """A line when the auto-fix securing pass started and never finished.
 
@@ -1514,16 +1521,18 @@ def _interrupted_securing_line(
     — reading "INTERRUPTED" with no cause, when the cause was the user's own click and
     we had it recorded. Captured and not surfaced is the same bug from their side.
 
+    ``cancelled_by`` is WHO, the report's ``outcome.cancelled_by.sentence``
+    (`cancel_cause.py`). This line said "you cancelled the rip" for every cancel,
+    and on 2026-10-21 the acceptance run's six-hour limit had cancelled it
+    (TASKS R62). A cancel whose cause the caller did not pass says so.
+
     Reads defensively: this comes from worker state, and a wrong shape must cost
     a line, not the whole log.
     """
     if not isinstance(secure_rerip, dict) or not secure_rerip.get("interrupted"):
         return []
-    cause = (
-        " (you cancelled the rip)"
-        if (outcome_status or "").strip().lower() == "cancelled"
-        else ""
-    )
+    who = (cancelled_by or "").strip() or "the rip was cancelled"
+    cause = f" ({who})" if (outcome_status or "").strip().lower() == "cancelled" else ""
     return [
         f"Secure re-read      : the securing pass was INTERRUPTED{cause} before it "
         "finished — any track it had not yet re-read carries only its first read"

@@ -5054,6 +5054,70 @@ def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
         window._force_stop_timer.stop()
 
 
+def test_the_cancel_button_is_the_user_and_the_test_runner_is_named(
+    teardown_threads, monkeypatch, tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """TASKS R62 (the plan of record, Appendix H §3): on 2026-10-21 the
+    acceptance run's six-hour limit cancelled disc 1, and the app log said "rip
+    cancel requested by the user". The caller of the one Cancel names itself."""
+    import logging
+
+    from platterpus import cancel_cause as cc
+    from platterpus import drive_control
+
+    limit = cc.CancelCause(cc.BY_TIME_LIMIT, "`wait-for-rip 21600` (L325)")
+    forced: list[str] = []
+    monkeypatch.setattr(
+        drive_control, "force_stop_drive", lambda device="": forced.append(device)
+    )
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
+    )
+    try:
+        with caplog.at_level(logging.INFO):
+            window._on_rip_cancel(limit)
+        assert window._rip_cancel_cause == limit
+        assert "requested by the test run, whose time limit" in caplog.text
+        assert "requested by the user" not in caplog.text
+        # The rescue's Force stop afterwards does not rewrite who cancelled.
+        window._do_force_stop("auto")
+        assert window._rip_cancel_cause == limit
+
+        caplog.clear()
+        window._rip_cancel_cause = None
+        with caplog.at_level(logging.INFO):
+            window._on_rip_cancel()  # the button's signal carries nothing
+        assert window._rip_cancel_cause == cc.USER
+        assert "rip cancel requested by the user;" in caplog.text
+        # And Force stop pressed by hand, with no cancel before it, is the user.
+        window._rip_cancel_cause = None
+        window._do_force_stop("manual")
+        assert window._rip_cancel_cause == cc.USER
+        # The EAC-layout log the window writes says who, from the report's outcome.
+        from platterpus import rip_report
+
+        window._config.write_eac_log_after_rip = True
+        window._last_outcome = rip_report.build_outcome(
+            status="cancelled", cancelled_by=limit
+        )
+        window._last_secure_rerip = {"interrupted": True}
+        log_file = tmp_path / "Album.log"
+        log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+        window._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), log_file)
+        eac = (tmp_path / "Album (EAC-compatible).log").read_text(encoding="utf-8")
+        assert "INTERRUPTED (the test run, whose time limit" in eac
+        assert "you cancelled" not in eac
+    finally:
+        window._force_stop_timer.stop()
+        thread = window._force_stop_thread
+        if thread is not None:
+            thread.join(timeout=5)
+        window._rip_worker = None
+
+
 def test_auto_force_stop_frees_the_DEVICE_and_never_ejects(
     teardown_threads, monkeypatch
 ) -> None:

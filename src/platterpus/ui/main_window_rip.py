@@ -51,7 +51,14 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control, exit_work, rip_addendum, rip_files, tag_hygiene
+from platterpus import (
+    cancel_cause,
+    drive_control,
+    exit_work,
+    rip_addendum,
+    rip_files,
+    tag_hygiene,
+)
 from platterpus.adapters import cover_art
 from platterpus.adapters.cyanrip_name_lengths import RipNaming
 from platterpus.adapters.derived_verify import DerivedVerifyResult
@@ -66,6 +73,7 @@ from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
 from platterpus.adapters.transcode import extension_for as transcode_extension_for
+from platterpus.cancel_cause import CancelCause
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
@@ -688,6 +696,7 @@ class RipMixin(MainWindowShared):
         # Cleared here, set in _on_rip_cancel — so the finish handler can
         # say "cancelled" instead of "failed".
         self._rip_cancelled = False
+        self._rip_cancel_cause = None
         # Stamp the rip's start for the elapsed-time record. Set here (the
         # user-perceived Start), NOT in _start_rip_worker, so an auto-heal retry
         # is included in the total — the user waited for the whole thing. cyanrip
@@ -1156,9 +1165,15 @@ class RipMixin(MainWindowShared):
             f"Cancel or Force stop to recover.{overread_hint}"
         )
 
-    def _on_rip_cancel(self) -> None:
+    def _on_rip_cancel(self, cause: CancelCause | None = None) -> None:
+        """Cancel the rip. ``cause`` names the caller; ``None`` is the button.
+
+        Every route that stops a rip comes through here, so the cause is said by
+        the caller and never assumed (TASKS R62, `cancel_cause.py`).
+        """
         if self._rip_worker is None:
             return
+        self._rip_cancel_cause = cause or cancel_cause.USER
         # Cancel is the single most consequential thing a user can press during a
         # rip, and until now it wrote NOTHING to the log — so a report about a
         # cancel that misbehaved (a drive left spinning, a rip recorded as failed)
@@ -1166,7 +1181,8 @@ class RipMixin(MainWindowShared):
         # rescue deadline goes in the same line so the log carries the window a
         # reader has to reason about (rig session, 2026-07-30).
         log.info(
-            "rip cancel requested by the user; arming the %ds force-stop rescue",
+            "rip cancel requested by %s; arming the %ds force-stop rescue",
+            cancel_cause.who(self._rip_cancel_cause),
             _FORCE_STOP_COUNTDOWN_MS // 1000,
         )
         self._rip_cancelled = True
@@ -1315,6 +1331,8 @@ class RipMixin(MainWindowShared):
         # a malfunction. Found by a rip-path audit, 2026-07-29; the honesty rule
         # this breaks is the same one the rest of the reporting code is built on.
         self._rip_cancelled = True
+        if self._rip_cancel_cause is None:
+            self._rip_cancel_cause = cancel_cause.USER  # a hand-pressed Force stop
         # The armed device wins whenever we have one — for the auto trigger it is
         # the whole point (see `_force_stop_device`), and for a manual press during
         # a rip it is still the right target: "Force stop" means stop the thing
@@ -1914,6 +1932,8 @@ class RipMixin(MainWindowShared):
             securing_pass_record=getattr(
                 self._rip_worker, "securing_pass_record", None
             ),
+            # Who cancelled it, as the caller of the Cancel said (v42, R62).
+            cancelled_by=self._rip_cancel_cause,
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
@@ -3124,6 +3144,9 @@ class RipMixin(MainWindowShared):
                     getattr(self._rip_worker, "securing_pass_record", None)
                 ),
                 "cancel requested": str(cancelled),
+                "cancelled by": cancel_cause.who(self._rip_cancel_cause)
+                if cancelled
+                else "(not cancelled)",
                 "ripper log parsed": str(parsed_a_log),
                 "tracks in log": str(tracks_done),
                 "tracks requested": str(expected) if expected else "(unknown)",
@@ -4151,6 +4174,8 @@ class RipMixin(MainWindowShared):
                 # the durable log, so the archival artifact was the more
                 # reassuring of the two (audit finding, 2026-07-28).
                 secure_rerip=getattr(self, "_last_secure_rerip", None),
+                # Who cancelled it, as the report says (R62).
+                cancelled_by=cancel_cause.sentence_from_outcome(outcome),
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")

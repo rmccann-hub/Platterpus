@@ -102,6 +102,7 @@ if TYPE_CHECKING:
         ReleaseSummary,
     )
     from platterpus.adapters.rip_backend import RipBackend
+    from platterpus.cancel_cause import CancelCause
     from platterpus.config import Config
     from platterpus.deps.manager import DependencyManager, DependencyReport
     from platterpus.disc_probe_retry import DiscReadRetries
@@ -253,6 +254,7 @@ class MainWindowShared(_SeamBase):
     # In-flight rip bookkeeping.
     _active_rip_params: RipParameters | None
     _rip_cancelled: bool
+    _rip_cancel_cause: CancelCause | None
     _auto_retry_done: bool
     _force_stop_done: bool
     _force_stop_timer: QTimer
