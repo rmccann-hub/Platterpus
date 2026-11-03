@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **After a rip, the results table under the progress bars opens showing about four tracks instead of one or two.** The window now gives the lower half of its height to the rip pane (half, up from 40%) and 30% to the track list above it, so the status line, the verdict banner and the tabs no longer squeeze the Tracks table to a row and a half. On a small screen the track list still opens on at least four rows. The dividers drag as before. Measured offscreen at the default 1000×860 after a rip: Tracks table 2 → 4 whole rows, track list 6 → 4.
 - **Our standing status says 0.7.118 is published** (contributor-facing): released 2026-11-03 from `deae5871` (release run 41654326078, and PyPI), naming `.28` as the build under review with `.27` the default; the next run is our owner's Full run on it.
 
 ## [0.7.118] — 2026-11-03

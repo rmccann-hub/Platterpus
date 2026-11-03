@@ -126,7 +126,36 @@ _DEFAULT_WINDOW_H: int = 860
 _SCREEN_MARGIN_PX: int = 48
 # Initial share of the splitter for (disc info, track list, controls+progress). Only
 # a STARTING point: the user drags freely afterwards and Qt keeps their sizes.
-_PANE_SHARES: tuple[float, float, float] = (0.20, 0.40, 0.40)
+#
+# 0.40/0.40 -> 0.30/0.50 (2026-11-03, the owner's screenshot on 0.7.117): after a
+# rip the rip pane's bars, status, banner and tabs took ~240 of its ~300 px, so its
+# Tracks table showed ~1.5 rows. Measured offscreen at 1000x860 in that finished
+# state (`tests/test_ui_main_window.py`), table rows lower / upper:
+#     0.40/0.40 ... 2 / 6        0.30/0.50 ... 4 / 4      <- now
+# The upper list keeps at least `_MIN_DEFAULT_TRACK_ROWS` on a smaller screen.
+_PANE_SHARES: tuple[float, float, float] = (0.20, 0.30, 0.50)
+_MIN_DEFAULT_TRACK_ROWS: int = 4
+
+
+def _default_pane_sizes(
+    total: int, shares: tuple[float, float, float], floors: tuple[int, int, int]
+) -> list[int]:
+    """Split ``total`` px by ``shares``, then lift the first two panes to their floors.
+
+    Every shortfall comes out of the rip pane (never below its own floor), the
+    one the bigger share fed. Done here rather than left to Qt: Qt meets a pane's
+    minimum by taking from its neighbours as it sees fit, and measured, it took
+    the disc-info pane's 8 px from the track list's floor. Pure, so the
+    arithmetic is testable without a window.
+    """
+    sizes = [int(total * share) for share in shares]
+    for pane in (0, 1):
+        shortfall = max(0, floors[pane] - sizes[pane])
+        moved = min(shortfall, max(0, sizes[2] - floors[2]))
+        sizes[pane] += moved
+        sizes[2] -= moved
+    return sizes
+
 
 # How long after launch the automatic cyanrip check waits before running. Long
 # enough that the dependency probe and the drive listing — both of which enter the
@@ -892,9 +921,14 @@ class MainWindow(
             total = sum(self._content_splitter.sizes())
             if total <= 0:
                 return
-            self._content_splitter.setSizes(
-                [int(total * share) for share in _PANE_SHARES]
+            splitter = self._content_splitter
+            rip_section = splitter.widget(2)  # the controls + progress pane
+            floors = (
+                self._disc_info_panel.minimumSizeHint().height(),
+                self._track_table.height_for_rows(_MIN_DEFAULT_TRACK_ROWS),
+                rip_section.minimumSizeHint().height() if rip_section else 0,
             )
+            splitter.setSizes(_default_pane_sizes(total, _PANE_SHARES, floors))
         except Exception:  # noqa: BLE001 — layout polish must never break startup
             log.exception("could not apply the initial pane split; keeping Qt's")
 

@@ -2509,7 +2509,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1792 -> 1795** (2026-11-03, TASKS R62, who cancelled a rip): `_rip_cancel_cause`, declared beside `_rip_cancelled`, and its import.
     # **1794 -> 1809** (2026-11-03, TASKS R107): the first-run offer runs on a child timer of the window, so it cannot fire on a torn-down one, and six config writes go through `_save_config_or_report`, which logs a failed write instead of raising into Qt.
     # **1809 -> 1821** (2026-11-03, TASKS R118): `closeEvent` logs a failed report flush instead of raising it into Qt, which left the close half done and failed every Python event filter Qt called while the exception was pending.
-    "ui/main_window.py": 1821,
+    # **1821 -> 1855** (2026-11-03, the owner's screenshot on 0.7.117, the rip pane's Tracks table at ~1.5 rows): `_PANE_SHARES` 0.40/0.40 -> 0.30/0.50 with its measurement, and `_default_pane_sizes`, which lifts the disc-info pane and the track list to their floors from the rip pane, so the bigger share cannot take the track list back to two rows on a small screen. Beside the split it computes.
+    "ui/main_window.py": 1855,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2838,7 +2839,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **889 -> 893** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **893 -> 914** (2026-10-26, TASKS R88, the owner's interim): `validate` refuses a name over 255 bytes with the specific message, beside the other point-of-entry path checks; the rendering is `cyanrip_name_lengths`.
     # **914 -> 928** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): `STATUS_STOPPED` and `end_track_status`: a track still shown as ripping when the rip ends reads "⚠ Stopped".
-    "ui/track_table.py": 928,
+    # **928 -> 944** (2026-11-03, the default pane split): `height_for_rows`, the height this widget needs for N whole rows, read from its own layout, which the window uses as the track list's floor on its first split.
+    "ui/track_table.py": 944,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
