@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our standing status says 0.7.118 is published** (contributor-facing): released 2026-11-03 from `deae5871` (release run 41654326078, and PyPI), naming `.28` as the build under review with `.27` the default; the next run is our owner's Full run on it.
+
 ## [0.7.118] — 2026-11-03
 The release that fixes what the 2026-11-03 Full run and its review found, ahead of anything new. A track AccurateRip says is wrong is never called clean, matched or confirmed, on any surface; a CTDB match its own database outvotes no longer passes a step; a rip refuses to start when the output folder clearly lacks the space; and the acceptance run checks the read offset, the derived MP3, WavPack and WAV files themselves, and the pre-emphasis pair. The fixes also include a shutdown that could fail after a logout, 1,942 false warnings a run, and a hidden update dialog left behind. The default ripper stays `.27`; `.28` stays the build under review until round 37 closes.
 
