@@ -291,10 +291,16 @@ _ATTR = st.sampled_from(
     attrs=st.lists(
         st.dictionaries(
             _ATTR,
-            # Text XML can carry at all: no control characters, no surrogates. An
-            # unparseable body is the other test's subject.
+            # Text XML can carry at all: no control characters, no surrogates, and
+            # not U+FFFE or U+FFFF, which XML 1.0's Char production excludes
+            # (hypothesis found `{'crc32': '\ufffe'}` on 2026-11-03: a malformed
+            # body, which the parser rightly refuses). An unparseable body is the
+            # other test's subject.
             st.text(
-                alphabet=st.characters(blacklist_categories=("Cc", "Cs")),
+                alphabet=st.characters(
+                    blacklist_categories=("Cc", "Cs"),
+                    blacklist_characters="\ufffe\uffff",
+                ),
                 max_size=20,
             ),
             max_size=6,
