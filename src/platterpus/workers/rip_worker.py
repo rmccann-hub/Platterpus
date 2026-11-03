@@ -3533,9 +3533,20 @@ class RipWorker(QObject):
                     }
                 )
             kept = [row.number for row in swapped]
+            # A finished re-read that did not converge, and was not replaced, is
+            # unstable whichever trigger ran the pass. Only the album pass's list
+            # was kept, so after the AccurateRip trigger (no `-Z` on that pass)
+            # `unstable_tracks` read `[]` beside a verdict naming tracks 11 to 17
+            # (2026-10-21, the plan of record, Appendix H §3; TASKS R65).
+            settled_unstable = {
+                number
+                for track in getattr(rerip_log, "tracks", ()) or ()
+                if getattr(track, "secure_rerip_converged", None) is False
+                and (number := getattr(track, "number", None)) in recorded
+            }
+            unstable = set(self._last_unstable_tracks) | settled_unstable
+            self._last_unstable_tracks = sorted(unstable - set(kept))
             if kept:
-                unstable = self._last_unstable_tracks
-                self._last_unstable_tracks = [t for t in unstable if t not in kept]
                 self._append_swap_addendum(album_log_path, trigger, swapped)
             if recorded:
                 self.log_line.emit(stopped_pass_sentence(recorded, kept, settled))

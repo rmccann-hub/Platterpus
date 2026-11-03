@@ -3060,7 +3060,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 4280** (2026-10-21): the entries above landed together on one branch.
     # **4280 -> 4324** (2026-10-26, run B of the 0.7.112 Full runs): `_record_unfinished_refix` swaps in a stopped securing pass's finished, AccurateRip-verified re-read and records why each other track was not, and its call passes the swap's inputs. The decision, the file-whole check and the sentence are `unfinished_refix.py`; only the worker owns the swap and its records.
     # **4324 -> 4327** (2026-10-29, TASKS R95): the speed lock engages on an unknown answer too, with the reason beside it.
-    "workers/rip_worker.py": 4327,
+    # **4327 -> 4338** (2026-11-03, TASKS R65): `_record_unfinished_refix` adds a stopped pass's finished, unconverged, unreplaced tracks to the unstable list, so `read_speed.unstable_tracks` agrees with the verdict after the AccurateRip trigger too.
+    "workers/rip_worker.py": 4338,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
