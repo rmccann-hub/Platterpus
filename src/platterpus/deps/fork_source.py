@@ -285,7 +285,16 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: branch at `4e3830ca`, approved on that run on the owner's word *"1. approve it"*
 #: with the fork's track 9 record fixed before their closing lap (`14f9298`). Their
 #: manifest at `14fb252` carries `.27` on beta with `round_closed: true`.
-FORK_PIN: Final[str] = "5aeefc4"
+#: **Rolled to `3f288fb` (`+platterpus.28`, upstream rc3) on round 37's close
+#: (2026-11-03)**: our lap 6 `GO` against their lap 7 `GO`
+#: (`docs/handshake/inbound/round-37-lap-07.md`, sha256 `bfd6411e…`, 17,243 bytes,
+#: on `platterpus-fork` at `cyanrip@1b22ed96`); both gates read the round CLOSED.
+#: `3f288fb` is round 37's pin from its release on 2026-11-03, held by R4 since. Its
+#: evidence is the 2026-11-03 Full run on 0.7.117, 553 pass and none failed, filed on
+#: our `evidence` branch at `1bb98a2c`, approved on that run on the owner's word
+#: *"Do 1 and 3"*. Their manifest at `0067dc55` carries `.28` on beta with
+#: `round_closed: true`.
+FORK_PIN: Final[str] = "3f288fb"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -665,7 +674,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: **Rolled to `0.9.4-rc3+platterpus.27` on 2026-10-28, with `FORK_PIN`**, read off
 #: round 36 lap 18's `HANDSHAKE-RIPPER-VERSION` and cross-checked against
 #: `meson.build:21` at `5aeefc4`, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.27"
+#: **Rolled to `0.9.4-rc3+platterpus.28` on 2026-11-03, with `FORK_PIN`**, read off
+#: round 37 lap 7's `HANDSHAKE-RIPPER-VERSION` and cross-checked against
+#: `meson.build:21` at `3f288fb`, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.28"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -1661,6 +1673,13 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # defect, one build along. Its `PROVIDER-CONTRACT.md` (built at `ge2b52b1`)
         # carries `-Y` in P1 at line 109.
         f"{FORK_BRANCH}-gca0f097",
+        # `.27`, `FORK_PIN` from round 36's close until round 37's (2026-11-03), and
+        # covered until then only as `FORK_EXPECTED_BUILD_TAG` and, before that, as
+        # `PIN_UNDER_REVIEW`. The roll to `.28` would drop it while every rig that
+        # installed 0.7.115 to 0.7.118's default still runs it: the 2026-08-25
+        # defect, one build along. Its `PROVIDER-CONTRACT.md` (built at `g580c46c`)
+        # carries `-Y` in P1 at line 110.
+        f"{FORK_BRANCH}-g5aeefc4",
     }
 )
 
@@ -1800,7 +1819,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 # full commit fails the suite rather than silently weakening the build check.
 
 #: :data:`FORK_PIN` in full.
-FORK_PIN_FULL: Final[str] = "5aeefc43ae46c7171424bf84de6f762982c9c7b4"
+FORK_PIN_FULL: Final[str] = "3f288fb735215e067f4c5ba36d15fba1c084e972"
 #: :data:`PIN_UNDER_REVIEW` in full.
 PIN_UNDER_REVIEW_FULL: Final[str] = "3f288fb735215e067f4c5ba36d15fba1c084e972"
 #: :data:`FORK_TEST_PIN` in full.
@@ -2218,18 +2237,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 36 approved, GO on both sides: the round's pin from its "
+        "the build round 37 approved, GO on both sides: the round's pin from its "
         "release, held fixed by rule R4 for the whole round "
-        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 38, read from their "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 39, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). Over +platterpus.25 it "
-        "reads about three times faster, asks the drive whether the disc is "
-        "recordable, reads each track's ISRC from the disc, records the pregap "
-        "search, and can prefer a read AccurateRip verifies at the repeat limit. "
-        "Round 36's evidence on it is the Full run on a drive, installed through "
-        "Platterpus 0.7.114: 553 steps passed and none failed; it was approved on "
-        "that run on the owner's word. See "
-        "docs/handshake/inbound/round-36-lap-18.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.27 it "
+        "writes every value the log echoes escaped, can bound a track's re-reads "
+        "by time, shortens a path component past 255 bytes and logs it, lists "
+        "every pregap search in one block, and reads at the drive's own speed "
+        "when a requested speed is refused. Round 37's evidence on it is the Full "
+        "run on a drive, installed through Platterpus 0.7.117: 553 steps passed "
+        "and none failed; it was approved on that run on the owner's word. See "
+        "docs/handshake/inbound/round-37-lap-07.md"
     ),
 )
 
