@@ -18,6 +18,9 @@ Chronological record of what each Claude Code session built, decided, and learne
 - **#425 merged** (`cfbe39c7`): Python 3.12 floor and numpy 2.5 (R99), the AppImage on Python 3.14 (R100), appimagetool pinned (R98), and the picker hold (R96).
 - **`.28` named under review** (R105), and 0.7.117 cut on the owner's word of 2026-11-03. Filing `.28`'s contract found two real faults. A check had been backed by the wrong line, because the renderer skipped `%.*f`. And a "never printed" exclusion would have hidden a message `.28` really prints.
 - **Learned.** When a dependency's change trips a check, ask whether the check had been passing on the line that moved. Here it had been, and only the move showed it.
+- **0.7.117 published** (02:08 UTC, `104c82d2`, release run 41563982544; PyPI too), and **our lap 5 released** on the owner's word (*"might as well release then"*), on `main` at `2522a1bb`. The owner started the Full run on `.28` at about 02:36 UTC, About box confirming `3f288fb` installed and under test.
+- **Open after the day** (TASKS): Overread restored silently after an acceptance run (R106); a worker thread that outlived its test (R107); the reading list for the run, written before the bundle (R108); the native `QLineEdit` hang (R104).
+- **Learned, twice.** A merge's expected head was typed from a short SHA and padded by guess, twice; GitHub's 409 caught both. Read it from git. And a local full run was skipped before a push, and CI found the 303-line file: run the gate before pushing, not after.
 
 ## 2026-10-29 to 2026-11-02 — R96 and R97; dependencies carried; CI from 9 minutes to 6; the AppImage builds again
 

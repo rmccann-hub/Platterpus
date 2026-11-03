@@ -114,6 +114,8 @@ From `CLAUDE.md`, restated here only where the loop depends on them:
   never through a pipe, and every `FAILED` line is named.
 - Commit and push before ending a turn (the stop hook asks), and end each reply
   with the HANDOFF block.
+- Pass a merge's `expectedHeadSha` from `git rev-parse <head>`, all 40 characters, never typed or
+  completed by hand: twice on 2026-11-03 a guessed value was sent, and only GitHub's 409 stopped it.
 - `git add` new files BEFORE the last local full run. Several sweeps read only
   tracked files (the doc-stamp footer check, for one), so a run with a new file
   untracked passes and CI fails: PR #425, 2026-11-03, on this file's own footer.

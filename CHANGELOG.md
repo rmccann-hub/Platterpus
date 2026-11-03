@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A property test no longer generates text XML cannot carry** (contributor-facing). The CTDB attribute test promised only legal XML text but could produce U+FFFE, which XML forbids; the parser rightly refused that body, and the test failed on its own input. It now excludes U+FFFE and U+FFFF, and malformed bodies stay the other test's subject.
+- **TASKS records what 0.7.117's day left open** (contributor-facing): the acceptance run restores a risky setting such as Overread without saying so (R106), a worker thread that outlived its test in the local suite (R107), and the reading list for round 37's Full run, written before its bundle arrives (R108). The steward skill gains the rule that a merge's expected head is read from git, never typed.
 - **Our round 37 lap 5 is released, on the owner's word of 2026-11-03** (contributor-facing): it tells the fork 0.7.117 names `.28` as our build under review, and that our lap 4 crossed theirs and already answers it. The status block and the sent-lap pin follow.
 - **The status block names 0.7.117 as released** (contributor-facing), published 2026-11-03 from `104c82d2` (release run 41563982544), and our round 37 lap 5 is written and held: it tells the fork 0.7.117 names `.28`, and that our lap 4 crossed theirs.
 
