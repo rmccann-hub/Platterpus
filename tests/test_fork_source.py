@@ -1534,9 +1534,16 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # bytes. `.27`'s `Recordable:`, disc ISRC read, pregap search and AccurateRip
     # preference are code and flags, not options, so there is still nothing to pass.
     #
+    # **SIXTEENTH TIME, ON THE ROLL TO `3f288fb` (round 37 close, 2026-11-03), AND
+    # THE ANSWER AGAIN DID NOT CHANGE, though the file did.** `git diff 5aeefc4
+    # 3f288fb -- meson_options.txt` adds one option, `fuzz` (boolean, default false:
+    # "Also build the fuzz harnesses for libFuzzer (clang only)"), sha256
+    # `f93d5dfb5a761a2f…`, 1,318 bytes at `3f288fb`. It builds test harnesses for
+    # their CI and changes nothing a rip runs, so production still passes nothing.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "5aeefc4", (
+    assert fork_source.PRODUCTION_TARGET.pin == "3f288fb", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "
