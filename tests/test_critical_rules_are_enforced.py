@@ -2282,7 +2282,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # its bare `%s` (the MusicBrainz submission URL) excluded from surfacing.
     # **1332 -> 1362** (2026-10-19): regenerated from `.25`'s contract (`round-35-lap-15-provider-contract-g3e978f9.md`), 142 P5 and 11 P5a; the nine argument errors their lap 15 S10 restored. Generated, not hand-grown.
     # **1362 -> 1421** (2026-10-19): six `.24` wordings `.25` reworded kept in `RETAINED_BEYOND_P5` with their reasons, since an install may still run `.24`, and the hand-kept "Offset is unset!" row removed now that `.25`'s P5 carries it.
-    "ripper_message_inventory.py": 1421,
+    # **1421 -> 1599** (2026-11-03): regenerated from `.28`'s contract (`round-37-lap-04-provider-contract-gef413b1.md`), 161 P5 and 14 P5a, generated; five `.27` wordings `.28` dropped or reworded kept in `RETAINED_BEYOND_P5`, since `.27` is `FORK_PIN` and the default ripper until round 37 closes; and three new P5a rows decided in `P5A_NOT_RETAINED`; and `.28`'s lone closing quote excluded from surfacing with its reason, the fused cover-art exclusion replaced by why it left.
+    "ripper_message_inventory.py": 1609,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own

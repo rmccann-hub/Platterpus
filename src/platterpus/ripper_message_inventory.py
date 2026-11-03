@@ -1107,6 +1107,51 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
 RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
     (
         RipperMessage(
+            site="cyanrip_main.c:388",
+            text="Device does not support changing speeds!",
+            evidence="round 36 lap 10 P5 (`.27`, `5aeefc4`)",
+            reaches_logfile=True,
+        ),
+        "`.28` (`3f288fb`) no longer stops on a refused `-S`: it reads at the drive's own speed and says so on its `Speed:` line (their round 37 lap 1 S8). `.27`, `FORK_PIN` and the default ripper until round 37 closes, still prints this and stops; dropping it would give that user a bare Rip failed.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:384",
+            text="cdio error: %s",
+            evidence="round 36 lap 10 P5 (`.27`, `5aeefc4`)",
+            reaches_logfile=True,
+        ),
+        "not in `.28`'s P5 (`3f288fb`), which reworked the drive-open path; `.27`, `FORK_PIN` until round 37 closes, prints it on a drive libcdio cannot open.",
+    ),
+    (
+        RipperMessage(
+            site="cyanrip_main.c:348",
+            text='cdio: "%s"',
+            evidence="round 36 lap 10 P5 (`.27`, `5aeefc4`)",
+            reaches_logfile=True,
+        ),
+        "`.28` prints libcdio's message line by line (`cdio: \\\"` then `%.*s`, `cyanrip_main.c:317` and `:396`); `.27`, `FORK_PIN` until round 37 closes, prints this one-line form.",
+    ),
+    (
+        RipperMessage(
+            site="accurip.c:305",
+            text="Unable to get AccuRIP DB data: %s%s",
+            evidence="round 36 lap 10 P5 (`.27`, `5aeefc4`)",
+            reaches_logfile=True,
+        ),
+        "`.28` words it `Unable to get AccuRIP DB data: %s` (in MESSAGES); `.27`, `FORK_PIN` until round 37 closes, prints this form.",
+    ),
+    (
+        RipperMessage(
+            site="coverart.c:209",
+            text='Unable to get cover art "%s": %s%s!',
+            evidence="round 36 lap 10 P5 (`.27`, `5aeefc4`)",
+            reaches_logfile=True,
+        ),
+        '`.28` words it `Unable to get cover art \\"%s\\": %s!` (in MESSAGES); `.27`, `FORK_PIN` until round 37 closes, prints this form.',
+    ),
+    (
+        RipperMessage(
             site="cyanrip_main.c:2604",
             text="Invalid paranoia level %i must be between 0 and %i!",
             evidence="round 35 lap 1 P5 (`.24`, `93afa15`)",
@@ -1452,6 +1497,25 @@ CONTROL_FLOW_PROVEN: Final[tuple[RipperMessage, ...]] = tuple(
 #: cannot, and every P5a row must appear in exactly one of the two lists.
 P5A_NOT_RETAINED: Final[tuple[tuple[str, str], ...]] = (
     (
+        "%.*s",
+        "round 37 (`.28`): the continuation of libcdio's message after `cdio: \"`, "
+        "a bare placeholder (`cyanrip_main.c:317`). A pattern with no literal text "
+        "matches every line of output, so it cannot be surfaced; the line before it, "
+        '`cdio: "`, is in MESSAGES and is what surfaces.',
+    ),
+    (
+        "Done; (time limit of %i s reached after %u read%s; at most %i read%s agreed)",
+        "round 37 (`.28`): the -Z time limit's end, which needs "
+        "`--reread-time-limit`; we never pass it (our lap 4 S6's cell), so no rip of "
+        "ours reaches it. If we ever pass a limit, this row is decided again.",
+    ),
+    (
+        "Done; (time limit of %i s reached after %u read%s; at most %i read%s agreed; "
+        "last read %08X, not kept)",
+        "round 37 (`.28`): the same, when the last read was not kept; unreachable "
+        "under our argv for the same reason.",
+    ),
+    (
         "Disc has no audio tracks, skipping AccuRIP DB!",
         "round 34 (`.23`): a skipped AccurateRip lookup on a disc with no audio, "
         "not a failed rip. Surfacing it as a fatal would mark a rip failed for a "
@@ -1509,7 +1573,10 @@ SURFACING_EXCLUDED: Final[tuple[tuple[str, str], ...]] = (
         "because `goto finalize_ripping` is the success-cleanup route.",
     ),
     ("Unable to get AccuRIP DB data: %s!", _FUSED_BY_A_GENERATOR_DEFECT),
-    ('Unable to get cover art "%s": %s!', _FUSED_BY_A_GENERATOR_DEFECT),
+    # `Unable to get cover art "%s": %s!` sat here from round 16 as a fused
+    # generator artifact no build printed, until `.28` (`3f288fb`) began printing
+    # exactly that text (`coverart.c:334`, its P5; 2026-11-03). Excluding it then
+    # would hide a real message, so it left this list and surfaces from MESSAGES.
     (
         'Couldn\'t open path "%s" for writing: %s!Invalid folder name? Try -D <folder>.',
         _FUSED_BY_A_GENERATOR_DEFECT,
@@ -1522,6 +1589,13 @@ SURFACING_EXCLUDED: Final[tuple[tuple[str, str], ...]] = (
         "failure, and we pass `-N`, so no rip of ours reaches it. A pattern built "
         "from it would match every line of output and report every progress "
         "redraw as a fatal.",
+    ),
+    (
+        '"',
+        "round 37 (`.28`): the closing quote printed after libcdio's message lines "
+        '(`cyanrip_main.c:398`), which open with `cdio: "` (`:396`, in MESSAGES). '
+        "One character is no fingerprint: a pattern from it would match any line "
+        "that begins with a quote. The opening line is what surfaces.",
     ),
 )
 
