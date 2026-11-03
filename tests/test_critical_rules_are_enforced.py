@@ -2742,7 +2742,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1023 -> 1004** (2026-10-05, the setup wizard's intro shows its list as a list): down: the ripper update's `SetupCopy` moved to `host_setup_dialog.ripper_update_copy`, and `import html` with it.
     # **1004 -> 1006** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1006 -> 1087** (2026-11-03, TASKS R96): the automatic cyanrip offer waits for the main window instead of being dropped (`_hold_automatic_ripper_offer`), and `_interruption_blocker` is split into the reasons that drop a held offer (`_no_one_to_ask`) and those that delay it (`_rip_blocker`, `_modal_floor_blocker`), with the docstrings that say why the user-started check is not held. Beside the check whose answer it holds.
-    "ui/main_window_update.py": 1087,
+    # **1087 -> 1093** (2026-11-03, review of that day's Full run, B2): the cyanrip install offer is deleted when it closes, with why, beside the line that sets it; its sibling box already did.
+    "ui/main_window_update.py": 1093,
     # One record type and the per-album store it lives in, cohesive. **-> 304** (2026-11-03, TASKS R51 and R62 meeting): `EacLogRender` keeps what the EAC-layout log was rendered from, who cancelled included, so CTDB's later answer renders it the same way.
     "ui/post_rip_record.py": 304,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
