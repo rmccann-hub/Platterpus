@@ -1979,7 +1979,7 @@ class ScriptRunner(
             # `_last_cyanrip_output` above stays raw: the `expect-*` verbs match
             # what the ripper said, not our rendering of it.
             f"{_job_invocation(job)}\nexit: {code}\n"
-            f"{_bounded_output(inbound_text.screen_text(output).text)}",
+            f"{_bounded_output(_screened(output))}",
             elapsed=elapsed,
         )
 
@@ -4863,13 +4863,25 @@ def _bounded_output(text: str) -> str:
 
     A tool's fatal message is the *last* thing it prints, so a head-only cap
     drops precisely the line that explains the failure — and a silent truncation
-    reads as completeness (`CLAUDE.md`).
+    reads as completeness (`CLAUDE.md`). Progress redraws are folded first,
+    counted and marked (``inbound_text.fold_progress``): 898 KB of them cut a
+    one-track rip's result out of the 2026-11-03 Full run's transcript.
     """
+    text = inbound_text.fold_progress(text).text
     if len(text) <= MAX_TOOL_OUTPUT_CHARS:
         return text
     half = MAX_TOOL_OUTPUT_CHARS // 2
     dropped = len(text) - 2 * half
     return f"{text[:half]}\n… [{dropped} characters omitted] …\n{text[-half:]}"
+
+
+def _screened(output: str) -> str:
+    """Ripper output as the transcript stores it: redraws folded, then screened.
+
+    Folded BEFORE screening, which would show a raw ``\r`` as an escape rather
+    than as the redraw it is (``inbound_text.fold_progress``).
+    """
+    return inbound_text.screen_text(inbound_text.fold_progress(output).text).text
 
 
 def _safe_name(raw: str) -> str:

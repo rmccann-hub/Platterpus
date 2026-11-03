@@ -2979,7 +2979,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 4859** (2026-10-26): P6 merged onto the run A and run C fixes; the number is the merged file's line count.
     # **4859 -> 4869** (2026-11-03, TASKS R62, who cancelled a rip): `stop` and `_cancel_own_rip` name the run (`run_ended`, or `time_limit` when a `wait-for-rip` ran out), and `cancel-rip` names its step, when they call the window's Cancel.
     # **4869 -> 4882** (2026-11-03, TASKS R104): the evidence bundle's thread takes plain values read on the GUI thread, so it never holds the last reference to the runner.
-    "uiscript/runner.py": 4882,
+    # **4882 -> 4894** (2026-11-03, the Full run's P3 transcript): `_screened` folds a ripper step's progress redraws before screening, and `_bounded_output` folds before it bounds; the fold itself lives in `inbound_text.fold_progress`.
+    "uiscript/runner.py": 4894,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).

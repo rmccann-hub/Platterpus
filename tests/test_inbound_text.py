@@ -108,6 +108,72 @@ def test_screen_line_changes_nothing_that_needs_no_change(line: str) -> None:
     assert screened.control_chars == 0
 
 
+# --- progress redraws, folded before a capture is stored --------------------
+#
+# The 2026-11-03 Full run's section P3: each one-track rip printed about 898 KB
+# of `progress - xx.xx%` redraws, and the transcript's head-and-tail bound cut
+# the track block (CRC, loudness) out of the middle. The fold keeps the last
+# state of each run and says how many it folded.
+
+
+def _progress(track: int, count: int) -> list[str]:
+    return [
+        f"Ripping track {track}, progress - {i * 100 / count:.2f}%, ETA - 1s"
+        for i in range(count)
+    ]
+
+
+def test_a_run_of_redraws_keeps_its_last_state_and_counts_the_rest() -> None:
+    text = "\n".join(["banner", *_progress(1, 500), "Track 1 done"])
+    folded = inbound_text.fold_progress(text)
+    lines = folded.text.split("\n")
+    assert folded.folded == 499
+    assert lines[0] == "banner"
+    assert lines[1] == inbound_text.FOLD_MARK.format(count=499)
+    assert lines[2] == _progress(1, 500)[-1]
+    assert lines[3] == "Track 1 done"
+
+
+def test_two_tracks_runs_are_folded_apart() -> None:
+    """Track 2's first update must not be folded into track 1's last one."""
+    text = "\n".join([*_progress(1, 10), *_progress(2, 10)])
+    folded = inbound_text.fold_progress(text)
+    assert folded.folded == 18
+    assert _progress(1, 10)[-1] in folded.text.split("\n")
+    assert _progress(2, 10)[-1] in folded.text.split("\n")
+
+
+def test_a_raw_carriage_return_inside_one_line_is_a_redraw_too() -> None:
+    """A binary-mode capture keeps the `\\r`; a terminal shows the last segment."""
+    text = "\r".join(_progress(3, 4)) + "\nend"
+    folded = inbound_text.fold_progress(text)
+    assert folded.folded == 3
+    assert folded.text == (
+        inbound_text.FOLD_MARK.format(count=3) + "\n" + _progress(3, 4)[-1] + "\nend"
+    )
+    assert "\r" not in folded.text
+
+
+def test_text_with_no_redraws_comes_back_unchanged() -> None:
+    text = "cyanrip 0.9.4\n\n  EAC CRC32:     B0D122E7\nprogress is not a number\n"
+    assert inbound_text.fold_progress(text) == inbound_text.Folded(text=text)
+
+
+def test_a_lone_progress_line_gets_no_marker() -> None:
+    """A run of one folded nothing, so it must not claim it did."""
+    line = _progress(1, 1)[0]
+    assert inbound_text.fold_progress(line).text == line
+
+
+@given(st.text())
+def test_fold_progress_never_raises_and_never_grows_the_line_count(text: str) -> None:
+    folded = inbound_text.fold_progress(text)
+    # Each marker stands in for at least one folded line, so the fold can only
+    # shorten the output or keep it, counted in lines (a raw `\r` splits a line).
+    assert folded.folded >= 0
+    assert len(folded.text.split("\n")) <= len(text.split("\n")) + folded.folded
+
+
 # --- the decoding policy ----------------------------------------------------
 
 
