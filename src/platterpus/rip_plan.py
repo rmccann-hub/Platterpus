@@ -36,13 +36,14 @@ you can only notice it because both exist.
 
 from __future__ import annotations
 
-from platterpus.adapters.cyanrip_backend import DIAGNOSTICS_RECORD_PREFIX
+from platterpus.adapters import cyanrip_backend as backend
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.cyanrip_cli import (
     DEFAULT_MAX_RETRIES,
     retries_flag_value,
     whole_track_reads_allowed,
 )
+from platterpus.diagnostics_record import DIAGNOSTICS_FLAG
 
 # The prefix every plan line carries. Grep-able in the app log and visually
 # distinct in the on-screen live log, where these sit above the ripper's own
@@ -198,12 +199,22 @@ def describe_rip_plan(
     # Asked for, not promised: the argv builder sends it only to a build whose
     # contract lists it, and the rip's own `Invoked as:` line says whether it went.
     lines.append(
-        f"{PLAN_PREFIX}   Prefer the disc's own ISRC (--prefer-disc-isrc): "
+        f"{PLAN_PREFIX}   Prefer the disc's own ISRC ({backend.PREFER_DISC_ISRC_FLAG}): "
         + (
             "ON, where the ripper build supports it"
             if prefer_disc_isrc
             else "off — tracks carry MusicBrainz's ISRC"
         )
+    )
+    # Sent on every rip whose build lists them, no setting (TASKS R117).
+    lines.append(
+        f"{PLAN_PREFIX}   Keep the read AccurateRip matches at the re-read limit "
+        f"({backend.PREFER_ACCURATERIP_MATCH_FLAG}): ON, where the build supports "
+        "it; it changes nothing until a track reaches the limit."
+    )
+    lines.append(
+        f"{PLAN_PREFIX}   Who drove the rip (--consumer {backend.consumer_tag()}): "
+        "sent where the build supports it; cyanrip logs it as unverified."
     )
     # `-r` is two limits, and the second is the one that decides whether the
     # secure re-read above can succeed: it caps the whole-track reads a `-Z`
@@ -275,8 +286,9 @@ def describe_rip_plan(
     # the rips folder, and it stays there (`diagnostics_record`). The sentence
     # now says where it is and how it reaches a report bundle.
     lines.append(
-        f"{PLAN_PREFIX}   Diagnostics (-j): ALWAYS sent — every rip asks for a "
-        f"machine-readable record ({DIAGNOSTICS_RECORD_PREFIX}-<stamp>.json). "
+        f"{PLAN_PREFIX}   Diagnostics ({DIAGNOSTICS_FLAG}, formerly -j): ALWAYS "
+        "sent — every rip asks for a "
+        f"machine-readable record ({backend.DIAGNOSTICS_RECORD_PREFIX}-<stamp>.json). "
         "cyanrip writes it in the rips folder, not the album folder, and this "
         "rip's report bundle collects it from there."
     )

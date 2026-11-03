@@ -1262,7 +1262,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **698 -> 701** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` keyword on the ABC, where every ripper's options are declared.
     # **701 -> 703** (2026-10-19): `supports_offset_detection`'s docstring says the same (docs audit).
     # **703 -> 710** (2026-10-20, round 35, the fork's exit classes from release 36): `RipHandle.build_tag`, the banner read at spawn, so the worker reads the exit code by the build that ran.
-    "adapters/rip_backend.py": 710,
+    # **710 -> 731** (2026-11-03, TASKS R117, records that reached no reader): `ripper_sentence`, so a failed probe's `deps.command_failed` message leads with the ripper's own sentence, judged by the parser's `is_ripper_error_line`; it sits beside `run_capture`, the one site that records the failure.
+    "adapters/rip_backend.py": 731,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -2123,7 +2124,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1088 -> 1091** (2026-11-03, TASKS R62, who cancelled a rip): `OutcomeBlock.cancelled_by` (schema v42) and its import.
     # **1084 -> 1087** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `ripper_health_status`, the ripper's own sentence beside `health_status`.
     # **1094 -> 1110** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): `FirstPassRereadBlock` and `TrackBlock.first_pass_reread` (schema v42).
-    "report_types.py": 1110,
+    # **1110 -> 1139** (2026-11-03, TASKS R117, records that reached no reader): `PregapSearchesEntry`, `NameShortenedEntry`, `EarlierDiagnosticsBlock` and their keys on `RipBlock` and `DiagnosticsBlock` (schema v42).
+    "report_types.py": 1139,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2263,7 +2265,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3539 -> 3560** (2026-11-03, TASKS R62, who cancelled a rip): the schema-42 note for `outcome.cancelled_by`, `build_outcome`'s parameter and docstring, and the `rip_cancelled` issue naming who; the words are `cancel_cause.py`'s.
     # **3516 -> 3538** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: the v42 note, `health_status` asked with the placement, and `ripper_health_status`.
     # **3583 -> 3621** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the schema-42 note, `_first_pass_block` beside `_limit_stop_block` and `_kept_read_block` it reuses, the per-track key, and the `heavy_reread` message naming what replaced the pass. They must be dict literals in this file (`tests/test_report_types_completeness.py`); the sentences are `first_pass_reread.sentences`.
-    "rip_report.py": 3621,
+    # **3621 -> 3669** (2026-11-03, TASKS R117, records that reached no reader): the schema-42 note, `rip.pregap_searches` and `rip.names_shortened` with their two builders beside the other block builders (the `rip` keys must be literals here, `tests/test_report_types_completeness.py`), and `diagnostics` handed to `diagnostics_scope.scoped_to_rip`, where the scoping lives.
+    "rip_report.py": 3669,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

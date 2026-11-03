@@ -33,6 +33,7 @@ from platterpus.atomic_write import atomic_write_text
 from platterpus.cancel_cause import outcome_block as cancel_outcome_block
 from platterpus.cancel_cause import sentence_from_outcome
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
+from platterpus.diagnostics_scope import scoped_to_rip
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
 from platterpus.error_positions import findings as error_position_findings
@@ -52,6 +53,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.pregap_search import read_search as read_pregap_search
 from platterpus.pregap_search import report_block as pregap_search_block
 from platterpus.read_offset_check import OffsetLookup, check_read_offset
 from platterpus.read_offset_check import issue_for as read_offset_issue
@@ -64,6 +66,8 @@ from platterpus.report_types import (
     FirstPassRereadBlock,
     KeptReadBlock,
     LimitStopBlock,
+    NameShortenedEntry,
+    PregapSearchesEntry,
     ReportReadSpeedBlock,
     SecureReripBlock,
     TimingBlock,
@@ -650,6 +654,17 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      securing read replaced; null when nothing replaced them. The track's own
 #      fields stay the shipped read's. The 2026-11-03 Full run's track 3 did not
 #      converge after 5 reads and its record kept only the securing pass's 3.
+#      Also v42, additions only (TASKS R117): `rip.pregap_searches`, `.28`'s
+#      `Pregap searches:` block, one `{track, search}` per searched track, ripped
+#      or not, `search` shaped as a track's `pregap_search`; and
+#      `rip.names_shortened`, its `Names shortened:` block, `{what, name,
+#      rendered_bytes}` per path component shortened to 255 bytes. Null when no
+#      block was printed: an older build, or (`.28`) nothing searched or
+#      shortened. And `diagnostics` NARROWS to this rip when `timing.started_at`
+#      is known: `items` and the counts, `codes` and `worst_severity` hold what
+#      was recorded from the rip's start, and `earlier_in_session` (`count`,
+#      `codes`, `worst_severity`) counts the session's earlier ones once instead
+#      of repeating them (`diagnostics_scope.py`; `scope` says which).
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -687,6 +702,31 @@ def _first_pass_block(first: object) -> FirstPassRereadBlock | None:
         "secure_rerip_kept_read": _kept_read_block(first.kept_read),
         "secure_rerip_limit_stop": _limit_stop_block(first.limit_stop),
     }
+
+
+def _pregap_searches_block(info: object) -> list[PregapSearchesEntry] | None:
+    """`rip.pregap_searches`: each searched track's record, read. Never raises."""
+    rows = getattr(info, "pregap_searches", ()) or ()
+    out: list[PregapSearchesEntry] = []
+    for row in rows if isinstance(rows, tuple) else ():
+        if isinstance(row, tuple) and len(row) == 2 and isinstance(row[0], int):
+            read = pregap_search_block(read_pregap_search(row[1]))
+            out.append({"track": row[0], "search": read})
+    return out or None
+
+
+def _names_shortened_block(info: object) -> list[NameShortenedEntry] | None:
+    """`rip.names_shortened`: what the ripper shortened to 255 bytes. Never raises."""
+    rows = getattr(info, "names_shortened", ()) or ()
+    out: list[NameShortenedEntry] = [
+        {
+            "what": str(getattr(row, "what", "")),
+            "name": str(getattr(row, "name", "")),
+            "rendered_bytes": getattr(row, "rendered_bytes", None),
+        }
+        for row in (rows if isinstance(rows, tuple) else ())
+    ]
+    return out or None
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -1865,7 +1905,11 @@ def _build(
         # Read from the process-wide collector, which also wrote every one of these
         # to the text log as it happened — one call site, two sinks, so the two
         # artifacts cannot describe the same event differently.
-        "diagnostics": diagnostics.to_report_block(),
+        # v42 (TASKS R117): scoped to this rip from its start; the session's
+        # earlier diagnostics are counted once, not repeated (`diagnostics_scope`).
+        "diagnostics": scoped_to_rip(
+            diagnostics.to_report_block(), timing.get("started_at") if timing else None
+        ),
         # v18: THE RIPPER'S OWN VERDICT ON ITS OWN LOG.
         #
         # An independent witness. Everything else here is our measurement of our
@@ -2134,6 +2178,10 @@ def _rip_block(
             info, "reread_time_limit_state", TIME_LIMIT_NOT_PRESENT
         ),
         "reread_time_limit_text": getattr(info, "reread_time_limit_text", "") or None,
+        # v42 (TASKS R117): `.28`'s disc-level `Pregap searches:` and `Names
+        # shortened:` blocks, which reached nothing; null when no block was printed.
+        "pregap_searches": _pregap_searches_block(info),
+        "names_shortened": _names_shortened_block(info),
         "paranoia_level": getattr(info, "paranoia_level", "") or None,
         "overread_mode": getattr(info, "overread_mode", "") or None,
         # Which cyanrip BINARY produced this rip ("release", "fork", a git

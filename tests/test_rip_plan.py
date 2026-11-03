@@ -170,3 +170,45 @@ class TestShape:
                 secure_rerip_matches=matches, secure_rerip_dynamic=dynamic
             )
             assert len(lines) >= 9, (matches, dynamic, lines)
+
+
+class TestThePlanNamesEveryLongOptionTheArgvSends:
+    """TASKS R117 (finding 6 of the 2026-11-03 Full run): the plan named `-O` and
+    `--prefer-disc-isrc` but not `--prefer-accuraterip-match` or `--consumer`,
+    which every rip on `.28` carried. The plan's job is to be lined up against
+    `Invoked as:`, so it is held to the one argv builder, not to a list here."""
+
+    def test_every_long_option_of_a_full_argv_is_named_in_the_plan(self) -> None:
+        from platterpus.adapters.cyanrip_backend import CyanripImpl
+        from platterpus.deps import fork_source
+
+        tag = "platterpus-fork-g3f288fb"  # `.28`, the build that run used
+        assert fork_source.accepts_prefer_accuraterip_match(tag)
+        assert fork_source.accepts_consumer_flag(tag)
+        assert fork_source.accepts_prefer_disc_isrc(tag)
+        argv = CyanripImpl(binary_path="cyanrip")._build_rip_argv(
+            "/dev/sr0",
+            unknown=False,
+            cover_art="",
+            max_retries=5,
+            read_offset_override=667,
+            secure_rerip_matches=2,
+            force_overread=True,
+            prefer_disc_isrc=True,
+            ripper_build_tag=tag,
+        )
+        long_options = {word for word in argv if word.startswith("--")}
+        # The floor: the four this finding is about, so a sweep of nothing fails.
+        assert {
+            "--consumer",
+            "--prefer-disc-isrc",
+            "--prefer-accuraterip-match",
+            "--diagnostics",
+        } <= long_options, sorted(long_options)
+        text = _plan(prefer_disc_isrc=True, force_overread=True)
+        assert [o for o in sorted(long_options) if o not in text] == []
+
+    def test_the_consumer_line_names_the_tag_the_argv_sends(self) -> None:
+        from platterpus.adapters.cyanrip_backend import consumer_tag
+
+        assert f"--consumer {consumer_tag()}" in _plan()

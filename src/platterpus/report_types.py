@@ -31,6 +31,30 @@ class VerdictBlock(TypedDict):
     basis: str | None
 
 
+class PregapSearchesEntry(TypedDict):
+    """One line of `.28`'s `Pregap searches:` block (schema v42)."""
+
+    track: int
+    search: PregapSearchBlock | None
+
+
+class NameShortenedEntry(TypedDict):
+    """One line of `.28`'s `Names shortened:` block (schema v42)."""
+
+    #: `folder`, `track N, <format>`, `cue sheet` or `log`, the ripper's word.
+    what: str
+    name: str
+    rendered_bytes: int | None
+
+
+class EarlierDiagnosticsBlock(TypedDict):
+    """The session's diagnostics before this rip, counted once (schema v42)."""
+
+    count: int
+    codes: list[str]
+    worst_severity: str | None
+
+
 class RipBlock(TypedDict):
     drive: str | None
     extraction_engine: str | None
@@ -57,6 +81,9 @@ class RipBlock(TypedDict):
     reread_time_limit_seconds: int | None
     reread_time_limit_state: str
     reread_time_limit_text: str | None
+    #: v42 (TASKS R117): `.28`'s disc-level blocks; null when none was printed.
+    pregap_searches: list[PregapSearchesEntry] | None
+    names_shortened: list[NameShortenedEntry] | None
     paranoia_level: str | None
     overread_mode: str | None
     ripper_build: str | None
@@ -875,6 +902,8 @@ class DiagnosticsBlock(TypedDict):
     #: The one command that finds every diagnostic in the text log.
     log_grep_hint: str
     items: list[DiagnosticItemBlock]
+    #: v42 (TASKS R117): present when the block is scoped to this rip.
+    earlier_in_session: NotRequired[EarlierDiagnosticsBlock]
 
 
 class RipperLogVerificationBlock(TypedDict):
