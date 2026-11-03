@@ -31,6 +31,30 @@ class VerdictBlock(TypedDict):
     basis: str | None
 
 
+class PregapSearchesEntry(TypedDict):
+    """One line of `.28`'s `Pregap searches:` block (schema v42)."""
+
+    track: int
+    search: PregapSearchBlock | None
+
+
+class NameShortenedEntry(TypedDict):
+    """One line of `.28`'s `Names shortened:` block (schema v42)."""
+
+    #: `folder`, `track N, <format>`, `cue sheet` or `log`, the ripper's word.
+    what: str
+    name: str
+    rendered_bytes: int | None
+
+
+class EarlierDiagnosticsBlock(TypedDict):
+    """The session's diagnostics before this rip, counted once (schema v42)."""
+
+    count: int
+    codes: list[str]
+    worst_severity: str | None
+
+
 class RipBlock(TypedDict):
     drive: str | None
     extraction_engine: str | None
@@ -57,6 +81,9 @@ class RipBlock(TypedDict):
     reread_time_limit_seconds: int | None
     reread_time_limit_state: str
     reread_time_limit_text: str | None
+    #: v42 (TASKS R117): `.28`'s disc-level blocks; null when none was printed.
+    pregap_searches: list[PregapSearchesEntry] | None
+    names_shortened: list[NameShortenedEntry] | None
     paranoia_level: str | None
     overread_mode: str | None
     ripper_build: str | None
@@ -205,6 +232,8 @@ class OutcomeBlock(TypedDict):
     #: v42 (TASKS R64): the securing pass's exit status as the wrapper we reaped
     #: and as cyanrip's own record, each named; `None` when it never ran.
     securing_pass_exit_codes: SecuringExitsBlock | None
+    #: v42 (B4): the securing pass's own disc paranoia block, from its kept log.
+    securing_pass_paranoia_counts: dict[str, int] | None
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's
@@ -420,6 +449,8 @@ class TranscodeBlock(TypedDict):
     error: str | None
     #: v39: MP3 only; null for the other formats.
     replaygain: Mp3ReplayGainBlock | None
+    #: v42: the ffmpeg argv the first derived file was encoded with; null if none.
+    encoder_argv: list[str] | None
 
 
 class DerivedBlock(TypedDict):
@@ -575,6 +606,19 @@ class LimitStopBlock(TypedDict):
     reads: int | None
 
 
+class FirstPassRereadBlock(TypedDict):
+    """The album pass's own `-Z` facts for a track a securing read replaced (v42)."""
+
+    #: Its read count and re-read verdict, as the album pass's log printed them.
+    rip_count: int | None
+    secure_rerip_converged: bool | None
+    #: How many of its reads agreed, and whether the log proves it (else a floor).
+    most_reads_agreed: int | None
+    most_reads_agreed_exact: bool | None
+    secure_rerip_kept_read: KeptReadBlock | None
+    secure_rerip_limit_stop: LimitStopBlock | None
+
+
 class TrackProofBlock(TypedDict):
     #: v40: one of `track_proof.PROOF_KINDS` ("accuraterip", "verified_reread",
     #: "ctdb", "reads_agree", "none") and the line the EAC-layout log prints.
@@ -596,6 +640,9 @@ class TrackBlock(TypedDict):
     secure_rerip_kept_read: KeptReadBlock | None
     #: Schema 41: which limit stopped a re-read that did not converge.
     secure_rerip_limit_stop: LimitStopBlock | None
+    #: v42 (TASKS R114): the album pass's own facts for a track a securing read
+    #: replaced; None when nothing replaced them.
+    first_pass_reread: FirstPassRereadBlock | None
     extraction_speed: float | None
     extraction_quality: float | None
     pre_emphasis: bool | None
@@ -859,6 +906,8 @@ class DiagnosticsBlock(TypedDict):
     #: The one command that finds every diagnostic in the text log.
     log_grep_hint: str
     items: list[DiagnosticItemBlock]
+    #: v42 (TASKS R117): present when the block is scoped to this rip.
+    earlier_in_session: NotRequired[EarlierDiagnosticsBlock]
 
 
 class RipperLogVerificationBlock(TypedDict):

@@ -448,3 +448,55 @@ def test_the_eac_layout_row_names_what_the_search_saw() -> None:
     rows = [ln for ln in text.splitlines() if "Pre-gap length  (not determined" in ln]
     assert len(rows) == 1, rows
     assert rows[0].endswith(f"; the search saw: {seen})"), rows[0]
+
+
+# --- the optional clause: absent is silent (TASKS R116) ----------------------------
+
+
+def _warnings_from_safe_int(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "platterpus.safe_int" and record.levelno >= logging.WARNING
+    ]
+
+
+def test_a_line_without_the_undecided_clause_logs_no_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The 2026-11-03 Full run logged "unusable integer for Pregap search
+    undecided from: None" and "… to: None" 971 times each, 96% of the run's
+    warnings: every line WITHOUT the optional clause handed its absent groups to
+    `int_or_none`. Absent is not unusable."""
+    with caplog.at_level(logging.WARNING, logger="platterpus.safe_int"):
+        without = read_search(_line(37, 2, 0, 3, 0, 0).split("Pregap search:", 1)[1])
+        with_clause = read_search(
+            _line(5, 5, 5, 0, 0, 0, undecided=(-150, -1)).split("Pregap search:", 1)[1]
+        )
+    # The floor: both lines were read, so silence is about the clause, not a miss.
+    assert without.state == pregap_search.READ
+    assert (without.undecided_from, without.undecided_to) == (None, None)
+    assert (with_clause.undecided_from, with_clause.undecided_to) == (-150, -1)
+    assert _warnings_from_safe_int(caplog) == []
+
+
+def test_a_present_but_unusable_optional_value_still_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The silence is for ABSENT only. A value that is there and cannot be read
+    (here past CPython's 4300-digit limit, the case `safe_int` exists for) warns
+    as `int_or_none` always has, naming its field."""
+    from platterpus.safe_int import present_int_or_none
+
+    with caplog.at_level(logging.WARNING, logger="platterpus.safe_int"):
+        assert present_int_or_none(None, field="Pregap search undecided from") is None
+        assert present_int_or_none("-150", field="Pregap search undecided from") == -150
+        silent = _warnings_from_safe_int(caplog)
+        assert (
+            present_int_or_none("9" * 5000, field="Pregap search undecided to") is None
+        )
+        assert present_int_or_none("x", field="Pregap search undecided to") is None
+    assert silent == [], "absent and readable values must not warn"
+    warned = _warnings_from_safe_int(caplog)
+    assert len(warned) == 2, warned
+    assert all("Pregap search undecided to" in message for message in warned), warned

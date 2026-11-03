@@ -10,10 +10,11 @@ pairs **agree** when their ratios are within :data:`AGREEMENT_TOLERANCE`.
 
 It is a **measurement, never a pass or a fail**: a slower build is a finding for
 the fork, not a defect in this rip, so every grade here is gathered (``INFO``).
-What it can refuse is a comparison that would not mean anything — the track sets
-differ, a track has no ``Elapsed:`` line, the two records came from one build or
-from a build nobody could name, or one track was read more times in one record
-than in the other. Those are "not determined", which is not an answer.
+A ratio over a read AccurateRip did not verify says so (TASKS R115). What it can
+refuse is a comparison that would not mean anything — the track sets differ, a
+track has no ``Elapsed:`` line, the two records came from one build or from a
+build nobody could name, or one track was read more times in one record than in
+the other. Those are "not determined", which is not an answer.
 
 **No new parser.** The ``Elapsed:`` line is already read by the cyanrip log
 parser into ``TrackResult.extraction_elapsed_seconds`` (``parsers/cyanrip_log.py``,
@@ -33,6 +34,8 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from platterpus.parsers.rip_log import RipLog
+from platterpus.verdict import AR_STATE_NO_DATA, AR_STATE_VERIFIED
+from platterpus.verdict import track_accuraterip_state as _ar_state
 
 #: How close the two pairs' ratios must be to call the comparison done. The
 #: fork's S15 wording: *"the ratio … within 0.05 of each other"*.
@@ -73,6 +76,9 @@ class TimingRecord:
     #: ``{track number: reads}`` where the log states how many times it read the
     #: track (``-Z`` re-reads). An ``Elapsed:`` covers every read of its track.
     reads: dict[int, int] = field(default_factory=dict)
+    #: ``{track number: AccurateRip state}`` (``verdict.AR_STATES``), so a time
+    #: measured on a read AccurateRip did not verify says so (TASKS R115).
+    accuraterip: dict[int, str] = field(default_factory=dict)
     #: The log file it was read from, for the transcript.
     source: str = ""
 
@@ -88,7 +94,9 @@ class TimingRecord:
     def describe(self) -> str:
         """One transcript paragraph: the build, each track, the sum."""
         per_track = ", ".join(
-            f"track {n} {self.seconds[n]:.2f} s" for n in sorted(self.seconds)
+            f"track {n} {self.seconds[n]:.2f} s (AccurateRip "
+            f"{_ar_words(self.accuraterip.get(n))})"
+            for n in sorted(self.seconds)
         )
         lines = [
             f"timing {self.label}: build {self.build or '(not determined)'}; "
@@ -123,6 +131,7 @@ def timing_from_log(label: str, log: RipLog, source: str = "") -> TimingRecord:
     seconds: dict[int, float] = {}
     missing: list[int] = []
     reads: dict[int, int] = {}
+    accuraterip: dict[int, str] = {}
     for track in log.tracks:
         number = track.number
         value = track.extraction_elapsed_seconds
@@ -132,12 +141,14 @@ def timing_from_log(label: str, log: RipLog, source: str = "") -> TimingRecord:
             missing.append(number)
         if isinstance(track.rip_count, int) and track.rip_count > 0:
             reads[number] = track.rip_count
+        accuraterip[number] = _ar_state(track)
     return TimingRecord(
         label=label,
         build=(log.ripper_build or "").strip(),
         seconds=seconds,
         missing=tuple(missing),
         reads=reads,
+        accuraterip=accuraterip,
         source=source,
     )
 
@@ -224,14 +235,31 @@ def ratio(base: TimingRecord | None, candidate: TimingRecord | None) -> Ratio:
             f"timing {base.label} sums to {base_sum:.2f} s; nothing to divide by"
         )
     value = cand_sum / base_sum
+    # Said, never graded: P5 is a measurement (TASKS R115).
+    unverified = ", ".join(
+        f"{r.label} track {n} {_ar_words(r.accuraterip.get(n))}"
+        for r in (base, candidate)
+        for n in tracks
+        if r.accuraterip.get(n) != AR_STATE_VERIFIED
+    )
+    note = "\n  NOTE: timed reads AccurateRip did not verify: " if unverified else ""
     return Ratio(
         base.label,
         candidate.label,
         value,
         f"{candidate.label}/{base.label} = {value:.3f} ({candidate.build} "
         f"{cand_sum:.2f} s / {base.build} {base_sum:.2f} s over track(s) "
-        f"{', '.join(str(n) for n in tracks)})",
+        f"{', '.join(str(n) for n in tracks)}){note}{unverified}",
     )
+
+
+def _ar_words(state: str | None) -> str:
+    """``verified``, ``frame 450 only``, ... for an AccurateRip state."""
+    # Imported here: `accuracy_grading` imports this module's label rule.
+    from platterpus.uiscript.accuracy_grading import STATE_WORDS
+
+    state = state or AR_STATE_NO_DATA
+    return STATE_WORDS.get(state, state)
 
 
 @dataclass(frozen=True)

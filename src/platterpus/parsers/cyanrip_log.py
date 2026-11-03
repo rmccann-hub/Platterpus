@@ -364,10 +364,10 @@ _ACCURATERIP_DISC_STATUS = re.compile(r"^AccurateRip:\s+(?P<value>\S(?:.*\S)?)\s
 #
 # **If upstream's wording ever arrives** (`Speed:          default`, no
 # parenthetical), `_take_speed_cap` reads neither word and leaves
-# `speed_changeable` at None, "not determined". The speed lock is then NOT engaged
-# (`rip_worker` locks only on False), so the ladder may send `-S`, and on a drive
-# that refuses it that pass aborts with `Device does not support changing speeds!`
-# (their P5). Pinned by `tests/test_cyanrip_rc3_readiness.py`.
+# `speed_changeable` at None, "not determined". The speed lock is then ENGAGED:
+# `rip_worker` locks on anything but True (TASKS R95), so no `-S` reaches a drive
+# that may refuse it and abort the pass (`Device does not support changing
+# speeds!`, their P5). Pinned by `tests/test_cyanrip_rc3_readiness.py`.
 _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # A track block opens with its outcome line.
 #
@@ -2935,7 +2935,11 @@ def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
     # that is the purpose of the fork's change (their round 30 lap 9 S12). Only
     # the ladder subtracts the skips, through `RipLog.drive_read_errors`.
     disc.health_status = (
-        "No errors occurred" if count == 0 else f"{count} ripping errors"
+        "No errors occurred"
+        if count == 0
+        # One error is "1 ripping error" (TASKS R113: the report, the EAC-layout
+        # log and the self-check all printed "1 ripping errors").
+        else f"{count} ripping error{'' if count == 1 else 's'}"
     )
     return True
 

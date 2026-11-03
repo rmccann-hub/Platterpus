@@ -275,11 +275,32 @@ def run_capture(
             argv,
             proc.returncode,
             diagnostics.bounded_output(output),
-            message=f"{tool_name} exited {proc.returncode}",
+            # The ripper's own sentence leads, not only its number (TASKS R117:
+            # "cyanrip exited 64" with "Offset is unset! ..." in the detail).
+            message=f"{tool_name} exited {proc.returncode}"
+            + (f": {said}" if (said := ripper_sentence(output)) else ""),
             severity=diagnostics.WARNING,
             where="adapters.rip_backend.run_capture",
         )
     return proc.returncode, output
+
+
+def ripper_sentence(output: str) -> str:
+    """The first line of ``output`` that is one of the ripper's diagnostics, or "".
+
+    Judged by the parser's own predicate (``cyanrip_log.is_ripper_error_line``,
+    the published-inventory matcher the rip worker also uses), so a failure
+    record shows the dependency's sentence as the worker's failure hint would.
+    Screened like any dependency output (``inbound_text.screen_line``). Never
+    raises.
+    """
+    from platterpus.inbound_text import screen_line
+    from platterpus.parsers.cyanrip_log import is_ripper_error_line
+
+    for line in output.splitlines():
+        if (stripped := line.strip()) and is_ripper_error_line(stripped):
+            return screen_line(stripped).text
+    return ""
 
 
 @dataclass(frozen=True)

@@ -268,6 +268,13 @@ def test_transcode_result_serialized() -> None:
     )
     tc = report["verification"]["transcode"]
     assert tc["ran"] is True and tc["ok"] is True and tc["transcoded"] == 14
+    assert tc["encoder_argv"] is None  # nothing recorded, never an empty claim
+    argv = ("ffmpeg", "-c:a", "libmp3lame", "-q:a", "2")
+    encoded = build_report(
+        _sample_log(),
+        transcode_result=TranscodeResult(transcoded=1, encoder_argv=argv),
+    )["verification"]["transcode"]
+    assert encoded["encoder_argv"] == list(argv)
 
 
 def test_derived_verify_lossless_result_serialized() -> None:

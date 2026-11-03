@@ -633,3 +633,196 @@ def test_an_open_dialog_no_longer_skips_the_automatic_check(
     assert started, "the automatic check was skipped because a dialog was open"
     window._ripper_update_worker = None
     window._ripper_update_thread = None
+
+
+# --- The launch dependency report (`_defer_if_floor_is_busy`, launch=True) ---
+#
+# The launch check's report opens the resolver when a REQUIRED tool is missing.
+# Nobody asked for it, so it waits for the main window too; a check the user
+# starts (Check dependencies, About's Check again, the re-check after host setup)
+# is answered at once. A missing required tool is never given up on the old 30 s
+# clock: only a newer check drops the held report.
+
+
+def _missing_required_report() -> Any:
+    """A real report with one required tool missing."""
+    from test_ui_main_window import _dep_spec
+
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.resolvers import MissingItem
+
+    absent = ProbeResult(present=False, version=None, location=None)
+    spec = _dep_spec("cyanrip", lambda: absent)
+    return DependencyReport(missing=[MissingItem(spec=spec, probe=absent)])
+
+
+@pytest.fixture()
+def resolutions(monkeypatch: pytest.MonkeyPatch) -> list[object]:
+    """Every report whose missing tools the window set out to resolve."""
+    from platterpus.ui import main_window_deps
+    from platterpus.ui.main_window import MainWindow
+
+    resolved: list[object] = []
+    monkeypatch.setattr(
+        MainWindow, "_resolve_missing_unified", lambda self, r: resolved.append(r)
+    )
+    monkeypatch.setattr(MainWindow, "_show_dep_summary", lambda self, *a, **k: None)
+    # Fast retries, so a test can outlast the old 40-attempt budget in a second.
+    monkeypatch.setattr(main_window_deps, "_DEP_RESOLVE_RETRY_MS", 5)
+    return resolved
+
+
+def _land_check(window: Any, report: object, *, launch: bool) -> None:
+    """Deliver a silent check's report, as the worker's queued signal does."""
+    window._dep_check_manager = window._dependency_manager
+    window._dep_check_show_summary = False
+    window._dep_check_is_launch = launch
+    window._on_dependency_check_done(report)
+
+
+def test_the_launch_dependency_report_waits_while_setup_and_updates_is_in_use(
+    make_window: Callable[..., Any],
+    resolutions: list[object],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Setup & Updates is in use when the launch check lands with cyanrip
+    missing: the resolver does not open over it, the hold outlasts the old 30 s
+    budget (attempts, not seconds, are what it counted), and it opens once the
+    main window is back."""
+    from platterpus.ui import main_window_deps
+
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    report = _missing_required_report()
+    budget = main_window_deps._DEP_RESOLVE_MAX_DEFERRALS
+
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _land_check(window, report, launch=True)
+        deadline = time.monotonic() + 5.0
+        while window._dep_resolve_deferrals <= budget and time.monotonic() < deadline:
+            _wait(0.05)
+    assert window._dep_resolve_deferrals > budget, "the hold ended at the old budget"
+    assert resolutions == [], "the launch report opened over Setup & Updates"
+    assert "another window is in use" in caplog.text, caplog.text
+    assert "gave up" not in caplog.text, "a missing required tool was given up on"
+
+    setup.close()
+    _activate(window)
+    _wait(0.3)
+    assert resolutions == [report], "the held launch report never opened"
+    assert window._dep_resolve_deferrals == 0
+
+
+def test_the_launch_dependency_report_opens_at_once_when_the_main_window_is_in_use(
+    make_window: Callable[..., Any], resolutions: list[object]
+) -> None:
+    """The control for the test above: nothing else of ours in use, no wait."""
+    window = make_window()
+    _activate(window)
+    report = _missing_required_report()
+    _land_check(window, report, launch=True)
+    assert resolutions == [report]
+
+
+def test_a_check_the_user_started_is_answered_at_once_over_setup_and_updates(
+    make_window: Callable[..., Any], resolutions: list[object]
+) -> None:
+    """About's Check again and the re-check after host setup are silent too
+    (`show_summary=False`), so silence cannot be the launch marker: started
+    from the window the user is in, their answer is not held behind it."""
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    report = _missing_required_report()
+    _land_check(window, report, launch=False)
+    assert resolutions == [report], "a check the user started was held"
+
+
+def test_asking_during_the_launch_check_makes_it_the_users(
+    make_window: Callable[..., Any],
+    resolutions: list[object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Check again while the launch check is still probing: the one running
+    check answers both (never a second probe), so it stops being the launch
+    check, and its result is answered at once."""
+    import platterpus.workers as workers
+
+    monkeypatch.setattr(workers, "start_worker_thread", lambda *a, **k: None)
+    window = make_window()
+    _activate(window)
+    window.run_dependency_check_async(launch=True)
+    assert window._dep_check_is_launch, "floor: the launch check is not marked"
+    setup = window.open_setup_center()
+    _activate(setup)
+    window._recheck_dependencies_for(lambda: None)
+    assert not window._dep_check_is_launch, "the user's request left it held"
+
+    report = _missing_required_report()
+    window._on_dependency_check_done(report)  # the running check lands
+    assert resolutions == [report]
+
+
+def test_a_newer_check_drops_a_held_launch_report(
+    make_window: Callable[..., Any],
+    resolutions: list[object],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The one way a held report of a missing tool is dropped: a newer check
+    has started, and its own report takes the held one's place, so the stale
+    one does not open as a second resolver when the user comes back."""
+    import platterpus.workers as workers
+
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    _land_check(window, _missing_required_report(), launch=True)
+    _wait(0.05)
+    assert window._dep_resolve_deferrals > 0, "floor: the report was not held"
+
+    # The newer check is started, not run: no container.
+    monkeypatch.setattr(workers, "start_worker_thread", lambda *a, **k: None)
+    window.run_dependency_check_async(show_summary=True)
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _wait(0.2)
+    assert "dropped a held dependency report" in caplog.text, caplog.text
+    setup.close()
+    _activate(window)
+    _wait(0.2)
+    assert resolutions == [], "a superseded report opened"
+    window._dep_check_worker = None
+    window._dep_check_thread = None
+
+
+def test_only_the_launch_passes_the_launch_marker() -> None:
+    """Read from the source, because the launch call runs in `app.main`, which
+    a test cannot start without starting the app. Every other caller (Check
+    dependencies, About's Check again, the re-check after host setup) is
+    started by the user and must be answered at once, so none may pass it."""
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "src" / "platterpus"
+    calls: list[tuple[str, object]] = []
+    for path in sorted(src.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "run_dependency_check_async"
+            ):
+                launch = next(
+                    (k.value for k in node.keywords if k.arg == "launch"), None
+                )
+                value = launch.value if isinstance(launch, ast.Constant) else launch
+                calls.append((path.relative_to(src).as_posix(), value))
+    assert len(calls) >= 3, f"floor: only {calls} found, the scan broke"
+    marked = [where for where, value in calls if value is not None]
+    assert marked == ["app.py"], calls
+    assert ("app.py", True) in calls, calls

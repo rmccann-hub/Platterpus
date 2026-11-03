@@ -186,6 +186,65 @@ def test_an_unnamed_build_is_refused() -> None:
     assert result.value is None and "names no build" in result.refusal
 
 
+# --- each timed read's AccurateRip result (TASKS R115) -------------------------
+#
+# Finding 3 of the 2026-11-03 Full run: in all four P5 rips track 3 matched
+# AccurateRip on frame 450 only, so every ratio timed a misread, and
+# `compare-timings` said nothing about it. The input is that run's A1 and B1 logs,
+# copied byte for byte from evidence `1bb98a2c`.
+
+_P5 = "docs/handshake/artifactsround37/round37full1103atiming"
+
+
+def _p5(label: str) -> TimingRecord:
+    from evidence_paths import evidence
+
+    text = evidence(f"{_P5}{label.lower()}.log").read_text(encoding="utf-8")
+    return timing_from_log(label, parse_cyanrip_log(text))
+
+
+def test_a_timing_carries_each_tracks_accuraterip_result() -> None:
+    from platterpus.verdict import AR_STATE_OFFSET_VARIANT, AR_STATE_VERIFIED
+
+    record = _p5("A1")
+    assert record.accuraterip == {
+        1: AR_STATE_VERIFIED,
+        2: AR_STATE_VERIFIED,
+        3: AR_STATE_OFFSET_VARIANT,
+    }
+    text = record.describe()
+    assert "track 1 74.78 s (AccurateRip verified)" in text, text
+    assert "track 3 102.73 s (AccurateRip frame 450 only)" in text, text
+
+
+def test_a_ratio_over_a_read_accuraterip_did_not_verify_says_so() -> None:
+    result = ratio(_p5("A1"), _p5("B1"))
+    assert result.value == pytest.approx(241.33 / 244.10, abs=1e-6)
+    assert result.detail.endswith(
+        "\n  NOTE: timed reads AccurateRip did not verify: A1 track 3 frame 450 "
+        "only, B1 track 3 frame 450 only"
+    ), result.detail
+
+
+def test_the_note_is_information_never_a_failure(tmp_path: Path) -> None:
+    runner = ScriptRunner(_window())
+    runner._timings = {"A1": _p5("A1"), "B1": _p5("B1")}
+    runner._execute(parse("compare-timings A1 B1")[0])
+    step = runner._report.steps[-1]
+    assert step.outcome is Outcome.INFO, step.detail
+    assert "did not verify: A1 track 3" in step.detail
+
+
+def test_no_note_when_every_timed_read_verified_and_one_when_unknown() -> None:
+    verified = {1: "verified"}
+    a = _record("A1", "g-a", {1: 100.0}, accuraterip=verified)
+    b = _record("B1", "g-b", {1: 90.0}, accuraterip=verified)
+    assert "NOTE" not in ratio(a, b).detail
+    # A record that holds no AccurateRip answer is not "verified": tri-state.
+    unknown = _record("B1", "g-b", {1: 90.0})
+    assert "B1 track 1 no result" in ratio(a, unknown).detail
+
+
 # --- the verbs, through a real runner ----------------------------------------
 
 

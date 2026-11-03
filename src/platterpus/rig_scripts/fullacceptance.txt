@@ -9,11 +9,12 @@
 #   What it costs:  it depends on the RUN SIZE you pick when it starts:
 #                     Quick     about 15 minutes  (does it still work?)
 #                     Standard  about an hour     (is a normal rip right?)
-#                     Full      typically 2 to 3 hours on a healthy disc:
-#                               about 3 hours while a round compares two
+#                     Full      about 2.5 hours on a healthy disc in the
+#                               rig's drive while a round compares two
 #                               builds (P5 and P6 run), under 2 hours when
-#                               it does not (START IT AND LEAVE IT: a damaged
-#                               or unknown disc can take many hours more).
+#                               it does not (START IT AND LEAVE IT: a slower
+#                               drive, a damaged or an unknown disc can take
+#                               many hours more).
 #                               These are typical figures, not a record: the
 #                               run states its own estimate when it starts
 #                               and after section E (run-estimate), and the
@@ -517,6 +518,35 @@ snapshot dialogsdone
 # assertion moves to just after `pick-release`, where it says something real:
 # the picker we answered is gone and nothing else was left behind it.
 
+# --- D2. SETTINGS OK: the dialog's OK saves the settings as they stand ------
+# Section D cancels every dialog, so until 2026-11-03 nothing pressed Settings'
+# OK, the button every user who opens Settings presses (the review of the
+# 2026-11-03 Full run, C9). OK applies only what the user changed and then
+# saves the whole config, so with nothing changed it must save exactly what is
+# running, and change no setting it was not asked to.
+#
+# THE STEP CAN FAIL, AND THAT IS WHY IT IS SHAPED LIKE THIS. `set` saves too, so
+# a check that the file matches the app would pass whether OK saved or not. The
+# `set` here writes the file, the `wait 3` puts it more than two seconds in the
+# past, and `expect-config-saved 2` then needs the file written within the last
+# two seconds: only OK can have done that. The value is the baseline's own, so
+# nothing about the run changes. The `expect` lines after it are the other half:
+# OK must not have changed a setting nobody touched, the drive's offset least.
+log --- D2. settings: OK saves the settings as they stand ---
+run-size quick
+set notify_on_completion on
+wait 3
+open settings
+screenshot dialogsettingsok
+ok
+wait 1
+expect-config-saved 2
+expect notify_on_completion on
+expect max_retries 5
+expect output_format flac
+expect-drive-offset
+expect override_read_offset on
+
 # --- E. DISC IDENTIFICATION -------------------------------------------------
 # The last cheap section. If this fails, nothing after it can mean anything, and
 # you have spent five minutes rather than a night finding out.
@@ -736,6 +766,10 @@ expect-rip-argv with --prefer-disc-isrc
 #                       log on disk disagreeing about which tracks verified.
 #   expect-ctdb whole   looked up and compared; `partial` after a subset rip
 #                       asserts the lookup was DECLINED, which is correct there.
+#                       A match CTDB's own database outvotes FAILS (2026-11-03).
+#   expect-read-offset  the offset the rip applied is the drive list's, or
+#                       AccurateRip confirmed it on this disc, and the -s we sent
+#                       is the one the log applied. Not determined never passes.
 #   expect-tags         the FLACs say exactly what the track table says, the
 #                       `:` and `<` in this album title included (that was a
 #                       "WHAT TO LOOK FOR" for a person until now).
@@ -743,6 +777,7 @@ expect-rip-argv with --prefer-disc-isrc
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+expect-read-offset
 expect-tags
 expect-cover-art
 
@@ -819,6 +854,48 @@ expect-rip-complete
 expect-verification
 expect-album-audit
 expect-ctdb partial
+expect-tags
+
+# --- H2. THE OVERWRITE PROMPT'S OTHER TWO ANSWERS: Cancel and Replace -------
+# Section H answers "Rip to a new folder", so a person's other two answers had
+# never been pressed by a run (the review of the 2026-11-03 Full run, C9).
+# Cancel must start nothing; Replace must rip into the existing folder and leave
+# a complete, consistent album there.
+#
+# ITS OWN ALBUM, not F's or H's: Replace overwrites the folder it is offered,
+# and F's and H's folders are evidence this run's bundle still has to carry.
+# One track, so the collision costs one short rip first. `click=cancel` presses
+# the Cancel button itself rather than closing the box, which is a different
+# path (a closed box is also read as Cancel, and is tested in the unit suite).
+#
+# NOT SCRIPTED HERE, and why (the same review): Force stop during a rip ejects
+# the disc, and no verb ejects (the vocabulary's own boundary, `uiscript/
+# verbs.py`), so everything after it would run on an empty tray; ejecting and
+# re-inserting a disc needs a person, and the language has no step that waits
+# for one; an unwritable rips folder needs the session's own rips folder put
+# back afterwards, which no verb can name, so it would strand every later rip.
+# Cancelling DURING THE SECURING PASS is scripted in `unknowndiscacceptance.txt`,
+# where a disc AccurateRip does not know is read twice every time; this disc
+# verifies on its first read, so its securing pass runs only by chance.
+log --- H2. the overwrite prompt: Cancel starts nothing, Replace rips in place ---
+run-size standard
+select-tracks 1
+album overwrite answers (run) (ripper)
+rip
+wait-for-rip 3600
+expect-rip-complete
+expect-verification
+log the same title again: Cancel must start nothing
+rip
+answer-dialog click=cancel 120 Album already ripped
+expect-no-rip
+log and again: Replace must rip into the same folder
+rip
+answer-dialog click=replace 120 Album already ripped
+wait-for-rip 3600
+expect-rip-complete
+expect-verification
+expect-album-audit
 expect-tags
 
 # --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
@@ -1015,9 +1092,15 @@ expect prefer_disc_isrc on
 #                quality knob. `mp3_vbr_quality 2` is a real VBR setting, not the
 #                default, so a knob that reaches nothing would show up.
 #   * WavPack  — the second lossless format. Tags and art survive.
-#   * WAV      — raw PCM, NO tags and NO art. The UI warns about this and the
-#                warning is the point: a format that silently dropped metadata
-#                without saying so is the defect.
+#   * WAV      — raw PCM and NO embedded art. Its title says only what K3
+#                checks (2026-11-03, review C4): the Settings warning is not
+#                graded here, and ffmpeg copies title, artist, album and track
+#                into RIFF INFO, which `expect-derived-files wav` reports.
+#
+# `expect-derived-files` OPENS each derived file (review C4, 2026-11-03): its
+# length against its master's, its own tags and cover (MP3, WavPack), and the
+# encoder and MP3 `-q:a` that ran, read from the report's `encoder_argv`. Until
+# then K1-K3's `expect-tags` and `expect-cover-art` graded the FLAC masters.
 #
 # Two tracks each. The transcode path is per-file and a third track adds a row,
 # not a discriminator.
@@ -1065,6 +1148,7 @@ snapshot aftermp3
 screenshot aftermp3
 expect-rip-complete
 expect-derived-output mp3
+expect-derived-files mp3 2
 # The derived gate is graded by the line above; CTDB and FLAC integrity ran
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
@@ -1092,6 +1176,7 @@ wait-for-rip 3600
 snapshot afterwavpack
 expect-rip-complete
 expect-derived-output wavpack
+expect-derived-files wavpack
 # The derived gate is graded by the line above; CTDB and FLAC integrity ran
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
@@ -1103,7 +1188,7 @@ expect-tags
 expect-cover-art
 rig-check
 
-log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
+log --- K3. WAV: raw PCM, its master's length, no embedded art ---
 run-size full
 set output_format wav
 expect output_format wav
@@ -1119,6 +1204,7 @@ log A4 (TASKS "Three screenshot steps found no window on screen"): the next scre
 screenshot afterwav
 expect-rip-complete
 expect-derived-output wav
+expect-derived-files wav
 # The derived gate is graded by the line above; CTDB and FLAC integrity ran
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
@@ -1291,6 +1377,7 @@ expect-verification
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+expect-read-offset
 expect-tags
 expect-cover-art
 rig-check
@@ -1302,6 +1389,11 @@ rig-check
 # it. `-f` reads a few frames around sector 450 of each track AccurateRip knows,
 # searches them for AccurateRip's checksum, and rips nothing
 # (`cyanrip@174a134:src/cyanrip_main.c:594-692`).
+#
+# `-d (device)` IN O, P, P2 AND P3: the drive the window has selected, the one
+# `set-drive-offset` read the offset for and the app's own rips pass as `-d`.
+# Without it cyanrip opens its default drive, which on a machine with two drives
+# need not be that one. With no drive selected the step is refused, not guessed.
 #
 # NO `-s`, AND THAT IS RIGHT, not the refusal section P2 provokes: `-f` sets the
 # offset to 0 itself and is exempt from the unset-offset refusal (lines 2089-2096
@@ -1315,7 +1407,7 @@ rig-check
 # never confirmed.
 log --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
 run-size standard
-cyanrip -N -f
+cyanrip -N -d (device) -f
 expect-exit 0
 expect-found-offset
 
@@ -1373,7 +1465,7 @@ expect-found-offset
 # folder, so the figure travels with the text it was read from.
 log --- P. T3: the fork's cache probe, probe-only ---
 run-size standard
-cyanrip -N --cache-probe -I
+cyanrip -N -d (device) --cache-probe -I
 expect-exit 0
 expect-cyanrip Cache probe
 cache-probe
@@ -1428,7 +1520,7 @@ snapshot aftercacheprobe
 
 log --- P2. C1: does a no-offset refusal hang the drive? ---
 run-size standard
-cyanrip -N -l 1
+cyanrip -N -d (device) -l 1
 expect-exit refused
 expect-cyanrip Offset is unset
 snapshot afterc1
@@ -1445,7 +1537,9 @@ snapshot afterc1
 # `(deemphasis applied)` and the cue still omitted `FLAGS PRE`, because both read
 # the SETTING rather than the audio — so **audio, log and cue were
 # self-consistently wrong** and checking any one against another found agreement.
-# That is why this step asserts nothing about the log: the log cannot tell you.
+# That is why the grade below reads no SETTING the log echoes (`deemphasis
+# applied`, `FLAGS PRE`): only two MEASUREMENTS, the read's CRC and the
+# delivered audio's loudness.
 #
 # THE SEPARATING INPUT IS BOTH FLAGS AT ONCE, which their suite had never used.
 # With only one of the two set, selecting and composing are byte-identical, so a
@@ -1465,87 +1559,45 @@ snapshot afterc1
 # `cyanrip_main.c:1603`, `folder_scheme`, *"Directory naming scheme"* — so these
 # two land beside the run's other output rather than anywhere absolute.
 #
-# THIS STEP DOES NOT DECIDE THE CLAUSE, AND THAT IS DELIBERATE. Our script
-# language has no verb that compares two captures, and inventing one hours before
-# an unattended run is how a run gets lost to its own instrumentation. What the
-# step does is CAPTURE: the `cyanrip` verb records the exact argv, the exit code
-# and the complete output of both runs into the transcript, which the bundle
-# carries. cyanrip prints its per-track checksum there, so the verdict is read off
-# the returned artifact afterwards, by one comparison:
+# THIS SECTION DECIDES THE CLAUSE, with `expect-deemphasis-pair` after the two
+# arms, and until 2026-11-03 this comment said it could not. Two values, read
+# from each arm's own log, and neither alone settles it:
 #
-# THIS STEP SETTLES NOTHING, AND EVERY EARLIER VERSION OF THIS COMMENT SAID
-# OTHERWISE. Read the next four paragraphs before citing these two runs.
+#   * THE CHECKSUMS ARE TAKEN ON THE READ, before the filter graph: EAC CRC32
+#     and both AccurateRip sums (`crip_process_checksums` at
+#     `cyanrip@239adda:src/cyanrip_main.c:1680`, before
+#     `cyanrip_send_pcm_to_encoders` at `:1685`). So the two arms MUST print the
+#     same CRC whatever de-emphasis did. Equal CRCs say both arms read the same
+#     samples, which is what makes a difference after the filter attributable to
+#     it.
+#   * THE LOUDNESS IS MEASURED ON THE DELIVERED AUDIO, after de-emphasis, since
+#     the fork's .20 (`measure_frame`, `cyanrip@239adda:src/cyanrip_encode.c:818`,
+#     fed the filter graph's output at `:909`; absent at .19's `174a134`). The
+#     2026-09-22 session's P3 is what found it measured before the filter.
 #
-# WHAT THIS COMMENT USED TO SAY, AND WHY IT WAS WRONG. It said cyanrip's printed
-# per-track checksum "is over the DECODED SAMPLES", and therefore that *"the two
-# runs' track-1 checksums, AS PRINTED BY cyanrip IN THE TRANSCRIPT, MUST DIFFER"*,
-# with identical checksums meaning the cascade was still selecting. **Both
-# sentences are false, and the second is the dangerous one.**
+# So the grade is: every CRC agrees AND the integrated loudness differs by at
+# least 0.3 LU (three times the 0.1 LU the log prints; identical delivered audio
+# prints the same figure twice). The 2026-11-03 Full run on .28 read B0D122E7 for
+# both arms and -20.7 LUFS forced against -19.9 disabled: 0.8 LU. A missing log,
+# CRC or loudness line, or a build that measures before the filter, is BLOCKED
+# (not determined), never a pass. The fork is asked to confirm the measurement
+# point (our round 37 lap 6, S12 (d)); until they do, the grade rests on CRC
+# equality and the R128 difference only, and its answer says so.
 #
-# DERIVED FROM THEIR SOURCE AT `ddc1e8c`, not inferred: every checksum cyanrip
-# prints is accumulated by `crip_process_checksums(&checksum_ctx, data, bytes)`
-# over `data`, the buffer as it came off the drive. It is called at
-# `src/cyanrip_main.c:818`, `:872` and `:965`, and at all three sites it runs
-# BEFORE `cyanrip_send_pcm_to_encoders(..., t->dec_ctx, ...)` at `:821`, `:879`
-# and `:968` -- which is where the filter graph, and therefore `aemphasis`,
-# lives. `src/checksums.h:62-90` shows the accumulation itself: EAC CRC32 and
-# both AccurateRip sums, straight over the raw bytes. **A checksum taken before
-# a filter cannot record what the filter did.**
+# WHAT THIS COMMENT USED TO SAY, AND WHY IT WAS WRONG. Before 2026-09-11 it said
+# the two arms' printed checksums MUST DIFFER, identical ones meaning the fork's
+# `b866900` cascade defect was still present. They are taken before the filter,
+# so they agree on every run: that rule reported a defect against the fork on a
+# run where the filter worked. Then it said nothing here could decide the clause,
+# which stopped being true with the fork's .20 and is what the verb now does.
 #
-# SO THE TWO ARMS ARE ARITHMETICALLY FORCED TO PRINT THE SAME CHECKSUM, whether
-# de-emphasis worked, failed, or was never reached. The old rule therefore
-# reported the fork's `b866900` defect as STILL PRESENT on every run that will
-# ever be made, including one where the filter composes perfectly -- a false
-# BLOCKING finding against a peer, generated by our own harness, which is the
-# thing `CLAUDE.md` forbids most plainly. It was not hypothetical: the
-# 2026-09-11 rig run printed `B0D122E7` for both arms, exactly as it must.
-#
-# WHAT MAKES THIS THE WORST SHAPE OF MISTAKE, kept because the next reader will
-# be tempted the same way. The old comment argued carefully that `md5sum *.flac`
-# gives *"a CONFIRMING answer from an input that cannot confirm anything"* --
-# and then chose an input that cannot confirm anything either, for the mirror
-# reason, while citing the fork as the source of the insight. **The fork had it
-# right and we misread why.** Their script prints the container md5s, says in
-# its own output that a difference there is "necessary and not sufficient", and
-# then DECODES with `ffmpeg -f md5` for the comparison that counts, reporting
-# `UNPROBED` rather than a pass when ffmpeg is absent
-# (round-16-lap-02-rig-round16.sh:181-212). The decode is the whole mechanism.
-# We dropped it because we believed cyanrip had already done it for us.
-#
-# WHAT THESE TWO RUNS ARE FOR, STATED HONESTLY. They exercise the `-H -E` and
-# `-H -W` code paths on real hardware and record the exact argv, the exit code
-# and the complete output of each. That is worth having and it is all it is.
-# **Clause 2 RAN here and this section's result cannot settle it either way — it
-# is UNPROBED in the "ran and got no answer" sense, not the "we chose not to"
-# sense — and it is closed only by Run A**, the
-# fork's own `tools/rig-round16.sh`, which rips both arms with `-o pcm` and
-# compares the decoded samples. Their grader does the same
-# (`tools/round16-accept.py`, clause 2). Do not read these two arms as evidence
-# for the clause in either direction -- agreement here is the null result, and
-# disagreement would mean something other than de-emphasis had changed.
-#
-# NEITHER OBVIOUS READING WORKS, AND THEY FAIL FOR OPPOSITE REASONS. Whoever
-# reads this at 2am will reach for one of two commands, and both lie:
-#
-#   * `md5sum *.flac` over the two output folders returns DIFFERENT values for
-#     byte-identical audio, because a FLAC container carries a creation
-#     timestamp. That is a CONFIRMING answer from an input that cannot confirm
-#     anything -- the clause reads as settled while the cascade is still broken.
-#   * the checksums cyanrip PRINTS return the SAME value whatever the filter did,
-#     per the derivation above. That is a REFUTING answer from an input that
-#     cannot refute anything -- and it accuses the fork of a defect they fixed.
-#
-# One false pass and one false failure, from the two inputs nearest to hand. The
-# only reading that works decodes the samples, which is what Run A does.
-#
-# WHY THIS IS NOT FIXED HERE WITH `-o pcm`. It could be: raw samples on disk
-# would make a digest meaningful. But the digest would have to be computed ON
-# THE RIG -- raw PCM of a commercial disc is exactly what Critical rule #8 keeps
-# out of this repository and out of the evidence bundle -- and the script
-# language has no verb that digests a file. Adding one hours before an
-# unattended run is how a run is lost to its own instrumentation. It is filed in
-# `TASKS.md` instead, which is the honest place for a capability we have not
-# built.
+# NEITHER OF THE TWO NEAREST READINGS WORKS, which is why the verb reads these
+# two values and nothing else. `md5sum *.flac` differs for byte-identical audio,
+# because a FLAC carries a creation timestamp: a false pass, from an input that
+# cannot confirm. The printed CRCs agree whatever the filter did: a false
+# failure, from an input that cannot refute. The fork's own
+# `tools/rig-round16.sh` decodes the samples (`ffmpeg -f md5`) and remains the
+# stronger evidence where it has been run.
 #
 # EVERY LOG OF A RUN NAMES ITS CALLER AND HAS A RECORD (the fork's round 32
 # lap 9 S9, their data register's X8). These two rips call cyanrip directly, so
@@ -1559,15 +1611,16 @@ snapshot afterc1
 
 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
+cyanrip -N -d (device) -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphon
 
 log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
+cyanrip -N -d (device) -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
+expect-deemphasis-pair r16deemphon r16deemphoff
 
 # --- P5. S15: A TIMED RIP, THE APPROVED BUILD AGAINST THE ONE UNDER REVIEW --
 # The owner asked for it, and the fork's round 36 lap 1 S15 proposed the method

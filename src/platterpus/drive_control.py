@@ -639,7 +639,10 @@ def term_unsignalled_holders(
 
     * ``reached`` is ``None`` (nothing our cancel signalled is still running): the
       predicate can refuse no holder, so this is the same device-scoped
-      ``fuser -s -k -TERM <device>`` as always. It is the Distrobox path once the
+      ``fuser -s -k -TERM <device>`` as always. It reaches EVERY holder of the
+      node, not cyanrip alone; why that is accepted, and the precondition that
+      this app is never one (``_drive_being_freed``), is in
+      ``docs/dependency-contracts.md`` (B9). It is the Distrobox path once the
       wrapper has been reaped, which the 2026-10-05 rig cancel shows happens well
       inside the 5 s countdown.
     * Otherwise it asks fuser which PIDs hold the device and signals each one the

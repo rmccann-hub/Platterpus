@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
 from platterpus.uiscript import artifact_grading as grading
-from platterpus.uiscript import tag_grading
+from platterpus.uiscript import record_grading, tag_grading
 from platterpus.uiscript.report import Outcome
 
 if TYPE_CHECKING:
@@ -191,7 +191,7 @@ class ArtifactVerbsMixin:
             self._record(step, Outcome.ERROR, f"{scope!r} is not `whole` or `partial`")
             return
         self._grade_when_settled(
-            step, folder, lambda _path, report: grading.grade_ctdb(report, scope)
+            step, folder, lambda _path, report: record_grading.grade_ctdb(report, scope)
         )
 
     def _expected_tags(self, folder: Path) -> tag_grading.ExpectedTags | None:

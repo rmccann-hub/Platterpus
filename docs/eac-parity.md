@@ -434,6 +434,8 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | AccurateRip v2 result | `Accurately ripped (confidence 11)  [113FA733]  (AR v2)` | `Accurip v2:  9ABCDEF0 (not found, ...)` | Same structure as v1. |
 | Frame-450 ("offset-variant") match | (not distinctly labelled) | `Accurip 450: BF62B1DA (..., track is partially accurately ripped)` up to `+platterpus.16`; `(..., one frame only; whole-track checksums not found)` from `.17` (`cyanrip@ec0fe47:src/cyanrip_log.c:625`) | **cyanrip extra.** The checksum of **one frame** (frame 450, six seconds in), printed only after both whole-track checksums missed (`cyanrip@df91ae7:src/checksums.h:74-78`, `src/cyanrip_log.c:594`). It is not a pressing: a shifted pressing moves frame 450 too, and a submitted pressing matches its own whole-track entry. Surfaced as "partially accurate", never as a verified match. Our screens and report say "only one frame matched" since 2026-09-24. Our EAC-compatible log says `Only one frame matched AccurateRip (confidence N); whole-track checksums not found  [CRC]  (AR frame 450)` per track and `N track(s) matched AccurateRip on one frame only` in its summary, the words agreed with the fork in round 27 (round 7 lap 11, H4: neither side rewords this log alone). |
 | Per-track loudness (ReplayGain / R128) | (not in EAC log) | `REPLAYGAIN_TRACK_GAIN: -4.10 dB` / `R128_TRACK_GAIN: 229` | **cyanrip extra**, written into the FLAC tags and captured in the report. |
+| Pre-gap searches, disc-wide | (not in EAC log) | `Pregap searches:` block (`.28`): `    track 9: 267 sectors asked; …; LSN 145567 to 145567 undecided`, one line per searched track, ripped or not | **cyanrip extra.** Captured in the report as `rip.pregap_searches` (schema 42, TASKS R117); not rendered in the EAC-layout log, which has no such line and gains none. |
+| Names shortened to 255 bytes | (not in EAC log) | `Names shortened:` block (`.28`): `    track 3, flac: <name> (412 bytes as rendered)` | **cyanrip extra.** Captured in the report as `rip.names_shortened` (schema 42, TASKS R117); not in the EAC-layout log, whose `Filename` rows already name the files as written. |
 
 ##### The repeat-limit caveat (2026-10-05)
 
@@ -466,6 +468,18 @@ the disc*: the first read always runs and the clock can stop a track after it, s
 The limit is read by `reread_limit.py`; the words go to the fork in our next lap,
 since they diff this log. *At most* is the fork's own word for the exact
 count, so their line and ours say the same thing about one track.
+
+**A first pass a securing read replaced (TASKS R114, 2026-11-03).** When a track
+hit the limit and the securing pass then converged, the Test/Copy pair describes
+the securing pass and the parenthetical keeps the first pass beside it, in the
+same words: `Copy CRC 59D352DD  (Test and Copy CRC identical — confirmed across 3
+secure re-reads; the first pass did not converge after 5 reads (repeat limit hit;
+at most 2 of 5 reads agreed))`, track 3 of the 2026-11-03 Full run's section N
+(`round37full1103asecurereread.log:293`, `…securingpass.txt`; evidence
+`1bb98a2c`). Until then it read `confirmed across 3 secure re-reads` alone. It is
+our parenthetical on our own state, like the caveat above; no EAC line is added.
+The report keeps the same fact in `tracks[].first_pass_reread` (schema 42) and
+names the track in `heavy_reread` (`first_pass_reread.py`).
 
 **The parity reasoning.** (1) Nothing EAC-shaped was added: no new line, no new
 field, and none of the strings a logchecker keys on (Part D §2). `Copy OK` (the clean
@@ -1564,4 +1578,4 @@ right in some rips and wrong in others, on both builds, with no read error repor
 
 ---
 
-*Last updated for Platterpus v0.7.117.*
+*Last updated for Platterpus v0.7.118.*

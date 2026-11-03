@@ -6165,3 +6165,72 @@ def test_the_round28_fixture_is_the_artifacts_own_text() -> None:
             position = recorded.index(wanted, position) + 1
         # Non-triviality: the search really walked the artifact, not an empty list.
         assert position > len(stream)
+
+
+def test_the_report_carries_the_securing_pass_s_own_paranoia_counts(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The 2026-11-03 Full run's whole-disc report had `paranoia_counts` READ
+    21,972, the album pass's disc block, and nothing of its securing pass, which
+    re-read track 5 three times (its own block: READ 4,422). The worker now reads
+    the kept securing log's disc block, and the report's outcome carries it as
+    the securing pass's, never summed into the album's. Real filed text: the
+    2026-10-13 whole-disc securing pass, READ 15,282."""
+    from platterpus.rip_report import build_outcome
+
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    assert worker.securing_pass_paranoia_counts is None, "not run is not empty"
+    assert build_outcome(status="success")["securing_pass_paranoia_counts"] is None
+
+    tmp_root = tmp_path / "securing"
+    tmp_root.mkdir()
+    (tmp_root / "pass.log").write_text(
+        evidence(
+            "docs/handshake/artifactsround32/round32fullwholediscsecuringpass.txt"
+        ).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    album = tmp_path / "album"
+    album.mkdir()
+    worker._keep_securing_pass_log(tmp_root, str(album / "rip.log"))
+
+    counts = worker.securing_pass_paranoia_counts
+    assert counts is not None and counts.get("READ") == 15282, counts
+    assert counts.get("VERIFY") == 3065, counts
+    outcome = build_outcome(
+        status="success",
+        securing_pass_started=True,
+        securing_pass_paranoia_counts=counts,
+    )
+    assert outcome["securing_pass_paranoia_counts"] == counts
+
+
+def test_a_rip_with_clearly_too_little_room_is_refused_before_anything_spawns(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No free-space check existed anywhere (review C10, 2026-11-03): a rip to a
+    nearly full disk read the disc and then failed writing. The worker now asks,
+    on its own thread, before the ripper is spawned, and refuses with the
+    specific sentence. Tri-state: with no track lengths nothing is known, so the
+    same full disk does NOT stop the rip."""
+    from platterpus import disk_space
+
+    monkeypatch.setattr(disk_space, "free_bytes", lambda _folder: 1_000_000)
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(backend, _params_with_lengths(tmp_path, [240_000] * 10))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+    assert backend.rip_calls == [], "the ripper was spawned onto a full disk"
+    assert sigs.finished == [(False, "")], sigs.finished
+    assert sigs.errors and "Not enough free space" in sigs.errors[0], sigs.errors
+    assert str(tmp_path) in sigs.errors[0] and "1 MB free" in sigs.errors[0]
+
+    unknown = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(unknown, _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+    assert len(unknown.rip_calls) == 1, "an unknown length refused a rip"
+    assert sigs.finished[0][0] is True and sigs.errors == []
+    assert any("free space not checked" in line for line in sigs.log_lines)

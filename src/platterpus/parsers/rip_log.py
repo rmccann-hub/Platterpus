@@ -82,6 +82,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Final
 
+from platterpus.first_pass_reread import FirstPassReread, did_not_converge
 from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
 from platterpus.pregap_search import PregapSearch
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
@@ -371,6 +372,10 @@ class TrackResult:
     # with its seconds. None for a converged track, a track never re-read, and a
     # log that names no limit. Describes the same reads as the three above.
     secure_rerip_limit_stop: RereadLimitStop | None = None
+    # The album pass's own values of the four fields above and `rip_count`, kept
+    # by the merge when a securing re-read replaced them (TASKS R114); None when
+    # nothing replaced them. Two facts, two slots: see `first_pass_reread.py`.
+    first_pass_reread: FirstPassReread | None = None
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without
@@ -891,7 +896,8 @@ def track_read_effort_flag(track: object, *, baseline_reads: int | None = None) 
     """True when a track shows a read-effort warning sign.
 
     Either its secure re-read never converged (``secure_rerip_converged`` is
-    False) — the reliable signal, and the only one that means anything under a
+    False, or the first pass's was, kept on ``first_pass_reread`` when a
+    securing read replaced it) — the reliable signal, the only one under a
     uniform re-read — or it needed more passes than this rip's own floor.
 
     ``baseline_reads`` is what a trouble-free track cost in the same rip (see
@@ -901,6 +907,8 @@ def track_read_effort_flag(track: object, *, baseline_reads: int | None = None) 
     ``getattr`` so it accepts any track shape and never raises.
     """
     if getattr(track, "secure_rerip_converged", None) is False:
+        return True
+    if did_not_converge(track):  # a first pass a securing read replaced (R114)
         return True
     rip_count = getattr(track, "rip_count", None)
     if not isinstance(rip_count, int):

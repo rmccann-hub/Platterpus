@@ -659,10 +659,13 @@ def test_the_acceptance_script_asserts_the_build_it_was_written_for() -> None:
 
 
 def test_the_P3_verdict_warns_off_BOTH_readings_that_are_nearest_to_hand() -> None:
-    """P3 does not decide its clause; a person does, afterwards, from the transcript.
+    """P3's prose must warn off the two readings nearest to hand.
 
-    That makes its prose load-bearing in a way an assertion is not: **the sentence
-    IS the instrument.** And this test previously helped aim it at the wrong thing.
+    Until 2026-11-03 P3 did not decide its clause and a person read the verdict
+    off the transcript, so **the sentence was the instrument**. It now grades
+    two values (``expect-deemphasis-pair``), and the warning still matters: it
+    is why the verb reads those two values and not the FLAC containers. And
+    this test previously helped aim it at the wrong thing.
 
     **WHAT THIS TEST USED TO ASSERT, AND WHY IT COULD NEVER HAVE CAUGHT THE BUG.**
     It required P3 to say "decoded samples", and its own docstring explained why:
@@ -2326,49 +2329,43 @@ def test_P3_does_not_assert_the_printed_checksums_must_differ() -> None:
     )
 
 
-def test_P3_says_plainly_that_clause_2_is_unprobed_by_it() -> None:
-    """A section that cannot settle its clause has to say so, in its own text.
+def test_P3_decides_clause_2_and_carries_its_derivation() -> None:
+    """P3 now DECIDES its clause, and its text must say so and say why.
 
-    Removing the wrong rule is half the fix: without a positive statement the
-    next reader meets two rips, two exit codes and no verdict, and supplies the
-    missing conclusion themselves — which is how the wrong rule got written the
-    first time. The section must name Run A as what closes clause 2, and must
-    carry the derivation rather than asserting the conclusion, because a claim
-    about the fork's code without a file and a line is not a claim we make.
+    **What this test used to assert** (2026-09-13 to 2026-11-03): that P3 said
+    plainly it could NOT settle clause 2, that clause 2 was "closed only by Run
+    A", and that it "ran and got no answer". That was true while cyanrip measured
+    loudness before the filter graph. From the fork's ``.20`` it measures the
+    delivered audio (``measure_frame``, ``cyanrip@239adda:src/cyanrip_encode.c:818``),
+    while its checksums stay on the read, so the pair CRCs-agree and
+    loudness-moved settles the clause, and ``expect-deemphasis-pair`` grades it
+    (the review of the 2026-11-03 Full run, C5). A test that kept requiring the
+    old sentence would have kept a false claim in the script.
 
-    **And it must say WHICH KIND of unprobed it means** (added 2026-09-13, round
-    18 lap 3 §5). The line read *"Clause 2 is UNPROBED **by this section**"*, and
-    the fork asked whether that was a third sense of the word beside their two —
-    because *"by this section"* scans as a scoping decision, as in *we chose not
-    to look here*. It is not one: the section runs both the ``-H -E`` and ``-H -W``
-    arms on hardware and cannot discriminate between them, which the comment two
-    lines below already said in as many words (*"agreement here is the null
-    result"*). An unjudgeable subject, not a skipped one — and the two are
-    different facts about a run, which is exactly why the vocabulary this round
-    settled distinguishes them.
-
-    So the assertion moved off the scoping phrase and onto the disambiguation, and
-    the old string is now **forbidden** rather than merely absent: a test that only
-    looked for the new phrase would pass with both in the file, and reverting the
-    wording would restore a sentence a peer has already misread once.
+    **What it asserts now.** The section says it decides the clause, carries the
+    derivation with citations for BOTH halves (checksums on the read, loudness on
+    the delivered audio), names the floor, says the fork is asked to confirm the
+    measurement point, and does not keep the scoping phrase a peer misread once.
+    That the verb actually follows the two arms is
+    `tests/test_uiscript_deemphasis.py::test_p3_grades_its_two_arms_right_after_them`.
     """
     text = (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8")
+    lowered = re.sub(r"\s+", " ", re.sub(r"\s*\n#\s*", " ", text))
 
-    assert "UNPROBED by this section" not in text, (
-        'the scoping phrasing is back. "UNPROBED by this section" reads as "we '
-        'chose not to look here", which is not what happens: both arms run and the '
-        "result cannot discriminate between them. The fork misread it that way in "
-        "round 18 lap 3 §5 — say which sense is meant instead."
+    assert "P3. R16 CC2: -H -E" in text, "the P3 section is gone — this test is vacuous"
+    assert "UNPROBED by this section" not in text
+    assert "closed only by Run A" not in text, (
+        "P3 says Run A alone closes clause 2 again; from the fork's .20 the "
+        "section decides it (expect-deemphasis-pair)"
     )
-    assert "ran and got no answer" in text, (
-        "the section no longer names WHICH sense of UNPROBED it means. It must "
-        'distinguish "ran and got no answer" from "we chose not to": an '
-        "unjudgeable subject is not a skipped one, and a reader who cannot tell "
-        "them apart supplies the missing verdict themselves."
-    )
-    assert "closed only by Run A" in text
-    for citation in ("cyanrip_main.c:818", ":872", ":965", "checksums.h:62-90"):
-        assert citation in text, f"the derivation lost its citation {citation}"
+    assert "THIS SECTION DECIDES THE CLAUSE" in text
+    assert "0.3 LU" in lowered, "the floor is not named"
+    assert "S12 (d)" in lowered, "the open question to the fork is not named"
+    for citation in (
+        "cyanrip@239adda:src/cyanrip_main.c:1680",
+        "cyanrip@239adda:src/cyanrip_encode.c:818",
+    ):
+        assert citation in lowered, f"the derivation lost its citation {citation}"
 
 
 # --- Acceptance tiers: what each section costs, and what it rests on ---------

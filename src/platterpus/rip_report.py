@@ -33,9 +33,12 @@ from platterpus.atomic_write import atomic_write_text
 from platterpus.cancel_cause import outcome_block as cancel_outcome_block
 from platterpus.cancel_cause import sentence_from_outcome
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
+from platterpus.diagnostics_scope import scoped_to_rip
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
 from platterpus.error_positions import findings as error_position_findings
+from platterpus.first_pass_reread import FirstPassReread
+from platterpus.first_pass_reread import sentences as first_pass_sentences
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -43,6 +46,7 @@ from platterpus.handshake_approval import (
 )
 from platterpus.isrc_provenance import findings as isrc_findings
 from platterpus.kept_read import NOT_PRESENT as KEPT_READ_NOT_PRESENT
+from platterpus.paranoia_scope import counts_block
 from platterpus.parsers.rip_log import (
     DRIVE_FACT_NOT_PRESENT,
     RECORDABLE_CDRW,
@@ -50,6 +54,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.pregap_search import read_search as read_pregap_search
 from platterpus.pregap_search import report_block as pregap_search_block
 from platterpus.read_offset_check import OffsetLookup, check_read_offset
 from platterpus.read_offset_check import issue_for as read_offset_issue
@@ -59,8 +64,11 @@ from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
     EnvironmentBlock,
+    FirstPassRereadBlock,
     KeptReadBlock,
     LimitStopBlock,
+    NameShortenedEntry,
+    PregapSearchesEntry,
     ReportReadSpeedBlock,
     SecureReripBlock,
     TimingBlock,
@@ -640,6 +648,32 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      ripper's N ripping error(s) were all in the first read of track(s) …"
 #      (`replaced_read_errors.py`). Otherwise both say the same. v41 shipped in
 #      0.7.114, so this is a new number.
+#      Also v42, still unreleased, so additions only (TASKS R114): per track
+#      `first_pass_reread`, the album pass's own `rip_count`,
+#      `secure_rerip_converged`, `most_reads_agreed` (with `_exact`),
+#      `secure_rerip_kept_read` and `secure_rerip_limit_stop` for a track a
+#      securing read replaced; null when nothing replaced them. The track's own
+#      fields stay the shipped read's. The 2026-11-03 Full run's track 3 did not
+#      converge after 5 reads and its record kept only the securing pass's 3.
+#      Also v42, additions only (TASKS R117): `rip.pregap_searches`, `.28`'s
+#      `Pregap searches:` block, one `{track, search}` per searched track, ripped
+#      or not, `search` shaped as a track's `pregap_search`; and
+#      `rip.names_shortened`, its `Names shortened:` block, `{what, name,
+#      rendered_bytes}` per path component shortened to 255 bytes. Null when no
+#      block was printed: an older build, or (`.28`) nothing searched or
+#      shortened. And `diagnostics` NARROWS to this rip when `timing.started_at`
+#      is known: `items` and the counts, `codes` and `worst_severity` hold what
+#      was recorded from the rip's start, and `earlier_in_session` (`count`,
+#      `codes`, `worst_severity`) counts the session's earlier ones once instead
+#      of repeating them (`diagnostics_scope.py`; `scope` says which).
+#      Also v42, still unreleased, additions only (review B4, 2026-11-03):
+#      `outcome.securing_pass_paranoia_counts`, the securing pass's own disc
+#      paranoia block from its kept log, null when none was read; the top-level
+#      `paranoia_counts` is the album pass's and left out that second run.
+#      Also v42, still unreleased, so additions only (review C4 of the 2026-11-03
+#      Full run): `verification.transcode.encoder_argv`, the ffmpeg argv the first
+#      derived file was encoded with, as spawned (null when none encoded), so the
+#      encoder and the MP3 quality that reached it are on the record.
 REPORT_SCHEMA_VERSION: int = 42
 
 
@@ -659,6 +693,49 @@ def _limit_stop_block(stop: object) -> LimitStopBlock | None:
         "repeat_limit_reads": _count("repeat_limit_reads"),
         "reads": _count("reads"),
     }
+
+
+def _first_pass_block(first: object) -> FirstPassRereadBlock | None:
+    """A track's `first_pass_reread` for the report, or None. Never raises."""
+    if not isinstance(first, FirstPassReread):
+        return None
+    agreement = first.agreement
+    agreed = getattr(agreement, "most_reads_agreed", None)
+    return {
+        "rip_count": first.rip_count,
+        "secure_rerip_converged": first.converged,
+        "most_reads_agreed": agreed if isinstance(agreed, int) else None,
+        "most_reads_agreed_exact": getattr(agreement, "exact", None)
+        if isinstance(agreed, int)
+        else None,
+        "secure_rerip_kept_read": _kept_read_block(first.kept_read),
+        "secure_rerip_limit_stop": _limit_stop_block(first.limit_stop),
+    }
+
+
+def _pregap_searches_block(info: object) -> list[PregapSearchesEntry] | None:
+    """`rip.pregap_searches`: each searched track's record, read. Never raises."""
+    rows = getattr(info, "pregap_searches", ()) or ()
+    out: list[PregapSearchesEntry] = []
+    for row in rows if isinstance(rows, tuple) else ():
+        if isinstance(row, tuple) and len(row) == 2 and isinstance(row[0], int):
+            read = pregap_search_block(read_pregap_search(row[1]))
+            out.append({"track": row[0], "search": read})
+    return out or None
+
+
+def _names_shortened_block(info: object) -> list[NameShortenedEntry] | None:
+    """`rip.names_shortened`: what the ripper shortened to 255 bytes. Never raises."""
+    rows = getattr(info, "names_shortened", ()) or ()
+    out: list[NameShortenedEntry] = [
+        {
+            "what": str(getattr(row, "what", "")),
+            "name": str(getattr(row, "name", "")),
+            "rendered_bytes": getattr(row, "rendered_bytes", None),
+        }
+        for row in (rows if isinstance(rows, tuple) else ())
+    ]
+    return out or None
 
 
 def _kept_read_block(kept: object) -> KeptReadBlock | None:
@@ -1118,6 +1195,7 @@ def build_outcome(
     ripper_record: RipperEnding | None = None,
     securing_pass_record: RecordFate | None = None,
     cancelled_by: object = None,
+    securing_pass_paranoia_counts: object = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -1224,6 +1302,9 @@ def build_outcome(
             wrapper_code=securing_pass_exit_code,
             ending=getattr(securing_pass_record, "ending", None),
         ),
+        # v42 (B4): the securing pass's own disc paranoia block, from its kept
+        # log; never summed into the album pass's top-level `paranoia_counts`.
+        "securing_pass_paranoia_counts": counts_block(securing_pass_paranoia_counts),
         # A list (JSON has no tuples) of the argv as spawned. Empty argv is
         # serialized as null, not [], so "we never launched it" and "we launched
         # it with no arguments" stay distinguishable.
@@ -1789,6 +1870,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
+        heavy_reread_first_pass=first_pass_sentences(rip_log),
         health_findings=health_findings(rip_log) + written_whole.findings(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
         log_parse=log_parse_block,
@@ -1836,7 +1918,11 @@ def _build(
         # Read from the process-wide collector, which also wrote every one of these
         # to the text log as it happened — one call site, two sinks, so the two
         # artifacts cannot describe the same event differently.
-        "diagnostics": diagnostics.to_report_block(),
+        # v42 (TASKS R117): scoped to this rip from its start; the session's
+        # earlier diagnostics are counted once, not repeated (`diagnostics_scope`).
+        "diagnostics": scoped_to_rip(
+            diagnostics.to_report_block(), timing.get("started_at") if timing else None
+        ),
         # v18: THE RIPPER'S OWN VERDICT ON ITS OWN LOG.
         #
         # An independent witness. Everything else here is our measurement of our
@@ -2105,6 +2191,10 @@ def _rip_block(
             info, "reread_time_limit_state", TIME_LIMIT_NOT_PRESENT
         ),
         "reread_time_limit_text": getattr(info, "reread_time_limit_text", "") or None,
+        # v42 (TASKS R117): `.28`'s disc-level `Pregap searches:` and `Names
+        # shortened:` blocks, which reached nothing; null when no block was printed.
+        "pregap_searches": _pregap_searches_block(info),
+        "names_shortened": _names_shortened_block(info),
         "paranoia_level": getattr(info, "paranoia_level", "") or None,
         "overread_mode": getattr(info, "overread_mode", "") or None,
         # Which cyanrip BINARY produced this rip ("release", "fork", a git
@@ -2237,6 +2327,11 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         # repeat limit or the fork's proposed time limit (round 36 lap 10 S11).
         "secure_rerip_limit_stop": _limit_stop_block(
             getattr(track, "secure_rerip_limit_stop", None)
+        ),
+        # Schema 42 (TASKS R114): the album pass's own -Z facts for a track a
+        # securing read replaced; the fields above describe the shipped read.
+        "first_pass_reread": _first_pass_block(
+            getattr(track, "first_pass_reread", None)
         ),
         # Per-track extraction diagnostics cyanrip logs (None on legacy-format logs):
         # the drive speed this track read at (×), the extraction quality (%),
@@ -2439,6 +2534,9 @@ def _transcode(result: object | None) -> dict | None:
         "error": getattr(result, "error", "") or None,
         # v39: MP3 only, the ReplayGain measured on the MP3s; null otherwise.
         "replaygain": _transcode_replaygain(result),
+        # v42: the argv the first file that encoded was encoded with, as spawned;
+        # null when none encoded. Which encoder and quality reached ffmpeg.
+        "encoder_argv": list(getattr(result, "encoder_argv", ()) or ()) or None,
     }
 
 
@@ -2696,6 +2794,8 @@ def _issues(
     read_speed: dict | None,
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
+    # `first_pass_reread.sentences`: what a securing read replaced (TASKS R114).
+    heavy_reread_first_pass: list[str] | None = None,
     # `rip_health.health_findings`: a skipped track AccurateRip did not confirm,
     # and error lines under a zero summary. Computed there, added here as-is.
     health_findings: list[tuple[str, str, str]] | None = None,
@@ -3083,11 +3183,13 @@ def _issues(
     # even when the ladder never ran.
     if heavy_reread_tracks:
         listed = ", ".join(str(t) for t in heavy_reread_tracks)
+        first_pass = "; ".join(heavy_reread_first_pass or ())
         add(
             "warning",
             "heavy_reread",
             f"track(s) {listed} needed unusually heavy re-reading — a sign the "
-            "read may not be reproducible; consider re-ripping to confirm",
+            "read may not be reproducible; consider re-ripping to confirm"
+            + (f" ({first_pass})" if first_pass else ""),
         )
 
     # THE TWO WAYS "No errors occurred" COULD SIT OVER A RIP THAT WAS NOT CLEAN

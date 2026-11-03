@@ -1483,6 +1483,88 @@ def _non_blocking_message_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
 
+#: How long a test may sit in a dialog's modal ``exec()`` before the harness
+#: closes the dialog and fails the test. A dialog a test drives on purpose closes
+#: itself in well under a second (the longest, the unattended fatal dialog, is
+#: patched to 0.4 s); nothing a test legitimately waits for is anywhere near this.
+MODAL_WATCHDOG_S: float = 20.0
+
+
+class ModalWatchdog:
+    """Closes a modal dialog nobody answers, and remembers that it had to.
+
+    ``QDialog.exec()`` runs a nested event loop until someone answers, and under
+    the offscreen platform nobody can. `_non_blocking_message_boxes` covers the
+    stock boxes; this covers every other dialog, which until now could hang a
+    run for its whole timeout: `test_a_new_scan_closes_a_release_picker_an_older_
+    scan_left_open` sat 300 s in `open_unknown_album_dialog` once (TASKS R107's
+    note), because the rescan it started was a real probe whose answer offered
+    the unknown-album rip. With this, the same mistake costs ``limit_s`` and names
+    the dialog.
+    """
+
+    def __init__(self, limit_s: float = MODAL_WATCHDOG_S) -> None:
+        self.limit_ms: int = max(1, int(limit_s * 1000))
+        #: One entry per dialog the watchdog had to close, ``Class ('title')``.
+        self.closed: list[str] = []
+
+    def wrap(self, original: object) -> object:
+        """``original`` (an unbound ``exec``) with the watchdog around it."""
+        watchdog = self
+
+        def exec_with_watchdog(
+            dialog: object, *args: object, **kwargs: object
+        ) -> object:
+            timer = QTimer()
+            timer.setSingleShot(True)
+
+            def give_up() -> None:
+                title = dialog.windowTitle()  # type: ignore[attr-defined]  # a QDialog
+                watchdog.closed.append(f"{type(dialog).__name__} ({title!r})")
+                dialog.reject()  # type: ignore[attr-defined]  # a QDialog
+
+            timer.timeout.connect(give_up)
+            timer.start(watchdog.limit_ms)
+            try:
+                return original(dialog, *args, **kwargs)  # type: ignore[operator]  # QDialog.exec
+            finally:
+                timer.stop()
+
+        return exec_with_watchdog
+
+
+@pytest.fixture(autouse=True)
+def _no_test_waits_on_a_modal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[ModalWatchdog, None, None]:
+    """Fail a test that left a modal dialog for the harness to close.
+
+    Patched on ``QDialog`` itself, which every dialog class inherits ``exec``
+    from (``QMessageBox``, ``QProgressDialog``, ``QInputDialog`` and
+    ``QFileDialog`` define none of their own, measured on PySide6 6.11.2). A
+    test that patches a dialog's own ``exec`` is applied after this and wins.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    watchdog = ModalWatchdog()
+    monkeypatch.setattr(QDialog, "exec", watchdog.wrap(QDialog.exec))
+    yield watchdog
+    fail_if_a_modal_was_closed(watchdog)
+
+
+def fail_if_a_modal_was_closed(watchdog: ModalWatchdog) -> None:
+    """Fail the current test when ``watchdog`` had to close a dialog."""
+    if watchdog.closed:
+        pytest.fail(
+            "this test waited on a modal dialog nobody could answer, and the harness "
+            f"closed it after {watchdog.limit_ms / 1000:.0f} s: "
+            + ", ".join(watchdog.closed)
+            + ". Answer it in the test (patch its `exec`), or stop the code path "
+            "that opens it from running here.",
+            pytrace=False,
+        )
+
+
 #: The marker a whole-tree walk carries (HR-2 §2): it reads whatever files are
 #: there and depends on none of them, so it reads less after the move, by design.
 TREE_WALK_MARKER = "tree_walk"

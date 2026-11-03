@@ -23,6 +23,7 @@ from platterpus import rip_audit
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.uiscript import artifact_grading as g
 from platterpus.uiscript import expected_warnings
+from platterpus.uiscript import record_grading as rg
 
 #: Through its fixtures (HR-2 moved the evidence folders off `main`): the reports
 #: as slim extracts without `debug.lines`, which grading does not read (it grades
@@ -381,24 +382,24 @@ def test_accuraterip_fails_when_no_lookup_happened() -> None:
 
 
 def test_ctdb_whole_passes_a_whole_disc_and_partial_passes_a_partial() -> None:
-    assert g.grade_ctdb(_report("wholedisc"), "whole").passed
-    assert g.grade_ctdb(_report("overwrite"), "partial").passed
+    assert rg.grade_ctdb(_report("wholedisc"), "whole").passed
+    assert rg.grade_ctdb(_report("overwrite"), "partial").passed
 
 
 def test_ctdb_fails_the_wrong_scope_either_way() -> None:
     """A partial rip looked up is the 2026-09-28 defect; a whole disc declined is a skip."""
-    assert not g.grade_ctdb(_report("wholedisc"), "partial").passed
-    assert not g.grade_ctdb(_report("overwrite"), "whole").passed
+    assert not rg.grade_ctdb(_report("wholedisc"), "partial").passed
+    assert not rg.grade_ctdb(_report("overwrite"), "whole").passed
 
 
 def test_ctdb_fails_a_lookup_error_and_a_missing_block() -> None:
     report = _report("wholedisc")
     broken = copy.deepcopy(report)
     broken["ctdb"]["verdict"] = "lookup_error"
-    assert not g.grade_ctdb(broken, "whole").passed
+    assert not rg.grade_ctdb(broken, "whole").passed
     broken["ctdb"] = None
-    assert "holds no CTDB result" in g.grade_ctdb(broken, "whole").detail
-    assert not g.grade_ctdb(report, "some").passed
+    assert "holds no CTDB result" in rg.grade_ctdb(broken, "whole").detail
+    assert not rg.grade_ctdb(report, "some").passed
 
 
 def test_the_real_reports_are_where_the_tests_say(tmp_path: Path) -> None:

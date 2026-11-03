@@ -5,7 +5,9 @@ a reader asks: its own self-audit (named checks, among them whether cyanrip's
 ``-Y`` accepts its own log), the AccurateRip and CTDB verdicts. Until 2026-09-30
 **no acceptance step read any of it**, so a Full run could go green over a rip
 whose cue had lost every title or whose CTDB lookup failed. The graders that
-open the FLAC files are in :mod:`platterpus.uiscript.tag_grading`.
+open the FLAC files are in :mod:`platterpus.uiscript.tag_grading`, and those
+that read a verdict the report computed (CTDB's, the gates', the read offset's)
+in :mod:`platterpus.uiscript.record_grading`.
 
 **Every grader delegates**: to :mod:`platterpus.rip_audit`'s registry,
 :func:`platterpus.verdict.accuraterip_state` and
@@ -122,7 +124,11 @@ def derived_verification_refusal(report: Mapping[str, Any] | None) -> str | None
     None when the gate says the check ran, was never asked for (``flac-only``),
     or is absent (an older report, or not a derived rip). Never raises.
     """
-    from platterpus.verification_gates import CUT_SHORT_GATE, NOT_RUN_PREFIX
+    from platterpus.verification_gates import (
+        CUT_SHORT_GATE,
+        GATE_RAN_FAILED,
+        NOT_RUN_PREFIX,
+    )
 
     verification = report.get("verification") if report is not None else None
     gates = verification.get("gates") if isinstance(verification, dict) else None
@@ -134,6 +140,12 @@ def derived_verification_refusal(report: Mapping[str, Any] | None) -> str | None
             f"the derived-file verification did not run: its gate reads {state!r}. "
             "The derived files were asked for, so their verification is owed, and "
             "an absent result is not a passed one."
+        )
+    if state == GATE_RAN_FAILED:  # C1, 2026-11-03: it ran and a file failed it
+        return (
+            "the derived-file verification ran and FAILED: a derived file did not "
+            "decode, or is not bit-identical to its FLAC master (the report's "
+            "verification.derived names which)."
         )
     return None
 
@@ -313,52 +325,4 @@ def grade_accuraterip(rip_log: object, report: Mapping[str, Any]) -> Grade:
         return Grade(False, "; ".join(problems) + f" [{summary}]")
     return Grade(
         True, f"{len(tracks)} track(s), each with an AccurateRip answer [{summary}]"
-    )
-
-
-# --- expect-ctdb --------------------------------------------------------------
-
-#: The CTDB verdicts in which the lookup happened and was compared (`ctdb.verify
-#: .Verdict`). A disc CTDB does not hold is a determined answer about the disc.
-_CTDB_DETERMINED: Final[frozenset[str]] = frozenset({"match", "no_match", "not_in_db"})
-
-
-def grade_ctdb(report: Mapping[str, Any], scope: str) -> Grade:
-    """The CTDB check reached the verdict this rip's SCOPE calls for.
-
-    ``scope`` is what the script knows about its own rip and the report is not
-    trusted to say: ``whole`` (every track was ripped, so CTDB must have been
-    looked up and compared) or ``partial`` (a subset, so the lookup must have
-    been DECLINED — a 2-of-14 rip sends CTDB a two-track disc that does not
-    exist, and the 2026-09-28 Full run's five partial rips reported "not in
-    CTDB" about a disc it holds 102 entries for).
-    """
-    from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
-
-    if scope not in ("whole", "partial"):
-        return Grade(False, f"{scope!r} is not a scope — say `whole` or `partial`")
-    block = report.get("ctdb")
-    if not isinstance(block, dict):
-        return Grade(
-            False,
-            "the report holds no CTDB result — the check was off, or it did not run",
-        )
-    verdict = str(block.get("verdict") or "")
-    message = str(block.get("message") or "").strip()
-    if scope == "partial":
-        if verdict == NOT_WHOLE_DISC_VERDICT:
-            return Grade(True, "CTDB declined a partial rip, as it must")
-        return Grade(
-            False,
-            f"CTDB answered {verdict!r} for a partial rip, which it cannot look up "
-            f"honestly ({message})",
-        )
-    if verdict in _CTDB_DETERMINED:
-        return Grade(
-            True,
-            f"CTDB was looked up and compared: {verdict}, confidence "
-            f"{block.get('confidence')}, {block.get('entry_count')} entr(ies)",
-        )
-    return Grade(
-        False, f"CTDB reached no verdict for the whole disc: {verdict!r} ({message})"
     )

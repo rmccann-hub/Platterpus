@@ -1344,7 +1344,7 @@ def main(argv: list[str] | None = None) -> int:
         # thread when the probe finishes. Guarded so a failure still leaves a
         # usable window.
         try:
-            window.run_dependency_check_async()
+            window.run_dependency_check_async(launch=True)
         except Exception:  # noqa: BLE001 — last-resort guard
             log.exception("initial dependency check failed; continuing anyway")
         # Drive listing is kept after show() so the window appears immediately.

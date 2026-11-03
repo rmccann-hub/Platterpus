@@ -198,6 +198,33 @@ class TestItDoesNotBlockTheGuiThread:
         assert "Ripping errors: 1" in detail
         assert "argv:" in detail
 
+    def test_the_track_block_survives_a_megabyte_of_progress_redraws(
+        self, window: QWidget, fake_capture: _FakeCapture
+    ) -> None:
+        """The 2026-11-03 Full run lost section P3's result to its progress bar.
+
+        Each one-track rip printed about 898 KB of `progress - xx.xx%` lines, and
+        the head-and-tail bound kept the banner and the tail and cut the track
+        block out. The redraws are folded first, counted and marked, so the CRC
+        and the loudness reach the transcript.
+        """
+        progress = "\n".join(
+            f"Ripping track 1, progress - {i / 200:.2f}%, ETA - 10s"
+            for i in range(20000)
+        )
+        block = "Track 1 read with no error reported.\n  EAC CRC32:     B0D122E7"
+        output = "\n".join(["cyanrip 0.9.4", progress, block, "x" * 6000])
+        assert len(output) > 800_000
+        fake_capture._result = (0, output)
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip -N --version"))
+        fake_capture.released.set()
+        _pump(run)
+        detail = run._report.steps[0].detail
+        assert "B0D122E7" in detail
+        assert "19999 earlier redraw(s)" in detail
+        assert progress.rsplit("\n", 1)[-1] in detail, "the last state was not kept"
+
 
 class TestFailurePaths:
     def test_a_riperror_records_a_null_exit_not_a_zero(

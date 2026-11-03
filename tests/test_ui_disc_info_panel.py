@@ -388,6 +388,51 @@ def test_accuraterip_counts_cyanrip_style_match(qapp: QApplication) -> None:
     assert "verified" in panel._accuraterip_value.text()
 
 
+def test_a_subset_rip_is_named_as_the_last_rip_not_the_disc(
+    qapp: QApplication,
+) -> None:
+    """TASKS R113 (the 2026-11-03 Full run): after the full rip found track 5
+    wrong, a one-track rip left this row reading "verified — all 1 tracks
+    matched", the disc's status as far as the panel could say. A rip of fewer
+    tracks than the disc has is named as the last rip's, and never "verified"."""
+    panel = DiscInfoPanel()
+    panel.set_accuraterip_result(
+        RipLog(tracks=(_track(1, matched=True),)), disc_track_total=14
+    )
+    text = panel._accuraterip_value.text()
+    assert text == "last rip, 1 of 14 tracks: 1 matched"
+    assert "verified" not in text
+    panel.set_accuraterip_result(
+        RipLog(tracks=(_track(1, matched=False), _track(2, matched=False))),
+        disc_track_total=14,
+    )
+    assert (
+        panel._accuraterip_value.text() == "last rip, 2 of 14 tracks: not in database"
+    )
+
+
+def test_a_whole_disc_rip_keeps_the_disc_wording_and_counts_in_english(
+    qapp: QApplication,
+) -> None:
+    """The mirror case, and the grammar: one track is "1 of 1 track", never
+    "all 1 tracks" (TASKS R113)."""
+    panel = DiscInfoPanel()
+    panel.set_accuraterip_result(
+        RipLog(tracks=tuple(_track(n, matched=True) for n in range(1, 15))),
+        disc_track_total=14,
+    )
+    assert panel._accuraterip_value.text() == "verified — all 14 tracks matched"
+    panel.set_accuraterip_result(
+        RipLog(tracks=(_track(1, matched=True),)), disc_track_total=1
+    )
+    assert panel._accuraterip_value.text() == "verified — 1 of 1 track matched"
+    panel.set_accuraterip_result(
+        RipLog(tracks=(_track(1, matched=True), _track(2, matched=False))),
+        disc_track_total=2,
+    )
+    assert panel._accuraterip_value.text() == "1 of 2 tracks matched"
+
+
 def test_set_drive_clears_accuraterip_result(qapp: QApplication) -> None:
     """A new disc means the old AccurateRip verdict no longer applies."""
     panel = DiscInfoPanel()

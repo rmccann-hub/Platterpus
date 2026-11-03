@@ -55,13 +55,16 @@ from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
+from platterpus.uiscript.control_verbs import ControlVerbsMixin
+from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
 from platterpus.uiscript.install_verbs import InstallVerbsMixin
-from platterpus.uiscript.offset_grading import drive_in_offset_list
+from platterpus.uiscript.offset_grading import drive_in_offset_list, selected_device
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
 from platterpus.uiscript.pregap_verbs import PregapVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
+from platterpus.uiscript.record_verbs import RecordVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
     VERDICTS,
@@ -72,10 +75,13 @@ from platterpus.uiscript.report import (
 )
 from platterpus.uiscript.scan_verbs import ScanVerbsMixin, superseded_picker
 from platterpus.uiscript.script import (
+    DEVICE_PLACEHOLDER,
     LAST_TRACK_PLACEHOLDER,
     OFFSET_PLACEHOLDER,
     Step,
     args_as_preflight_sees_them,
+    device_problem,
+    expand_device,
     expand_identity,
     expand_last_track,
     expand_offset,
@@ -393,6 +399,9 @@ class ScriptRunner(
     TimingVerbsMixin,
     AccuracyVerbsMixin,
     ScanVerbsMixin,
+    DeemphasisVerbsMixin,
+    ControlVerbsMixin,
+    RecordVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -1796,6 +1805,18 @@ class ScriptRunner(
                 )
                 return
             args = expand_offset(args, self._drive_offset)
+        # `(device)` is the selected drive, the one the app's rips pass as `-d`.
+        if any(DEVICE_PLACEHOLDER in arg for arg in args):
+            device = selected_device(self._window) or ""
+            problem = device_problem(device) if device else "no drive is selected"
+            if problem:
+                self._record(
+                    step,
+                    Outcome.FAIL,
+                    f"{DEVICE_PLACEHOLDER} could not be expanded: {problem}",
+                )
+                return
+            args = expand_device(args, device)
         # `(lasttrack)` is the loaded disc's last track number, from the track
         # table the rip steps read; with no disc loaded there is nothing to name.
         if any(LAST_TRACK_PLACEHOLDER in arg for arg in args):
@@ -1979,7 +2000,7 @@ class ScriptRunner(
             # `_last_cyanrip_output` above stays raw: the `expect-*` verbs match
             # what the ripper said, not our rendering of it.
             f"{_job_invocation(job)}\nexit: {code}\n"
-            f"{_bounded_output(inbound_text.screen_text(output).text)}",
+            f"{_bounded_output(_screened(output))}",
             elapsed=elapsed,
         )
 
@@ -2894,7 +2915,7 @@ class ScriptRunner(
         than passing or skipping: the section turned the checks on, and a run in
         which they never ran has not tested them.
         """
-        from platterpus.uiscript import artifact_grading
+        from platterpus.uiscript import artifact_grading, record_grading
 
         try:
             seconds = float(step.args[0]) if step.args else 600.0
@@ -2947,8 +2968,8 @@ class ScriptRunner(
                 return True
             if state != artifact_grading.SETTLE_SETTLED or report is None:
                 return False
-            refused = artifact_grading.derived_verification_refusal(report)
-            if refused is not None:  # run C, 2026-10-22: it passed over this
+            refused = record_grading.verification_refusal(report)
+            if refused is not None:  # run C, 2026-10-22; C1, a failed gate, 2026-11-03
                 self._deadline_outcome = Outcome.FAIL
                 self._deadline_detail = f"for {folder.name}, {refused}"
                 return True
@@ -4863,13 +4884,25 @@ def _bounded_output(text: str) -> str:
 
     A tool's fatal message is the *last* thing it prints, so a head-only cap
     drops precisely the line that explains the failure — and a silent truncation
-    reads as completeness (`CLAUDE.md`).
+    reads as completeness (`CLAUDE.md`). Progress redraws are folded first,
+    counted and marked (``inbound_text.fold_progress``): 898 KB of them cut a
+    one-track rip's result out of the 2026-11-03 Full run's transcript.
     """
+    text = inbound_text.fold_progress(text).text
     if len(text) <= MAX_TOOL_OUTPUT_CHARS:
         return text
     half = MAX_TOOL_OUTPUT_CHARS // 2
     dropped = len(text) - 2 * half
     return f"{text[:half]}\n… [{dropped} characters omitted] …\n{text[-half:]}"
+
+
+def _screened(output: str) -> str:
+    """Ripper output as the transcript stores it: redraws folded, then screened.
+
+    Folded BEFORE screening, which would show a raw ``\r`` as an escape rather
+    than as the redraw it is (``inbound_text.fold_progress``).
+    """
+    return inbound_text.screen_text(inbound_text.fold_progress(output).text).text
 
 
 def _safe_name(raw: str) -> str:

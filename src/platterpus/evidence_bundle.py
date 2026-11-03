@@ -54,7 +54,7 @@ import io
 import logging
 import re
 import tarfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -851,6 +851,7 @@ def build_bundle(
     homes: Sequence[str] | None = None,
     hosts: Sequence[str] | None = None,
     names_list: Path | None = None,
+    late_text: Callable[[Sequence[BundleEntry]], Mapping[str, str]] | None = None,
 ) -> BundleResult:
     """Write one `.tar.gz` of every text artifact worth sending. Never raises.
 
@@ -1058,6 +1059,10 @@ def build_bundle(
                 entries.append(_entry(name, str(source), note, data, done))
                 del data, done  # release before the next file is read
 
+            # Text rendered from the verdicts above, so a record of what was
+            # asked for says what became of it (`session_sources_record`).
+            if late_text is not None:
+                extra_text.update(late_text(tuple(entries)))
             for name, text in sorted(extra_text.items()):
                 blob = text.encode("utf-8", errors="replace")
                 done = _redacted(name, blob)

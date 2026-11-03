@@ -2284,7 +2284,8 @@ def test_the_real_rig_log_renders_the_disc_as_the_population() -> None:
     # flag a disagreement, because there is none — their 1 is our 1.
     assert log.partially_accurate_reported == "1/1"
     assert log.partially_accurate_summary == (
-        "1 of 14 tracks matched AccurateRip on one frame only (the rest unverified)"
+        "1 of 14 tracks matched AccurateRip on one frame only, so AccurateRip "
+        "says it is WRONG"  # TASKS R112, review A2: the verdict's word
     ), log.partially_accurate_summary
     assert "does not agree" not in log.partially_accurate_summary
 
@@ -3311,7 +3312,7 @@ def test_a_partial_file_changes_no_verdict_the_log_does_not_already_give() -> No
         "encoder failures: none", "encoder failures: 1"
     )
     readings = [parse_cyanrip_log(t) for t in (_R18_INTERRUPTED_BLOCK, without, failed)]
-    assert {r.health_status for r in readings} == {"1 ripping errors"}
+    assert {r.health_status for r in readings} == {"1 ripping error"}  # R113
     for reading in readings:
         assert reading.rip_completed is False
         assert (reading.rip_completed_tracks, reading.rip_completed_total) == (0, 3)

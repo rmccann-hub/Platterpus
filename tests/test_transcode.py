@@ -73,6 +73,33 @@ def test_mp3_vbr_quality_is_passed_through(tmp_path: Path) -> None:
     assert seen[0][seen[0].index("-q:a") + 1] == "2"
 
 
+def test_the_result_records_the_argv_that_encoded(tmp_path: Path) -> None:
+    """Review C4 (2026-11-03): the quality must be provable from what RAN, so the
+    result keeps the argv as the runner spawned it; a file that failed is not it."""
+    a = _make_flac(tmp_path / "01.flac")
+    b = _make_flac(tmp_path / "02.flac")
+
+    def runner(argv: list[str]) -> ToolRun:
+        if str(a) in argv:
+            return ToolRun.of(1, "Error while opening encoder\n", tuple(argv))
+        Path(argv[-1]).write_bytes(b"x")
+        return ToolRun.of(0, "", ("as", "spawned", "-q:a", "2"))
+
+    result = transcode_files([a, b], fmt="mp3", mp3_vbr_quality=2, runner=runner)
+    assert result.encoder_argv == ("as", "spawned", "-q:a", "2")
+    # A runner that reports no argv: ours, as built.
+    plain = transcode_files(
+        [b], fmt="wav", runner=lambda argv: _writes(argv), binary="ffmpeg"
+    )
+    assert plain.encoder_argv[0] == "ffmpeg" and "pcm_s16le" in plain.encoder_argv
+    assert transcode_files([], fmt="mp3", runner=runner).encoder_argv == ()
+
+
+def _writes(argv: list[str]) -> ToolRun:
+    Path(argv[-1]).write_bytes(b"x")
+    return ToolRun.of(0)
+
+
 def test_wav_transcode_uses_pcm_and_no_metadata(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
     seen: list[list[str]] = []

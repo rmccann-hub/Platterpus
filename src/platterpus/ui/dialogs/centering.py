@@ -23,6 +23,7 @@ from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX, fit_dialog_to_screen
+from platterpus.ui.dialogs.stacking import stack_above_window_it_blocks
 
 log = logging.getLogger(__name__)
 
@@ -204,6 +205,9 @@ class CenteredDialog(QDialog):
             if not self.isMaximized():
                 self._fit_content_to_screen()
         super().showEvent(event)
+        # On EVERY show, before the first-show-only placement: a question opened
+        # over another window of ours is stacked above that window (TASKS R96).
+        stack_above_window_it_blocks(self)
         if self._centered_once:
             return
         self._centered_once = True
