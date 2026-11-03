@@ -52,6 +52,7 @@ a genuine regression.
 from __future__ import annotations
 
 import ast
+import functools
 import re
 import re._parser as _sre_parser  # the stdlib's pattern parser: see `_lead_ins`
 import time
@@ -1198,12 +1199,19 @@ def test_the_known_offenders_stay_bounded(module: str, attribute: str) -> None:
 # `tests/test_cyanrip_log_reads_values_greedily.py`).
 
 
+@functools.cache
 def _pattern_assigned_to(rel: str, name: str) -> re.Pattern[str]:
     """The pattern a module assigns to ``name``, read from source, flags included.
 
     Read with ``ast`` rather than by importing, as the sweep reads, so the pin
     holds the text in the file and needs none of the script's import-time path
     setup. Flags are evaluated from ``re.<FLAG>`` names joined by ``|``.
+
+    Cached per process: the property tests below call this once per Hypothesis
+    example, and parsing `scripts/handshake.py` 400 times was nearly all of the
+    15.3 s `test_the_rewritten_wire_field_pattern_reads_what_the_old_one_read`
+    took (2026-11-03). The source does not change during a run, so the cached
+    pattern is the one a fresh parse would return.
     """
     tree = ast.parse((_REPO_ROOT / rel).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
