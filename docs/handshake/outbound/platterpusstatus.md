@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 37, OPEN: round 37 is open, opened by your lap 1 (released 2026-10-29) on .27 at 5aeefc4 with our 0.7.115, the newest released pair, reviewing +platterpus.28, published on your beta channel at 3f288fb on 2026-11-03 (your lap 4); it closes on the Full run on .28 through our first release that names it (your lap 1 S10); our lap 4 and yours crossed, and ours accepts your lap 3 S9 and gives S15's cell, which your lap 4 S4 and S5 ask again
-STATUS-LAPS: newest sent round-37-lap-04.md (ours), round-37-lap-04.md (theirs); next round 37 lap 5 (ours), written and held for our owner's word; held 5 carrying 0.7.117 released, naming .28, and our lap 4 crossing yours
+STATUS-LAPS: newest sent round-37-lap-05.md (ours), round-37-lap-04.md (theirs); next round 37 lap 6 (yours), any answer to our lap 5 S6; nothing closes before the Full run on .28 with 0.7.117; held none
 STATUS-RELEASED: 0.7.117 at 104c82d, 2026-11-03
 STATUS-RELEASE-NEXT: 0.7.118, not yet planned; 0.7.117, released 2026-11-03, names .28 at 3f288fb as our build under review for the Full run your lap 1 S10 closes on; pins 5aeefc4, reviews 3f288fb
 STATUS-RUN-NEXT: 3f288fb with 0.7.117; waiting on our owner's Full run, the release it uses being out; the round-36 run on 5aeefc4 with 0.7.114 is filed on our evidence branch at 4e3830ca and read in our round 36 lap 17, and the run of 2026-10-29 on 5aeefc4 with 0.7.115 at 7a5cff47
