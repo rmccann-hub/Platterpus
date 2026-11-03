@@ -39,6 +39,7 @@ from platterpus import (
     disk_space,
     drive_control,
     inbound_text,
+    output_writable,
     record_fate,
     rip_estimate,
     ripper_exit,
@@ -1100,6 +1101,12 @@ class RipWorker(QObject):
         self._accuraterip_standing: str | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
+    def _write_refusal(self) -> str:
+        """Why this rip cannot write into its output folder, or "" (`output_writable`)."""
+        result = output_writable.check_output_writable(self._params.output_dir)
+        self.log_line.emit(f"[plan]   {result.message}")
+        return result.message if result.refuse else ""
+
     def _space_refusal(self) -> str:
         """Why this rip cannot fit in its output folder, or "" (`disk_space`)."""
         params = self._params
@@ -1813,10 +1820,12 @@ class RipWorker(QObject):
         log.info("%s", estimate_line)
         self.log_line.emit(estimate_line)
         # Before anything spawns, on this thread (never the GUI's): a rip whose
-        # output folder clearly has too little room is refused (C10).
-        space = self._space_refusal()
-        if space:
-            self.error.emit(space)
+        # output folder cannot be written (0.7.119), or clearly has too little
+        # room (C10), is refused with a sentence naming the folder. Writability
+        # first: free space on a folder we cannot write to is not the problem.
+        refusal = self._write_refusal() or self._space_refusal()
+        if refusal:
+            self.error.emit(refusal)
             self.finished.emit(False, "")
             return
 

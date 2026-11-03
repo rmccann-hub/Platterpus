@@ -3152,7 +3152,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4338 -> 4341** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the addendum row carries the predicate's answer for the read that shipped.
     # **4338 -> 4348** (2026-11-03, review B4): `securing_pass_paranoia_counts`: the kept securing log is parsed where it is copied, on the worker's thread, so the report can carry that run's own counters.
     # **4348 -> 4370** (2026-11-03, review C10): `_space_refusal`, the free-space check before anything spawns, on the worker's thread so a stalled mount cannot freeze the window; the floor itself is `disk_space.py`, and `RipParameters.output_format` carries the derived format to it.
-    "workers/rip_worker.py": 4373,
+    # **4373 -> 4382** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 3): `_write_refusal`, the output-folder writability check before anything spawns, on the worker's thread beside `_space_refusal` and asked first; the check itself is the new focused module `output_writable.py`.
+    "workers/rip_worker.py": 4382,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

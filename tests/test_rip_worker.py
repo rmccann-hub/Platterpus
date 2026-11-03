@@ -3201,7 +3201,10 @@ def test_progress_redraws_are_rate_limited_in_the_log(
     worker.start_rip()
 
     # Only the first redraw reaches the log pane (the rest are within 0.1s).
-    assert len([line for line in sigs.log_lines if "progress" in line]) == 1
+    # The ripper's lines only: our own plan names the output folder, and pytest
+    # names that folder after this test, "progress" and all.
+    ripper = _ripper_lines(sigs.log_lines)
+    assert len([line for line in ripper if "progress" in line]) == 1
     # …but every redraw still moved the progress bar (cheap, unthrottled) —
     # all four task percentages, plus the final 100% emitted after the loop.
     assert [task for _, task in sigs.progress] == [10.0, 11.0, 12.0, 13.0, 100.0]
@@ -6234,3 +6237,63 @@ def test_a_rip_with_clearly_too_little_room_is_refused_before_anything_spawns(
     assert len(unknown.rip_calls) == 1, "an unknown length refused a rip"
     assert sigs.finished[0][0] is True and sigs.errors == []
     assert any("free space not checked" in line for line in sigs.log_lines)
+
+
+def test_an_output_folder_that_cannot_be_written_is_refused_before_anything_spawns(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rip to a folder this user could not write to started, and failed inside
+    the backend's mkdir with "unexpected error: [Errno 13] Permission denied",
+    naming neither the folder nor the remedy (0.7.119, the owner's item 3). The
+    worker now asks on its own thread, before the ripper is spawned and before
+    the free-space check, and refuses with a sentence naming the folder.
+    Tri-state: a filesystem that gives no answer does NOT stop the rip."""
+    from platterpus import output_writable
+
+    real = output_writable.check_output_writable
+
+    def denied(folder: Path) -> output_writable.WriteCheck:
+        return real(folder, access=lambda _path, _mode: False)
+
+    monkeypatch.setattr(output_writable, "check_output_writable", denied)
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path / "rips"))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+    assert backend.rip_calls == [], "the ripper was spawned into an unwritable folder"
+    assert sigs.finished == [(False, "")], sigs.finished
+    assert len(sigs.errors) == 1, sigs.errors
+    assert sigs.errors[0].startswith(
+        f"Cannot rip into the output folder {tmp_path / 'rips'}:"
+    ), sigs.errors
+    assert f"not allowed to create it in {tmp_path}" in sigs.errors[0]
+    assert any(sigs.errors[0] in line for line in sigs.log_lines)
+
+    # A file where the folder should be: refused with no permission trick at all.
+    monkeypatch.setattr(output_writable, "check_output_writable", real)
+    blocker = tmp_path / "Music"
+    blocker.write_text("a file, not a folder", encoding="utf-8")
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(backend, _params(blocker))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+    assert backend.rip_calls == []
+    assert sigs.errors and "exists, but it is not a folder" in sigs.errors[0]
+
+    def no_answer(folder: Path) -> output_writable.WriteCheck:
+        def broken(_path: Path, _mode: int) -> bool:
+            raise OSError(5, "Input/output error")
+
+        return real(folder, access=broken)
+
+    monkeypatch.setattr(output_writable, "check_output_writable", no_answer)
+    unknown = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(unknown, _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+    assert len(unknown.rip_calls) == 1, "an unanswered check refused a rip"
+    assert sigs.finished[0][0] is True and sigs.errors == []
+    assert any("output folder not checked" in line for line in sigs.log_lines)
