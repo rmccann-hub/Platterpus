@@ -135,15 +135,24 @@ jobs:
   # construction: anyone can rerun `bash build/lock-requirements.sh --check` on
   # that branch and get the same bytes.
   #
-  # A PULL REQUEST OPENED WITH GITHUB_TOKEN STARTS NO WORKFLOW, so no CI runs on
-  # it, and it carries no CHANGELOG bullet. A session carries it through, as
+  # A PUSH OR PULL REQUEST MADE WITH GITHUB_TOKEN STARTS NO WORKFLOW, but a
+  # workflow_dispatch made with it does (GitHub's one exception to its recursion
+  # guard, beside repository_dispatch). So the job dispatches ci.yml on the
+  # branch it pushed, with `actions: write`, and the checks land on the branch's
+  # commit, where its pull request shows them (TASKS R93, 2026-11-03). The commit
+  # still carries no CHANGELOG bullet, so a session carries it through, as
   # PLANNING.md KDD-43 describes for Dependabot's: a session branch with these
   # locks, a CHANGELOG bullet and any regenerated files, and this one closed.
-  # And the repository may not let Actions open pull requests at all (Settings,
+  # The repository may not let Actions open pull requests at all (Settings,
   # Actions, General, "Allow GitHub Actions to create and approve pull
-  # requests"). Then the job fails, red, naming the branch it pushed and the
-  # link to open the pull request by hand; a failure nobody sees is the thing it
-  # must not be.
+  # requests"; it did not on 2026-11-02, run 41478401331). Then the job still
+  # dispatches CI and clears the superseded branches, and fails, red, naming
+  # the branch it pushed and the link to open the pull request by hand; a
+  # failure nobody sees is the thing it must not be.
+  #
+  # Each run deletes every other relock/ branch: a newer date supersedes them,
+  # and a pull request that is closed rather than merged (the KDD-43 path) keeps
+  # its branch, which GitHub's auto-delete of merged head branches never reaches.
   #
   # uv at the version every lock's header records (tests/test_dependency_locks.py
   # holds the two equal). No cache anywhere in this job: it pushes.
@@ -151,8 +160,9 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     permissions:
-      contents: write # push the relock branch
+      contents: write # push the relock branch, and delete the ones it supersedes
       pull-requests: write # open its pull request, and close the one it supersedes
+      actions: write # dispatch ci.yml on the branch: a GITHUB_TOKEN push starts no CI
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -226,10 +236,17 @@ jobs:
           # .git/config.
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           echo "::add-mask::$auth"
-          GIT_CONFIG_COUNT=1 \
-            GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraheader" \
-            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
-            git push origin "HEAD:refs/heads/$BRANCH"
+          push_authed() {
+            GIT_CONFIG_COUNT=1 \
+              GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraheader" \
+              GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+              git push "$@"
+          }
+          push_authed origin "HEAD:refs/heads/$BRANCH"
+          # CI on the pushed commit, before anything that can fail: a dispatch
+          # made with GITHUB_TOKEN starts a run where the push did not.
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          echo "dispatched ci.yml on $BRANCH: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/ci.yml?query=branch%3A$BRANCH"
           {
             echo "The weekly relock: every hashed lock regenerated with releases uploaded before $DATE (seven days back, Dependabot's cooldown), by \`bash build/lock-requirements.sh --exclude-newer $DATE\` with the uv every lock's header names."
             echo
@@ -237,21 +254,35 @@ jobs:
             git diff --stat HEAD~1 HEAD
             echo '```'
             echo
-            echo "**No CI has run on this branch.** A pull request opened with the workflow's GITHUB_TOKEN starts no workflow, and this commit carries no CHANGELOG bullet. A session carries it through, as PLANNING.md KDD-43 describes for Dependabot's pull requests: take these locks onto a session branch with a CHANGELOG bullet and any regenerated files (\`python3 scripts/emit_bom.py\`), let CI run there, and close this one."
+            echo "**CI ran here by dispatch, and this commit carries no CHANGELOG bullet.** A pull request opened with the workflow's GITHUB_TOKEN starts no workflow, so the relock job dispatched ci.yml on this branch; its checks are this commit's. A session carries it through, as PLANNING.md KDD-43 describes for Dependabot's pull requests: take these locks onto a session branch with a CHANGELOG bullet and any regenerated files (\`python3 scripts/emit_bom.py\`), let CI run there, and close this one."
             echo
             echo "Reproduce on this branch: \`bash build/lock-requirements.sh --check\`."
             echo "Made by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$RUNNER_TEMP/relock.md"
+          opened=true
           if ! url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
             --title "build(deps): regenerate the hashed locks with releases before $DATE" \
             --body-file "$RUNNER_TEMP/relock.md")"; then
-            echo "::error::Pushed $BRANCH, but could not open its pull request. If the repository does not allow GitHub Actions to create pull requests (Settings, Actions, General), open it by hand: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH"
-            exit 1
+            opened=false
+            url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH"
+          else
+            echo "opened $url"
           fi
-          echo "opened $url"
           # One relock pull request open at a time: this one supersedes the rest.
           gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number,headRefName \
             --jq '.[] | select(.headRefName | startswith("relock/")) | select(.headRefName != env.BRANCH) | .number' |
             while read -r number; do
               gh pr close "$number" --repo "$GITHUB_REPOSITORY" --comment "Superseded by $url."
             done
+          # And every other relock branch goes, with or without a pull request.
+          git ls-remote --heads origin 'refs/heads/relock/*' |
+            while read -r _ ref; do
+              if [ "$ref" != "refs/heads/$BRANCH" ]; then
+                echo "deleting superseded $ref"
+                push_authed origin --delete "$ref"
+              fi
+            done
+          if [ "$opened" != true ]; then
+            echo "::error::Pushed $BRANCH and dispatched CI on it, but could not open its pull request. If the repository does not allow GitHub Actions to create pull requests (Settings, Actions, General), open it by hand: $url"
+            exit 1
+          fi

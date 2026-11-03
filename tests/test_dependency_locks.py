@@ -917,13 +917,17 @@ def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
     executable = "\n".join(
         ln for ln in body.splitlines() if not ln.strip().startswith("#")
     )
-    # Least privilege, on the job: exactly the two writes it needs.
+    # Least privilege, on the job: exactly the three writes it needs.
     grants = re.search(
         r"^    permissions:\n(?P<g>(?:      [\w-]+: \w+[^\n]*\n)+)", body, re.M
     )
     assert grants is not None, "the relock job grants nothing of its own"
     granted = dict(re.findall(r"^      ([\w-]+): (\w+)", grants.group("g"), re.M))
-    assert granted == {"contents": "write", "pull-requests": "write"}, granted
+    assert granted == {
+        "contents": "write",
+        "pull-requests": "write",
+        "actions": "write",  # the CI dispatch, TASKS R93
+    }, granted
     # Seven days back, Dependabot's cooldown, through the generator itself.
     assert "date -u -d '7 days ago' +%Y-%m-%dT00:00:00Z" in executable
     assert 'bash build/lock-requirements.sh --exclude-newer "$date"' in executable
@@ -938,12 +942,28 @@ def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
     # It writes, so it restores no cache, setup-uv's default included.
     assert "enable-cache: false" in body
     assert not re.search(r"^\s+cache:\s*\S", body, re.M)
-    # A pull request it could not open is a red job naming the branch.
-    assert re.search(r"if ! url=\"\$\(gh pr create ", executable)
-    failure = executable.split('if ! url="$(gh pr create ', 1)[1].split("fi\n", 1)[0]
+    # TASKS R93: a push made with GITHUB_TOKEN starts no workflow, but a dispatch
+    # does, so CI is dispatched on the pushed branch right after the push and
+    # before anything that can fail (the pull request, on 2026-11-02, did).
+    push = executable.index('push_authed origin "HEAD:refs/heads/$BRANCH"')
+    dispatch = executable.index(
+        'gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"'
+    )
+    create = executable.index('if ! url="$(gh pr create ')
+    assert push < dispatch < create
+    # Superseded relock branches are deleted, the run's own is not, and that
+    # happens whether or not the pull request opened.
+    cleanup = executable.index("git ls-remote --heads origin 'refs/heads/relock/*'")
+    assert 'if [ "$ref" != "refs/heads/$BRANCH" ]; then' in executable[cleanup:]
+    assert 'push_authed origin --delete "$ref"' in executable[cleanup:]
+    # A pull request it could not open is still a red job naming the branch,
+    # raised after the dispatch and the cleanup.
+    failure = executable[executable.index('if [ "$opened" != true ]; then') :]
+    failure = failure.split("fi\n", 1)[0]
     assert "::error::" in failure and "exit 1" in failure, failure
-    # And the pull request says CI has not run on it, and who carries it.
-    assert "No CI has run on this branch" in executable
+    assert create < cleanup < executable.index('if [ "$opened" != true ]; then')
+    # And the pull request says how CI ran on it, and who carries it.
+    assert "CI ran here by dispatch" in executable
     assert "KDD-43" in executable
 
 
