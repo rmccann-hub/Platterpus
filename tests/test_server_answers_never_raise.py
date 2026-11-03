@@ -268,6 +268,78 @@ def test_an_absurdly_long_title_is_bounded_and_the_cut_is_marked() -> None:
     assert title.endswith("…")
 
 
+# The MusicBrainz BODY is read by musicbrainzngs, whole, with no size cap we can
+# set (TASKS R89). Decided 2026-11-03: accept that read, because only
+# MusicBrainz, authenticated by TLS, can answer it, on the MB worker thread,
+# with a per-read socket timeout (`docs/dependency-contracts.md` → musicbrainzngs).
+# The tests below hold the premises of that decision where they can fail: the
+# request really goes to MusicBrainz over HTTPS, with the timeout in force, and
+# an entity-expansion body is refused rather than expanded.
+
+_MB_EMPTY_ANSWER: Final[bytes] = (
+    b'<?xml version="1.0" encoding="UTF-8"?>'
+    b'<metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#">'
+    b'<release-list count="0"/></metadata>'
+)
+
+
+def test_every_lookup_goes_to_musicbrainz_over_https_whatever_the_library_held() -> (
+    None
+):
+    """The premise the unbounded read rests on, checked at the request itself.
+
+    musicbrainzngs' own ``set_hostname`` defaults to plain HTTP, so another
+    caller (or a test) leaving it pointed elsewhere is a real state. The adapter
+    sets the host itself; this starts from the wrong host and reads the URL the
+    library would open."""
+    from musicbrainzngs import musicbrainz as mb
+
+    opened: list[tuple[str, float | None]] = []
+
+    def fake_read(
+        _opener: object, req: Any, body: object = None, *_a: object, **_k: object
+    ) -> bytes:
+        import socket
+
+        opened.append((req.get_full_url(), socket.getdefaulttimeout()))
+        return _MB_EMPTY_ANSWER
+
+    saved = (mb.hostname, mb.https)
+    try:
+        musicbrainz_client.musicbrainzngs.set_hostname("evil.example", use_https=False)
+        client = MusicBrainzNgsImpl("platterpus-test", "0", "test@example.invalid")
+        with mock.patch.object(mb, "_safe_read", fake_read):
+            assert client.releases_by_disc_id("disc") == []
+    finally:
+        mb.hostname, mb.https = saved
+    assert len(opened) == 1, opened
+    url, timeout = opened[0]
+    parts = urlsplit(url)
+    assert (parts.scheme, parts.hostname) == ("https", musicbrainz_client.MB_HOST)
+    assert timeout == musicbrainz_client._MB_TIMEOUT_S
+
+
+def test_a_musicbrainz_entity_expansion_bomb_is_the_documented_error() -> None:
+    """The memory half that IS bounded: expat refuses amplification, and the
+    adapter turns the refusal into its one documented error."""
+    from musicbrainzngs import musicbrainz as mb
+
+    bomb = (
+        b'<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">'
+        + b"".join(
+            f'<!ENTITY lol{i} "{("&lol" + (str(i - 1) if i > 1 else "") + ";") * 10}">'.encode()
+            for i in range(1, 10)
+        )
+        + b']><metadata xmlns="http://musicbrainz.org/ns/mmd-2.0#">&lol9;</metadata>'
+    )
+    client = MusicBrainzNgsImpl("platterpus-test", "0", "test@example.invalid")
+    with (
+        mock.patch.object(mb, "_safe_read", return_value=bomb),
+        pytest.raises(MusicBrainzQueryError),
+    ):
+        client.releases_by_disc_id("disc")
+
+
 # --- CTDB ----------------------------------------------------------------------
 
 

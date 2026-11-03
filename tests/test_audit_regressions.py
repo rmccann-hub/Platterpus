@@ -397,6 +397,11 @@ def test_an_absurd_read_offset_is_refused_at_the_single_write_path() -> None:
         # since 2026-09-24); the real window has this, so the stand-in must too.
         _refresh_setting_views=lambda: None,
     )
+    # Every config write goes through `_save_config_or_report` (TASKS R107); the
+    # stand-in's writes the window's config to `saved`, as the real one does.
+    window._save_config_or_report = lambda _what, tell_user=False: (
+        saved.append(window._config) or True
+    )
     assert DriveMixin._set_read_offset_override(window, 667) is True
     assert window._config.read_offset == 667
     assert DriveMixin._set_read_offset_override(window, OFFSET_MAX + 1) is False

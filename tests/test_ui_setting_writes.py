@@ -488,3 +488,78 @@ def test_the_window_hands_the_console_its_writer(make_window: Any) -> None:
         assert window._config.test_script_autorun is True
     finally:
         console.close()
+
+
+# --- A failed config write is reported, never raised (TASKS R107) -----------
+
+
+def test_a_failed_config_write_in_a_first_run_offer_is_logged_not_raised(
+    make_window: Any, monkeypatch: pytest.MonkeyPatch, caplog: Any
+) -> None:
+    """Found by the harness's new excepthook check, 2026-11-03.
+
+    The first-run host-setup offer ran from a timer and wrote its "prompted"
+    flag bare, so a full disk or a read-only config folder raised `OSError` into
+    Qt, which hands it to the app's fatal-error hook: a crash dialog on first
+    launch, for a bookkeeping flag. Each write site now reports instead.
+    """
+    import logging
+
+    from platterpus.ui import message_boxes
+
+    def refuse(_cfg: Config) -> None:
+        raise OSError("disk full")
+
+    warned: list[str] = []
+    monkeypatch.setattr(
+        message_boxes, "warning", lambda _parent, title, text, **_k: warned.append(text)
+    )
+    window = make_window(save_cfg=refuse)
+    monkeypatch.setattr(window, "_should_offer_drive_setup", lambda: True)
+    with caplog.at_level(logging.WARNING):
+        window._maybe_offer_host_setup()
+        window._maybe_offer_drive_setup()
+        assert window._set_read_offset_override(6) is True
+    said = [
+        r.getMessage() for r in caplog.records if "not saved to disk" in r.getMessage()
+    ]
+    assert len(said) == 3 and all("disk full" in line for line in said), said
+    assert window._config.host_setup_prompted is True, "in effect for the session"
+    assert window._config.read_offset == 6
+    # The offset is the user's own value, so it is said on screen as well; the two
+    # prompt flags only cost a repeated prompt, and stay in the log.
+    assert len(warned) == 1 and "+6" in warned[0] and "disk full" in warned[0], warned
+
+
+def test_the_first_run_offer_does_not_outlive_the_window_teardown(
+    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The deferred first-run call is a posted event to the window, so the
+    teardown drops it (TASKS R107).
+
+    Scheduled with no context object, it sat on an internal Qt timer that
+    neither `removePostedEvents(window)` nor stopping the window's child timers
+    could reach, and it ran inside whichever later test next pumped events: a
+    window whose config write had been made to fail raised in an unrelated
+    settings-dialog test.
+    """
+    from platterpus.ui.main_window import MainWindow
+
+    ran: list[object] = []
+    monkeypatch.setattr(
+        MainWindow, "_maybe_offer_first_run_setup", lambda self: ran.append(self)
+    )
+    torn_down = _make_window(qapp)
+    stop_window_threads(torn_down)
+    kept = _make_window(qapp)
+    try:
+        for _ in range(5):
+            qapp.processEvents()
+        assert torn_down not in ran, "the first-run offer ran on a torn-down window"
+        # Non-triviality: the same call on a live window still runs, or the
+        # assertion above holds for a window that never scheduled anything.
+        assert kept in ran, "the first-run offer never ran on a live window"
+    finally:
+        stop_window_threads(kept)
+        torn_down.deleteLater()
+        kept.deleteLater()

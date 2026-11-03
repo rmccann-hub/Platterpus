@@ -164,15 +164,51 @@ def test_stock_cyanrip_with_no_footer_is_judged_by_its_finish_report() -> None:
     assert "no completion footer and no finish report" in _judge(cut)[1]
 
 
-def test_the_filed_full_run_is_complete_and_clean() -> None:
-    """The real 18-track log: finished, so only its error count can step it."""
+def test_the_filed_full_run_is_complete_and_does_not_step() -> None:
+    """The real 18-track log: finished, so only its error count can step it.
+
+    Its `.19` finish line reads `Ripping errors: 0` beside track 18's 2,586
+    paranoia skips, so the refusal names the skips rather than "no read errors"
+    (TASKS R65): that phrase read as a clean disc."""
     parsed = parse_cyanrip_log(evidence(_FULL_RUN).read_text(encoding="utf-8"))
     assert why_pass_incomplete(parsed) == ""
     verdict = judge_step_down(
         parsed, exit_code=0, stopped_by_us=False, log_is_this_passes=True
     )
     assert verdict.warranted is False
-    assert verdict.reason == "the drive reported no read errors"
+    assert "2586 paranoia skip(s)" in verdict.reason, verdict.reason
+    assert "not a clean read" in verdict.reason
+    assert "no read errors" not in verdict.reason
+
+
+def test_no_step_beside_skips_names_them_and_never_says_no_read_errors() -> None:
+    """The plan of record, Appendix H §1 (TASKS R65), on disc 1's shape.
+
+    On 2026-10-21 the ladder logged "no step after pass 1: the drive reported no
+    read errors" over a pass whose finish line said `Ripping errors: 2106
+    (including 2106 paranoia skips)` (`round36full1021bwholedisc.log`, evidence
+    `08de9851`). Right by the rule, and it read as a clean disc."""
+    text = _fork_log(ripping_errors="2106 (including 2106 paranoia skips)")
+    warranted, reason = _judge(text, exit_code=1)
+    assert warranted is False
+    assert "2106 paranoia skip(s)" in reason and "not a clean read" in reason
+    assert "no read errors" not in reason
+    # A truly clean pass keeps the plain sentence: the new words are not a blanket.
+    assert _judge(_fork_log(), exit_code=0) == (
+        False,
+        "the drive reported no read errors",
+    )
+
+
+def test_no_step_beside_an_unconverged_re_read_names_the_tracks() -> None:
+    text = _fork_log().replace(
+        "Track 2 read successfully!",
+        "Done; (repeat limit of 5 reads reached; at most 1 read agreed)\n"
+        "Track 2 read with errors.",
+    )
+    warranted, reason = _judge(text, exit_code=1)
+    assert warranted is False
+    assert "did not converge on track(s) 2" in reason, reason
 
 
 def test_no_log_is_incomplete() -> None:

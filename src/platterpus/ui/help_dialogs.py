@@ -10,7 +10,6 @@ out to the ripper (which would mean entering the container and could stall).
 from __future__ import annotations
 
 import platform
-import sys
 from collections.abc import Callable
 
 from PySide6 import __version__ as PYSIDE_VERSION
@@ -216,7 +215,7 @@ class AboutDialog(CenteredDialog):
             version = (
                 f"`{own.replace('`', '')}`"
                 if own
-                else (entry["version"] or "version not reported")
+                else _markdown_literal(entry["version"] or "version not reported")
             )
             where = f" — `{entry['location']}`" if entry["location"] else ""
             rows.append(f"- {name}: {version} {mark}{where}")
@@ -236,17 +235,17 @@ class AboutDialog(CenteredDialog):
             inventory = build_info.component_inventory(report)
             unchecked_note = dep_manager.describe_unchecked(report)
             ripper_banner = build_notes.ripper_banner(report)
-        py = inventory["python"] or "{}.{}.{}".format(*sys.version_info[:3])
+        lit = _markdown_literal  # outside text, shown as written (R87)
         return (
             f"# Platterpus\n\n"
             f"**Version {inventory['app']}**\n\n"
             f"{help_content.TAGLINE}\n\n"
             f"### Environment\n"
-            f"- Build: {inventory['build']}\n"
-            f"- Python: {py}\n"
-            f"- Qt: {inventory['qt'] or qVersion()}\n"
-            f"- PySide6: {inventory['pyside6'] or PYSIDE_VERSION}\n"
-            f"- Platform: {inventory['platform'] or platform.platform()}\n\n"
+            f"- Build: {lit(inventory['build'])}\n"
+            f"- Python: {lit(inventory['python'] or platform.python_version())}\n"
+            f"- Qt: {lit(inventory['qt'] or qVersion())}\n"
+            f"- PySide6: {lit(inventory['pyside6'] or PYSIDE_VERSION)}\n"
+            f"- Platform: {lit(inventory['platform'] or platform.platform())}\n\n"
             + AboutDialog._components_markdown(inventory, unchecked_note)
             + AboutDialog._ripper_markdown(ripper_banner)
             + f"### Paths\n"

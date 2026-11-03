@@ -35,6 +35,7 @@ from platterpus.rip_estimate import ReadRate, rough
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.script import Step
 from platterpus.uiscript.script_values import coerce_setting, parse_track_spec
+from platterpus.uiscript.timing_verbs import section_will_skip
 from platterpus.user_settings import with_values
 
 #: The filed run the non-rip figures come from, and its date. A provenance label:
@@ -174,6 +175,7 @@ def estimate_run(
     rips = estimated = 0
     low = high = waits = measured = ticks = 0.0
     reason = ""
+    skipping = False
     for index, step in enumerate(steps):
         if not step.ok:
             continue
@@ -181,6 +183,9 @@ def estimate_run(
         header = verb == "log" and step.joined().startswith("--- ")
         if header:
             section = step.joined().strip("- ").split(".", 1)[0].strip()
+            skipping = False
+        elif skipping and verb not in STRUCTURAL_VERBS:
+            continue  # N/A in the run: P5 and P6 with one build (TASKS R109)
         if verb == "run-size" and args:
             declared = run_sizes.parse_size(args[0])
         if not (
@@ -190,6 +195,9 @@ def estimate_run(
         counting = index >= start_index
         if counting:
             ticks += tick_s
+        if verb == "skip-if-same-build":
+            skipping = section_will_skip(args)
+            continue
         if verb == "set" and len(args) >= 2 and args[0] in _CONFIG_FIELDS:
             value, problem = coerce_setting(
                 getattr(config, args[0]), " ".join(args[1:])

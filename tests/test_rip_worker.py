@@ -2093,6 +2093,80 @@ def test_a_stopped_securing_pass_keeps_the_first_read_when_the_file_is_not_whole
     assert worker.swapped_track_records == {}
 
 
+#: A dynamic-mode album pass: no `-Z`, so no track has a re-read verdict, and
+#: AccurateRip holds the disc (track 1 verified) but matched neither 2 nor 3.
+_DYNAMIC_PASS1_TWO_UNVERIFIED = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Track 1 ripped and encoded successfully!\n"
+    "  EAC CRC32:     11111111\n"
+    "    Accurip v1:  5D3C90CB (accurately ripped, confidence 200)\n"
+    "  File(s):\n"
+    "    Artist/Album/01 - A.flac\n"
+    "Track 2 ripped and encoded successfully!\n"
+    "  EAC CRC32:     22222222\n"
+    "    Accurip v1:  DEADBEEF (not found, either a new pressing, or bad rip)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Track 3 ripped and encoded successfully!\n"
+    "  EAC CRC32:     33333333\n"
+    "    Accurip v1:  DEADBEEF (not found, either a new pressing, or bad rip)\n"
+    "  File(s):\n"
+    "    Artist/Album/03 - C.flac\n"
+    "Ripping errors: 0\n"
+    "Log FUN512: pass1\n"
+)
+
+
+def test_a_stopped_accuraterip_triggered_pass_flags_the_tracks_it_did_not_converge(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """TASKS R65 (the plan of record, Appendix H §3): disc 1 of 2026-10-21.
+
+    The securing pass re-read tracks 11 to 18 on the AccurateRip trigger, hit
+    the repeat limit on 11 to 17 with no two reads agreeing, and was stopped
+    during 18. The verdict named 11 to 17 as not converged; the report's
+    `read_speed.unstable_tracks` was `[]` and `unresolved` false, because only
+    the album pass's list (no `-Z`, so empty) reached it. Here track 2 is the
+    unconverged one and track 3 the one being read when the pass stopped.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            secure_rerip_matches=2,
+            secure_rerip_dynamic=True,
+        ),
+    )
+    write_logs = _fake_rip_writer(
+        _DYNAMIC_PASS1_TWO_UNVERIFIED, _REFIX_STOPPED_DURING_TRACK_3, False
+    )
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()  # the run's six-hour wait gives up during track 3
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert backend.rip_calls[1]["only_tracks"] == (2, 3)
+    assert [r["track"] for r in worker.retried_tracks] == [2]
+    assert worker.retried_tracks[0]["converged"] is False
+    assert worker.unstable_tracks == [2], worker.unstable_tracks
+    # And the report block says what the verdict says: unresolved.
+    from platterpus.read_speed_ladder import attempts_to_report
+
+    block = attempts_to_report(
+        worker.speed_attempts, worker.unstable_tracks, worker.retried_tracks
+    )
+    assert block is not None
+    assert block["unstable_tracks"] == [2] and block["unresolved"] is True
+
+
 def test_the_securing_pass_keeps_its_own_ripper_log_beside_the_albums(
     qapp: QApplication, tmp_path: Path
 ) -> None:

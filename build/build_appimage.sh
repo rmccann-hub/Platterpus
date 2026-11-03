@@ -184,8 +184,10 @@ fi
 #
 # 1.9.1 (tag 8c8c91f, 2025-11-18) is the newest fixed release and predates the
 # permission check. The sha256 is of the file GitHub served on 2026-11-02;
-# upstream publishes no checksum. To move the pin: fix the AppDir modes first
-# (TASKS), then change both values together.
+# upstream publishes no checksum. To move the pin: the AppDir-modes wrapper
+# below (TASKS R98) is meant to satisfy the newer check, but no newer tool has
+# yet packed through it; change both values together on a branch and dispatch
+# appimage.yml for that branch, and move the pin only once that build passes.
 APPIMAGETOOL_TAG="1.9.1"
 APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
 APPIMAGETOOL_DIR="$HOME/.cache/python-appimage/bin/.appimagetool-continuous.appdir.$(uname -m)"
@@ -210,8 +212,53 @@ install_pinned_appimagetool() {
     mkdir -p "$(dirname "$APPIMAGETOOL_DIR")"
     mv "$tmp/squashfs-root" "$APPIMAGETOOL_DIR"
     rm -rf "$tmp"
+    install_appdir_mode_wrapper
     echo "appimagetool $APPIMAGETOOL_TAG at $APPIMAGETOOL_DIR/AppRun"
 }
+
+# --- Make the AppDir readable by everyone before it is packed (TASKS R98) ----
+# python-appimage 1.4.6 makes its AppDir mode 0700: the AppDir itself, `usr`,
+# and the bundled CPython's folders (177 of them on the #421 merge's run). So
+# every folder inside the AppImage we ship is readable by its owner only, and
+# appimagetool from b082d2e on refuses to pack it. python-appimage gives no hook
+# between making the AppDir and packing it, but it always runs appimagetool as
+# `<APPIMAGETOOL_DIR>/AppRun --no-appstream <AppDir> [<output>]`
+# (python_appimage/appimage/build.py), and our zsync pass below runs the same
+# file. So the real AppRun moves aside to AppRun.pinned, in the same folder so
+# it still finds its own files, and AppRun becomes this wrapper: it gives every
+# DIRECTORY argument `chmod -R a+rX` (read for everyone; search on folders and on
+# files that are already executable; nothing writable, nothing new executable),
+# checks that no folder was left unreadable, then runs the real tool with the
+# arguments unchanged and returns its exit code. chmod -R does not follow
+# symbolic links it meets inside the tree, so nothing outside the AppDir changes.
+# A line starting "Error" is what python-appimage turns into a failed build.
+#
+# The wrapper body sits between the APPDIR_MODES markers so that
+# tests/test_build_harness.py can run exactly this text against a fake tool.
+install_appdir_mode_wrapper() {
+    mv "$APPIMAGETOOL_DIR/AppRun" "$APPIMAGETOOL_DIR/AppRun.pinned"
+    cat >"$APPIMAGETOOL_DIR/AppRun" <<'APPDIR_MODES'
+#!/usr/bin/env bash
+# Written by Platterpus build/build_appimage.sh (TASKS R98). The real
+# appimagetool is AppRun.pinned beside this file.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+for arg in "$@"; do
+    if [ -d "$arg" ]; then
+        chmod -R a+rX -- "$arg"
+        left="$(find "$arg" -type d ! -perm -0555 | wc -l)"
+        if [ "$left" -ne 0 ]; then
+            echo "Error: $left folders in $arg are still not readable by everyone after chmod -R a+rX"
+            exit 1
+        fi
+        echo "Platterpus: made $arg readable by everyone before packing (TASKS R98)"
+    fi
+done
+exec "$here/AppRun.pinned" "$@"
+APPDIR_MODES
+    chmod 0755 "$APPIMAGETOOL_DIR/AppRun"
+}
+
 install_pinned_appimagetool
 
 # --- Build the AppImage ----------------------------------------------------

@@ -81,6 +81,7 @@ updates:
       - dependency-name: "zizmor"
       - dependency-name: "shellcheck-py"
       - dependency-name: "python-appimage"
+      - dependency-name: "cyclonedx-bom"
     # THE RUNTIME PINS GET ONE PULL REQUEST EACH (PySide6, sigstore, numpy).
     # They are pinned to a minor too, so a widening is red by design
     # (tests/test_gating_tools_are_pinned.py), but we want to hear of their
@@ -108,6 +109,7 @@ updates:
           - "zizmor"
           - "shellcheck-py"
           - "python-appimage"
+          - "cyclonedx-bom"
 
   - package-ecosystem: "github-actions"
     directory: "/"

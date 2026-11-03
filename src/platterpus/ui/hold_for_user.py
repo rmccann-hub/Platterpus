@@ -71,6 +71,7 @@ def hold_until_free(
     still_wanted: Callable[[], bool],
     what: str,
     on_drop: Callable[[], None] | None = None,
+    also_busy: Callable[[], str] | None = None,
 ) -> None:
     """Call ``show`` now if the main window is free, else once it is.
 
@@ -78,6 +79,12 @@ def hold_until_free(
     says no, the held dialog is dropped, the drop is logged, and ``on_drop`` runs
     so the caller can forget it was holding one. The retry timer is parented to
     ``main_window``, so it dies with the window.
+
+    ``also_busy`` is a caller's own reason to WAIT rather than drop (for the
+    automatic ripper offer: a rip is running), asked after :func:`busy_reason`
+    on every attempt; ``""`` means it has none. Wait and drop are separate
+    callables because they are separate answers: a rip that ends should let the
+    offer open, and a window that closed should not.
     """
     logged_hold = False
 
@@ -88,7 +95,7 @@ def hold_until_free(
             if on_drop is not None:
                 on_drop()
             return
-        reason = busy_reason(main_window)
+        reason = busy_reason(main_window) or (also_busy() if also_busy else "")
         if not reason:
             if logged_hold:
                 log.info("%s: the main window is free again, opening it now", what)

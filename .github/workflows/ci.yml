@@ -921,8 +921,9 @@ jobs:
   # NOT required checks yet: the owner adds `workflow-lint` and `shellcheck` to
   # the default-branch ruleset when they choose to. Their pins live in
   # pyproject's `ci-lint` extra (Critical rule #11); zizmor and ShellCheck are
-  # installed from build/locks/ci-lint.lock, resolved from it, and actionlint-py,
-  # which has no wheel to lock, by the extra's range.
+  # installed from build/locks/ci-lint.lock, resolved from it, and actionlint,
+  # whose Python package has no wheel to lock, as its release binary pinned by
+  # sha256, the way the gitleaks job fetches its CLI (TASKS R91).
   workflow-lint:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
@@ -934,24 +935,32 @@ jobs:
         with:
           python-version: "3.12"
       # zizmor and ShellCheck from build/locks/ci-lint.lock, exact and hashed
-      # (the follow-up review of 2026-10-27, item 5). actionlint-py cannot be in
-      # that lock: it publishes only an sdist, whose build downloads the
-      # actionlint binary from GitHub (and checks it against the checksums the
-      # sdist carries), so it is still installed by pyproject's minor range.
-      # TASKS R91 records that gap.
-      - name: Install zizmor and ShellCheck (hashed lock), and actionlint (pyproject's range)
+      # (the follow-up review of 2026-10-27, item 5).
+      - name: Install zizmor and ShellCheck (hashed lock)
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci-lint.lock
+      # actionlint as its release binary, version pinned and checksum verified
+      # (TASKS R91, 2026-11-03). actionlint-py cannot be in the lock: it publishes
+      # only an sdist, whose build downloads this same tarball from GitHub and
+      # checks it against the checksum the sdist carries. Fetching it directly
+      # with that checksum is the same binary with no unhashed install in between:
+      # the sha256 is the one in the release's own actionlint_1.7.12_checksums.txt
+      # and in actionlint-py 1.7.12.25's _custom_build/checksums.cfg, read
+      # 2026-11-03, so this changes how actionlint arrives, not which one runs.
+      # tests/test_dependency_locks.py holds the version inside pyproject's
+      # actionlint-py range, which local installs of the ci-lint extra still use.
+      - name: Install actionlint (version pinned, checksum verified)
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
         run: |
           set -euo pipefail
-          python -m pip install --require-hashes --only-binary=:all: -r build/locks/ci-lint.lock
-          spec="$(python -c '
-          import pathlib, tomllib
-          extra = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"][
-              "optional-dependencies"
-          ]["ci-lint"]
-          print(next(s for s in extra if s.startswith("actionlint-py")))
-          ')"
-          echo "pyproject pin: $spec"
-          python -m pip install "$spec"
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}"
+          (cd "$RUNNER_TEMP" && echo "${ACTIONLINT_SHA256}  ${tarball}" | sha256sum --check --strict -)
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" actionlint
+          test "$("$RUNNER_TEMP/actionlint" -version | sed -n 1p)" = "${ACTIONLINT_VERSION}"
       # actionlint checks every file under .github/workflows, and runs the pinned
       # ShellCheck over each `run:` block (installed here so the result does not
       # depend on what the runner image happens to carry); zizmor runs
@@ -959,7 +968,8 @@ jobs:
       # judges the files as written and never calls GitHub's API.
       # Findings a reviewer accepted carry a `# zizmor: ignore[...]` beside them.
       - name: actionlint
-        run: actionlint -color
+        run: |
+          "$RUNNER_TEMP/actionlint" -color
       - name: zizmor (offline)
         run: zizmor --offline --format plain .github
 

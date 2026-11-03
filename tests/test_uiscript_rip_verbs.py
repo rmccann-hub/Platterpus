@@ -155,7 +155,7 @@ def _window(**overrides: Any):
     win.cancelled = False
     win.saved = []
     win._on_drive_changed = win.rescanned.append
-    win._on_rip_cancel = lambda: setattr(win, "cancelled", True)
+    win._on_rip_cancel = lambda cause=None: setattr(win, "cancelled", cause or True)
     win._save_config = win.saved.append
     return win
 
@@ -494,6 +494,10 @@ def test_cancel_rip_reaches_the_windows_cancel_handler(qapp, process_until) -> N
     runner._execute(cancel)
     assert runner._report.steps[-1].outcome is Outcome.PASS
     assert process_until(lambda: win.cancelled), "the deferred call never landed"
+    # Who: the script's step, named, never "the user" (TASKS R62).
+    from platterpus.cancel_cause import BY_SCRIPT_STEP
+
+    assert win.cancelled.by == BY_SCRIPT_STEP and "cancel-rip" in win.cancelled.detail
 
 
 def test_cancel_rip_refuses_a_rip_its_last_rip_step_did_not_start(
@@ -606,6 +610,12 @@ def test_a_wait_for_rip_that_runs_out_ends_the_run_and_cancels_its_rip(
     assert any(
         r.outcome is Outcome.INFO and "cancelled" in r.detail for r in report.steps
     ), "the cancel is not in the transcript"
+    # TASKS R62: disc 1 of 2026-10-21 was cancelled this way, and the app log and
+    # the EAC-layout log both said the user had done it. The cause names the limit.
+    from platterpus.cancel_cause import BY_TIME_LIMIT
+
+    assert win.cancelled.by == BY_TIME_LIMIT, win.cancelled
+    assert "wait-for-rip 1" in win.cancelled.detail
 
 
 def test_stopping_a_run_cancels_only_its_own_rip(qapp, process_until) -> None:
@@ -621,6 +631,9 @@ def test_stopping_a_run_cancels_only_its_own_rip(qapp, process_until) -> None:
     runner._timer.start()  # what `start()` does, so `stop()` sees a live run
     runner.stop("stopped by the user")
     assert own.cancelled, "Stop left the run's own rip reading"
+    from platterpus.cancel_cause import BY_RUN_ENDED
+
+    assert own.cancelled.by == BY_RUN_ENDED, own.cancelled  # TASKS R62
 
     # The 2026-10-04 shape: an earlier `rip` step started a rip (F), and the
     # last one was refused because that rip was still reading (I). The rip
@@ -2266,6 +2279,62 @@ def test_the_quit_helpers_predicate_has_a_real_subject(
     assert not runner.bundle_in_progress(), (
         "bundle_in_progress() still reports work after the thread joined — the "
         "helper would hold the process open until its budget expired"
+    )
+
+
+def test_the_bundle_thread_does_not_keep_the_runner_alive(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The runner must die on the GUI thread, never on the bundle thread (R104).
+
+    CI's py3.14 leg hung once (2026-11-03, run 41557841640) with the
+    `uiscript-bundle` thread on `threading.py:1028`, the `del self._target`
+    that ends `Thread.run()`, and the GUI thread inside a `QLineEdit`
+    constructor. The accused test made its runner as a temporary, so the
+    thread's closure, which captured `self`, held the LAST reference: the del
+    ran `~QObject` on the bundle thread while the GUI thread built a widget.
+
+    Held here by behaviour, not by reading the closure: the archive is parked
+    on an event, the test drops its runner, and the runner must be gone while
+    the thread is still running. Before the fix it stayed alive, owned by the
+    thread, until the thread let go of it.
+    """
+    import gc
+    import weakref
+
+    from platterpus import evidence_bundle
+
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    release = threading.Event()
+    entered = threading.Event()
+    real_build = evidence_bundle.build_bundle
+
+    def _parked_build(**kwargs: Any) -> Any:
+        entered.set()
+        release.wait(30)
+        return real_build(**kwargs)
+
+    monkeypatch.setattr(evidence_bundle, "build_bundle", _parked_build)
+    runner = ScriptRunner(_window())
+    _run_to_end(runner, "log hello", process_until)
+    thread = runner._bundle_thread
+    assert thread is not None, "the run started no bundle, so nothing is tested"
+    try:
+        assert entered.wait(10), "the bundle thread never reached the archive"
+        alive = weakref.ref(runner)
+        del runner
+        gc.collect()
+        still_held = alive() is not None
+        assert thread.is_alive(), "the precondition: the thread is still working"
+    finally:
+        release.set()
+        thread.join(30)
+    assert not still_held, (
+        "the bundle thread's closure holds the ScriptRunner, so when every other "
+        "reference is gone the thread drops the last one and ~QObject runs off "
+        "the GUI thread (TASKS R104)"
     )
 
 

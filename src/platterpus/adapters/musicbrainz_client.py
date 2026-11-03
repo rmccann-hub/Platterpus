@@ -27,7 +27,7 @@ import socket
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 import musicbrainzngs
 
@@ -43,6 +43,10 @@ log = logging.getLogger(__name__)
 # each call and restore it after (below), rather than globally at import, so the
 # adapter has no surprising process-wide side effect.
 _MB_TIMEOUT_S: float = 30.0
+
+# Set over HTTPS by the adapter, not inherited: the uncapped body read is
+# accepted only from this host (TASKS R89, `docs/dependency-contracts.md`).
+MB_HOST: Final[str] = "musicbrainz.org"
 
 
 @contextlib.contextmanager
@@ -221,8 +225,10 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
         """User-agent is mandatory; MB throttles unidentified traffic.
 
         Per MB's policy, `contact` should be a real email or project URL
-        so a human can be reached if our client misbehaves.
+        so a human can be reached if our client misbehaves. The host is set
+        too: the library's own ``set_hostname`` defaults to plain HTTP.
         """
+        musicbrainzngs.set_hostname(MB_HOST, use_https=True)
         self.set_user_agent(app, version, contact)
 
     def set_user_agent(self, app: str, version: str, contact: str) -> None:

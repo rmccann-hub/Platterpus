@@ -53,7 +53,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from platterpus.read_speed_ladder import read_errors_present
+from platterpus.read_speed_ladder import read_errors_present, unstable_tracks
 
 log = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ def judge_step_down(
         if process:
             return StepDown(False, process)
         if not read_errors_present(rip_log):
-            return StepDown(False, "the drive reported no read errors")
+            return StepDown(False, _no_read_errors_reason(rip_log))
         encoder = getattr(rip_log, "encoder_failed_tracks", None)
         if isinstance(encoder, int) and encoder > 0:
             return StepDown(
@@ -118,6 +118,51 @@ def judge_step_down(
     except Exception:  # noqa: BLE001 — an escalation decision must not crash the rip
         log.exception("judge_step_down failed; not stepping the ladder down")
         return StepDown(False, "the step-down check failed (see the app log)")
+
+
+def _no_read_errors_reason(rip_log: object) -> str:
+    """Why a pass with no failed read does not step, without calling it clean.
+
+    **"No read errors" beside 2,106 skips** (the plan of record, Appendix H §1).
+    On disc 1 of the 2026-10-21 Full run the ladder logged "the drive reported no
+    read errors", right by its rule (skips and an unconverged re-read are
+    instability, handled per track, never by a slower whole-disc pass) and read
+    as a clean disc by anyone who was not holding the rule. When the log shows
+    instability, the sentence names it. Never raises.
+    """
+    # The largest of three witnesses: the finish line's `(including N paranoia
+    # skips)` (from `.20`; before it the line reads 0 beside 2,586 skips, as on
+    # round30oct04full.log), the disc's counter block, and the tracks' summed.
+    per_track = sum(
+        _skips(getattr(track, "paranoia_counts", None))
+        for track in getattr(rip_log, "tracks", ()) or ()
+    )
+    finish = getattr(rip_log, "ripping_errors_paranoia_skips", None)
+    skips = max(
+        finish if isinstance(finish, int) and not isinstance(finish, bool) else 0,
+        _skips(getattr(rip_log, "paranoia_counts", None)),
+        per_track,
+    )
+    unconverged = unstable_tracks(rip_log)
+    found: list[str] = []
+    if skips > 0:
+        found.append(f"{skips} paranoia skip(s)")
+    if unconverged:
+        listed = ", ".join(str(n) for n in unconverged)
+        found.append(f"re-reads that did not converge on track(s) {listed}")
+    if not found:
+        return "the drive reported no read errors"
+    return (
+        "no read failed outright, but the pass had " + " and ".join(found) + ": "
+        "read instability, handled per track rather than by a slower whole-disc "
+        "pass, so this was not a clean read"
+    )
+
+
+def _skips(counts: object) -> int:
+    """A paranoia counter block's ``SKIP``, or 0 when it has none we can read."""
+    value = counts.get("SKIP", 0) if isinstance(counts, dict) else 0
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
 
 def why_pass_unfinished(

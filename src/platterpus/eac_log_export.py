@@ -68,12 +68,17 @@ from platterpus.parsers.rip_log import (
     accuraterip_is_match,
 )
 from platterpus.pregap_search import describe as describe_pregap_search
+from platterpus.replaced_read_errors import ErrorsInReplacedReads, count_line
 from platterpus.report_types import SecureReripBlock
 from platterpus.reread_limit import stopped_by_time_limit
 from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
-from platterpus.track_proof import track_proof, verified_reread_numbers
+from platterpus.track_proof import (
+    ctdb_tracks_by_number,
+    track_proof,
+    verified_reread_numbers,
+)
 from platterpus.verdict import (
     accuraterip_lookup_happened,
     expected_track_total,
@@ -312,6 +317,9 @@ def render_eac_style_log(
     outcome_status: str = "",
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
+    cancelled_by: str = "",
+    replaced_reads: ErrorsInReplacedReads | None = None,
+    ctdb_result: object | None = None,
 ) -> str:
     """The rendered log text; see :func:`render_eac_style_log_and_defused`."""
     text, _defused = render_eac_style_log_and_defused(
@@ -322,6 +330,9 @@ def render_eac_style_log(
         outcome_status=outcome_status,
         disc_track_total=disc_track_total,
         secure_rerip=secure_rerip,
+        cancelled_by=cancelled_by,
+        replaced_reads=replaced_reads,
+        ctdb_result=ctdb_result,
     )
     return text
 
@@ -335,6 +346,9 @@ def render_eac_style_log_and_defused(
     outcome_status: str = "",
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
+    cancelled_by: str = "",
+    replaced_reads: ErrorsInReplacedReads | None = None,
+    ctdb_result: object | None = None,
 ) -> tuple[str, list[str]]:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``,
     and the lines rewritten so metadata could not forge a signature (D16).
@@ -354,6 +368,11 @@ def render_eac_style_log_and_defused(
       was closed mid-pass) is a fact the JSON report carried and the durable log
       did not, so the archival artifact was the more reassuring of the two —
       the exact asymmetry this module exists to prevent (audit, 2026-07-28).
+    * ``replaced_reads`` — where the album pass's counted errors were
+      (:mod:`platterpus.replaced_read_errors`), for the disc-level health line.
+    * ``ctdb_result`` — CTDB's answer, for each track's ``Proof:`` row (TASKS
+      R51). The window writes the log at the rip's end, before CTDB answers, and
+      again when it does; ``None`` leaves CTDB unnamed.
 
     The honesty gate still holds: any value not supplied is **omitted, never
     invented**, the cyanrip source line is left exactly as parsed, and EAC's own
@@ -375,6 +394,9 @@ def render_eac_style_log_and_defused(
             outcome_status=outcome_status,
             disc_track_total=disc_track_total,
             secure_rerip=secure_rerip,
+            cancelled_by=cancelled_by,
+            replaced_reads=replaced_reads,
+            ctdb_result=ctdb_result,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -394,6 +416,9 @@ def _render(
     outcome_status: str = "",
     disc_track_total: int | None = None,
     secure_rerip: SecureReripBlock | None = None,
+    cancelled_by: str = "",
+    replaced_reads: ErrorsInReplacedReads | None = None,
+    ctdb_result: object | None = None,
 ) -> tuple[str, list[str]]:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -559,8 +584,15 @@ def _render(
 
     # --- Per-track blocks ---
     chased = verified_reread_numbers(secure_rerip)
+    ctdb_rows = ctdb_tracks_by_number(ctdb_result)
     for track in rip_log.tracks:
-        lines.extend(_track_block(track, verified_reread=track.number in chased))
+        lines.extend(
+            _track_block(
+                track,
+                verified_reread=track.number in chased,
+                ctdb_track=ctdb_rows.get(track.number),
+            )
+        )
 
     # --- Conclusive report, in EAC's own wording ---
     lines.append("")
@@ -572,9 +604,10 @@ def _render(
             rip_log,
             _read_stability_line(rip_log)
             + _appended_silence_line(rip_log)
-            + _interrupted_securing_line(secure_rerip, outcome_status)
+            + _interrupted_securing_line(secure_rerip, outcome_status, cancelled_by)
             + _verified_reread_line(secure_rerip),
             disc_track_total=disc_track_total,
+            replaced_reads=replaced_reads,
         )
     )
     lines.append("")
@@ -1143,6 +1176,7 @@ def _status_report(
     extra: list[str] | None = None,
     *,
     disc_track_total: int | None = None,
+    replaced_reads: ErrorsInReplacedReads | None = None,
 ) -> list[str]:
     """EAC's end-of-rip status report, in EAC's own wording and order.
 
@@ -1264,7 +1298,7 @@ def _status_report(
     # counts read errors, and a track can read the same wrong audio four times
     # with none (the Police disc's track 3, 2026-10-21). See `_health_lines`.
     if rip_log.health_status:
-        out.extend(_health_lines(rip_log))
+        out.extend(_health_lines(rip_log, replaced_reads))
         out.append("")
     # THE RIPPER'S OWN COMPLETION RECORD, which this document used to discard.
     #
@@ -1325,8 +1359,10 @@ def _status_report(
     return out
 
 
-def _health_lines(rip_log: RipLog) -> list[str]:
-    """The disc-level health sentence: the ripper's, unless AccurateRip contradicts a track.
+def _health_lines(
+    rip_log: RipLog, replaced_reads: ErrorsInReplacedReads | None = None
+) -> list[str]:
+    """The disc-level health sentence: the ripper's, unless the reads kept say otherwise.
 
     The ripper's sentence verbatim when it already reads not clean, or when no
     track is contradicted. Otherwise EAC's :data:`DISC_HAD_ERRORS` and one line
@@ -1334,6 +1370,10 @@ def _health_lines(rip_log: RipLog) -> list[str]:
     ripper said is dropped: ``Ripper's own count  : Ripping errors: 0 — not
     counted: track(s) 3, 5, which AccurateRip contradicts``. The count is
     quoted as the ripper printed it when the parser read one, else its sentence.
+
+    When every counted error was in a read the album replaced (TASKS R59,
+    ``replaced_reads``), the sentence is about the reads kept and the line of
+    ours says where the count was (:func:`replaced_read_errors.count_line`).
     """
     health = rip_log.health_status
     contradicted = [
@@ -1341,6 +1381,9 @@ def _health_lines(rip_log: RipLog) -> list[str]:
         for track in rip_log.tracks
         if track_accuraterip_contradiction(track) is not None
     ]
+    line = count_line(rip_log, replaced_reads, _listed_tracks(contradicted))
+    if line:
+        return [DISC_HAD_ERRORS if contradicted else CLEAN_HEALTH, line]
     if health != CLEAN_HEALTH or not contradicted:
         return [health]
     count = rip_log.ripping_errors
@@ -1496,7 +1539,9 @@ def _appended_silence_line(rip_log: RipLog) -> list[str]:
 
 
 def _interrupted_securing_line(
-    secure_rerip: SecureReripBlock | None, outcome_status: str = ""
+    secure_rerip: SecureReripBlock | None,
+    outcome_status: str = "",
+    cancelled_by: str = "",
 ) -> list[str]:
     """A line when the auto-fix securing pass started and never finished.
 
@@ -1514,16 +1559,18 @@ def _interrupted_securing_line(
     — reading "INTERRUPTED" with no cause, when the cause was the user's own click and
     we had it recorded. Captured and not surfaced is the same bug from their side.
 
+    ``cancelled_by`` is WHO, the report's ``outcome.cancelled_by.sentence``
+    (`cancel_cause.py`). This line said "you cancelled the rip" for every cancel,
+    and on 2026-10-21 the acceptance run's six-hour limit had cancelled it
+    (TASKS R62). A cancel whose cause the caller did not pass says so.
+
     Reads defensively: this comes from worker state, and a wrong shape must cost
     a line, not the whole log.
     """
     if not isinstance(secure_rerip, dict) or not secure_rerip.get("interrupted"):
         return []
-    cause = (
-        " (you cancelled the rip)"
-        if (outcome_status or "").strip().lower() == "cancelled"
-        else ""
-    )
+    who = (cancelled_by or "").strip() or "the rip was cancelled"
+    cause = f" ({who})" if (outcome_status or "").strip().lower() == "cancelled" else ""
     return [
         f"Secure re-read      : the securing pass was INTERRUPTED{cause} before it "
         "finished — any track it had not yet re-read carries only its first read"
@@ -1770,11 +1817,17 @@ def _provenance_lines(
     return out
 
 
-def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[str]:
+def _track_block(
+    track: TrackResult,
+    *,
+    verified_reread: bool = False,
+    ctdb_track: object | None = None,
+) -> list[str]:
     """The per-track section, matching EAC's shape (only real fields rendered).
 
     ``verified_reread`` is True when the track's file is a verified-read chase
     read (``secure_rerip["verified_rereads"]``), which its ``Proof:`` row names.
+    ``ctdb_track`` is CTDB's per-track result once CTDB has answered, else None.
     """
     # EAC writes "Track" + one space + the number right-aligned to width 2, so a
     # single-digit track reads "Track  1" and a double-digit one "Track 14". A
@@ -1862,11 +1915,15 @@ def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[s
     # the one wording the report carries too. EAC's one proof is a Test and Copy
     # CRC pair; ours differs by track, so the log says which. A track AccurateRip
     # contradicts says so here, so the block's last line is never the only
-    # verdict a reader sees. CTDB is not named: this log is written before it
-    # answers, and the report's `proof` carries it. Not for a data track, for
-    # the AccurateRip row's reason above: its own status line says what it is.
+    # verdict a reader sees. CTDB is named once it has answered: the log is
+    # written at the rip's end, before CTDB, and again when CTDB answers (TASKS
+    # R51), so this row and the report's `proof` end the same. Not for a data
+    # track, for the AccurateRip row's reason above: its status line says what
+    # it is.
     if not is_data_track(track):
-        proof = track_proof(track, verified_reread=verified_reread)
+        proof = track_proof(
+            track, verified_reread=verified_reread, ctdb_track=ctdb_track
+        )
         out.append(f"     Proof: {proof.line}")
     contradiction = track_accuraterip_contradiction(track)
     if track.status:

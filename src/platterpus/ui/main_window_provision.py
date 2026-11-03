@@ -55,6 +55,7 @@ if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
         SetupCenterDialog as SetupCenterDialogT,
     )
     from platterpus.ui.host_setup_dialog import HostSetupDialog as HostSetupDialogT
+    from platterpus.user_settings import RestoredSetting
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +141,9 @@ class ProvisioningMixin(MainWindowShared):
     #: run"* — asked by someone whose Archival Exact goal, beta ripper channel,
     #: debug logging and EAC log would all have been switched off by the run.
     _acceptance_user_config: Config | None = None
+    #: The closing dialog's warning when the restore put Overread back on, else
+    #: "". Set by every first restore, so a previous session's cannot linger.
+    _acceptance_overread_note: str = ""
     #: The session folder, kept past the end of the session so the "the bundle
     #: could not be written" dialog can still point at the complete workspace.
     _acceptance_root: Path | None = None
@@ -207,6 +211,26 @@ class ProvisioningMixin(MainWindowShared):
                 "script, so there is nobody to answer them"
             )
             return
+        # **They wait for the main window (TASKS R96).** Nothing is stopped on
+        # these answers, so they are dialogs that *can hold*: if another window
+        # of ours is in use when the launch gets here (the launch dependency
+        # report, or Setup & Updates), they open once the main window is free.
+        # The unattended flag is asked again before each try, where they open.
+        from platterpus.ui.hold_for_user import hold_until_free
+
+        hold_until_free(
+            self,
+            self._make_first_run_offers,
+            still_wanted=lambda: not self._unattended,
+            what="first-run offers",
+        )
+
+    def _make_first_run_offers(self) -> None:
+        """The offers themselves, in order, once the main window is free.
+
+        Sequential, each its own modal: one closes before the next opens, so
+        the main window is free between them and they need no hold of their own.
+        """
         # Anything the config load had to throw away comes first: it tells the
         # user their settings are not what the file says, which changes how they
         # read every offer below it (a reset read_offset in particular).
@@ -276,7 +300,7 @@ class ProvisioningMixin(MainWindowShared):
             new_path = ai.relocate_to_applications(appimage)
             ai.integrate(new_path)
             self._config.appimage_integration_prompted = True
-            self._save_config(self._config)
+            self._save_config_or_report("the menu-entry offer was answered")
             moved = (
                 f"The app file was moved to {new_path}. "
                 if new_path != appimage
@@ -347,7 +371,7 @@ class ProvisioningMixin(MainWindowShared):
             self._config.integration_declined_path = str(appimage)
             self._config.integration_declined_version = __version__
             self._config.appimage_integration_prompted = True  # legacy flag
-            self._save_config(self._config)
+            self._save_config_or_report("the menu-entry offer was declined")
             return
         try:
             # Give the file a proper home FIRST, then point the menu entry at
@@ -358,7 +382,7 @@ class ProvisioningMixin(MainWindowShared):
             self._config.integration_declined_path = ""
             self._config.integration_declined_version = ""
             self._config.appimage_integration_prompted = True  # legacy flag
-            self._save_config(self._config)
+            self._save_config_or_report("the menu entry was added")
             if new_path != appimage:
                 detail = (
                     f"Platterpus now lives at {new_path} and is in your "
@@ -394,7 +418,7 @@ class ProvisioningMixin(MainWindowShared):
         if self._config.host_setup_prompted:
             return
         self._config.host_setup_prompted = True
-        self._save_config(self._config)
+        self._save_config_or_report("the host-setup offer was made")
         choice = message_boxes.question(
             self,
             "Set up Platterpus",
@@ -1100,10 +1124,18 @@ class ProvisioningMixin(MainWindowShared):
             # in the `finally`, so an exception while reading them cannot leave
             # the user on the run's test values.
             restored = self._restore_settings_after_acceptance()
+        # Each field with both values (TASKS R106): the manifest's reader learns
+        # the user's own settings, not only which names the run touched.
         facts["your settings"] = (
-            "restored after the run; it had changed " + ", ".join(restored)
+            "restored after the run; it had changed "
+            + "; ".join(r.describe() for r in restored)
             if restored
             else "unchanged by the run"
+        )
+        facts["overread after the run"] = (
+            "ON, put back to your setting: " + self._acceptance_overread_note
+            if self._acceptance_overread_note
+            else ("on" if self._config.force_overread else "off")
         )
 
         # **A RUN WITH NOTHING IN IT GETS NO ARCHIVE AND NO FOLDER PROMPT.**
@@ -1280,6 +1312,11 @@ class ProvisioningMixin(MainWindowShared):
             "transcript of this attempt is kept"
             + (f" in {artifact_dir}" if artifact_dir is not None else "")
             + "."
+            + (
+                f"\n\n{self._acceptance_overread_note}"
+                if self._acceptance_overread_note
+                else ""
+            )
         )
         self._acceptance_message(
             QMessageBox.Icon.Warning,
@@ -1605,6 +1642,8 @@ class ProvisioningMixin(MainWindowShared):
         error = str(getattr(result, "error", "") or "")
         note = self._acceptance_inhibit_note or "Sleep lock: not determined."
         note += "\n" + (self._acceptance_screen_note or "Screen lock: not determined.")
+        if self._acceptance_overread_note:
+            note += "\n\n" + self._acceptance_overread_note
         if error or path is None:
             reason = error or "the bundler returned no path and no error"
             log.error("acceptance session bundle failed: %s", reason)
@@ -1695,8 +1734,13 @@ class ProvisioningMixin(MainWindowShared):
         # ripping WAV. So the restore belongs to every exit, not to the script.
         self._restore_settings_after_acceptance()
 
-    def _restore_settings_after_acceptance(self) -> list[str]:
-        """Put the user's settings back; return which fields the run had changed.
+    def _restore_settings_after_acceptance(self) -> list[RestoredSetting]:
+        """Put the user's settings back; return each field the run had changed.
+
+        Each comes with the run's value and the user's, and each is logged with
+        both (TASKS R106). When Overread comes back ON, that is said in the log
+        and in the closing dialog (:data:`OVERREAD_RESTORED_NOTE`), and the
+        user's choice is kept: the restore changes no setting the user made.
 
         Safe to call more than once — the snapshot is consumed, so the second
         call is a no-op and cannot restore a stale copy over a later edit.
@@ -1709,15 +1753,19 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_user_config = None
         if saved is None:
             return []
-        from platterpus.user_settings import changed_settings
+        from platterpus.user_settings import (
+            OVERREAD_RESTORED_NOTE,
+            overread_restored,
+            restored_settings,
+        )
 
         # The user's SETTINGS only. The app's own bookkeeping moves on during a
         # run for real reasons (a first-run offer made and answered), and putting
         # the old value back would re-ask a question the user already answered —
         # the first version of this did exactly that with `host_setup_prompted`.
-        changed = changed_settings(saved, self._config)
+        changed = restored_settings(saved, self._config)
         restored = dataclasses.replace(
-            self._config, **{name: getattr(saved, name) for name in changed}
+            self._config, **{r.name: getattr(saved, r.name) for r in changed}
         )
         self._config = restored
         self._rip_controls.set_config(restored)
@@ -1730,8 +1778,15 @@ class ProvisioningMixin(MainWindowShared):
             log.warning("acceptance session: could not save restored settings: %s", exc)
         log.info(
             "acceptance session: restored your settings (the run had changed %s)",
-            ", ".join(changed) or "nothing",
+            ", ".join(r.name for r in changed) or "nothing",
         )
+        for setting in changed:
+            log.info("acceptance session: restored %s", setting.describe())
+        self._acceptance_overread_note = (
+            OVERREAD_RESTORED_NOTE if overread_restored(changed) else ""
+        )
+        if self._acceptance_overread_note:
+            log.warning("acceptance session: %s", self._acceptance_overread_note)
         return changed
 
     def _on_run_acceptance_action(self) -> None:

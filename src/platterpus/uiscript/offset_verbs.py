@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
 
+from platterpus.cancel_cause import BY_SCRIPT_STEP, CancelCause
 from platterpus.uiscript.offset_grading import (
     DECLINE_LABEL,
     OFFSET_REFUSAL_TITLE,
@@ -184,7 +185,7 @@ class OffsetVerbsMixin:
             cancel = getattr(window, "_on_rip_cancel", None)
             if callable(cancel) and not getattr(window, "_rip_cancelled", False):
                 try:
-                    cancel()
+                    cancel(CancelCause(BY_SCRIPT_STEP, f"`{step.source}`"))
                 except Exception:  # noqa: BLE001 — the step still records why
                     log.exception("expect-offset-refusal: cancelling the rip failed")
             return "a rip STARTED with the override off, and it was cancelled"

@@ -48,7 +48,7 @@ from platterpus.disc_identity import (
 )
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
-from platterpus.rip_health import errors_in_replaced_reads
+from platterpus.replaced_read_errors import errors_in_replaced_reads
 
 log = logging.getLogger(__name__)
 
@@ -417,10 +417,10 @@ def _grade_a_reported_completion(
             f"{n_done} of {n_total} tracks{asked_for} — the record contradicts "
             "itself, so do not treat it as a complete rip",
         )
-    # Scoped to the reads the album KEEPS (run C, 2026-10-22): errors in a first
-    # read the album replaced with an AccurateRip-verified read are not in it.
+    # Scoped to the reads the album KEEPS (run C, 2026-10-22; TASKS R59): see
+    # `replaced_read_errors`. From schema 42 the tally is `ripper_health_status`.
     placed = errors_in_replaced_reads(report) if health != _NO_ERRORS else None
-    if placed is not None and placed.in_replaced and not placed.in_kept_reads:
+    if placed is not None and placed.reads_kept_are_clean:
         replaced = ", ".join(str(n) for n in placed.tracks)
         clean = (
             f"no errors in the reads it keeps: the ripper's {placed.counted} were "

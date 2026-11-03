@@ -138,12 +138,19 @@ def test_the_standing_status_does_not_lag_the_handshake_record() -> None:
     )
 
 
+@functools.cache
 def _derived_round_state(number: int) -> str:
     """``"OPEN"`` or ``"CLOSED"`` for one round, from the gate's own computation.
 
     Read from :func:`handshake.round_status` rather than re-derived here, so this
     test and ``--status`` cannot disagree about a round. Two surfaces answering one
     question off different keys is the defect this repo has paid for more than once.
+
+    Cached per process, like `_newest_release` beside it: it reads the whole
+    handshake record from disk (about 15,600 file reads a call on 2026-11-03),
+    and `test_the_status_block_check_can_fail` asks it once per mutation, eleven
+    times, which was 14.6 of that test's 15.1 s. The record does not change
+    during a run, and the answer depends on nothing else.
     """
     import importlib.util
 

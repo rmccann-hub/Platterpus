@@ -51,7 +51,14 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control, exit_work, rip_addendum, rip_files, tag_hygiene
+from platterpus import (
+    cancel_cause,
+    drive_control,
+    exit_work,
+    rip_addendum,
+    rip_files,
+    tag_hygiene,
+)
 from platterpus.adapters import cover_art
 from platterpus.adapters.cyanrip_name_lengths import RipNaming
 from platterpus.adapters.derived_verify import DerivedVerifyResult
@@ -66,6 +73,7 @@ from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
 from platterpus.adapters.transcode import extension_for as transcode_extension_for
+from platterpus.cancel_cause import CancelCause
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
@@ -79,6 +87,10 @@ from platterpus.parsers.rip_log import (
     parse_rip_log,
 )
 from platterpus.paths import LOG_PATH
+from platterpus.replaced_read_errors import (
+    ErrorsInReplacedReads,
+    errors_in_replaced_reads_of,
+)
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.rip_pass_exit import PassExits, securing_fact
@@ -94,7 +106,7 @@ from platterpus.ui.main_window_helpers import (
     unique_album_title,
 )
 from platterpus.ui.main_window_shared import MainWindowShared
-from platterpus.ui.post_rip_record import PostRipRecord
+from platterpus.ui.post_rip_record import EacLogRender, PostRipRecord
 from platterpus.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_track_tags,
@@ -688,6 +700,7 @@ class RipMixin(MainWindowShared):
         # Cleared here, set in _on_rip_cancel — so the finish handler can
         # say "cancelled" instead of "failed".
         self._rip_cancelled = False
+        self._rip_cancel_cause = None
         # Stamp the rip's start for the elapsed-time record. Set here (the
         # user-perceived Start), NOT in _start_rip_worker, so an auto-heal retry
         # is included in the total — the user waited for the whole thing. cyanrip
@@ -1156,9 +1169,15 @@ class RipMixin(MainWindowShared):
             f"Cancel or Force stop to recover.{overread_hint}"
         )
 
-    def _on_rip_cancel(self) -> None:
+    def _on_rip_cancel(self, cause: CancelCause | None = None) -> None:
+        """Cancel the rip. ``cause`` names the caller; ``None`` is the button.
+
+        Every route that stops a rip comes through here, so the cause is said by
+        the caller and never assumed (TASKS R62, `cancel_cause.py`).
+        """
         if self._rip_worker is None:
             return
+        self._rip_cancel_cause = cause or cancel_cause.USER
         # Cancel is the single most consequential thing a user can press during a
         # rip, and until now it wrote NOTHING to the log — so a report about a
         # cancel that misbehaved (a drive left spinning, a rip recorded as failed)
@@ -1166,7 +1185,8 @@ class RipMixin(MainWindowShared):
         # rescue deadline goes in the same line so the log carries the window a
         # reader has to reason about (rig session, 2026-07-30).
         log.info(
-            "rip cancel requested by the user; arming the %ds force-stop rescue",
+            "rip cancel requested by %s; arming the %ds force-stop rescue",
+            cancel_cause.who(self._rip_cancel_cause),
             _FORCE_STOP_COUNTDOWN_MS // 1000,
         )
         self._rip_cancelled = True
@@ -1315,6 +1335,8 @@ class RipMixin(MainWindowShared):
         # a malfunction. Found by a rip-path audit, 2026-07-29; the honesty rule
         # this breaks is the same one the rest of the reporting code is built on.
         self._rip_cancelled = True
+        if self._rip_cancel_cause is None:
+            self._rip_cancel_cause = cancel_cause.USER  # a hand-pressed Force stop
         # The armed device wins whenever we have one — for the auto trigger it is
         # the whole point (see `_force_stop_device`), and for a manual press during
         # a rip it is still the right target: "Force stop" means stop the thing
@@ -1914,6 +1936,8 @@ class RipMixin(MainWindowShared):
             securing_pass_record=getattr(
                 self._rip_worker, "securing_pass_record", None
             ),
+            # Who cancelled it, as the caller of the Cancel said (v42, R62).
+            cancelled_by=self._rip_cancel_cause,
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
@@ -2113,6 +2137,7 @@ class RipMixin(MainWindowShared):
                         rip_log,
                         expected_track_total=expected_total,
                         cancelled=finished_status == "cancelled",
+                        replaced_reads=self._replaced_reads_of(rip_log),
                     )
                     self._rip_progress.set_status(status + record_says)
                     # A rip that MATCHED AccurateRip confirms the applied read
@@ -3124,6 +3149,9 @@ class RipMixin(MainWindowShared):
                     getattr(self._rip_worker, "securing_pass_record", None)
                 ),
                 "cancel requested": str(cancelled),
+                "cancelled by": cancel_cause.who(self._rip_cancel_cause)
+                if cancelled
+                else "(not cancelled)",
                 "ripper log parsed": str(parsed_a_log),
                 "tracks in log": str(tracks_done),
                 "tracks requested": str(expected) if expected else "(unknown)",
@@ -3439,9 +3467,47 @@ class RipMixin(MainWindowShared):
         self._rip_progress.set_ctdb_result(result)  # type: ignore[arg-type]
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
+        # The EAC-layout log first, so the report write below embeds the copy
+        # whose Proof: rows name CTDB (TASKS R51).
+        self._rewrite_eac_log_with_ctdb(generation, result)
         # Record + schedule a (debounced) re-write so the report picks up the
         # CTDB verdict alongside whatever else has finished.
         self._record_post_rip_result(generation, "ctdb", result)
+
+    def _rewrite_eac_log_with_ctdb(self, generation: int, result: object) -> None:
+        """Write this album's EAC-layout log again, naming CTDB in its Proof: rows.
+
+        TASKS R51: the log is written when the rip finishes and CTDB answers
+        later, so a track whose only proof is CTDB per track read ``Proof: none``
+        in the log while the report said CTDB. Rendered from the inputs the first
+        write kept on the album's record (:class:`EacLogRender`), so a late
+        answer still describes its own album, and written to that record's
+        folder, which follows a library move. Only over a log the first write
+        made, never into a folder a newer rip has claimed, and only when the
+        text changed: a disc AccurateRip holds renders the same either way.
+
+        On the GUI thread, like the first write: one render and one small file.
+        Never raises; a companion log is a courtesy, never load-bearing.
+        """
+        record = self._post_rip_records.get(generation)
+        render = record.eac_log if record is not None else None
+        if record is None or render is None or record.log_file is None:
+            return
+        if self._folder_reclaimed_by_a_newer_rip(record):
+            return
+        target = record.log_file.with_name(
+            f"{record.log_file.stem} (EAC-compatible).log"
+        )
+        try:
+            text, _defused = render.render(ctdb_result=result)
+            if not target.is_file() or target.read_text(encoding="utf-8") == text:
+                return
+            target.write_text(text, encoding="utf-8")
+            log.info("rewrote the EAC-layout log with CTDB's answer: %s", target)
+        except (OSError, ValueError):
+            log.warning(
+                "could not rewrite the EAC-layout log %s", target, exc_info=True
+            )
 
     # --- Re-rip comparison ("you've ripped this disc before") ---------------
 
@@ -4097,6 +4163,20 @@ class RipMixin(MainWindowShared):
             log.warning("could not apply auto-fix results", exc_info=True)
             return rip_log
 
+    def _replaced_reads_of(self, rip_log: object) -> ErrorsInReplacedReads | None:
+        """Where this rip's counted errors were (TASKS R59), from what the report reads.
+
+        The same two inputs the report builder hands the same function: the
+        ``-j`` record's per-track counts in ``_last_disc`` and the worker's
+        ``_last_retried_tracks``, both snapshotted at finish.
+        """
+        disc = getattr(self, "_last_disc", None)
+        return errors_in_replaced_reads_of(
+            rip_log,
+            disc.get("error_positions") if isinstance(disc, dict) else None,
+            getattr(self, "_last_retried_tracks", None),
+        )
+
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
         """Write an EAC-layout companion log beside ``log_file`` (best-effort).
 
@@ -4111,7 +4191,6 @@ class RipMixin(MainWindowShared):
             return
         try:
             from platterpus import __version__, build_info
-            from platterpus.eac_log_export import render_eac_style_log_and_defused
 
             # Software provenance for the archival text artifact, all from
             # already-resolved state (never a fresh probe — that would enter the
@@ -4140,7 +4219,7 @@ class RipMixin(MainWindowShared):
             outcome_status = (
                 str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
             )
-            text, defused = render_eac_style_log_and_defused(
+            render = EacLogRender(
                 rip_log,
                 platterpus_version=__version__,
                 build_fingerprint=build_info.build_fingerprint(),
@@ -4151,9 +4230,20 @@ class RipMixin(MainWindowShared):
                 # the durable log, so the archival artifact was the more
                 # reassuring of the two (audit finding, 2026-07-28).
                 secure_rerip=getattr(self, "_last_secure_rerip", None),
+                # Who cancelled it, as the report says (R62).
+                cancelled_by=cancel_cause.sentence_from_outcome(outcome),
+                # Where the ripper's counted errors were, so the health line is
+                # about the reads kept (TASKS R59), as the report's is.
+                replaced_reads=self._replaced_reads_of(rip_log),
             )
+            text, defused = render.render()
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
+            # Kept on the album's record, so CTDB's answer can be written into
+            # each track's Proof: row when it lands (TASKS R51).
+            record = self._post_rip_records.get(self._rip_generation)
+            if record is not None:
+                record.eac_log = render
             # D16: a metadata value shaped like a log signature, or like EAC's own
             # first line, was rewritten so the log cannot read as EAC's. Say so in
             # the log and the report.

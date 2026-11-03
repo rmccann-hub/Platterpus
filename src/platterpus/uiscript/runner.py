@@ -44,6 +44,12 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info, inbound_text, rip_pass_exit
+from platterpus.cancel_cause import (
+    BY_RUN_ENDED,
+    BY_SCRIPT_STEP,
+    BY_TIME_LIMIT,
+    CancelCause,
+)
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
@@ -590,18 +596,20 @@ class ScriptRunner(
             log.warning("ui script preflight: %s", problem)
         self._timer.start()
 
-    def stop(self, reason: str = "stopped by the user") -> None:
+    def stop(
+        self, reason: str = "stopped by the user", *, cancel_by: str = BY_RUN_ENDED
+    ) -> None:
         """End the run now, marking every unreached step as skipped.
 
         The remaining steps are recorded rather than dropped: "we never got
         there" and "it passed" must not look the same in the transcript. A rip
         this run started and is still reading is cancelled
-        (:meth:`_cancel_own_rip`).
+        (:meth:`_cancel_own_rip`), naming ``cancel_by`` as who (R62).
         """
         if not self.running:
             return
         self._timer.stop()
-        self._cancel_own_rip(reason)
+        self._cancel_own_rip(reason, cancel_by)
         # A ripper call still in flight must be KILLED, not merely forgotten: a
         # `cancel()` that only drops a reference is the false promise CLAUDE.md
         # names. The helper thread is a daemon, so once its child dies the thread
@@ -702,7 +710,7 @@ class ScriptRunner(
             and getattr(self._window, "_rip_worker", None) is not None
         )
 
-    def _cancel_own_rip(self, reason: str) -> None:
+    def _cancel_own_rip(self, reason: str, by: str = BY_RUN_ENDED) -> None:
         """A rip this run started does not outlive the run. Never raises.
 
         Decided 2026-10-05 for the operator's runs. On 2026-10-04 the run was
@@ -739,7 +747,7 @@ class ScriptRunner(
             )
         )
         try:
-            handler()
+            handler(CancelCause(by, reason))  # who, not "the user" (TASKS R62)
         except Exception:  # noqa: BLE001 — ending a run must not raise into Qt
             log.exception("ui script: cancelling the run's rip failed")
 
@@ -843,7 +851,8 @@ class ScriptRunner(
                     self.stop(
                         f"`{step.source}` (L{step.line_no}) ran out with the rip "
                         "still reading, so no later step could be graded against a "
-                        "finished rip; the run ends here"
+                        "finished rip; the run ends here",
+                        cancel_by=BY_TIME_LIMIT,
                     )
             else:
                 self._record(
@@ -3732,7 +3741,8 @@ class ScriptRunner(
             self._record(step, Outcome.ERROR, "the window has no _on_rip_cancel()")
             return
         self._record(step, Outcome.PASS, "cancel requested")
-        QTimer.singleShot(0, handler)
+        cause = CancelCause(BY_SCRIPT_STEP, f"`{step.source}` (L{step.line_no})")
+        QTimer.singleShot(0, lambda: handler(cause))
 
     # --- Verbs: Settings, by config field name --------------------------------
     #
@@ -4324,6 +4334,20 @@ class ScriptRunner(
         log_dir = LOG_PATH.parent
         counts = self._report.counts() if hasattr(self._report, "counts") else {}
         stamp = self._report.started_at
+        # EVERYTHING THE THREAD NEEDS IS READ HERE, on the GUI thread, and the
+        # closure below captures only these plain values, never `self` (TASKS
+        # R104, 2026-11-03). Capturing `self` made the thread an owner of this
+        # QObject: when every other reference to the runner had already gone (a
+        # test that made its runner as a temporary; in the product, a console
+        # closed while the archive was still being written), the thread's final
+        # `del self._target` dropped the LAST reference and ran `~QObject` on the
+        # bundle thread. Destroying a QObject off its own thread is undefined in
+        # Qt, and CI's py3.14 leg hung once with the bundle thread on exactly that
+        # line and the GUI thread inside a `QLineEdit` constructor.
+        steps = str(len(self._report.steps))
+        results = (
+            ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "(not counted)"
+        )
 
         def work() -> None:
             result = evidence_bundle.build_bundle(
@@ -4332,9 +4356,8 @@ class ScriptRunner(
                 app_version=__version__,
                 outcome="test script run",
                 facts={
-                    "steps": str(len(self._report.steps)),
-                    "results": ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
-                    or "(not counted)",
+                    "steps": steps,
+                    "results": results,
                     "run folder": str(directory),
                 },
                 log_dir=log_dir,

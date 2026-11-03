@@ -247,3 +247,41 @@ def test_the_report_carries_ctdb_and_the_chase_the_log_cannot() -> None:
     assert by_number[4]["kind"] == PROOF_CTDB
     assert by_number[1]["kind"] == PROOF_VERIFIED_REREAD
     assert by_number[2]["kind"] == PROOF_ACCURATERIP
+
+
+@pytest.mark.skipif(not _REFERENCE.exists(), reason="reference rip not present")
+def test_the_log_rendered_with_ctdb_names_it_as_the_report_does() -> None:
+    """TASKS R51: rendered again once CTDB answers, the log's Proof: rows are
+    the report's, CTDB included, track for track. Rendered without it, track
+    4's row stays `none`, which is what every log said before."""
+    rip_log = replace(
+        _reference(),
+        tracks=tuple(
+            replace(
+                t,
+                accuraterip_v1=AccurateRipResult(version=1, result="x", local_crc="A"),
+                accuraterip_v2=None,
+                accuraterip_offset=None,
+                accuraterip_lookup=_ABSENT,
+            )
+            if t.number == 4
+            else t
+            for t in _reference().tracks
+        ),
+    )
+    ctdb = CtdbVerifyResult(
+        verdict=Verdict.MATCH,
+        tracks=(CtdbTrackResult(track=4, verdict=TrackVerdict.MATCH, confidence=53),),
+    )
+    rows = _proof_rows(
+        render_eac_style_log(rip_log, disc_track_total=14, ctdb_result=ctdb)
+    )
+    report = build_report(rip_log, ctdb_result=ctdb)
+    assert rows == [f"     Proof: {t['proof']['line']}" for t in report["tracks"]]
+    assert rows[3] == (
+        "     Proof: CTDB per track at confidence 53; AccurateRip has no entry for "
+        "this track"
+    )
+    before = _proof_rows(render_eac_style_log(rip_log, disc_track_total=14))
+    assert before[3].startswith("     Proof: none")
+    assert before[:3] == rows[:3]  # nothing else in the log moves

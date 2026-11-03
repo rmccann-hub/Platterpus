@@ -165,12 +165,12 @@ appimage = [
 # The SBOM generator ci.yml's required `sbom` job runs (`cyclonedx-py
 # environment`). Written in ci.yml as a literal range until the follow-up review
 # of 2026-10-27; it lives here now so build/lock-requirements.sh can resolve it
-# into build/locks/sbom.lock, which the job installs with --require-hashes. The
-# range is the one ci.yml had; pinning it to the minor (Critical rule #11, the
-# other half of amendment A5) also needs it in dependabot.yml's `pinned-minor`
-# group, so it is a separate change.
+# into build/locks/sbom.lock, which the job installs with --require-hashes.
+# Pinned to the minor the lock resolves (Critical rule #11, the other half of
+# amendment A5; TASKS R91, 2026-11-03), so it is ignored by name in
+# dependabot.yml and kept out of its weekly group, as every CI tool is.
 sbom = [
-    "cyclonedx-bom>=7,<8",
+    "cyclonedx-bom>=7.5,<7.6",
 ]
 
 ci-lint = [
@@ -579,6 +579,15 @@ addopts = "-q --strict-markers"
 # write the measurement down next to it.
 faulthandler_timeout = 300
 faulthandler_exit_on_timeout = true
+# AN EXCEPTION NOTHING CAUGHT FAILS THE TEST IT HAPPENED IN (TASKS R107).
+# pytest records an exception that kills a `threading.Thread` and, by default,
+# only WARNS about it, so a worker that died mid-job left a green run behind it.
+# Made an error here. The Qt half (an exception in a slot, which PySide hands to
+# `sys.excepthook` and never to `threading.excepthook`) is caught by
+# `tests/conftest.py::harness_excepthook`.
+filterwarnings = [
+    "error::pytest.PytestUnhandledThreadExceptionWarning",
+]
 
 # Coverage config (consumed when CI runs `pytest --cov`). Branch coverage is
 # stricter than line coverage — it requires both sides of every if/try taken.

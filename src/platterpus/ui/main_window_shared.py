@@ -102,6 +102,7 @@ if TYPE_CHECKING:
         ReleaseSummary,
     )
     from platterpus.adapters.rip_backend import RipBackend
+    from platterpus.cancel_cause import CancelCause
     from platterpus.config import Config
     from platterpus.deps.manager import DependencyManager, DependencyReport
     from platterpus.disc_probe_retry import DiscReadRetries
@@ -253,6 +254,7 @@ class MainWindowShared(_SeamBase):
     # In-flight rip bookkeeping.
     _active_rip_params: RipParameters | None
     _rip_cancelled: bool
+    _rip_cancel_cause: CancelCause | None
     _auto_retry_done: bool
     _force_stop_done: bool
     _force_stop_timer: QTimer
@@ -436,6 +438,7 @@ class MainWindowShared(_SeamBase):
         # them before it packs (run B, 2026-10-21):
         def _album_folder_settled(self) -> bool: ...
         def _post_rip_still_running(self) -> str: ...
+        def open_unknown_album_dialog(self) -> bool: ...
 
         # Defined in UpdateMixin (main_window_update.py). Declared on the seam
         # because it answers "may I raise a dialog right now?" for EVERY surface
@@ -460,6 +463,9 @@ class MainWindowShared(_SeamBase):
         # saved from its one home (`ui/setting_homes.py`):
         def _save_user_setting(self, field: str, value: object) -> SettingWrite: ...
         def _refresh_setting_views(self) -> None: ...
+        def _save_config_or_report(
+            self, what: str, *, tell_user: bool = ...
+        ) -> bool: ...
         def _on_offset_applied_changed(self, applied: bool) -> None: ...
 
         # Defined in DriveMixin (main_window_drive.py):

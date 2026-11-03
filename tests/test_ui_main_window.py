@@ -19,7 +19,7 @@ import pytest
 
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
-from conftest import HardExitCalled, stop_window_threads
+from conftest import HardExitCalled, drain_mb_queue, stop_window_threads
 from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -149,6 +149,21 @@ def _detail() -> ReleaseDetail:
             TrackSummary(number=2, title="Two"),
         ),
     )
+
+
+def _mb_answering_a_fetch() -> _FakeMb:
+    """A `_FakeMb` whose release fetch has an answer.
+
+    A test that makes the window settle on a release (one candidate, or a picker
+    answered) starts a REAL queued `fetch_release` on `_mb_thread`. With the
+    default fake that fetch asserts on the worker thread, PySide prints the
+    traceback and swallows it, and the run stayed green while printing it
+    (TASKS R107). The harness now fails a test whose slot raised, so a test that
+    reaches the fetch gives it something to return.
+    """
+    mb = _FakeMb()
+    mb.mbid_result = _detail()
+    return mb
 
 
 def _make_window(
@@ -545,11 +560,15 @@ def test_a_stale_release_detail_does_not_rewrite_the_panel_line(
     must not relabel disc B's panel any more than it may retag disc B's tracks —
     the wrong-album bug, arriving through the line added to fix a different one.
     """
-    window = teardown_threads()
+    mb = _mb_answering_a_fetch()
+    window = teardown_threads(mb_client=mb)
     window._current_disc_id = "disc-B"
+    # One candidate, so the window fetches it: that fetch runs on `_mb_thread`.
     window._on_mb_releases(
         "disc-B", [ReleaseSummary(mbid="b", title="B", artist_credit="Beta")]
     )
+    assert drain_mb_queue(window), "the fetch for disc B never ran"
+    assert mb.mbid_calls == ["b"]
     before = window._disc_info_panel._mb_match_value.text()
 
     window._on_mb_release_detail("disc-A", _detail())
@@ -1078,6 +1097,44 @@ def test_a_finished_rip_teaches_the_drive_its_speed_but_a_uniform_rip_does_not(
     window._active_rip_params = None
 
 
+def test_a_track_with_paranoia_skips_does_not_teach_the_drive_its_speed(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """TASKS R63 (the plan of record, Appendix H §3): disc 1's 8,548 s track 18,
+    read with 2,076 skips, made the drive read at 0.38x and the next estimate
+    about 2.6 times too long. The struggled track is left out, and the log says so."""
+    import logging
+    from types import SimpleNamespace
+
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    clean = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=50.0
+    )
+    hard = SimpleNamespace(
+        start_sector=7500,
+        end_sector=14999,
+        extraction_elapsed_seconds=8548.0,
+        paranoia_counts={"READ": 519522, "SKIP": 2076},
+    )
+    window._rip_cancelled = True  # the run's time limit stopped it
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    with caplog.at_level(logging.INFO):
+        window._learn_read_rate(SimpleNamespace(tracks=[clean, hard]), success=False)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is not None
+    assert profile.read_rate.multiple == 0.5, profile.read_rate
+    assert "left out 1 track(s) with paranoia skips" in caplog.text
+    window._active_rip_params = None
+
+
 def test_rip_lock_greys_conflicting_ui(teardown_threads) -> None:
     """During a rip the drive picker and conflicting menu actions grey out; Quit
     stays available (it force-stops on exit). Unlock restores.
@@ -1586,6 +1643,74 @@ def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
     fidelity = [s for s in statuses if s.startswith("Done — ")]
     assert fidelity, statuses  # floor: the fidelity line was composed
     assert "⚠ Platterpus recorded the rip as finished" in fidelity[-1], fidelity
+
+
+def test_a_replaced_reads_errors_are_placed_on_every_surface_the_finish_writes(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """TASKS R59 (b), through the finish handler: run C's shape (2 skips in track
+    2's first read, replaced by a chase read AccurateRip verified that printed
+    none). The status line, the EAC-layout log and the report each state the
+    reads kept, and the two that have room say what the replaced read had.
+
+    All three call sites are driven here: a placement computed but not handed to
+    one of them leaves that surface on the ripper's "2 ripping errors"."""
+    from types import SimpleNamespace
+
+    from test_replaced_read_errors import _error_positions, _retried, _rip_log
+
+    import platterpus.ui.main_window_rip as main_window_rip
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            write_eac_log_after_rip=True,
+        )
+    )
+    from platterpus.read_speed_ladder import SpeedAttempt
+
+    # Every pass a real worker runs appends a SpeedAttempt (`rip_worker`), and
+    # the report's `read_speed` block, which carries `retried_tracks`, is None
+    # without one: a stand-in with none would test a report no rip writes.
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False,
+        failure_hint="",
+        retried_tracks=_retried(),
+        speed_attempts=[SpeedAttempt(1, 0, 0, clean=False)],
+    )
+    # The worker's `-j` reading, as `disc.error_positions` records it.
+    monkeypatch.setattr(
+        main_window_rip, "error_positions_block", lambda _reading: _error_positions()
+    )
+    rip_log = _rip_log()
+    monkeypatch.setattr(window, "parse_rip_log_from_disk", lambda _path: rip_log)
+    window._active_rip_params = None
+    window._rip_cancelled = False
+    window._auto_retry_done = True
+    statuses: list[str] = []
+    monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+    report_writer.writer().flush()
+
+    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    assert fidelity and "all 2 tracks ripped cleanly, no read errors" in fidelity[-1]
+    eac = (tmp_path / "Album (EAC-compatible).log").read_text(encoding="utf-8")
+    assert (
+        "Ripper's own count  : Ripping errors: 2 — all in the first read of "
+        "track(s) 2, replaced by a read AccurateRip verified"
+    ) in eac
+    report = json.loads((tmp_path / "Album.platterpus.json").read_text("utf-8"))
+    assert report["health_status"].startswith("No errors occurred in the reads kept")
+    assert report["ripper_health_status"] == "2 ripping errors"
 
 
 def test_no_auto_heal_when_not_flagged(
@@ -5016,6 +5141,70 @@ def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
         window._force_stop_timer.stop()
 
 
+def test_the_cancel_button_is_the_user_and_the_test_runner_is_named(
+    teardown_threads, monkeypatch, tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """TASKS R62 (the plan of record, Appendix H §3): on 2026-10-21 the
+    acceptance run's six-hour limit cancelled disc 1, and the app log said "rip
+    cancel requested by the user". The caller of the one Cancel names itself."""
+    import logging
+
+    from platterpus import cancel_cause as cc
+    from platterpus import drive_control
+
+    limit = cc.CancelCause(cc.BY_TIME_LIMIT, "`wait-for-rip 21600` (L325)")
+    forced: list[str] = []
+    monkeypatch.setattr(
+        drive_control, "force_stop_drive", lambda device="": forced.append(device)
+    )
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
+    )
+    try:
+        with caplog.at_level(logging.INFO):
+            window._on_rip_cancel(limit)
+        assert window._rip_cancel_cause == limit
+        assert "requested by the test run, whose time limit" in caplog.text
+        assert "requested by the user" not in caplog.text
+        # The rescue's Force stop afterwards does not rewrite who cancelled.
+        window._do_force_stop("auto")
+        assert window._rip_cancel_cause == limit
+
+        caplog.clear()
+        window._rip_cancel_cause = None
+        with caplog.at_level(logging.INFO):
+            window._on_rip_cancel()  # the button's signal carries nothing
+        assert window._rip_cancel_cause == cc.USER
+        assert "rip cancel requested by the user;" in caplog.text
+        # And Force stop pressed by hand, with no cancel before it, is the user.
+        window._rip_cancel_cause = None
+        window._do_force_stop("manual")
+        assert window._rip_cancel_cause == cc.USER
+        # The EAC-layout log the window writes says who, from the report's outcome.
+        from platterpus import rip_report
+
+        window._config.write_eac_log_after_rip = True
+        window._last_outcome = rip_report.build_outcome(
+            status="cancelled", cancelled_by=limit
+        )
+        window._last_secure_rerip = {"interrupted": True}
+        log_file = tmp_path / "Album.log"
+        log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+        window._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), log_file)
+        eac = (tmp_path / "Album (EAC-compatible).log").read_text(encoding="utf-8")
+        assert "INTERRUPTED (the test run, whose time limit" in eac
+        assert "you cancelled" not in eac
+    finally:
+        window._force_stop_timer.stop()
+        thread = window._force_stop_thread
+        if thread is not None:
+            thread.join(timeout=5)
+        window._rip_worker = None
+
+
 def test_auto_force_stop_frees_the_DEVICE_and_never_ejects(
     teardown_threads, monkeypatch
 ) -> None:
@@ -7951,6 +8140,141 @@ def test_a_defused_signature_line_reaches_the_report_and_the_log_is_still_writte
     assert rearmed == [True]
 
 
+def test_the_eac_log_is_written_again_when_ctdb_answers(
+    teardown_threads, tmp_path
+) -> None:
+    """TASKS R51, on the window. The log is written at the rip's end, before
+    CTDB; when CTDB's answer lands, the album's record re-renders it so a track
+    whose only proof is CTDB per track says so in the log, as in the report."""
+    from platterpus.ctdb.matching import CtdbTrackResult, TrackVerdict
+
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = True
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3", encoding="utf-8")
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(
+                number=1,
+                filename="01 - One.flac",
+                copy_crc="0BADF00D",
+                status="ripped successfully",
+                accuraterip_v1=AccurateRipResult(version=1, result="x", local_crc="A"),
+                accuraterip_lookup="not found in database",
+            ),
+        )
+    )
+    window._capture_post_rip_record(rip_log, log_file)
+    window._write_eac_log(rip_log, log_file)
+    companion = tmp_path / "Album (EAC-compatible).log"
+    assert "Proof: none" in companion.read_text(encoding="utf-8")
+    window._rip_report_timer.stop()
+
+    window._on_ctdb_verified(
+        window._rip_generation,
+        CtdbVerifyResult(
+            Verdict.MATCH,
+            tracks=(
+                CtdbTrackResult(track=1, verdict=TrackVerdict.MATCH, confidence=53),
+            ),
+        ),
+    )
+
+    text = companion.read_text(encoding="utf-8")
+    assert "Proof: CTDB per track at confidence 53" in text, text
+    # And the report is re-armed, so the copy it embeds is this one.
+    assert window._rip_report_timer.isActive()
+
+
+def _unknown_to_accuraterip_log() -> RipLog:
+    """One track AccurateRip has no entry for, so CTDB is its strongest proof."""
+    return RipLog(
+        tracks=(
+            TrackResult(
+                number=1,
+                filename="01 - One.flac",
+                copy_crc="0BADF00D",
+                status="ripped successfully",
+                accuraterip_v1=AccurateRipResult(version=1, result="x", local_crc="A"),
+                accuraterip_lookup="not found in database",
+            ),
+        )
+    )
+
+
+def _ctdb_agrees_on_track_1() -> CtdbVerifyResult:
+    from platterpus.ctdb.matching import CtdbTrackResult, TrackVerdict
+
+    return CtdbVerifyResult(
+        Verdict.MATCH,
+        tracks=(CtdbTrackResult(track=1, verdict=TrackVerdict.MATCH, confidence=53),),
+    )
+
+
+def _two_albums_with_eac_logs(
+    window: MainWindow, rip_log: RipLog, first: Path, second: Path
+) -> None:
+    """Albums 3 and 4 finish in `first` and `second`, each writing its EAC log."""
+    window._config.write_eac_log_after_rip = True
+    for generation, folder in ((3, first), (4, second)):
+        folder.mkdir(exist_ok=True)
+        (folder / "Album.log").write_text("cyanrip 0.9.3", encoding="utf-8")
+        window._rip_generation = generation
+        window._capture_post_rip_record(rip_log, folder / "Album.log")
+        window._write_eac_log(rip_log, folder / "Album.log")
+
+
+def test_a_late_ctdb_answer_rewrites_its_own_album_s_log(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """TASKS R51 after the next Start: the answer renders from its own album's
+    record into that album's folder, not the album now on screen."""
+    window = teardown_threads()
+    rip_log = _unknown_to_accuraterip_log()
+    _two_albums_with_eac_logs(window, rip_log, tmp_path / "A", tmp_path / "B")
+
+    window._on_ctdb_verified(3, _ctdb_agrees_on_track_1())
+
+    own = (tmp_path / "A" / "Album (EAC-compatible).log").read_text("utf-8")
+    assert "Proof: CTDB per track at confidence 53" in own, own
+    other = (tmp_path / "B" / "Album (EAC-compatible).log").read_text("utf-8")
+    assert "Proof: CTDB" not in other
+    assert report_writer.writer().flush(), "report write timed out"
+
+
+def test_a_late_ctdb_answer_leaves_a_reclaimed_folder_s_log_alone(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The other half: a folder the next rip reclaimed (Overwrite) holds that
+    rip's log, which a finished album's answer must not replace."""
+    window = teardown_threads()
+    shared = tmp_path / "Shared"
+    _two_albums_with_eac_logs(window, _unknown_to_accuraterip_log(), shared, shared)
+    theirs = shared / "Album (EAC-compatible).log"
+    theirs.write_text("the newer rip's own log", encoding="utf-8")
+
+    window._on_ctdb_verified(3, _ctdb_agrees_on_track_1())
+
+    assert theirs.read_text(encoding="utf-8") == "the newer rip's own log"
+    assert report_writer.writer().flush(), "report write timed out"
+
+
+def test_no_eac_log_is_made_when_ctdb_answers_if_none_was_written(
+    teardown_threads, tmp_path
+) -> None:
+    """The rewrite only ever rewrites: with the setting off there was no first
+    write, and CTDB's answer must not create a companion log."""
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = False
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3", encoding="utf-8")
+    rip_log = RipLog(tracks=(TrackResult(number=1),))
+    window._capture_post_rip_record(rip_log, log_file)
+    window._write_eac_log(rip_log, log_file)
+    window._on_ctdb_verified(window._rip_generation, CtdbVerifyResult(Verdict.MATCH))
+    assert not (tmp_path / "Album (EAC-compatible).log").exists()
+
+
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
     """The poll never touches the drive or rescans while a rip holds it."""
     window = teardown_threads()
@@ -9787,6 +10111,35 @@ def test_completion_notification_posts_through_the_tray_icon(
 
     assert len(posted) == 1
     assert "12 tracks" in posted[0][1]
+
+
+def test_completion_notification_carries_no_markup_to_the_server(
+    teardown_threads, monkeypatch
+) -> None:
+    """TASKS R87 item 1, asserted where the toast is SENT, not where it is built.
+
+    The failure hint can quote the ripper. A notification server advertising
+    ``body-markup`` reads ``<`` and ``&`` as markup, so what reaches
+    ``showMessage`` must carry neither, while the words survive."""
+    posted: list[tuple[str, str]] = []
+    window = teardown_threads()
+    monkeypatch.setattr(
+        window,
+        "_ensure_tray_icon",
+        lambda: SimpleNamespace(
+            showMessage=lambda title, body, icon, ms: posted.append((title, body))
+        ),
+    )
+
+    window._notify_rip_complete(
+        False, 'cyanrip: <a href="https://x.invalid">open</a> <img src=x> &amp; done'
+    )
+
+    assert len(posted) == 1
+    title, body = posted[0]
+    for text in (title, body):
+        assert not set("<>&") & set(text), text
+    assert "open" in body and "done" in body
 
 
 def test_tray_icon_is_created_once_and_reused(teardown_threads, monkeypatch) -> None:
@@ -11970,7 +12323,8 @@ def test_multiple_candidates_log_the_wait_before_it_starts(
 def test_choosing_a_release_logs_which_one(
     teardown_threads, caplog: pytest.LogCaptureFixture, monkeypatch
 ) -> None:
-    window = teardown_threads()
+    mb = _mb_answering_a_fetch()
+    window = teardown_threads(mb_client=mb)
     window._current_disc_id = "disc-A"
     monkeypatch.setattr(
         ReleasePickerDialog, "exec", lambda self: QDialog.DialogCode.Accepted
@@ -11980,6 +12334,9 @@ def test_choosing_a_release_logs_which_one(
         window._on_mb_releases("disc-A", _releases(4))
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "user chose mbid-2" in text
+    # And the choice the line names is the one fetched.
+    assert drain_mb_queue(window), "the fetch for the chosen release never ran"
+    assert mb.mbid_calls == ["mbid-2"]
 
 
 def test_accepted_with_no_selection_is_a_warning_not_a_silent_return(
@@ -12023,13 +12380,17 @@ def test_a_single_candidate_does_not_claim_a_picker_was_opened(
     lines may appear — otherwise the lines above would be satisfied by a
     `log.info` at the top of the method, which proves nothing.
     """
-    window = teardown_threads()
+    mb = _mb_answering_a_fetch()
+    window = teardown_threads(mb_client=mb)
     window._current_disc_id = "disc-A"
     with caplog.at_level(logging.INFO):
         window._on_mb_releases("disc-A", _releases(1))
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "release picker" not in text
     assert "candidates" not in text
+    # "Straight to the fetch" is the claim, so the fetch is asserted too.
+    assert drain_mb_queue(window), "the single candidate was never fetched"
+    assert mb.mbid_calls == ["mbid-0"]
 
 
 # --- The cancel rescue must not eject a drive the cancel already freed -------
@@ -12570,7 +12931,8 @@ def test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker(
 
     from platterpus.ui.release_picker import ReleasePickerDialog
 
-    window = teardown_threads()
+    # The picker's answer is fetched for real on `_mb_thread` (TASKS R107).
+    window = teardown_threads(mb_client=_mb_answering_a_fetch())
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
     window._current_disc_id = disc
     window._mb_release_chosen_for = ""
@@ -14385,3 +14747,81 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     window._current_disc_id = disc
     window._on_mb_releases(disc, releases)
     assert len(pickers) == 2 and pickers[1].scan_request == first_scan + 1
+
+
+def test_recording_a_drive_fact_keeps_every_field_it_does_not_set(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_record_drive_fact` runs on every drive sighting. It rebuilt the profile
+    from scratch and dropped `read_rate`, so the speed a rip had just learned was
+    gone by the next rescan and every run's estimate fell back to the rig's seed
+    (TASKS R109; the rig's app log said "folded over 1 rip(s)" on every rip).
+    Every field the writer does not set is checked, derived from the dataclass,
+    so a field added later is held too."""
+    import dataclasses
+
+    from platterpus.drive_profiles import DriveProfile
+    from platterpus.rip_estimate import ReadRate
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        dataclasses.replace(
+            DriveProfile(
+                fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D"
+            ),
+            read_rate=ReadRate(1800.0, 600.0, 3),
+        )
+    )
+    before = window._drive_profiles.get(_PIONEER_FP)
+    window._record_drive_fact(_PIONEER)
+    after = window._drive_profiles.get(_PIONEER_FP)
+    assert before is not None and after is not None
+    written = {
+        "vendor",
+        "model",
+        "release",
+        "serial",
+        "wwn",
+        "offset",
+        "cache_defeat",
+        "cache_defeat_source",
+        "last_seen_device",
+        "last_seen_at",
+    }
+    kept = [f.name for f in dataclasses.fields(DriveProfile) if f.name not in written]
+    assert "read_rate" in kept and len(kept) >= 2, "nothing left to check"
+    for name in kept:
+        assert getattr(after, name) == getattr(before, name), name
+    assert after.read_rate == ReadRate(1800.0, 600.0, 3)
+
+
+def test_a_second_rip_folds_into_the_first_across_a_rescan(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The symptom, end to end: learn, see the drive again, learn again; the
+    second rip is folded over two, not one."""
+    from types import SimpleNamespace
+
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    track = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=50.0
+    )
+    rip_log = SimpleNamespace(tracks=[track])
+    window._rip_cancelled = False
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    window._learn_read_rate(rip_log, success=True)
+    window._record_drive_fact(_PIONEER)  # a rescan sees the drive again
+    window._learn_read_rate(rip_log, success=True)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is not None
+    assert profile.read_rate.rips == 2
+    window._active_rip_params = None

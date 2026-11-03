@@ -25,11 +25,19 @@ Two routes reach that echo, and they are answered differently:
   (``cyanrip@eca33dc:src/cyanrip_log.c:648-744`` against ``:755``), so one that
   appears after it can only have come out of an echoed value, and is not read.
 
+**The disc header** (TASKS R86, 2026-11-03, `parsers/cyanrip_echo_guard.py`):
+a row cyanrip prints above the disc ``CD-TEXT:`` row is not read once that row
+or a track block is reached, so cyanrip's own value stays; a row printed between
+that block and ``Album:`` is read once, and a second copy makes it not
+determined, never the forger's. Both rest on a print order every committed log
+agrees on, read here with floors.
+
 **What this does not close, written down rather than scoped away** (TASKS R86):
-an echoed value can still forge a block OPENER (``Track N read successfully!``),
-a ``Done;`` line, or a disc-level header row through the ``Album:`` line or the
-disc ``CD-TEXT:`` block. Only the fork escaping what it echoes closes those; it
-goes to them as a NEXT-ROUND item.
+an echoed value can still forge a block OPENER (``Track N read successfully!``)
+or a ``Done;`` line, and a ``once`` row on a build that prints none of its own
+(and it can make a ``once`` row not determined, which is a refusal, not a
+forgery). Only the fork escaping what it echoes closes those; it goes to them as
+a NEXT-ROUND item.
 """
 
 from __future__ import annotations
@@ -290,6 +298,189 @@ def test_every_verdict_row_precedes_the_echo_in_every_committed_log() -> None:
             elif seen_echo and verdict.match(line):
                 pytest.fail(f"{path.name}:{number}: a verdict row after the echo")
     assert files >= 20 and blocks_with_echo >= 100, (files, blocks_with_echo)
+
+
+# --- the disc header (TASKS R86, 2026-11-03; `parsers/cyanrip_echo_guard.py`) --
+
+#: Each guarded disc row: a forged copy, how to read the field it sets, and,
+#: for a ONCE row, the "cyanrip did not say" value a second copy leaves.
+_HEADER_ROWS: Final[dict[str, tuple[str, object, object]]] = {
+    "invoked_as": ("Invoked as:     cyanrip -s 667 -d /dev/sr1", "invoked_as", None),
+    "drive": ("Drive used:     FORGED DRIVE (revision 9.9)", "ri.drive", None),
+    "read_offset": ("Offset:         +667 samples", "ri.read_offset_correction", None),
+    "overread_mode": (
+        "Overread mode:  read into lead-in/lead-out",
+        "ri.overread_mode",
+        None,
+    ),
+    "speed_capability": (
+        "Speed:          8x (changeable)",
+        "ri.speed_changeable",
+        None,
+    ),
+    "c2_errors": ("C2 errors:      supported by drive", "ri.c2_pointers", None),
+    "accurate_stream": ("Accurate stream: yes", "ri.accurate_stream", None),
+    "recordable": ("Recordable:     yes", "ri.recordable", None),
+    "paranoia_level": ("Paranoia level: max", "ri.paranoia_level", ""),
+    "outputs": ("Outputs:        mp3", "ri.output_formats", ""),
+    "tracks_to_rip": (
+        "Tracks to rip:  1",
+        "tracks_to_rip+tracks_to_rip_numbers",
+        ("", None),
+    ),
+    "disc_id": ("DiscID:         FORGEDforgedFORGEDforged0-", "disc_id", ""),
+    "cddb_id": ("CDDB ID:        deadbeef", "cddb_id", ""),
+}
+
+_ALBUM_ROW: Final[str] = "\nAlbum:          Unknown disc (OMP2)\n"
+_DISC_CDTEXT: Final[str] = (
+    "\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\n"
+)
+
+
+def _field(rip_log: RipLog, where: object) -> object:
+    """The field ``where`` names: ``ri.`` for ripping info, ``+`` for a pair."""
+    assert isinstance(where, str)
+    values = []
+    for part in where.split("+"):
+        source: object = rip_log
+        if part.startswith("ri."):
+            source, part = rip_log.ripping_info, part[3:]
+        values.append(getattr(source, part))
+    return values[0] if len(values) == 1 else tuple(values)
+
+
+def _guarded(name: str) -> str:
+    """The guard the PARSER holds ``name`` under: the table is asked, not assumed."""
+    from platterpus.parsers import cyanrip_log
+
+    rule = next(r for r in cyanrip_log._ALL_LINE_RULES if r.name == name)
+    return rule.echo_latch
+
+
+def _on_album_line(text: str, row: str) -> str:
+    assert text.count(_ALBUM_ROW) == 1, "the fixture changed under this test"
+    return text.replace(_ALBUM_ROW, f"{_ALBUM_ROW}{row}\n")
+
+
+def _in_disc_cdtext_block(text: str, row: str) -> str:
+    assert text.count(_DISC_CDTEXT) == 1, "the fixture changed under this test"
+    return text.replace(_DISC_CDTEXT, f"\nCD-TEXT:\n    title: Song\n{row}\n")
+
+
+def test_the_header_row_table_is_every_row_the_parser_guards() -> None:
+    """The population is the parser's, so a row guarded there and not tested here
+    (or the reverse) fails; and the floor keeps the table from shrinking to two."""
+    from platterpus.parsers import cyanrip_log
+
+    guarded = {r.name for r in cyanrip_log._ALL_LINE_RULES if r.echo_latch}
+    assert guarded == set(_HEADER_ROWS)
+    assert len(guarded) >= 13
+
+
+@pytest.mark.parametrize("name", sorted(_HEADER_ROWS))
+def test_each_forged_header_row_IS_read_where_cyanrip_prints_it(name: str) -> None:
+    """The non-triviality floor: in cyanrip's own place, the forged row changes
+    the field, so every 'unchanged' below is a real refusal, not a blind spot."""
+    row, where, cleared = _HEADER_ROWS[name]
+    text = _base()
+    prefix = row.split(":", 1)[0] + ":"
+    lines = text.split("\n")
+    at = next(i for i, ln in enumerate(lines) if ln.startswith(prefix))
+    moved = "\n".join([*lines[:at], row, *lines[at + 1 :]])
+    baseline = _field(parse_cyanrip_log(text), where)
+    read = _field(parse_cyanrip_log(moved), where)
+    assert read != baseline, (name, read)
+    if _guarded(name) == "once":  # and not the value a second copy leaves
+        assert read != cleared, (name, read)
+
+
+@pytest.mark.parametrize("brk", ["\n", "\r", "\x85"])
+@pytest.mark.parametrize("name", sorted(_HEADER_ROWS))
+def test_a_header_row_forged_on_the_Album_line_never_gives_its_value(
+    name: str, brk: str
+) -> None:
+    """After cyanrip's own copy: a row printed above the disc CD-TEXT row keeps
+    cyanrip's value; a ONCE row becomes not determined."""
+    row, where, cleared = _HEADER_ROWS[name]
+    baseline = _field(parse_cyanrip_log(_base()), where)
+    text = _on_album_line(_base(), row).replace(f"OMP2)\n{row}", f"OMP2){brk}{row}")
+    forged = _field(parse_cyanrip_log(text), where)
+    if _guarded(name) == "once":
+        assert forged == cleared, (name, forged)
+    else:
+        assert forged == baseline, (name, forged)
+
+
+@pytest.mark.parametrize("name", sorted(_HEADER_ROWS))
+def test_a_header_row_forged_in_the_disc_CDTEXT_block_never_gives_its_value(
+    name: str,
+) -> None:
+    """Before cyanrip's copy, for the ONCE rows: neither copy can be preferred,
+    so the row is not determined rather than the forger's."""
+    row, where, cleared = _HEADER_ROWS[name]
+    baseline = _field(parse_cyanrip_log(_base()), where)
+    forged = _field(parse_cyanrip_log(_in_disc_cdtext_block(_base(), row)), where)
+    if _guarded(name) == "once":
+        assert forged == cleared, (name, forged)
+    else:
+        assert forged == baseline, (name, forged)
+
+
+@pytest.mark.parametrize("name", sorted(_HEADER_ROWS))
+def test_a_header_row_forged_in_a_track_echo_is_not_read(name: str) -> None:
+    """Inside a track block every guarded row is a forgery: cyanrip's value stays."""
+    row, where, _cleared = _HEADER_ROWS[name]
+    baseline = _field(parse_cyanrip_log(_base()), where)
+    forged = parse_cyanrip_log(_with_cdtext_block(_base(), "Song\n" + row))
+    assert _field(forged, where) == baseline, name
+    assert _verdict_facts(forged) == _verdict_facts(parse_cyanrip_log(_base()))
+
+
+def test_the_disc_header_order_the_guards_rest_on_holds_in_every_committed_log() -> (
+    None
+):
+    """Read from the artifacts, with floors. A row held ``before_cdtext`` is
+    printed above the disc ``CD-TEXT:`` row and the first track; a ``once`` row
+    at most once, above the first track. If a build ever broke either, a guard
+    would drop or blank a genuine row; this fails first."""
+    import re
+
+    from platterpus.parsers import cyanrip_log
+
+    rules = [r for r in cyanrip_log._ALL_LINE_RULES if r.echo_latch]
+    root = Path(__file__).resolve().parents[1]
+    opener = re.compile(r"^Track \d{1,4} ")
+    files = 0
+    seen_in: dict[str, int] = {r.name: 0 for r in rules}
+    for path in sorted(
+        {*root.glob("tests/fixtures/**/*.log"), *root.glob("output_reference/**/*.log")}
+    ):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (UnicodeDecodeError, OSError):
+            continue
+        if not lines or "cyanrip" not in "\n".join(lines[:5]):
+            continue
+        files += 1
+        ends = len(lines)
+        first_track = next((i for i, ln in enumerate(lines) if opener.match(ln)), ends)
+        cdtext = next(
+            (i for i, ln in enumerate(lines) if ln.startswith("CD-TEXT:")), ends
+        )
+        for rule in rules:
+            hits = [i for i, ln in enumerate(lines) if rule.pattern.match(ln)]
+            seen_in[rule.name] += bool(hits)
+            limit = (
+                min(first_track, cdtext) if rule.echo_latch != "once" else first_track
+            )
+            late = [i + 1 for i in hits if i >= limit]
+            assert not late, f"{path.name}: {rule.name} at line(s) {late}"
+            if rule.echo_latch == "once":
+                assert len(hits) <= 1, f"{path.name}: {rule.name} {len(hits)} times"
+    assert files >= 100, files
+    thin = {name: n for name, n in seen_in.items() if n < 3}
+    assert not thin, f"guarded rows the corpus barely shows: {thin}"
 
 
 # --- the residual, pinned so it cannot be forgotten (TASKS R86) ----------------

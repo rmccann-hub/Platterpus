@@ -29,9 +29,9 @@ a cyanrip record answers *not determined* for every field. A field that is
 missing or of the wrong type is ``None``, never ``False`` or ``0``.
 
 **Where the record and our own reading disagree, both are said** — never one
-quietly preferred (:func:`disagreements`). The record describes the ALBUM pass:
-the securing pass's record is written into a temporary folder that is deleted
-with it, so it is not read here.
+quietly preferred (:func:`disagreements`). The block describes the ALBUM pass;
+the securing pass's record is read back from its kept copy (``record_fate``)
+into ``securing_exit.py``'s named pair (TASKS R64).
 
 Pure except :func:`read_ending`, which reads one file and never raises. Qt-free.
 """

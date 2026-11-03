@@ -45,6 +45,7 @@ from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
 )
+from platterpus.cancel_cause import CancelCause
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
 from platterpus.disc_probe_retry import DiscReadRetries
@@ -464,6 +465,8 @@ class MainWindow(
         # Set when the user hits Cancel, so the finish handler reports a
         # cancellation rather than a failure.
         self._rip_cancelled: bool = False
+        # WHO cancelled it, named by the caller (TASKS R62, `cancel_cause.py`).
+        self._rip_cancel_cause: CancelCause | None = None
         # Guards the one-shot auto-heal (rip-as-unknown) per Start.
         self._auto_retry_done: bool = False
         # Auto-escalation: after Cancel, if the in-container reader keeps the
@@ -783,9 +786,24 @@ class MainWindow(
 
         # First-run: if no read offset is configured yet, offer the drive-setup
         # wizard once (dismissible). Deferred to the event loop so it appears
-        # after the window is shown; in tests (no exec loop) it never fires, so
-        # it can't interfere — _should_offer_drive_setup() is tested directly.
-        QTimer.singleShot(0, self._maybe_offer_first_run_setup)
+        # after the window is shown.
+        #
+        # A CHILD TIMER, not `QTimer.singleShot` (TASKS R107, 2026-11-03). This
+        # comment used to say "in tests it never fires", and that was wrong: a
+        # bare `singleShot(0, callback)` lives on an internal timer nothing can
+        # reach, so any LATER test that pumped events ran it on a window an
+        # earlier test had torn down (a test that made the config write fail had
+        # its first-run offer raise inside an unrelated settings-dialog test). A
+        # child timer dies with the window and is stopped by anything that stops
+        # the window's timers. The context form, `singleShot(0, self, callback)`,
+        # was tried first and is worse: PySide6 6.11.2 keeps the callback, and
+        # with it the whole window, alive forever when the posted call is
+        # dropped or the window is destroyed before it runs (measured).
+        self._first_run_timer: QTimer = QTimer(self)
+        self._first_run_timer.setSingleShot(True)
+        self._first_run_timer.setInterval(0)
+        self._first_run_timer.timeout.connect(self._maybe_offer_first_run_setup)
+        self._first_run_timer.start()
         # The automatic cyanrip check is armed by `app.py`, NOT here — see
         # `schedule_ripper_update_check` below for why constructing a window must
         # not schedule it.
@@ -1714,14 +1732,13 @@ class MainWindow(
 
         Shared by the empty-disc-ID path and the 0-result lookup path.
         Shows numbered blank track rows (so the user sees the disc's
-        contents) and proactively offers the unknown-album rip. The
-        unknown-mode guard stops it re-prompting once the user has
-        already accepted in this session.
+        contents) and offers the unknown-album rip once the main window is
+        the one in use (`_hold_unknown_album_offer`, TASKS R96), never twice
+        for one scan, nor once the user has accepted in this session.
         """
         if self._current_num_tracks > 0:
             self._track_table.set_placeholder_tracks(self._current_num_tracks)
-        if not self._rip_controls.is_unknown_mode():
-            self.open_unknown_album_dialog()
+        self._hold_unknown_album_offer()
 
     def _fetch_release_detail(self, mbid: str, context: str) -> None:
         # Emit (don't call) so the fetch runs on the MB worker thread. `context`

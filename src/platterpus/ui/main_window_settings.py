@@ -105,6 +105,37 @@ class SettingsMixin(MainWindowShared):
         self._refresh_setting_views()
         return SettingWrite(True)
 
+    def _save_config_or_report(self, what: str, *, tell_user: bool = False) -> bool:
+        """Write the config file; on a failed write, say so and carry on.
+
+        ``what`` names the change for the log line. Returns whether the file was
+        written. The change is already in effect in ``self._config`` either way;
+        only its survival past this session is at stake.
+
+        **Why every write goes through here** (TASKS R107, 2026-11-03). Six call
+        sites wrote the file bare, and ``config.save`` raises ``OSError`` on a
+        full disk or a read-only config folder. The first-run host-setup offer is
+        one of them and runs from a timer, so the error escaped into Qt, which
+        hands it to the app's fatal-error hook: a crash dialog on first launch,
+        for a bookkeeping flag. The test harness found it once it began failing
+        any test during which an exception reached ``sys.excepthook``.
+        ``tell_user`` is for a value the user chose (the read offset); a flag
+        that only stops a prompt repeating is logged, and costs a repeat prompt.
+        """
+        try:
+            self._save_config(self._config)
+        except OSError as exc:
+            log.warning("%s: in effect, but not saved to disk: %s", what, exc)
+            if tell_user:
+                message_boxes.warning(
+                    self,
+                    "Couldn't save settings",
+                    f"{what} is in effect for this session, but could not be "
+                    f"saved to disk:\n\n{exc}",
+                )
+            return False
+        return True
+
     def _refresh_setting_views(self) -> None:
         """Re-render the open windows that SHOW a setting another window edits.
 

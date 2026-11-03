@@ -49,9 +49,17 @@ NAMES_FILE: Final[Path] = Path("~/.config/platterpus/redact-names")
 UNAME: Final[re.Pattern[str]] = re.compile(
     r"\b(?:Linux|Darwin|FreeBSD)\s+([A-Za-z0-9][A-Za-z0-9._-]*)\s+\d+\.\d+"
 )
-#: A ``host:`` / ``hostname:`` / ``node:`` field; the fork's ``HOST_FIELD``.
+#: A ``host:`` / ``hostname:`` / ``node:`` field; the fork's ``HOST_FIELD``, with
+#: one change: the leading blank is ``[^\S\n]*`` (whitespace that is not a line
+#: break), where theirs is ``\s*``. Under ``re.M`` every line start is a start
+#: position, and ``^\s*`` ran from each one across every following blank line
+#: before failing: quadratic in a run of whitespace-only lines (measured
+#: 2026-11-03: 2,000 lines of 79 spaces took 7 s in ``hostnames_in``, doubling
+#: the lines cost 4.7x), and it runs over every text in an evidence bundle. What
+#: it captures is unchanged: the match that used to start on an earlier blank
+#: line now starts on the field's own line, with the same group.
 HOST_FIELD: Final[re.Pattern[str]] = re.compile(
-    r"^\s*\"?(?:host|hostname|node)\"?\s*[:=]\s*\"?([A-Za-z0-9][A-Za-z0-9._-]*)\"?\s*$",
+    r"^[^\S\n]*\"?(?:host|hostname|node)\"?\s*[:=]\s*\"?([A-Za-z0-9][A-Za-z0-9._-]*)\"?\s*$",
     re.M | re.I,
 )
 

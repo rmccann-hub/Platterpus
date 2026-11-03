@@ -52,6 +52,7 @@ a genuine regression.
 from __future__ import annotations
 
 import ast
+import functools
 import re
 import re._parser as _sre_parser  # the stdlib's pattern parser: see `_lead_ins`
 import time
@@ -1198,12 +1199,19 @@ def test_the_known_offenders_stay_bounded(module: str, attribute: str) -> None:
 # `tests/test_cyanrip_log_reads_values_greedily.py`).
 
 
+@functools.cache
 def _pattern_assigned_to(rel: str, name: str) -> re.Pattern[str]:
     """The pattern a module assigns to ``name``, read from source, flags included.
 
     Read with ``ast`` rather than by importing, as the sweep reads, so the pin
     holds the text in the file and needs none of the script's import-time path
     setup. Flags are evaluated from ``re.<FLAG>`` names joined by ``|``.
+
+    Cached per process: the property tests below call this once per Hypothesis
+    example, and parsing `scripts/handshake.py` 400 times was nearly all of the
+    15.3 s `test_the_rewritten_wire_field_pattern_reads_what_the_old_one_read`
+    took (2026-11-03). The source does not change during a run, so the cached
+    pattern is the one a fresh parse would return.
     """
     tree = ast.parse((_REPO_ROOT / rel).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
@@ -1249,6 +1257,11 @@ _PREFIXED_OFFENDERS: list[tuple[str, str, str]] = [
         "0h" + " " * 8_000 + "x",
     ),
     ("scripts/handshake.py", "_SOURCE_NAMED_LAP", "round-" + "0" * 30_000 + "x"),
+    # Found 2026-11-03 while timing the evidence-bundle tests, and invisible to the
+    # sweep: it compiles a literal WITHOUT its flags, so `^` under `re.M` is never
+    # a start position mid-string. The old `^\s*` took 1.5 s on these 1,000 blank
+    # lines (0.54 s on 600; it grows with the square of the run).
+    ("src/platterpus/export_identity.py", "HOST_FIELD", (" " * 79 + "\n") * 1_000),
 ]
 
 
@@ -1274,6 +1287,45 @@ def test_the_prefixed_offenders_stay_fast_on_the_line_that_found_them(
         f"{rel}:{name} took {elapsed * 1000:.1f} ms on a {len(line)}-character "
         "line: a lazy capture before trailing whitespace has come back"
     )
+
+
+#: The `HOST_FIELD` the fork wrote and we used until 2026-11-03, kept as the
+#: reference the rewrite must agree with.
+_OLD_HOST_FIELD = (
+    r"^\s*\"?(?:host|hostname|node)\"?\s*[:=]\s*\"?([A-Za-z0-9][A-Za-z0-9._-]*)\"?\s*$"
+)
+
+#: Text built from the pieces `HOST_FIELD` branches on: blank lines of every
+#: kind, the three field names in either case, quotes, both separators.
+_HOST_FIELD_TEXT = st.lists(
+    st.sampled_from(
+        [
+            "\n",
+            "\r\n",
+            " ",
+            "\t",
+            "host",
+            "HostName",
+            "node",
+            '"',
+            ":",
+            "=",
+            "box-1",
+            "x",
+        ]
+    ),
+    max_size=30,
+).map("".join)
+
+
+@settings(max_examples=300)
+@given(_HOST_FIELD_TEXT)
+def test_the_rewritten_host_field_finds_what_the_old_one_found(text: str) -> None:
+    """The quadratic fix changes where a match STARTS (on the field's own line,
+    not on a blank line before it), never which hostnames it finds."""
+    old = re.compile(_OLD_HOST_FIELD, re.MULTILINE | re.IGNORECASE)
+    new = _pattern_assigned_to("src/platterpus/export_identity.py", "HOST_FIELD")
+    assert new.findall(text) == old.findall(text), text
 
 
 #: The pattern `_REQUIREMENT` replaced, kept as the reference its rewrite must

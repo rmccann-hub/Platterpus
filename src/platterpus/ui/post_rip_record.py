@@ -52,7 +52,9 @@ from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:  # pragma: no cover — annotations only
     from platterpus.adapters.rip_backend import RipMetadata
+    from platterpus.parsers.rip_log import RipLog
     from platterpus.read_speed_ladder import SpeedAttempt
+    from platterpus.replaced_read_errors import ErrorsInReplacedReads
     from platterpus.report_types import (
         EtaSampleBlock,
         RetriedTrackBlock,
@@ -72,6 +74,44 @@ GATE_RESULTS: Final[dict[str, str]] = {
     "flac_integrity": "flac_verify",
     "derived": "derived_verify",
 }
+
+
+@dataclass(frozen=True)
+class EacLogRender:
+    """What the EAC-layout log was rendered from, to render it when CTDB answers.
+
+    TASKS R51: the log is written before CTDB answers, so its ``Proof:`` rows
+    never named CTDB. Kept per album, so a late answer renders its own album.
+    """
+
+    rip_log: RipLog
+    platterpus_version: str
+    build_fingerprint: str
+    encoder_versions: dict[str, str]
+    outcome_status: str
+    disc_track_total: int | None
+    secure_rerip: SecureReripBlock | None
+    replaced_reads: ErrorsInReplacedReads | None
+    #: Who cancelled a cancelled rip, worded (TASKS R62); "" otherwise. Kept so a
+    #: render when CTDB answers says it as the first write did.
+    cancelled_by: str = ""
+
+    def render(self, ctdb_result: object | None = None) -> tuple[str, list[str]]:
+        """The log text and its defused lines, naming CTDB per track if it answered."""
+        from platterpus.eac_log_export import render_eac_style_log_and_defused
+
+        return render_eac_style_log_and_defused(
+            self.rip_log,
+            platterpus_version=self.platterpus_version,
+            build_fingerprint=self.build_fingerprint,
+            encoder_versions=self.encoder_versions,
+            outcome_status=self.outcome_status,
+            disc_track_total=self.disc_track_total,
+            secure_rerip=self.secure_rerip,
+            replaced_reads=self.replaced_reads,
+            cancelled_by=self.cancelled_by,
+            ctdb_result=ctdb_result,
+        )
 
 
 @dataclass
@@ -137,6 +177,7 @@ class PostRipRecord:
     tagging: object | None = None
     checksums: dict[str, str] | None = None
     audio_md5: dict[str, str] | None = None
+    eac_log: EacLogRender | None = None  # set by the log's first write (R51)
 
     # --- the post-rip ledger ------------------------------------------------
     #: Checks launched for this album and not yet back, by gate key. Registered

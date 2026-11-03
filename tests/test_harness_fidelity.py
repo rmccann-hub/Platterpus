@@ -925,3 +925,146 @@ def test_a_main_window_left_on_screen_is_named_and_hidden(qapp) -> None:
     finally:
         window.close()
         window.deleteLater()
+
+
+# --- An exception nothing caught fails the test it happened in (R107) --------
+
+
+def test_the_harness_owns_sys_excepthook_during_a_test() -> None:
+    """Without this the recording hook below can be switched off unnoticed: a
+    test that installs its own hook and never restores it would leave every later
+    slot exception printed and swallowed again, the R107 state."""
+    import sys
+
+    from conftest import harness_excepthook
+
+    assert sys.excepthook is harness_excepthook
+
+
+def test_an_exception_in_a_worker_slot_is_recorded_and_fails_the_test(qapp) -> None:
+    """The R107 shape, end to end: a queued slot on a worker `QThread` raises.
+
+    PySide hands it to `sys.excepthook` from the worker thread and carries on, so
+    the run used to stay green with a traceback printed in the middle of it. The
+    harness must record it and turn it into a failure. Taken back out here, so
+    this test is not itself failed by the fixture that enforces it.
+    """
+    from conftest import fail_on_unhandled_exceptions, take_unhandled_exceptions
+    from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+
+    class _Raising(QObject):
+        @Slot(str)
+        def go(self, text: str) -> None:
+            raise AssertionError(f"unconfigured fake: {text}")
+
+    class _Caller(QObject):
+        request = Signal(str)
+
+    assert take_unhandled_exceptions() == [], "premise: nothing recorded yet"
+    worker, caller, thread = _Raising(), _Caller(), QThread()
+    worker.moveToThread(thread)
+    caller.request.connect(worker.go)
+    thread.start()
+    reached = threading.Event()
+    try:
+        caller.request.emit("fetch")
+        QTimer.singleShot(0, worker, reached.set)  # runs after the raising slot
+        assert reached.wait(5), "the worker never ran the queued slot"
+    finally:
+        thread.quit()
+        thread.wait(5000)
+    taken = take_unhandled_exceptions()
+    assert len(taken) == 1, taken
+    assert "AssertionError: unconfigured fake: fetch" in taken[0]
+    assert "MainThread" not in taken[0].splitlines()[0], (
+        "the record must name the worker thread the slot ran on"
+    )
+    with pytest.raises(pytest.fail.Exception, match="reached sys.excepthook"):
+        fail_on_unhandled_exceptions(taken)
+    fail_on_unhandled_exceptions([])  # nothing recorded is not a failure
+
+
+def test_the_window_teardown_runs_a_fetch_the_test_queued(qapp) -> None:
+    """`stop_window_threads` must run every queued MusicBrainz call before `quit()`.
+
+    Without the drain, a fetch queued behind a slow call never ran: `quit()` won
+    the race, and whether a misconfigured fake raised depended on timing (R107:
+    two tracebacks in one run of the file, none in the next). Made deterministic
+    here: the first call is held for 200 ms, so a fetch queued behind it is
+    still waiting when the teardown starts.
+    """
+    import time
+    from types import SimpleNamespace
+
+    from conftest import stop_window_threads
+    from PySide6.QtCore import QObject, QThread, Signal
+
+    from platterpus.workers.mb_worker import MusicBrainzWorker
+
+    calls: list[str] = []
+
+    class _SlowClient:
+        def releases_by_disc_id(self, disc_id: str) -> list[object]:
+            time.sleep(0.2)
+            calls.append(f"lookup {disc_id}")
+            return []
+
+        def release_by_mbid(self, mbid: str, **_kw: object) -> object:
+            calls.append(f"fetch {mbid}")
+            return object()
+
+    class _Caller(QObject):
+        lookup = Signal(str)
+        fetch = Signal(str, str, int)
+
+    worker = MusicBrainzWorker(_SlowClient())  # type: ignore[arg-type]  # duck-typed stand-in client
+    thread = QThread()
+    worker.moveToThread(thread)
+    caller = _Caller()
+    caller.lookup.connect(worker.lookup_disc_id)
+    caller.fetch.connect(worker.fetch_release)
+    thread.start()
+    window = SimpleNamespace(_mb_worker=worker, _mb_thread=thread)
+    caller.lookup.emit("disc-A")
+    caller.fetch.emit("mbid-1", "disc-A", 0)
+    stop_window_threads(window)
+    assert not thread.isRunning(), "the teardown left the MusicBrainz thread running"
+    assert calls == ["lookup disc-A", "fetch mbid-1"], (
+        "the fetch queued behind the lookup never ran before the thread was quit"
+    )
+
+
+def test_an_exception_that_kills_a_thread_is_an_error_not_a_warning() -> None:
+    """The `threading.Thread` half of R107. pytest reports an exception that ends
+    a thread as `PytestUnhandledThreadExceptionWarning`, a warning by default, so
+    a worker that died mid-job left the run green. `pyproject.toml` makes it an
+    error; asserted through the filters pytest has in force for this test, which
+    are the ones it applies to that warning."""
+    import warnings
+
+    with pytest.raises(pytest.PytestUnhandledThreadExceptionWarning):
+        warnings.warn(
+            pytest.PytestUnhandledThreadExceptionWarning("probe"), stacklevel=1
+        )
+
+
+def test_a_thread_that_outlives_its_test_is_named_and_fails_it() -> None:
+    """The join backstop FAILS a test whose `threading.Thread` it cannot join
+    (R107; it only warned before). Run here with a 50 ms bound instead of 5 s."""
+    from conftest import fail_on_stubborn_threads, join_or_name_stubborn
+
+    release = threading.Event()
+    finished = threading.Thread(target=lambda: None, name="finished-worker")
+    finished.start()
+    finished.join()
+    stuck = threading.Thread(target=release.wait, name="stuck-worker", daemon=True)
+    stuck.start()
+    try:
+        named = join_or_name_stubborn([finished, stuck], timeout_s=0.05)
+    finally:
+        release.set()
+        stuck.join(5)
+    assert named == ["stuck-worker"], named
+    with pytest.raises(pytest.fail.Exception, match="stuck-worker"):
+        fail_on_stubborn_threads(named)
+    fail_on_stubborn_threads([])  # nothing outlived it: not a failure

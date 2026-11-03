@@ -47,6 +47,7 @@ def _ci_entries() -> list[Entry]:
         )
 
     entries.extend(_gitleaks_entries(entries))
+    entries.extend(_actionlint_entries())
 
     apt: dict[str, set[str]] = {}
     for flow in workflows():
@@ -124,14 +125,49 @@ def _ci_entries() -> list[Entry]:
     return entries
 
 
-#: The CI workflow that runs the secret scan, and the pins its install step carries.
+#: A pinned release's version and tarball sha256, by shape.
+_VERSION_SHAPE: Final[re.Pattern[str]] = re.compile(r"\d{1,6}\.\d{1,6}\.\d{1,6}")
+_SHA256_SHAPE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}")
+
+#: The CI workflow whose jobs fetch release binaries pinned by version and sha256.
 _SECRET_SCAN_WORKFLOW: Final[str] = ".github/workflows/ci.yml"
-_GITLEAKS_VERSION: Final[re.Pattern[str]] = re.compile(
-    r'GITLEAKS_VERSION: "(\d+\.\d+\.\d+)"'
-)
-_GITLEAKS_SHA256: Final[re.Pattern[str]] = re.compile(
-    r'GITLEAKS_SHA256: "([0-9a-f]{64})"'
-)
+
+
+def _pinned_release_binary(
+    name: str, env: str, repo: str, job: str, description: str
+) -> Entry | None:
+    """A release binary a CI job fetches, pinned as `<env>_VERSION` and
+    `<env>_SHA256` in the job, or None when the workflow pins no such binary."""
+    # String operations, not a pattern built from `env`, as `_program_pin`.
+    found: dict[str, str] = {}
+    for line in _text(_SECRET_SCAN_WORKFLOW).splitlines():
+        for key in ("VERSION", "SHA256"):
+            prefix = f'{env}_{key}: "'
+            at = line.find(prefix)
+            if at >= 0 and line.rstrip().endswith('"'):
+                found.setdefault(key, line[at + len(prefix) :].rstrip()[:-1])
+    version, sha = found.get("VERSION", ""), found.get("SHA256", "")
+    if not (_VERSION_SHAPE.fullmatch(version) and _SHA256_SHAPE.fullmatch(sha)):
+        return None
+    return Entry(
+        ref=f"ci:{name}",
+        category="ci-tool",
+        name=name,
+        scope="excluded",
+        description=description,
+        external_refs=(("vcs", f"https://github.com/{repo}", ""),),
+        version=version,
+        purl=f"pkg:github/{repo}@v{version}",
+        used_in=(_where(_SECRET_SCAN_WORKFLOW, job),),
+        enforced_in=(_SECRET_SCAN_WORKFLOW,),
+        properties=(
+            (
+                _P + "version-basis",
+                "pinned in the workflow, with the release tarball's sha256",
+            ),
+            (_P + "tarball-sha256", sha),
+        ),
+    )
 
 
 def _gitleaks_entries(entries: list[Entry]) -> list[Entry]:
@@ -144,40 +180,26 @@ def _gitleaks_entries(entries: list[Entry]) -> list[Entry]:
     out of the map because the way it is installed changed (it did, once, the day
     this was written).
     """
+    pinned = _pinned_release_binary(
+        "gitleaks",
+        "GITLEAKS",
+        "gitleaks/gitleaks",
+        "gitleaks",
+        "The secret scanner the gitleaks job runs.",
+    )
+    if pinned is not None:
+        return [pinned]
     actions = [e for e in entries if e.name == "gitleaks-action"]
     text = _text(_SECRET_SCAN_WORKFLOW)
-    version = _GITLEAKS_VERSION.search(text)
-    sha = _GITLEAKS_SHA256.search(text)
-    where = _where(_SECRET_SCAN_WORKFLOW, "gitleaks")
-    base = {
-        "ref": "ci:gitleaks",
-        "category": "ci-tool",
-        "name": "gitleaks",
-        "scope": "excluded",
-        "description": "The secret scanner the gitleaks job runs.",
-        "external_refs": (("vcs", "https://github.com/gitleaks/gitleaks", ""),),
-    }
-    if version is not None and sha is not None:
-        return [
-            Entry(
-                **base,  # type: ignore[arg-type]  # the keys above are Entry's fields
-                version=version.group(1),
-                purl=f"pkg:github/gitleaks/gitleaks@v{version.group(1)}",
-                used_in=(where,),
-                enforced_in=(_SECRET_SCAN_WORKFLOW,),
-                properties=(
-                    (
-                        _P + "version-basis",
-                        "pinned in the workflow, with the release tarball's sha256",
-                    ),
-                    (_P + "tarball-sha256", sha.group(1)),
-                ),
-            )
-        ]
     if actions:
         return [
             Entry(
-                **base,  # type: ignore[arg-type]  # the keys above are Entry's fields
+                ref="ci:gitleaks",
+                category="ci-tool",
+                name="gitleaks",
+                scope="excluded",
+                description="The secret scanner the gitleaks job runs.",
+                external_refs=(("vcs", "https://github.com/gitleaks/gitleaks", ""),),
                 used_in=actions[0].used_in,
                 properties=(
                     (
@@ -192,6 +214,31 @@ def _gitleaks_entries(entries: list[Entry]) -> list[Entry]:
         raise GeneratorError(
             f"{_SECRET_SCAN_WORKFLOW} has a gitleaks job but neither the action nor a "
             "pinned GITLEAKS_VERSION and GITLEAKS_SHA256; say how it gets gitleaks"
+        )
+    return []
+
+
+def _actionlint_entries() -> list[Entry]:
+    """The actionlint binary the `workflow-lint` job fetches and runs.
+
+    Since 2026-11-03 (TASKS R91) the job installs actionlint's release binary,
+    pinned like gitleaks, instead of building actionlint-py from its sdist by
+    pyproject's range; pyproject's `actionlint-py` line stays for local installs
+    and is mapped separately. Running the fetched binary unpinned stops the run.
+    """
+    pinned = _pinned_release_binary(
+        "actionlint",
+        "ACTIONLINT",
+        "rhysd/actionlint",
+        "workflow-lint",
+        "The workflow linter the workflow-lint job runs.",
+    )
+    if pinned is not None:
+        return [pinned]
+    if '"$RUNNER_TEMP/actionlint"' in _text(_SECRET_SCAN_WORKFLOW):
+        raise GeneratorError(
+            f"{_SECRET_SCAN_WORKFLOW} runs a fetched actionlint but does not pin "
+            "ACTIONLINT_VERSION and ACTIONLINT_SHA256; say which one it runs"
         )
     return []
 

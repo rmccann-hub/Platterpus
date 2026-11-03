@@ -35,6 +35,7 @@ gate install from it, and only from it.** A lock nobody installs is decoration.
 from __future__ import annotations
 
 import datetime
+import json
 import re
 import tomllib
 from dataclasses import dataclass
@@ -91,7 +92,8 @@ LOCKS: Final[dict[str, LockSpec]] = {
     ),
     # The follow-up review of 2026-10-27, item 5: the required sbom job (69
     # packages that day) and the workflow linters (2: zizmor and shellcheck-py;
-    # actionlint-py ships no wheel, so it is not here, and TASKS R91 says so).
+    # actionlint-py ships no wheel, so it is not here; CI fetches actionlint's
+    # release binary by sha256 instead, TASKS R91).
     "build/locks/sbom.lock": LockSpec(
         "sbom", ("dependencies", "extra:sbom", "build-system"), 55
     ),
@@ -727,6 +729,9 @@ HASHED_JOBS: Final[dict[tuple[str, str], str]] = {
     # The follow-up review of 2026-10-27, item 5.
     ("ci.yml", "sbom"): "build/locks/sbom.lock",
     ("ci.yml", "shellcheck"): "build/locks/ci-lint.lock",
+    # TASKS R91, 2026-11-03: actionlint now arrives as a checksum-pinned binary,
+    # so the lock is workflow-lint's only pip install too.
+    ("ci.yml", "workflow-lint"): "build/locks/ci-lint.lock",
     ("mutation.yml", ""): "build/locks/ci.lock",
 }
 
@@ -771,25 +776,52 @@ def test_jobs_that_publish_attest_or_gate_install_only_from_hashed_locks() -> No
     assert examined >= len(HASHED_JOBS)
 
 
-def test_workflow_lint_installs_only_actionlint_outside_the_lock() -> None:
-    """The one range left in the linter jobs is actionlint-py's, and only it.
+def test_workflow_lint_fetches_actionlint_pinned_and_in_pyprojects_range() -> None:
+    """actionlint arrives as its release binary, checked, at a version pyproject allows.
 
-    actionlint-py publishes no wheel, so `--only-binary :all:` cannot lock it
-    (TASKS R91). The job therefore installs ci-lint.lock hashed and actionlint-py
-    by pyproject's range; this holds the exception to exactly that one package,
-    so a second unhashed install cannot ride in beside it.
+    actionlint-py publishes no wheel, so `--only-binary :all:` cannot lock it, and
+    until 2026-11-03 workflow-lint installed it by pyproject's range, the one
+    unhashed install left in the linter jobs (TASKS R91). The job now fetches the
+    same tarball actionlint-py's sdist downloads, checks its sha256, and checks
+    the binary's own version, the way the gitleaks job fetches its CLI. Local
+    installs still use the ci-lint extra, so the two must name one actionlint:
+    the pinned version has to fall inside actionlint-py's range, whose first
+    three parts are actionlint's version (1.7.12.25 packages actionlint 1.7.12).
     """
     body = _job((WORKFLOWS / "ci.yml").read_text(encoding="utf-8"), "workflow-lint")
-    lines = _install_lines(body)
-    assert any(
-        _is_hashed_install(ln) and "-r build/locks/ci-lint.lock" in ln for ln in lines
-    ), lines
-    unhashed = [ln for ln in lines if not _is_allowed_install(ln)]
-    assert unhashed == ['python -m pip install "$spec"'], unhashed
-    assert 'if s.startswith("actionlint-py")' in body, (
-        "workflow-lint's one unhashed install no longer selects actionlint-py"
+    assert not [ln for ln in _install_lines(body) if not _is_allowed_install(ln)]
+    version = re.search(r'ACTIONLINT_VERSION: "(?P<v>\d+\.\d+\.\d+)"', body)
+    digest = re.search(r'ACTIONLINT_SHA256: "(?P<v>[0-9a-f]{64})"', body)
+    assert version is not None and digest is not None, "the actionlint pin is unstated"
+    assert "sha256sum --check --strict -" in body
+    assert '-version | sed -n 1p)" = "${ACTIONLINT_VERSION}"' in body
+    # The step that runs actionlint runs the file that was checked, after the check.
+    fetch = body.index("sha256sum --check --strict -")
+    run = body.index('"$RUNNER_TEMP/actionlint" -color')
+    assert fetch < run
+
+    extra = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]["optional-dependencies"]["ci-lint"]
+    spec = next(s for s in extra if s.startswith("actionlint-py"))
+    bounds = re.fullmatch(r"actionlint-py>=(?P<lo>[\d.]+),\s*<(?P<hi>[\d.]+)", spec)
+    assert bounds is not None, spec
+    pinned = _version(version.group("v"))
+    low, _ = _padded(_version(bounds.group("lo"))[:3], pinned)
+    high, _ = _padded(_version(bounds.group("hi"))[:3], pinned)
+    assert low <= pinned < high, (
+        f"CI's actionlint {version.group('v')} is outside pyproject's {spec}: "
+        f"move both together"
     )
     assert "actionlint-py" not in _lock_versions("build/locks/ci-lint.lock")
+    # And the generated map names the binary CI runs, at the pinned version and
+    # checksum, beside pyproject's actionlint-py line.
+    bom = json.loads((REPO / "bom.cdx.json").read_text(encoding="utf-8"))
+    mapped = [c for c in bom["components"] if c.get("bom-ref") == "ci:actionlint"]
+    assert len(mapped) == 1, "bom.cdx.json does not map CI's actionlint binary"
+    assert mapped[0]["version"] == version.group("v")
+    properties = {p["name"]: p["value"] for p in mapped[0]["properties"]}
+    assert properties["platterpus:tarball-sha256"] == digest.group("v")
 
 
 def test_the_sbom_describes_the_versions_ci_tests() -> None:
@@ -885,13 +917,17 @@ def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
     executable = "\n".join(
         ln for ln in body.splitlines() if not ln.strip().startswith("#")
     )
-    # Least privilege, on the job: exactly the two writes it needs.
+    # Least privilege, on the job: exactly the three writes it needs.
     grants = re.search(
         r"^    permissions:\n(?P<g>(?:      [\w-]+: \w+[^\n]*\n)+)", body, re.M
     )
     assert grants is not None, "the relock job grants nothing of its own"
     granted = dict(re.findall(r"^      ([\w-]+): (\w+)", grants.group("g"), re.M))
-    assert granted == {"contents": "write", "pull-requests": "write"}, granted
+    assert granted == {
+        "contents": "write",
+        "pull-requests": "write",
+        "actions": "write",  # the CI dispatch, TASKS R93
+    }, granted
     # Seven days back, Dependabot's cooldown, through the generator itself.
     assert "date -u -d '7 days ago' +%Y-%m-%dT00:00:00Z" in executable
     assert 'bash build/lock-requirements.sh --exclude-newer "$date"' in executable
@@ -906,12 +942,28 @@ def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
     # It writes, so it restores no cache, setup-uv's default included.
     assert "enable-cache: false" in body
     assert not re.search(r"^\s+cache:\s*\S", body, re.M)
-    # A pull request it could not open is a red job naming the branch.
-    assert re.search(r"if ! url=\"\$\(gh pr create ", executable)
-    failure = executable.split('if ! url="$(gh pr create ', 1)[1].split("fi\n", 1)[0]
+    # TASKS R93: a push made with GITHUB_TOKEN starts no workflow, but a dispatch
+    # does, so CI is dispatched on the pushed branch right after the push and
+    # before anything that can fail (the pull request, on 2026-11-02, did).
+    push = executable.index('push_authed origin "HEAD:refs/heads/$BRANCH"')
+    dispatch = executable.index(
+        'gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"'
+    )
+    create = executable.index('if ! url="$(gh pr create ')
+    assert push < dispatch < create
+    # Superseded relock branches are deleted, the run's own is not, and that
+    # happens whether or not the pull request opened.
+    cleanup = executable.index("git ls-remote --heads origin 'refs/heads/relock/*'")
+    assert 'if [ "$ref" != "refs/heads/$BRANCH" ]; then' in executable[cleanup:]
+    assert 'push_authed origin --delete "$ref"' in executable[cleanup:]
+    # A pull request it could not open is still a red job naming the branch,
+    # raised after the dispatch and the cleanup.
+    failure = executable[executable.index('if [ "$opened" != true ]; then') :]
+    failure = failure.split("fi\n", 1)[0]
     assert "::error::" in failure and "exit 1" in failure, failure
-    # And the pull request says CI has not run on it, and who carries it.
-    assert "No CI has run on this branch" in executable
+    assert create < cleanup < executable.index('if [ "$opened" != true ]; then')
+    # And the pull request says how CI ran on it, and who carries it.
+    assert "CI ran here by dispatch" in executable
     assert "KDD-43" in executable
 
 

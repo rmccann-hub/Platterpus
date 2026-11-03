@@ -106,16 +106,34 @@ def fold(rate: ReadRate | None, audio_seconds: float, read_seconds: float) -> Re
     )
 
 
+def struggled(track: object) -> bool:
+    """Whether paranoia skipped on this track's read: the drive struggled.
+
+    **Why such a track teaches nothing about the drive's speed** (the plan of
+    record, Appendix H §3). On disc 1 of the 2026-10-21 Full run track 18 took
+    8,548 s over 267 s of audio with 2,076 skips, and folding it in made the
+    whole rip read at 0.38x (3,500 s of audio in 9,162 s), so the next estimate
+    for that drive was about 2.6 times too long. A skip is the log's own mark of
+    a read the drive could not settle, so the time it took measures the disc's
+    damage, not the drive. Never raises.
+    """
+    counts = getattr(track, "paranoia_counts", None)
+    skips = counts.get("SKIP", 0) if isinstance(counts, dict) else 0
+    return isinstance(skips, int) and not isinstance(skips, bool) and skips > 0
+
+
 def first_pass_sample(tracks: Iterable[object]) -> tuple[float, float] | None:
     """(audio seconds, reading seconds) over a parsed log's tracks, or None.
 
     A track counts only when it carries both its sector span and its extraction
-    time, so a log cut short contributes the tracks it finished. 75 sectors per
-    second (Red Book).
+    time, so a log cut short contributes the tracks it finished. A track the
+    drive :func:`struggled` with is left out. 75 sectors per second (Red Book).
     """
     audio = 0.0
     reading = 0.0
     for track in tracks:
+        if struggled(track):
+            continue
         start = getattr(track, "start_sector", None)
         end = getattr(track, "end_sector", None)
         elapsed = getattr(track, "extraction_elapsed_seconds", None)

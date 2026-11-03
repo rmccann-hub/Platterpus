@@ -364,3 +364,123 @@ def test_the_publish_step_verifies_the_tag_instead_of_making_one() -> None:
         < text.index(f"- name: {TAG_STEP}")
         < text.index(f"- name: {PUBLISH_STEP}")
     )
+
+
+# --- the PyPI publish's tag gate (TASKS R94) -----------------------------------
+#
+# The ref gate lets any `v*` tag on main through. A NEW tag pushed by hand on an
+# older main commit would publish a version no release names, so the tag gate
+# takes only release.yml's own annotated tag, or main's tip.
+
+TAG_GATE: Final[str] = "Tag gate — publish only the tag release.yml made, or main's tip"
+BOT_EMAIL: Final[str] = "41898282+github-actions[bot]@users.noreply.github.com"
+
+
+def _push_tag(root: Path, sha: str, tagger: tuple[str, str] | None) -> None:
+    """Put `TAG` on ``sha`` in origin: annotated by ``tagger``, or lightweight."""
+    seed = root / "seed"
+    if tagger is None:
+        _git(seed, "tag", TAG, sha)
+    else:
+        subprocess.run(
+            ["git", "tag", "-a", TAG, "-m", f"Platterpus {TAG}", sha],
+            cwd=seed,
+            capture_output=True,
+            text=True,
+            env={
+                **_git_env(),
+                "GIT_COMMITTER_NAME": tagger[0],
+                "GIT_COMMITTER_EMAIL": tagger[1],
+            },
+            timeout=60,
+            check=True,
+        )
+    _git(seed, "push", "-q", "origin", f"refs/tags/{TAG}")
+
+
+def _tag_gate(clone: Path, sha: str) -> tuple[int, str]:
+    return _run_step(TAG_GATE, clone, PUBLISH_YML, SHA=sha, TAG=TAG)
+
+
+def test_the_tag_gate_passes_release_s_annotated_tag_on_an_older_commit(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """A retry of a real release's publish, after main has moved on."""
+    _push_tag(tmp_path, origin.b, (BOT, BOT_EMAIL))
+    clone = origin.shallow_clone(tmp_path, "rel")
+    code, out = _tag_gate(clone, origin.b)
+    assert code == 0, out
+    assert "is the annotated tag release.yml made" in out
+
+
+@pytest.mark.parametrize(
+    "tagger",
+    [None, ("Some Maintainer", "someone@example.invalid")],
+    ids=["lightweight", "annotated-by-a-person"],
+)
+def test_the_tag_gate_refuses_a_hand_pushed_tag_on_an_older_commit(
+    origin: _Origin, tmp_path: Path, tagger: tuple[str, str] | None
+) -> None:
+    """The case R94 names: a new `v*` tag on an old main commit publishes nothing."""
+    _push_tag(tmp_path, origin.b, tagger)
+    clone = origin.shallow_clone(tmp_path, "rel")
+    # The ref gate alone lets it through: that is the hole this gate closes.
+    assert _publish_gate(clone, origin.b, "tag", TAG)[0] == 0
+    code, out = _tag_gate(clone, origin.b)
+    assert code == 1, out
+    assert "an older main commit" in out
+    assert "not the tag release.yml makes" in out
+
+
+def test_the_tag_gate_passes_any_tag_on_main_s_tip(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """main's tip is what release.yml would release next, however it was tagged."""
+    _push_tag(tmp_path, origin.d, None)
+    clone = origin.shallow_clone(tmp_path, "main")
+    code, out = _tag_gate(clone, origin.d)
+    assert code == 0, out
+    assert "is on main's tip" in out
+
+
+def test_the_tag_gate_refuses_a_tag_that_no_longer_names_this_commit(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """The run builds ``SHA``; a tag on GitHub naming another commit is refused,
+    even release.yml's own."""
+    _push_tag(tmp_path, origin.d, (BOT, BOT_EMAIL))
+    clone = origin.shallow_clone(tmp_path, "rel")
+    code, out = _tag_gate(clone, origin.b)
+    assert code == 1, out
+    assert f"names {origin.d}, not {origin.b}" in out
+
+
+def test_the_tag_gate_refuses_when_it_cannot_read_the_tag(
+    origin: _Origin, tmp_path: Path
+) -> None:
+    """No answer is not a yes."""
+    _push_tag(tmp_path, origin.b, (BOT, BOT_EMAIL))
+    clone = origin.shallow_clone(tmp_path, "rel")
+    _git(clone, "remote", "set-url", "origin", f"file://{tmp_path / 'gone.git'}")
+    code, out = _tag_gate(clone, origin.b)
+    assert code == 1, out
+    assert f"Could not fetch tag {TAG}" in out
+
+
+def test_the_tag_gate_names_the_tagger_release_yml_sets() -> None:
+    """Two files, one identity: if release.yml's tagger changed, every real
+    release would be refused here, so the two are held equal."""
+    gate = _step_script(TAG_GATE, PUBLISH_YML)
+    tag_step = _step_script(TAG_STEP)
+    assert f'GIT_COMMITTER_NAME="{BOT}"' in tag_step
+    assert f'GIT_COMMITTER_EMAIL="{BOT_EMAIL}"' in tag_step
+    assert f'bot="{BOT} <{BOT_EMAIL}>"' in gate
+
+
+def test_the_tag_gate_runs_after_the_ref_gate_and_before_the_build() -> None:
+    text = PUBLISH_YML.read_text(encoding="utf-8")
+    assert (
+        text.index(f"- name: {REF_GATE}")
+        < text.index(f"- name: {TAG_GATE}")
+        < text.index("- name: Build wheel + sdist and validate metadata")
+    )

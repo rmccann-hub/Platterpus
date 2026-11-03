@@ -40,6 +40,7 @@
 #       environment the SBOM describes), the `sbom` extra and the backend.
 #   build/locks/ci-lint.lock   ci.yml's workflow-lint and shellcheck jobs: zizmor
 #       and ShellCheck from the `ci-lint` extra (not actionlint-py; see below).
+#       workflow-lint fetches actionlint's release binary by sha256 instead.
 #
 # The build backend (pyproject's [build-system].requires) is in every lock that
 # builds or installs the project, because those jobs build with
@@ -414,8 +415,8 @@ lock_universal "$SBOM_LOCK" sbom \
 # CI's workflow-lint and shellcheck jobs: zizmor and ShellCheck, two wheels that
 # each carry a binary. NOT actionlint-py, the extra's third tool: it publishes
 # only an sdist (1.7.12.25, read 2026-10-27), whose build downloads the actionlint
-# binary from GitHub, so `--only-binary :all:` cannot lock it. workflow-lint
-# installs it by pyproject's range, and TASKS R91 records the gap.
+# binary from GitHub, so `--only-binary :all:` cannot lock it. Since 2026-11-03
+# workflow-lint fetches that binary itself, pinned by sha256 (TASKS R91).
 lock_universal "$CI_LINT_LOCK" ci-lint \
     extra:ci-lint:zizmor extra:ci-lint:shellcheck-py
 # CI's lint job: ruff alone, from the dev extra's range. Until 2026-10-29 lint

@@ -22,7 +22,8 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from typing import Final
 
 from platterpus.config import APP_STATE_FIELDS, Config
 
@@ -137,3 +138,62 @@ def settings_record_text(before: object | None, run_ended_with: object) -> str:
         ),
     }
     return json.dumps(record, indent=2, sort_keys=False, default=str) + "\n"
+
+
+@dataclasses.dataclass(frozen=True)
+class RestoredSetting:
+    """One setting an acceptance run had changed, and the user's value it got back.
+
+    TASKS R106: the restore used to log the NAMES alone, so a reader of the run
+    could not tell what the user's own settings were, nor that a risky one (the
+    owner's Overread) had come back on. Both values are kept so the log line and
+    the bundle's manifest can say *"the run had X, yours is Y"*.
+    """
+
+    name: str
+    run_value: object
+    restored_value: object
+
+    def describe(self) -> str:
+        """``name: the run had X, yours is Y``, values in ``repr`` form.
+
+        ``repr`` so an empty string, a path with a newline in it, or a string
+        that looks like a number cannot be misread on a one-line log row.
+        """
+        return (
+            f"{self.name}: the run had {self.run_value!r}, "
+            f"yours is {self.restored_value!r}"
+        )
+
+
+def restored_settings(before: object, run_ended_with: object) -> list[RestoredSetting]:
+    """Every user setting the run changed, with both values, in field order. Pure."""
+    old, new = user_settings(before), user_settings(run_ended_with)
+    return [
+        RestoredSetting(name, new[name], old[name])
+        for name in changed_settings(before, run_ended_with)
+    ]
+
+
+#: Said in the log and the closing dialog when the restore turns Overread back
+#: ON (TASKS R106). The run itself ripped with it off (`fullacceptance.txt` sets
+#: `force_overread off`), so the run is safe; what this warns of is the user's
+#: NEXT rip. `docs/rig-session.md` → *Before you start* has the record: `-O` hung
+#: the owner's BDR-209D for about 23 minutes, and cyanrip's bound on it (from
+#: `.24`) is not yet verified on that drive. It names the risk and leaves the
+#: choice to the user: the restore never changes a setting the user made.
+OVERREAD_RESTORED_NOTE: Final[str] = (
+    "⚠ Overread (-O) is on again in your settings, as you had it before the "
+    "run; the run turned it off while it ripped. On some drives -O hangs the "
+    "drive at the lead-out: it hung a Pioneer BDR-209D for about 23 minutes, "
+    "and whether cyanrip's bound on -O holds on that drive is not yet "
+    "verified. Your choice was kept; untick Overread in Settings if your drive "
+    "is one of them."
+)
+
+
+def overread_restored(restored: Sequence[RestoredSetting]) -> bool:
+    """True when the restore put Overread (``force_overread``) back ON."""
+    return any(
+        s.name == "force_overread" and s.restored_value is True for s in restored
+    )

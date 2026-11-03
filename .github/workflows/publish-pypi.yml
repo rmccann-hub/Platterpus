@@ -84,15 +84,12 @@ jobs:
       # repository settings, which a session cannot read; this gate holds
       # whatever that rule says.
       #
-      # A `v*` tag on an OLDER `main` commit passes, on purpose (asked in the
-      # second follow-up review of 2026-10-27, item 6). The one legitimate
-      # dispatch besides release.yml's is a retry of an existing release's
-      # publish, and by then that release's commit is behind main's tip. The
-      # gate's job is to keep code that never reached main off PyPI, which it
-      # does. What it does not stop, a new `v*` tag pushed by hand on an old
-      # main commit, publishes that commit's own `__version__`, and PyPI refuses
-      # a second upload of a version it already has, so it can republish
-      # nothing that was released.
+      # A `v*` tag on an OLDER `main` commit passes THIS gate, on purpose (asked
+      # in the second follow-up review of 2026-10-27, item 6): the one
+      # legitimate dispatch besides release.yml's is a retry of an existing
+      # release's publish, and by then that release's commit is behind main's
+      # tip. This gate keeps code that never reached main off PyPI. Which tag on
+      # main may publish is the TAG GATE's question, the next step (TASKS R94).
       - name: Ref gate — publish only a v* tag whose commit is on main
         env:
           SHA: ${{ github.sha }}
@@ -117,6 +114,60 @@ jobs:
             *) echo "::error::git merge-base could not compare $SHA with main (exit $rc), so there is no evidence it is on main."
                exit 1 ;;
           esac
+
+      # TAG GATE (TASKS R94, the third follow-up review of 2026-10-27). The ref
+      # gate above lets any `v*` tag on main through, and a NEW tag pushed by
+      # hand on an older main commit would publish that commit's `__version__`:
+      # PyPI refuses a version it already has, but a version that was never
+      # released there would go up, built from a commit no release names. So a
+      # tag publishes only when it is one of the two things a real publish is:
+      #   * the tag release.yml made: ANNOTATED, with the tagger release.yml
+      #     sets (its "Tag the release commit (annotated)" step), on this commit
+      #     (a retry of an existing release's publish passes here, wherever
+      #     main's tip has moved to since); or
+      #   * main's tip itself, the one commit release.yml would release next.
+      # A lightweight tag, or an annotated one by anyone else, on an older
+      # commit is refused. What this cannot stop: someone with push rights
+      # writing that tagger line into a tag of their own. A tagger is text the
+      # tag carries, so the gate refuses a mistake or a shortcut, not a forger
+      # who can already push to this repository.
+      #
+      # Tags cut before 0.7.114 are lightweight (KDD-37, D7), so a retry of one
+      # of those publishes is refused; each of them reached PyPI already.
+      #
+      # Fetched here, by name, rather than trusted from the checkout: what the
+      # tag is on GitHub now is the question, and a tag that no longer names
+      # the commit this run builds is refused too.
+      - name: Tag gate — publish only the tag release.yml made, or main's tip
+        env:
+          SHA: ${{ github.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          bot="github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          if ! git fetch --no-tags origin "+refs/tags/$TAG:refs/tags/$TAG" "+refs/heads/main:refs/remotes/origin/main"; then
+            echo "::error::Could not fetch tag $TAG and main, so there is no evidence which tag this is. Re-run once GitHub is reachable."
+            exit 1
+          fi
+          commit="$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" || true)"
+          if [ "$commit" != "$SHA" ]; then
+            echo "::error::Tag $TAG names ${commit:-nothing}, not $SHA, the commit this run would build. Dispatch the publish on the tag as it is now."
+            exit 1
+          fi
+          tip="$(git rev-parse refs/remotes/origin/main)"
+          kind="$(git cat-file -t "refs/tags/$TAG")"
+          tagger=""
+          if [ "$kind" = "tag" ]; then
+            tagger="$(git for-each-ref --format='%(taggername) %(taggeremail)' "refs/tags/$TAG")"
+          fi
+          if [ "$tagger" = "$bot" ]; then
+            echo "tag gate: $TAG is the annotated tag release.yml made, on $SHA. ✅"
+          elif [ "$SHA" = "$tip" ]; then
+            echo "tag gate: $TAG is on main's tip ($SHA). ✅"
+          else
+            echo "::error::Tag $TAG is on $SHA, an older main commit (the tip is $tip), and it is not the tag release.yml makes (it is ${kind}${tagger:+, tagged by $tagger}). Only release.yml's annotated tag, or main's tip, publishes: dispatch release.yml on main to cut a new version."
+            exit 1
+          fi
 
       # NO `cache: pip` HERE, on purpose (the 2026-10-27 review, item 1.3): this
       # job holds `id-token: write` and uploads to PyPI, and a restored pip cache

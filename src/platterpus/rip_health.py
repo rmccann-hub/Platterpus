@@ -19,22 +19,25 @@ two things could sit under that sentence unremarked:
   the report's ``issues`` entry.
 
 **One function per question, N callers.** The report's ``health_status`` and the
-window's status line both ask :func:`effective_health_status`, so the two cannot
-call one rip clean and not clean. The EAC-layout log deliberately does NOT: its
-disc-level sentence is a surface the cyanrip fork diffs against, so its wording
-changes only through the handshake (the proposal is in ``TASKS.md``, for our
-round 36 lap).
+window's status line both ask :func:`effective_health_status` (the window through
+:func:`health_reads_clean`), so the two cannot call one rip clean and not clean.
+The EAC-layout log deliberately does NOT: its disc-level sentence is a surface
+the cyanrip fork diffs against, so its wording changes only through the
+handshake. All three take the same placement of errors in replaced reads
+(:mod:`platterpus.replaced_read_errors`, TASKS R59).
 
 Pure; no Qt, no I/O; reads with ``getattr`` and never raises.
 """
 
 from __future__ import annotations
 
-import re
-from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Any, Final
+from typing import Final
 
+from platterpus.replaced_read_errors import (
+    ErrorsInReplacedReads,
+    applies_to,
+    kept_reads_health,
+)
 from platterpus.verdict import track_has_unverified_skips
 
 #: The sentence the parser writes for ``Ripping errors: 0``; every reader of
@@ -89,14 +92,27 @@ def error_line_count(rip_log: object) -> int:
     return kept
 
 
-def effective_health_status(rip_log: object) -> str:
-    """The rip's health sentence, never "No errors occurred" over an error line.
+def effective_health_status(
+    rip_log: object, placed: ErrorsInReplacedReads | None = None
+) -> str:
+    """The rip's health sentence, about the reads the album keeps.
 
     The parser's ``health_status`` unchanged, unless the ripper printed a
     diagnostic under a zero summary: then the sentence names the disagreement
     instead of reading clean. A ``health_status`` that is already not clean (an
-    encoder failure, say) keeps its words and gains the note. Never raises.
+    encoder failure, say) keeps its words and gains the note.
+
+    ``placed`` is where the album pass's counted errors were
+    (:func:`platterpus.replaced_read_errors.errors_in_replaced_reads_of`). When
+    every one was in a first read the album replaced with a read AccurateRip
+    verified, and the replacements had none, the sentence says the reads kept
+    had no errors and then what the replaced read had (TASKS R59, run C's track
+    16): the ripper's tally describes reads the album no longer holds, and is
+    stated, never dropped. The tally itself is the report's own field,
+    ``ripper_health_status``. Never raises.
     """
+    if applies_to(rip_log, placed) and placed is not None:
+        return kept_reads_health(placed)
     health = str(getattr(rip_log, "health_status", "") or "")
     if not error_lines_contradicting_summary(rip_log):
         return health
@@ -108,6 +124,19 @@ def effective_health_status(rip_log: object) -> str:
     if health in ("", CLEAN_HEALTH):
         return note
     return f"{health}; {note}"
+
+
+def health_reads_clean(
+    rip_log: object, placed: ErrorsInReplacedReads | None = None
+) -> bool:
+    """Whether the reads the album keeps had no errors, by :func:`effective_health_status`.
+
+    For a caller that needs the yes or no, such as the window's status line, so
+    it asks the same question the report's sentence answers. Never raises.
+    """
+    return effective_health_status(rip_log) == CLEAN_HEALTH or applies_to(
+        rip_log, placed
+    )
 
 
 def unverified_skip_tracks(rip_log: object) -> list[int]:
@@ -158,107 +187,3 @@ def health_findings(rip_log: object) -> list[tuple[str, str, str]]:
             )
         )
     return findings
-
-
-# --- Errors in reads the album no longer keeps (run C, 2026-10-22) -----------
-
-#: The parser's health sentence for a non-zero ``Ripping errors:`` count
-#: (``parsers/cyanrip_log.py``). Anchored and bounded: the count is 1-9 digits.
-_COUNTED_ERRORS = re.compile(r"^(?P<count>\d{1,9}) ripping errors$")
-#: ``retried_tracks[].kept_read`` values naming a read that replaced the first.
-_REPLACING_READS: Final[frozenset[str]] = frozenset(
-    {"securing_pass", "verified_reread"}
-)
-
-
-@dataclass(frozen=True)
-class ErrorsInReplacedReads:
-    """Where the album pass's counted ripping errors were, read from a report.
-
-    ``counted`` is the ``Ripping errors:`` total; ``in_replaced`` how many of
-    them were in first reads the album replaced with a read AccurateRip
-    verified, and ``tracks`` those tracks. The rest are in reads it keeps.
-    """
-
-    counted: int
-    in_replaced: int
-    tracks: tuple[int, ...]
-
-    @property
-    def in_kept_reads(self) -> int:
-        """The counted errors in reads the album keeps."""
-        return self.counted - self.in_replaced
-
-
-def _int(value: object) -> int | None:
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
-
-
-def errors_in_replaced_reads(
-    report: Mapping[str, Any],
-) -> ErrorsInReplacedReads | None:
-    """Which of a rip's counted errors are in reads the album no longer keeps.
-
-    **Run C, section N, 2026-10-22.** The album pass counted 2 ripping errors,
-    both paranoia skips in track 16, and the verified-read chase replaced track
-    16 with a read AccurateRip verified (v1 confidence 11, v2 24). The
-    completion audit still warned "completed with 2 ripping errors", about bytes
-    no longer in the album. Errors are attributed per track by the album pass's
-    own ``-j`` record (``disc.error_positions``: ``read_errors`` + ``skips``
-    over every read), and a track's first read counts as replaced only when
-    ``retried_tracks`` says the album keeps another read, kept on AccurateRip's
-    word, AND the track's row says AccurateRip verified it (the pair, not the
-    label alone).
-
-    **None, not determined, unless the population is closed**: the per-track
-    counts must be present, complete and agree with their counters for every
-    track read, and must sum to exactly the ``Ripping errors:`` count. An error
-    we cannot place stays in the warning; that is the direction that keeps a
-    clean grade off a read nobody checked. Never raises.
-    """
-    try:
-        match = _COUNTED_ERRORS.match(str(report.get("health_status") or ""))
-        if match is None:
-            return None
-        counted = int(match.group("count"))
-        disc = report.get("disc")
-        block = disc.get("error_positions") if isinstance(disc, Mapping) else None
-        if not isinstance(block, Mapping) or block.get("state") != "read":
-            return None
-        verified = {
-            t.get("number")
-            for t in report.get("tracks") or []
-            if isinstance(t, Mapping) and t.get("accuraterip_verified") is True
-        }
-        speed = report.get("read_speed")
-        retried = speed.get("retried_tracks") if isinstance(speed, Mapping) else None
-        replaced = {
-            r.get("track")
-            for r in retried or []
-            if isinstance(r, Mapping)
-            and r.get("kept_read") in _REPLACING_READS
-            and r.get("replaced_because") == "accuraterip"
-            and r.get("track") in verified
-        }
-        total = in_replaced = 0
-        tracks: list[int] = []
-        for row in block.get("tracks") or []:
-            if not isinstance(row, Mapping) or row.get("state") != "read":
-                continue
-            if row.get("complete") is not True:
-                return None
-            if row.get("count_agrees_with_counters") is not True:
-                return None
-            errors, skips = _int(row.get("read_errors")), _int(row.get("skips"))
-            if errors is None or skips is None:
-                return None
-            total += errors + skips
-            number = row.get("number")
-            if errors + skips and isinstance(number, int) and number in replaced:
-                in_replaced += errors + skips
-                tracks.append(number)
-        if total != counted:
-            return None
-        return ErrorsInReplacedReads(counted, in_replaced, tuple(tracks))
-    except (AttributeError, TypeError, ValueError):
-        return None

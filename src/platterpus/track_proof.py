@@ -188,9 +188,9 @@ def track_proof(
 
     ``verified_reread`` is True when the track's file is a verified-read chase
     read (the report's ``read_speed.secure_rerip.verified_rereads``).
-    ``ctdb_track`` is this track's CTDB per-track result, or None when CTDB was
-    not consulted, as in the EAC-layout log, which is written before CTDB
-    answers.
+    ``ctdb_track`` is this track's CTDB per-track result, or None when CTDB has
+    not answered, as in the EAC-layout log's first write, before CTDB; the
+    window writes the log again when CTDB answers (TASKS R51).
 
     A contradiction outranks everything but an exact match, which it cannot
     co-exist with: a copy AccurateRip calls wrong has no proof, whatever CTDB or

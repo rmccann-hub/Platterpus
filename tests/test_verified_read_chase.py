@@ -187,6 +187,39 @@ def test_the_attempt_limit_is_the_users_r_capped(max_retries: int, limit: int) -
     assert decision is not None and decision.attempt_limit == limit
 
 
+def test_five_reads_no_two_agreeing_count_as_five_values_not_four() -> None:
+    """The plan of record, Appendix I §2, defect 5: `distinct_reads_seen` was 4.
+
+    The loop prints a value for every read but the last, so a five-read loop
+    that hit the limit showed four. Its own `Done;` line says at most 1 read
+    agreed, which proves the five reads held five values. Read through the real
+    parser, on track 3 of the securing-pass fixture above.
+    """
+    securing = {t.number: t for t in parse_cyanrip_log(SECURING_LOG).tracks}[3]
+    loop = securing_pass_read_checksums(SECURING_LOG)[3]
+    assert len(loop) == 4 and securing.rip_count == 5, "floor: the fixture's shape"
+    decision = _plan(securing=securing, loop_values=loop, first_pass=None)
+    assert decision is not None and decision.distinct_reads_seen == 5
+
+
+def test_a_floor_agreement_proves_no_count_and_an_exact_one_proves_a_floor() -> None:
+    """Only the fork's exact wording proves anything: `at most 2 reads agreed`
+    of 5 is at least 3 values; the older `no matches found` wording is a floor
+    under the agreement, so it proves nothing about the count."""
+    from dataclasses import replace
+
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    base = replace(UNVERIFIED, rip_count=5)
+    exact = replace(base, secure_rerip_agreement=RereadAgreement(2, True))
+    floor = replace(base, secure_rerip_agreement=RereadAgreement(2, False))
+    values = ("AAAAAAAA", "BBBBBBBB")
+    seen = _plan(securing=exact, loop_values=values, first_pass=None)
+    assert seen is not None and seen.distinct_reads_seen == 3
+    seen = _plan(securing=floor, loop_values=values, first_pass=None)
+    assert seen is not None and seen.distinct_reads_seen == 2
+
+
 # --- The reads ----------------------------------------------------------------
 
 

@@ -44,9 +44,10 @@ if TYPE_CHECKING:
 #: the last halves, with what was left out counted between them.
 APP_LOG_LINES_SHOWN: Final[int] = 12
 
-#: The line ``RipMixin._on_rip_cancel`` logs when Cancel is pressed. Only lines
-#: after the LAST one belong to the cancel ``sigterm-world`` is asked about.
-CANCEL_MARK: Final[str] = "rip cancel requested by the user"
+#: The line ``RipMixin._on_rip_cancel`` logs on every cancel, followed by WHO
+#: (``cancel_cause.who``, TASKS R62). Only lines after the LAST one belong to the
+#: cancel ``sigterm-world`` is asked about.
+CANCEL_MARK: Final[str] = "rip cancel requested by"
 
 #: The rescue's own line (``RipMixin._auto_force_stop``), then the outcome
 #: ``drive_control.term_unsignalled_holders`` logs from its thread.

@@ -6,7 +6,10 @@ no tray/daemon (exercised by the main-window tests, not this Qt-free module)."""
 
 from __future__ import annotations
 
-from platterpus.notify import build_completion_message
+from hypothesis import given
+from hypothesis import strategies as st
+
+from platterpus.notify import build_completion_message, notification_text
 
 
 def test_success_uses_detail_as_body() -> None:
@@ -36,3 +39,38 @@ def test_blank_detail_falls_back_to_a_generic_line() -> None:
     assert body_ok.strip()
     assert body_fail.strip()
     assert "success" in body_ok.lower()
+
+
+# --- no markup reaches the notification server (TASKS R87 item 1) -------------
+
+#: Shapes a server advertising `body-markup` would act on: a link, an image
+#: fetch, styling, and an entity.
+_MARKUP: tuple[str, ...] = (
+    '<a href="https://example.invalid">click</a>',
+    "<img src='file:///etc/passwd'>",
+    "<b>bold</b> <i>it</i> <u>under</u>",
+    "Tom &amp; Jerry &lt;3",
+)
+
+
+def test_every_markup_shape_reaches_the_body_as_plain_lookalikes() -> None:
+    assert len(_MARKUP) >= 4  # the floor: the loop below cannot pass empty
+    for detail in _MARKUP:
+        for success in (True, False):
+            title, body = build_completion_message(success, False, detail)
+            assert not set("<>&") & set(title + body), (detail, body)
+            # Every other character survives, in order: only the three move.
+            assert body.translate({0x2039: "<", 0x203A: ">", 0xFF06: "&"}) == detail
+
+
+def test_the_lookalikes_are_the_ones_named() -> None:
+    assert notification_text("a<b>c&d") == "a‹b›c＆d"
+
+
+@given(st.text())
+def test_notification_text_never_raises_and_never_carries_markup(text: str) -> None:
+    out = notification_text(text)
+    assert not set("<>&") & set(out)
+    assert len(out) == len(text)
+    _, body = build_completion_message(False, False, text)
+    assert not set("<>&") & set(body)

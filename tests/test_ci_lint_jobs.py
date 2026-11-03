@@ -143,7 +143,9 @@ def test_the_jobs_run_their_tools() -> None:
     ci = _ci_text()
     for job in ("workflow-lint:", "shellcheck:"):
         assert f"\n  {job}\n" in ci, f"ci.yml has no `{job}` job"
-    assert re.search(r"run: actionlint\b", ci), "workflow-lint does not run actionlint"
+    assert re.search(r'^\s+"\$RUNNER_TEMP/actionlint" -color$', ci, re.MULTILINE), (
+        "workflow-lint does not run the actionlint binary it verified"
+    )
     assert re.search(r"run: zizmor --offline\b", ci), (
         "workflow-lint does not run zizmor offline"
     )

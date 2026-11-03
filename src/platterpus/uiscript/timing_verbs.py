@@ -30,6 +30,7 @@ this module in its list of producers, by name and with that reason.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from platterpus.uiscript.report import Outcome
@@ -48,6 +49,27 @@ if TYPE_CHECKING:
     from platterpus.uiscript.script import Step
 
 log = logging.getLogger(__name__)
+
+
+def section_will_skip(args: Sequence[str]) -> bool:
+    """Whether ``skip-if-same-build <A> <B>`` will mark the rest of its section N/A.
+
+    The runner skips when both resolve to one commit, and when either cannot be
+    resolved (`timing_verbs._do_skip_if_same_build`); this asks the same two
+    functions, so the estimate and the run cannot disagree about it.
+    """
+    from platterpus.deps.fork_source import same_commit
+    from platterpus.deps.ripper_install import resolve_script_commit
+
+    if len(args) != 2:
+        return False
+    resolved: list[str] = []
+    for spec in args:
+        commit, refusal = resolve_script_commit(spec)
+        if refusal:
+            return True
+        resolved.append(commit)
+    return same_commit(resolved[0], resolved[1])
 
 
 class TimingVerbsMixin:

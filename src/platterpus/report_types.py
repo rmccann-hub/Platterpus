@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
+from platterpus.cancel_cause import CancelledByBlock
 from platterpus.disc_identity import DiscIdentityBlock
 from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
+from platterpus.securing_exit import SecuringExitsBlock
 
 
 class GeneratorBlock(TypedDict):
@@ -170,6 +172,8 @@ class RipperRecordBlock(TypedDict):
 
 class OutcomeBlock(TypedDict):
     status: str
+    #: v42 (TASKS R62): who cancelled a cancelled rip; `None` otherwise.
+    cancelled_by: CancelledByBlock | None
     failure_hint: str | None
     auto_unknown_retry: AutoUnknownRetryBlock
     # v13: the two facts that make a failure reproducible, and both were being
@@ -198,6 +202,9 @@ class OutcomeBlock(TypedDict):
     #: into the rips root, `path` names the copy), `missing` (`detail` says why)
     #: or `not_run` (no securing pass ripper was spawned, so none was due).
     securing_pass_record: SecuringRecordBlock
+    #: v42 (TASKS R64): the securing pass's exit status as the wrapper we reaped
+    #: and as cyanrip's own record, each named; `None` when it never ran.
+    securing_pass_exit_codes: SecuringExitsBlock | None
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's
@@ -934,6 +941,9 @@ class RipReport(TypedDict):
     #: whatever audio was read, which is the album only on a whole-disc rip.
     album_loudness_covers: AlbumLoudnessCoverage | None
     health_status: str | None
+    #: v42: the ripper's own health sentence for the album pass, verbatim;
+    #: `health_status` describes the reads the album keeps.
+    ripper_health_status: str | None
     sha256_hash: str | None
     log_checksum: str | None
     log_parse: LogParseBlock

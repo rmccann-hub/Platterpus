@@ -9,19 +9,23 @@
 #   What it costs:  it depends on the RUN SIZE you pick when it starts:
 #                     Quick     about 15 minutes  (does it still work?)
 #                     Standard  about an hour     (is a normal rip right?)
-#                     Full      4 to 6 hours      (LEAVE IT RUNNING OVERNIGHT)
-#                               measured: 4h14m (2026-09-22, 247 steps) and
-#                               5h33m (2026-09-26, 320 steps, the sum of its
-#                               report's step times), both on the Pioneer rig;
-#                               the script is 576 steps now, and P6
-#                               adds about 30 minutes to it. The run
-#                               states its own estimate when it starts
-#                               and again after section E (run-estimate)
+#                     Full      typically 2 to 3 hours on a healthy disc:
+#                               about 3 hours while a round compares two
+#                               builds (P5 and P6 run), under 2 hours when
+#                               it does not (START IT AND LEAVE IT: a damaged
+#                               or unknown disc can take many hours more).
+#                               These are typical figures, not a record: the
+#                               run states its own estimate when it starts
+#                               and after section E (run-estimate), and the
+#                               real time of each run is in its script report.
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus seven short partial
 #                   rips, four more of tracks 1-3 for P5's timed rip, and eight
 #                   of track 3 alone for P6's paired rips; P5 and P6 switch the
 #                   ripper between two builds (each says how long it takes).
+#                   P5 and P6 run only while a round reviews a build other than
+#                   the approved one; otherwise both are recorded N/A, cost
+#                   nothing, and the run is about an hour shorter.
 #                   ONLY FULL counts toward a version or a handshake close.
 #
 # RUN SIZES are cut from THIS ONE FILE. Each section's first line is
@@ -53,9 +57,14 @@
 #    AppImage from the releases page.
 # 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
 #    the newest one, and **not** always the one that installs without a warning.
-#    Tools -> Setup & Updates... -> Check for cyanrip updates, and TAKE WHATEVER OFFER IT MAKES:
-#    a plain one-click install if that is what appears, and the warned
-#    "Install it anyway" if that is what appears instead. Either way, accept it.
+#    THE ROUTE THAT ALWAYS WORKS:
+#        Tools -> Setup & Updates... -> Choose a build...
+#    The build this run needs is already selected when it opens; click Install. Help -> About Platterpus... then shows the same commit on its
+#    "Installed" line and its "Build under test" line.
+#    (Tools -> Setup & Updates... -> Check for cyanrip updates works too when the
+#    build is published: TAKE WHATEVER OFFER IT MAKES, a plain one-click install
+#    or the warned "Install it anyway". It cannot offer a build the fork has not
+#    published, and Choose a build... can, which is why that one is first now.)
 #
 #    Read that twice if you remember the old wording, because it said the
 #    opposite. Until v0.6.36 this comment told you to take the offer ONLY if it
@@ -85,16 +94,14 @@
 #    same reason and just as often. "Take whichever one it offers" is the form
 #    that cannot go stale, because it delegates to the surface that knows.
 #
-#    IF THE CHECK OFFERS YOU NOTHING SECTION A ACCEPTS, THERE IS A SECOND
-#    ROUTE, AND YOU WILL NEED IT WHILE A ROUND IS OPEN ON AN UNPUBLISHED BUILD.
+#    WHY CHOOSE A BUILD... COMES FIRST (it was the second route until
+#    2026-11-03, and the reason is still the one below).
 #    The in-app check reads the fork's RELEASE MANIFEST, so it can only offer
 #    builds the fork has published. A handshake round may open on a commit they
 #    have nominated but never released — round 16 did — and then the dialog's
 #    best honest answer is "your build is current", which is true of the
 #    manifest and is not the build section A wants. Taking it ends the night at
 #    section A.
-#
-#        Tools -> Setup & Updates... -> Choose a build...
 #
 #    It lists every build THIS version can install, each with a marker and a
 #    reason: `✓ approved` is what a closed round verified, `⚠ under-review` is
@@ -126,6 +133,12 @@
 #    evidence about the wrong binary. The cyanrip fork read the old sentence and
 #    relayed it to the operator (round 14 lap 11 §J7). `abort-if-failed` below is
 #    what makes it true.
+#
+# AFTERWARDS your own settings come back: the app restores them on every way
+# the session ends, Overread included. The run forces Overread off for itself;
+# if yours was ticked and you did not mean it, untick it after the run. On the
+# BDR-209D `-O` once hung the drive for about 23 minutes, and the bound the fork
+# added in `.24` has not been tested on this drive (TASKS R106).
 #
 # Everything else is in this file.
 #
@@ -187,7 +200,9 @@
 #     that no assertion can see. Section D takes screenshots; a person must look.
 #   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
 #     minutes. Never enabled here; section Q asserts it is still off.
-#   * `-f` READ-OFFSET AUTODETECTION. Never run on this rig.
+#   * `-f` READ-OFFSET AUTODETECTION ON A DRIVE NOBODY HAS MEASURED. Section O
+#     runs cyanrip's own `-f` and grades its answer against this drive's known
+#     offset; where no offset is known, there is nothing to grade it against.
 #   * C2 ERROR REPORTING. This drive reports it unsupported, so a green run is
 #     not evidence about C2.
 #   * DAMAGED MEDIA, and therefore paranoia's actual error correction.
@@ -1554,27 +1569,6 @@ cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
 
-# --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
-# Every section above reads ONE rip. This one reads every cyanrip log the run
-# wrote - each album's, each securing pass's, P3's - and compares their Gaps:
-# lists, disc by disc, naming each track where two rips of one disc disagree.
-# On the 2026-10-13 Full run the secure re-read (N) left out track 4's
-# 158-frame pregap that the whole-disc rip (F) listed, and track 9 read 94
-# frames in some rips and 95 in others; the fork found it, and nothing of ours
-# could have, because nothing compared two rips.
-#
-# INFO EITHER WAY, BY DECLARATION (docs/testing.md, Acceptance severity, P4).
-# A disagreement is the fork's known detector variance, it moves no sample (a
-# merged pregap stays at the end of the previous track), and no log can say
-# which reading is right; it is gathered for the fork with every track named.
-# BLOCKED when fewer than two logs of one disc could be compared: a check that
-# passed on finding nothing would be decoration, and a run whose rips left no
-# two comparable logs has lost its provenance record. `standard`, because a
-# Quick run rips once and could only ever be blocked here.
-log --- P4. every rip of this disc: do their pregap lists agree? ---
-run-size standard
-expect-pregaps-agree
-
 # --- P5. S15: A TIMED RIP, THE APPROVED BUILD AGAINST THE ONE UNDER REVIEW --
 # The owner asked for it, and the fork's round 36 lap 1 S15 proposed the method
 # (docs/handshake/inbound/round-36-lap-01.md): the same tracks of the reference
@@ -1796,6 +1790,36 @@ set secure_rerip_matches 2
 expect secure_rerip_matches 2
 set secure_rerip_dynamic on
 expect secure_rerip_dynamic on
+
+# --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
+# Every section above reads ONE rip. This one reads every cyanrip log the run
+# wrote - each album's, each securing pass's, P3's, P5's and P6's - and compares
+# their Gaps: lists, disc by disc, naming each track where two rips of one disc
+# disagree.
+#
+# On the 2026-10-13 Full run the secure re-read (N) left out track 4's
+# 158-frame pregap that the whole-disc rip (F) listed, and track 9 read 94
+# frames in some rips and 95 in others; the fork found it, and nothing of ours
+# could have, because nothing compared two rips.
+#
+# WHY IT RUNS HERE, AFTER P6 AND NOT BEFORE P5 (TASKS R60, the plan of record,
+# Appendix I §2, defect 4). It used to run before P5, so it never saw the rips
+# P5 and P6 make on the approved build and the build under review: on the
+# plan's disc 4 both of P5's `.25` logs left out track 5's 175-frame
+# pregap that all 13 `.26` logs listed, and nothing compared them. Its label
+# stays P4, because the severity table and the tier table key on it.
+#
+# INFO EITHER WAY, BY DECLARATION (docs/testing.md, Acceptance severity, P4).
+# A disagreement is the fork's known detector variance, it moves no sample (a
+# merged pregap stays at the end of the previous track), and no log can say
+# which reading is right; it is gathered for the fork with every track named.
+# BLOCKED when fewer than two logs of one disc could be compared: a check that
+# passed on finding nothing would be decoration, and a run whose rips left no
+# two comparable logs has lost its provenance record. `standard`, because a
+# Quick run rips once and could only ever be blocked here.
+log --- P4. every rip of this disc: do their pregap lists agree? ---
+run-size standard
+expect-pregaps-agree
 
 # --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Restoring is not tidiness. Uniform secure re-read doubles every future rip on

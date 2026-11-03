@@ -68,6 +68,20 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_echoed_field_forgery.py::test_OUR_values_cannot_carry_a_line_into_the_log": (
         "test_the_field_table_names_all_eleven_values_we_send"
     ),
+    # TASKS R86 (2026-11-03): the thirteen disc-header rows the parser guards,
+    # equal to its own rule table and at least 13.
+    "test_echoed_field_forgery.py::test_each_forged_header_row_IS_read_where_cyanrip_prints_it": (
+        "test_the_header_row_table_is_every_row_the_parser_guards"
+    ),
+    "test_echoed_field_forgery.py::test_a_header_row_forged_on_the_Album_line_never_gives_its_value": (
+        "test_the_header_row_table_is_every_row_the_parser_guards"
+    ),
+    "test_echoed_field_forgery.py::test_a_header_row_forged_in_the_disc_CDTEXT_block_never_gives_its_value": (
+        "test_the_header_row_table_is_every_row_the_parser_guards"
+    ),
+    "test_echoed_field_forgery.py::test_a_header_row_forged_in_a_track_echo_is_not_read": (
+        "test_the_header_row_table_is_every_row_the_parser_guards"
+    ),
     # `.27`'s `Pregap search:` line (2026-10-26, round 36 lap 8 S21): the shapes
     # are filled from their P2 format string, and one variant from a filled line.
     "test_pregap_search.py::test_each_shape_of_the_line_is_read": (

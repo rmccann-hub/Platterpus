@@ -144,7 +144,7 @@ class DriveMixin(MainWindowShared):
         # Record the offer first so a decline (or any path out) never re-nags;
         # afterwards calibration lives on Tools → Setup & Updates… → Set up drive….
         self._config.drive_setup_prompted = True
-        self._save_config(self._config)
+        self._save_config_or_report("the drive-setup offer was made")
         choice = message_boxes.question(
             self,
             "Set up your drive",
@@ -231,7 +231,7 @@ class DriveMixin(MainWindowShared):
         self._config.read_offset = value
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
-        self._save_config(self._config)
+        self._save_config_or_report(f"The read offset {value:+d}", tell_user=True)
         # Setup & Updates shows the offset beside Set up drive…; keep it true.
         self._refresh_setting_views()
         return True
@@ -337,7 +337,8 @@ class DriveMixin(MainWindowShared):
         Only a first pass that read each track once: a uniform ``-Z`` rip's
         extraction times hold every read of a track, which would make the drive
         look several times slower. A failed rip teaches nothing; a cancelled one
-        teaches the tracks it finished, as its log records them.
+        teaches the tracks it finished, as its log records them, less any track
+        paranoia skipped on (`rip_estimate.struggled`, TASKS R63).
         """
         from dataclasses import replace
 
@@ -349,9 +350,16 @@ class DriveMixin(MainWindowShared):
                 return
             if params.secure_rerip_matches > 0 and not params.secure_rerip_dynamic:
                 return
-            sample = rip_estimate.first_pass_sample(
-                getattr(rip_log, "tracks", ()) or ()
-            )
+            tracks = getattr(rip_log, "tracks", ()) or ()
+            sample = rip_estimate.first_pass_sample(tracks)
+            # Said, so a reader of the log knows the figure is not the whole rip.
+            hard = sum(1 for track in tracks if rip_estimate.struggled(track))
+            if hard:
+                log.info(
+                    "drive reading speed: left out %d track(s) with paranoia skips, "
+                    "whose time measures the disc, not the drive",
+                    hard,
+                )
             drive = self._drive_picker.current_drive()
             if sample is None or drive is None:
                 return
@@ -411,9 +419,17 @@ class DriveMixin(MainWindowShared):
             new_cache = cache_defeat
             new_cache_source = source
 
+        # Built FROM the existing profile, so a field this writer does not set
+        # survives it. It used to build a fresh DriveProfile, and `read_rate`
+        # (added after this writer) was dropped on every drive sighting: the
+        # speed a rip had just learned was gone by the next rescan, so every
+        # estimate fell back to the rig's seed (found 2026-11-03, TASKS R109).
+        from dataclasses import replace
+
+        base = existing or DriveProfile(fingerprint=fingerprint, vendor="", model="")
         self._drive_profiles.upsert(
-            DriveProfile(
-                fingerprint=fingerprint,
+            replace(
+                base,
                 vendor=getattr(drive, "vendor", ""),
                 model=getattr(drive, "model", ""),
                 release=getattr(drive, "release", ""),

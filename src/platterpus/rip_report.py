@@ -30,6 +30,8 @@ from platterpus import (
     written_whole,
 )
 from platterpus.atomic_write import atomic_write_text
+from platterpus.cancel_cause import outcome_block as cancel_outcome_block
+from platterpus.cancel_cause import sentence_from_outcome
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.error_positions import ISSUE_REPORTED as ERROR_POSITIONS_REPORTED
@@ -52,6 +54,7 @@ from platterpus.pregap_search import report_block as pregap_search_block
 from platterpus.read_offset_check import OffsetLookup, check_read_offset
 from platterpus.read_offset_check import issue_for as read_offset_issue
 from platterpus.record_fate import RecordFate, missing_issue, outcome_block
+from platterpus.replaced_read_errors import errors_in_replaced_reads_of
 from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
@@ -69,6 +72,7 @@ from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_exit_class import classify_exit
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
+from platterpus.securing_exit import exits_block
 from platterpus.track_proof import (
     TrackProof,
     ctdb_tracks_by_number,
@@ -603,7 +607,40 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      gains `disc_read_meaning`, that word's meaning in a sentence
 #      (`record_track_v11.ISRC_DISC_READ_MEANINGS`), null unless
 #      `disc_read_state` is `read`; an unknown word stays `unrecognised`.
-REPORT_SCHEMA_VERSION: int = 41
+# v42: `outcome.securing_pass_exit_codes` (TASKS R64; the plan of record,
+#      Appendix H §3). v41 shipped in 0.7.117, so this is a new number.
+#      Additions only. The securing pass's exit status twice, each named for
+#      the process it describes: `wrapper` (what we reaped from the host-exported
+#      `~/.local/bin/cyanrip`, the same number as `securing_pass_exit_code`) and
+#      `reader` (cyanrip's own, from its kept `--diagnostics` record), with
+#      `wrapper_is` / `reader_is` saying which is which, `reader_record_state`,
+#      `agree` (null unless both are known) and `sentence`. Null when no
+#      securing pass ripper was spawned. Disc 1 of 2026-10-21 had 1 and 143
+#      (SIGTERM) and neither field said which process each came from
+#      (`securing_exit.py`).
+#      Also v42, a meaning that WIDENS (TASKS R66): `verified_read_chase.
+#      distinct_reads_seen` counts the read a limit-hit loop prints no value
+#      for, where the fork's `at most M reads agreed` line proves it (N reads,
+#      at most M agreeing, hold at least ceil(N / M) values).
+#      Also v42, still unreleased, so additions only (TASKS R62):
+#      `outcome.cancelled_by`, who cancelled a cancelled rip, as the caller of
+#      the window's one Cancel named itself (`cancel_cause.py`): `by` (`user`,
+#      `time_limit`, `run_ended`, `script_step`, or `not_recorded`), `detail`
+#      (the script step or the run's reason) and `sentence`. Null unless
+#      `status` is `cancelled`. The `rip_cancelled` issue carries the sentence.
+#      Disc 1 of 2026-10-21 was cancelled by the run's six-hour limit and said
+#      "you cancelled the rip".
+#      Also v42, still unreleased (TASKS R59): `ripper_health_status`, the
+#      ripper's own health sentence for the album
+#      pass, verbatim from the parser ("2 ripping errors"); and `health_status`
+#      NARROWS to the reads the album keeps (TASKS R59, run C of 2026-10-22):
+#      when every counted error was in a first read the album replaced with a
+#      read AccurateRip verified, and each replacement printed no READERR or
+#      SKIP of its own, it reads "No errors occurred in the reads kept; the
+#      ripper's N ripping error(s) were all in the first read of track(s) …"
+#      (`replaced_read_errors.py`). Otherwise both say the same. v41 shipped in
+#      0.7.114, so this is a new number.
+REPORT_SCHEMA_VERSION: int = 42
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -1080,6 +1117,7 @@ def build_outcome(
     securing_pass_exit_code: int | None = None,
     ripper_record: RipperEnding | None = None,
     securing_pass_record: RecordFate | None = None,
+    cancelled_by: object = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -1118,6 +1156,10 @@ def build_outcome(
 
     ``securing_pass_record`` is what became of the securing pass's own record
     (v34, TASKS R9), written by :func:`~platterpus.record_fate.outcome_block`.
+
+    ``cancelled_by`` is the :class:`~platterpus.cancel_cause.CancelCause` the
+    caller of the Cancel named (v42, TASKS R62); null unless ``status`` is
+    ``cancelled``, and ``not_recorded`` when a cancelled rip's cause was not said.
     """
     argv = tuple(ripper_argv or ())
     # The FIRST invocation, when the rip took more than one.
@@ -1141,6 +1183,7 @@ def build_outcome(
     build_tag = ripper_build_tag.strip() if isinstance(ripper_build_tag, str) else ""
     return {
         "status": status,
+        "cancelled_by": cancel_outcome_block(cancelled_by, status=status),
         "failure_hint": failure_hint or None,
         "auto_unknown_retry": {
             "fired": bool(auto_unknown_retry_fired),
@@ -1173,6 +1216,13 @@ def build_outcome(
         # temp folder is deleted, so without this a missing one was silent.
         "securing_pass_record": outcome_block(
             securing_pass_record, started=securing_pass_started
+        ),
+        # v42 (TASKS R64): the securing pass's exit status as the wrapper we
+        # reaped and as cyanrip's own record, each named; null when it never ran.
+        "securing_pass_exit_codes": exits_block(
+            started=securing_pass_started,
+            wrapper_code=securing_pass_exit_code,
+            ending=getattr(securing_pass_record, "ending", None),
         ),
         # A list (JSON has no tuples) of the argv as spawned. Empty argv is
         # serialized as null, not [], so "we never launched it" and "we launched
@@ -1887,8 +1937,19 @@ def _build(
         "album_loudness_covers": album_loudness.coverage(rip_log),
         # Never "No errors occurred" over an error line the ripper's own zero
         # count leaves out (`rip_health`, 2026-10-21); the same function the
-        # window's status line asks.
-        "health_status": effective_health_status(rip_log) or None,
+        # window's status line asks. About the reads KEPT (v42, TASKS R59): when
+        # every counted error was in a read the album replaced, it says so and
+        # names them; the ripper's own sentence stays in `ripper_health_status`.
+        "health_status": effective_health_status(
+            rip_log,
+            errors_in_replaced_reads_of(
+                rip_log,
+                (disc or {}).get("error_positions"),
+                (read_speed_block or {}).get("retried_tracks"),
+            ),
+        )
+        or None,
+        "ripper_health_status": getattr(rip_log, "health_status", "") or None,
         "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
         # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
         # signed log checksum, the one archival-forensic field we were dropping.
@@ -1954,6 +2015,7 @@ _LEAD_KEYS_FIRST: Final[tuple[str, ...]] = (
     "diagnostics",
     "issues",
     "health_status",
+    "ripper_health_status",
     "accuraterip_summary",
     "partially_accurate_summary",
     "partially_accurate_reported",
@@ -2724,7 +2786,12 @@ def _issues(
             or "the rip did not complete successfully",
         )
     elif status == "cancelled":
-        add("warning", "rip_cancelled", "the rip was cancelled before it finished")
+        who = sentence_from_outcome(outcome)
+        add(
+            "warning",
+            "rip_cancelled",
+            "the rip was cancelled before it finished" + (f": {who}" if who else ""),
+        )
 
     # Ranked as an ERROR, above the cancel it usually accompanies, because it
     # invalidates the other entries rather than adding to them: a truncated log

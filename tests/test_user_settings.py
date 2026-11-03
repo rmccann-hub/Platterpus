@@ -56,3 +56,31 @@ def test_no_snapshot_is_stated_not_filled_in() -> None:
 
     record = json.loads(settings_record_text(None, Config()))
     assert record["before_run"] is None and record["changed_by_run"] is None
+
+
+def test_restored_settings_carry_the_runs_value_and_the_users() -> None:
+    """TASKS R106: each field the run changed, with both values, in field order,
+    and none of the app's own state."""
+    from platterpus.user_settings import RestoredSetting, restored_settings
+
+    before = dataclasses.replace(Config(), force_overread=True)
+    during = dataclasses.replace(
+        before, force_overread=False, output_format="wav", host_setup_prompted=True
+    )
+    restored = restored_settings(before, during)
+    by_name = {r.name: r for r in restored}
+    assert set(by_name) == {"force_overread", "output_format"}
+    assert by_name["force_overread"] == RestoredSetting("force_overread", False, True)
+    assert by_name["output_format"].describe() == (
+        "output_format: the run had 'wav', yours is 'flac'"
+    )
+
+
+def test_overread_restored_only_when_it_comes_back_on() -> None:
+    from platterpus.user_settings import RestoredSetting, overread_restored
+
+    assert overread_restored([RestoredSetting("force_overread", False, True)])
+    # Put back OFF (the run had turned it on): nothing to warn about.
+    assert not overread_restored([RestoredSetting("force_overread", True, False)])
+    assert not overread_restored([RestoredSetting("output_format", "wav", "flac")])
+    assert not overread_restored([])
