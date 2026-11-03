@@ -515,7 +515,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         "rather than being dropped when the next rip started. Waits (default 600s) "
         "because the checks run after `wait-for-rip` returns; at least one gate "
         "must have run, so the step cannot pass over a rip that checked nothing, "
-        "and a derived-format verification that did not run is a FAIL",
+        "and a check that ran and failed, or a derived one that did not run, FAILs",
     ),
     # --- Grading what the rip LEFT (2026-09-30) -------------------------------
     # Every rip leaves a report, a ripper's log, an EAC-style log, a cue sheet and
@@ -547,7 +547,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         1,
         "expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: "
-        "looked up and compared for a whole disc, declined for a partial one",
+        "compared for a whole disc (a match CTDB outvotes fails), declined if partial",
     ),
     Verb(
         "expect-tags",

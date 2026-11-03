@@ -1085,7 +1085,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **331 -> 330** (2026-10-21, TASKS R13): the data-track test now asks `data_tracks.is_data_track` instead of restating the substring.
     # **330 -> 359** (2026-10-26, run C): `derived_verification_refusal`, the one predicate `expect-derived-output` and `expect-verification` share for a derived verification that did not run, beside `settle_state` which both already share.
     # **359 -> 364** (2026-11-03, TASKS R66): `grade_accuraterip` words each AccurateRip state through `accuracy_grading.STATE_WORDS`, so a frame-450-only match reads "frame 450 only", not `offset-variant`.
-    "uiscript/artifact_grading.py": 364,
+    # **364 -> 328** (2026-11-03, review A3/C1 of the 0.7.117 Full run): lowered: `grade_ctdb` moved to `uiscript/record_grading.py`, beside the other graders that read a verdict the report computed; `derived_verification_refusal` refuses a derived gate that ran and FAILED.
+    "uiscript/artifact_grading.py": 328,
     # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
     # claude-code-skills audit check. **Kept as one module deliberately**: the
     # weight behind a match (`best_confidence`, `outvoted`) and its one wording

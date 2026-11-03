@@ -81,10 +81,10 @@ text is taken verbatim as one value.
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
 | `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master, and that the report's derived-file verification ran. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
-| `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a derived-format verification that did not run is a FAIL |
+| `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a check that ran and failed, or a derived one that did not run, FAILs |
 | `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
-| `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one |
+| `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial |
 | `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
@@ -666,7 +666,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a derived-format verification that did not run is a FAIL"
+      "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a check that ran and failed, or a derived one that did not run, FAILs"
     },
     {
       "name": "expect-album-audit",
@@ -690,7 +690,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one"
+      "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial"
     },
     {
       "name": "expect-tags",

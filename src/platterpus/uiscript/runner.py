@@ -2913,7 +2913,7 @@ class ScriptRunner(
         than passing or skipping: the section turned the checks on, and a run in
         which they never ran has not tested them.
         """
-        from platterpus.uiscript import artifact_grading
+        from platterpus.uiscript import artifact_grading, record_grading
 
         try:
             seconds = float(step.args[0]) if step.args else 600.0
@@ -2966,8 +2966,8 @@ class ScriptRunner(
                 return True
             if state != artifact_grading.SETTLE_SETTLED or report is None:
                 return False
-            refused = artifact_grading.derived_verification_refusal(report)
-            if refused is not None:  # run C, 2026-10-22: it passed over this
+            refused = record_grading.verification_refusal(report)
+            if refused is not None:  # run C, 2026-10-22; C1, a failed gate, 2026-11-03
                 self._deadline_outcome = Outcome.FAIL
                 self._deadline_detail = f"for {folder.name}, {refused}"
                 return True
