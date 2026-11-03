@@ -61,13 +61,23 @@ import os
 import re
 import shutil
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Final
 
 from platterpus import __version__, diagnostics_record, record_fate
-from platterpus.evidence_bundle import BundleResult, build_bundle, bundle_filename
+from platterpus.evidence_bundle import (
+    BundleEntry,
+    BundleResult,
+    build_bundle,
+    bundle_filename,
+)
+from platterpus.session_sources_record import (
+    older_than_session_line,
+    render_sources_record,
+    written_before_session,
+)
 from platterpus.uiscript.find_script import PACKAGED_SCRIPT_DIR_NAME
 
 log = logging.getLogger(__name__)
@@ -239,6 +249,9 @@ class SessionLayout:
 #: may well type it.
 SESSION_DIR_PREFIX: Final[str] = "platterpustestsession"
 
+#: :attr:`SessionLayout.rip_bundles`, named in the closing message too.
+RIP_BUNDLES_DIR: Final[str] = "ripbundles"
+
 #: The ONE directory everything this project creates on the rig lives under.
 #:
 #: **Maintainer instruction, 2026-09-11: "stop polluting my home directory".**
@@ -318,7 +331,7 @@ def plan_session(*, home: Path, stamp: str) -> SessionLayout:
         run_dir=evidence / "run",
         rips=root / "rips",
         bundle=root / bundle_filename(stamp),
-        rip_bundles=root / "ripbundles",
+        rip_bundles=root / RIP_BUNDLES_DIR,
     )
 
 
@@ -491,6 +504,11 @@ class _Staged:
     present: int
     absent: int
     failed: int
+    #: Rotations left out as older than the session (`session_sources_record`).
+    older: int = 0
+    #: Archive member name -> index of its line, so `SOURCES.txt` can be read
+    #: from what the bundle did with that member rather than from the plan.
+    members: dict[str, int] = field(default_factory=dict)
 
 
 def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
@@ -536,7 +554,8 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
     """
     extra_dirs: dict[str, Path] = {"session": layout.evidence}
     lines: list[str] = []
-    present = absent = failed = 0
+    members: dict[str, int] = {}
+    present = absent = failed = older = 0
 
     for index, source in enumerate(sources):
         try:
@@ -558,6 +577,8 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
         if _is_within(source, layout.evidence):
             present += 1
             relative = source.relative_to(layout.evidence)
+            if is_file:
+                members[f"session/{relative.as_posix()}"] = len(lines)
             lines.append(
                 f"  {source}\n      in the session folder — archived as "
                 f"session/{relative.as_posix()}"
@@ -579,6 +600,18 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
             prefix = f"extra{index:02d}{_member_slug(source.name)}"
             extra_dirs[prefix] = source
             lines.append(f"  {source}\n      directory — archived under {prefix}/")
+            continue
+
+        # A rotation last written before the session holds none of its lines;
+        # it is named and left on disk, so the budget goes to this run's logs.
+        written = (
+            written_before_session(source, layout.stamp)
+            if _is_log_rotation(source)
+            else None
+        )
+        if written is not None:
+            older += 1
+            lines.append(older_than_session_line(source, written, layout.stamp))
             continue
 
         # A file. Its own subfolder, so two `log.txt`s from two directories do
@@ -615,48 +648,37 @@ def _stage(layout: SessionLayout, sources: Sequence[Path]) -> _Staged:
             lines.append(f"  {source}\n      COULD NOT COLLECT: {exc}")
             continue
         present += 1
-        lines.append(
-            f"  {source}\n      archived as session/"
-            f"{destination.relative_to(layout.evidence).as_posix()}"
-        )
+        member = f"session/{destination.relative_to(layout.evidence).as_posix()}"
+        members[member] = len(lines)
+        lines.append(f"  {source}\n      archived as {member}")
 
-    return _Staged(extra_dirs, lines, present, absent, failed)
+    return _Staged(extra_dirs, lines, present, absent, failed, older, members)
 
 
-def _render_sources_record(layout: SessionLayout, staged: _Staged) -> str:
+def _render_sources_record(
+    layout: SessionLayout, staged: _Staged, entries: Sequence[BundleEntry] = ()
+) -> str:
     """The per-source record, written into the archive as `SOURCES.txt`.
 
     ``evidence_bundle``'s own manifest reports what it saw; it cannot report a
     file it was never handed. This is the other half: every path this session
-    *asked for*, and what became of it. The two together are what make an absence
-    visible instead of invisible.
+    *asked for*, and what became of it, read from the bundle's ``entries`` so a
+    file the budget refused is never called archived
+    (:mod:`platterpus.session_sources_record`).
     """
-    total = staged.present + staged.absent + staged.failed
-    return "\n".join(
-        [
-            "PLATTERPUS ACCEPTANCE SESSION — SOURCES",
-            "=======================================",
-            "",
-            f"session stamp      {layout.stamp}",
-            f"session folder     {layout.root}",
-            f"deliverable        {layout.bundle}",
-            "",
-            "Every path this session asked for is listed below, INCLUDING the ones",
-            "that were not there. An absence somebody can read is a finding; an",
-            "absence nobody can see reads as a complete bundle.",
-            "",
-            f"asked for {total}: {staged.present} collected, "
-            f"{staged.absent} absent, {staged.failed} failed",
-            "",
-        ]
-        + (staged.lines or ["  (nothing was named — this is itself a finding)"])
-        + [
-            "",
-            "No audio can be in this archive: everything above passed the",
-            "allowlist in evidence_bundle (see MANIFEST.txt, which names every",
-            "file it refused and why).",
-            "",
-        ]
+    return render_sources_record(
+        stamp=layout.stamp,
+        root=layout.root,
+        bundle=layout.bundle,
+        lines=staged.lines,
+        members=staged.members,
+        counts={
+            "present": staged.present,
+            "absent": staged.absent,
+            "failed": staged.failed,
+            "older": staged.older,
+        },
+        entries=entries,
     )
 
 
@@ -739,7 +761,9 @@ def finish_session(
     try:
         staged = _stage(layout, sources)
         text: dict[str, str] = dict(embedded_text or {})
-        text[SOURCES_RECORD_NAME] = _render_sources_record(layout, staged)
+        # Written by us after the bundle has judged every file, and it replaces
+        # a caller's key of the same name: it is the omission record.
+        text.pop(SOURCES_RECORD_NAME, None)
         result = build_bundle(
             dest_dir=layout.bundle.parent,
             stamp=layout.stamp,
@@ -749,6 +773,7 @@ def finish_session(
                 **dict(facts or {}),
                 "session folder": str(layout.root),
                 "sources collected": str(staged.present),
+                "sources older than the session": str(staged.older),
                 "sources absent": str(staged.absent),
                 "sources failed": str(staged.failed),
                 **_album_scan_facts(album_dirs),
@@ -765,6 +790,9 @@ def finish_session(
             log_dir=_NO_LOG_SWEEP,
             extra_dirs=staged.extra_dirs,
             extra_text=text,
+            late_text=lambda entries: {
+                SOURCES_RECORD_NAME: _render_sources_record(layout, staged, entries)
+            },
         )
     except Exception as exc:  # noqa: BLE001 — must never crash a finished session
         log.exception("could not pack the acceptance session")

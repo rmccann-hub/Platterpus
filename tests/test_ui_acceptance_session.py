@@ -2226,3 +2226,24 @@ def test_a_run_with_nothing_to_send_also_says_overread_is_back_on(
     assert "nothing to send" in said.casefold(), said
     assert OVERREAD_RESTORED_NOTE in said, said
     assert win._config.force_overread is True
+
+
+def test_the_closing_message_says_the_per_rip_bundles_are_not_the_file_to_send(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """The 2026-11-03 Full run left 20 per-rip bundles (89.8 MB) in the session
+    folder's `ripbundles`, each made for its rip's Send button (the design,
+    `test_session.SessionLayout.rip_bundles`), while the message said "Send this
+    one file" and named the folder as holding everything. It now names them and
+    says the one file carries the same."""
+    from platterpus.test_session import RIP_BUNDLES_DIR
+
+    win = _start(window, session, process_until)
+    _finish(
+        win,
+        process_until,
+        RunReport(started_at="t", app_version="v", steps=_steps(Outcome.PASS)),
+    )
+    text = shown_boxes[-1].text()
+    assert "Send this one file" in text, text
+    assert RIP_BUNDLES_DIR in text and "no need to send those" in text, text

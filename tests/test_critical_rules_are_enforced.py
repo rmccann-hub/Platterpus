@@ -1779,7 +1779,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1051 -> 1078** (2026-10-14, the fork's round 32 lap 9 S8): each included member's SHA-256, computed where its bytes are written (a `BundleEntry` field and the two constructions that fill it). The manifest block that renders the hashes went to `bundle_integrity.py` instead; the hash itself has to be taken from the bytes `_write` was handed, so it lives beside `_write`.
     # **1078 -> 1161** (2026-10-14, the fork's round 32 lap 9 S10): home-folder paths replaced at export. The replacement and its manifest block live in `export_redaction.py` and `bundle_integrity.py`; what stays here is what must sit where a member is written: the five `BundleEntry` fields that record what changed, the one constructor both routes share, the replacement placed before the budget, the write and the hash, and the manifest rendered twice so it can count its own paths.
     # **1161 -> 1189** (2026-10-16, TASKS R16): the bundle passes this machine's hostname and the owner's names (from the list outside the repository) to the export's redaction, records the hostname and name counts per member, and redacts its own manifest for all three. Finding and replacing them is `export_identity.py`; this is where the bundle's members are written.
-    "evidence_bundle.py": 1189,
+    # **1189 -> 1194** (2026-11-03, review B8): `late_text`, text rendered from the entries after every file is judged, so the session's SOURCES.txt and MANIFEST.txt are one account.
+    "evidence_bundle.py": 1194,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -2372,7 +2373,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1053 -> 1069** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `UNKNOWN_DISC_SCRIPT_NAME`, `ACCEPTANCE_SCRIPT_NAMES` and a `name` on the two packaged-script lookups, so both scripts have their one name in the one place the session reads it.
     # **1069 -> 1076** (2026-10-14, TASKS R9): the MANIFEST's `ripper -j records missing` line, delegated to `record_fate.record_absences` with the session's own report glob.
     # **1076 -> 1088** (2026-10-26, run B of the 0.7.112 Full runs): `post_rip_wait_s`, the bound on how long a finished session waits for the last rip's post-rip checks, beside `rip_wait_s` which bounds the wait for the rip.
-    "test_session.py": 1088,
+    # **1088 -> 1116** (2026-11-03, review B8): `_stage` names a rotation older than the session and records each staged member's line, so `SOURCES.txt` is rendered from the bundle's verdicts through `late_text`; the record itself moved to `session_sources_record.py`.
+    "test_session.py": 1116,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -2603,7 +2605,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1816 -> 1875** (2026-10-26, run B): `_acceptance_post_rip_at_end` waits, bounded, for the last rip's post-rip checks before the session restores settings and packs, and the bundle's facts say what it waited for or what was still running; beside `_acceptance_rip_at_end`, the same shape one step earlier.
     # **1875 -> 1910** (2026-11-03, TASKS R106): the settings restore logs each field with the run's value and the user's, the bundle's facts carry the same list and the Overread state, and when Overread comes back on both closing dialogs and the log say so. The pure halves (`RestoredSetting`, `restored_settings`, `overread_restored`, the note) are in `user_settings.py`; what stays here is the restore itself and the two dialogs it feeds.
     # **1910 -> 1930** (2026-11-03, TASKS R96): the first-run offers wait for the main window through `hold_until_free`, the unattended check asked again where they open; the offers themselves moved into `_make_first_run_offers` beside the gate that schedules them.
-    "ui/main_window_provision.py": 1930,
+    # **1930 -> 1935** (2026-11-03, review B8): the closing message names the `ripbundles` folder (each rip's own bundle, for its Send button) and says the one file carries the same.
+    "ui/main_window_provision.py": 1935,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME

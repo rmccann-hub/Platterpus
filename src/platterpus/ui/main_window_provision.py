@@ -1638,6 +1638,8 @@ class ProvisioningMixin(MainWindowShared):
         *that* instead. Reporting a failed archive as a success is how somebody
         uploads a file that is not there.
         """
+        from platterpus.test_session import RIP_BUNDLES_DIR
+
         path = getattr(result, "path", None)
         error = str(getattr(result, "error", "") or "")
         note = self._acceptance_inhibit_note or "Sleep lock: not determined."
@@ -1691,6 +1693,9 @@ class ProvisioningMixin(MainWindowShared):
             "Everything the run made — its rips, transcript, report and "
             f"screenshots — is in that one folder:\n{self._acceptance_root}\n\n"
             f"{included} file(s) included, {excluded} excluded; no audio.\n\n"
+            f"The {RIP_BUNDLES_DIR} folder beside it holds each rip's own "
+            "bundle, for that rip's Send button. The file above carries the "
+            "same; there is no need to send those.\n\n"
             f"{note}",
             open_path=path.parent,
         )
