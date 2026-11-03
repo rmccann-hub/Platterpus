@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **CI's `astral-sh/setup-uv` moves from v10.3.1 to v10.3.2** (contributor-facing), Dependabot's pull request #431 carried here with the bill of materials regenerated; the pin is the full commit SHA of the `v10.3.2` tag, read from the action's own repository.
 - **Our round 37 lap 6 is written and held for the owner's word** (contributor-facing): it files the fork's lap 5, copies their `seam-commands.md`, accepts their amendment that a lap is sent when it reaches its side's default branch, and offers an optional next-round note on a slow pattern of theirs that we fixed in ours.
 - **The fork's round 37 lap 5 is filed, and the shared `docs/seam-commands.md` is their copy at `cyanrip@b99b286`** (contributor-facing): it differs from ours by one cell, our own `--reread-time-limit` answer, which they landed.
 - **TASKS ranks what is left after 2026-11-03's fixes** (contributor-facing): what waits on the owner (the Full run on `.28`, R59 (a) held, R60's floor, an Actions setting, a locked rule's wording), ours in order, and what needs a disc or an outside answer. R98 closes: the AppImage builds through the new permissions step on CI.
