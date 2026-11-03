@@ -10,7 +10,6 @@ out to the ripper (which would mean entering the container and could stall).
 from __future__ import annotations
 
 import platform
-import sys
 from collections.abc import Callable
 
 from PySide6 import __version__ as PYSIDE_VERSION
@@ -213,8 +212,6 @@ class AboutDialog(CenteredDialog):
             else:
                 mark = "⚠ missing"
             own = entry["version_text"] or ""
-            # The parsed version is the tool's output too, so it is escaped like
-            # every other value here that the code did not write (TASKS R87).
             version = (
                 f"`{own.replace('`', '')}`"
                 if own
@@ -238,30 +235,17 @@ class AboutDialog(CenteredDialog):
             inventory = build_info.component_inventory(report)
             unchecked_note = dep_manager.describe_unchecked(report)
             ripper_banner = build_notes.ripper_banner(report)
-        py = inventory["python"] or "{}.{}.{}".format(*sys.version_info[:3])
-        # Every environment value is read from outside the code (a generated
-        # `_build.py`, the interpreter, Qt, the OS), so each is escaped: a build
-        # stamp or platform string holding `*`, `_`, `[` or `<` must show as
-        # written, never as Markdown (TASKS R87 item 2). `app` is our own
-        # `__version__` and stays as it is.
-        env = {
-            "build": inventory["build"],
-            "python": py,
-            "qt": inventory["qt"] or qVersion(),
-            "pyside6": inventory["pyside6"] or PYSIDE_VERSION,
-            "platform": inventory["platform"] or platform.platform(),
-        }
-        lit = {key: _markdown_literal(str(value)) for key, value in env.items()}
+        lit = _markdown_literal  # outside text, shown as written (R87)
         return (
             f"# Platterpus\n\n"
             f"**Version {inventory['app']}**\n\n"
             f"{help_content.TAGLINE}\n\n"
             f"### Environment\n"
-            f"- Build: {lit['build']}\n"
-            f"- Python: {lit['python']}\n"
-            f"- Qt: {lit['qt']}\n"
-            f"- PySide6: {lit['pyside6']}\n"
-            f"- Platform: {lit['platform']}\n\n"
+            f"- Build: {lit(inventory['build'])}\n"
+            f"- Python: {lit(inventory['python'] or platform.python_version())}\n"
+            f"- Qt: {lit(inventory['qt'] or qVersion())}\n"
+            f"- PySide6: {lit(inventory['pyside6'] or PYSIDE_VERSION)}\n"
+            f"- Platform: {lit(inventory['platform'] or platform.platform())}\n\n"
             + AboutDialog._components_markdown(inventory, unchecked_note)
             + AboutDialog._ripper_markdown(ripper_banner)
             + f"### Paths\n"
