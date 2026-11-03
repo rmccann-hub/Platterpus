@@ -125,6 +125,10 @@ def _ci_entries() -> list[Entry]:
     return entries
 
 
+#: A pinned release's version and tarball sha256, by shape.
+_VERSION_SHAPE: Final[re.Pattern[str]] = re.compile(r"\d{1,6}\.\d{1,6}\.\d{1,6}")
+_SHA256_SHAPE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}")
+
 #: The CI workflow whose jobs fetch release binaries pinned by version and sha256.
 _SECRET_SCAN_WORKFLOW: Final[str] = ".github/workflows/ci.yml"
 
@@ -134,10 +138,16 @@ def _pinned_release_binary(
 ) -> Entry | None:
     """A release binary a CI job fetches, pinned as `<env>_VERSION` and
     `<env>_SHA256` in the job, or None when the workflow pins no such binary."""
-    text = _text(_SECRET_SCAN_WORKFLOW)
-    version = re.search(rf'{env}_VERSION: "(\d+\.\d+\.\d+)"', text)
-    sha = re.search(rf'{env}_SHA256: "([0-9a-f]{{64}})"', text)
-    if version is None or sha is None:
+    # String operations, not a pattern built from `env`, as `_program_pin`.
+    found: dict[str, str] = {}
+    for line in _text(_SECRET_SCAN_WORKFLOW).splitlines():
+        for key in ("VERSION", "SHA256"):
+            prefix = f'{env}_{key}: "'
+            at = line.find(prefix)
+            if at >= 0 and line.rstrip().endswith('"'):
+                found.setdefault(key, line[at + len(prefix) :].rstrip()[:-1])
+    version, sha = found.get("VERSION", ""), found.get("SHA256", "")
+    if not (_VERSION_SHAPE.fullmatch(version) and _SHA256_SHAPE.fullmatch(sha)):
         return None
     return Entry(
         ref=f"ci:{name}",
@@ -146,8 +156,8 @@ def _pinned_release_binary(
         scope="excluded",
         description=description,
         external_refs=(("vcs", f"https://github.com/{repo}", ""),),
-        version=version.group(1),
-        purl=f"pkg:github/{repo}@v{version.group(1)}",
+        version=version,
+        purl=f"pkg:github/{repo}@v{version}",
         used_in=(_where(_SECRET_SCAN_WORKFLOW, job),),
         enforced_in=(_SECRET_SCAN_WORKFLOW,),
         properties=(
@@ -155,7 +165,7 @@ def _pinned_release_binary(
                 _P + "version-basis",
                 "pinned in the workflow, with the release tarball's sha256",
             ),
-            (_P + "tarball-sha256", sha.group(1)),
+            (_P + "tarball-sha256", sha),
         ),
     )
 

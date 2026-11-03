@@ -35,7 +35,11 @@ _ALBUM_PASS = (
 )
 
 
-def _securing_pass(values: tuple[str, ...], kept: str) -> str:
+def _securing_pass(
+    values: tuple[str, ...],
+    kept: str,
+    limit_line: str = "Done; (repeat limit of 3 reads reached; at most 2 reads agreed)",
+) -> str:
     """A -Z 2 pass that hit the repeat limit; ``values`` are its printed reads."""
     loop = "".join(
         f"Repeating ripping (0 out of 2 matches for current checksum {v})\n"
@@ -46,7 +50,7 @@ def _securing_pass(values: tuple[str, ...], kept: str) -> str:
         "Disc tracks:    1\n"
         "AccurateRip:    found\n"
         f"{loop}"
-        "Done; (repeat limit of 3 reads reached; at most 2 reads agreed)\n"
+        f"{limit_line}\n"
         "Track 1 read with errors.\n"
         f"  EAC CRC32:     {kept} (after 3 rips)\n"
         "  Accurip:       disc found in database (max confidence: 200)\n"
@@ -186,14 +190,41 @@ def test_a_chase_read_never_takes_the_securing_passs_exit_status(
     assert (album / "01 - A.flac").read_bytes() == b"ALBUM-E0036697"
 
 
+def test_two_agreeing_printed_reads_under_a_proven_limit_still_get_the_chase(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The newer limit wording proves a read count: three reads, at most two
+    agreed, and two printed reads that agree, so the third differed. That is two
+    values, not one, and the chase reads the track singly (R66, `plan_chase`)."""
+    worker, backend = _run(
+        tmp_path,
+        _securing_pass(("E0036697", "E0036697"), "E0036697"),
+        [("E0036697", 200, 0)],
+    )
+    assert len(backend.rip_calls) > 2, "a proven second value was not chased"
+    (entry,) = worker.retried_tracks
+    chase = entry.get("verified_read_chase")
+    assert chase is not None and chase["outcome"] != CHASE_SKIPPED_READS_AGREED
+
+
 def test_a_drive_that_returned_one_value_every_time_gets_no_extra_reads(
     qapp: QApplication, tmp_path: Path
 ) -> None:
     """Every printed read and both block CRCs equal: the record says the chase
-    was skipped and why, and no single read is spawned."""
+    was skipped and why, and no single read is spawned.
+
+    In the OLDER limit wording, which proves no read count. The fork's newer
+    "repeat limit of 3 reads reached; at most 2 reads agreed" beside two
+    agreeing printed reads proves the third, unprinted read differed (R66,
+    `plan_chase`), so that log is not "one value every time", and the chase
+    rightly runs on it (the test below)."""
     worker, backend = _run(
         tmp_path,
-        _securing_pass(("E0036697", "E0036697"), "E0036697"),
+        _securing_pass(
+            ("E0036697", "E0036697"),
+            "E0036697",
+            "Done; (no matches found, but hit repeat limit of 3)",
+        ),
         [],
     )
     assert len(backend.rip_calls) == 2

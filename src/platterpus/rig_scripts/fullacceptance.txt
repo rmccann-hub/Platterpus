@@ -57,9 +57,9 @@
 #    AppImage from the releases page.
 # 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
 #    the newest one, and **not** always the one that installs without a warning.
-#    THE ROUTE THAT ALWAYS WORKS: Tools -> Setup & Updates... -> Choose a
-#    build... The build this run needs is already selected when it opens; click
-#    Install. Help -> About Platterpus... then shows the same commit on its
+#    THE ROUTE THAT ALWAYS WORKS:
+#        Tools -> Setup & Updates... -> Choose a build...
+#    The build this run needs is already selected when it opens; click Install. Help -> About Platterpus... then shows the same commit on its
 #    "Installed" line and its "Build under test" line.
 #    (Tools -> Setup & Updates... -> Check for cyanrip updates works too when the
 #    build is published: TAKE WHATEVER OFFER IT MAKES, a plain one-click install

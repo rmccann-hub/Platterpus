@@ -26,10 +26,17 @@ def test_each_cause_has_its_own_words_and_only_the_user_is_you() -> None:
     assert [by for by, text in said.items() if "you " in text] == [cc.BY_USER]
 
 
-@pytest.mark.parametrize("cause", [None, "user", cc.CancelCause("someone")])
+@pytest.mark.parametrize("kind", ["none", "a bare string", "an unknown cause"])
 def test_an_unnamed_or_unknown_cause_is_not_recorded_never_the_user(
-    cause: object,
+    kind: str,
 ) -> None:
+    # Literal cases, so the sweep that refuses a computed population passes: the
+    # third is built here rather than in the decorator.
+    cause: object = {
+        "none": None,
+        "a bare string": "user",
+        "an unknown cause": cc.CancelCause("someone"),
+    }[kind]
     assert cc.who(cause) == "a caller that did not say who it was"
     block = cc.outcome_block(cause, status="cancelled")
     assert block is not None and block["by"] == cc.NOT_RECORDED
