@@ -199,9 +199,10 @@ def test_about_and_the_bundle_read_the_same_key() -> None:
     assert entries["cyanrip"]["version_text"] == own_versions(report)["cyanrip"]
     markdown = AboutDialog._build_markdown(inventory)
     assert "- cyanrip: `0.9.4-rc2+platterpus.18` ✓" in markdown
-    assert "- cyanrip: 0.9.4 ✓" not in markdown
+    # The parsed version is escaped (TASKS R87): `0\.9\.4` renders as 0.9.4.
+    assert "- cyanrip: 0\\.9\\.4 ✓" not in markdown
     # A tool with no text of its own still shows its parsed version.
-    assert "- flac: 0.9.4 ✓" in markdown
+    assert "- flac: 0\\.9\\.4 ✓" in markdown
 
 
 def test_the_inventory_survives_a_reader_that_raises(
@@ -234,10 +235,55 @@ def test_the_age_is_worded_for_a_person() -> None:
 def test_about_lists_each_dependency_with_a_marker_and_the_age() -> None:
     markdown = AboutDialog._build_markdown(build_info.component_inventory(_report()))
     assert "### Dependencies (measured" in markdown
-    assert "- cyanrip: 0.9.4 ✓" in markdown
+    assert "- cyanrip: 0\\.9\\.4 ✓" in markdown
     # Before a check: says so, and names the way to run one.
     before = AboutDialog._build_markdown(build_info.component_inventory(None))
     assert "not measured yet this session" in before and "Check again" in before
+
+
+#: Values from outside the code that Markdown would otherwise act on: a link, an
+#: image fetch, raw HTML, emphasis, and a heading opener.
+_HOSTILE: dict[str, str] = {
+    "build": "[click](https://example.invalid) <b>x</b>",
+    "python": "3.12.0 *loud*",
+    "qt": "6.11.1 _under_",
+    "pyside6": "![img](file:///etc/passwd)",
+    "platform": "Linux <img src=x> `tick` \\ back",
+    "version": "1.0 [link](https://example.invalid) **bold**",
+}
+
+
+def test_about_shows_every_outside_value_as_written(qapp: QApplication) -> None:
+    """TASKS R87 item 2: the build stamp, the environment values and a tool's
+    parsed version reach About's Markdown escaped, so each renders as the exact
+    text it was, with no link, image or emphasis made out of it."""
+    from PySide6.QtGui import QTextDocument
+
+    inventory = build_info.component_inventory(_report())
+    for key in ("build", "python", "qt", "pyside6", "platform"):
+        inventory[key] = _HOSTILE[key]  # type: ignore[literal-required]  # each key is a str field
+    entries = inventory["dependencies"]
+    assert entries is not None
+    entries["cyanrip"]["version"] = _HOSTILE["version"]
+    entries["cyanrip"]["version_text"] = None
+
+    doc = QTextDocument()
+    doc.setMarkdown(AboutDialog._build_markdown(inventory))
+    shown = doc.toPlainText()
+    html = doc.toHtml()
+    checked = 0
+    for value in _HOSTILE.values():
+        assert value in shown, (value, shown)
+        checked += 1
+    assert checked >= 6  # the floor: every hostile value was looked for
+    # Shown as written already rules out emphasis and link text (either would
+    # drop the `*` or the `](…)`); the targets are checked as well.
+    import re
+
+    targets = re.findall(r'(?:href|src)="([^"]*)"', html)
+    assert targets, "About's own links vanished, so this check would see nothing"
+    assert not [t for t in targets if "example.invalid" in t or "passwd" in t]
+    assert "<img" not in html
 
 
 def test_check_again_waits_for_the_check_and_refreshes(qapp: QApplication) -> None:
@@ -291,7 +337,7 @@ def test_about_names_the_tools_an_incomplete_check_did_not_reach() -> None:
     dep_manager.remember_report(report)
     try:
         markdown = AboutDialog._build_markdown()  # production path: reads the store
-        assert "- cyanrip: 0.9.4 ✓" in markdown
+        assert "- cyanrip: 0\\.9\\.4 ✓" in markdown
         assert "⚠ Check incomplete — 1 not checked: metaflac" in markdown
         assert "stopped after 120 s" in markdown
         # The note travels with the report, never with the inventory.

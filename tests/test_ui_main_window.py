@@ -9891,6 +9891,35 @@ def test_completion_notification_posts_through_the_tray_icon(
     assert "12 tracks" in posted[0][1]
 
 
+def test_completion_notification_carries_no_markup_to_the_server(
+    teardown_threads, monkeypatch
+) -> None:
+    """TASKS R87 item 1, asserted where the toast is SENT, not where it is built.
+
+    The failure hint can quote the ripper. A notification server advertising
+    ``body-markup`` reads ``<`` and ``&`` as markup, so what reaches
+    ``showMessage`` must carry neither, while the words survive."""
+    posted: list[tuple[str, str]] = []
+    window = teardown_threads()
+    monkeypatch.setattr(
+        window,
+        "_ensure_tray_icon",
+        lambda: SimpleNamespace(
+            showMessage=lambda title, body, icon, ms: posted.append((title, body))
+        ),
+    )
+
+    window._notify_rip_complete(
+        False, 'cyanrip: <a href="https://x.invalid">open</a> <img src=x> &amp; done'
+    )
+
+    assert len(posted) == 1
+    title, body = posted[0]
+    for text in (title, body):
+        assert not set("<>&") & set(text), text
+    assert "open" in body and "done" in body
+
+
 def test_tray_icon_is_created_once_and_reused(teardown_threads, monkeypatch) -> None:
     """`showMessage` needs a live tray icon, so it is cached — a second toast
     must not add a second icon to the user's system tray."""
