@@ -447,3 +447,189 @@ def test_held_first_run_offers_are_dropped_if_the_launch_turns_unattended(
     _activate(window)
     _wait(3 * hold_for_user.RETRY_MS / 1000)
     assert fired == [], fired
+
+
+# --- The automatic cyanrip update offer (`_hold_automatic_ripper_offer`) -----
+#
+# The launch-time check's one-click install offer. Nobody asked for it, so it
+# can hold: it used to be DROPPED by anything open when the answer landed, and
+# saw only a modal dialog, so it opened over Setup & Updates. A check the user
+# starts from Setup & Updates is the other case and is answered at once.
+
+
+def _an_automatic_offer() -> Any:
+    """An answer the automatic check surfaces: a one-click, approved build."""
+    from types import SimpleNamespace
+
+    from platterpus.deps.ripper_offer import OFFER_AVAILABLE
+
+    return SimpleNamespace(
+        verdict=OFFER_AVAILABLE,
+        detail="a newer cyanrip build is available",
+        install_commit="abc1234",
+        auto_installable=True,
+    )
+
+
+@pytest.fixture()
+def ripper_offers(monkeypatch: pytest.MonkeyPatch) -> list[object]:
+    """Every install offer that opened, recorded instead of shown."""
+    from platterpus.ui.main_window import MainWindow
+
+    opened: list[object] = []
+    monkeypatch.setattr(
+        MainWindow,
+        "_offer_ripper_install",
+        lambda self, offer, detail, commit, **_: opened.append(offer),
+    )
+    return opened
+
+
+def _land(window: Any, offer: object, *, automatic: bool) -> None:
+    """Deliver a ripper check's answer, as the worker's queued signal does."""
+    window._ripper_check_is_automatic = automatic
+    window._on_ripper_update_result(offer)
+
+
+def test_the_automatic_ripper_offer_waits_while_setup_and_updates_is_in_use(
+    make_window: Callable[..., Any],
+    ripper_offers: list[object],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    offer = _an_automatic_offer()
+
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _land(window, offer, automatic=True)
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert ripper_offers == [], "the automatic offer opened over Setup & Updates"
+    assert "automatic cyanrip update offer: held" in caplog.text, caplog.text
+    assert window._held_ripper_offer is offer
+
+    setup.close()
+    _activate(window)
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert ripper_offers == [offer], "the held offer never opened"
+    assert window._held_ripper_offer is None
+
+
+def test_the_automatic_ripper_offer_waits_out_a_rip_instead_of_being_dropped(
+    make_window: Callable[..., Any], ripper_offers: list[object]
+) -> None:
+    """Never over a running rip (the install would replace the binary ripping),
+    and no longer lost because of one: it opens when the rip has ended."""
+    window = make_window()
+    _activate(window)
+    window._rip_thread = object()  # a rip is running when the answer lands
+    try:
+        _land(window, _an_automatic_offer(), automatic=True)
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+        assert ripper_offers == [], "an install offer opened over a running rip"
+    finally:
+        window._rip_thread = None
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert len(ripper_offers) == 1, "the offer was lost to the rip"
+
+
+def test_a_check_the_user_starts_from_setup_and_updates_is_answered_at_once(
+    make_window: Callable[..., Any], ripper_offers: list[object]
+) -> None:
+    """The caveat R96 names: the user's own check is asked FROM Setup & Updates,
+    which is then the active window. Holding it until they left that window
+    would answer nobody."""
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    offer = _an_automatic_offer()
+    _land(window, offer, automatic=False)
+    assert ripper_offers == [offer], "the user's own check was held"
+    assert window._held_ripper_offer is None
+
+
+def test_a_newer_check_drops_a_held_automatic_offer(
+    make_window: Callable[..., Any],
+    ripper_offers: list[object],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The user checks again from Setup & Updates while the launch's offer
+    waits: that newer answer is the one that counts, so the held one is dropped
+    and does not open as a stale second offer when they come back."""
+    import platterpus.workers as workers
+
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    _land(window, _an_automatic_offer(), automatic=True)
+    assert window._held_ripper_offer is not None
+
+    # The check is started, not run: no network, no container.
+    monkeypatch.setattr(workers, "start_worker_thread", lambda *a, **k: None)
+    window._on_check_ripper_updates()
+    assert window._held_ripper_offer is None
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert "automatic cyanrip update offer: no longer wanted" in caplog.text
+    setup.close()
+    _activate(window)
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert ripper_offers == [], "a superseded offer opened"
+    window._ripper_update_worker = None
+    window._ripper_update_thread = None
+
+
+def test_a_held_automatic_offer_is_dropped_when_the_window_is_hidden(
+    make_window: Callable[..., Any],
+    ripper_offers: list[object],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Waiting does not turn a closed window into a person: drop, and say why."""
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    _land(window, _an_automatic_offer(), automatic=True)
+    window.hide()
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert "offer dropped — the window is not shown" in caplog.text, caplog.text
+    assert window._held_ripper_offer is None
+    setup.close()
+    _wait(2 * hold_for_user.RETRY_MS / 1000)
+    assert ripper_offers == []
+
+
+def test_an_open_dialog_no_longer_skips_the_automatic_check(
+    make_window: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The launch's check used to be SKIPPED when a dialog was open as it was
+    armed (the first-run setup question, at launch). Its answer now waits for
+    the main window, so the check itself runs; a rip or a hidden window still
+    skips it (`test_ripper_update_worker.py`)."""
+    import platterpus.workers as workers
+
+    started: list[object] = []
+    monkeypatch.setattr(
+        workers, "start_worker_thread", lambda *a, **k: started.append(a)
+    )
+    window = make_window()
+    _activate(window)
+    modal = QDialog(window)
+    modal.setWindowTitle("Set up Platterpus?")
+    modal.setModal(True)
+    modal.show()
+    try:
+        QCoreApplication.processEvents()
+        assert QApplication.activeModalWidget() is modal, "floor: no modal is up"
+        window._maybe_check_ripper_updates()
+    finally:
+        modal.hide()
+        modal.deleteLater()
+    assert started, "the automatic check was skipped because a dialog was open"
+    window._ripper_update_worker = None
+    window._ripper_update_thread = None

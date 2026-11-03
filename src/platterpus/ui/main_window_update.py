@@ -124,6 +124,12 @@ def _is_download_phase(status_message: str) -> bool:
 class UpdateMixin(MainWindowShared):
     """Tools → Setup & Updates… → Check for updates, and the download/verify/install/restart UI."""
 
+    #: The automatic check's offer that is WAITING for the main window (TASKS
+    #: R96), or None. Any later check or install clears it, so a held offer that
+    #: a newer answer superseded is dropped rather than shown. A class default,
+    #: so `MainWindow.__init__` (at its size cap) needs no line.
+    _held_ripper_offer: object | None = None
+
     def _on_check_updates(self) -> None:
         """Tools → Setup & Updates… → Check for updates: ask GitHub for the newest release.
 
@@ -205,6 +211,8 @@ class UpdateMixin(MainWindowShared):
         from platterpus.workers import start_worker_thread
         from platterpus.workers.ripper_update_worker import RipperUpdateWorker
 
+        self._held_ripper_offer = None  # this check's answer supersedes it
+
         self._ripper_check_is_automatic = automatic
         # The channel is read HERE, on the GUI thread, and handed over as plain data —
         # the worker must not touch the config off-thread. The installed build is NOT
@@ -249,7 +257,11 @@ class UpdateMixin(MainWindowShared):
         leaving an install dialog standing over the rest of the suite. A user meets
         the same shape as a dialog appearing after they quit.
         """
-        blocker = self._interruption_blocker()
+        # **A dialog or another window in use does not skip it (TASKS R96).**
+        # Its answer, if it has one to offer, waits for the main window
+        # (`_hold_automatic_ripper_offer`); so only the reasons that make the
+        # check itself wrong skip it: nobody is there, or a rip is running.
+        blocker = self._no_one_to_ask() or self._rip_blocker()
         if blocker:
             log.info("skipping the automatic cyanrip check — %s", blocker)
             return
@@ -286,12 +298,31 @@ class UpdateMixin(MainWindowShared):
         Platterpus?"* — input-blocked, and answering both runs the install pipeline
         twice. ``activeModalWidget()`` is Qt's own answer to "does something else have
         the floor", so we ask it rather than tracking our own dialogs.
-        """
 
+        **Split in three since TASKS R96**, so the held automatic offer can tell a
+        reason to drop (:meth:`_no_one_to_ask`) from a reason to wait
+        (:meth:`_rip_blocker`, :meth:`_modal_floor_blocker`); this stays their sum.
+        It deliberately does NOT gain `ui.hold_for_user`'s "another window of ours
+        is in use" test: it also answers a check the user starts from Setup &
+        Updates, which is then the active window, and that check is answered now.
+        """
+        return (
+            self._no_one_to_ask() or self._rip_blocker() or self._modal_floor_blocker()
+        )
+
+    def _rip_blocker(self) -> str:
+        """``"a rip is running"`` while one is, else ``""``: a reason to WAIT."""
+        return "a rip is running" if self._rip_thread is not None else ""
+
+    def _no_one_to_ask(self) -> str:
+        """Why nobody is there to answer an unprompted offer, or ``""``.
+
+        The half of :meth:`_interruption_blocker` that DROPS a held offer rather
+        than delaying it (TASKS R96): a window that is not shown, or an
+        unattended acceptance session, will not become a person by waiting.
+        """
         if not self.isVisible():
             return "the window is not shown"
-        if self._rip_thread is not None:
-            return "a rip is running"
         # **An acceptance session is a rip and then some.** The overnight batch
         # drives the real window unattended for hours — it opens dialogs, checks
         # what is on screen, and dismisses what it finds — so a modal that
@@ -303,7 +334,7 @@ class UpdateMixin(MainWindowShared):
         # was: it would replace the ripper binary the batch is measuring, so
         # every section after it would be evidence about a different subject.
         #
-        # `_rip_thread` above does not cover it. A session spends most of its
+        # `_rip_blocker` does not cover it. A session spends most of its
         # hours between rips — probing, comparing, waiting — and the window is
         # every bit as unavailable then.
         #
@@ -314,7 +345,7 @@ class UpdateMixin(MainWindowShared):
         session: object | None = getattr(self, "_acceptance_layout", None)
         if session is not None:
             return "an acceptance test session is running"
-        return self._modal_floor_blocker()
+        return ""
 
     def _modal_floor_blocker(self) -> str:
         """Why a dialog must not be STACKED right now, or ``""`` if it may open.
@@ -426,6 +457,14 @@ class UpdateMixin(MainWindowShared):
                 verdict or "no verdict",
             )
             return
+        with_consent = bool(getattr(offer, "installable_with_consent", False))
+        if automatic:
+            # Nobody asked for it, so it can hold (TASKS R96): it waits for the
+            # main window instead of being dropped by whatever is open now.
+            self._hold_automatic_ripper_offer(
+                offer, detail, install_commit, needs_consent=with_consent
+            )
+            return
 
         # **Re-check, now.** The guards in `_maybe_check_ripper_updates` were true when
         # the check was ARMED; this runs after the worker's own latency (a manifest
@@ -435,13 +474,6 @@ class UpdateMixin(MainWindowShared):
         # not a precondition of the thing that happens.
         blocker = self._interruption_blocker()
         if blocker:
-            if automatic:
-                log.info(
-                    "automatic cyanrip update check: %s, but not surfacing it — %s",
-                    verdict or "no verdict",
-                    blocker,
-                )
-                return
             # A check the user ASKED for still gets an answer — dropping it silently
             # is the no-op-failure shape this project forbids — but never the install
             # action, and never stacked on another modal.
@@ -466,7 +498,6 @@ class UpdateMixin(MainWindowShared):
         # non-default button. What must never happen again is the third case of
         # 2026-09-03: the app requiring a build, declining to install it, and
         # printing a shell command in a program built so there is no shell.
-        with_consent = bool(getattr(offer, "installable_with_consent", False))
         if install_commit and (auto_installable or with_consent):
             self._offer_ripper_install(
                 offer, detail, install_commit, needs_consent=with_consent
@@ -503,6 +534,54 @@ class UpdateMixin(MainWindowShared):
             else QMessageBox.Icon.NoIcon
         )
         box.open()
+
+    def _hold_automatic_ripper_offer(
+        self, offer: object, detail: str, commit: str, *, needs_consent: bool
+    ) -> None:
+        """Open the automatic check's install offer once the main window is free.
+
+        TASKS R96: it used to be dropped by anything open when the answer landed,
+        and saw only a modal dialog, so it opened over Setup & Updates. It now
+        waits through `ui.hold_for_user`, like the album picker. The WAIT reasons
+        are the shared predicate's (a dialog open, another window of ours in use)
+        plus :meth:`_rip_blocker` and :meth:`_modal_floor_blocker` (a rip running,
+        an offer already open); the DROP reasons are :meth:`_no_one_to_ask` and a
+        newer check or install, either of which clears ``_held_ripper_offer``.
+
+        **Only the automatic check comes here.** A check the user starts from
+        Setup & Updates is answered at once, with that window active: holding it
+        until they left the window they asked from would answer nobody.
+        """
+        from platterpus.ui.hold_for_user import hold_until_free
+
+        self._held_ripper_offer = offer
+
+        def forget() -> None:
+            if self._held_ripper_offer is offer:
+                self._held_ripper_offer = None
+
+        def still_wanted() -> bool:
+            if self._held_ripper_offer is not offer:
+                return False  # a newer check or an install superseded it
+            absent = self._no_one_to_ask()
+            if absent:
+                log.info("automatic cyanrip update offer dropped — %s", absent)
+            return not absent
+
+        def show() -> None:
+            forget()
+            self._offer_ripper_install(
+                offer, detail, commit, needs_consent=needs_consent
+            )
+
+        hold_until_free(
+            self,
+            show,
+            still_wanted=still_wanted,
+            what="automatic cyanrip update offer",
+            on_drop=forget,
+            also_busy=lambda: self._rip_blocker() or self._modal_floor_blocker(),
+        )
 
     def _offer_ripper_install(
         self, offer: object, detail: str, commit: str, *, needs_consent: bool = False
@@ -664,6 +743,8 @@ class UpdateMixin(MainWindowShared):
         and the dialog below is the one that already avoids it.
         """
         from platterpus.deps.fork_source import target_for_commit
+
+        self._held_ripper_offer = None  # an install supersedes a waiting offer
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.ripper_offer import RipperOffer
         from platterpus.deps.step_engine import SubprocessRunner
