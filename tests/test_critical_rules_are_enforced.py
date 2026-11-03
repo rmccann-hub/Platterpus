@@ -2286,7 +2286,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3621 -> 3669** (2026-11-03, TASKS R117, records that reached no reader): the schema-42 note, `rip.pregap_searches` and `rip.names_shortened` with their two builders beside the other block builders (the `rip` keys must be literals here, `tests/test_report_types_completeness.py`), and `diagnostics` handed to `diagnostics_scope.scoped_to_rip`, where the scoping lives.
     # **3583 -> 3592** (2026-11-03, review B4): `outcome.securing_pass_paranoia_counts` with its v42 schema note; the coercion is `paranoia_scope.counts_block`.
     # **3583 -> 3590** (2026-11-03, review C4): `verification.transcode.encoder_argv` serialised, and its line in the schema history (v42, additions only).
-    "rip_report.py": 3688,
+    "rip_report.py": 3685,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2994,7 +2994,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4909 -> 4911** (2026-11-03, review C5): the `DeemphasisVerbsMixin` in the class list and its import; the handler lives in `deemphasis_verbs.py`, the grade in `deemphasis_grading.py`.
     # **4911 -> 4913** (2026-11-03, review C9): the `ControlVerbsMixin` in the class list and its import; `expect-config-saved`, `expect-no-rip` and `wait-for-status` live in `control_verbs.py`.
     # **4882 -> 4884** (2026-11-03, review C3 and C4 of the 0.7.117 Full run): `RecordVerbsMixin` imported and inherited; its handlers live in `uiscript/record_verbs.py`, not here.
-    "uiscript/runner.py": 4918,
+    "uiscript/runner.py": 4915,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
