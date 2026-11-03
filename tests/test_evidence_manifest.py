@@ -338,3 +338,18 @@ def test_a_moved_path_with_non_ascii_bytes_matches_its_row(tmp_path: Path) -> No
     assert code == 0, out
     code, out = _run(root, "rows")
     assert code == 0 and "4 examined" in out, out
+
+
+def test_the_committed_manifest_is_well_formed_and_sorted() -> None:
+    """CI's evidence job checks the manifest's format, order included, but only
+    in CI: the 2026-11-03 filing appended its 155 rows at the end, passed every
+    local test, and failed `gitleaks` on the pull request. The same parser runs
+    here on the committed file, so a filing is checked before it is pushed."""
+    from laplang.evidence import parse_manifest
+
+    text = (
+        Path(__file__).resolve().parents[1] / "docs" / "evidence-manifest.tsv"
+    ).read_text(encoding="utf-8")
+    rows, problems = parse_manifest(text)
+    assert len(rows) >= 1800, "the manifest was not read"
+    assert problems == [], problems[:5]

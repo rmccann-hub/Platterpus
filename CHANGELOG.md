@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The 2026-11-03 Full run on 0.7.117 with `.28` is filed and graded `full-green`** (contributor-facing): round 37's closing run, 553 pass and 0 fail, filed on `evidence` at `1bb98a2c` with its 155 manifest rows. The filing tool now names the cache probe's own `cdparanoia.log`, which runs have carried since 0.7.116; it had refused the bundle for want of a name.
 - **CI's `astral-sh/setup-uv` moves from v10.3.1 to v10.3.2** (contributor-facing), Dependabot's pull request #431 carried here with the bill of materials regenerated; the pin is the full commit SHA of the `v10.3.2` tag, read from the action's own repository.
 - **Our round 37 lap 6 is written and held for the owner's word** (contributor-facing): it files the fork's lap 5, copies their `seam-commands.md`, accepts their amendment that a lap is sent when it reaches its side's default branch, and offers an optional next-round note on a slow pattern of theirs that we fixed in ours.
 - **The fork's round 37 lap 5 is filed, and the shared `docs/seam-commands.md` is their copy at `cyanrip@b99b286`** (contributor-facing): it differs from ours by one cell, our own `--reread-time-limit` answer, which they landed.

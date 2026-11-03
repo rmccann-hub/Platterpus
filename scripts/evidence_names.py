@@ -93,6 +93,10 @@ def staged_name(rel: str) -> str | None:
         return "config.toml"
     if m := re.fullmatch(r"session/run/cacheprobe\d*\.txt", rel):
         return "cacheprobe.txt"
+    # cd-paranoia's own `cdparanoia.log` from the same step, kept since 0.7.116
+    # (`uiscript/probe_verbs.py`, TASKS R97); unnamed until the 2026-11-03 filing.
+    if m := re.fullmatch(r"session/run/cacheprobe\d*log\.txt", rel):
+        return "cacheprobelog.txt"
     if m := re.fullmatch(r"session/run/tags(\d{4})\.txt", rel):
         return f"tags{m[1]}.txt"
     # `install-ripper`'s record of each build it installed (section P5).
