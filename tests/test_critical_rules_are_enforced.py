@@ -1241,7 +1241,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cyanrip_backend.py": 1999,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
-    "adapters/musicbrainz_client.py": 618,
+    # **618 -> 624** (2026-11-03, TASKS R89): `MB_HOST` and the constructor's `set_hostname(MB_HOST, use_https=True)`, the premise of accepting musicbrainzngs' uncapped read; it must sit where the library is configured, and the reasoning lives in `docs/dependency-contracts.md`.
+    "adapters/musicbrainz_client.py": 624,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
     # signature last has the window, so this is a property of the SEAM and

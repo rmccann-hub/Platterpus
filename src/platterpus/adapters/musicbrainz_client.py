@@ -44,16 +44,8 @@ log = logging.getLogger(__name__)
 # adapter has no surprising process-wide side effect.
 _MB_TIMEOUT_S: float = 30.0
 
-# The one server every lookup goes to, over certificate-verified HTTPS. Set by
-# the adapter itself (`MusicBrainzNgsImpl.__init__`), not inherited from
-# musicbrainzngs' module default, because it is the premise of a decision (TASKS
-# R89): musicbrainzngs reads a response body whole, with no size cap we can set
-# (`musicbrainzngs/musicbrainz.py`, `_safe_read`: `return f.read()`), and we
-# accept that read because only MusicBrainz itself, authenticated by TLS, can
-# answer it. If anything pointed the library at another host, or at plain
-# HTTP, that acceptance would no longer hold, so the adapter states the host
-# rather than trusting that nothing changed it. The full statement, with what
-# is and is not bounded, is `docs/dependency-contracts.md` → *musicbrainzngs*.
+# Set over HTTPS by the adapter, not inherited: the uncapped body read is
+# accepted only from this host (TASKS R89, `docs/dependency-contracts.md`).
 MB_HOST: Final[str] = "musicbrainz.org"
 
 
@@ -233,11 +225,8 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
         """User-agent is mandatory; MB throttles unidentified traffic.
 
         Per MB's policy, `contact` should be a real email or project URL
-        so a human can be reached if our client misbehaves.
-
-        Also points musicbrainzngs at `MB_HOST` over HTTPS, explicitly: the
-        library's ``set_hostname`` defaults to plain HTTP when called without
-        ``use_https``, so a module default is not a guarantee (see `MB_HOST`).
+        so a human can be reached if our client misbehaves. The host is set
+        too: the library's own ``set_hostname`` defaults to plain HTTP.
         """
         musicbrainzngs.set_hostname(MB_HOST, use_https=True)
         self.set_user_agent(app, version, contact)
