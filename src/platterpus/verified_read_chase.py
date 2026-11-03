@@ -186,6 +186,15 @@ def plan_chase(
         # block CRCs only with each other (both are EAC CRC32 on every build).
         first, second = _crc(first_pass), _crc(securing)
         distinct = len(set(loop_values)) if loop_values else None
+        # The loop prints no value for its LAST read, so five reads showed four
+        # (plan of record, Appendix I §2, defect 5). The limit-hit line can still
+        # prove the count: N reads of which at most M agreed hold at least
+        # ceil(N / M) values, which is all N when no two agreed.
+        agreed = getattr(securing, "secure_rerip_agreement", None)
+        reads = getattr(securing, "rip_count", None)
+        most = getattr(agreed, "most_reads_agreed", 0)
+        if getattr(agreed, "exact", False) and isinstance(reads, int) and most >= 1:
+            distinct = max(distinct or 0, -(-reads // most))
         if first and second:
             if first != second:
                 # Two values at least; the two sets cannot be merged into one count.

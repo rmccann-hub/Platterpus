@@ -348,7 +348,18 @@ def test_accuraterip_passes_a_real_rip_and_names_the_one_frame_tracks() -> None:
     report = _report("wholedisc")
     grade = g.grade_accuraterip(_log(report), report)
     assert grade.passed, grade.detail
-    assert "offset-variant: 3, 5" in grade.detail  # the rig disc's two marginal tracks
+    assert "frame 450 only: 3, 5" in grade.detail  # the rig disc's two marginal tracks
+    # The plan of record, Appendix I §2, defect 5: a frame-450-only match is not
+    # labelled with a cause (`offset-variant`) our screens stopped naming.
+    assert "offset-variant" not in grade.detail, grade.detail
+
+
+def test_every_accuraterip_state_the_grade_can_print_has_a_transcript_word() -> None:
+    """The relation: each state in the grade's rank order is worded by the one
+    map the accuracy transcript uses, so no raw verdict key reaches a row."""
+    from platterpus.uiscript.accuracy_grading import STATE_WORDS
+
+    assert set(g._AR_RANK) <= set(STATE_WORDS), set(g._AR_RANK) - set(STATE_WORDS)
 
 
 def test_accuraterip_fails_when_the_report_disagrees_with_the_log() -> None:

@@ -1072,6 +1072,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # takes a release-page URL from the answer only when it is one of ours. One
     # job still: read the releases answer into what the update offer shows.
     "update_check.py": 316,
+    # 300 -> 309 (2026-11-03, TASKS R66): crossed 300 by `plan_chase` counting the
+    # read a limit-hit loop prints no value for, from the `at most M reads agreed`
+    # line. One job still: whether a track is chased, and the chase's record.
+    "verified_read_chase.py": 309,
     # 299 -> 331 on 2026-10-06, crossing the heuristic with the maintainer's
     # narrowing of `expect-album-audit`. **Kept as one module deliberately**: it is
     # one pure grader per artifact verb (album audit, AccurateRip, CTDB, settling),
@@ -1080,7 +1084,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
     # **331 -> 330** (2026-10-21, TASKS R13): the data-track test now asks `data_tracks.is_data_track` instead of restating the substring.
     # **330 -> 359** (2026-10-26, run C): `derived_verification_refusal`, the one predicate `expect-derived-output` and `expect-verification` share for a derived verification that did not run, beside `settle_state` which both already share.
-    "uiscript/artifact_grading.py": 359,
+    # **359 -> 364** (2026-11-03, TASKS R66): `grade_accuraterip` words each AccurateRip state through `accuracy_grading.STATE_WORDS`, so a frame-450-only match reads "frame 450 only", not `offset-variant`.
+    "uiscript/artifact_grading.py": 364,
     # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
     # claude-code-skills audit check. **Kept as one module deliberately**: the
     # weight behind a match (`best_confidence`, `outvoted`) and its one wording

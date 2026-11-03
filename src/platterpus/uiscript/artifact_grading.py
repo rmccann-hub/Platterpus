@@ -289,8 +289,13 @@ def grade_accuraterip(rip_log: object, report: Mapping[str, Any]) -> Grade:
     tally: dict[str, list[int]] = {}
     for number, state in sorted(states.items()):
         tally.setdefault(state, []).append(number)
+    # The transcript's words, not the verdict's keys: `offset-variant` names a
+    # cause our screens stopped naming on 2026-09-24 (plan of record, Appendix I
+    # §2, defect 5). One map, shared with `record-accuracy`'s transcript.
+    from platterpus.uiscript.accuracy_grading import STATE_WORDS
+
     summary = "; ".join(
-        f"{state}: {', '.join(str(n) for n in numbers)}"
+        f"{STATE_WORDS.get(state, state)}: {', '.join(str(n) for n in numbers)}"
         for state, numbers in tally.items()
     )
     problems: list[str] = []
