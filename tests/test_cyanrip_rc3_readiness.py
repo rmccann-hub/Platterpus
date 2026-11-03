@@ -834,6 +834,40 @@ def test_the_speed_line_still_decides_the_speed_lock(
     assert parsed.ripping_info.speed_changeable is expected
 
 
+def test_the_speed_line_comment_states_the_lock_the_worker_applies() -> None:
+    """The parser's comment on `Speed:` says what the worker does with None.
+
+    TASKS R119 (finding 8 of the 2026-11-03 Full run): the comment above
+    `_SPEED_CAP` said an undetermined answer left the speed lock off, while the
+    worker had locked on anything but True since R95. A comment is where the next
+    reader learns the rule, so it is held to the code it describes: the worker's
+    condition is read from its source (the floor: it must be found), and the
+    comment must say the lock engages and must not say the old claim.
+    """
+    from pathlib import Path
+
+    import platterpus
+
+    src = Path(platterpus.__file__).resolve().parent
+    worker = (src / "workers" / "rip_worker.py").read_text(encoding="utf-8")
+    assert 'getattr(info, "speed_changeable", None) is not True' in worker, (
+        "the worker's speed-lock condition moved; re-read the comment above "
+        "_SPEED_CAP against it"
+    )
+    lines = (src / "parsers" / "cyanrip_log.py").read_text(encoding="utf-8")
+    before = lines.split("\n_SPEED_CAP = ", 1)[0].splitlines()
+    comment: list[str] = []
+    for line in reversed(before):
+        if not line.startswith("#"):
+            break
+        comment.insert(0, line.lstrip("# "))
+    block = " ".join(comment)
+    assert len(comment) >= 5, block  # the comment block was found
+    assert "The speed lock is then ENGAGED" in block, block
+    assert "NOT engaged" not in block, block
+    assert "locks only on False" not in block, block
+
+
 # --- 4. never raises -----------------------------------------------------------
 
 _RC3_LINES = st.sampled_from(

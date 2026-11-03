@@ -364,10 +364,10 @@ _ACCURATERIP_DISC_STATUS = re.compile(r"^AccurateRip:\s+(?P<value>\S(?:.*\S)?)\s
 #
 # **If upstream's wording ever arrives** (`Speed:          default`, no
 # parenthetical), `_take_speed_cap` reads neither word and leaves
-# `speed_changeable` at None, "not determined". The speed lock is then NOT engaged
-# (`rip_worker` locks only on False), so the ladder may send `-S`, and on a drive
-# that refuses it that pass aborts with `Device does not support changing speeds!`
-# (their P5). Pinned by `tests/test_cyanrip_rc3_readiness.py`.
+# `speed_changeable` at None, "not determined". The speed lock is then ENGAGED:
+# `rip_worker` locks on anything but True (TASKS R95), so no `-S` reaches a drive
+# that may refuse it and abort the pass (`Device does not support changing
+# speeds!`, their P5). Pinned by `tests/test_cyanrip_rc3_readiness.py`.
 _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # A track block opens with its outcome line.
 #
