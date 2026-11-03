@@ -199,9 +199,11 @@ def grade_read_offset(report: Mapping[str, Any]) -> Grade:
     Reads ``rip.read_offset_check`` (:mod:`platterpus.read_offset_check`), which
     compares the offset the ripper's LOG says it applied with the AccurateRip
     drive list, and records whether this rip's AccurateRip matches re-confirm it
-    (KDD-31). And the offset we SENT (``-s`` in the first pass's argv) must be
-    the one the log says was applied, so a changed ``-s`` cannot hide behind a
-    log that reads back what it was given.
+    (KDD-31). And the offset we SENT must be the one the log says was applied,
+    in EVERY pass the report records (the first pass's argv and the last's, which
+    differ when the auto-fix re-ripped), so a changed ``-s`` cannot hide behind a
+    log that reads back what it was given. Reading only the first pass let a
+    changed ``-s`` in the re-rip through (found by the planted-fault test, E1).
 
     PASS when the list agrees (``matches``), or when the list cannot judge the
     drive but AccurateRip confirmed the offset on this disc (``confirmed``).
@@ -229,19 +231,20 @@ def grade_read_offset(report: Mapping[str, Any]) -> Grade:
     detail = str(block.get("detail") or "").strip()
     ar = str(block.get("accuraterip_detail") or "").strip()
     outcome = report.get("outcome")
-    argv = (
-        (outcome.get("ripper_argv_first_pass") or outcome.get("ripper_argv") or [])
+    passes = (
+        [outcome.get("ripper_argv_first_pass"), outcome.get("ripper_argv")]
         if isinstance(outcome, dict)
         else []
     )
-    sent = sent_read_offset(argv if isinstance(argv, list) else [])
+    sent = [sent_read_offset(argv) for argv in passes if isinstance(argv, list)]
     said = f"read offset {detail}; {ar}" if ar else f"read offset {detail}"
-    if sent is not None and isinstance(applied, int) and sent != applied:
-        return Grade(
-            False,
-            f"we sent -s {sent:+d} and the ripper's log says it applied "
-            f"{applied:+d}; the two must be one number ({said})",
-        )
+    for value in sent:
+        if value is not None and isinstance(applied, int) and value != applied:
+            return Grade(
+                False,
+                f"we sent -s {value:+d} and the ripper's log says it applied "
+                f"{applied:+d}; the two must be one number ({said})",
+            )
     if state == OFFSET_DIFFERS:
         return Grade(False, f"{said}. A wrong read offset shifts every sample.")
     if state == OFFSET_MATCHES:
