@@ -31,7 +31,8 @@ Platterpus/
 ├── .gitattributes
 ├── .editorconfig                        # editor conventions matching ruff and .gitattributes
 ├── .githooks/pre-commit                 # refuses a commit that stages audio (Critical rule #8)
-├── .claude/                             # settings.json (deny list + hooks) and hooks/ (audio guard, session start)
+├── .claude/                             # settings.json (deny list + hooks), hooks/ (audio guard, session start),
+│                                        #   and skills/pr-steward/ (DRAFT, 2026-11-03: PR and main's CI to green)
 │
 ├── .github/workflows/                   # CI + release automation
 │   ├── ci.yml                           # NINE gating jobs: test (3.12-3.14 + coverage floor), lint,
@@ -125,6 +126,8 @@ Platterpus/
 │   │                                    #   inbound provider contract. Keyed to THEIR releases, not ours,
 │   │                                    #   so it is not part of the version-bump ordering.
 │   ├── mutation_sweep.py                # the weekly mutation sweep (replaced mutmut, 2026-09-05)
+│   ├── pr_steward.py                    # a commit's checks: GREEN / FAILED / PENDING / BLOCKED / CANCELLED,
+│   │                                    #   read from the ruleset and the API; the pr-steward skill's half
 │   ├── revert_probe.py                  # proves a test is not vacuous: applies a revert, runs the named
 │   │                                    #   tests, restores, reports detected/VACUOUS/REFUSED/NO EVIDENCE
 │   ├── probe_argv_surface.py            # measures the argv we actually hand the ripper
