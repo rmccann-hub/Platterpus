@@ -550,6 +550,14 @@ _VERB_LIST: tuple[Verb, ...] = (
         "compared for a whole disc (a match CTDB outvotes fails), declined if partial",
     ),
     Verb(
+        "expect-read-offset",
+        0,
+        0,
+        "expect-read-offset — the read offset the rip applied is right: the "
+        "AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, "
+        "and the -s we sent is what the log applied (not determined never passes)",
+    ),
+    Verb(
         "expect-tags",
         0,
         0,

@@ -64,6 +64,7 @@ from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
 from platterpus.uiscript.pregap_verbs import PregapVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
+from platterpus.uiscript.record_verbs import RecordVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
     VERDICTS,
@@ -400,6 +401,7 @@ class ScriptRunner(
     ScanVerbsMixin,
     DeemphasisVerbsMixin,
     ControlVerbsMixin,
+    RecordVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.

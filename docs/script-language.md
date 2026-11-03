@@ -85,6 +85,7 @@ text is taken verbatim as one value.
 | `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
 | `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial |
+| `expect-read-offset` | 0 | ready | expect-read-offset — the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes) |
 | `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
@@ -691,6 +692,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial"
+    },
+    {
+      "name": "expect-read-offset",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-read-offset \u2014 the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes)"
     },
     {
       "name": "expect-tags",

@@ -3944,12 +3944,16 @@ rip left. Each of F, H, J, K1–K3 and N now also grades the artifacts:
 the ripper's, the argv, the audio files), `expect-accuraterip` requires an
 AccurateRip answer for every track (any answer; the plumbing is what is graded),
 `expect-ctdb whole|partial` requires the lookup on a whole disc and its refusal
-on a subset, and `expect-tags` / `expect-cover-art` read the FLACs. H adds the
+on a subset (a match CTDB's own database outvotes fails, from 2026-11-03), and
+`expect-tags` / `expect-cover-art` read the FLACs. After the whole-disc rips of
+F and N, `expect-read-offset` grades the report's `rip.read_offset_check`
+(2026-11-03, review C3): the drive list agrees or AccurateRip confirmed the
+offset, and the `-s` sent is the offset the log applied. H adds the
 per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
 `file` and `complete` cover-art modes. §I asks only the two audit questions a
 cancel leaves standing. The graders delegate to the product's own predicates
-(`uiscript/artifact_grading.py`, `uiscript/tag_grading.py`); the reasons are in
-their docstrings. **J2 (2026-10-05)** rips one track with the settings no
+(`uiscript/artifact_grading.py`, `uiscript/record_grading.py`,
+`uiscript/tag_grading.py`); the reasons are in their docstrings. **J2 (2026-10-05)** rips one track with the settings no
 other rip uses: no `-r`, no `-Z` (in uniform mode, where a setting of 2 would
 send one), a fixed read speed of 0, and a scratch library folder inside the rips
 folder; `expect-library-move` grades the move and `expect-rip-argv` the argv as

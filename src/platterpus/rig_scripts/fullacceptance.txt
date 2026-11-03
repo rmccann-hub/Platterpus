@@ -766,6 +766,10 @@ expect-rip-argv with --prefer-disc-isrc
 #                       log on disk disagreeing about which tracks verified.
 #   expect-ctdb whole   looked up and compared; `partial` after a subset rip
 #                       asserts the lookup was DECLINED, which is correct there.
+#                       A match CTDB's own database outvotes FAILS (2026-11-03).
+#   expect-read-offset  the offset the rip applied is the drive list's, or
+#                       AccurateRip confirmed it on this disc, and the -s we sent
+#                       is the one the log applied. Not determined never passes.
 #   expect-tags         the FLACs say exactly what the track table says, the
 #                       `:` and `<` in this album title included (that was a
 #                       "WHAT TO LOOK FOR" for a person until now).
@@ -773,6 +777,7 @@ expect-rip-argv with --prefer-disc-isrc
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+expect-read-offset
 expect-tags
 expect-cover-art
 
@@ -1363,6 +1368,7 @@ expect-verification
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+expect-read-offset
 expect-tags
 expect-cover-art
 rig-check

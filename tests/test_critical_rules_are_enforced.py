@@ -2984,7 +2984,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4894 -> 4909** (2026-11-03, review C7): the `(device)` expansion in the `cyanrip` verb, beside `(offset)`'s, refused when no drive is selected; the reader is `offset_grading.selected_device`, the validator `script.device_problem`.
     # **4909 -> 4911** (2026-11-03, review C5): the `DeemphasisVerbsMixin` in the class list and its import; the handler lives in `deemphasis_verbs.py`, the grade in `deemphasis_grading.py`.
     # **4911 -> 4913** (2026-11-03, review C9): the `ControlVerbsMixin` in the class list and its import; `expect-config-saved`, `expect-no-rip` and `wait-for-status` live in `control_verbs.py`.
-    "uiscript/runner.py": 4913,
+    # **4882 -> 4884** (2026-11-03, review C3 and C4 of the 0.7.117 Full run): `RecordVerbsMixin` imported and inherited; its handlers live in `uiscript/record_verbs.py`, not here.
+    "uiscript/runner.py": 4918,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3039,7 +3040,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1082 -> 1083** (2026-11-03, review C7): the `cyanrip` verb's help names `(device)`.
     # **1083 -> 1096** (2026-11-03, review C5): the `expect-deemphasis-pair` declaration, section P3's grade. The table is the vocabulary's security boundary, so a verb is an entry here by design; the handler is a new mixin, `deemphasis_verbs.py`.
     # **1096 -> 1121** (2026-11-03, review C9): the `expect-config-saved`, `wait-for-status` and `expect-no-rip` declarations, which let sections D2, H2 and the unknown-disc run's G assert what a user's press did. The table is the vocabulary's security boundary, so a verb is an entry here by design; the handlers are a new mixin, `control_verbs.py`.
-    "uiscript/verbs.py": 1121,
+    # **1082 -> 1090** (2026-11-03, review C3 of the 0.7.117 Full run): the `expect-read-offset` declaration, beside `expect-ctdb`. The table is the vocabulary's security boundary, so a verb is an entry here.
+    "uiscript/verbs.py": 1129,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
