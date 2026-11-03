@@ -66,6 +66,7 @@ text is taken verbatim as one value.
 | `set` | 2+ (rest of line) | ready | set <config-field> <value> — change a setting (validated, then saved); booleans take on/off |
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
 | `expect-contains` | 2+ (rest of line) | ready | expect-contains <config-field> <text> — assert a setting contains text |
+| `expect-config-saved` | 0–1 | ready | expect-config-saved [seconds] — the settings file on disk holds every running setting, read back without repairing it; with <seconds>, it was also written within that many seconds (up to 600) |
 | `rescan` | 0 | ready | rescan — re-read the disc in the drive, and wait (up to 120 s) until the read has identified it or its own release picker is open |
 | `pick-release` | 1–2 | ready | pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous). Never answers a picker an older, superseded scan left open |
 | `album` | 1+ (rest of line) | ready | album <title> — set the album title, so repeat rips land in separate folders |
@@ -75,6 +76,8 @@ text is taken verbatim as one value.
 | `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout. If the timeout runs out with the rip still reading, the run ends there and that rip is cancelled: no later step could be graded against it |
 | `cancel-rip` | 0 | ready | cancel-rip — cancel the rip this script's last `rip` step started. A run that ends early (`abort`, Stop, a `wait-for-rip` that runs out) cancels that rip too |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
+| `wait-for-status` | 2+ (rest of line) | ready | wait-for-status <seconds> <text> — wait (up to 3 hours) until the rip status line contains text, case-insensitively, to act at a phase of a rip; fails if the rip it watched ends first |
+| `expect-no-rip` | 0 | ready | expect-no-rip — assert no rip is running: the answer before this step (an overwrite prompt's Cancel) started nothing |
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
 | `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master, and that the report's derived-file verification ran. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
@@ -396,6 +399,7 @@ found nothing wrong*.
       "album",
       "album-artist",
       "expect-status",
+      "wait-for-status",
       "expect-album-audit",
       "track-title",
       "expect-refused",
@@ -537,6 +541,14 @@ found nothing wrong*.
       "help": "expect-contains <config-field> <text> \u2014 assert a setting contains text"
     },
     {
+      "name": "expect-config-saved",
+      "min_args": 0,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-config-saved [seconds] \u2014 the settings file on disk holds every running setting, read back without repairing it; with <seconds>, it was also written within that many seconds (up to 600)"
+    },
+    {
       "name": "rescan",
       "min_args": 0,
       "max_args": 0,
@@ -607,6 +619,22 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-status <text> \u2014 assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively"
+    },
+    {
+      "name": "wait-for-status",
+      "min_args": 2,
+      "max_args": null,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "wait-for-status <seconds> <text> \u2014 wait (up to 3 hours) until the rip status line contains text, case-insensitively, to act at a phase of a rip; fails if the rip it watched ends first"
+    },
+    {
+      "name": "expect-no-rip",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-no-rip \u2014 assert no rip is running: the answer before this step (an overwrite prompt's Cancel) started nothing"
     },
     {
       "name": "expect-rip-complete",

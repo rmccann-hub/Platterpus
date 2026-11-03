@@ -13,7 +13,8 @@
 #                   lock, the run, one file to send)
 #   Where it lives: INSIDE the app. Source:
 #                   src/platterpus/rig_scripts/unknowndiscacceptance.txt
-#   What it costs:  about 15 minutes: one two-track rip, plus the checks.
+#   What it costs:  about 20 minutes: one two-track rip, one rip cancelled
+#                   in its securing pass, plus the checks.
 #
 # WHY A SECOND SCRIPT. fullacceptance.txt stops at its section E when the disc
 # is not identified, on purpose: every rip after it would be evidence about a
@@ -26,8 +27,10 @@
 #
 # WHAT IT COVERS that no other script does: the "Rip as unknown album"
 # confirmation, placeholder rows, the folder built from the album fields rather
-# than from MusicBrainz, the placeholder tagging pass after the rip, and the
-# report recording the path it took. The accuracy checks (AccurateRip, CTDB,
+# than from MusicBrainz, the placeholder tagging pass after the rip, the
+# report recording the path it took, and a cancel during the securing pass
+# (section G: only a disc AccurateRip does not know reaches that phase every
+# time). The accuracy checks (AccurateRip, CTDB,
 # the self-audit) still run: an unknown disc is still a disc.
 #
 # NOTHING IN THIS FILE NEEDS EDITING, and it is re-runnable: the album title
@@ -176,6 +179,36 @@ expect-tags
 expect-cover-art
 expect-unknown-record
 rig-check
+
+# --- G. CANCEL DURING THE SECURING PASS ------------------------------------
+# A user can press Cancel while the drive re-reads a track to secure it, and
+# until 2026-11-03 no run had (the review of the 2026-11-03 Full run, C9). This
+# disc is the one place a run can reach that phase every time: AccurateRip does
+# not know it, so every track is read twice (`second_read_without_accuraterip`,
+# on in the baseline). The full run's disc verifies on its first read, so its
+# securing pass runs only by chance.
+#
+# `wait-for-status` waits for the status line's own securing wording,
+# `Re-ripping track N to secure it`, so the cancel lands in that phase rather
+# than at a guessed time; it fails if the rip ends first. Then the full window
+# the app gives a cancelled rip's log (section I of the full run says why 135 s),
+# and the two questions a cancel leaves: did the app say it was cancelled, and
+# did the album pass's log survive as an intact, signed record.
+log --- G. cancel a rip during its securing pass ---
+run-size quick
+select-tracks 1
+album securing cancel (run) (ripper)
+album-artist Platterpus Acceptance
+rip
+wait-for-status 900 to secure it
+log in the securing pass; reading for 20s so the cancel lands mid-read
+wait 20
+snapshot beforesecuringcancel
+cancel-rip
+wait 135
+expect-status cancelled
+expect-log-well-formed
+snapshot aftersecuringcancel
 
 # --- Q. LEAVE THE RIG AS WE FOUND IT ----------------------------------------
 # Debug logging back off. The read offset stays: it is this drive's own. Your

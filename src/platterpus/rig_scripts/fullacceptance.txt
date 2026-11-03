@@ -518,6 +518,35 @@ snapshot dialogsdone
 # assertion moves to just after `pick-release`, where it says something real:
 # the picker we answered is gone and nothing else was left behind it.
 
+# --- D2. SETTINGS OK: the dialog's OK saves the settings as they stand ------
+# Section D cancels every dialog, so until 2026-11-03 nothing pressed Settings'
+# OK, the button every user who opens Settings presses (the review of the
+# 2026-11-03 Full run, C9). OK applies only what the user changed and then
+# saves the whole config, so with nothing changed it must save exactly what is
+# running, and change no setting it was not asked to.
+#
+# THE STEP CAN FAIL, AND THAT IS WHY IT IS SHAPED LIKE THIS. `set` saves too, so
+# a check that the file matches the app would pass whether OK saved or not. The
+# `set` here writes the file, the `wait 3` puts it more than two seconds in the
+# past, and `expect-config-saved 2` then needs the file written within the last
+# two seconds: only OK can have done that. The value is the baseline's own, so
+# nothing about the run changes. The `expect` lines after it are the other half:
+# OK must not have changed a setting nobody touched, the drive's offset least.
+log --- D2. settings: OK saves the settings as they stand ---
+run-size quick
+set notify_on_completion on
+wait 3
+open settings
+screenshot dialogsettingsok
+ok
+wait 1
+expect-config-saved 2
+expect notify_on_completion on
+expect max_retries 5
+expect output_format flac
+expect-drive-offset
+expect override_read_offset on
+
 # --- E. DISC IDENTIFICATION -------------------------------------------------
 # The last cheap section. If this fails, nothing after it can mean anything, and
 # you have spent five minutes rather than a night finding out.
@@ -820,6 +849,48 @@ expect-rip-complete
 expect-verification
 expect-album-audit
 expect-ctdb partial
+expect-tags
+
+# --- H2. THE OVERWRITE PROMPT'S OTHER TWO ANSWERS: Cancel and Replace -------
+# Section H answers "Rip to a new folder", so a person's other two answers had
+# never been pressed by a run (the review of the 2026-11-03 Full run, C9).
+# Cancel must start nothing; Replace must rip into the existing folder and leave
+# a complete, consistent album there.
+#
+# ITS OWN ALBUM, not F's or H's: Replace overwrites the folder it is offered,
+# and F's and H's folders are evidence this run's bundle still has to carry.
+# One track, so the collision costs one short rip first. `click=cancel` presses
+# the Cancel button itself rather than closing the box, which is a different
+# path (a closed box is also read as Cancel, and is tested in the unit suite).
+#
+# NOT SCRIPTED HERE, and why (the same review): Force stop during a rip ejects
+# the disc, and no verb ejects (the vocabulary's own boundary, `uiscript/
+# verbs.py`), so everything after it would run on an empty tray; ejecting and
+# re-inserting a disc needs a person, and the language has no step that waits
+# for one; an unwritable rips folder needs the session's own rips folder put
+# back afterwards, which no verb can name, so it would strand every later rip.
+# Cancelling DURING THE SECURING PASS is scripted in `unknowndiscacceptance.txt`,
+# where a disc AccurateRip does not know is read twice every time; this disc
+# verifies on its first read, so its securing pass runs only by chance.
+log --- H2. the overwrite prompt: Cancel starts nothing, Replace rips in place ---
+run-size standard
+select-tracks 1
+album overwrite answers (run) (ripper)
+rip
+wait-for-rip 3600
+expect-rip-complete
+expect-verification
+log the same title again: Cancel must start nothing
+rip
+answer-dialog click=cancel 120 Album already ripped
+expect-no-rip
+log and again: Replace must rip into the same folder
+rip
+answer-dialog click=replace 120 Album already ripped
+wait-for-rip 3600
+expect-rip-complete
+expect-verification
+expect-album-audit
 expect-tags
 
 # --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------

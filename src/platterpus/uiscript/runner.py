@@ -55,6 +55,7 @@ from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
+from platterpus.uiscript.control_verbs import ControlVerbsMixin
 from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
 from platterpus.uiscript.install_verbs import InstallVerbsMixin
@@ -398,6 +399,7 @@ class ScriptRunner(
     AccuracyVerbsMixin,
     ScanVerbsMixin,
     DeemphasisVerbsMixin,
+    ControlVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.

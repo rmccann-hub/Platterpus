@@ -3902,11 +3902,13 @@ defect, and two of those sections are archival.
 | B | ARCHIVAL | settings reach cyanrip's argv; a nudged read offset rips the next disc wrong with a clean-looking log |
 | C | ARCHIVAL | a guard that fails to refuse writes bad data |
 | D | UX | dialogs open and close; annoying when wrong, not a claim about a disc |
+| D2 | UX | Settings OK saves the running settings and changes none; a setting OK lost is wrong on the next launch, not in a rip already made |
 | E | ARCHIVAL | wrong release → wrong tags → a wrong archival record |
 | E2 | ARCHIVAL | the offset override off (C4, added 2026-10-06): a drive the AccurateRip list does not carry must be refused at Start, not ripped at an offset nobody chose. Archival on B's reasoning: the read offset is the calibration every rip's accuracy rests on, and a rip at no offset has a clean-looking log. On a listed drive the step is `unreachable` (N/A): not a pass and not a failure, counted as such in the RESULT line and the closing dialog |
 | F | ARCHIVAL | the rip itself |
 | G | ARCHIVAL | the seam check and the rip's own log — the log *is* the provenance record |
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
+| H2 | ARCHIVAL | the overwrite prompt's Cancel and Replace: a Cancel that ripped anyway overwrites a finished master, and a Replace that left a mixed folder is a corrupt album |
 | I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
 | J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
 | J2 | ARCHIVAL | the permutations no other rip uses (2026-10-05): no `-r`, no `-Z` in uniform mode, a fixed read speed, and a finished rip filed into a library folder. Archival on B's reasoning: each setting reaches cyanrip's argv, and the argv is read as sent and as received. And a library move that leaves a copy, or files a folder without its log and report, damages a finished master's record |
@@ -3928,7 +3930,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**21 ARCHIVAL, 6 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The six that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run), and two measurements for the fork (`P5`, the timed rip, and `P6`, the paired rips of track 3). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
+**22 ARCHIVAL, 7 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The seven that remain are genuinely about the program rather than the disc — dialog plumbing (`D`, and `D2`, Settings' OK), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run), and two measurements for the fork (`P5`, the timed rip, and `P6`, the paired rips of track 3). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -3986,6 +3988,7 @@ here, in advance, like the full run's:
 | B | ARCHIVAL | the read offset this rip reads at, as in the full run |
 | E | ARCHIVAL | an unknown disc must rip as unknown: a disc wrongly identified gets a release's tags it does not carry |
 | F | ARCHIVAL | the rip itself, its placeholder tags, and the record of which path it took |
+| G | ARCHIVAL | a cancel during the securing pass: the album pass's log must survive as an intact, signed record, as section I of the full run asks of a cancel in the album pass |
 | Q | UX | hygiene for the next run |
 
 <!-- END-UNKNOWN-DISC-SEVERITY-TABLE -->
@@ -4021,6 +4024,7 @@ assigns to us, and it changes nothing on their side.
 | B | 0 | b-settings | — | no disc verb, no rip |
 | C | 0 | c-validation | — | no disc verb, no rip |
 | D | 0 | d-dialogs | — | no disc verb, no rip |
+| D2 | 0 | d2-settingsok | — | `open settings` + `ok` and settings round-trips; no disc verb, no rip |
 | K4 | 0 | k4-flac-restore | — | `set output_format flac` + `expect`; **no rip at all**. Regraded UX 2026-09-14 — a restore step, not a format check |
 | L | 0 | l-presets | — | settings round-trips only |
 | M | 0 | m-templates | — | validator only |
@@ -4031,6 +4035,7 @@ assigns to us, and it changes nothing on their side.
 | P | 1 | p-cacheprobe | e-identify | `cyanrip -N -x -I` — probe and TOC, no track read |
 | P2 | 1 | p2-c1-refusal | e-identify | `cyanrip -N -l 1` expecting **exit 1** `Offset is unset` — the graded path reads nothing; a regression that *does* read is the failure |
 | H | 2 | h-overwrite | e-identify | `rip` scoped by `select-tracks 1-2` |
+| H2 | 2 | h2-overwriteanswers | e-identify | `rip` scoped by `select-tracks 1`, twice, and a third `rip` answered Cancel |
 | I | 2 | i-cancel | e-identify | `rip` scoped by `1-3`, then `cancel-rip` |
 | J | 2 | j-reopen | i-cancel | `rescan` + `pick-release` + `rip` over `1-2` — **it proves the drive reopened after I's cancel, so it rests on I and not merely on its tier** |
 | J2 | 2 | j2-permutations | e-identify | `rip` scoped by `select-tracks 1`, with no `-r`, no `-Z`, a fixed speed and the library move; it rests on the disc being identified, not on I's cancel |

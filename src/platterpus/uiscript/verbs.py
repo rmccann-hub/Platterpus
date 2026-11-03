@@ -237,6 +237,16 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "expect-contains <config-field> <text> — assert a setting contains text",
     ),
+    # The review of 2026-11-03, C9: Settings OK is a step, and it must be able to
+    # fail. `control_verbs.py`.
+    Verb(
+        "expect-config-saved",
+        0,
+        1,
+        "expect-config-saved [seconds] — the settings file on disk holds every "
+        "running setting, read back without repairing it; with <seconds>, it was "
+        "also written within that many seconds (up to 600)",
+    ),
     # --- Disc and rip --------------------------------------------------------
     Verb(
         "rescan",
@@ -326,6 +336,21 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "expect-status <text> — assert the rip status line (the one under the "
         "Overall progress bar) contains text, case-insensitively",
+    ),
+    Verb(
+        "wait-for-status",
+        2,
+        None,
+        "wait-for-status <seconds> <text> — wait (up to 3 hours) until the rip "
+        "status line contains text, case-insensitively, to act at a phase of a rip; "
+        "fails if the rip it watched ends first",
+    ),
+    Verb(
+        "expect-no-rip",
+        0,
+        0,
+        "expect-no-rip — assert no rip is running: the answer before this step "
+        "(an overwrite prompt's Cancel) started nothing",
     ),
     Verb(
         # `expect-rip-complete` — assert the rip FINISHED, from the ripper's own
