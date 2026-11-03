@@ -83,6 +83,13 @@ from platterpus.user_settings import apply_user_edits, with_values
 
 log: logging.Logger = logging.getLogger(__name__)
 
+#: The tags a WAV from our transcode still holds, measured (2026-11-03, ffmpeg
+#: 6.1.1): ffmpeg copies the master's tags into the RIFF INFO chunk, which has a
+#: field only for these. Album artist, disc number, the MusicBrainz IDs and the
+#: cover have none, so they are lost. `tests/test_ui_settings_dialog.py` checks
+#: this list against a WAV our own transcode argv writes.
+WAV_KEPT_TAGS: str = "title, artist, album, track number, year and genre"
+
 
 class SettingsDialog(CenteredDialog):
     """Modal Settings dialog. Wraps an incoming Config; produces a new one."""
@@ -297,7 +304,7 @@ class SettingsDialog(CenteredDialog):
             ("FLAC — Lossless Archival Master [Recommended]", "flac"),
             ("WavPack (.wv) — Lossless, Keeps Tags and Cover Art", "wavpack"),
             ("MP3 — Lossy, Best-Quality VBR, Keeps Tags and Cover Art", "mp3"),
-            ("WAV — Raw PCM, No Tags or Cover Art", "wav"),
+            ("WAV — Raw PCM, Basic Tags Only, No Cover Art", "wav"),
         ):
             self._format_combo.addItem(label, value)
         format_index = self._format_combo.findData(config.output_format)
@@ -307,18 +314,23 @@ class SettingsDialog(CenteredDialog):
             "always produced; for any other choice the GUI keeps that FLAC and "
             "creates the selected format alongside it (a post-rip transcode). "
             "FLAC and WavPack are lossless; MP3 is high-quality lossy (VBR ~245 "
-            "kbps) for portability; WAV is raw PCM and can't store tags or art."
+            "kbps) for portability; WAV is raw PCM with basic tags only (no album "
+            "artist, no cover art)."
         )
         form.addRow("Output format:", self._format_combo)
 
-        # WAV is the one format that can't carry tags/cover art (RIFF has no
-        # tag chunk). Surface that the moment WAV is picked so it's never a
-        # silent surprise — WavPack is the lossless-with-tags alternative.
+        # WAV is the one format that loses tags and cover art: RIFF's INFO
+        # chunk holds only the basic ones (`WAV_KEPT_TAGS`). Surface exactly
+        # what is lost the moment WAV is picked, so it's never a silent
+        # surprise — WavPack is the lossless-with-tags alternative.
         self._wav_warning_label: QLabel = QLabel(
-            "⚠ WAV can't store tags or cover art. For lossless audio that keeps "
-            "your metadata, choose WavPack instead.",
+            f"⚠ WAV keeps only basic tags: {WAV_KEPT_TAGS}. Album artist, disc "
+            "number, the MusicBrainz IDs, any other tags and the cover art are "
+            "lost. For lossless audio that keeps all your metadata, choose "
+            "WavPack instead.",
             self,
         )
+        self._wav_warning_label.setTextFormat(Qt.TextFormat.PlainText)
         self._wav_warning_label.setWordWrap(True)
         form.addRow("", self._wav_warning_label)
         self._format_combo.currentIndexChanged.connect(self._update_wav_warning)
@@ -1100,7 +1112,7 @@ class SettingsDialog(CenteredDialog):
     # --- Internals ---------------------------------------------------------
 
     def _update_wav_warning(self) -> None:
-        """Show the no-tags/art warning only when WAV is the selected format."""
+        """Show the lost-tags/art warning only when WAV is the selected format."""
         self._wav_warning_label.setVisible(self._format_combo.currentData() == "wav")
 
     def _update_mp3_quality_enabled(self) -> None:

@@ -65,6 +65,11 @@ from platterpus.ctdb.verify import (
     minority_match_sentence,
     shifted_pressing_phrase,
 )
+from platterpus.ctdb_disagreement import (
+    CELL_NOTE,
+    ctdb_disagreements,
+    ctdb_note_sentence,
+)
 from platterpus.parsers.rip_log import (
     RipLog,
     accuraterip_is_match,
@@ -272,6 +277,11 @@ class RipProgress(QWidget):
         # The last parsed rip log, kept so the CTDB handler (which finishes later,
         # asynchronously) can reconcile its verdict against AccurateRip.
         self._last_rip_log: RipLog | None = None
+        # The last CTDB result's per-track rows, kept so the results table and
+        # the note under the status line can say where CTDB disagrees about a
+        # track AccurateRip does not contradict (`ctdb_disagreement`), whichever
+        # of the rip log and the CTDB answer arrives last.
+        self._ctdb_tracks: tuple[object, ...] = ()
         # Screen-reader announcement throttles (gap #4, focus-safe live updates).
         # The status line redraws many times a second (percent + ETA), so we
         # announce only when its *phase* changes (see status_phase_key); the CTDB
@@ -399,6 +409,20 @@ class RipProgress(QWidget):
         self._stall_label.setVisible(False)
         self._stall_label.setStyleSheet(status_style("warn", self._stall_label))
         root.addWidget(self._stall_label)
+
+        # --- CTDB's per-track disagreement, as a NOTE (never WRONG) ---
+        # The status line's detail once CTDB answers: which tracks CTDB questions
+        # that AccurateRip does not contradict, and that AccurateRip is the
+        # verdict (`ctdb_disagreement`, the owner's word for 0.7.119). Right under
+        # the status line rather than in the Details tab, so a user reading the
+        # end-of-rip line sees it without opening anything. The ⓘ carries it
+        # without colour; the secondary style keeps it from reading as a warning.
+        self._ctdb_note_label: QLabel = QLabel("", self)
+        self._ctdb_note_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._ctdb_note_label.setWordWrap(True)
+        self._ctdb_note_label.setVisible(False)
+        self._ctdb_note_label.setStyleSheet(SECONDARY_STYLE)
+        root.addWidget(self._ctdb_note_label)
 
         self._progress_bar: QProgressBar = QProgressBar(self)
         self._progress_bar.setRange(0, 100)
@@ -652,6 +676,7 @@ class RipProgress(QWidget):
         self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
         self._read_effort_label.setAccessibleName("Read-effort warning")
         self._stall_label.setAccessibleName("Rip stall warning")
+        self._ctdb_note_label.setAccessibleName("CTDB per-track note")
         self._comparison_label.setAccessibleName("Re-rip comparison")
         self._ar_table.setAccessibleName("Per-track AccurateRip results")
         self._ctdb_label.setAccessibleName("CTDB verification result")
@@ -702,6 +727,9 @@ class RipProgress(QWidget):
         self._ctdb_label.setVisible(False)
         self._ctdb_reconcile_label.clear()
         self._ctdb_reconcile_label.setVisible(False)
+        self._ctdb_note_label.clear()
+        self._ctdb_note_label.setVisible(False)
+        self._ctdb_tracks = ()
         self._loudness_label.clear()
         self._loudness_label.setVisible(False)
         self._stall_label.clear()
@@ -1056,6 +1084,9 @@ class RipProgress(QWidget):
             self._ar_table.setItem(row, _AR_COL_V2, v2_item)
             self._ar_table.setItem(row, _AR_COL_EAC, eac_item)
 
+        # A CTDB answer that arrived first is applied to the fresh rows.
+        self._render_ctdb_note()
+
         # Album loudness + partial-accurate footnote (data cyanrip already
         # logged; previously only in the JSON). Hidden when there's nothing.
         summary = loudness_summary_line(rip_log)
@@ -1128,6 +1159,10 @@ class RipProgress(QWidget):
         else:
             self._ctdb_reconcile_label.clear()
             self._ctdb_reconcile_label.setVisible(False)
+        # Where CTDB questions a track AccurateRip does not contradict: a note in
+        # the table and under the status line, never a WRONG.
+        self._ctdb_tracks = tuple(getattr(result, "tracks", ()) or ())
+        self._render_ctdb_note()
         # The Details tab now holds a verdict the user has not seen — put the
         # marker on its label so they know to look, rather than discovering it
         # only if they happen to click.
@@ -1179,6 +1214,35 @@ class RipProgress(QWidget):
         self._view_cue_button.setEnabled(self._cue_path is not None)
 
     # --- Internals ----------------------------------------------------------
+
+    def _render_ctdb_note(self) -> None:
+        """Show where CTDB disagrees about a track AccurateRip does not contradict.
+
+        Reads the one predicate (``ctdb_disagreement.ctdb_disagreements``) from
+        the kept rip log and CTDB rows, rewrites each table row's Status cell
+        through :func:`_status_cell` (so a row is rendered from its track, never
+        appended to twice), and shows or hides the note under the status line.
+        Called by :meth:`set_rip_log` and :meth:`set_ctdb_result`, so the order
+        the two arrive in does not matter.
+        """
+        rip_log = self._last_rip_log
+        found = ctdb_disagreements(self._ctdb_tracks, rip_log)
+        kinds = dict(found)
+        tracks = rip_log.tracks if rip_log is not None else ()
+        for row, track in enumerate(tracks[: self._ar_table.rowCount()]):
+            text, tip = _status_cell(track, kinds.get(track.number))
+            item = self._ar_table.item(row, _AR_COL_STATUS)
+            if item is not None:
+                item.setText(text)
+                item.setToolTip(plain_tooltip(tip))
+        sentence = ctdb_note_sentence(found)
+        if sentence:
+            self._ctdb_note_label.setText(f"{sentence}.")
+            self._ctdb_note_label.setVisible(True)
+            announce(self._ctdb_note_label, sentence)
+        else:
+            self._ctdb_note_label.clear()
+            self._ctdb_note_label.setVisible(False)
 
     def _announce_ctdb(self, text: str) -> None:
         """Announce a CTDB line once — the in-progress ping, then the verdict.
@@ -1527,7 +1591,7 @@ def _basename(path: str) -> str:
     return stem or path
 
 
-def _status_cell(track: object) -> tuple[str, str]:
+def _status_cell(track: object, ctdb_kind: str | None = None) -> tuple[str, str]:
     """The Status column for a track: ``(text, tooltip)``.
 
     The ripper's own word ("ripped successfully") unless AccurateRip contradicts
@@ -1536,12 +1600,23 @@ def _status_cell(track: object) -> tuple[str, str]:
     because the ripper's word is clean and the plan of record (2026-10-26, row 8)
     forbids clean wording over such a track. The tooltip is the EAC-layout log's
     ``Proof:`` row, from the same function, plus the ripper's word, so nothing
-    is hidden. The ``⚠`` carries the status without colour. Never raises.
+    is hidden. The ``⚠`` carries the status without colour.
+
+    ``ctdb_kind`` is what ``ctdb_disagreement.ctdb_disagreements`` said of this
+    track (None when CTDB agrees, did not answer, or AccurateRip already
+    contradicts it). Then the ripper's word stays and an ``ⓘ`` note follows it,
+    with the note's sentence as the tooltip: CTDB's disagreement is information,
+    and AccurateRip is the verdict. Never raises.
     """
     status = str(getattr(track, "status", "") or "")
     contradiction = track_accuraterip_contradiction(track)
     if contradiction is None:
-        return status, ""
+        if ctdb_kind is None:
+            return status, ""
+        number = getattr(track, "number", "?")
+        note = ctdb_note_sentence([(number, ctdb_kind)])
+        said = f" The ripper reported: “{status}”." if status else ""
+        return (f"{status} · {CELL_NOTE}" if status else CELL_NOTE), f"{note}.{said}"
     text = (
         "⚠ Wrong (AccurateRip)"
         if contradiction == AR_CONTRADICTION_WRONG

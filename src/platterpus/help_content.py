@@ -205,7 +205,8 @@ and the startup test script in the script console.
   tweak any individual option below — that switches the Goal to *Custom*.
 - **Output format** — *FLAC* (the lossless archival master, always produced),
   *WavPack* (also lossless, with tags), *MP3* (best-quality VBR for phones), or
-  *WAV* (raw PCM — no tags or cover art). Non-FLAC formats are derived from the
+  *WAV* (raw PCM — basic tags only: title, artist, album, track number, year and
+  genre; no album artist and no cover art). Non-FLAC formats are derived from the
   FLAC master, which is always kept, so you never lose the archival copy.
 - **MP3 VBR quality** — only when the output format is MP3: 0 is best quality
   (~245 kbps, the recommended default) and 9 is the smallest files. It has no

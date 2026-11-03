@@ -1282,7 +1282,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/ripper_log_verify.py": 473,
     # **305 -> 324** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): the encode drops the FLAC's loudness tags and `transcode_files` hands every written MP3 to `mp3_replaygain.apply`, with whether the set is the whole album; `TranscodeResult.replaygain` records the outcome. The measuring and retagging live in `mp3_replaygain`; only the hand-off is here.
     # **324 -> 333** (2026-11-03, review C4 of the 0.7.117 Full run): `TranscodeResult.encoder_argv`, the argv the first file that encoded ran with, so the MP3 quality that reached ffmpeg is on the record. Where the argv is built and run, so it lives here.
-    "adapters/transcode.py": 333,
+    # **333 -> 337** (2026-11-03, the WAV warning): the WAV docstring and argv comment say what ffmpeg copies into the RIFF INFO chunk, where they said nothing is copied.
+    "adapters/transcode.py": 337,
     # **new at 345** (2026-10-21): `adapters/mp3_replaygain.py` does one job, the ReplayGain of a derived MP3: drop the FLAC's figures, measure the MP3 with ebur128, write the figures in cyanrip's format. Over the heuristic by its docstring, which records why each choice was made (cyanrip's formulae, the 0.1 dB resolution, why no R128 tags, why a failure leaves a file untagged).
     "adapters/mp3_replaygain.py": 345,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
@@ -1928,7 +1929,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **661 -> 664** the 2026-10-21 known-fixes item 12: the amber banner's help says a disc with some matches is in AccurateRip and names the tracks that differ.
     # **661 -> 664** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 667** (2026-10-21): items 3+12 and R43 each added 3 lines of help text; both landed on one branch.
-    "help_content.py": 667,
+    # **667 -> 668** (2026-11-03, the WAV warning): the Output format help says WAV keeps basic tags only, naming them, where it said WAV has none.
+    "help_content.py": 668,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2509,7 +2511,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1792 -> 1795** (2026-11-03, TASKS R62, who cancelled a rip): `_rip_cancel_cause`, declared beside `_rip_cancelled`, and its import.
     # **1794 -> 1809** (2026-11-03, TASKS R107): the first-run offer runs on a child timer of the window, so it cannot fire on a torn-down one, and six config writes go through `_save_config_or_report`, which logs a failed write instead of raising into Qt.
     # **1809 -> 1821** (2026-11-03, TASKS R118): `closeEvent` logs a failed report flush instead of raising it into Qt, which left the close half done and failed every Python event filter Qt called while the exception was pending.
-    "ui/main_window.py": 1821,
+    # **1821 -> 1855** (2026-11-03, the owner's screenshot on 0.7.117, the rip pane's Tracks table at ~1.5 rows): `_PANE_SHARES` 0.40/0.40 -> 0.30/0.50 with its measurement, and `_default_pane_sizes`, which lifts the disc-info pane and the track list to their floors from the rip pane, so the bigger share cannot take the track list back to two rows on a small screen. Beside the split it computes.
+    "ui/main_window.py": 1855,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2791,7 +2794,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1718 -> 1747** (2026-10-26, the owner's EAC-parity plan of record, row 8): `_status_cell`, the Status column's ⚠ for a track AccurateRip contradicts, where it showed the ripper's "ripped successfully". The rule is `verdict.track_accuraterip_contradiction` and the tooltip's words are `track_proof.contradiction_sentence`; this is the cell that shows them.
     # **-> 1750** (2026-10-26): the entries above landed together on one branch.
     # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
-    "ui/rip_progress.py": 1759,
+    # **1759 -> 1834** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 1): a CTDB-only disagreement is a NOTE, never WRONG. The note line under the status line (built, named, cleared), `_render_ctdb_note` (rewrites each row's Status cell when the rip log or the CTDB answer arrives, whichever is last) and `_status_cell`'s ⓘ branch. The decision and the wording are the new focused module `ctdb_disagreement.py`; this is the pane that shows them.
+    "ui/rip_progress.py": 1834,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2830,7 +2834,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1373 -> 1390** (2026-10-16, TASKS R20 part 2, round 35): the `Disc ISRC` checkbox, its tooltip and save key.
     # **1390 -> 1412** (2026-10-20, the owner's word "yes, read twice by default"): the second-read checkbox and its tooltip, which says what turning it off gives up.
     # **1412 -> 1415** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
-    "ui/settings_dialog.py": 1415,
+    # **1415 -> 1427** (2026-11-03, the WAV warning): the WAV warning says what a WAV keeps and loses (title, artist, album, track number, year and genre kept; album artist, disc number, the MusicBrainz IDs and cover lost), from `WAV_KEPT_TAGS`, the measured list a test checks against our own transcode's output, built from that value, so it states PlainText.
+    "ui/settings_dialog.py": 1427,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
@@ -2838,7 +2843,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **889 -> 893** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **893 -> 914** (2026-10-26, TASKS R88, the owner's interim): `validate` refuses a name over 255 bytes with the specific message, beside the other point-of-entry path checks; the rendering is `cyanrip_name_lengths`.
     # **914 -> 928** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): `STATUS_STOPPED` and `end_track_status`: a track still shown as ripping when the rip ends reads "⚠ Stopped".
-    "ui/track_table.py": 928,
+    # **928 -> 944** (2026-11-03, the default pane split): `height_for_rows`, the height this widget needs for N whole rows, read from its own layout, which the window uses as the track list's floor on its first split.
+    "ui/track_table.py": 944,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
@@ -3146,7 +3152,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4338 -> 4341** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the addendum row carries the predicate's answer for the read that shipped.
     # **4338 -> 4348** (2026-11-03, review B4): `securing_pass_paranoia_counts`: the kept securing log is parsed where it is copied, on the worker's thread, so the report can carry that run's own counters.
     # **4348 -> 4370** (2026-11-03, review C10): `_space_refusal`, the free-space check before anything spawns, on the worker's thread so a stalled mount cannot freeze the window; the floor itself is `disk_space.py`, and `RipParameters.output_format` carries the derived format to it.
-    "workers/rip_worker.py": 4373,
+    # **4373 -> 4382** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 3): `_write_refusal`, the output-folder writability check before anything spawns, on the worker's thread beside `_space_refusal` and asked first; the check itself is the new focused module `output_writable.py`.
+    "workers/rip_worker.py": 4382,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

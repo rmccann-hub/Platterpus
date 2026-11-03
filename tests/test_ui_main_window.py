@@ -12414,6 +12414,13 @@ def test_the_taller_default_is_what_buys_the_extra_rows(
     passing. Rather than leave the change unpinned, resize explicitly to each
     preferred size, which Qt honours for an already-created widget regardless of the
     screen, and assert the taller one shows strictly more of the disc.
+
+    Counted across BOTH track tables since 2026-11-03: the 0.30/0.50 split gives the
+    extra height to the rip pane's Tracks table, and the upper list sits at its
+    four-row floor at either size, so counting the upper list alone would read the
+    floor, not the window. Before that change this asserted the upper list alone
+    showed six or more at the preferred size; it now shows four or more, the
+    owner's trade (`_PANE_SHARES`).
     """
     from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
 
@@ -12423,25 +12430,110 @@ def test_the_taller_default_is_what_buys_the_extra_rows(
         qapp.processEvents()
         table = window._track_table
         table.set_release(_fourteen_track_release())
+        window._rip_progress.set_rip_log(
+            RipLog(tracks=tuple(TrackResult(number=n) for n in range(1, 15)))
+        )
         qapp.processEvents()
         view = table._view
+        results = window._rip_progress._ar_table
 
-        def rows_at(width: int, height: int) -> int:
+        def rows_at(width: int, height: int) -> tuple[int, int]:
             window.resize(width, height)
             qapp.processEvents()
             window._apply_pane_shares()
             qapp.processEvents()
-            row_height = view.rowHeight(0)
-            assert row_height > 0, "nothing was laid out at this size"
-            return view.viewport().height() // row_height
+            upper, lower = view.rowHeight(0), results.rowHeight(0)
+            assert upper > 0 and lower > 0, "nothing was laid out at this size"
+            return (
+                view.viewport().height() // upper,
+                results.viewport().height() // lower,
+            )
 
         was = rows_at(960, 720)  # the geometry that shipped through v0.6.4b8
         now = rows_at(_DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H)
-        assert now > was, (
-            f"the preferred window size shows {now} rows against {was} at the old "
-            "960x720 — the taller default is buying nothing"
+        assert sum(now) > sum(was), (
+            f"the preferred window size shows {now} rows (track list, results) "
+            f"against {was} at the old 960x720 — the taller default buys nothing"
         )
-        assert now >= 6, f"only {now} of 14 rows at the preferred size"
+        assert now[0] >= 4, f"only {now[0]} of 14 track-list rows at the preferred size"
+    finally:
+        window.close()
+
+
+def test_default_pane_sizes_lift_the_first_two_panes_from_the_rip_pane() -> None:
+    """The arithmetic behind the floors, without a window."""
+    from platterpus.ui.main_window import _default_pane_sizes
+
+    # Room for everything: the shares stand, untouched.
+    assert _default_pane_sizes(1000, (0.2, 0.3, 0.5), (100, 200, 250)) == [
+        200,
+        300,
+        500,
+    ]
+    # Short track list: lifted to its floor, and only the rip pane pays.
+    assert _default_pane_sizes(700, (0.2, 0.3, 0.5), (100, 228, 200)) == [
+        140,
+        228,
+        332,
+    ]
+    # Both short: both lifted, from the rip pane, which keeps its own floor.
+    sizes = _default_pane_sizes(600, (0.2, 0.3, 0.5), (159, 228, 230))
+    assert sizes == [159, 211, 230], sizes
+    # No floor known (0): plain shares, nothing moved.
+    assert _default_pane_sizes(800, (0.2, 0.3, 0.5), (0, 0, 0)) == [160, 240, 400]
+
+
+def test_the_rip_panes_tracks_table_opens_showing_four_rows_after_a_rip(
+    qapp: QApplication, teardown_threads: Any
+) -> None:
+    """THE REGRESSION (the owner's screenshot on 0.7.117): about 1.5 rows.
+
+    After a rip, the bars, the status line, the banner, the read-effort warning
+    and the tabs took ~240 of the rip pane's ~300 px. This drives the pane into
+    the state the hardware screenshot showed (`_populate_like_a_finished_rip`,
+    its strings verbatim), at the preferred window size, and measured 2 whole
+    rows at the 0.40/0.40 split against 4 at 0.30/0.50. The window is sized
+    BEFORE it is shown, so the split under test is the one `showEvent` applies,
+    as on a desktop, not a re-application.
+    """
+    from test_ui_rip_progress import _populate_like_a_finished_rip
+
+    from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
+
+    window = teardown_threads()
+    try:
+        window.resize(_DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H)
+        window.show()
+        qapp.processEvents()
+        window._track_table.set_release(_fourteen_track_release())
+        pane = window._rip_progress
+        pane.set_rip_log(
+            RipLog(tracks=tuple(TrackResult(number=n) for n in range(1, 15)))
+        )
+        _populate_like_a_finished_rip(pane)
+        qapp.processEvents()
+        results = pane._ar_table
+        track_list = window._track_table._view
+        # FLOORS, so this cannot pass by measuring nothing: the window is the
+        # preferred size, the table really has 14 rows with a height, and the
+        # banner whose height caused the report is really on screen.
+        assert (window.width(), window.height()) == (
+            _DEFAULT_WINDOW_W,
+            _DEFAULT_WINDOW_H,
+        ), "the window is not at the preferred size, so this measures nothing"
+        assert results.rowCount() == 14, "the results table under test is not 14"
+        assert pane._verdict_banner.isVisible(), "the finished-rip banner is hidden"
+        row_height = results.rowHeight(0)
+        assert row_height > 0, "the results table reported no row height"
+        visible = results.viewport().height() // row_height
+        assert visible >= 4, (
+            f"only {visible} of 14 rows of the rip pane's Tracks table are visible "
+            f"after a rip at {window.width()}x{window.height()} (splitter "
+            f"{window._content_splitter.sizes()})"
+        )
+        # The trade's other side: the upper list keeps four whole rows too.
+        upper = track_list.viewport().height() // track_list.rowHeight(0)
+        assert upper >= 4, f"the track list fell to {upper} rows to pay for it"
     finally:
         window.close()
 

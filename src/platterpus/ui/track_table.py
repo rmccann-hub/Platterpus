@@ -607,6 +607,22 @@ class TrackTable(QWidget):
 
     # --- Public surface -----------------------------------------------------
 
+    def height_for_rows(self, rows: int) -> int:
+        """The height this whole widget needs to show ``rows`` whole track rows.
+
+        Read from the live layout: what the album form, the header and the frame
+        take (this widget's height less the grid's viewport), plus ``rows`` at
+        the grid's row height. The main window uses it as a floor on its first
+        split, so giving the rip pane more room never shrinks this list back to
+        the two rows of fourteen it once opened on. 0 when the layout is not
+        there yet, which the caller reads as "no floor".
+        """
+        row = self._view.verticalHeader().defaultSectionSize()
+        chrome = self.height() - self._view.viewport().height()
+        if rows <= 0 or row <= 0 or chrome <= 0:
+            return 0
+        return chrome + rows * row
+
     def _refuses_rewrite(self, what: str) -> bool:
         """True, and logged, when a rip holds the table.
 

@@ -63,7 +63,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
 | **CTDB** verify | present — CRC hardware-validated (KDD-16) | ✅ |
 | **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC at maximum compression → post-rip **FLAC verify (decodes clean)** | ✅ |
-| **WAV** uncompressed baseline | WAV output (no tags — the UI warns) | ✅ |
+| **WAV** uncompressed baseline | WAV output (basic tags only: no album artist, no cover art — the UI warns) | ✅ |
 | **WavPack** hybrid `-c` + `-m -v` | WavPack **lossless**, encoded from the verified FLAC master. After every encode, the `.wv` and its master are decoded and their PCM compared, which is a stronger proof than `-v`. The hybrid's lossy half is what the MP3 output is for | ✅ |
 | **LAME** `-V 0 -q 4` (dodge the r6147 `noise_shaping_amp` bug) | MP3 is encoded by **ffmpeg** VBR, not `lame.exe -q 0..3` — so that LAME-specific footgun **isn't in our path** | ➖ |
 | **Vorbis / APEv2 / ID3** tags per format | FLAC→Vorbis (cyanrip), MP3/WavPack tags via ffmpeg | ✅ |
@@ -713,7 +713,8 @@ ffmpeg -i <file>.flac -map_metadata 0 -map 0:a -c:a wavpack <file>.wv
 ffmpeg -i <file>.flac -map_metadata 0 -id3v2_version 3 -c:v copy \
        -c:a libmp3lame -q:a 0 <file>.mp3
 
-# WAV — raw 16-bit PCM (no tags or cover art — RIFF can't hold them)
+# WAV — raw 16-bit PCM; RIFF INFO keeps title, artist, album, track number, year and
+# genre, and loses album artist, disc number, the MusicBrainz IDs and cover art
 ffmpeg -i <file>.flac -map 0:a -c:a pcm_s16le <file>.wav
 ```
 

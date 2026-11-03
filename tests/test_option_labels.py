@@ -34,7 +34,7 @@ def test_conforming_labels_pass() -> None:
         "FLAC — Lossless Archival Master [Recommended]",
         "WavPack (.wv) — Lossless, Keeps Tags and Cover Art",
         "MP3 — Lossy, Best-Quality VBR, Keeps Tags and Cover Art",
-        "WAV — Raw PCM, No Tags or Cover Art",
+        "WAV — Raw PCM, Basic Tags Only, No Cover Art",
         "Fast Verified — Lossless, Fully Verified (AccurateRip + CTDB) [Recommended]",
         "Artist / Year - Album / 01 - Title — Chronological, foobar2000 Style",
         "Custom — Hand-Tuned Below",
