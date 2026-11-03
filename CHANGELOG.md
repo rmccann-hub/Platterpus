@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The collected-test floor rises from 9,735 to 9,762** (contributor-facing): the 27 tests added for TASKS R114, R115, R117 and R119, so a leg that stops collecting them fails.
 - **TASKS records what the 2026-11-03 Full run's reading found** (contributor-facing, R112 to R120): the status line calling a track AccurateRip contradicts clean, a lost first-pass failure, timings measured on misreads, 1,942 false warnings a run, records nothing reads, a shutdown crash from 2026-10-28, and a cue item for the fork.
 - **The 2026-11-03 Full run on 0.7.117 with `.28` is filed and graded `full-green`** (contributor-facing): round 37's closing run, 553 pass and 0 fail, filed on `evidence` at `1bb98a2c` with its 155 manifest rows. The filing tool now names the cache probe's own `cdparanoia.log`, which runs have carried since 0.7.116; it had refused the bundle for want of a name.
 - **CI's `astral-sh/setup-uv` moves from v10.3.1 to v10.3.2** (contributor-facing), Dependabot's pull request #431 carried here with the bill of materials regenerated; the pin is the full commit SHA of the `v10.3.2` tag, read from the action's own repository.
