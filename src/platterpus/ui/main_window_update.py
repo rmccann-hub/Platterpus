@@ -617,6 +617,12 @@ class UpdateMixin(MainWindowShared):
         cannot close over local state.
         """
         box = QMessageBox(self)
+        # Deleted when it closes, as its sibling in `_on_ripper_update_result` is:
+        # `open()` returns at once and the window owns the box, so without this
+        # every offer stayed behind as a hidden, modal child (the 2026-11-03 Full
+        # run listed one on every screenshot step). Both slots below run before
+        # the deferred delete, and each clears `_ripper_offer_box`.
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         box.setWindowTitle("cyanrip update")
         box.setText(detail)
         box.setTextFormat(Qt.TextFormat.PlainText)  # see `_on_ripper_update_result`

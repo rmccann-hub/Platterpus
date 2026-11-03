@@ -93,9 +93,13 @@ _EDITABLE_COLS: set[int] = {_COL_TITLE, _COL_ARTIST}
 STATUS_PENDING: str = "pending"
 STATUS_RIPPING: str = "ripping"
 STATUS_DONE: str = "done"
+#: A track the rip was reading when it ended without finishing it (a cancel, a
+#: failure). Its row kept "⟳ Ripping" after the rip had stopped (TASKS R113).
+STATUS_STOPPED: str = "stopped"
 _STATUS_DISPLAY: dict[str, str] = {
     STATUS_RIPPING: "⟳ Ripping",
     STATUS_DONE: "✓ Done",
+    STATUS_STOPPED: "⚠ Stopped",
 }
 
 # --- Column widths: measured once per disc, never during a rip -------------------
@@ -328,6 +332,12 @@ class TrackTableModel(QAbstractTableModel):
         self._status[track_number] = status
         cell = self.index(row, _COL_STATUS)
         self.dataChanged.emit(cell, cell, [Qt.ItemDataRole.DisplayRole])
+
+    def stop_unfinished(self) -> None:
+        """Mark every track still "ripping" as stopped: the rip has ended."""
+        for number, status in list(self._status.items()):
+            if status == STATUS_RIPPING:
+                self.set_track_status(number, STATUS_STOPPED)
 
     def reset_statuses(self) -> None:
         """Clear every track's rip status back to pending (called at rip start)."""
@@ -724,6 +734,10 @@ class TrackTable(QWidget):
     def mark_track_done(self, track_number: int) -> None:
         """Show `track_number` (1-based) as finished ripping."""
         self._model.set_track_status(track_number, STATUS_DONE)
+
+    def end_track_status(self) -> None:
+        """The rip has ended: a track still shown as ripping is shown as stopped."""
+        self._model.stop_unfinished()
 
     def reset_track_status(self) -> None:
         """Clear the live Status column back to pending (called at rip start)."""

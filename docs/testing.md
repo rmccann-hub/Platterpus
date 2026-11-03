@@ -3902,11 +3902,13 @@ defect, and two of those sections are archival.
 | B | ARCHIVAL | settings reach cyanrip's argv; a nudged read offset rips the next disc wrong with a clean-looking log |
 | C | ARCHIVAL | a guard that fails to refuse writes bad data |
 | D | UX | dialogs open and close; annoying when wrong, not a claim about a disc |
+| D2 | UX | Settings OK saves the running settings and changes none; a setting OK lost is wrong on the next launch, not in a rip already made |
 | E | ARCHIVAL | wrong release → wrong tags → a wrong archival record |
 | E2 | ARCHIVAL | the offset override off (C4, added 2026-10-06): a drive the AccurateRip list does not carry must be refused at Start, not ripped at an offset nobody chose. Archival on B's reasoning: the read offset is the calibration every rip's accuracy rests on, and a rip at no offset has a clean-looking log. On a listed drive the step is `unreachable` (N/A): not a pass and not a failure, counted as such in the RESULT line and the closing dialog |
 | F | ARCHIVAL | the rip itself |
 | G | ARCHIVAL | the seam check and the rip's own log — the log *is* the provenance record |
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
+| H2 | ARCHIVAL | the overwrite prompt's Cancel and Replace: a Cancel that ripped anyway overwrites a finished master, and a Replace that left a mixed folder is a corrupt album |
 | I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
 | J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
 | J2 | ARCHIVAL | the permutations no other rip uses (2026-10-05): no `-r`, no `-Z` in uniform mode, a fixed read speed, and a finished rip filed into a library folder. Archival on B's reasoning: each setting reaches cyanrip's argv, and the argv is read as sent and as received. And a library move that leaves a copy, or files a folder without its log and report, damages a finished master's record |
@@ -3920,7 +3922,7 @@ defect, and two of those sections are archival.
 | O | ARCHIVAL | cyanrip's own offset finder (`-f`) against this drive's known +667 (the fork's round 30 lap 3 S24). No rip of ours uses its answer yet, and it is graded archival anyway, on P's reasoning: the read offset is the calibration every rip's accuracy rests on, and a finder in the core that disagrees with ground truth is an accuracy defect whoever calls it. Grading it UX would make a version easier to reach, which is the direction to be suspicious of |
 | P | ARCHIVAL | the cache probe feeds the accuracy model |
 | P2 | ARCHIVAL | C1 — a refusal that hangs the drive costs the disc |
-| P3 | ARCHIVAL | round 16's close condition, clause 2 — whether `-H` composes with de-emphasis or silently selects past it. The defect it probes made `-H`, `-H -W` and `-H -E` produce **byte-identical audio** while the log said `(deemphasis applied)` and the cue omitted `FLAGS PRE`, both reading the setting rather than the audio. Wrong samples written to an archival master, with every text artifact agreeing they are right — there is no more archival failure than that |
+| P3 | ARCHIVAL | round 16's close condition, clause 2 — whether `-H` composes with de-emphasis or silently selects past it. The defect it probes made `-H`, `-H -W` and `-H -E` produce **byte-identical audio** while the log said `(deemphasis applied)` and the cue omitted `FLAGS PRE`, both reading the setting rather than the audio. Wrong samples written to an archival master, with every text artifact agreeing they are right — there is no more archival failure than that. **Asserts `expect-deemphasis-pair` since 2026-11-03**: until then the two arms were captured and graded by nobody, because the section's comment said no verb could decide it; from the fork's `.20` the loudness is measured on the delivered audio and the checksums on the read, so equal CRCs with loudness moved by at least 0.3 LU decides it, and a missing value is blocked, not passed |
 | P4 | ARCHIVAL | TASKS R10 (2026-10-14): every rip of one disc in the run compares its pregap list (cyanrip's `Gaps:` block) with the others', naming each track that differs. **The disagreement is gathered (`info`), declared here before any run, and the reasons are three:** it moves no sample, because cyanrip merges a pregap into the end of the previous track, so the track files are cut at the same boundaries either way (on the 2026-10-13 run the tracks either side of both differences carry the same CRC and AccurateRip match in both rips); no log can say which of two readings of one sub-channel is right, so a failure would grade a coin toss; and it is the fork's known detector variance (`subchannel-pregap-varies`), so a failure would fail every Full run by construction, which is where a real failure hides (the 2026-10-06 open-round warning). **What the section CAN fail on is archival:** fewer than two comparable logs of one disc, the floor, is `blocked`, and a run whose rips left no two readable logs of one disc has lost the logs that are its provenance record (G's reasoning). Adding a gatherer makes no version easier to reach than before it existed, and the floor makes one harder. **It runs after P6, not before P5** (TASKS R60, from 2026-11-03): before P5 it never saw the logs of P5's and P6's approved-build rips, and on the plan of record's disc 4 both `.25` logs left out track 5's 175-frame pregap that every `.26` log listed. P5's and P6's logs count toward the floor. F and N meet it alone on any run that kept their logs; the one run the move makes easier to pass here is one that lost both F's and N's logs and kept two of P5's or P6's, said here rather than left to be found |
 | P5 | UX | the fork's round 36 lap 1 S15, added 2026-10-21 on the owner's request: a timed rip of tracks 1-3 on the approved build and on the build under review, alternated twice (`install-ripper` between rips), each track's `Elapsed:` summed per rip and the two pairs' ratios compared. **A measurement, declared here before any run**: every timing and ratio is `info`, because a slower build is a finding for the fork and moves no sample. What can go red is a comparison that cannot be made (an untimed track, differing tracks or read counts, both logs naming one build) or an install that failed, and none of those touches an archival record: its rips enter one other section's population, P4's, which runs after P6 from 2026-11-03 (TASKS R60) and gathers its comparison as `info`; their logs can only add readings to P4's floor, which F and N meet on their own, and its last step reinstalls the build section A accepted. Between rounds the two builds are one, and the section records `nothing to compare` and marks its steps N/A. Adding a gatherer makes no version easier to reach than before it existed |
 | P6 | UX | the owner's word of 2026-10-26, after the 2026-10-21 Full run, where track 3 verified with AccurateRip in both of P5's `.25` rips and in neither `.26` rip, and the fork's round 36 lap 8 S8, *"two rips a side cannot separate the build from the disc"*: track 3 alone, ripped eight times in ABBA order (approved, review, review, approved, and again) with P5's fixed settings, each rip's per-track AccurateRip state, CRC32 and speed recorded, and the tally per build, right in N of M rips with the distinct CRC32s read. **A measurement, declared here before any run**: every record and tally is `info`, because a build that misreads a track is a finding for the fork and moves no sample of an archival rip. What can go red is a comparison that cannot be made (a log naming no build, differing tracks, one build only, a rip AccurateRip gave no answer about) or an install that failed, and none of those touches an archival record: its rips enter one other section's population, P4's, which runs after P6 from 2026-11-03 (TASKS R60) and gathers its comparison as `info`; their logs can only add readings to P4's floor, which F and N meet on their own, and its last step reinstalls the build section A accepted. Between rounds the two builds are one, and the section records `nothing to compare` and marks its steps N/A, as P5 does. Adding a gatherer makes no version easier to reach than before it existed |
@@ -3928,7 +3930,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**21 ARCHIVAL, 6 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The six that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run), and two measurements for the fork (`P5`, the timed rip, and `P6`, the paired rips of track 3). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
+**22 ARCHIVAL, 7 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The seven that remain are genuinely about the program rather than the disc — dialog plumbing (`D`, and `D2`, Settings' OK), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run), and two measurements for the fork (`P5`, the timed rip, and `P6`, the paired rips of track 3). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -3942,12 +3944,20 @@ rip left. Each of F, H, J, K1–K3 and N now also grades the artifacts:
 the ripper's, the argv, the audio files), `expect-accuraterip` requires an
 AccurateRip answer for every track (any answer; the plumbing is what is graded),
 `expect-ctdb whole|partial` requires the lookup on a whole disc and its refusal
-on a subset, and `expect-tags` / `expect-cover-art` read the FLACs. H adds the
+on a subset (a match CTDB's own database outvotes fails, from 2026-11-03), and
+`expect-tags` / `expect-cover-art` read the FLACs. After the whole-disc rips of
+F and N, `expect-read-offset` grades the report's `rip.read_offset_check`
+(2026-11-03, review C3): the drive list agrees or AccurateRip confirmed the
+offset, and the `-s` sent is the offset the log applied. H adds the
 per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
-`file` and `complete` cover-art modes. §I asks only the two audit questions a
+`file` and `complete` cover-art modes. K1 to K3 also open the derived files
+(`expect-derived-files`, 2026-11-03, review C4): each one's length against its
+master's, its tags and cover, and the codec and MP3 `-q:a` that ran, read from the
+report's `verification.transcode.encoder_argv`; before that they graded only the
+FLAC masters. §I asks only the two audit questions a
 cancel leaves standing. The graders delegate to the product's own predicates
-(`uiscript/artifact_grading.py`, `uiscript/tag_grading.py`); the reasons are in
-their docstrings. **J2 (2026-10-05)** rips one track with the settings no
+(`uiscript/artifact_grading.py`, `uiscript/record_grading.py`,
+`uiscript/tag_grading.py`); the reasons are in their docstrings. **J2 (2026-10-05)** rips one track with the settings no
 other rip uses: no `-r`, no `-Z` (in uniform mode, where a setting of 2 would
 send one), a fixed read speed of 0, and a scratch library folder inside the rips
 folder; `expect-library-move` grades the move and `expect-rip-argv` the argv as
@@ -3986,6 +3996,7 @@ here, in advance, like the full run's:
 | B | ARCHIVAL | the read offset this rip reads at, as in the full run |
 | E | ARCHIVAL | an unknown disc must rip as unknown: a disc wrongly identified gets a release's tags it does not carry |
 | F | ARCHIVAL | the rip itself, its placeholder tags, and the record of which path it took |
+| G | ARCHIVAL | a cancel during the securing pass: the album pass's log must survive as an intact, signed record, as section I of the full run asks of a cancel in the album pass |
 | Q | UX | hygiene for the next run |
 
 <!-- END-UNKNOWN-DISC-SEVERITY-TABLE -->
@@ -4021,6 +4032,7 @@ assigns to us, and it changes nothing on their side.
 | B | 0 | b-settings | — | no disc verb, no rip |
 | C | 0 | c-validation | — | no disc verb, no rip |
 | D | 0 | d-dialogs | — | no disc verb, no rip |
+| D2 | 0 | d2-settingsok | — | `open settings` + `ok` and settings round-trips; no disc verb, no rip |
 | K4 | 0 | k4-flac-restore | — | `set output_format flac` + `expect`; **no rip at all**. Regraded UX 2026-09-14 — a restore step, not a format check |
 | L | 0 | l-presets | — | settings round-trips only |
 | M | 0 | m-templates | — | validator only |
@@ -4031,6 +4043,7 @@ assigns to us, and it changes nothing on their side.
 | P | 1 | p-cacheprobe | e-identify | `cyanrip -N -x -I` — probe and TOC, no track read |
 | P2 | 1 | p2-c1-refusal | e-identify | `cyanrip -N -l 1` expecting **exit 1** `Offset is unset` — the graded path reads nothing; a regression that *does* read is the failure |
 | H | 2 | h-overwrite | e-identify | `rip` scoped by `select-tracks 1-2` |
+| H2 | 2 | h2-overwriteanswers | e-identify | `rip` scoped by `select-tracks 1`, twice, and a third `rip` answered Cancel |
 | I | 2 | i-cancel | e-identify | `rip` scoped by `1-3`, then `cancel-rip` |
 | J | 2 | j-reopen | i-cancel | `rescan` + `pick-release` + `rip` over `1-2` — **it proves the drive reopened after I's cancel, so it rests on I and not merely on its tier** |
 | J2 | 2 | j2-permutations | e-identify | `rip` scoped by `select-tracks 1`, with no `-r`, no `-Z`, a fixed speed and the library move; it rests on the disc being identified, not on I's cancel |
@@ -4632,4 +4645,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.7.117.*
+*Last updated for Platterpus v0.7.118.*

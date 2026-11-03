@@ -251,6 +251,33 @@ def expand_last_track(args: list[str], last_track: int) -> list[str]:
     return [arg.replace(LAST_TRACK_PLACEHOLDER, str(last_track)) for arg in args]
 
 
+#: In a ``cyanrip`` step, the selected drive's device path, read from the drive
+#: picker when the step runs: the drive the app's own rips pass as ``-d``. Without
+#: it a scripted rip reads cyanrip's default drive, which on a machine with two
+#: drives is not necessarily the one the run set the offset for (the 2026-11-03
+#: review, C7).
+DEVICE_PLACEHOLDER: str = "(device)"
+
+
+def device_problem(device: str) -> str:
+    """Why ``device`` cannot be sent as ``-d``, or ``""`` when it can.
+
+    Absolute, because cyanrip would read a value starting with ``-`` as a flag;
+    no whitespace, because no device node has any and one would be a mis-read
+    picker. Control characters are the passthrough sanitiser's to refuse.
+    """
+    if not device.startswith("/"):
+        return f"the selected drive's device {device!r} is not an absolute path"
+    if any(ch.isspace() for ch in device) or len(device) > 4096:
+        return f"the selected drive's device {device!r} is not a device path"
+    return ""
+
+
+def expand_device(args: list[str], device: str) -> list[str]:
+    """``args`` with :data:`DEVICE_PLACEHOLDER` replaced by ``device``."""
+    return [arg.replace(DEVICE_PLACEHOLDER, device) for arg in args]
+
+
 #: In a ``cyanrip`` step, a WHOLE argument that expands to the two words every app
 #: rip sends to name its caller: ``--consumer platterpus/<version>``. Whole-word,
 #: because it can expand to nothing (a build that does not accept the flag).
@@ -311,8 +338,8 @@ def expand_identity(args: list[str], *, build_tag: str) -> tuple[list[str], list
 def args_as_preflight_sees_them(args: list[str]) -> list[str]:
     """The argv the sanitiser judges BEFORE the run, when no offset is known yet.
 
-    The offset placeholder stands in as ``0``, a valid offset, and the last-track
-    one as ``1``, a valid track, so the rest of the line is
+    The offset placeholder stands in as ``0``, a valid offset, the device one as
+    ``/dev/sr0``, and the last-track one as ``1``, a valid track, so the rest of the line is
     still checked; the real value is range-checked when the step runs, by the same
     sanitiser, on the expanded argv. One function, so the runner's preflight and
     the committed-script sweep cannot judge a line two different ways.
@@ -322,9 +349,8 @@ def args_as_preflight_sees_them(args: list[str]) -> list[str]:
     """
     from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG
 
-    return expand_identity(
-        expand_last_track(expand_offset(args, 0), 1), build_tag=FORK_EXPECTED_BUILD_TAG
-    )[0]
+    expanded = expand_device(expand_last_track(expand_offset(args, 0), 1), "/dev/sr0")
+    return expand_identity(expanded, build_tag=FORK_EXPECTED_BUILD_TAG)[0]
 
 
 def sanitise_cyanrip_args(args: list[str]) -> str | None:

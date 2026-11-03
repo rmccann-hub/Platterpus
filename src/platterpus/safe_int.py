@@ -79,3 +79,18 @@ def int_or_none(raw: object, *, field: str = "") -> int | None:
         )
         return None
     return value
+
+
+def present_int_or_none(raw: object, *, field: str = "") -> int | None:
+    """:func:`int_or_none` for an OPTIONAL value: absent is silent. Never raises.
+
+    ``None`` is what an optional regex group or a missing key gives when the value
+    is simply not there, and that is not an unusable integer: :func:`int_or_none`
+    would warn about it, and on 2026-11-03 it did, 1,942 times in one Full run,
+    96% of the log's warnings, for the ``Pregap search:`` line's optional
+    ``LSN … to … undecided`` clause (TASKS R116). A value that IS there and still
+    cannot be read warns exactly as before, so the warning keeps its meaning.
+    """
+    if raw is None:
+        return None
+    return int_or_none(raw, field=field)

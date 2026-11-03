@@ -51,10 +51,17 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
+# `report_writer` is imported HERE, at load, and never inside a method (R118).
+# The close path flushes through it, and a close can come from a session logout
+# that has already taken the AppImage's mount away: on 0.7.115 the first import
+# of this module happened inside `closeEvent` after SIGTERM, found no file, and
+# raised `ImportError` out of the close. A module the window holds from start-up
+# needs no file system on the way out.
 from platterpus import (
     cancel_cause,
     drive_control,
     exit_work,
+    report_writer,
     rip_addendum,
     rip_files,
     tag_hygiene,
@@ -77,6 +84,7 @@ from platterpus.cancel_cause import CancelCause
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
+from platterpus.first_pass_reread import snapshot as first_pass_snapshot
 from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -369,6 +377,10 @@ def _merge_shipped_track(
     """
     from dataclasses import replace
 
+    # The album pass's own -Z facts, kept in their own slot before anything below
+    # replaces them (TASKS R114; `first_pass_reread.py` says why).
+    if shipped is not None or track.number in verdicts:
+        track = replace(track, first_pass_reread=first_pass_snapshot(track))
     if shipped is not None:
         track = replace(
             track,
@@ -1079,6 +1091,9 @@ class RipMixin(MainWindowShared):
         # Fresh rip → clear any leftover per-track status from a previous run so
         # the live Status column starts all-pending.
         self._track_table.reset_track_status()
+        # And the disc panel's AccurateRip row, which described the LAST rip
+        # (review B1, 2026-11-03 Full run); the finish handler refills it.
+        self._disc_info_panel.clear_accuraterip_result()
 
         # Make the in-progress rip reachable from the moment it starts: Open rip
         # folder → the output directory (the album subfolder appears inside as
@@ -1666,6 +1681,9 @@ class RipMixin(MainWindowShared):
     def _on_rip_finished(self, success: bool, log_path: str) -> None:
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
+        # Nothing is being read any more, whatever the outcome: a track still
+        # shown as "⟳ Ripping" (a cancel, a failure) is shown as stopped (R113).
+        self._track_table.end_track_status()
 
         # **DISARM THE FORCE-STOP RESCUE — the reader is already gone.**
         #
@@ -1938,6 +1956,9 @@ class RipMixin(MainWindowShared):
             ),
             # Who cancelled it, as the caller of the Cancel said (v42, R62).
             cancelled_by=self._rip_cancel_cause,
+            securing_pass_paranoia_counts=getattr(
+                self._rip_worker, "securing_pass_paranoia_counts", None
+            ),
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
@@ -2131,7 +2152,11 @@ class RipMixin(MainWindowShared):
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
                 # the old misleading static "verified during rip".
-                self._disc_info_panel.set_accuraterip_result(rip_log)
+                # The DISC's count, so a subset rip is named as one (TASKS R113).
+                self._disc_info_panel.set_accuraterip_result(
+                    rip_log,
+                    disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
+                )
                 if success:
                     status = fidelity_summary(
                         rip_log,
@@ -3525,7 +3550,7 @@ class RipMixin(MainWindowShared):
         post-rip check (see :meth:`_launch_post_rip_daemon`). Best-effort: the
         pure ``rip_compare`` helpers never raise.
         """
-        from platterpus import report_writer, rip_compare, rip_report
+        from platterpus import rip_compare, rip_report
 
         report_path = rip_report.report_path_for(log_file)
         output_root = Path(self._config.output_dir)
@@ -4545,8 +4570,6 @@ class RipMixin(MainWindowShared):
         # nobody looked. Corrected there too.
         from functools import partial
 
-        from platterpus import report_writer
-
         if record.log_file is None:
             # A record whose rip never reached the finish handler has no album on
             # disk to describe. Both callers already check; this is the floor, so a
@@ -4977,8 +5000,7 @@ class RipMixin(MainWindowShared):
         if record is not None and record.log_file is not None:
             self._write_rip_report(record)
         if wait:
-            from platterpus import report_writer
-
+            # No import here: the close path (see the import block, R118).
             if not report_writer.writer().stop():
                 # Said, not swallowed. The report on disk may be one revision
                 # behind, and a silent return here would be indistinguishable

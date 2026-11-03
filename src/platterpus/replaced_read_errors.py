@@ -55,8 +55,10 @@ from platterpus.verified_read_chase import (
 
 #: The parser's health sentence for a non-zero ``Ripping errors:`` count
 #: (``parsers/cyanrip_log.py``). Anchored and bounded: the count is 1-9 digits.
+#: Singular for one from 2026-11-03 (TASKS R113); a report written before reads
+#: "1 ripping errors", so both are read.
 _COUNTED_ERRORS: Final[re.Pattern[str]] = re.compile(
-    r"^(?P<count>\d{1,9}) ripping errors$"
+    r"^(?P<count>\d{1,9}) ripping errors?$"
 )
 #: ``retried_tracks[].kept_read`` values naming a read that replaced the first.
 _REPLACING_READS: Final[frozenset[str]] = frozenset(

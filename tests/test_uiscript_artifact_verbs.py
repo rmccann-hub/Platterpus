@@ -421,3 +421,60 @@ def test_expect_cover_art_says_not_determined_when_the_result_never_lands(
     step = _run(_rip(tmp_path, report), qapp, process_until, "expect-cover-art")
     assert step.outcome is Outcome.BLOCKED, step.detail
     assert step.detail.startswith("not determined"), step.detail
+
+
+# --- expect-read-offset (review C3 of the 2026-11-03 Full run) -----------------
+
+
+def _with_offset_check(state: str, reconfirms: str = "confirmed") -> dict[str, Any]:
+    """The round-29 rip, with the `rip.read_offset_check` block v39 writes."""
+    report = _load("overwrite")
+    report["rip"]["read_offset_check"] = {
+        "state": state,
+        "applied": 667,
+        "listed": 667 if state == "matches" else 6,
+        "detail": "+667 applied",
+        "accuraterip_reconfirms": reconfirms,
+        "accuraterip_detail": "AccurateRip matched 2 of 2 tracks at this offset",
+    }
+    return report
+
+
+def test_expect_read_offset_grades_the_reports_own_check(
+    qapp, process_until, tmp_path
+) -> None:
+    """Nothing asserted the offset a rip used; the report already computed it."""
+    ok = _run(
+        _rip(tmp_path / "a", _with_offset_check("matches")),
+        qapp,
+        process_until,
+        "expect-read-offset",
+    )
+    assert ok.outcome is Outcome.PASS, ok.detail
+    wrong = _run(
+        _rip(tmp_path / "b", _with_offset_check("differs")),
+        qapp,
+        process_until,
+        "expect-read-offset",
+    )
+    assert wrong.outcome is Outcome.FAIL, wrong.detail
+
+
+def test_expect_read_offset_never_passes_what_it_could_not_determine(
+    qapp, process_until, tmp_path
+) -> None:
+    """Round 29's report predates the check; an unlisted, unconfirmed drive too."""
+    old = _run(
+        _rip(tmp_path / "a", _load("overwrite")),
+        qapp,
+        process_until,
+        "expect-read-offset",
+    )
+    assert old.outcome is Outcome.BLOCKED, old.detail
+    unlisted = _run(
+        _rip(tmp_path / "b", _with_offset_check("drive_not_listed", "not_confirmed")),
+        qapp,
+        process_until,
+        "expect-read-offset",
+    )
+    assert unlisted.outcome is Outcome.BLOCKED, unlisted.detail

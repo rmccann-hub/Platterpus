@@ -32,6 +32,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 from platterpus.ui.dialogs.centering import CenteredDialog, center_on_anchor
 from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
 from platterpus.ui.dialogs.message_box_fit import fit_message_box
+from platterpus.ui.dialogs.stacking import stack_above_window_it_blocks
 
 log = logging.getLogger(__name__)
 
@@ -192,6 +193,15 @@ class DialogCenterFilter(QObject):
     stored on that dialog (see :data:`CENTERED_PROPERTY`). One instance is
     installed on the ``QApplication`` for the whole session, so "no per-dialog
     bookkeeping" also means "nothing that grows for the life of the app".
+
+    **A traceback full of this filter's first line is not a recursion** (TASKS
+    R118). It sees every event of the app, so when some other Python override of
+    a Qt virtual raises (a ``closeEvent``, say), PySide keeps that exception
+    pending while Qt finishes the operation, and each call to this filter in the
+    meantime fails on ``event.type()`` with it, adding one frame. 0.7.115's log
+    showed 65+ such frames; measured, the filter was never entered twice at once
+    (``tests/test_close_never_raises.py``). Look below these frames for the
+    override that raised.
     """
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt API
@@ -199,6 +209,11 @@ class DialogCenterFilter(QObject):
         # what makes marking free — the DynamicPropertyChange event that
         # mark_as_centered triggers is rejected right here.
         if event.type() == QEvent.Type.Show and isinstance(obj, QDialog):
+            # Every dialog, every show: a question opened over another window
+            # of ours is stacked above that window, not only above its parent
+            # (TASKS R96, `stacking.py`). A `CenteredDialog` asks again in its
+            # own showEvent, which is harmless: the second call finds it done.
+            stack_above_window_it_blocks(obj)
             # CenteredDialog already self-centres; don't double-handle it — and
             # don't mark it either, since the mark means "*we* placed this".
             if not isinstance(obj, CenteredDialog) and not has_been_centered(obj):

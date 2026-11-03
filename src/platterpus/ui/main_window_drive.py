@@ -467,6 +467,8 @@ class DriveMixin(MainWindowShared):
             scan = getattr(self, "_disc_info_thread", None)
             if scan is not None and scan.isRunning():
                 return
+            if self._drive_being_freed():
+                return  # never a holder while `fuser -k` is out (B9)
             device = self._drive_picker.current_device()
             if not device:
                 return
@@ -577,17 +579,31 @@ class DriveMixin(MainWindowShared):
         self._disc_retries.new_request()
         self._disc_retry_timer.stop()
 
+    def _drive_being_freed(self) -> bool:
+        """Whether a force-stop thread is running: the post-cancel rescue, Force
+        stop, or a stuck scan's free. Each signals EVERY process holding the
+        drive's node (`fuser -k`), so while one runs nothing of ours may open it:
+        the media probe's open would make this app a holder, and its SIGTERM
+        handler closes the window (`docs/dependency-contracts.md`, why the
+        rescue is device-wide)."""
+        freeing = self._force_stop_thread
+        return freeing is not None and freeing.is_alive()
+
     def _disc_retry_conditions(self, device: str, request: int) -> RetryConditions:
         """Read, now, every fact an automatic retry depends on."""
         scan = self._disc_info_thread
-        freeing = self._force_stop_thread
+        freeing = self._drive_being_freed()
         return RetryConditions(
             rip_running=self._rip_thread is not None,
             scan_running=scan is not None and scan.isRunning(),
             newest_request=request == self._disc_retries.request,
             same_drive=self._drive_picker.current_device() == device,
-            drive_being_freed=freeing is not None and freeing.is_alive(),
-            media_status=self._disc_status_probe(device),
+            drive_being_freed=freeing,
+            # Not opened while it is being freed (`_drive_being_freed`); the
+            # blocker refuses on `drive_being_freed` before it reads this.
+            media_status=(
+                drive_media.UNAVAILABLE if freeing else self._disc_status_probe(device)
+            ),
         )
 
     def _handle_disc_probe_failure(self, device: str, message: str) -> None:

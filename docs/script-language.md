@@ -66,6 +66,7 @@ text is taken verbatim as one value.
 | `set` | 2+ (rest of line) | ready | set <config-field> <value> — change a setting (validated, then saved); booleans take on/off |
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
 | `expect-contains` | 2+ (rest of line) | ready | expect-contains <config-field> <text> — assert a setting contains text |
+| `expect-config-saved` | 0–1 | ready | expect-config-saved [seconds] — the settings file on disk holds every running setting, read back without repairing it; with <seconds>, it was also written within that many seconds (up to 600) |
 | `rescan` | 0 | ready | rescan — re-read the disc in the drive, and wait (up to 120 s) until the read has identified it or its own release picker is open |
 | `pick-release` | 1–2 | ready | pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous). Never answers a picker an older, superseded scan left open |
 | `album` | 1+ (rest of line) | ready | album <title> — set the album title, so repeat rips land in separate folders |
@@ -75,13 +76,17 @@ text is taken verbatim as one value.
 | `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout. If the timeout runs out with the rip still reading, the run ends there and that rip is cancelled: no later step could be graded against it |
 | `cancel-rip` | 0 | ready | cancel-rip — cancel the rip this script's last `rip` step started. A run that ends early (`abort`, Stop, a `wait-for-rip` that runs out) cancels that rip too |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
+| `wait-for-status` | 2+ (rest of line) | ready | wait-for-status <seconds> <text> — wait (up to 3 hours) until the rip status line contains text, case-insensitively, to act at a phase of a rip; fails if the rip it watched ends first |
+| `expect-no-rip` | 0 | ready | expect-no-rip — assert no rip is running: the answer before this step (an overwrite prompt's Cancel) started nothing |
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
 | `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master, and that the report's derived-file verification ran. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
-| `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a derived-format verification that did not run is a FAIL |
+| `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a check that ran and failed, or a derived one that did not run, FAILs |
 | `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
-| `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one |
+| `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial |
+| `expect-read-offset` | 0 | ready | expect-read-offset — the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes) |
+| `expect-derived-files` | 1–2 | ready | expect-derived-files <mp3|wavpack|wav> [quality] — open each derived file: its master's length, its tags and cover (MP3, WavPack), and the encoder and MP3 -q:a that ran, from the report; MP3 names the quality the script set |
 | `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
@@ -112,13 +117,14 @@ text is taken verbatim as one value.
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
 | `install-ripper` | 1 | ready | install-ripper <commit|(pin)|(under-review)|(fork-pin)> — build and install that cyanrip fork build with the step engine --install-ripper uses, then read the host export's banner back; only a build our record knows (a numbered fork release, the approved pin, the build under review). (pin) is the build section A accepts |
 | `skip-if-same-build` | 2 | ready | skip-if-same-build <A> <B> — when A and B (as install-ripper reads them) name one build, say 'nothing to compare' (info) and mark the rest of this section N/A instead of running it |
-| `record-timing` | 1 | ready | record-timing <label> — record the last rip's per-track Elapsed: seconds and the build its log names, under <label> (info; an untimed track or an unnamed build is an error, not determined) |
-| `compare-timings` | 2–4 | ready | compare-timings <base> <candidate> [<base2> <candidate2>] — the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05 (info, a measurement; refused as not determined when the tracks, the read counts or the builds do not allow it) |
+| `record-timing` | 1 | ready | record-timing <label> — record the last rip's per-track Elapsed: seconds, AccurateRip results and log-named build, under <label> (info; an untimed track or an unnamed build is an error, not determined) |
+| `compare-timings` | 2–4 | ready | compare-timings <base> <candidate> [<base2> <candidate2>] — the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05; names each timed read AccurateRip did not verify (info, a measurement; not determined when the tracks, read counts or builds do not allow it) |
 | `record-accuracy` | 1 | ready | record-accuracy <label> — record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32 and extraction speed, and the build its log names, under <label> (info; a log naming no build is an error, not determined) |
 | `compare-accuracy` | 2–16 | ready | compare-accuracy <label> <label>… — per build and per track, right in N of M rips, with the distinct CRC32s each build read (info, a measurement; refused as not determined when a log names no build, the tracks differ, only one build is named, or AccurateRip gave no answer) |
-| `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
+| `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (device) to the selected drive (as -d, refused when none is selected), (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code|refused> — assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25) |
+| `expect-deemphasis-pair` | 2 | ready | expect-deemphasis-pair <forced-folder> <disabled-folder> — read this run's cyanrip log in each -D folder (de-emphasis forced first): pass when every EAC CRC32 agrees and the integrated loudness differs by at least 0.3 LU; fail when either does not hold; blocked (not determined) when a log or value is missing or the build measures loudness before the filter |
 | `rig-check` | 0+ (rest of line) | ready | rig-check [album-folder] — run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only |
 
 A verb marked **NOT IMPLEMENTED** is listed on purpose rather than
@@ -375,7 +381,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.7.117",
+  "platterpus_version": "0.7.118",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -395,6 +401,7 @@ found nothing wrong*.
       "album",
       "album-artist",
       "expect-status",
+      "wait-for-status",
       "expect-album-audit",
       "track-title",
       "expect-refused",
@@ -536,6 +543,14 @@ found nothing wrong*.
       "help": "expect-contains <config-field> <text> \u2014 assert a setting contains text"
     },
     {
+      "name": "expect-config-saved",
+      "min_args": 0,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-config-saved [seconds] \u2014 the settings file on disk holds every running setting, read back without repairing it; with <seconds>, it was also written within that many seconds (up to 600)"
+    },
+    {
       "name": "rescan",
       "min_args": 0,
       "max_args": 0,
@@ -608,6 +623,22 @@ found nothing wrong*.
       "help": "expect-status <text> \u2014 assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively"
     },
     {
+      "name": "wait-for-status",
+      "min_args": 2,
+      "max_args": null,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "wait-for-status <seconds> <text> \u2014 wait (up to 3 hours) until the rip status line contains text, case-insensitively, to act at a phase of a rip; fails if the rip it watched ends first"
+    },
+    {
+      "name": "expect-no-rip",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-no-rip \u2014 assert no rip is running: the answer before this step (an overwrite prompt's Cancel) started nothing"
+    },
+    {
       "name": "expect-rip-complete",
       "min_args": 0,
       "max_args": 0,
@@ -637,7 +668,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a derived-format verification that did not run is a FAIL"
+      "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a check that ran and failed, or a derived one that did not run, FAILs"
     },
     {
       "name": "expect-album-audit",
@@ -661,7 +692,23 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one"
+      "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial"
+    },
+    {
+      "name": "expect-read-offset",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-read-offset \u2014 the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes)"
+    },
+    {
+      "name": "expect-derived-files",
+      "min_args": 1,
+      "max_args": 2,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-derived-files <mp3|wavpack|wav> [quality] \u2014 open each derived file: its master's length, its tags and cover (MP3, WavPack), and the encoder and MP3 -q:a that ran, from the report; MP3 names the quality the script set"
     },
     {
       "name": "expect-tags",
@@ -909,7 +956,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "record-timing <label> \u2014 record the last rip's per-track Elapsed: seconds and the build its log names, under <label> (info; an untimed track or an unnamed build is an error, not determined)"
+      "help": "record-timing <label> \u2014 record the last rip's per-track Elapsed: seconds, AccurateRip results and log-named build, under <label> (info; an untimed track or an unnamed build is an error, not determined)"
     },
     {
       "name": "compare-timings",
@@ -917,7 +964,7 @@ found nothing wrong*.
       "max_args": 4,
       "takes_paths": false,
       "implemented": true,
-      "help": "compare-timings <base> <candidate> [<base2> <candidate2>] \u2014 the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05 (info, a measurement; refused as not determined when the tracks, the read counts or the builds do not allow it)"
+      "help": "compare-timings <base> <candidate> [<base2> <candidate2>] \u2014 the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05; names each timed read AccurateRip did not verify (info, a measurement; not determined when the tracks, read counts or builds do not allow it)"
     },
     {
       "name": "record-accuracy",
@@ -941,7 +988,7 @@ found nothing wrong*.
       "max_args": null,
       "takes_paths": true,
       "implemented": true,
-      "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends"
+      "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (device) to the selected drive (as -d, refused when none is selected), (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends"
     },
     {
       "name": "expect-cyanrip",
@@ -958,6 +1005,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-exit <code|refused> \u2014 assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25)"
+    },
+    {
+      "name": "expect-deemphasis-pair",
+      "min_args": 2,
+      "max_args": 2,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-deemphasis-pair <forced-folder> <disabled-folder> \u2014 read this run's cyanrip log in each -D folder (de-emphasis forced first): pass when every EAC CRC32 agrees and the integrated loudness differs by at least 0.3 LU; fail when either does not hold; blocked (not determined) when a log or value is missing or the build measures loudness before the filter"
     },
     {
       "name": "rig-check",
@@ -1170,4 +1225,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.7.117.*
+*Last updated for Platterpus v0.7.118.*

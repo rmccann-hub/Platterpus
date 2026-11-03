@@ -37,7 +37,6 @@ from pathlib import Path
 from typing import Final
 
 from platterpus import diagnostics_record, rip_pass_exit
-from platterpus.parsers.rip_log import RipLog, secure_rerip_tracks_scoped
 from platterpus.rip_addendum import read_log_with_addendum
 
 log = logging.getLogger(__name__)
@@ -659,7 +658,7 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
     # unreachable for every log it exists to describe. Written here after putting
     # it there first: `CLAUDE.md`'s *did I check the preconditions where the thing
     # HAPPENS, or where it was scheduled?*, with an early return as the deferral.
-    _report_paranoia_scope(manifest, parsed)
+    _report_paranoia_scope(manifest, parsed, logs[-1])
     _report_interruption(manifest, parsed)
     tracks = len(getattr(parsed, "tracks", ()) or ())
     if tracks == 0:
@@ -750,121 +749,44 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
     )
 
 
-#: The paranoia counter that counts re-reads. The one `_report_paranoia_scope`
-#: sums and quotes a multiple for; the others are bound-checked only.
-_REREAD_WITNESS: Final[str] = "READ"
-
-
-def _report_paranoia_scope(manifest: Manifest, parsed: object) -> None:
+def _report_paranoia_scope(
+    manifest: Manifest, parsed: object, album_log: Path | None = None
+) -> None:
     """Surface the per-track/disc paranoia relationship, for round 14's T1.
 
-    **Read off the already-parsed object; nothing here re-reads the log.** Both
-    figures have been parsed since 0.6.24 and neither reached the manifest, which
-    is `CLAUDE.md`'s *a diagnosis we captured but never showed the user is the same
-    bug from their side* — and it bites hardest exactly here, because this manifest
-    is what the acceptance run sends the fork as evidence.
-
-    Why the two numbers and not one: under ``-Z`` a track's own counter is the
-    **last** pass while the disc total sums **every** pass. The fork's round-14
-    lap 1 §D added a ``Scope:`` line saying so after we broke a five-round-old
-    claim that they summed — which had survived because every artifact it was
-    checked against read each track exactly once, the one condition that forces the
-    sum arithmetically. A disc that converges on the first read cannot distinguish
-    the two readings, so this row says which case the run got rather than printing
-    numbers the reader has to interpret.
-
-    **The invariant is an INEQUALITY, and a ratio is not it.** ``sum(per-track) <=
-    disc total``, with equality exactly when every track was read once. The
-    tempting ``disc == passes x sum`` holds on the fork's synthetic fixture *by
-    construction* — every pass there does identical work — and will not hold on
-    media, because re-reads exist precisely when passes differ. Their round-14
-    acceptance spec asks in as many words whether anything here encodes that
-    ratio; it does not, and the first draft of this function did. The multiple is
-    reported as an observation, never as the property, and only the ``<=`` is
-    graded.
+    **Read off the already-parsed object**, plus the securing pass's own log when
+    the rip kept one beside ``album_log``: in dynamic mode that second ripper run
+    is where the re-read happens, and a row that read only the album's log said
+    "exercised: no" about a rip whose securing pass re-read track 5 three times
+    (2026-11-03 Full run). The wording, the per-pass bound and why the multiple
+    is an observation, never the property: :mod:`platterpus.paranoia_scope`.
+    Only the bound is graded; everything else is INFO.
     """
-    tracks = getattr(parsed, "tracks", ()) or ()
-    # Per COUNTER, not one sum. `READ` is the re-read witness: it scales with the
-    # passes. `VERIFY`, `FIXUP_ATOM` and `OVERLAP` do not (on the round-26 `-Z 2`
-    # rip `VERIFY` went 4,384 -> 9,422, 2.15x, while `READ` went 3.02x), so summing
-    # all four blended a pass count with three things that are not one and printed
-    # 2.87x for the same log. The fork counts `READ` only and their figure is the
-    # better witness (round 26 lap 5, the ledger row). The bound is still graded on
-    # EVERY counter, one at a time, which is stronger than grading the sum: a sum
-    # can stay under its bound while one counter breaks its own.
-    per_track_by: dict[str, int] = {}
-    for track in tracks:
-        for key, value in (getattr(track, "paranoia_counts", None) or {}).items():
-            per_track_by[key] = per_track_by.get(key, 0) + value
-    disc_by: dict[str, int] = dict(getattr(parsed, "paranoia_counts", None) or {})
-    per_track = per_track_by.get(_REREAD_WITNESS, 0)
-    disc = disc_by.get(_REREAD_WITNESS, 0)
-    # ONE PREDICATE, TWO CALLERS. The acceptance script's `expect-secure-rerip`
-    # grades what this row reports, and re-deriving "was it exercised?" from a
-    # second field is how two surfaces come to disagree about one question with
-    # both tests green. See `parsers.rip_log.secure_rerip_tracks_scoped`.
-    scoped = secure_rerip_tracks_scoped(parsed) if isinstance(parsed, RipLog) else 0
-    if not per_track_by and not disc_by:
-        manifest.add(
-            Result(
-                INFO,
-                "parser/paranoia",
-                "this log carries no paranoia counters at all — not a finding on "
-                "its own (a clean read of a clean disc reports none), but it means "
-                "the per-track/disc relationship is untested by this rip",
+    from platterpus import paranoia_scope
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+    from platterpus.rip_addendum import securing_pass_log_path_for
+
+    securing: paranoia_scope.PassScope | None = None
+    securing_path = securing_pass_log_path_for(album_log) if album_log else None
+    if securing_path is not None and securing_path.is_file():
+        try:
+            text = securing_path.read_text(encoding="utf-8", errors="replace")
+            securing = paranoia_scope.read_pass(parse_cyanrip_log(text))
+        except Exception as exc:  # noqa: BLE001 — parsers must never raise; prove it
+            manifest.add(
+                Result(
+                    FAIL,
+                    "parser/paranoia",
+                    f"reading the securing pass's log {securing_path.name} "
+                    f"RAISED, which the parser must never: {exc!r}",
+                )
             )
-        )
-        return
-    exercised = "YES" if scoped else "no"
-    others = sorted((set(per_track_by) | set(disc_by)) - {_REREAD_WITNESS})
-    common = (
-        f"{_REREAD_WITNESS} (the re-read witness): per-track counters sum to "
-        f"{per_track}; the disc block totals {disc}. Scope: line present on "
-        f"{scoped} of {len(tracks)} track(s) — secure re-read genuinely "
-        f"exercised: {exercised}"
+    failed, detail = paranoia_scope.describe(
+        paranoia_scope.read_pass(parsed),
+        securing,
+        securing_path.name if securing_path is not None else "",
     )
-    if others:
-        common += (
-            f". Also bound-checked, not summed in: {', '.join(others)} (they do "
-            f"not scale with the passes)"
-        )
-    broken = [
-        f"{key} {per_track_by.get(key, 0)} > {disc_by.get(key, 0)}"
-        for key in sorted(set(per_track_by) | set(disc_by))
-        if per_track_by.get(key, 0) > disc_by.get(key, 0)
-    ]
-    if broken:
-        # THE ONLY GRADED HALF. `sum <= disc` is the fork's published invariant and
-        # it cannot be violated by any amount of re-reading, so a violation is a
-        # contract break rather than a disc property — the one thing here worth
-        # failing a run over. Graded per counter: each one is a separate tally.
-        manifest.add(
-            Result(
-                FAIL,
-                "parser/paranoia",
-                f"{common}. The per-track sum EXCEEDS the disc total for "
-                f"{'; '.join(broken)}, which the provider contract says is "
-                f"impossible: the disc block sums every pass and the per-track "
-                f"figures are one pass each, so the sum can only ever be less than "
-                f"or equal to it.",
-            )
-        )
-        return
-    # The multiple is an OBSERVATION and is worded as one. It equals the pass count
-    # only on a fixture where every pass does identical work; on media it will not,
-    # and a reader who takes it for the pass count will mis-read a correct rip.
-    # Printed on every rip now, not only on an exact multiple, which on media meant
-    # never: the 3.02x the fork quoted had no row of ours to compare against.
-    if per_track and disc != per_track:
-        multiple = (
-            f"{disc // per_track}"
-            if disc % per_track == 0
-            else f"{disc / per_track:.2f}"
-        )
-        note = f" (disc total is {multiple}x the sum on this rip)"
-    else:
-        note = ""
-    manifest.add(Result(INFO, "parser/paranoia", f"{common}{note}"))
+    manifest.add(Result(FAIL if failed else INFO, "parser/paranoia", detail))
 
 
 def _report_interruption(manifest: Manifest, parsed: object) -> None:

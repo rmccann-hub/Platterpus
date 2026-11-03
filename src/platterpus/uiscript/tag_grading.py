@@ -9,7 +9,7 @@ library will read it. Pure and Qt-free, like their siblings; nothing here raises
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -130,6 +130,34 @@ def _one(values: list[str]) -> str | None:
     return values[0] if len(values) == 1 else None
 
 
+def tag_problems(
+    number: int, values: Callable[[str], list[str]], expected: ExpectedTags
+) -> list[str]:
+    """What track ``number``'s tags get wrong, read through ``values(KEY)``.
+
+    One rule for the FLACs (``expect-tags``) and the MP3 and WavPack files
+    derived from them (``expect-derived-files``, review C4, 2026-11-03).
+    """
+    title, artist = expected.tracks.get(number, (None, None))
+    if title is None or artist is None:
+        return [f"track {number}: the window has no row for it"]
+    wanted = {
+        "ALBUM": expected.album,
+        "ALBUMARTIST": expected.album_artist,
+        "TITLE": title,
+        "ARTIST": artist,
+    }
+    problems = [
+        f"track {number}: {key} is {values(key)!r}, chosen {value!r}"
+        for key, value in wanted.items()
+        if _one(values(key)) != value
+    ]
+    numbers = values("TRACKNUMBER")
+    if not numbers or numbers[0].split("/")[0].strip().lstrip("0") != str(number):
+        problems.append(f"track {number}: TRACKNUMBER is {numbers!r}")
+    return problems
+
+
 def grade_tags(masters: Sequence[tuple[int, Path]], expected: ExpectedTags) -> Grade:
     """Every ripped FLAC carries exactly the album, artist and titles chosen.
 
@@ -149,23 +177,7 @@ def grade_tags(masters: Sequence[tuple[int, Path]], expected: ExpectedTags) -> G
                 f"track {number}: {path.name} could not be read ({meta.problem})"
             )
             continue
-        title, artist = expected.tracks.get(number, (None, None))
-        wanted = {
-            "ALBUM": expected.album,
-            "ALBUMARTIST": expected.album_artist,
-            "TITLE": title,
-            "ARTIST": artist,
-        }
-        for key, value in wanted.items():
-            if value is None:
-                problems.append(f"track {number}: the window has no row for it")
-                break
-            found = meta.values(key)
-            if _one(found) != value:
-                problems.append(f"track {number}: {key} is {found!r}, chosen {value!r}")
-        numbers = meta.values("TRACKNUMBER")
-        if not numbers or numbers[0].split("/")[0].strip().lstrip("0") != str(number):
-            problems.append(f"track {number}: TRACKNUMBER is {numbers!r}")
+        problems.extend(tag_problems(number, meta.values, expected))
     if problems:
         return Grade(
             False,

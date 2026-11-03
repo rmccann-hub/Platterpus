@@ -61,9 +61,12 @@ log = logging.getLogger(__name__)
 _DEP_RESOLVE_RETRY_MS: int = 750
 
 #: How many times to re-offer before giving up **loudly**. 40 x 750 ms is 30
-#: seconds. The bound is the point: a modal the user never closes must not leave
-#: a timer firing for the life of the process, and a dependency dialog that
-#: surfaces minutes later is attached to nothing the user is still doing.
+#: seconds. The bound is for a report that only SUMMARISES (a check the user
+#: asked for, with nothing required missing): a summary that surfaces minutes
+#: later is attached to nothing the user is still doing. A report that resolves
+#: a MISSING REQUIRED dependency has no bound (TASKS R96): it waits as long as it
+#: must, and only a newer check drops it. It is also how often a long hold says
+#: in the log that it is still holding.
 _DEP_RESOLVE_MAX_DEFERRALS: int = 40
 
 #: How long past the check's own deadline (`deps.manager.CHECK_DEADLINE_S`) the
@@ -157,6 +160,13 @@ class DependencyMixin(MainWindowShared):
     #: The status-bar label showing the dependency sentence; built on first use
     #: by `_show_dependency_status` (see `_new_dependency_status_label`).
     _dep_status_label: QLabel | None = None
+    #: The running check is the launch check, and nobody has asked for it since
+    #: (TASKS R96). Only its report waits for the main window to be the one in
+    #: use; a check the user starts is answered at once.
+    _dep_check_is_launch: bool = False
+    #: Which check is the newest, counted as each one starts; a report held for
+    #: another window is dropped once a newer check has started.
+    _dep_check_generation: int = 0
 
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
@@ -182,7 +192,9 @@ class DependencyMixin(MainWindowShared):
             gui_manager, gui_manager.check_all(), show_summary=show_summary
         )
 
-    def run_dependency_check_async(self, show_summary: bool = False) -> None:
+    def run_dependency_check_async(
+        self, show_summary: bool = False, *, launch: bool = False
+    ) -> None:
         """Dependency check that probes **off the GUI thread**.
 
         `check_all()` shells out per dependency, and the cyanrip probe enters
@@ -193,14 +205,28 @@ class DependencyMixin(MainWindowShared):
         user-clicked Tools/Settings paths; False for the silent launch check).
         One check at a time — and a request while one runs is ANSWERED, not
         dropped: see `_on_check_requested_while_running`.
+
+        ``launch`` is the launch-only marker (TASKS R96), set by `app.main` and
+        nowhere else. ``show_summary=False`` cannot be that marker: Help → About's
+        Check again and the re-check after host setup are silent too, and both
+        are started from a window the user is in. A request of any other kind
+        while the launch check runs makes that check the user's, so its result
+        is answered at once rather than held.
         """
         if self._dep_check_thread is not None:  # a check is already running
+            if not launch:
+                self._dep_check_is_launch = False
             if show_summary:
                 self._on_check_requested_while_running()
             return
         from platterpus.workers import start_worker_thread
         from platterpus.workers.dependency_worker import DependencyCheckWorker
 
+        # A newer check: a report still held for another window is now stale,
+        # and the hold budget is this report's, not the last one's.
+        self._dep_check_generation += 1
+        self._dep_resolve_deferrals = 0
+        self._dep_check_is_launch = launch
         self._dep_check_show_summary = show_summary
         gui_manager = self._build_gui_dependency_manager()
         # Stash the manager so `finished` can connect to a BOUND METHOD rather
@@ -367,10 +393,12 @@ class DependencyMixin(MainWindowShared):
         """
         gui_manager = self._dep_check_manager
         show_summary = self._dep_check_show_summary
+        launch = self._dep_check_is_launch
         self._dep_check_worker = None
         self._dep_check_thread = None
         self._dep_check_manager = None
         self._dep_check_show_summary = False
+        self._dep_check_is_launch = False
         # Stash the launch-time probe so the rip report's
         # environment.dependencies can record each tool's version + location
         # WITHOUT re-probing on the GUI thread (a probe enters the Distrobox
@@ -404,7 +432,9 @@ class DependencyMixin(MainWindowShared):
         # `show_summary` is True for the user-clicked Tools/Settings check and
         # False for the silent launch check; resolver dialogs surface for
         # genuinely-missing deps regardless.
-        self._apply_dependency_report(gui_manager, report, show_summary=show_summary)
+        self._apply_dependency_report(
+            gui_manager, report, show_summary=show_summary, launch=launch
+        )
 
     def _on_dependency_check_landed(
         self, report: DependencyReport | None, *, show_summary: bool
@@ -449,10 +479,22 @@ class DependencyMixin(MainWindowShared):
         )
 
     def _apply_dependency_report(
-        self, gui_manager: object, report: DependencyReport | None, show_summary: bool
+        self,
+        gui_manager: object,
+        report: DependencyReport | None,
+        show_summary: bool,
+        *,
+        launch: bool = False,
+        generation: int | None = None,
     ) -> None:
         """GUI-thread half: set optional deps aside, resolve the required
         missing ones (dialogs), then show the summary.
+
+        ``launch`` marks the launch check's report, the one report that also
+        waits while another window of ours is in use (TASKS R96).
+        ``generation`` is the check this report came from, carried by a held
+        report's retries so a newer check can supersede it; ``None`` is the
+        newest.
 
         ``report`` is None only if the off-thread probe crashed. That used to be a
         silent ``return``: a user who chose **Check dependencies** got no
@@ -516,11 +558,16 @@ class DependencyMixin(MainWindowShared):
         # **DEFERRED, NEVER DROPPED.** A missing required dependency is the thing
         # that stops the app working, so skipping its resolution silently would be
         # the no-op-failure shape this project forbids — and worse than the stacking
-        # it avoids. We re-deliver once the floor is free, bounded, and say so in
-        # the log either way. The bound matters: a modal a user never closes must
-        # not leave a timer firing for the life of the process.
+        # it avoids. We re-deliver once the floor is free, and say so in the log.
+        # Until TASKS R96 this gave up after 30 s like a summary does; it now waits
+        # as long as it must, and only a newer check drops it.
         if (had_required_missing or show_summary) and self._defer_if_floor_is_busy(
-            gui_manager, report, show_summary
+            gui_manager,
+            report,
+            show_summary,
+            launch=launch,
+            required_missing=had_required_missing,
+            generation=self._dep_check_generation if generation is None else generation,
         ):
             return
         # Narrowed only now, once the report is really being delivered (see the
@@ -557,19 +604,35 @@ class DependencyMixin(MainWindowShared):
             self._offer_optional_install(gui_manager, optional_missing)
 
     def _defer_if_floor_is_busy(
-        self, gui_manager: object, report: DependencyReport, show_summary: bool
+        self,
+        gui_manager: object,
+        report: DependencyReport,
+        show_summary: bool,
+        *,
+        launch: bool = False,
+        required_missing: bool = False,
+        generation: int = 0,
     ) -> bool:
         """Re-deliver this report later if a dialog already has the floor.
 
         Returns True when it has taken responsibility for the report (the caller
         must return); False when it is safe to open dialogs now.
 
-        The retry is bounded. An unbounded one would keep firing against a modal
-        the user simply leaves open — a timer for the life of the process, and a
-        dependency dialog that appears minutes later attached to nothing the user
-        is doing. When the budget runs out we give up **loudly**, in the log, with
-        the reason: the check can be re-run from Settings, and a user whose
-        required tools are missing will be told so by the thing that needs them.
+        **What it waits for.** Every report waits for an open dialog
+        (`_modal_floor_blocker`): opening a resolver over it stacks two modals on
+        one input queue. The LAUNCH report also waits while another window of
+        ours is in use (`ui.hold_for_user.busy_reason`, TASKS R96): nobody asked
+        for it, so it must not open over Setup & Updates. A check the user starts
+        does not wait for that, because they start it from the window that would
+        hold it.
+
+        **How long.** A report that resolves a MISSING REQUIRED dependency waits
+        as long as it must (TASKS R96): giving up on it after 30 s was right for
+        a modal and wrong for a user who stays in Setup & Updates for minutes,
+        and it is the thing that stops the app working. Only a newer check drops
+        it (``generation``), and that check's own report takes its place. A
+        report that only summarises keeps the bound: when the budget runs out we
+        give up **loudly**, in the log, with the reason.
 
         **And on screen, for a check the user asked for.** Giving up used to be
         log-only, so a click on Check dependencies could end with nothing shown
@@ -581,16 +644,29 @@ class DependencyMixin(MainWindowShared):
         """
         from PySide6.QtCore import QTimer
 
+        from platterpus.ui.hold_for_user import busy_reason
+
+        if generation != self._dep_check_generation:
+            log.info(
+                "dropped a held dependency report: a newer check has started, "
+                "and its own report will be delivered"
+            )
+            return True
         blocker = self._modal_floor_blocker()
+        if not blocker and launch and isinstance(self, QMainWindow):
+            blocker = busy_reason(self)
         if not blocker:
             if self._dep_resolve_deferrals and show_summary and self._dep_check_outcome:
                 # The wait is over and the result is about to be shown: the
                 # "will be shown when the dialog closes" line is no longer true.
                 self._show_dependency_status(self._dep_check_outcome)
+            if self._dep_resolve_deferrals:
+                log.info("delivering the held dependency report now")
             self._dep_resolve_deferrals = 0
             return False
         self._dep_resolve_deferrals += 1
-        if self._dep_resolve_deferrals > _DEP_RESOLVE_MAX_DEFERRALS:
+        attempt = self._dep_resolve_deferrals
+        if not required_missing and attempt > _DEP_RESOLVE_MAX_DEFERRALS:
             log.warning(
                 "gave up re-delivering the dependency report after %d attempts — "
                 "%s. Re-run the check from Settings once the dialog is closed.",
@@ -601,17 +677,30 @@ class DependencyMixin(MainWindowShared):
             if show_summary:
                 self._show_dependency_status(dep_status.gave_up_message())
             return True
-        log.info(
-            "holding the dependency report (attempt %d) — %s",
-            self._dep_resolve_deferrals,
-            blocker,
-        )
-        if self._dep_resolve_deferrals == 1 and show_summary:
+        # Logged on the first hold and then about every 30 s, not every 750 ms:
+        # a hold with no bound must not fill the log while the user works.
+        if attempt == 1 or attempt % _DEP_RESOLVE_MAX_DEFERRALS == 0:
+            log.info(
+                "holding the dependency report (attempt %d%s) — %s",
+                attempt,
+                ", a missing required tool: it waits as long as it must"
+                if required_missing
+                else "",
+                blocker,
+            )
+        if attempt == 1 and show_summary:
             self._show_dependency_status(dep_status.waiting_for_dialog_message())
+        # `self` as the timer's context: a window destroyed meanwhile takes its
+        # held report with it, rather than a retry reaching a dead widget.
         QTimer.singleShot(
             _DEP_RESOLVE_RETRY_MS,
+            self,
             lambda: self._apply_dependency_report(
-                gui_manager, report, show_summary=show_summary
+                gui_manager,
+                report,
+                show_summary=show_summary,
+                launch=launch,
+                generation=generation,
             ),
         )
         return True

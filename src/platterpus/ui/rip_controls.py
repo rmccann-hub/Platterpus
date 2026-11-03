@@ -216,6 +216,7 @@ class RipControls(QWidget):
             read_offset_override=(
                 self._config.read_offset if self._config.override_read_offset else None
             ),
+            output_format=self._config.output_format,
         )
         self.rip_requested.emit(params)
 

@@ -1713,6 +1713,79 @@ def test_a_replaced_reads_errors_are_placed_on_every_surface_the_finish_writes(
     assert report["ripper_health_status"] == "2 ripping errors"
 
 
+def test_a_cancelled_rips_track_does_not_stay_ripping(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASKS R113, through the finish handler: the 2026-11-03 Full run's cancel
+    left the track it was reading at "⟳ Ripping" after the rip had ended."""
+    from platterpus.ui.track_table import _COL_STATUS
+
+    window = teardown_threads()
+    window._track_table.set_release(_detail())
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint=""
+    )
+    window._active_rip_params = None
+    window._rip_cancelled = True
+    window._auto_retry_done = True
+    window._track_table.mark_track_ripping(1)
+
+    window._on_rip_finished(False, "")
+    report_writer.writer().flush()
+
+    model = window._track_table._model
+    assert model.data(model.index(0, _COL_STATUS)) == "⚠ Stopped"
+
+
+def test_the_disc_panel_names_a_subset_rip_as_the_last_rip(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """TASKS R113, through the finish handler: the panel is handed the DISC's
+    count, so a one-track rip of a 14-track disc does not read "verified — all 1
+    tracks matched" as the disc's AccurateRip status (2026-11-03 Full run)."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint=""
+    )
+    verified = AccurateRipResult(
+        version=2, result="accurately ripped", confidence=200, local_crc="AAAA1111"
+    )
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AAAA1111",
+                status="ripped successfully",
+                accuraterip_v2=verified,
+            ),
+        ),
+        health_status="No errors occurred",
+    )
+    monkeypatch.setattr(window, "parse_rip_log_from_disk", lambda _path: rip_log)
+    window._active_rip_params = None
+    window._rip_cancelled = False
+    window._auto_retry_done = True
+    window._current_num_tracks = 14
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    text = window._disc_info_panel._accuraterip_value.text()
+    assert text == "last rip, 1 of 14 tracks: 1 matched", text
+
+
 def test_no_auto_heal_when_not_flagged(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2064,6 +2137,52 @@ def test_fidelity_summary_no_tracks() -> None:
     assert _fidelity_summary(RipLog(tracks=())) == "Done."
 
 
+def test_a_one_track_rip_is_counted_in_english() -> None:
+    """TASKS R113 (the 2026-11-03 Full run): every one-track rip's status line
+    read "Done — all 1 tracks ripped cleanly, no read errors. AccurateRip: all 1
+    verified.", the offset check "matched 1 of 1 tracks", and a cancelled rip's
+    health line "1 ripping errors". Each now counts one in the singular."""
+    from dataclasses import replace
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+    from platterpus.read_offset_check import _reconfirmation
+
+    verified = AccurateRipResult(
+        version=2, result="accurately ripped", confidence=200, local_crc="AAAA1111"
+    )
+    track = TrackResult(
+        number=1,
+        copy_crc="AAAA1111",
+        status="ripped successfully",
+        accuraterip_v2=verified,
+    )
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.4", tracks=(track,), health_status="No errors occurred"
+    )
+    assert _fidelity_summary(rip_log) == (
+        "Done — 1 of 1 track ripped cleanly, no read errors. AccurateRip: 1 of 1 verified."
+    )
+    two = RipLog(
+        log_creator="cyanrip 0.9.4",
+        tracks=(track, replace(track, number=2)),
+        health_status="No errors occurred",
+    )
+    assert _fidelity_summary(two).startswith(
+        "Done — all 2 tracks ripped cleanly, no read errors. AccurateRip: all 2 verified."
+    )
+    why = _reconfirmation([track])[3]
+    assert "matched 1 of 1 track at this offset" in why, why
+    assert parse_cyanrip_log("Ripping errors: 1\n").health_status == "1 ripping error"
+    assert parse_cyanrip_log("Ripping errors: 2\n").health_status == "2 ripping errors"
+    # The placement of counted errors reads the new spelling and the old one,
+    # which every report written before 2026-11-03 carries.
+    from platterpus.replaced_read_errors import _COUNTED_ERRORS
+
+    for tally in ("1 ripping error", "1 ripping errors"):
+        match = _COUNTED_ERRORS.match(tally)
+        assert match is not None and match.group("count") == "1", tally
+
+
 def test_fidelity_summary_cyanrip_clean_rip() -> None:
     """cyanrip has no test+copy dual read — the verdict is worded around
     its actual checks (paranoia error count + AccurateRip)."""
@@ -2101,8 +2220,11 @@ def test_fidelity_summary_does_not_call_a_track_with_unverified_skips_clean() ->
     assert rip_log.tracks[17].paranoia_counts.get("SKIP") == 2586, "floor: the subject"
     summary = _fidelity_summary(rip_log, expected_track_total=18)
     assert "ripped cleanly, no read errors" not in summary
-    assert "17/18 tracks ripped cleanly" in summary
-    assert "on track(s) 18 the ripper could not verify every read" in summary
+    # 12, not 17 (TASKS R112): tracks 12-15, 17 and 18 matched frame 450 only, and
+    # the verdict's one predicate calls each WRONG, as the EAC-layout log does.
+    assert "12/18 tracks ripped cleanly" in summary
+    assert "tracks 12, 13, 14, 15, 17, 18 are WRONG" in summary
+    assert "On track(s) 18 the ripper could not verify every read" in summary
 
 
 def test_skips_on_a_track_accuraterip_verified_do_not_count_against_it() -> None:
@@ -2120,7 +2242,7 @@ def test_skips_on_a_track_accuraterip_verified_do_not_count_against_it() -> None
         ),
         health_status="No errors occurred",
     )
-    assert "all 1 tracks ripped cleanly, no read errors" in _fidelity_summary(rip_log)
+    assert "1 of 1 track ripped cleanly, no read errors" in _fidelity_summary(rip_log)
 
 
 def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -> None:
@@ -2133,14 +2255,16 @@ def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -
     summary = _fidelity_summary(rip_log, cancelled=True)
     assert summary.startswith("Rip cancelled after the read finished")
     assert "Done" not in summary
-    assert "All 1 tracks ripped cleanly" in summary
+    assert "stopped. 1 of 1 track ripped cleanly" in summary
     assert _fidelity_summary(rip_log).startswith("Done — ")
 
 
 def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
-    """A track that only matched the +450-frame offset variant is called out as
-    'partially accurate' — so a 'verified' shortfall reads as a pressing-offset
-    quirk, not a bad rip (mirrors the real Police 'Classics' rip)."""
+    """A track that only matched frame 450 is called WRONG, not "partially
+    accurate" and not clean: the owner's yardstick (plan of record, 2026-10-26)
+    reads a frame match beside a whole-track miss as audio that differs from the
+    pressing, and the EAC-layout log says so (TASKS R112). This test used to pin
+    the softer one-frame note, which now gives way to the sentence naming it."""
     rip_log = RipLog(
         log_creator="cyanrip 0.9.3",
         tracks=(
@@ -2160,10 +2284,9 @@ def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
         health_status="No errors occurred",
     )
     summary = _fidelity_summary(rip_log)
-    assert (
-        "On 1 track, only one frame matched AccurateRip (the rest unverified)."
-        in summary
-    )
+    assert summary.startswith("Done — 1/2 tracks ripped cleanly. ⚠ "), summary
+    assert "AccurateRip says track 2 is WRONG (only frame 450 matched" in summary
+    assert "the rest unverified" not in summary
 
 
 def test_fidelity_summary_prefers_per_track_ar_over_summary_string() -> None:
@@ -3850,6 +3973,51 @@ def test_start_rip_worker_snapshots_track_table_metadata(
         (1, "One", "", "AAAAA0000001"),
         (2, "Two", "", ""),
     ]
+
+
+def test_starting_a_rip_blanks_the_disc_panels_accuraterip_row(
+    teardown_threads, monkeypatch
+) -> None:
+    """Review B1 of the 2026-11-03 Full run: the row kept the last rip's result
+    for the whole of the next rip. It is blanked when a rip's worker starts, and
+    the finish handler fills it again."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._disc_info_panel._accuraterip_value.setText("13 of 14 tracks matched")
+
+    class _NoopWorker:
+        def __init__(self, backend, params):
+            pass
+
+        def moveToThread(self, thread):
+            pass
+
+        def start_rip(self):
+            pass
+
+        class _Sig:
+            def connect(self, *_a, **_k):
+                pass
+
+        log_line = progress = status = current_track = track_completed = error = (
+            finished
+        ) = _Sig()
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
+    )
+    window._start_rip_worker(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="some-mbid",
+            output_dir=Path("/tmp/out"),
+            track_template="t",
+            disc_template="d",
+        )
+    )
+    assert window._disc_info_panel._accuraterip_value.text() == "—"
 
 
 def test_the_tags_a_rip_was_handed_are_kept_on_its_record(
@@ -7038,7 +7206,7 @@ def test_run_dependency_check_async_probes_off_thread_and_applies(
     applied: list[bool] = []
     applied_on_main_thread: list[bool] = []
 
-    def fake_apply(_mgr, _report, show_summary: bool) -> None:
+    def fake_apply(_mgr, _report, show_summary: bool, **_k: object) -> None:
         applied.append(show_summary)
         applied_on_main_thread.append(
             threading.current_thread() is threading.main_thread()
@@ -13520,7 +13688,7 @@ def test_a_dependency_report_waits_for_the_floor_instead_of_stacking(
     from PySide6.QtCore import QTimer
 
     monkeypatch.setattr(
-        QTimer, "singleShot", staticmethod(lambda ms, _cb: deferred.append(ms))
+        QTimer, "singleShot", staticmethod(lambda ms, *_cb: deferred.append(ms))
     )
 
     required = SimpleNamespace(spec=SimpleNamespace(optional=False))
@@ -13534,11 +13702,13 @@ def test_a_dependency_report_waits_for_the_floor_instead_of_stacking(
 def test_a_deferred_dependency_report_gives_up_loudly_not_forever(
     teardown_threads, monkeypatch, caplog
 ) -> None:
-    """The bound, and that it says so.
+    """The bound, and that it says so — for a report that only summarises.
 
-    Without it a modal the user never closes leaves a timer firing for the life
-    of the process. Giving up is correct; giving up *silently* would be the
-    no-op-failure shape this project forbids, so the log line is the assertion.
+    A summary the user asked for that surfaces minutes later is attached to
+    nothing they are doing. Giving up is correct; giving up *silently* would be
+    the no-op-failure shape this project forbids, so the log line is the
+    assertion. A report with a missing REQUIRED tool has no bound since TASKS
+    R96: the test below.
     """
     import logging as _logging
 
@@ -13551,19 +13721,62 @@ def test_a_deferred_dependency_report_gives_up_loudly_not_forever(
     )
     from PySide6.QtCore import QTimer
 
-    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, *_cb: None))
 
-    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
-    report = SimpleNamespace(missing=[required], install_results=[])
+    report = SimpleNamespace(missing=[], install_results=[])
     with caplog.at_level(_logging.WARNING):
         for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS + 1):
-            window._apply_dependency_report(object(), report, show_summary=False)
+            window._apply_dependency_report(object(), report, show_summary=True)
 
     assert any("gave up re-delivering" in r.message for r in caplog.records), (
         "the deferral budget ran out without saying so"
     )
     # And the budget resets, so a later report is not born already exhausted.
     assert window._dep_resolve_deferrals == 0
+
+
+def test_a_held_report_of_a_missing_required_tool_is_never_given_up(
+    teardown_threads, monkeypatch, caplog
+) -> None:
+    """TASKS R96: "deferred, never dropped" now holds past the old 30 s.
+
+    A missing required tool is what stops the app working, and a user can stay
+    in another dialog for minutes. Ten budgets' worth of holds later the report
+    is still held, still re-armed, and delivered the moment the floor is free.
+    """
+    import logging as _logging
+
+    from platterpus.ui import main_window_deps
+
+    window = teardown_threads()
+    resolved: list[object] = []
+    monkeypatch.setattr(window, "_resolve_missing_unified", resolved.append)
+    monkeypatch.setattr(window, "_show_dep_summary", lambda *_a, **_k: None)
+    busy = ["a dialog has the floor"]
+    monkeypatch.setattr(window, "_modal_floor_blocker", lambda: busy[0])
+    from PySide6.QtCore import QTimer
+
+    armed: list[object] = []
+    monkeypatch.setattr(
+        QTimer, "singleShot", staticmethod(lambda _ms, *cb: armed.append(cb[-1]))
+    )
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    report = SimpleNamespace(missing=[required], install_results=[])
+    holds = 10 * main_window_deps._DEP_RESOLVE_MAX_DEFERRALS
+    with caplog.at_level(_logging.INFO):
+        window._apply_dependency_report(object(), report, show_summary=False)
+        for _ in range(holds):
+            armed[-1]()  # the retry, as the timer would fire it
+
+    assert "gave up re-delivering" not in caplog.text, "a missing tool was dropped"
+    assert len(armed) == holds + 1, "a hold was not re-armed"
+    assert resolved == [], "resolved over a dialog that had the floor"
+    assert caplog.text.count("holding the dependency report") <= 12, (
+        "a hold with no bound logged every attempt"
+    )
+    busy[0] = ""
+    armed[-1]()
+    assert resolved == [report], "the held report was not delivered once free"
 
 
 # --- The Setup & Updates window's one piece of logic ------------------------
@@ -13971,7 +14184,7 @@ def test_giving_up_on_a_user_check_says_so_on_screen(
     monkeypatch.setattr(
         window, "_modal_floor_blocker", lambda: "a dialog has the floor"
     )
-    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, *_cb: None))
 
     report = SimpleNamespace(missing=[], install_results=[])
     window._apply_dependency_report(object(), report, show_summary=True)
@@ -14007,7 +14220,7 @@ def test_a_report_held_for_another_dialog_keeps_its_optional_tools(
     window = teardown_threads()
     held: list[Any] = []
     monkeypatch.setattr(
-        QTimer, "singleShot", staticmethod(lambda _ms, cb: held.append(cb))
+        QTimer, "singleShot", staticmethod(lambda _ms, *cb: held.append(cb[-1]))
     )
     busy = ["a dialog has the floor"]
     monkeypatch.setattr(window, "_modal_floor_blocker", lambda: busy[0])
@@ -14707,9 +14920,32 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     drive flicker started stayed open 338 s; the script's `rescan` started a new
     scan behind it, and `pick-release` answered the OLD picker. While it stayed
     open, the new scan's candidates for the same disc were declined (one picker
-    per disc), so the new scan could never ask. A new scan now closes it."""
+    per disc), so the new scan could never ask. A new scan now closes it.
+
+    **The rescan is a real probe, and its answer opens a modal** (TASKS R107's
+    note: this test once sat 300 s in `open_unknown_album_dialog`). The fake
+    drive's empty `DiscInfo` has no disc ID, so the probe's result offers the
+    unknown-album rip, a modal `exec()`. Where that result landed was a race:
+    inside this test's `processEvents()` on a loaded machine, or in whatever
+    later code pumped events. The offer is answered here, and the test waits for
+    it, so it lands in this test every time and is asserted, never left behind."""
     from PySide6.QtCore import QCoreApplication
 
+    from platterpus.ui import main_window_rip as mwr
+
+    offered: list[str] = []
+
+    class _Offer:
+        """The unknown-album offer, answered "no" without a nested event loop."""
+
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def exec(self) -> int:
+            offered.append("asked")
+            return int(QDialog.DialogCode.Rejected)
+
+    monkeypatch.setattr(mwr, "UnknownAlbumDialog", _Offer)
     window = teardown_threads()
     disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
     window._current_disc_id = disc
@@ -14747,6 +14983,14 @@ def test_a_new_scan_closes_a_release_picker_an_older_scan_left_open(
     window._current_disc_id = disc
     window._on_mb_releases(disc, releases)
     assert len(pickers) == 2 and pickers[1].scan_request == first_scan + 1
+
+    # The rescan's own result, delivered here rather than in a later test: its
+    # empty answer offers the unknown-album rip exactly once.
+    deadline = time.monotonic() + 10.0
+    while not offered and time.monotonic() < deadline:
+        QCoreApplication.processEvents()
+        time.sleep(0.01)
+    assert offered == ["asked"], "the rescan's result never arrived in this test"
 
 
 def test_recording_a_drive_fact_keeps_every_field_it_does_not_set(
@@ -14825,3 +15069,90 @@ def test_a_second_rip_folds_into_the_first_across_a_rescan(
     assert profile is not None and profile.read_rate is not None
     assert profile.read_rate.rips == 2
     window._active_rip_params = None
+
+
+def test_a_learned_reading_speed_survives_a_rescan_and_a_restart_on_disk(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 2026-11-03 Full run's symptom, through the file: the run estimate said
+    "at 1.0x" (the rig's seed) while the drive read at 2.6x to 4.5x, because each
+    rescan rewrote the profile without `read_rate` and SAVED it. The in-memory
+    tests above cannot see the save; this one learns, rescans the way the media
+    poll does (`_refresh_drive_profile_display`, which saves), reloads the store
+    from disk as the next launch does, and asks for the estimate's rate."""
+    from types import SimpleNamespace
+
+    from platterpus.drive_profile_store import DriveProfileStore
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    track = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=25.0
+    )
+    window._rip_cancelled = False
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    try:
+        window._learn_read_rate(SimpleNamespace(tracks=[track]), success=True)
+    finally:
+        window._active_rip_params = None
+    learned = window._drive_profiles.get(_PIONEER_FP)
+    assert learned is not None and learned.read_rate is not None
+    assert learned.read_rate.multiple == 0.25, "the fixture taught no 4x rate"
+
+    window._refresh_drive_profile_display()  # a rescan: records and saves
+    window._drive_profiles = DriveProfileStore.load()  # the next launch
+    window._refresh_drive_profile_display()  # the drive is seen again
+
+    rate = window._read_rate_for_current_drive()
+    assert rate is not None, "the learned speed did not survive"
+    assert rate.rips == 1, f"the estimate fell back to the seed: {rate}"
+    assert rate.multiple == 0.25, rate
+    on_disk = DriveProfileStore.load().get(_PIONEER_FP)
+    assert on_disk is not None and on_disk.read_rate == learned.read_rate
+
+
+def test_the_app_never_opens_the_drive_while_a_device_wide_signal_is_out(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The precondition `docs/dependency-contracts.md` relies on for the rescue's
+    device-wide SIGTERM (review B9, 2026-11-03): `fuser -s -k -TERM <device>`
+    signals every process holding the drive's node, and this app opens it for the
+    media-status ioctl. Were it holding the node at that instant, the rescue would
+    SIGTERM Platterpus itself, and its handler closes the window. So while any
+    force-stop thread runs, neither the media poll nor a retry's check opens it.
+    Both directions: with no such thread, both do."""
+    import threading
+
+    window = teardown_threads()
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
+    opened: list[str] = []
+
+    def probe(device: str) -> str:
+        opened.append(device)
+        return "disc"
+
+    monkeypatch.setattr(window, "_disc_status_probe", probe)
+    window._rip_thread = None
+    window._disc_info_thread = None
+    release = threading.Event()
+    holder = threading.Thread(target=release.wait, daemon=True)
+    holder.start()
+    window._force_stop_thread = holder
+    try:
+        window._poll_disc_media()
+        conditions = window._disc_retry_conditions("/dev/sr0", 0)
+        assert opened == [], f"the drive was opened while being freed: {opened}"
+        assert conditions.drive_being_freed is True
+    finally:
+        release.set()
+        holder.join(timeout=2)
+    window._poll_disc_media()
+    window._disc_retry_conditions("/dev/sr0", 0)
+    assert opened == ["/dev/sr0", "/dev/sr0"], opened
+    window._force_stop_thread = None

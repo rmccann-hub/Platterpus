@@ -237,6 +237,16 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "expect-contains <config-field> <text> — assert a setting contains text",
     ),
+    # The review of 2026-11-03, C9: Settings OK is a step, and it must be able to
+    # fail. `control_verbs.py`.
+    Verb(
+        "expect-config-saved",
+        0,
+        1,
+        "expect-config-saved [seconds] — the settings file on disk holds every "
+        "running setting, read back without repairing it; with <seconds>, it was "
+        "also written within that many seconds (up to 600)",
+    ),
     # --- Disc and rip --------------------------------------------------------
     Verb(
         "rescan",
@@ -326,6 +336,21 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "expect-status <text> — assert the rip status line (the one under the "
         "Overall progress bar) contains text, case-insensitively",
+    ),
+    Verb(
+        "wait-for-status",
+        2,
+        None,
+        "wait-for-status <seconds> <text> — wait (up to 3 hours) until the rip "
+        "status line contains text, case-insensitively, to act at a phase of a rip; "
+        "fails if the rip it watched ends first",
+    ),
+    Verb(
+        "expect-no-rip",
+        0,
+        0,
+        "expect-no-rip — assert no rip is running: the answer before this step "
+        "(an overwrite prompt's Cancel) started nothing",
     ),
     Verb(
         # `expect-rip-complete` — assert the rip FINISHED, from the ripper's own
@@ -490,7 +515,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         "rather than being dropped when the next rip started. Waits (default 600s) "
         "because the checks run after `wait-for-rip` returns; at least one gate "
         "must have run, so the step cannot pass over a rip that checked nothing, "
-        "and a derived-format verification that did not run is a FAIL",
+        "and a check that ran and failed, or a derived one that did not run, FAILs",
     ),
     # --- Grading what the rip LEFT (2026-09-30) -------------------------------
     # Every rip leaves a report, a ripper's log, an EAC-style log, a cue sheet and
@@ -522,7 +547,23 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         1,
         "expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: "
-        "looked up and compared for a whole disc, declined for a partial one",
+        "compared for a whole disc (a match CTDB outvotes fails), declined if partial",
+    ),
+    Verb(
+        "expect-read-offset",
+        0,
+        0,
+        "expect-read-offset — the read offset the rip applied is right: the "
+        "AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, "
+        "and the -s we sent is what the log applied (not determined never passes)",
+    ),
+    Verb(
+        "expect-derived-files",
+        1,
+        2,
+        "expect-derived-files <mp3|wavpack|wav> [quality] — open each derived file: "
+        "its master's length, its tags and cover (MP3, WavPack), and the encoder "
+        "and MP3 -q:a that ran, from the report; MP3 names the quality the script set",
     ),
     Verb(
         "expect-tags",
@@ -896,8 +937,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         1,
         "record-timing <label> — record the last rip's per-track Elapsed: "
-        "seconds and the build its log names, under <label> (info; an "
-        "untimed track or an unnamed build is an error, not determined)",
+        "seconds, AccurateRip results and log-named build, under <label> (info; "
+        "an untimed track or an unnamed build is an error, not determined)",
     ),
     Verb(
         "compare-timings",
@@ -905,9 +946,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         4,
         "compare-timings <base> <candidate> [<base2> <candidate2>] — the "
         "ratio of candidate's summed Elapsed: to base's over the same tracks; "
-        "with four labels, both ratios and whether they agree within 0.05 "
-        "(info, a measurement; refused as not determined when the tracks, the "
-        "read counts or the builds do not allow it)",
+        "with four labels, both ratios and whether they agree within 0.05; "
+        "names each timed read AccurateRip did not verify (info, a measurement; "
+        "not determined when the tracks, read counts or builds do not allow it)",
     ),
     # --- Paired rips: does the build decide a track's accuracy? (P6) ----------
     # The owner's word of 2026-10-26; `accuracy_verbs.py`, section P6.
@@ -939,7 +980,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         "FOLDER (the output directory; an acceptance session's own rips folder), "
         "so a relative -D lands beside the app's rips; capture its exit code, "
         "exact argv, that folder and complete output. (offset) expands to the "
-        "drive's read offset, (lasttrack) to the loaded disc's last track number; "
+        "drive's read offset, (device) to the selected drive (as -d, refused when "
+        "none is selected), (lasttrack) to the loaded disc's last track number; "
         "(consumer) and (diagnostics) to the --consumer and "
         "--diagnostics words an app rip sends",
         takes_paths=True,
@@ -956,6 +998,19 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         "expect-exit <code|refused> — assert the last cyanrip exit code; "
         "`refused` is the build's own code for refusing to start (1, or 64 from .25)",
+    ),
+    # Section P3, round 16's clause 2: `deemphasis_verbs.py`. Checksums are taken
+    # on the read and, from the fork's .20, loudness on the delivered audio, so
+    # equal CRCs with moved loudness is the one reading that can settle it.
+    Verb(
+        "expect-deemphasis-pair",
+        2,
+        2,
+        "expect-deemphasis-pair <forced-folder> <disabled-folder> — read this "
+        "run's cyanrip log in each -D folder (de-emphasis forced first): pass when "
+        "every EAC CRC32 agrees and the integrated loudness differs by at least "
+        "0.3 LU; fail when either does not hold; blocked (not determined) when a "
+        "log or value is missing or the build measures loudness before the filter",
     ),
     Verb(
         "rig-check",

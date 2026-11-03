@@ -1,0 +1,206 @@
+"""The ``expect-deemphasis-pair`` verb: grade section P3's two rips (round 16, clause 2).
+
+A mixin :class:`~platterpus.uiscript.runner.ScriptRunner` inherits, like the other
+``*_verbs`` modules. The grade itself is
+:mod:`platterpus.uiscript.deemphasis_grading`, pure; this module finds the two
+logs and reads them.
+
+**Which logs.** Section P3 runs ``cyanrip ... -D r16deemphon`` and ``... -D
+r16deemphoff`` through the ``cyanrip`` verb, which runs the ripper in the rips
+folder (``runner._ripper_workdir``), so each arm's log is in that folder's named
+subfolder. The verb takes the two folder names, forced arm first, and reads the
+cyanrip log in each that was written since this run started (read off the run's
+own ``RunReport.started_at``, as ``expect-pregaps-agree`` does). Exactly one
+such log per folder: none, or more than one, is not determined, because grading
+a log from an earlier run, or guessing between two, would grade the wrong rip.
+
+**Nothing here blocks the GUI thread.** The folder may be on a network share, so
+the read runs on a daemon thread that touches nothing Qt, and the runner's
+deadline polls for the answer (the shape ``pregap_verbs`` uses).
+
+**Outcomes, declared before any disc goes in** (P3 is ARCHIVAL, ``docs/testing.md``
+→ *Acceptance severity*): ``PASS`` when the CRCs agree and the loudness moved by
+the floor; ``FAIL`` when either half does not hold; ``BLOCKED`` (prevented, the row
+stays unknown) when a value is missing or the build measures before the filter.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Final
+
+from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.rip_addendum import with_addendum
+from platterpus.uiscript import deemphasis_grading as grading
+from platterpus.uiscript.pregap_verbs import MAX_LOG_BYTES, run_start_epoch
+from platterpus.uiscript.probe_verbs import _start
+from platterpus.uiscript.report import Outcome
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import QWidget
+
+    from platterpus.uiscript.report import RunReport
+    from platterpus.uiscript.script import Step
+
+log = logging.getLogger(__name__)
+
+#: How long reading the two logs may take: well under a second locally; this is
+#: the backstop for a rips folder on a slow share.
+DEEMPHASIS_WAIT_S: Final[float] = 60.0
+
+#: A ``-D`` folder name the verb will read: one plain path segment, the shape
+#: section P3 uses. No separator and no leading dot, so it cannot leave the rips
+#: folder.
+_FOLDER_NAME: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def folder_problem(name: str) -> str:
+    """Why ``name`` cannot name an arm's folder, or ``""`` when it can."""
+    if _FOLDER_NAME.fullmatch(name) is None:
+        return (
+            f"{name!r} is not a plain folder name (letters, digits, '.', '_', "
+            "'-'; no '/', up to 64 characters): it names the -D folder of one "
+            "arm, inside the rips folder"
+        )
+    return ""
+
+
+def read_arm(root: Path, name: str, *, since: float) -> grading.Arm:
+    """The arm in ``root/name``: its one cyanrip log from this run, parsed.
+
+    Thread-safe and Qt-free; called on a helper thread. Never raises: anything
+    that stops the read is the arm's ``problem``.
+    """
+    folder = root / name
+    try:
+        candidates = sorted(
+            path
+            for path in folder.glob("*.log")
+            if path.is_file() and path.stat().st_mtime >= since
+        )
+    except OSError as exc:
+        return grading.Arm(name=name, problem=f"{folder} could not be listed ({exc})")
+    logs: list[tuple[Path, str]] = []
+    for path in candidates:
+        try:
+            if path.stat().st_size > MAX_LOG_BYTES:
+                return grading.Arm(
+                    name=name,
+                    problem=f"{path} is over {MAX_LOG_BYTES} bytes, so it was not read",
+                )
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return grading.Arm(name=name, problem=f"{path} could not be read ({exc})")
+        if looks_like_cyanrip_log(text):
+            logs.append((path, text))
+    if len(logs) != 1:
+        found = "none" if not logs else ", ".join(p.name for p, _ in logs)
+        return grading.Arm(
+            name=name,
+            problem=(
+                f"{folder} holds {len(logs)} cyanrip log(s) written since this run "
+                f"started ({found}); exactly one is graded"
+            ),
+        )
+    path, text = logs[0]
+    # Through the sanctioned reader's join, so a sidecar addendum (an auto-fix's
+    # superseded tracks) is read with the log, as every read-back must be
+    # (`rip_addendum`); read here rather than by `read_log_with_addendum` so an
+    # unreadable file is named above instead of reading as an empty log.
+    text = with_addendum(text, path)
+    return grading.arm_from_log(name, str(path), parse_cyanrip_log(text))
+
+
+class DeemphasisVerbsMixin:
+    """The ``expect-deemphasis-pair`` handler. Type-only declarations of the
+    runner surface it uses; the attributes and methods are the runner's."""
+
+    if TYPE_CHECKING:
+        _window: QWidget
+        _report: RunReport
+        _deadline_outcome: Outcome
+        _deadline_detail: str
+        _deadline_timeout_detail: str
+
+        def _record(
+            self,
+            step: Step,
+            outcome: Outcome,
+            detail: str = "",
+            *,
+            elapsed: float = 0.0,
+            artifact: str = "",
+            declined_by_size: bool = False,
+        ) -> None: ...
+
+        def _arm_deadline(
+            self,
+            step: Step,
+            seconds: float,
+            predicate: Callable[[], bool] | None = None,
+        ) -> None: ...
+
+    def _do_expect_deemphasis_pair(self, step: Step) -> None:
+        """``expect-deemphasis-pair <forced-folder> <disabled-folder>``."""
+        # Imported here: the runner imports this mixin, and the rips folder has
+        # ONE reader, the one the `cyanrip` verb runs in.
+        from platterpus.uiscript.runner import _ripper_workdir
+
+        forced_name, disabled_name = step.args[0], step.args[1]
+        for name in (forced_name, disabled_name):
+            problem = folder_problem(name)
+            if problem:
+                self._record(step, Outcome.ERROR, problem)
+                return
+        root, refused = _ripper_workdir(self._window)
+        if root is None:
+            self._record(step, Outcome.ERROR, refused)
+            return
+        since = run_start_epoch(self._report.started_at)
+        if since is None:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"this run has no start time (started_at "
+                f"{self._report.started_at!r}), so an earlier run's logs in "
+                "these folders cannot be told from this run's",
+            )
+            return
+
+        def work() -> grading.PairVerdict:
+            forced = read_arm(root, forced_name, since=since)
+            disabled = read_arm(root, disabled_name, since=since)
+            return grading.grade_pair(forced, disabled)
+
+        job = _start(work, "deemphasis")
+        outcomes: dict[str, Outcome] = {
+            grading.PASS: Outcome.PASS,
+            grading.FAIL: Outcome.FAIL,
+            grading.NOT_DETERMINED: Outcome.BLOCKED,
+        }
+
+        def answered() -> bool:
+            if not job.done.is_set():
+                return False
+            verdict = job.value
+            if job.error or not isinstance(verdict, grading.PairVerdict):
+                self._deadline_outcome = Outcome.ERROR
+                self._deadline_detail = (
+                    f"the two arms' logs under {root} could not be read "
+                    f"({job.error or 'no answer'}), so clause 2 is not determined"
+                )
+                return True
+            if verdict.state == grading.FAIL:
+                log.warning("acceptance P3: %s", verdict.detail)
+            self._deadline_outcome = outcomes[verdict.state]
+            self._deadline_detail = verdict.detail
+            return True
+
+        self._arm_deadline(step, DEEMPHASIS_WAIT_S, answered)
+        self._deadline_timeout_detail = (
+            f"the two arms' logs under {root} were not read within "
+            f"{DEEMPHASIS_WAIT_S:.0f}s, so clause 2 is not determined"
+        )

@@ -36,6 +36,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from platterpus import (
     diagnostics,
     diagnostics_record,
+    disk_space,
     drive_control,
     inbound_text,
     record_fate,
@@ -103,6 +104,7 @@ from platterpus.verdict import (
     REREAD_KEPT_FOR_ACCURATERIP,
     REREAD_KEPT_FOR_CONVERGENCE,
     reread_supersedes,
+    track_accuraterip_contradiction,
 )
 from platterpus.workers.verified_read_run import (
     SingleRead,
@@ -189,6 +191,8 @@ class RipParameters:
     # after the scan would otherwise be filed under the scanned disc's tags.
     # "" = no scan ID to compare against, which reads as "not determined".
     lookup_disc_id: str = ""
+    # Settings' output format, for the free-space floor before the rip (C10).
+    output_format: str = "flac"
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -905,6 +909,8 @@ class RipWorker(QObject):
         # `_securing_pass_started`; otherwise the pass never ran.
         self._securing_pass_started: bool = False
         self._securing_pass_exit_code: int | None = None
+        # The kept securing pass log's disc paranoia block (B4); None until read.
+        self._securing_pass_paranoia_counts: dict[str, int] | None = None
         # The last verified-read chase read's exit status (TASKS R7), its own
         # field so a chase read is never reported as the securing pass's.
         self._chase_exit_code: int | None = None
@@ -1093,6 +1099,18 @@ class RipWorker(QObject):
         # `accuraterip_standing.AR_STANDING_*`, when the securing plan asked it.
         self._accuraterip_standing: str | None = None
         self._secure_rerip_skipped_reason: str | None = None
+
+    def _space_refusal(self) -> str:
+        """Why this rip cannot fit in its output folder, or "" (`disk_space`)."""
+        params = self._params
+        result = disk_space.check_output_space(
+            params.output_dir,
+            params.metadata.tracks if params.metadata is not None else (),
+            params.only_tracks,
+            params.output_format,
+        )
+        self.log_line.emit(f"[plan]   {result.message}")
+        return result.message if result.refuse else ""
 
     def _make_estimate(self) -> rip_estimate.RipEstimate | None:
         """The up-front estimate for this rip, from its tracks' lengths. Never raises.
@@ -1794,6 +1812,13 @@ class RipWorker(QObject):
         estimate_line = f"[plan]   {rip_estimate.describe(self._estimate, known=self._estimate_known)}"
         log.info("%s", estimate_line)
         self.log_line.emit(estimate_line)
+        # Before anything spawns, on this thread (never the GUI's): a rip whose
+        # output folder clearly has too little room is refused (C10).
+        space = self._space_refusal()
+        if space:
+            self.error.emit(space)
+            self.finished.emit(False, "")
+            return
 
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()
@@ -3434,6 +3459,9 @@ class RipWorker(QObject):
             source = max(logs, key=lambda p: p.stat().st_mtime)
             target = securing_pass_log_path_for(album_log_path)
             shutil.copyfile(source, target)
+            parsed = self._parse_log(str(target))
+            counts = getattr(parsed, "paranoia_counts", None)
+            self._securing_pass_paranoia_counts = dict(counts or {})
         except Exception:  # noqa: BLE001 — runs in a `finally`; must not abort the rip
             log.exception("could not keep the securing pass's own log")
             return
@@ -3678,6 +3706,8 @@ class RipWorker(QObject):
             accuraterip_offset=_ar("accuraterip_offset"),
             secure_reread=reread,
             previous_crc=previous_crc,
+            # The verdict's one predicate, on the read that shipped (TASKS R112).
+            contradiction=track_accuraterip_contradiction(track) or "",
         )
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:
@@ -3819,6 +3849,11 @@ class RipWorker(QObject):
     def securing_pass_started(self) -> bool:
         """Whether this rip's securing pass started (its ripper was spawned)."""
         return self._securing_pass_started
+
+    @property
+    def securing_pass_paranoia_counts(self) -> dict[str, int] | None:
+        """The kept securing pass log's own disc paranoia block, or None (B4)."""
+        return self._securing_pass_paranoia_counts
 
     @property
     def securing_pass_exit_code(self) -> int | None:

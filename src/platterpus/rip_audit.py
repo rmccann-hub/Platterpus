@@ -49,6 +49,8 @@ from platterpus.disc_identity import (
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
 from platterpus.replaced_read_errors import errors_in_replaced_reads
+from platterpus.rip_health import contradicted_health
+from platterpus.track_proof import contradicted_tracks_sentence
 
 log = logging.getLogger(__name__)
 
@@ -397,12 +399,28 @@ def _grade_a_reported_completion(
     * **The error tally must be clean.** The same footer carries
       ``Ripping errors:``; a completed rip that counted errors is a WARN naming
       them. An absent tally beside a present footer is a NOTE.
+
+    And a fourth, about the clean word only: a track the report records as
+    contradicted by AccurateRip takes "no errors" out of the OK and puts it in a
+    NOTE naming the track (TASKS R112).
     """
     n_done, n_total = _count(done), _count(total)
     asked = _count((report.get("completeness") or {}).get("tracks_expected"))
     # What the ripper's "done" should equal: the tracks requested, else the disc.
     expected = asked if asked else n_total
     health = report.get("health_status")
+    # The report's per-track `accuraterip_contradiction` is the verdict's one
+    # predicate, recorded (TASKS R112). From 2026-11-03 `health_status` names
+    # those tracks too, after "There were errors"; when that is all it says, the
+    # ripper itself counted none, and the tally below is graded as the ripper's.
+    found = [
+        (t.get("number"), t.get("accuraterip_contradiction"))
+        for t in report.get("tracks") or ()
+        if isinstance(t, dict) and t.get("accuraterip_contradiction")
+    ]
+    wrong = contradicted_tracks_sentence(found)
+    if found and health == contradicted_health(_NO_ERRORS, [n for n, _ in found]):
+        health = _NO_ERRORS
     if n_done is None or n_total is None:
         album.add(
             LEVEL_NOTE,
@@ -451,9 +469,21 @@ def _grade_a_reported_completion(
         and clean
     ):
         subset = f", the {asked} asked for" if asked and asked < n_total else ""
-        album.add(
-            LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks{subset}, {clean})"
-        )
+        if not wrong:
+            album.add(
+                LEVEL_OK,
+                f"rip completed ({n_done} of {n_total} tracks{subset}, {clean})",
+            )
+        else:
+            # The completion claim checks out; the clean word does not. A NOTE,
+            # not a WARN: this check grades the ripper's completion record, and
+            # the contradiction is the disc's AccurateRip finding, which the
+            # status line, the EAC-layout log and the report already warn about.
+            album.add(LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks{subset})")
+            album.add(
+                LEVEL_NOTE,
+                f"the ripper counted {clean}, but {wrong}, so this is not a clean rip",
+            )
 
 
 def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:

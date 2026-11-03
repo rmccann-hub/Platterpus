@@ -146,6 +146,12 @@ class TranscodeResult:
     #: dropped at the encode; :mod:`platterpus.adapters.mp3_replaygain`). ``None``
     #: for the other formats and when nothing was written.
     replaygain: mp3_replaygain.Mp3ReplayGain | None = None
+    #: The argv the first file that encoded was encoded with, as spawned (the
+    #: runner's own copy; ours when a fake reports none). The others differ only
+    #: in their paths. Proves which encoder and quality reached ffmpeg (review C4
+    #: of the 2026-11-03 Full run: `mp3_vbr_quality 2` was only ever read back
+    #: from Settings). Empty when nothing encoded.
+    encoder_argv: tuple[str, ...] = ()
 
     @property
     def ran(self) -> bool:
@@ -249,6 +255,7 @@ def transcode_files(
     details: list[TranscodeFailure] = []
     transcoded = 0
     written: list[Path] = []
+    encoder_argv: tuple[str, ...] = ()
     ext = _FORMAT_EXT[fmt]
     for src in paths:
         dest = src.with_suffix(f".{ext}")
@@ -309,6 +316,7 @@ def transcode_files(
             continue
         transcoded += 1
         written.append(dest)
+        encoder_argv = encoder_argv or tuple(run.argv) or tuple(argv)
     replaygain = None
     if fmt == "mp3" and written:
         # Album figures only when every FLAC of the rip became an MP3: an album
@@ -321,4 +329,5 @@ def transcode_files(
         failures=tuple(failures),
         failure_details=tuple(details),
         replaygain=replaygain,
+        encoder_argv=encoder_argv,
     )

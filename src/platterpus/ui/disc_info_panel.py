@@ -34,12 +34,14 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QFormLayout, QLabel, QMenu, QWidget
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
-from platterpus.data_tracks import is_data_track
+from platterpus.data_tracks import audio_track_totals, is_data_track
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.track_proof import contradicted_tracks_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.album_menu import build_album_menu, popup_album_menu
+from platterpus.verdict import accuraterip_contradictions
 
 # Placeholder shown in fields we don't have data for yet.
 _PLACEHOLDER: str = "—"
@@ -206,7 +208,9 @@ class DiscInfoPanel(QWidget):
 
     # --- AccurateRip outcome (from the parsed rip log) ----------------------
 
-    def set_accuraterip_result(self, rip_log: object) -> None:
+    def set_accuraterip_result(
+        self, rip_log: object, *, disc_track_total: int | None = None
+    ) -> None:
         """Show the real AccurateRip outcome after a rip finishes.
 
         AccurateRip can only *verify* a track when that exact pressing is in
@@ -219,6 +223,11 @@ class DiscInfoPanel(QWidget):
         surfaces never disagree about how many tracks matched — a string check
         here would silently miss every cyanrip match ("accurately ripped,
         confidence N" has no "exact match" substring).
+
+        ``disc_track_total`` is the DISC's track count. A rip of fewer tracks is
+        named as the last rip's, never as the disc's: on the 2026-11-03 Full run
+        a one-track rip left this row reading "verified — all 1 tracks matched"
+        on a disc whose track 5 AccurateRip had just called wrong (TASKS R113).
         """
         # Audio tracks only, the banner's population (TASKS R13): a data track has
         # no AccurateRip result, so counting it made a mixed disc whose every audio
@@ -230,13 +239,32 @@ class DiscInfoPanel(QWidget):
         if total == 0:
             self._accuraterip_value.setText(_PLACEHOLDER)
             return
+        on_disc, _logged = audio_track_totals(rip_log, disc_track_total)
         matched = sum(1 for track in tracks if track_accuraterip_verified(track))
-        if matched == 0:
-            self._accuraterip_value.setText("not in database")
+        if total < on_disc:
+            found = "not in database" if matched == 0 else f"{matched} matched"
+            text = f"last rip, {total} of {on_disc} tracks: {found}"
+        elif matched == 0:
+            text = "not in database"
+        elif total == 1:  # one track, said in English (R113: "all 1 tracks")
+            text = "verified — 1 of 1 track matched"
         elif matched == total:
-            self._accuraterip_value.setText(f"verified — all {total} tracks matched")
+            text = f"verified — all {total} tracks matched"
         else:
-            self._accuraterip_value.setText(f"{matched} of {total} tracks matched")
+            text = f"{matched} of {total} tracks matched"
+        # A track AccurateRip contradicts is named, by the verdict's one predicate,
+        # so this row never reads as a tally the WRONG track merely missed
+        # (review A2 of the 2026-11-03 Full run: "13 of 14 tracks matched").
+        wrong = contradicted_tracks_sentence(accuraterip_contradictions(rip_log))
+        self._accuraterip_value.setText(f"{text} · ⚠ {wrong}" if wrong else text)
+
+    def clear_accuraterip_result(self) -> None:
+        """Blank the AccurateRip row: a rip has started, so the last one's is stale.
+
+        Review B1 of the 2026-11-03 Full run: the row kept the previous rip's
+        result for the whole of the next rip.
+        """
+        self._accuraterip_value.setText(_PLACEHOLDER)
 
     # --- Disc info (from the ripper's disc probe, `cyanrip -I`) -------------
 

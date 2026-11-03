@@ -148,3 +148,95 @@ class Tally:
             f"[platterpus] {self.lines_flagged} line(s) of this output were screened: "
             + "; ".join(parts)
         )
+
+
+# --- Progress lines, folded before a capture is stored -------------------------
+#
+# **Why** (the 2026-11-03 Full run on 0.7.117, section P3). cyanrip redraws its
+# progress line in place, ``\r`` then ``Ripping track 1, progress - 12.34%, ETA``
+# (``cyanrip@239adda:src/cyanrip_main.c:1199-1212``, ``crip_progress_report``),
+# once per frame read. A one-track rip printed about 898 KB of them, and the
+# script transcript's head-and-tail bound then kept the banner and the last few
+# kilobytes and cut the track block, CRC and loudness, out of the middle. The
+# step's result was lost to its own progress bar.
+#
+# What a terminal would show is the last state of each redraw, so that is what is
+# kept: the last update of each run, preceded by a marker that says how many
+# earlier updates were folded into it. Nothing is dropped silently.
+#
+# A text-mode pipe turns every ``\r`` into a line break, so the redraws usually
+# arrive as separate lines; a raw ``\r`` inside one line (a binary-mode capture)
+# is folded the same way. A run is consecutive progress lines with the same text
+# before the number, so track 1's updates never fold into track 2's.
+
+#: One progress update: anything, then ``progress - <number>%``. Named groups, and
+#: bounded, because this reads external output (CLAUDE.md: parsers never raise).
+_PROGRESS_LINE: Final[re.Pattern[str]] = re.compile(
+    r"^(?P<head>.{0,200}?\bprogress - )(?P<pct>\d{1,3}(?:\.\d{1,4})?)%"
+)
+
+#: Put before the update a run was folded into. Styled like :data:`ELISION_MARK`.
+FOLD_MARK: Final[str] = (
+    "[platterpus] … {count} earlier redraw(s) of the line below folded into it …"
+)
+
+
+@dataclass(frozen=True)
+class Folded:
+    """Output with its progress redraws folded, and how many were folded."""
+
+    text: str
+    folded: int = 0
+
+
+def _progress_key(line: str) -> str | None:
+    """The text before a progress line's number, or ``None`` for any other line."""
+    match = _PROGRESS_LINE.match(line)
+    return match.group("head") if match else None
+
+
+def fold_progress(text: str) -> Folded:
+    """Fold each run of progress redraws to its last update, counted and marked.
+
+    Never raises; text with no progress lines comes back unchanged. Apply it
+    BEFORE :func:`screen_text`, which would otherwise show a raw ``\\r`` as an
+    escape rather than as the redraw it is.
+    """
+    out: list[str] = []
+    folded = 0
+    run_key: str | None = None
+    run_count = 0
+    run_last = ""
+
+    def close_run() -> None:
+        nonlocal run_key, run_count
+        if run_key is None:
+            return
+        if run_count > 1:
+            out.append(FOLD_MARK.format(count=run_count - 1))
+        out.append(run_last)
+        run_key, run_count = None, 0
+
+    for raw in text.split("\n"):
+        # A redraw inside one line: what a terminal shows is the last non-empty
+        # segment, and each earlier one is a folded update.
+        segments = [s for s in raw.split("\r") if s]
+        line = segments[-1] if segments else ""
+        inline = max(len(segments) - 1, 0)
+        key = _progress_key(line)
+        if key is not None and key == run_key:
+            run_count += 1 + inline
+            folded += 1 + inline
+            run_last = line
+            continue
+        close_run()
+        if key is not None:
+            run_key, run_count, run_last = key, 1 + inline, line
+            folded += inline
+            continue
+        if inline:
+            out.append(FOLD_MARK.format(count=inline))
+            folded += inline
+        out.append(line)
+    close_run()
+    return Folded(text="\n".join(out), folded=folded)

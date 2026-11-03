@@ -1391,3 +1391,58 @@ def test_the_pin_line_names_the_build_under_review_not_a_test_pin(
     line = pin_line()
     assert "bbbbbbb, the build under review (round 29)" in line, line
     assert "ccccccc, the round-29 test pin" in line, line
+
+
+#: The 2026-10-13 Full run's whole-disc rip (dynamic mode): its album log reads
+#: each track once, and its securing pass re-read tracks 3 and 5 with `-Z 2`.
+_ROUND32_WHOLE_DISC: str = "docs/handshake/artifactsround32/round32fullwholedisc.log"
+_ROUND32_SECURING: str = (
+    "docs/handshake/artifactsround32/round32fullwholediscsecuringpass.txt"
+)
+
+
+def test_the_paranoia_row_counts_the_securing_pass_kept_beside_the_album(
+    tmp_path: Path,
+) -> None:
+    """The 2026-11-03 Full run's rig-check said the whole-disc rip's secure
+    re-read was "exercised: no" while its securing pass had re-read track 5 three
+    times (`-Z 2 -l 5`). The row read the album's log only. Both shapes here: the
+    album log alone still says no (true of what it read), and with the securing
+    pass's own log beside it, as the rip keeps it, it says YES and names it."""
+    album = _album_from(tmp_path, evidence(_ROUND32_WHOLE_DISC))
+    alone = _rows(album, "parser/paranoia")
+    assert len(alone) == 1, alone
+    assert "Scope: line present on 0 of 14" in alone[0].detail  # type: ignore[attr-defined]
+    assert "genuinely exercised: no" in alone[0].detail  # type: ignore[attr-defined]
+
+    kept = album / "rip.platterpus-securing-pass.txt"
+    kept.write_text(
+        evidence(_ROUND32_SECURING).read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    rows = _rows(album, "parser/paranoia")
+    assert len(rows) == 1, rows
+    detail = rows[0].detail  # type: ignore[attr-defined]
+    assert rows[0].status == rig_check.INFO, detail  # type: ignore[attr-defined]
+    assert "genuinely exercised: YES" in detail, detail
+    assert kept.name in detail and "track(s) 3, 5" in detail, detail
+    assert "Scope: line on 2 of 2 track(s)" in detail, detail
+    # The album pass's own figures are still its own: 0 of 14, its disc block.
+    assert "Scope: line present on 0 of 14" in detail, detail
+    assert "the disc block totals 22055" in detail, detail
+
+
+def test_a_securing_pass_over_its_own_bound_fails_the_row(tmp_path: Path) -> None:
+    """Each ripper run is bounded against its own disc block, the securing pass
+    included: its disc `READ` lowered below its per-track sum is a FAIL, named."""
+    album = _album_from(tmp_path, evidence(_ROUND32_WHOLE_DISC))
+    text = evidence(_ROUND32_SECURING).read_text(encoding="utf-8")
+    head, sep, tail = text.rpartition("\nParanoia status counts:\n  READ:")
+    assert sep, "the securing log's disc block moved"
+    _old, rest = tail.split("\n", 1)
+    (album / "rip.platterpus-securing-pass.txt").write_text(
+        f"{head}{sep}          1\n{rest}", encoding="utf-8"
+    )
+    rows = _rows(album, "parser/paranoia")
+    assert len(rows) == 1, rows
+    assert rows[0].status == rig_check.FAIL, rows[0].detail  # type: ignore[attr-defined]
+    assert "securing pass READ" in rows[0].detail, rows[0].detail  # type: ignore[attr-defined]

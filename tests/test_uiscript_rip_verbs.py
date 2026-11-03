@@ -3494,6 +3494,61 @@ def test_expect_verification_still_passes_a_rip_whose_derived_check_ran(
     assert step.outcome is Outcome.PASS, step.detail
 
 
+@pytest.mark.parametrize(
+    ("gate", "block", "named"),
+    [
+        # A FLAC master failing `flac --test`.
+        (
+            "flac_integrity",
+            {"ran": True, "ok": False, "failures": ["/rips/a/01 - One.flac"]},
+            "01 - One.flac",
+        ),
+        # A derived WavPack that is not bit-identical to its master.
+        (
+            "derived",
+            {"ran": True, "ok": False, "mismatches": ["/rips/a/02 - Two.wv"]},
+            "02 - Two.wv",
+        ),
+    ],
+)
+def test_expect_verification_fails_a_check_that_ran_and_failed(
+    qapp, process_until, tmp_path, gate: str, block: dict, named: str
+) -> None:
+    """Review C1 of the 2026-11-03 Full run: the floor needed only SOME gate to
+    have run, and `gate_claims_ran` counts "ran — failed" as ran, so a check
+    that ran and FAILED passed sections F, H, J, K and N. Every gate is held."""
+    gates = {"ctdb": "ran", "flac_integrity": "ran — passed", "derived": "flac-only"}
+    gates[gate] = "ran — failed"
+    report = _report(gates, issues=[])
+    report["verification"][gate] = block
+    win = _window_after_a_rip_into(_album_with_report(tmp_path, report))
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 5"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "FAILED" in step.detail and gate in step.detail and named in step.detail
+
+
+def test_expect_derived_output_fails_when_the_derived_verification_failed(
+    qapp, process_until, tmp_path
+) -> None:
+    """C1's other half: every .mp3 is there and its verification RAN and FAILED."""
+    win = _window_after_a_rip_into(
+        _album_with(
+            tmp_path,
+            masters=2,
+            derived_ext="mp3",
+            derived=2,
+            derived_gate="ran — failed",
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 5"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "ran and FAILED" in step.detail
+
+
 def test_expect_verification_fails_on_a_gate_claiming_to_have_run_over_nothing(
     qapp, process_until, tmp_path
 ) -> None:

@@ -1097,3 +1097,92 @@ def test_the_record_cap_keeps_the_newest_and_counts_the_rest(tmp_path: Path) -> 
         [tmp_path / "missing", out], since=2_000.0, limit=2
     )
     assert records == [made[3], made[2]] and dropped == 2, (records, dropped)
+
+
+# ---------------------------------------------------------------------------
+# SOURCES.txt and MANIFEST.txt are one account (review B8, 2026-11-03 Full run)
+# ---------------------------------------------------------------------------
+
+
+def _archived_claims(record: str) -> tuple[list[str], list[str]]:
+    """``(members SOURCES says are archived, members it says are not)``."""
+    archived: list[str] = []
+    refused: list[str] = []
+    for line in record.splitlines():
+        line = line.strip()
+        if line.startswith("archived as "):
+            archived.append(line.removeprefix("archived as "))
+        elif line.startswith("NOT ARCHIVED — staged as "):
+            refused.append(line.removeprefix("NOT ARCHIVED — staged as ").split(",")[0])
+    return archived, refused
+
+
+def test_sources_never_calls_a_file_archived_that_the_budget_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On the 2026-11-03 Full run SOURCES.txt said app-log rotations .6 to .10
+    were "archived as" members that MANIFEST.txt said the 64 MiB budget refused:
+    SOURCES was written when the files were staged, before the bundle decided.
+    The relation, both ways: every member SOURCES calls archived is in the
+    archive, every one it calls refused is not, and at least one of each."""
+    from platterpus import evidence_bundle
+
+    monkeypatch.setattr(evidence_bundle, "MAX_TOTAL_BYTES", 4000)
+    _, layout = _prepared(tmp_path)
+    layout.transcript.write_text("ran\n", encoding="utf-8")
+    share = tmp_path / "share"
+    share.mkdir()
+    log_path = share / "log.txt"
+    log_path.write_text("current\n", encoding="utf-8")
+    for n in range(1, 4):
+        (share / f"log.txt.{n}").write_text("R" * 1500, encoding="utf-8")
+
+    result = finish_session(layout, sources=session_sources(layout, log_path=log_path))
+    assert result.ok and result.path is not None, result.error
+    members = set(_members(result.path))
+    record = _member_text(result.path, SOURCES_RECORD_NAME)
+    archived, refused = _archived_claims(record)
+    assert archived and refused, record
+    assert all(m in members for m in archived), (archived, members)
+    assert not any(m in members for m in refused), (refused, members)
+    manifest = _member_text(result.path, "MANIFEST.txt")
+    for member in refused:
+        assert member in manifest and "budget was already spent" in manifest
+    assert f"{len(refused)} not archived" in record, record
+
+
+def test_a_rotation_older_than_the_session_is_named_and_left_on_disk(
+    tmp_path: Path,
+) -> None:
+    """The same run spent 42 MB of the budget on app-log rotations last written
+    days before it began, which hold none of its lines. Such a rotation is now
+    named in SOURCES and not archived; one written during the session is, and the
+    current log is collected whatever its age (it is not a rotation)."""
+    from platterpus import session_sources_record
+
+    # The record reads the stamp with its own copy of the format; tie the two.
+    assert session_sources_record._STAMP_FORMAT == test_session.STAMP_FORMAT
+    _, layout = _prepared(tmp_path)
+    layout.transcript.write_text("ran\n", encoding="utf-8")
+    share = tmp_path / "share"
+    share.mkdir()
+    log_path = share / "log.txt"
+    log_path.write_text("current\n", encoding="utf-8")
+    during = share / "log.txt.1"
+    during.write_text("this run\n", encoding="utf-8")
+    before = share / "log.txt.2"
+    before.write_text("an earlier day\n", encoding="utf-8")
+    start = datetime.strptime(STAMP, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC).timestamp()
+    os.utime(before, (start - 86400, start - 86400))
+    os.utime(log_path, (start - 86400, start - 86400))
+    os.utime(during, (start + 60, start + 60))
+
+    result = finish_session(layout, sources=session_sources(layout, log_path=log_path))
+    assert result.ok and result.path is not None, result.error
+    names = _members(result.path)
+    assert any(n.endswith("/log.txt.1") for n in names), names
+    assert any(n.endswith("/log.txt") for n in names), names
+    assert not any(n.endswith("/log.txt.2") for n in names), names
+    record = _member_text(result.path, SOURCES_RECORD_NAME)
+    assert str(before) in record and "older than this session" in record, record
+    assert "1 older than this session" in record, record

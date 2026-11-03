@@ -48,7 +48,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 
 | Flag | Meaning | When Platterpus passes it |
 |------|---------|---------------------------|
-| `-d <dev>` | drive device | always, when a device is known |
+| `-d <dev>` | drive device | always, when a device is known; a script's `cyanrip` step sends it as `-d (device)`, the selected drive, and is refused when none is selected |
 | `-s <int>` | read offset (samples, signed) | when `override_read_offset` is on (cyanrip has no config file — it needs the offset every run) |
 | `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
 | `-r <int>` | **two limits in one flag**: libcdio-paranoia's per-frame retries (rounded up to a multiple of 5 by the fork's `crip_frame_retry_limit()`) **and** the ceiling on whole-track reads in a `-Z` secure re-read, which keeps the value as given (`cyanrip@faec4a8:src/cyanrip_main.c:1010`) | when `max_retries > 0`. For 0 **no `-r` is sent** and cyanrip applies its own default of **10** (`cyanrip@faec4a8:src/cyanrip_main.c:1593`), not zero — `cyanrip_cli.retries_flag_value` is that mapping, and everything that predicts the argv's `-r` calls it |
@@ -845,6 +845,39 @@ the process or process group the cancel reached, until `READER_TERM_GRACE_S`
 the log says NOT DETERMINED. (The fork's round 30 lap 9 S28; a native install
 has not been run on hardware.)
 
+**Why the rescue's SIGTERM reaches every holder of the drive, not cyanrip
+alone** (review of the 2026-11-03 Full run, B9). On the wrapper path
+`fuser -s -k -TERM <device>` signals every process that has the drive's node
+open at that instant. Podman does not forward the wrapper's SIGTERM into the
+container, so this is the signal that reaches the reader at all. The reach is
+accepted rather than narrowed, and each reason is held by a test:
+
+1. **Device-scoped, never by name**: the node of the drive whose rip was just
+   cancelled, so a rip on another drive is never reached (#23)
+   (`tests/test_ui_main_window.py::test_auto_force_stop_frees_the_DEVICE_and_never_ejects`).
+2. **SIGTERM only, no SIGKILL, no eject** on this path: a holder can catch it
+   and exit cleanly
+   (`tests/test_drive_control.py::test_wrapper_path_the_rescue_is_unchanged_once_the_wrapper_is_reaped`).
+3. **Once per Cancel**, 5 s after it, after the status line has said the drive
+   will be stopped
+   (`tests/test_ui_main_window.py::test_auto_force_stop_is_noop_when_already_done`).
+4. **Platterpus itself is never a holder while any force-stop runs.** The app
+   opens the node only for the media-status ioctl (`drive_media.probe_disc_status`),
+   and both callers skip it while a force-stop thread is alive
+   (`DriveMixin._drive_being_freed`). Before 2026-11-03 the media poll
+   could open it during the rescue, which would have sent SIGTERM to this app,
+   whose handler closes the window
+   (`tests/test_ui_main_window.py::test_the_app_never_opens_the_drive_while_a_device_wide_signal_is_out`).
+
+Narrowing the signal to the reader by name is possible host-side (rootless
+podman shows in-container processes under their own names, which the
+name-matched `pkill` above already relies on), but it would replace the rescue
+the rig has run (the 2026-10-05 cancel) with one no hardware has. What remains,
+said rather than hidden: another program that has this drive open at that
+instant, a player or a second ripper reading the same disc, gets the SIGTERM
+too. The scoped Critical rule #3 exception is unchanged: no step here enters
+the container.
+
 **Shutdown contract:** closing the app during a rip stops the reader
 (`stop_reader_gracefully`, no eject) as exit work that `app.main` joins
 before the process exits, so the window closes at once and the in-container
@@ -857,4 +890,4 @@ SIGKILL only if the drive is still held or fuser cannot say — see
 
 ---
 
-*Last updated for Platterpus v0.7.117.*
+*Last updated for Platterpus v0.7.118.*

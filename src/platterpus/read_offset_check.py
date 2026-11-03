@@ -163,7 +163,8 @@ def _reconfirmation(
         return AR_NOT_DETERMINED, None, None, why
     matched = sum(1 for t in track_list if track_accuraterip_verified(t))
     if matched:
-        why = f"AccurateRip matched {matched} of {read} tracks at this offset, "
+        noun = "track" if read == 1 else "tracks"  # TASKS R113: "1 of 1 tracks"
+        why = f"AccurateRip matched {matched} of {read} {noun} at this offset, "
         return AR_CONFIRMED, matched, read, why + "which confirms it on this drive"
     why = (
         f"no track of {read} matched AccurateRip, so this rip neither confirms "
