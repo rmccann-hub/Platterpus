@@ -8121,6 +8121,141 @@ def test_a_defused_signature_line_reaches_the_report_and_the_log_is_still_writte
     assert rearmed == [True]
 
 
+def test_the_eac_log_is_written_again_when_ctdb_answers(
+    teardown_threads, tmp_path
+) -> None:
+    """TASKS R51, on the window. The log is written at the rip's end, before
+    CTDB; when CTDB's answer lands, the album's record re-renders it so a track
+    whose only proof is CTDB per track says so in the log, as in the report."""
+    from platterpus.ctdb.matching import CtdbTrackResult, TrackVerdict
+
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = True
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3", encoding="utf-8")
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(
+                number=1,
+                filename="01 - One.flac",
+                copy_crc="0BADF00D",
+                status="ripped successfully",
+                accuraterip_v1=AccurateRipResult(version=1, result="x", local_crc="A"),
+                accuraterip_lookup="not found in database",
+            ),
+        )
+    )
+    window._capture_post_rip_record(rip_log, log_file)
+    window._write_eac_log(rip_log, log_file)
+    companion = tmp_path / "Album (EAC-compatible).log"
+    assert "Proof: none" in companion.read_text(encoding="utf-8")
+    window._rip_report_timer.stop()
+
+    window._on_ctdb_verified(
+        window._rip_generation,
+        CtdbVerifyResult(
+            Verdict.MATCH,
+            tracks=(
+                CtdbTrackResult(track=1, verdict=TrackVerdict.MATCH, confidence=53),
+            ),
+        ),
+    )
+
+    text = companion.read_text(encoding="utf-8")
+    assert "Proof: CTDB per track at confidence 53" in text, text
+    # And the report is re-armed, so the copy it embeds is this one.
+    assert window._rip_report_timer.isActive()
+
+
+def _unknown_to_accuraterip_log() -> RipLog:
+    """One track AccurateRip has no entry for, so CTDB is its strongest proof."""
+    return RipLog(
+        tracks=(
+            TrackResult(
+                number=1,
+                filename="01 - One.flac",
+                copy_crc="0BADF00D",
+                status="ripped successfully",
+                accuraterip_v1=AccurateRipResult(version=1, result="x", local_crc="A"),
+                accuraterip_lookup="not found in database",
+            ),
+        )
+    )
+
+
+def _ctdb_agrees_on_track_1() -> CtdbVerifyResult:
+    from platterpus.ctdb.matching import CtdbTrackResult, TrackVerdict
+
+    return CtdbVerifyResult(
+        Verdict.MATCH,
+        tracks=(CtdbTrackResult(track=1, verdict=TrackVerdict.MATCH, confidence=53),),
+    )
+
+
+def _two_albums_with_eac_logs(
+    window: MainWindow, rip_log: RipLog, first: Path, second: Path
+) -> None:
+    """Albums 3 and 4 finish in `first` and `second`, each writing its EAC log."""
+    window._config.write_eac_log_after_rip = True
+    for generation, folder in ((3, first), (4, second)):
+        folder.mkdir(exist_ok=True)
+        (folder / "Album.log").write_text("cyanrip 0.9.3", encoding="utf-8")
+        window._rip_generation = generation
+        window._capture_post_rip_record(rip_log, folder / "Album.log")
+        window._write_eac_log(rip_log, folder / "Album.log")
+
+
+def test_a_late_ctdb_answer_rewrites_its_own_album_s_log(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """TASKS R51 after the next Start: the answer renders from its own album's
+    record into that album's folder, not the album now on screen."""
+    window = teardown_threads()
+    rip_log = _unknown_to_accuraterip_log()
+    _two_albums_with_eac_logs(window, rip_log, tmp_path / "A", tmp_path / "B")
+
+    window._on_ctdb_verified(3, _ctdb_agrees_on_track_1())
+
+    own = (tmp_path / "A" / "Album (EAC-compatible).log").read_text("utf-8")
+    assert "Proof: CTDB per track at confidence 53" in own, own
+    other = (tmp_path / "B" / "Album (EAC-compatible).log").read_text("utf-8")
+    assert "Proof: CTDB" not in other
+    assert report_writer.writer().flush(), "report write timed out"
+
+
+def test_a_late_ctdb_answer_leaves_a_reclaimed_folder_s_log_alone(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The other half: a folder the next rip reclaimed (Overwrite) holds that
+    rip's log, which a finished album's answer must not replace."""
+    window = teardown_threads()
+    shared = tmp_path / "Shared"
+    _two_albums_with_eac_logs(window, _unknown_to_accuraterip_log(), shared, shared)
+    theirs = shared / "Album (EAC-compatible).log"
+    theirs.write_text("the newer rip's own log", encoding="utf-8")
+
+    window._on_ctdb_verified(3, _ctdb_agrees_on_track_1())
+
+    assert theirs.read_text(encoding="utf-8") == "the newer rip's own log"
+    assert report_writer.writer().flush(), "report write timed out"
+
+
+def test_no_eac_log_is_made_when_ctdb_answers_if_none_was_written(
+    teardown_threads, tmp_path
+) -> None:
+    """The rewrite only ever rewrites: with the setting off there was no first
+    write, and CTDB's answer must not create a companion log."""
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = False
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3", encoding="utf-8")
+    rip_log = RipLog(tracks=(TrackResult(number=1),))
+    window._capture_post_rip_record(rip_log, log_file)
+    window._write_eac_log(rip_log, log_file)
+    window._on_ctdb_verified(window._rip_generation, CtdbVerifyResult(Verdict.MATCH))
+    assert not (tmp_path / "Album (EAC-compatible).log").exists()
+
+
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
     """The poll never touches the drive or rescans while a rip holds it."""
     window = teardown_threads()

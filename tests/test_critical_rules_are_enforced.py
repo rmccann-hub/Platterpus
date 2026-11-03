@@ -1737,7 +1737,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2217 -> 2220** (2026-10-27, external review item 3.4): why the zone-less strptime fallback stays naive (ruff DTZ007).
     # **2220 -> 2229** (2026-11-03, TASKS R62, who cancelled a rip): `cancelled_by` threads from the renderers to `_interrupted_securing_line`, which no longer says "you cancelled the rip" for a cancel the user did not make; the words are `cancel_cause.py`'s.
     # **2220 -> 2239** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_health_lines` takes the placement and prints EAC's sentence for the reads kept with the line of ours beside it; the kwarg runs through the three render entry points.
-    "eac_log_export.py": 2248,
+    # **2239 -> 2268** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `ctdb_result` runs through the three render entry points to each track block's `Proof:` row, so the log is rendered again with CTDB's per-track answer.
+    "eac_log_export.py": 2277,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2679,7 +2680,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5160 -> 5178** (2026-10-27, external review item 3.2): the GUI-thread check in `run_unknown_post_processing` is a raise of `OffGuiThreadWidgetRead` instead of an `assert` that `python -O` strips; the exception class sits beside the one method that raises it, with the reason it is not an assert.
     # **5178 -> 5203** (2026-11-03, TASKS R62, who cancelled a rip): `_on_rip_cancel(cause)` records and logs who, a hand-pressed Force stop is the user, the outcome and the EAC-layout log are told, and the bundle's facts say who; the words are `cancel_cause.py`'s.
     # **5178 -> 5200** (2026-11-03, TASKS R59 (b), run C of 2026-10-22): the health of the reads the album keeps, when every counted error was in a read the album replaced. The placement lives in `replaced_read_errors.py`; only the plumbing is here: `_replaced_reads_of`, handed to the status line and the EAC-layout log.
-    "ui/main_window_rip.py": 5225,
+    # **5200 -> 5243** (2026-11-03, TASKS R51: the EAC-layout log is written before CTDB answers): `_rewrite_eac_log_with_ctdb`, called from `_on_ctdb_verified` before the report write; the inputs it renders from are `post_rip_record.EacLogRender`.
+    "ui/main_window_rip.py": 5268,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

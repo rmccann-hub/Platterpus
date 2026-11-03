@@ -74,7 +74,11 @@ from platterpus.reread_limit import stopped_by_time_limit
 from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
-from platterpus.track_proof import track_proof, verified_reread_numbers
+from platterpus.track_proof import (
+    ctdb_tracks_by_number,
+    track_proof,
+    verified_reread_numbers,
+)
 from platterpus.verdict import (
     accuraterip_lookup_happened,
     expected_track_total,
@@ -315,6 +319,7 @@ def render_eac_style_log(
     secure_rerip: SecureReripBlock | None = None,
     cancelled_by: str = "",
     replaced_reads: ErrorsInReplacedReads | None = None,
+    ctdb_result: object | None = None,
 ) -> str:
     """The rendered log text; see :func:`render_eac_style_log_and_defused`."""
     text, _defused = render_eac_style_log_and_defused(
@@ -327,6 +332,7 @@ def render_eac_style_log(
         secure_rerip=secure_rerip,
         cancelled_by=cancelled_by,
         replaced_reads=replaced_reads,
+        ctdb_result=ctdb_result,
     )
     return text
 
@@ -342,6 +348,7 @@ def render_eac_style_log_and_defused(
     secure_rerip: SecureReripBlock | None = None,
     cancelled_by: str = "",
     replaced_reads: ErrorsInReplacedReads | None = None,
+    ctdb_result: object | None = None,
 ) -> tuple[str, list[str]]:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``,
     and the lines rewritten so metadata could not forge a signature (D16).
@@ -363,6 +370,9 @@ def render_eac_style_log_and_defused(
       the exact asymmetry this module exists to prevent (audit, 2026-07-28).
     * ``replaced_reads`` — where the album pass's counted errors were
       (:mod:`platterpus.replaced_read_errors`), for the disc-level health line.
+    * ``ctdb_result`` — CTDB's answer, for each track's ``Proof:`` row (TASKS
+      R51). The window writes the log at the rip's end, before CTDB answers, and
+      again when it does; ``None`` leaves CTDB unnamed.
 
     The honesty gate still holds: any value not supplied is **omitted, never
     invented**, the cyanrip source line is left exactly as parsed, and EAC's own
@@ -386,6 +396,7 @@ def render_eac_style_log_and_defused(
             secure_rerip=secure_rerip,
             cancelled_by=cancelled_by,
             replaced_reads=replaced_reads,
+            ctdb_result=ctdb_result,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -407,6 +418,7 @@ def _render(
     secure_rerip: SecureReripBlock | None = None,
     cancelled_by: str = "",
     replaced_reads: ErrorsInReplacedReads | None = None,
+    ctdb_result: object | None = None,
 ) -> tuple[str, list[str]]:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -572,8 +584,15 @@ def _render(
 
     # --- Per-track blocks ---
     chased = verified_reread_numbers(secure_rerip)
+    ctdb_rows = ctdb_tracks_by_number(ctdb_result)
     for track in rip_log.tracks:
-        lines.extend(_track_block(track, verified_reread=track.number in chased))
+        lines.extend(
+            _track_block(
+                track,
+                verified_reread=track.number in chased,
+                ctdb_track=ctdb_rows.get(track.number),
+            )
+        )
 
     # --- Conclusive report, in EAC's own wording ---
     lines.append("")
@@ -1798,11 +1817,17 @@ def _provenance_lines(
     return out
 
 
-def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[str]:
+def _track_block(
+    track: TrackResult,
+    *,
+    verified_reread: bool = False,
+    ctdb_track: object | None = None,
+) -> list[str]:
     """The per-track section, matching EAC's shape (only real fields rendered).
 
     ``verified_reread`` is True when the track's file is a verified-read chase
     read (``secure_rerip["verified_rereads"]``), which its ``Proof:`` row names.
+    ``ctdb_track`` is CTDB's per-track result once CTDB has answered, else None.
     """
     # EAC writes "Track" + one space + the number right-aligned to width 2, so a
     # single-digit track reads "Track  1" and a double-digit one "Track 14". A
@@ -1890,11 +1915,15 @@ def _track_block(track: TrackResult, *, verified_reread: bool = False) -> list[s
     # the one wording the report carries too. EAC's one proof is a Test and Copy
     # CRC pair; ours differs by track, so the log says which. A track AccurateRip
     # contradicts says so here, so the block's last line is never the only
-    # verdict a reader sees. CTDB is not named: this log is written before it
-    # answers, and the report's `proof` carries it. Not for a data track, for
-    # the AccurateRip row's reason above: its own status line says what it is.
+    # verdict a reader sees. CTDB is named once it has answered: the log is
+    # written at the rip's end, before CTDB, and again when CTDB answers (TASKS
+    # R51), so this row and the report's `proof` end the same. Not for a data
+    # track, for the AccurateRip row's reason above: its status line says what
+    # it is.
     if not is_data_track(track):
-        proof = track_proof(track, verified_reread=verified_reread)
+        proof = track_proof(
+            track, verified_reread=verified_reread, ctdb_track=ctdb_track
+        )
         out.append(f"     Proof: {proof.line}")
     contradiction = track_accuraterip_contradiction(track)
     if track.status:

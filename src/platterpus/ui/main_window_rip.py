@@ -106,7 +106,7 @@ from platterpus.ui.main_window_helpers import (
     unique_album_title,
 )
 from platterpus.ui.main_window_shared import MainWindowShared
-from platterpus.ui.post_rip_record import PostRipRecord
+from platterpus.ui.post_rip_record import EacLogRender, PostRipRecord
 from platterpus.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_track_tags,
@@ -3467,9 +3467,47 @@ class RipMixin(MainWindowShared):
         self._rip_progress.set_ctdb_result(result)  # type: ignore[arg-type]
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
+        # The EAC-layout log first, so the report write below embeds the copy
+        # whose Proof: rows name CTDB (TASKS R51).
+        self._rewrite_eac_log_with_ctdb(generation, result)
         # Record + schedule a (debounced) re-write so the report picks up the
         # CTDB verdict alongside whatever else has finished.
         self._record_post_rip_result(generation, "ctdb", result)
+
+    def _rewrite_eac_log_with_ctdb(self, generation: int, result: object) -> None:
+        """Write this album's EAC-layout log again, naming CTDB in its Proof: rows.
+
+        TASKS R51: the log is written when the rip finishes and CTDB answers
+        later, so a track whose only proof is CTDB per track read ``Proof: none``
+        in the log while the report said CTDB. Rendered from the inputs the first
+        write kept on the album's record (:class:`EacLogRender`), so a late
+        answer still describes its own album, and written to that record's
+        folder, which follows a library move. Only over a log the first write
+        made, never into a folder a newer rip has claimed, and only when the
+        text changed: a disc AccurateRip holds renders the same either way.
+
+        On the GUI thread, like the first write: one render and one small file.
+        Never raises; a companion log is a courtesy, never load-bearing.
+        """
+        record = self._post_rip_records.get(generation)
+        render = record.eac_log if record is not None else None
+        if record is None or render is None or record.log_file is None:
+            return
+        if self._folder_reclaimed_by_a_newer_rip(record):
+            return
+        target = record.log_file.with_name(
+            f"{record.log_file.stem} (EAC-compatible).log"
+        )
+        try:
+            text, _defused = render.render(ctdb_result=result)
+            if not target.is_file() or target.read_text(encoding="utf-8") == text:
+                return
+            target.write_text(text, encoding="utf-8")
+            log.info("rewrote the EAC-layout log with CTDB's answer: %s", target)
+        except (OSError, ValueError):
+            log.warning(
+                "could not rewrite the EAC-layout log %s", target, exc_info=True
+            )
 
     # --- Re-rip comparison ("you've ripped this disc before") ---------------
 
@@ -4153,7 +4191,6 @@ class RipMixin(MainWindowShared):
             return
         try:
             from platterpus import __version__, build_info
-            from platterpus.eac_log_export import render_eac_style_log_and_defused
 
             # Software provenance for the archival text artifact, all from
             # already-resolved state (never a fresh probe — that would enter the
@@ -4182,7 +4219,7 @@ class RipMixin(MainWindowShared):
             outcome_status = (
                 str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
             )
-            text, defused = render_eac_style_log_and_defused(
+            render = EacLogRender(
                 rip_log,
                 platterpus_version=__version__,
                 build_fingerprint=build_info.build_fingerprint(),
@@ -4199,8 +4236,14 @@ class RipMixin(MainWindowShared):
                 # about the reads kept (TASKS R59), as the report's is.
                 replaced_reads=self._replaced_reads_of(rip_log),
             )
+            text, defused = render.render()
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
+            # Kept on the album's record, so CTDB's answer can be written into
+            # each track's Proof: row when it lands (TASKS R51).
+            record = self._post_rip_records.get(self._rip_generation)
+            if record is not None:
+                record.eac_log = render
             # D16: a metadata value shaped like a log signature, or like EAC's own
             # first line, was rewritten so the log cannot read as EAC's. Say so in
             # the log and the report.
