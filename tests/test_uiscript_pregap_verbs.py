@@ -491,3 +491,22 @@ def test_the_acceptance_script_runs_it_in_its_own_section() -> None:
     assert lines[:2] == ["run-size standard", "expect-pregaps-agree"], lines
     assert text.index(header) > text.rindex("log --- P3. ")
     assert text.index(header) < text.index("log --- Q. ")
+
+
+def test_the_pregap_comparison_comes_after_every_rip_the_script_makes() -> None:
+    """TASKS R60 (the plan of record, Appendix I §2, defect 4): P4 ran before
+    P5 and P6, so it never compared the logs of their approved-build rips; on
+    the plan's disc 4 both of P5's `.25` logs left out track 5's 175-frame
+    pregap that every `.26` log listed. "After every rip" was this file's own
+    docstring above and was asserted only against P3. Read off the parsed
+    script: no `rip` and no `cyanrip` step may follow the comparison."""
+    from platterpus.uiscript.script import parse
+
+    steps = parse(_ACCEPTANCE.read_text(encoding="utf-8"))
+    verbs = [step.verb for step in steps]
+    compare = verbs.index("expect-pregaps-agree")
+    reading = [i for i, verb in enumerate(verbs) if verb in {"rip", "cyanrip"}]
+    # Floor: the sections that rip are all there, P5's and P6's twelve included.
+    assert len(reading) >= 12, len(reading)
+    later = [steps[i].line_no for i in reading if i > compare]
+    assert not later, f"rip steps after the pregap comparison, at lines {later}"

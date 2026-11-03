@@ -1569,27 +1569,6 @@ cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
 
-# --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
-# Every section above reads ONE rip. This one reads every cyanrip log the run
-# wrote - each album's, each securing pass's, P3's - and compares their Gaps:
-# lists, disc by disc, naming each track where two rips of one disc disagree.
-# On the 2026-10-13 Full run the secure re-read (N) left out track 4's
-# 158-frame pregap that the whole-disc rip (F) listed, and track 9 read 94
-# frames in some rips and 95 in others; the fork found it, and nothing of ours
-# could have, because nothing compared two rips.
-#
-# INFO EITHER WAY, BY DECLARATION (docs/testing.md, Acceptance severity, P4).
-# A disagreement is the fork's known detector variance, it moves no sample (a
-# merged pregap stays at the end of the previous track), and no log can say
-# which reading is right; it is gathered for the fork with every track named.
-# BLOCKED when fewer than two logs of one disc could be compared: a check that
-# passed on finding nothing would be decoration, and a run whose rips left no
-# two comparable logs has lost its provenance record. `standard`, because a
-# Quick run rips once and could only ever be blocked here.
-log --- P4. every rip of this disc: do their pregap lists agree? ---
-run-size standard
-expect-pregaps-agree
-
 # --- P5. S15: A TIMED RIP, THE APPROVED BUILD AGAINST THE ONE UNDER REVIEW --
 # The owner asked for it, and the fork's round 36 lap 1 S15 proposed the method
 # (docs/handshake/inbound/round-36-lap-01.md): the same tracks of the reference
@@ -1811,6 +1790,36 @@ set secure_rerip_matches 2
 expect secure_rerip_matches 2
 set secure_rerip_dynamic on
 expect secure_rerip_dynamic on
+
+# --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
+# Every section above reads ONE rip. This one reads every cyanrip log the run
+# wrote - each album's, each securing pass's, P3's, P5's and P6's - and compares
+# their Gaps: lists, disc by disc, naming each track where two rips of one disc
+# disagree.
+#
+# On the 2026-10-13 Full run the secure re-read (N) left out track 4's
+# 158-frame pregap that the whole-disc rip (F) listed, and track 9 read 94
+# frames in some rips and 95 in others; the fork found it, and nothing of ours
+# could have, because nothing compared two rips.
+#
+# WHY IT RUNS HERE, AFTER P6 AND NOT BEFORE P5 (TASKS R60, the plan of record,
+# Appendix I §2, defect 4). It used to run before P5, so it never saw the rips
+# P5 and P6 make on the approved build and the build under review: on the
+# plan's disc 4 both of P5's `.25` logs left out track 5's 175-frame
+# pregap that all 13 `.26` logs listed, and nothing compared them. Its label
+# stays P4, because the severity table and the tier table key on it.
+#
+# INFO EITHER WAY, BY DECLARATION (docs/testing.md, Acceptance severity, P4).
+# A disagreement is the fork's known detector variance, it moves no sample (a
+# merged pregap stays at the end of the previous track), and no log can say
+# which reading is right; it is gathered for the fork with every track named.
+# BLOCKED when fewer than two logs of one disc could be compared: a check that
+# passed on finding nothing would be decoration, and a run whose rips left no
+# two comparable logs has lost its provenance record. `standard`, because a
+# Quick run rips once and could only ever be blocked here.
+log --- P4. every rip of this disc: do their pregap lists agree? ---
+run-size standard
+expect-pregaps-agree
 
 # --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Restoring is not tidiness. Uniform secure re-read doubles every future rip on
