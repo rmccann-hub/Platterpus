@@ -1514,7 +1514,7 @@ number ("Part F row N").
 | 25 | HTOA, image + cue, data tracks | Supported | Not, or data copied by default | Behind | Build them; HTOA and image + cue low (E7) | Both (R12) |
 | 26 | Checking the finished files | `flac -V` at encode | `flac --test` after tagging, SHA-256, derived formats checked | Better | — | — |
 | 27 | A tracker accepting the log | Accepted by name | Refused by name, before any setting is read (Part D §1) | **Not possible** by our own work | The checkers allow-list rippers; copying EAC's identity is forgery (KDD-24). The honest route is to ask OPS to add Platterpus, as it added our previous backend's format; that is OPS's decision | — |
-| 28 | A log anyone can check | Closed, obfuscated signature | Open SHA-256 over our own log | Better on openness | Keep our own log the goal (KDD-36) | — |
+| 28 | A log anyone can check | Obfuscated, but public: its key was reverse-engineered (`eac_logsigner`) and ships in OPS's open logchecker, so it catches only casual edits (corrected 2026-11-03; row 1355 above already said so) | Open SHA-256 over our own log | Better on openness | Keep our own log the goal (KDD-36) | — |
 | 29 | Breadth of proof | Twenty years, thousands of drives | One drive, one machine | **Not possible** to equal soon | Narrow it with a second drive, machine and distro (the 0.8.1 gate) | The owner's hardware |
 | 30 | Setup | Needs a guide | Settings chosen for the user | Better | — | — |
 | 31 | Openness, cost, extras | Closed source, freeware, paid plugin | Open source, free, nothing bundled | Better | — | — |
@@ -1532,10 +1532,14 @@ AccurateRip does not know (rows 4, 20, 24, 29).
 
 What OPS scores is Part D §2. To rip a disc in EAC for comparison with ours:
 
-1. Run **EAC 1.8, from exactaudiocopy.de only**. Its changelog lists no secure-mode
-   change after 1.0 beta 3, and a fix on 2015-04-09 for crashing on a read error, which
-   matters on a damaged disc. In the installer keep AccurateRip and the CTDB plugin;
-   leave off GD3 (paid after 10 lookups), the other metadata plugins and AcoustID.
+1. Run **EAC 1.8, from exactaudiocopy.de only**; it is still the newest (15 July 2024).
+   This plan said its changelog lists no secure-mode change after 1.0 beta 3. The skills
+   session's survey of 2026-11-03 reads it otherwise: beta 6 fixed crashes on read
+   errors, 1.1 fixed "extraction problems with some LG drives", and 1.2 fixed read-command
+   detection. Not yet re-read by us (the history page returned 404 to our fetch that
+   day); either way, run 1.8. In the installer keep AccurateRip and the CTDB plugin;
+   leave off GD3 (paid after 10 lookups) and the other metadata plugins, and **untick
+   AcoustID**, which EAC 1.x submits fingerprints to by default.
 2. **Drive options:** secure mode, accurate stream, defeat audio cache, C2 off.
 3. **Offset:** from AccurateRip's list (+667 for the BDR-209D); overread off.
 4. **Compression:** FLAC `-8 -V`, no ID3 tag, no normalising.
