@@ -1714,14 +1714,13 @@ class MainWindow(
 
         Shared by the empty-disc-ID path and the 0-result lookup path.
         Shows numbered blank track rows (so the user sees the disc's
-        contents) and proactively offers the unknown-album rip. The
-        unknown-mode guard stops it re-prompting once the user has
-        already accepted in this session.
+        contents) and offers the unknown-album rip once the main window is
+        the one in use (`_hold_unknown_album_offer`, TASKS R96), never twice
+        for one scan, nor once the user has accepted in this session.
         """
         if self._current_num_tracks > 0:
             self._track_table.set_placeholder_tracks(self._current_num_tracks)
-        if not self._rip_controls.is_unknown_mode():
-            self.open_unknown_album_dialog()
+        self._hold_unknown_album_offer()
 
     def _fetch_release_detail(self, mbid: str, context: str) -> None:
         # Emit (don't call) so the fetch runs on the MB worker thread. `context`

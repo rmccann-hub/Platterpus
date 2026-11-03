@@ -1,4 +1,4 @@
-"""The MusicBrainz release picker: when it opens, and what its answer does.
+"""The MusicBrainz release picker, and the no-match offer: when each opens.
 
 A mixin ``MainWindow`` inherits (``docs/architecture.md`` §3.6), so its methods
 stay reachable as ``window._x`` while this one concern lives in its own file. The
@@ -14,6 +14,11 @@ window is the one in use, then opens, if it is still wanted. "Still wanted" is
 checked when it is about to open, not when it was queued: the same disc, no
 release chosen for it since, no picker for it open, and no rip running (a rip
 owns the track table, `_rip_holds_the_track_table`).
+
+**The no-match offer waits the same way** (`_hold_unknown_album_offer`): when a
+lookup finds nothing, the offer to rip the disc as an unknown album can hold too.
+It is keyed on the disc scan rather than the disc, one offer per scan, and a
+newer scan drops it.
 
 **One held picker per disc.** `_mb_picker_held_for` names the disc a picker is
 waiting for, so a second lookup's candidates for that disc are declined while it
@@ -38,6 +43,60 @@ log = logging.getLogger(__name__)
 
 class ReleasePickerMixin(MainWindowShared):
     """Open the release picker when the main window is free, and act on its answer."""
+
+    #: The disc scan whose "no match" offer is waiting for the main window, or is
+    #: open on it; None when neither. A class default, so `MainWindow.__init__`
+    #: (at its size cap) needs no line for it.
+    _unknown_offer_held_for: int | None = None
+
+    def _hold_unknown_album_offer(self) -> None:
+        """Offer the unknown-album rip once the main window is free (TASKS R96).
+
+        The picker's sibling for a lookup with no match: nothing waits on the
+        answer, so it can hold. It is keyed on the disc SCAN that found nothing
+        (`_disc_retries.request`), not on a disc ID, because a disc with no
+        MusicBrainz ID at all comes here too. A newer scan drops a held offer, and
+        that scan's own result asks again.
+
+        **One offer per scan, waiting or open.** The key is cleared when the
+        dialog CLOSES, not when it opens: the dialog is modal, so a duplicate
+        no-match result for the same scan that lands while it is open would
+        otherwise be held behind it and ask the same question again the moment
+        the user answered it.
+        """
+        if self._rip_controls.is_unknown_mode():
+            return  # accepted already this session; never re-prompt
+        scan = self._disc_retries.request
+        if self._unknown_offer_held_for == scan:
+            log.info(
+                "the unknown-album offer for scan %d is already waiting or open; "
+                "not holding a second one",
+                scan,
+            )
+            return
+        self._unknown_offer_held_for = scan
+
+        def forget() -> None:
+            if self._unknown_offer_held_for == scan:
+                self._unknown_offer_held_for = None
+
+        def show() -> None:
+            try:
+                self.open_unknown_album_dialog()
+            finally:
+                forget()
+
+        hold_until_free(
+            self,
+            show,
+            still_wanted=lambda: (
+                self._disc_retries.request == scan
+                and not self._rip_controls.is_unknown_mode()
+                and self._rip_worker is None
+            ),
+            what=f"unknown-album offer for scan {scan}",
+            on_drop=forget,
+        )
 
     def _hold_release_picker(
         self, releases: list[ReleaseSummary], context: str

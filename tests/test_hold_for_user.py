@@ -27,6 +27,7 @@ from test_ui_main_window import _make_window
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
 from platterpus.ui import hold_for_user
 from platterpus.ui.release_picker import ReleasePickerDialog
+from platterpus.ui.unknown_album import UnknownAlbumDialog
 
 _DISC = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
 
@@ -219,3 +220,137 @@ def test_one_held_picker_per_disc(
     _activate(window)
     _wait(4 * hold_for_user.RETRY_MS / 1000)
     assert len(pickers) == 1
+
+
+# --- The unknown-album offer (`_hold_unknown_album_offer`) -------------------
+#
+# The picker's sibling: a lookup that finds NO release offers to rip the disc
+# as an unknown album. Nothing waits on that answer either, so it holds the same
+# way, keyed on the disc SCAN (`_disc_retries.request`) because a disc with no
+# MusicBrainz ID at all comes here too.
+
+
+@pytest.fixture()
+def unknown_offers(monkeypatch: pytest.MonkeyPatch) -> list[UnknownAlbumDialog]:
+    """Every unknown-album offer that opened; each is declined at once, so the
+    window stays out of unknown mode and a second offer would not be refused
+    for that reason."""
+    opened: list[UnknownAlbumDialog] = []
+
+    def _fake_exec(self: UnknownAlbumDialog) -> int:
+        opened.append(self)
+        return int(QDialog.DialogCode.Rejected)
+
+    monkeypatch.setattr(UnknownAlbumDialog, "exec", _fake_exec)
+    return opened
+
+
+def test_the_unknown_album_offer_waits_while_setup_and_updates_is_in_use(
+    make_window: Callable[..., Any],
+    unknown_offers: list[UnknownAlbumDialog],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A disc MusicBrainz does not know, read while Setup & Updates is in use:
+    the offer does not open over it, and opens once the main window is back."""
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        window._handle_no_mb_match()
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert unknown_offers == [], "the unknown-album offer opened over Setup"
+    assert "held until the main window is in use" in caplog.text, caplog.text
+    assert window._unknown_offer_held_for == window._disc_retries.request
+
+    setup.close()
+    _activate(window)
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert len(unknown_offers) == 1, "the held offer never opened"
+    assert window._unknown_offer_held_for is None
+
+
+def test_the_unknown_album_offer_opens_at_once_when_the_main_window_is_in_use(
+    make_window: Callable[..., Any], unknown_offers: list[UnknownAlbumDialog]
+) -> None:
+    """The control for the test above: nothing else of ours in use, no wait."""
+    window = make_window()
+    _activate(window)
+    window._handle_no_mb_match()
+    assert len(unknown_offers) == 1
+
+
+def test_a_newer_disc_scan_drops_a_held_unknown_album_offer(
+    make_window: Callable[..., Any],
+    unknown_offers: list[UnknownAlbumDialog],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Checked when it would open, not when it was held: a scan asked for since
+    (a Rescan, another disc) makes the held offer stale. It is dropped, and the
+    hold forgotten so the new scan's own result can ask."""
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    window._handle_no_mb_match()
+    held = window._disc_retries.request
+    assert window._unknown_offer_held_for == held
+
+    window._begin_disc_request()  # what a Rescan or a new disc does first
+    assert window._disc_retries.request == held + 1
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert "no longer wanted, not opened" in caplog.text, caplog.text
+    assert window._unknown_offer_held_for is None
+
+    setup.close()
+    _activate(window)
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert unknown_offers == [], "a stale scan's offer opened"
+
+
+def test_one_held_unknown_album_offer_per_scan(
+    make_window: Callable[..., Any],
+    unknown_offers: list[UnknownAlbumDialog],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Two no-match results for one scan (the disc-ID path and a duplicate
+    lookup) hold ONE offer: two would ask the same question twice in a row."""
+    window = make_window()
+    _activate(window)
+    setup = window.open_setup_center()
+    _activate(setup)
+    window._handle_no_mb_match()
+    with caplog.at_level(logging.INFO, logger="platterpus.ui"):
+        window._handle_no_mb_match()
+    assert "not holding a second one" in caplog.text, caplog.text
+
+    setup.close()
+    _activate(window)
+    _wait(4 * hold_for_user.RETRY_MS / 1000)
+    assert len(unknown_offers) == 1
+
+
+def test_a_duplicate_no_match_while_the_offer_is_open_does_not_ask_again(
+    make_window: Callable[..., Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The offer is modal; a duplicate result for the same scan that lands while
+    it is open would be held behind it and asked again the moment the user
+    declined. The key stays set until the dialog closes, so it is not."""
+    window = make_window()
+    _activate(window)
+    opened: list[UnknownAlbumDialog] = []
+
+    def _exec_with_a_duplicate_arriving(self: UnknownAlbumDialog) -> int:
+        opened.append(self)
+        if len(opened) == 1:
+            window._handle_no_mb_match()  # lands during the nested loop
+        return int(QDialog.DialogCode.Rejected)
+
+    monkeypatch.setattr(UnknownAlbumDialog, "exec", _exec_with_a_duplicate_arriving)
+    window._handle_no_mb_match()
+    _wait(3 * hold_for_user.RETRY_MS / 1000)
+    assert len(opened) == 1, "the same scan's offer was asked twice"
+    assert window._unknown_offer_held_for is None
