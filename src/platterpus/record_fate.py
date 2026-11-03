@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Final, TypedDict
 
 from platterpus.diagnostics_record import DIAGNOSTICS_FLAG
+from platterpus.ripper_ending import RipperEnding, read_ending
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +79,9 @@ class RecordFate:
     state: str = STATE_NOT_RUN
     path: Path | None = None
     detail: str = ""
+    #: The kept record read back: cyanrip's own exit status (TASKS R64,
+    #: `securing_exit.py`). ``None`` when nothing was kept to read.
+    ending: RipperEnding | None = None
 
     def as_block(self) -> SecuringRecordBlock:
         """The JSON form, ``null`` for an absent path or reason."""
@@ -207,7 +211,7 @@ def keep_securing_record(
                 attempt += 1
                 target = securing_record_destination(told, rips_root, attempt)
             shutil.copyfile(told, target)
-            return RecordFate(STATE_KEPT, target)
+            return RecordFate(STATE_KEPT, target, ending=read_ending(target))
     except OSError as exc:
         fate = RecordFate(
             STATE_MISSING,

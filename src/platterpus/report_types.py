@@ -13,6 +13,7 @@ from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
+from platterpus.securing_exit import SecuringExitsBlock
 
 
 class GeneratorBlock(TypedDict):
@@ -198,6 +199,9 @@ class OutcomeBlock(TypedDict):
     #: into the rips root, `path` names the copy), `missing` (`detail` says why)
     #: or `not_run` (no securing pass ripper was spawned, so none was due).
     securing_pass_record: SecuringRecordBlock
+    #: v42 (TASKS R64): the securing pass's exit status as the wrapper we reaped
+    #: and as cyanrip's own record, each named; `None` when it never ran.
+    securing_pass_exit_codes: SecuringExitsBlock | None
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's

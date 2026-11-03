@@ -1387,7 +1387,10 @@ def test_schema_version_is_27() -> None:
     # v41 added, per track, `secure_rerip_limit_stop` (which limit stopped a -Z
     # re-read: the repeat limit or the fork's proposed time limit, round 36 lap
     # 10 S11) and `rip.reread_time_limit_*`. v40 had shipped in 0.7.113.
-    assert REPORT_SCHEMA_VERSION == 41
+    # v42 added `outcome.securing_pass_exit_codes`: the securing pass's exit
+    # status as the wrapper we reaped and as cyanrip's own record, each named
+    # (TASKS R64). v41 had shipped in 0.7.117.
+    assert REPORT_SCHEMA_VERSION == 42
 
 
 def _issue_codes(report: dict) -> set[str]:

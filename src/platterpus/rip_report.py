@@ -69,6 +69,7 @@ from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_exit_class import classify_exit
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
+from platterpus.securing_exit import exits_block
 from platterpus.track_proof import (
     TrackProof,
     ctdb_tracks_by_number,
@@ -603,7 +604,22 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      gains `disc_read_meaning`, that word's meaning in a sentence
 #      (`record_track_v11.ISRC_DISC_READ_MEANINGS`), null unless
 #      `disc_read_state` is `read`; an unknown word stays `unrecognised`.
-REPORT_SCHEMA_VERSION: int = 41
+# v42: `outcome.securing_pass_exit_codes` (TASKS R64; the plan of record,
+#      Appendix H §3). v41 shipped in 0.7.117, so this is a new number.
+#      Additions only. The securing pass's exit status twice, each named for
+#      the process it describes: `wrapper` (what we reaped from the host-exported
+#      `~/.local/bin/cyanrip`, the same number as `securing_pass_exit_code`) and
+#      `reader` (cyanrip's own, from its kept `--diagnostics` record), with
+#      `wrapper_is` / `reader_is` saying which is which, `reader_record_state`,
+#      `agree` (null unless both are known) and `sentence`. Null when no
+#      securing pass ripper was spawned. Disc 1 of 2026-10-21 had 1 and 143
+#      (SIGTERM) and neither field said which process each came from
+#      (`securing_exit.py`).
+#      Also v42, a meaning that WIDENS (TASKS R66): `verified_read_chase.
+#      distinct_reads_seen` counts the read a limit-hit loop prints no value
+#      for, where the fork's `at most M reads agreed` line proves it (N reads,
+#      at most M agreeing, hold at least ceil(N / M) values).
+REPORT_SCHEMA_VERSION: int = 42
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -1173,6 +1189,13 @@ def build_outcome(
         # temp folder is deleted, so without this a missing one was silent.
         "securing_pass_record": outcome_block(
             securing_pass_record, started=securing_pass_started
+        ),
+        # v42 (TASKS R64): the securing pass's exit status as the wrapper we
+        # reaped and as cyanrip's own record, each named; null when it never ran.
+        "securing_pass_exit_codes": exits_block(
+            started=securing_pass_started,
+            wrapper_code=securing_pass_exit_code,
+            ending=getattr(securing_pass_record, "ending", None),
         ),
         # A list (JSON has no tuples) of the argv as spawned. Empty argv is
         # serialized as null, not [], so "we never launched it" and "we launched

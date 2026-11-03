@@ -1113,7 +1113,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pass's record (or saying why not) and the session bundle reading that
     # answer back out of the reports. Split, the states and the sentences a
     # reader sees would live in one file and the code that writes them in another.
-    "record_fate.py": 352,
+    # **352 -> 356** (2026-11-03, TASKS R64): `RecordFate.ending`, the kept securing-pass record read back, so its exit status can sit beside the one we reaped; the pair itself is `securing_exit.py`.
+    "record_fate.py": 356,
     # 422 lines on arrival (2026-10-21, the timed rip). **One job, kept as one
     # module**: install one cyanrip fork build, for the two callers that do it
     # (`--install-ripper` and the `install-ripper` script verb). Resolving what
@@ -2111,7 +2112,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1011 -> 1017** (2026-10-26, `.27`, round 36 lap 8 S21): `TrackBlock.pregap_search`, schema 40; its block type lives in `pregap_search.py`.
     # **-> 1063** (2026-10-26): the entries above landed together on one branch.
     # **1063 -> 1084** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): `LimitStopBlock`, `TrackBlock.secure_rerip_limit_stop` and `RipBlock.reread_time_limit_*`, schema 41.
-    "report_types.py": 1084,
+    # **1084 -> 1088** (2026-11-03, TASKS R64): `OutcomeBlock.securing_pass_exit_codes` (schema v42) and its import.
+    "report_types.py": 1088,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2247,7 +2249,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 3461** (2026-10-26): the entries above landed together on one branch.
     # **3461 -> 3509** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the schema-41 note, `_limit_stop_block`, and the per-track and `rip` keys.
     # **3509 -> 3516** (2026-10-26, the fork's round 36 lap 10 S12, TASKS R82): the schema-41 note for `disc image` and `disc_read_meaning`.
-    "rip_report.py": 3516,
+    # **3516 -> 3539** (2026-11-03, TASKS R64 and R66): the schema-42 history note and `build_outcome`'s `securing_pass_exit_codes`; the pair is built by `securing_exit.py`.
+    "rip_report.py": 3539,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
