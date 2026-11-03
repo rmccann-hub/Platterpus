@@ -2674,12 +2674,12 @@
     },
     {
       "type": "application",
-      "bom-ref": "gha:astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa",
+      "bom-ref": "gha:astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",
       "group": "astral-sh",
       "name": "setup-uv",
-      "version": "v10.3.1",
+      "version": "v10.3.2",
       "scope": "excluded",
-      "purl": "pkg:github/astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa",
+      "purl": "pkg:github/astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2701,7 +2701,7 @@
         },
         {
           "name": "platterpus:pinned-ref",
-          "value": "18d369b23da25a81e9458561248e1aafff6a70fa"
+          "value": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e"
         },
         {
           "name": "platterpus:pinned-to-commit-sha",
@@ -2709,7 +2709,7 @@
         },
         {
           "name": "platterpus:version-comment",
-          "value": "v10.3.1"
+          "value": "v10.3.2"
         }
       ]
     },
