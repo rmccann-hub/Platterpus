@@ -97,7 +97,7 @@
       },
       {
         "name": "platterpus:count:ci-tool",
-        "value": "12"
+        "value": "13"
       },
       {
         "name": "platterpus:count:ci-runner",
@@ -2344,7 +2344,7 @@
         },
         {
           "name": "platterpus:constraint",
-          "value": ">=7,<8"
+          "value": ">=7.5,<7.6"
         }
       ]
     },
@@ -2752,6 +2752,43 @@
         {
           "name": "platterpus:version-comment",
           "value": "v7.0.2"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ci:actionlint",
+      "name": "actionlint",
+      "version": "1.7.12",
+      "description": "The workflow linter the workflow-lint job runs.",
+      "scope": "excluded",
+      "purl": "pkg:github/rhysd/actionlint@v1.7.12",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rhysd/actionlint"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (workflow-lint)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/ci.yml"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "pinned in the workflow, with the release tarball's sha256"
+        },
+        {
+          "name": "platterpus:tarball-sha256",
+          "value": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
         }
       ]
     },

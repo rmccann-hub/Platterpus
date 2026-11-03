@@ -573,3 +573,17 @@ def test_the_publish_install_detector_matches_the_shipped_line() -> None:
     assert not _PUBLISH_TOOL_INSTALL.search(
         "python -m pip install --require-hashes -r build/locks/publish.lock"
     )
+
+
+def test_the_sbom_generator_is_pinned_to_a_minor() -> None:
+    """The required `sbom` job's generator, cyclonedx-bom, is pinned to the minor
+    like every tool a gate runs (Critical rule #11, amendment A5). Its range was
+    the major `>=7,<8` until 2026-11-03 (TASKS R91); the lock already held 7.5.0,
+    so the minor pin moved no version, and it stops a relock taking 7.6 unasked."""
+    document = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    specs = [str(s) for s in document["project"]["optional-dependencies"]["sbom"]]
+    names = {re.split(r"[<>=!~\[; ]", spec)[0].lower() for spec in specs}
+    assert names == {"cyclonedx-bom"}, f"pyproject's `sbom` extra names {names}"
+    for spec in specs:
+        problem = _bounds_are_a_minor_pin(spec)
+        assert not problem, f"{problem} (the required sbom job runs it)"
