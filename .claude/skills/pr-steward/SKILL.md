@@ -109,6 +109,9 @@ From `CLAUDE.md`, restated here only where the loop depends on them:
   never through a pipe, and every `FAILED` line is named.
 - Commit and push before ending a turn (the stop hook asks), and end each reply
   with the HANDOFF block.
+- `git add` new files BEFORE the last local full run. Several sweeps read only
+  tracked files (the doc-stamp footer check, for one), so a run with a new file
+  untracked passes and CI fails: PR #425, 2026-11-03, on this file's own footer.
 
 ## What goes to the owner
 
@@ -139,3 +142,7 @@ Asked of the claude-code-skills checker, which owns the framework:
    shared skill each repository configures with its own rules.
 3. How a skill's script and tests are checked beside the skill: here
    `tests/test_pr_steward.py` holds the script to this file's verdict table.
+
+---
+
+*Last updated for Platterpus v0.7.116.*
