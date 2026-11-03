@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The fork's round 37 lap 5 is filed, and the shared `docs/seam-commands.md` is their copy at `cyanrip@b99b286`** (contributor-facing): it differs from ours by one cell, our own `--reread-time-limit` answer, which they landed.
 - **TASKS ranks what is left after 2026-11-03's fixes** (contributor-facing): what waits on the owner (the Full run on `.28`, R59 (a) held, R60's floor, an Actions setting, a locked rule's wording), ours in order, and what needs a disc or an outside answer. R98 closes: the AppImage builds through the new permissions step on CI.
 - **The Full acceptance run's description is current** (contributor-facing, `rig_scripts/fullacceptance.txt`): typical times instead of dated measurements (about 3 hours while a round compares two builds, under 2 hours when it does not), *Choose a build…* as the route that always installs the right ripper, a note that your own settings, Overread included, come back after the run, and section O's `-f` described as it runs. TASKS R109 records that the run's own start-up estimate is more than twice the real time.
 - **A property test no longer generates text XML cannot carry** (contributor-facing). The CTDB attribute test promised only legal XML text but could produce U+FFFE, which XML forbids; the parser rightly refused that body, and the test failed on its own input. It now excludes U+FFFE and U+FFFF, and malformed bodies stay the other test's subject.
