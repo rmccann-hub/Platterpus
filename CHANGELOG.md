@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The status block names 0.7.117 as released** (contributor-facing), published 2026-11-03 from `104c82d2` (release run 41563982544), and our round 37 lap 5 is written and held: it tells the fork 0.7.117 names `.28`, and that our lap 4 crossed theirs.
+
 ### Fixed
 
 - **The steward no longer reports a commit green while a check nobody requires is still running** (contributor-facing, TASKS R102). On 0.7.117's day it read `main`'s merge commit as green while the AppImage build was still running; a running check of any kind now keeps the verdict pending.
