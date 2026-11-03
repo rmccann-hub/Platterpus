@@ -4,20 +4,11 @@
 The mechanical half of the `pr-steward` skill (`.claude/skills/pr-steward/SKILL.md`),
 which carries the judgement. A DRAFT, owned by this repository.
 
-**Why this exists (2026-11-02).** That day `main` went red twice after a merge
-and nobody saw it until much later: the CI run on #420's merge commit, where a
-test had left a window on screen for a later test to read, and `appimage.yml`
-on every merge from #420 to #422, where appimagetool's floating build refused
-the AppDir. Both were found by chance. The waits written by hand in between got
-three things wrong, each of which this script now decides by rule:
-
-* a test job CANCELLED because a newer push superseded its run was read as a
-  FAILURE, so a branch looked broken that was only busy;
-* the number of checks to wait for was a constant copied into the loop, and it
-  went stale the moment a job was added (`ui-conformance`) or removed;
-* a check the ruleset REQUIRES but no workflow runs any more (`test (py3.11)`,
-  after the 3.11 leg left the matrix) blocks a merge forever, and nothing said
-  so. GitHub shows it as "expected", which reads like "still running".
+**Why this exists (2026-11-02).** `main` went red twice after a merge with
+nobody watching, and the waits written by hand read a CANCELLED run (a newer
+push superseding it) as a failure, waited for a check count that went stale, and
+never said that a REQUIRED check no workflow runs any more (`test (py3.11)`)
+blocks a merge for good. The skill tells the whole story; this decides by rule.
 
 **What it reads, all from the GitHub API, never from prose:** the checks the
 branch's ruleset requires (`rules/branches/<branch>`), every check run on the
@@ -56,15 +47,24 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from typing import Final
 
+# The reading half, beside this file (`scripts/` is on the path when this runs
+# as a script, as `emit_bom.py`'s `bommap` is).
+from pr_steward_github import (
+    ApiError,
+    CheckRun,
+    check_runs,
+    full_sha,
+    job_log,
+    pr_head,
+    required_checks,
+    workflows_finished,
+)
+
 DEFAULT_REPO: Final[str] = "rmccann-hub/Platterpus"
-API: Final[str] = "https://api.github.com"
 
 GREEN: Final[str] = "GREEN"
 FAILED: Final[str] = "FAILED"
@@ -92,17 +92,6 @@ _PASSING: Final[frozenset[str]] = frozenset({"success", "skipped", "neutral"})
 _FAILING: Final[frozenset[str]] = frozenset(
     {"failure", "timed_out", "action_required", "startup_failure", "stale"}
 )
-
-
-@dataclass(frozen=True)
-class CheckRun:
-    """One check run, the fields the verdict needs."""
-
-    name: str
-    status: str  # queued, in_progress, completed
-    conclusion: str  # "" until completed
-    run_id: int  # GitHub's id; a later run of the same name has a larger one
-    details_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -216,127 +205,6 @@ def failure_lines(log: str) -> list[str]:
         if summary or text.startswith(("FAILED ", "ERROR ", "##[error]", "E   ")):
             kept.append(text)
     return kept
-
-
-# --- Reading the API -------------------------------------------------------
-
-
-class ApiError(Exception):
-    """The GitHub API could not be read; no verdict can be given."""
-
-
-def _get(url: str) -> bytes:
-    # Every URL is built here from `API`, an https:// constant; refuse anything
-    # else rather than open a `file:` or other scheme by accident.
-    if not url.startswith(API + "/"):
-        raise ApiError(f"refusing a URL outside {API}: {url}")
-    request = urllib.request.Request(  # noqa: S310 — https, checked above
-        url, headers={"Accept": "application/vnd.github+json"}
-    )
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if token:
-        request.add_header("Authorization", f"Bearer {token}")
-    try:
-        # The scheme and host were checked above.
-        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
-            body: bytes = response.read()
-            return body
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ApiError(f"{url}: {exc}") from exc
-
-
-def _json(url: str) -> object:
-    try:
-        return json.loads(_get(url))
-    except ValueError as exc:
-        raise ApiError(f"{url}: not JSON: {exc}") from exc
-
-
-def required_checks(repo: str, branch: str) -> list[str]:
-    """The status checks the branch's rules require, read from the API."""
-    rules = _json(f"{API}/repos/{repo}/rules/branches/{branch}")
-    if not isinstance(rules, list):
-        raise ApiError(
-            f"rules for {branch}: expected a list, got {type(rules).__name__}"
-        )
-    names: list[str] = []
-    for rule in rules:
-        if isinstance(rule, dict) and rule.get("type") == "required_status_checks":
-            params = rule.get("parameters") or {}
-            for check in params.get("required_status_checks") or []:
-                if isinstance(check, dict) and isinstance(check.get("context"), str):
-                    names.append(check["context"])
-    return names
-
-
-def check_runs(repo: str, sha: str) -> list[CheckRun]:
-    """Every check run on the commit, across pages."""
-    runs: list[CheckRun] = []
-    page = 1
-    while True:
-        data = _json(
-            f"{API}/repos/{repo}/commits/{sha}/check-runs?per_page=100&page={page}"
-        )
-        batch = data.get("check_runs") if isinstance(data, dict) else None
-        if not isinstance(batch, list):
-            raise ApiError(f"check runs for {sha}: no check_runs list")
-        for item in batch:
-            if isinstance(item, dict):
-                runs.append(
-                    CheckRun(
-                        name=str(item.get("name", "")),
-                        status=str(item.get("status", "")),
-                        conclusion=str(item.get("conclusion") or ""),
-                        run_id=int(item.get("id") or 0),
-                        details_url=str(item.get("details_url") or ""),
-                    )
-                )
-        if len(batch) < 100:
-            return runs
-        page += 1
-
-
-def workflows_finished(repo: str, sha: str) -> bool:
-    """True when every workflow run for the commit has completed (and one exists)."""
-    data = _json(f"{API}/repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
-    runs = data.get("workflow_runs") if isinstance(data, dict) else None
-    if not isinstance(runs, list):
-        raise ApiError(f"workflow runs for {sha}: no workflow_runs list")
-    return bool(runs) and all(
-        isinstance(run, dict) and run.get("status") == "completed" for run in runs
-    )
-
-
-def full_sha(repo: str, ref: str) -> str:
-    """The full 40-character SHA of ``ref``.
-
-    Needed because the workflow-runs filter (``?head_sha=``) matches only a full
-    SHA: given a short one it returns an empty list, which read as "no workflow
-    has finished", so a required check that will never report was called
-    PENDING instead of BLOCKED (found running this on 2026-11-02).
-    """
-    data = _json(f"{API}/repos/{repo}/commits/{ref}")
-    sha = data.get("sha") if isinstance(data, dict) else None
-    if not isinstance(sha, str) or len(sha) != 40:
-        raise ApiError(f"commit {ref}: no full sha in the answer")
-    return sha
-
-
-def pr_head(repo: str, number: int) -> tuple[str, str]:
-    """A pull request's head commit and its base branch."""
-    data = _json(f"{API}/repos/{repo}/pulls/{number}")
-    if not isinstance(data, dict):
-        raise ApiError(f"PR #{number}: not an object")
-    head = data.get("head") or {}
-    base = data.get("base") or {}
-    return str(head.get("sha", "")), str(base.get("ref", "main"))
-
-
-def job_log(repo: str, run: CheckRun) -> str:
-    """The log of the job behind a check run (check run ids are job ids)."""
-    return _get(f"{API}/repos/{repo}/actions/jobs/{run.run_id}/logs").decode(
-        "utf-8", errors="replace"
-    )
 
 
 # --- The command -----------------------------------------------------------

@@ -22,6 +22,10 @@ SKILL = REPO / ".claude" / "skills" / "pr-steward" / "SKILL.md"
 
 
 def _load() -> ModuleType:
+    # `pr_steward.py` imports its reading half, `pr_steward_github.py`, from
+    # beside it, as it does when run as a script.
+    if str(REPO / "scripts") not in sys.path:
+        sys.path.insert(0, str(REPO / "scripts"))
     spec = importlib.util.spec_from_file_location(
         "pr_steward", REPO / "scripts" / "pr_steward.py"
     )
@@ -177,8 +181,10 @@ def test_main_returns_the_verdicts_exit_code(
 
 
 def test_only_the_api_host_is_ever_opened() -> None:
-    with pytest.raises(steward.ApiError, match="refusing"):
-        steward._get("file:///etc/passwd")
+    import pr_steward_github as github
+
+    with pytest.raises(github.ApiError, match="refusing"):
+        github._get("file:///etc/passwd")
 
 
 def test_the_skill_states_what_the_script_decides() -> None:
