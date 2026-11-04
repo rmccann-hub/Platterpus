@@ -16,8 +16,9 @@
 # pipe was the one reason this file had to leave pipefail off.
 set -euo pipefail
 
-# Locate the bundled Python install (manylinux base is python3.11 today;
-# fall back to whatever version python-appimage embedded if that changes).
+# Locate the bundled Python install (python3.14 today, PLATTERPUS_PYTHON_VERSION
+# in build_appimage.sh; the glob takes whatever version python-appimage
+# embedded, so a bump needs no change here).
 APPDIR="${APPDIR:-$(dirname "$0")}"
 # The first match of the glob, in the shell's sorted order, which is the order
 # `ls` listed them in. Reading the glob directly means a name with odd

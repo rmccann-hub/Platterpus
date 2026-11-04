@@ -58,6 +58,7 @@ import re._parser as _sre_parser  # the stdlib's pattern parser: see `_lead_ins`
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 from conftest import maintained_tooling_modules
@@ -82,6 +83,25 @@ _MAX_GROWTH = 8.0
 # pattern, so a ratio computed from them means nothing. 200 us is comfortably
 # above the ~1 us floor of a `re.search` on a short string.
 _NOISE_FLOOR_S = 200e-6
+
+# THE JUDGEMENT FLOOR (TASKS R126 (d), carried from the audits of 2026-10-27/28):
+# growth is judged only for a shape whose search on the ``_LARGE`` input costs at
+# least this much. ``_NOISE_FLOOR_S`` above bounds the BATCH a timing is taken
+# over; it says nothing about how small the per-search figure it yields may be,
+# and most of them are tiny: on 2026-11-04 (Python 3.12, idle) 1,378 of the
+# package's 1,960 fill-only timings at 2,000 characters were under 1 us, the
+# fastest 0.14 us, which is the fixed cost of a call into `re` and not the
+# pattern. A ratio of two such figures is a ratio of overheads and clock
+# granularity, so judging it lets noise fail the sweep, and counting it as
+# "examined" lets the sweep pass on readings that examined nothing.
+#
+# Why 10 us cannot hide an offender: a super-linear search over 2,000 characters
+# makes on the order of n^2/2 = 2 million engine steps, which is milliseconds.
+# The mildest offender this file has measured cost 17.9 ms at this size (the
+# comment on `_MAX_GROWTH`), and the ledgered `round_digest` pattern 19 ms: both
+# over 1,000 times this floor. A search under it is bounded in absolute terms,
+# which is the property the sweep exists for, and its growth figure is noise.
+_JUDGE_FLOOR_S = 10e-6
 
 # How many times a single search may be repeated to lift its total above the
 # noise floor. Repetition is what makes this sweep actually examine anything: a
@@ -287,8 +307,24 @@ def _seconds_per_search(
     return best
 
 
-#: (growth ratio, the shape that grew most, seconds at the larger size).
-Growth = tuple[float, Shape, float]
+class Growth(NamedTuple):
+    """One pattern's worst growth over a set of input shapes.
+
+    Indexable like the 3-tuple it replaced (``growth[0]`` is the ratio), so
+    ``_settled``'s callers read it unchanged.
+    """
+
+    #: The worst growth ratio among the JUDGED shapes; 0.0 when none was judged.
+    ratio: float
+    #: The shape that grew most (empty when none was judged).
+    shape: Shape
+    #: Seconds per search at the larger size, for that shape.
+    large_s: float
+    #: How many shapes produced a measurement at all.
+    timed: int = 0
+    #: How many of those cleared ``_JUDGE_FLOOR_S`` at the larger size, so that
+    #: their ratio was judged rather than set aside as noise.
+    judged: int = 0
 
 
 def _worst_growth(
@@ -306,9 +342,16 @@ def _worst_growth(
     threshold is the whole proof, and timing a quadratic pattern on all eight
     fills at full size cost 22 s of every suite run (2026-09-26). The sweeps
     never pass it, because there the worst shape is the answer.
+
+    A shape whose larger search costs under ``_JUDGE_FLOOR_S`` is counted as
+    timed and NOT judged: its ratio is the clock's, not the pattern's (see the
+    floor's comment). The sweeps hold a floor on how many patterns WERE judged,
+    so raising this floor until nothing clears it fails them rather than
+    passing them.
     """
     compiled = re.compile(pattern)
-    worst: Growth = (0.0, ("", "", ""), 0.0)
+    worst_ratio, worst_shape, worst_large = 0.0, ("", "", ""), 0.0
+    timed = judged = 0
     enough_s = 0.25 if stop_above is not None else None
     for shape in shapes:
         small = _seconds_per_search(
@@ -317,12 +360,16 @@ def _worst_growth(
         large = _seconds_per_search(
             compiled, _text(shape, _LARGE), enough_s=enough_s, how=how, rounds=rounds
         )
+        timed += 1
+        if large < _JUDGE_FLOOR_S:
+            continue
+        judged += 1
         ratio = large / max(small, 1e-12)
-        if ratio > worst[0]:
-            worst = (ratio, shape, large)
-        if stop_above is not None and worst[0] > stop_above:
+        if ratio > worst_ratio:
+            worst_ratio, worst_shape, worst_large = ratio, shape, large
+        if stop_above is not None and worst_ratio > stop_above:
             break
-    return worst
+    return Growth(worst_ratio, worst_shape, worst_large, timed, judged)
 
 
 # --- Lead-ins: inputs that get PAST a pattern's literal prefix (2026-10-06) ----
@@ -552,7 +599,7 @@ def _settled(
 
 
 def _series(attempts: list[Growth]) -> str:
-    return ", ".join(f"{ratio:.1f}x" for ratio, _, _ in attempts)
+    return ", ".join(f"{attempt.ratio:.1f}x" for attempt in attempts)
 
 
 #: One search this slow on a ``_LARGE``-character line is a stall whatever its
@@ -618,6 +665,7 @@ def _assert_every_pattern_is_roughly_linear(
     where: tuple[str, ...],
     shapes_for: Callable[[str], Sequence[Shape]] = _fill_only_shapes,
     timed_floor: int | None = None,
+    judged_floor: int,
     rounds: int = _TIMING_ROUNDS,
 ) -> None:
     """Time every pattern; re-measure anything that looks super-linear.
@@ -636,6 +684,12 @@ def _assert_every_pattern_is_roughly_linear(
     nothing to time behind one, so for the lead-in sweeps ``timed_floor`` is the
     floor on how many patterns DID have inputs, and every one of those must have
     been timed.
+
+    ``judged_floor`` is the floor on how many patterns had at least one shape
+    over ``_JUDGE_FLOOR_S``, so that their growth was judged and not set aside
+    as noise. Timing a pattern is not examining it when every reading is the
+    cost of a call into ``re``; without this floor, a judgement floor set too
+    high would pass the sweep by judging nothing.
     """
     elsewhere = sorted(
         loc for loc, _pattern, _how in patterns if not loc.startswith(where)
@@ -653,19 +707,22 @@ def _assert_every_pattern_is_roughly_linear(
 
     suspects: list[tuple[str, str, str, float, Shape, float]] = []
     measured = 0
+    judged = 0
     with_inputs = 0
     for location, pattern, how in patterns:
         shapes = shapes_for(pattern)
         if not shapes:
             continue
         with_inputs += 1
-        ratio, shape, large_s = _worst_growth(
-            pattern, how=how, shapes=shapes, rounds=rounds
-        )
-        if ratio > 0.0:
+        growth = _worst_growth(pattern, how=how, shapes=shapes, rounds=rounds)
+        if growth.timed:
             measured += 1
-        if ratio > _MAX_GROWTH:
-            suspects.append((location, pattern, how, ratio, shape, large_s))
+        if growth.judged:
+            judged += 1
+        if growth.ratio > _MAX_GROWTH:
+            suspects.append(
+                (location, pattern, how, growth.ratio, growth.shape, growth.large_s)
+            )
 
     # The floor that matters. Counting *collected* patterns above only proves the
     # `ast` walk still works; it says nothing about whether any of them were
@@ -682,6 +739,12 @@ def _assert_every_pattern_is_roughly_linear(
     assert measured == with_inputs, (
         f"timed only {measured} of {with_inputs} patterns — the rest produced no "
         "usable measurement, so this sweep is passing by not looking"
+    )
+    assert judged >= judged_floor, (
+        f"only {judged} of {measured} timed patterns cost {_JUDGE_FLOOR_S * 1e6:.0f} "
+        f"us or more per search at {_LARGE} characters on any input (floor "
+        f"{judged_floor}); the rest are judged too fast to be super-linear, so "
+        "this sweep is passing on readings of the clock rather than the patterns"
     )
 
     # Confirm each suspect at a larger input pair. Only a pattern that is also
@@ -713,6 +776,18 @@ def _assert_every_pattern_is_roughly_linear(
     )
 
 
+#: Floors on how many patterns had a shape over ``_JUDGE_FLOOR_S`` (TASKS R126
+#: (d)), measured on 2026-11-04 on Python 3.12, twice: 57 and 56 of the package's
+#: 245 on the fill-only runs, 31 of the tooling's 117; behind their lead-ins, 147
+#: and 145 of the package's 164 timed, 65 and 64 of the tooling's 78. About half,
+#: as for the floors above, which also leaves room for a runner twice as fast
+#: (at a 20 us floor, the package's fill-only count was 53).
+_MIN_SRC_JUDGED = 28
+_MIN_TOOLING_JUDGED = 15
+_MIN_SRC_LEAD_IN_JUDGED = 72
+_MIN_TOOLING_LEAD_IN_JUDGED = 32
+
+
 def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
     """The package: every literal pattern handed to ``re`` under ``src/platterpus``.
 
@@ -720,7 +795,10 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
     allows real deletion without letting the check quietly stop looking.
     """
     _assert_every_pattern_is_roughly_linear(
-        _compiled_patterns(), floor=40, where=("src/platterpus/",)
+        _compiled_patterns(),
+        floor=40,
+        where=("src/platterpus/",),
+        judged_floor=_MIN_SRC_JUDGED,
     )
 
 
@@ -744,6 +822,7 @@ def test_every_compiled_regex_in_the_tooling_is_roughly_linear() -> None:
         _compiled_patterns(maintained_tooling_modules(_REPO_ROOT)),
         floor=_MIN_TOOLING_PATTERNS,
         where=("scripts/", "build/", ".claude/hooks/"),
+        judged_floor=_MIN_TOOLING_JUDGED,
     )
 
 
@@ -823,6 +902,7 @@ def test_every_compiled_regex_in_src_is_roughly_linear_behind_its_lead_ins() -> 
         where=("src/platterpus/",),
         shapes_for=_lead_in_shapes,
         timed_floor=_MIN_SRC_LEAD_IN_PATTERNS,
+        judged_floor=_MIN_SRC_LEAD_IN_JUDGED,
         rounds=1,
     )
 
@@ -837,6 +917,7 @@ def test_every_compiled_regex_in_the_tooling_is_roughly_linear_behind_its_lead_i
         where=("scripts/", "build/", ".claude/hooks/"),
         shapes_for=_lead_in_shapes,
         timed_floor=_MIN_TOOLING_LEAD_IN_PATTERNS,
+        judged_floor=_MIN_TOOLING_LEAD_IN_JUDGED,
         rounds=1,
     )
 
@@ -925,6 +1006,12 @@ def test_the_lead_in_shapes_catch_what_runs_of_one_character_cannot() -> None:
     assert fixed[-1][0] <= _MAX_GROWTH, (
         f"the greedy _READ_STALLS measured {_series(fixed)} behind its lead-ins, "
         "so the lead-in sweeps would cry wolf on the fix"
+    )
+    # And it was JUDGED there, not set aside under the judgement floor: a fix
+    # that is never judged cannot show the lead-ins tell it from the offender.
+    assert fixed[-1].judged, (
+        f"the greedy _READ_STALLS was judged on none of its {fixed[-1].timed} "
+        f"lead-in inputs (every search under {_JUDGE_FLOOR_S * 1e6:.0f} us)"
     )
 
 
@@ -1052,7 +1139,7 @@ def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> Non
         lambda: _worst_growth(quadratic, stop_above=_MAX_GROWTH),
         lambda ratio: ratio > _MAX_GROWTH,
     )
-    quad_ratio, _, quad_large_s = quad[-1]
+    quad_ratio, quad_large_s = quad[-1].ratio, quad[-1].large_s
     assert quad_ratio > _MAX_GROWTH, (
         f"the known-quadratic CSV row measured only {_series(quad)} growth over "
         f"{len(quad)} attempts ({quad_large_s * 1000:.3f} ms at {_LARGE} chars on "
@@ -1061,9 +1148,28 @@ def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> Non
         "'clean' result it gives is worthless."
     )
 
-    linear = r"Ripping track (?P<track>\d{1,3}) of (?P<total>\d{1,3})"
+    # The quadratic side is judged by definition (its ratio cleared the line);
+    # it also clears the judgement floor by orders of magnitude, which is the
+    # floor's own justification, measured rather than asserted.
+    assert quad_large_s >= 100 * _JUDGE_FLOOR_S, (
+        f"the known-quadratic CSV row cost only {quad_large_s * 1e6:.1f} us at "
+        f"{_LARGE} chars, under 100x the {_JUDGE_FLOOR_S * 1e6:.0f} us judgement "
+        "floor, so that floor sits too close to what an offender costs"
+    )
+
+    # Bounded, and with no literal prefix, so `re` tries it at every position
+    # and its search on 2,000 characters is well over the judgement floor. It
+    # was `Ripping track (?P<track>\d{1,3}) of ...` until 2026-11-04, whose
+    # literal prefix makes every search ~1 us: under the floor on every input,
+    # so it would pass this proof by never being judged (TASKS R126 (d)).
+    linear = r"(?P<track>\d{1,7}) of (?P<total>\d{1,7})"
     lin = _settled(lambda: _worst_growth(linear), lambda ratio: ratio <= _MAX_GROWTH)
-    lin_ratio, lin_fill, _ = lin[-1]
+    lin_ratio, lin_fill = lin[-1].ratio, lin[-1].shape
+    assert lin[-1].judged, (
+        f"the linear pattern was judged on none of its {lin[-1].timed} inputs "
+        f"(every search under {_JUDGE_FLOOR_S * 1e6:.0f} us), so the side of this "
+        "proof that guards against crying wolf examined nothing"
+    )
     assert lin_ratio <= _MAX_GROWTH, (
         f"a bounded linear pattern measured {_series(lin)} growth over {len(lin)} "
         f"attempts ({lin_fill!r} on the last) — over the {_MAX_GROWTH}x threshold "
@@ -1096,7 +1202,7 @@ def _confirmation(
             pattern, _SPACES, "search", first_large_s
         )
         verdicts.append(is_real)
-        return ratio, _SPACES, seconds
+        return Growth(ratio, _SPACES, seconds, timed=1, judged=1)
 
     return measure
 
@@ -1144,12 +1250,12 @@ def test_a_spike_on_one_attempt_is_forgiven_and_a_real_failure_is_not() -> None:
     noise. A measurement that is bad every time is a real finding, and it must
     still fail after every attempt has been spent.
     """
-    noisy = iter([(10.9, _ZEROS, 0.001), (3.8, _ZEROS, 0.001)])
+    noisy = iter([Growth(10.9, _ZEROS, 0.001), Growth(3.8, _ZEROS, 0.001)])
     attempts = _settled(lambda: next(noisy), lambda ratio: ratio <= _MAX_GROWTH)
     assert [a[0] for a in attempts] == [10.9, 3.8]
 
     always_bad = _settled(
-        lambda: (10.9, _ZEROS, 0.001), lambda ratio: ratio <= _MAX_GROWTH
+        lambda: Growth(10.9, _ZEROS, 0.001), lambda ratio: ratio <= _MAX_GROWTH
     )
     assert len(always_bad) == _PROOF_ATTEMPTS
     assert not always_bad[-1][0] <= _MAX_GROWTH

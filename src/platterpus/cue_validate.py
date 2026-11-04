@@ -140,6 +140,11 @@ class CueTrack:
     #: the moment it is read is the only way to keep it.
     index00_file: str = ""
     line_number: int = 0
+    #: The words of this track's ``FLAGS`` line, upper-cased (``{"PRE"}`` for a
+    #: track whose file still holds pre-emphasised audio). Empty when the block
+    #: has no ``FLAGS`` line, which in a cue means "no flags". Judged by
+    #: :mod:`platterpus.cue_emphasis`, not here.
+    flags: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -258,6 +263,7 @@ _RE_FILE = re.compile(
 )
 _RE_TRACK = re.compile(r"^\s*TRACK\s+(?P<number>\d{1,6})\s+(?P<mode>\S+)\s*$")
 _RE_ISRC = re.compile(r"^\s*ISRC\s+(?P<isrc>\S{1,32})\s*$")
+_RE_FLAGS = re.compile(r"^\s*FLAGS\s+(?P<flags>\S(?:.*\S)?)\s*$")
 _RE_INDEX = re.compile(
     r"^\s*INDEX\s+(?P<index>\d{1,2})\s+(?P<time>\d{1,6}:\d{2}:\d{2})\s*$"
 )
@@ -361,6 +367,12 @@ def parse_cue(cue_text: str) -> CueSheet:
         if match_isrc and current is not None:
             sheet.lines_understood += 1
             current.isrc = match_isrc["isrc"]
+            continue
+
+        match_flags = _RE_FLAGS.match(raw)
+        if match_flags and current is not None:
+            sheet.lines_understood += 1
+            current.flags = frozenset(match_flags["flags"].upper().split())
             continue
 
         match_title = _RE_TITLE.match(raw)

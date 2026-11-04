@@ -6,7 +6,8 @@ AppImage. The actual build is driven by `../build_appimage.sh`.
 
 ## Build prerequisites
 
-- Python 3.11+
+- Python 3.12+ (the project's floor, `requires-python` in `pyproject.toml`;
+  the release job builds on 3.12, and the AppImage bundles its own 3.14)
 - `python3 -m pip install --require-hashes --only-binary=:all: -r build/locks/release.lock`
   (in a venv: `build`, `python-appimage`, the build backend and `sigstore`, at the
   exact versions the release job uses, verified by hash; the wheel is built with
@@ -54,10 +55,11 @@ build at it. **Pick the CPython minor the release build uses** —
 because an override image *replaces* `--python-version` rather than being
 checked against it, so a mismatched image silently builds a different
 interpreter from the one that ships. (This example named 3.11 until the
-2026-09-22 document audit; the build has pinned 3.12 since v0.5.7.)
+2026-09-22 document audit, and 3.12 until 2026-11-04; the build pinned 3.12 from
+v0.5.7 and has pinned 3.14 since 2026-11-02, TASKS R100.)
 
 ```bash
-PLATTERPUS_BASE_IMAGE=/path/to/python3.12.x-cp312-cp312-manylinux2014_x86_64.AppImage \
+PLATTERPUS_BASE_IMAGE=/path/to/python3.14.x-cp314-cp314-manylinux2014_x86_64.AppImage \
   bash build/build_appimage.sh
 ```
 
@@ -100,7 +102,7 @@ PyPI or a mirror serving a swapped artifact for a pinned version), by a
    other hashed lock. It resolves the third-party closure (PySide6 → shiboken6,
    musicbrainzngs, tomli-w, cryptography, sigstore, numpy and their dependencies)
    with `uv pip compile --generate-hashes` **for the AppImage's own target**, not
-   the machine it runs on: CPython 3.12 (the interpreter python-appimage bundles,
+   the machine it runs on: CPython 3.14 (the interpreter python-appimage bundles,
    `APPIMAGE_PYTHON`, held equal to `build_appimage.sh`'s default by the test) on
    `manylinux_2_34_x86_64` (PySide6 6.11's glibc floor, the lowest that resolves).
    Each `name==version` carries the sha256 of every file PyPI publishes for it.
@@ -128,4 +130,4 @@ is in place. That can't be done in a sandbox that can't run the AppImage build.
 
 ---
 
-*Last updated for Platterpus v0.7.118.*
+*Last updated for Platterpus v0.7.119.*

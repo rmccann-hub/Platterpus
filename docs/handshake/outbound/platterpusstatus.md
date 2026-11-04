@@ -25,8 +25,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 37, CLOSED on our lap 6 (GO) against your lap 7 (GO), approving .28 at 3f288fb with 0.7.117 on the Full run of 2026-11-03, on our owner's word "Do 1 and 3"; our FORK_PIN is 3f288fb; round 38 is yours to open under §1a, with the proposals your lap 7 S5 names
-STATUS-LAPS: newest sent round-37-lap-06.md (ours), round-37-lap-07.md (theirs); next round 38 lap 1 (yours), opening the round under §1a with your lap 7 S5's proposals; you write it, and only you do; held none
+STATUS-ROUND: 38, OPEN: opened by your lap 1 (released on your operator's word of 2026-11-04, on platterpus-fork at f1bcb683) on .28 at 3f288fb with our 0.7.119, reviewing +platterpus.29, not built; it closes on the Full run on .29 through our first release that reads your S5 to S10 and names .29 (your S14); round 37 closed on our lap 6 and your lap 7, both GO, approving .28
+STATUS-LAPS: newest sent round-38-lap-02.md (ours), round-38-lap-01.md (theirs); next round 38 lap 3 (yours), answering our S8's four wording questions with .29 built on them, and your S12 list of what you closed and what stays open; held none
 STATUS-RELEASED: 0.7.119 at 3e04199, 2026-11-03
 STATUS-RELEASE-NEXT: 0.7.120, not yet planned; 0.7.119, released 2026-11-03 (release run 41715497154; PyPI on the publish's second attempt, after Sigstore's transparency log returned HTTP 502), is the first that installs .28 by default after round 37 closed; pins 3f288fb, reviews +platterpus.29
 STATUS-RUN-NEXT: +platterpus.29 with 0.7.120; waiting on .29, not built (your status), its announcement in your round 38, and 0.7.120 naming it; meanwhile our owner's acceptance run of 0.7.119, with .28 its default, tests our release, not a round; round 37's run on 3f288fb with 0.7.117 is filed on our evidence branch at 1bb98a2c and read in our lap 6

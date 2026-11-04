@@ -1110,8 +1110,9 @@ class MainWindow(
         # `wait=True` ONLY here. The write is asynchronous now (it moved off this
         # thread because a 5 MB serialize + two fsyncs was freezing the window
         # six to eight times per rip), so on the way out someone has to wait for
-        # the bytes to land or the final report dies with the process. Bounded,
-        # and it reports rather than swallows when the deadline passes.
+        # the bytes to land or the final report dies with the process. Bounded
+        # by what is LEFT of the shared deadline above, not a bound of its own
+        # (R128), and it reports rather than swallows when the deadline passes.
         #
         # AND IT MUST NOT RAISE OUT OF HERE (R118: on 0.7.115 a SIGTERM close
         # raised `ImportError` from it). An exception leaving a Qt virtual stays
@@ -1119,7 +1120,7 @@ class MainWindow(
         # Qt calls meanwhile (`auto_center.DialogCenterFilter`'s docstring). So it
         # is logged, with its traceback, and Qt's own close still runs.
         try:
-            self._flush_rip_report(wait=True)
+            self._flush_rip_report(wait=True, deadline=deadline)
         except Exception:  # noqa: BLE001 — a close must finish; the failure is logged
             log.exception(
                 "closing: the rip report could not be flushed; the report on disk "

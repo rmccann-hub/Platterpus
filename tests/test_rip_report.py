@@ -1399,7 +1399,11 @@ def test_schema_version_is_27() -> None:
     # (TASKS R64). v41 had shipped in 0.7.117.
     # v42 also added `ripper_health_status` (the ripper's own sentence) and
     # narrowed `health_status` to the reads the album keeps (TASKS R59).
-    assert REPORT_SCHEMA_VERSION == 42
+    # v43 added `.29`'s proposed lines (round 38 lap 1): `rip.secure_rereads`,
+    # per track `pregap_undecided_frames`, `filtered` and `ripper_cover_art`, and
+    # per `disc.error_positions` row the `/12` record's `block_crcs`. v42 had
+    # shipped in 0.7.118.
+    assert REPORT_SCHEMA_VERSION == 43
 
 
 def _issue_codes(report: dict) -> set[str]:

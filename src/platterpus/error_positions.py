@@ -67,6 +67,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 from platterpus import inbound_text
+from platterpus.record_block_crcs import READ as BLOCK_CRCS_READ
 from platterpus.report_types import (
     ErrorPositionEntry,
     ErrorPositionsBlock,
@@ -254,6 +255,16 @@ def report_block(reading: IsrcReading | None) -> ErrorPositionsBlock:
                 # record states it (`record_track_v11`), beside the log's copy.
                 "kept_read_began": track.record.kept_read_began,
                 "kept_read_began_state": track.record.kept_read_began_state,
+                # v43 (`/12`): a CRC32 per second of the kept read, position-
+                # aligned, null where an entry was unreadable (`record_block_crcs`).
+                "block_crcs": (
+                    list(track.block_crcs.crcs)
+                    if track.block_crcs.state == BLOCK_CRCS_READ
+                    else None
+                ),
+                "block_crcs_state": track.block_crcs.state,
+                "block_crcs_not_read": track.block_crcs.not_read,
+                "block_crcs_not_kept": track.block_crcs.not_kept,
             }
         )
     return {

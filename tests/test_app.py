@@ -1570,6 +1570,140 @@ def test_a_second_fatal_error_during_the_countdown_is_logged_not_stacked(
     assert len(opened) == 2 and not rescued
 
 
+# --- The window under the fatal dialog (TASKS R128) ---------------------------
+#
+# The three tests above failed about one run in three at `-n 4` beside
+# `tests/test_ui_main_window.py` (17 of 20 with that file collected first),
+# "Internal C++ object (QTimer) already deleted" at the `finally`'s `stop()`. A
+# window test had hidden a dialog and `deleteLater()`'d it with no event-loop
+# turn, so Qt still reported it as `activeWindow()`. The box was parented to it,
+# and the box's own `exec()` loop ran the deferred delete, taking the box and its
+# timers along. Two product faults, one test each: the parent was a window that
+# was not on screen, and the `finally` could not survive the box being destroyed.
+
+
+def _active_hidden_dialog(qapp: object) -> object:
+    """A dialog Qt still calls `activeWindow()` although it is hidden and dying.
+
+    The state the window test left behind (`test_help_menu_starts_with_getting_
+    started_and_keeps_one_window`), built on purpose. Activation is ASYNCHRONOUS:
+    `activateWindow()` posts a request, so a dialog shown, activated and hidden in
+    one go becomes `activeWindow()` when the request is processed, AFTER it was
+    hidden (measured on PySide6 6.11, offscreen). Then `deleteLater()` with no
+    event-loop turn. Asserted, so a Qt that stopped reporting a hidden window as
+    active fails here rather than letting the tests below pass on nothing.
+    """
+    import time
+
+    from PySide6.QtWidgets import QApplication, QDialog
+
+    dialog = QDialog()
+    dialog.setWindowTitle("a dialog a previous test hid")
+    dialog.show()
+    dialog.activateWindow()
+    dialog.hide()
+    deadline = time.monotonic() + 5.0
+    while QApplication.activeWindow() is not dialog and time.monotonic() < deadline:
+        qapp.processEvents()  # type: ignore[attr-defined]  # the QApplication
+    assert QApplication.activeWindow() is dialog and not dialog.isVisible(), (
+        "fixture: a hidden dialog is no longer reported active, so this test no "
+        "longer reproduces the state it guards against"
+    )
+    dialog.deleteLater()
+    return dialog
+
+
+def test_a_hidden_active_window_is_not_the_fatal_dialogs_parent(
+    qapp: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The box attaches to a window ON SCREEN, so a dying one cannot take it."""
+    monkeypatch.setattr(app_module, "UNATTENDED_FATAL_DIALOG_TIMEOUT_S", 0.3)
+    monkeypatch.setattr(app_module, "_FATAL_DIALOG_COUNTDOWN_TICK_MS", 50)
+    opened = _record_real_exec(monkeypatch)
+    hidden = _active_hidden_dialog(qapp)
+    watchdog, rescued = _watchdog(opened, 10_000)
+    try:
+        with caplog.at_level(logging.WARNING):
+            app_module._show_fatal_dialog(
+                "Platterpus — error", _raised("behind a hidden dialog"), unattended=True
+            )
+    finally:
+        watchdog.stop()
+
+    assert not _messages(caplog, "failed to show the fatal-error dialog"), [
+        r.getMessage() for r in caplog.records
+    ]
+    assert not _messages(caplog, "destroyed before anyone dismissed"), (
+        "the box was parented to the hidden dialog and died with it"
+    )
+    assert len(opened) == 1 and not rescued
+    assert len(_messages(caplog, "closed by itself")) == 1, (
+        "the dialog did not run to its own deadline"
+    )
+    assert opened[0].parent() is not hidden
+    assert app_module._fatal_dialog_open is False
+
+
+def test_the_fatal_dialog_prefers_a_main_window_on_screen_to_a_hidden_active_one(
+    qapp: object,
+) -> None:
+    """The fallback keeps the operator's rule (a prompt never opens as a window
+    of its own) when the active window is the stale one."""
+    from PySide6.QtWidgets import QMainWindow
+
+    window = QMainWindow()
+    window.setWindowTitle("the window the user is looking at")
+    window.show()
+    try:
+        _active_hidden_dialog(qapp)
+        assert app_module._fatal_dialog_parent() is window
+    finally:
+        window.hide()
+        window.deleteLater()
+    assert app_module._fatal_dialog_parent() is not window
+
+
+def test_a_fatal_dialog_whose_window_is_destroyed_under_it_says_so(
+    qapp: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A window ON SCREEN can still go while the box is up (a close, a quit). The
+    box goes with it; the `finally` must not raise over that, the guard must
+    clear, and the log must say what happened rather than "failed to show"."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QMainWindow
+
+    monkeypatch.setattr(app_module, "UNATTENDED_FATAL_DIALOG_TIMEOUT_S", 30.0)
+    opened = _record_real_exec(monkeypatch)
+    window = QMainWindow()
+    window.show()
+    window.activateWindow()
+    qapp.processEvents()  # type: ignore[attr-defined]  # the QApplication
+    monkeypatch.setattr(app_module, "_fatal_dialog_parent", lambda: window)
+
+    # Posted from INSIDE the box's loop, so that loop runs the delete.
+    destroyer = QTimer()
+    destroyer.setSingleShot(True)
+    destroyer.setInterval(100)
+    destroyer.timeout.connect(lambda: (window.hide(), window.deleteLater()))
+    destroyer.start()
+    try:
+        with caplog.at_level(logging.WARNING):
+            app_module._show_fatal_dialog(
+                "Platterpus — error", _raised("under a closing window"), unattended=True
+            )
+    finally:
+        destroyer.stop()
+
+    assert len(opened) == 1
+    assert not app_module._qt_object_alive(opened[0]), "fixture: the box survived"
+    assert not _messages(caplog, "failed to show the fatal-error dialog"), [
+        r.getMessage() for r in caplog.records
+    ]
+    gone = _messages(caplog, "destroyed before anyone dismissed")
+    assert len(gone) == 1 and "under a closing window" in gone[0].getMessage()
+    assert app_module._fatal_dialog_open is False
+
+
 def test_the_excepthook_hands_the_unattended_flag_to_the_dialog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

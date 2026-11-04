@@ -955,12 +955,14 @@ _VERB_LIST: tuple[Verb, ...] = (
     Verb(
         "record-accuracy",
         1,
-        1,
-        "record-accuracy <label> — record the last rip's per-track AccurateRip "
-        "result (verified at confidence N, frame 450 only, mismatch, not in "
-        "database, no lookup), CRC32 and extraction speed, and the build its log "
-        "names, under <label> (info; a log naming no build is an error, not "
-        "determined)",
+        2,
+        "record-accuracy <label> [<folder>] — record the last rip's per-track "
+        "AccurateRip result (verified at confidence N, frame 450 only, mismatch, "
+        "not in database, no lookup), CRC32, extraction speed and FIXUP_ATOM, "
+        "the log's Cache probe: line, and the build its log names, under <label>; "
+        "with <folder>, the rip is the one cyanrip log a `cyanrip ... -D <folder>` "
+        "step wrote this run in the rips folder (info; a log naming no build, or "
+        "not exactly one log, is an error, not determined)",
     ),
     Verb(
         "compare-accuracy",
@@ -970,6 +972,19 @@ _VERB_LIST: tuple[Verb, ...] = (
         "of M rips, with the distinct CRC32s each build read (info, a "
         "measurement; refused as not determined when a log names no build, the "
         "tracks differ, only one build is named, or AccurateRip gave no answer)",
+    ),
+    # --- One track under several conditions, one build (TASKS R123) ----------
+    # `accuracy_verbs.py` and `condition_grading.py`; `rig_scripts/track3abba.txt`.
+    Verb(
+        "compare-conditions",
+        3,
+        17,
+        "compare-conditions <track> <label> <label>… — per condition (the label "
+        "without its trailing digits: pair1 and pair2 are `pair`), right in N of "
+        "M rips of that track, its CRC32s, FIXUP_ATOM and cache probe per rip "
+        "(info, a measurement; refused as not determined when a log names no "
+        "build, the rips came from more than one build, a rip lacks the track, "
+        "only one condition is named, or AccurateRip gave no answer)",
     ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(
@@ -985,6 +1000,16 @@ _VERB_LIST: tuple[Verb, ...] = (
         "(consumer) and (diagnostics) to the --consumer and "
         "--diagnostics words an app rip sends",
         takes_paths=True,
+    ),
+    # TASKS R123: a scripted rip of two tracks can outlast the 300 s bound a
+    # probe needs, and the kill would turn a measurement into a lost rip.
+    Verb(
+        "cyanrip-timeout",
+        1,
+        1,
+        "cyanrip-timeout <seconds> — how long each later `cyanrip` step in this run "
+        "may take before it is killed (default 300; over the rip cap of 21600 is "
+        "clamped to it and said); for a scripted rip, not a probe",
     ),
     Verb(
         "expect-cyanrip",

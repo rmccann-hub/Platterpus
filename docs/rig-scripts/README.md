@@ -116,6 +116,27 @@ and runs the one `rig-check` that reads the counters.
 about the disc, not a pass — it means the disc converged on the first read and
 the test did not get to measure anything.
 
+## Track 3 after track 2: `track3abba.txt`
+
+**Typically about 25 to 40 minutes on the reference disc, twelve rips of track
+3 (an estimate, not yet measured).** In the owner's Full runs, track 3 read wrong
+whenever it was ripped straight after track 2 and right when ripped alone
+(TASKS R123). This script varies one thing at a time, as the fork's round 37
+lap 7 S11 asks: tracks 2 and 3 together against track 3 alone, four of each in
+ABBA order; then `-S 4` on the pair; then `-P 0` on the pair. Every rip sends
+`--cache-probe`, so each carries the cache model it read under.
+
+```sh
+./platterpus-x86_64.AppImage --run-script track3abba
+```
+
+Each rip goes straight through cyanrip (an app rip cannot send `--cache-probe` or
+`-P 0`) into its own `t3<label>` folder in the rips folder. `record-accuracy
+<label> <folder>` reads that rip's log, and `compare-conditions 3 …` prints, per
+condition, right in N of M with the CRC32s, FIXUP_ATOM and cache probe of each
+rip. All of it is `info`, a measurement for the fork, not a pass or a fail. The
+run's own bundle is the one file to send: its transcript holds every result.
+
 ## Which collector gathers what
 
 Four things can pack a session into a file, and **only one of them gathers every
@@ -407,4 +428,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.119.*

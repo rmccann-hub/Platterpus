@@ -27,15 +27,14 @@ stays unknown) when a value is missing or the build measures before the filter.
 from __future__ import annotations
 
 import logging
-import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
-from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from platterpus.rip_addendum import with_addendum
+from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.uiscript import deemphasis_grading as grading
-from platterpus.uiscript.pregap_verbs import MAX_LOG_BYTES, run_start_epoch
+from platterpus.uiscript.folder_logs import folder_problem, read_one_log
+from platterpus.uiscript.pregap_verbs import run_start_epoch
 from platterpus.uiscript.probe_verbs import _start
 from platterpus.uiscript.report import Outcome
 
@@ -51,67 +50,18 @@ log = logging.getLogger(__name__)
 #: the backstop for a rips folder on a slow share.
 DEEMPHASIS_WAIT_S: Final[float] = 60.0
 
-#: A ``-D`` folder name the verb will read: one plain path segment, the shape
-#: section P3 uses. No separator and no leading dot, so it cannot leave the rips
-#: folder.
-_FOLDER_NAME: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
-
-
-def folder_problem(name: str) -> str:
-    """Why ``name`` cannot name an arm's folder, or ``""`` when it can."""
-    if _FOLDER_NAME.fullmatch(name) is None:
-        return (
-            f"{name!r} is not a plain folder name (letters, digits, '.', '_', "
-            "'-'; no '/', up to 64 characters): it names the -D folder of one "
-            "arm, inside the rips folder"
-        )
-    return ""
-
 
 def read_arm(root: Path, name: str, *, since: float) -> grading.Arm:
     """The arm in ``root/name``: its one cyanrip log from this run, parsed.
 
     Thread-safe and Qt-free; called on a helper thread. Never raises: anything
-    that stops the read is the arm's ``problem``.
+    that stops the read is the arm's ``problem``. Which log is read is
+    ``folder_logs.read_one_log``'s rule, shared with ``record-accuracy``.
     """
-    folder = root / name
-    try:
-        candidates = sorted(
-            path
-            for path in folder.glob("*.log")
-            if path.is_file() and path.stat().st_mtime >= since
-        )
-    except OSError as exc:
-        return grading.Arm(name=name, problem=f"{folder} could not be listed ({exc})")
-    logs: list[tuple[Path, str]] = []
-    for path in candidates:
-        try:
-            if path.stat().st_size > MAX_LOG_BYTES:
-                return grading.Arm(
-                    name=name,
-                    problem=f"{path} is over {MAX_LOG_BYTES} bytes, so it was not read",
-                )
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:
-            return grading.Arm(name=name, problem=f"{path} could not be read ({exc})")
-        if looks_like_cyanrip_log(text):
-            logs.append((path, text))
-    if len(logs) != 1:
-        found = "none" if not logs else ", ".join(p.name for p, _ in logs)
-        return grading.Arm(
-            name=name,
-            problem=(
-                f"{folder} holds {len(logs)} cyanrip log(s) written since this run "
-                f"started ({found}); exactly one is graded"
-            ),
-        )
-    path, text = logs[0]
-    # Through the sanctioned reader's join, so a sidecar addendum (an auto-fix's
-    # superseded tracks) is read with the log, as every read-back must be
-    # (`rip_addendum`); read here rather than by `read_log_with_addendum` so an
-    # unreadable file is named above instead of reading as an empty log.
-    text = with_addendum(text, path)
-    return grading.arm_from_log(name, str(path), parse_cyanrip_log(text))
+    found = read_one_log(root, name, since=since)
+    if found.problem or found.path is None:
+        return grading.Arm(name=name, problem=found.problem or "no log found")
+    return grading.arm_from_log(name, str(found.path), parse_cyanrip_log(found.text))
 
 
 class DeemphasisVerbsMixin:

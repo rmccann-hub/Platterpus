@@ -498,7 +498,7 @@ def test_the_window_teardown_stops_the_report_writer_as_close_does() -> None:
     from platterpus import report_writer
     from platterpus.ui import main_window_rip
 
-    assert "report_writer.writer().stop()" in inspect.getsource(main_window_rip), (
+    assert "report_writer.writer().stop(" in inspect.getsource(main_window_rip), (
         "the window no longer stops the writer on close; then the harness must not"
     )
     report_writer.writer().submit(lambda: None)
@@ -528,7 +528,7 @@ def test_the_window_teardown_leaves_nothing_scheduled_to_run_later(qapp) -> None
     from platterpus.ui import main_window
 
     # The timer half has a production anchor: close stops the report debounce.
-    assert "self._flush_rip_report(wait=True)" in inspect.getsource(
+    assert "self._flush_rip_report(wait=True" in inspect.getsource(
         main_window.MainWindow.closeEvent
     ), "closeEvent no longer flushes the report; revisit what the harness stops"
 

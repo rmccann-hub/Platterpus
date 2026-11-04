@@ -14,6 +14,8 @@ from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
+from platterpus.ripper_track_notes import RipperCoverArtBlock, TrackFilterBlock
+from platterpus.secure_rereads_footer import SecureRereadsBlock
 from platterpus.securing_exit import SecuringExitsBlock
 
 
@@ -84,6 +86,9 @@ class RipBlock(TypedDict):
     #: v42 (TASKS R117): `.28`'s disc-level blocks; null when none was printed.
     pregap_searches: list[PregapSearchesEntry] | None
     names_shortened: list[NameShortenedEntry] | None
+    #: v43: `.29`'s proposed footer line `Secure re-reads:`; null when not
+    #: printed (an older build, or no `-Z`), never "every track converged".
+    secure_rereads: SecureRereadsBlock | None
     paranoia_level: str | None
     overread_mode: str | None
     ripper_build: str | None
@@ -312,6 +317,14 @@ class TrackErrorPositionsBlock(TypedDict):
     #: its state (`record_track_v11.STATES`); `not_present` on `/10` and earlier.
     kept_read_began: str | None
     kept_read_began_state: str
+    #: v43 (`cyanrip-diagnostics/12`, proposed): a CRC32 per 75 frames of the
+    #: kept read, position-aligned (null where an entry was unreadable); null
+    #: unless `block_crcs_state` is `read`. `_not_read` counts the unreadable
+    #: entries and `_not_kept` those cut past `record_block_crcs.MAX_BLOCKS`.
+    block_crcs: list[str | None] | None
+    block_crcs_state: str
+    block_crcs_not_read: int
+    block_crcs_not_kept: int
 
 
 class ErrorPositionsBlock(TypedDict):
@@ -689,6 +702,17 @@ class TrackBlock(TypedDict):
     pregap_search: PregapSearchBlock | None
     pregap_state: str | None
     pregap_unknown_reason: str | None
+    #: v43: `.29`'s proposed `Pregap length: A or B frames (undecided)`, as
+    #: `[shorter, longer]`: a range, so `pregap_state` stays `unknown` and
+    #: `pregap_sectors` null; None when the log printed no such line.
+    pregap_undecided_frames: list[int] | None
+    #: v43: `.29`'s proposed `Filtered:` line (`ripper_track_notes`): the
+    #: filters that changed the audio written, so the CRCs and AccurateRip
+    #: results are of the read and not the file; None when none ran.
+    filtered: TrackFilterBlock | None
+    #: v43: what the RIPPER's log says the file holds (`Embedded cover art:`),
+    #: never our own embedding, which is the top-level `cover_art`.
+    ripper_cover_art: RipperCoverArtBlock | None
     replaygain: dict[str, str] | None
     accuraterip_lookup: str | None
     #: cyanrip's per-track paranoia status counts (READ / VERIFY / OVERLAP /

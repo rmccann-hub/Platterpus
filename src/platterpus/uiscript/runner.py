@@ -288,6 +288,9 @@ class _CyanripJob:
     cwd: Path | None = None
     #: What a placeholder could not send (`expand_identity`), recorded with the argv.
     note: str = ""
+    #: The kill bound this job was started under (`cyanrip-timeout`), kept with
+    #: the job so the tick's unreapable-child check waits the same bound.
+    timeout_s: float = CYANRIP_VERB_TIMEOUT_S
 
 
 @dataclass
@@ -529,6 +532,9 @@ class ScriptRunner(
         #: this is set the tick services it instead of advancing, which is what
         #: keeps a five-minute ripper call off the GUI thread.
         self._pending_cyanrip: _CyanripJob | None = None
+        #: How long a `cyanrip` step may run before it is killed; the
+        #: `cyanrip-timeout` verb sets it for the rest of a run (TASKS R123).
+        self._cyanrip_timeout_s: float = CYANRIP_VERB_TIMEOUT_S
         self._pending_rig_check: _RigCheckJob | None = None
         self._pending_wrapper_probe: _WrapperProbeJob | None = None
         self._timer: QTimer = QTimer(self)
@@ -566,6 +572,7 @@ class ScriptRunner(
         self._artifact_dir = None
         self._deadline = None
         self._pending_cyanrip = None
+        self._cyanrip_timeout_s = CYANRIP_VERB_TIMEOUT_S
         # A new run starts with no tier, no dependency and an empty ledger. Reset
         # explicitly: a ledger surviving into the next run would prune steps on the
         # strength of a failure in a different script, and report it as a
@@ -1765,6 +1772,37 @@ class ScriptRunner(
         self._last_cyanrip_output = ""
         self._last_cyanrip_exit = None
 
+    def _do_cyanrip_timeout(self, step: Step) -> None:
+        """``cyanrip-timeout <seconds>``: the kill bound of later `cyanrip` steps.
+
+        A scripted rip of two tracks (``track3abba.txt``) can outlast the 300 s a
+        probe needs, and being killed at 300 s would lose the measurement. Over
+        the rip cap is clamped and said, as ``wait-for-rip`` does; a value that
+        is not a whole number of seconds from 1 is refused at the boundary.
+        """
+        text = step.args[0]
+        if not text.isdigit() or int(text) < 1:
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"{text!r} is not a number of seconds (a whole number from 1); "
+                f"the bound stays {self._cyanrip_timeout_s:.0f}s",
+            )
+            return
+        asked = float(int(text))
+        self._cyanrip_timeout_s = min(asked, MAX_RIP_WAIT_S)
+        clamp = (
+            f" [CLAMPED: asked for {asked:.0f}s, the cap is {MAX_RIP_WAIT_S:.0f}s]"
+            if asked > MAX_RIP_WAIT_S
+            else ""
+        )
+        self._record(
+            step,
+            Outcome.INFO,
+            f"each later cyanrip step may take {self._cyanrip_timeout_s:.0f}s "
+            f"before it is killed{clamp}",
+        )
+
     def _do_cyanrip(self, step: Step) -> None:
         """Start the host-exported ripper on a helper thread; the tick collects it.
 
@@ -1904,7 +1942,10 @@ class ScriptRunner(
             done=threading.Event(),
             cwd=workdir,
             note="; ".join(identity_notes),
+            timeout_s=self._cyanrip_timeout_s,
         )
+
+        timeout_s = job.timeout_s
 
         def _work() -> None:
             # Everything this closure touches is either local or a field of
@@ -1920,7 +1961,7 @@ class ScriptRunner(
                     "cyanrip",
                     str(CYANRIP_BINARY_DEFAULT),
                     args,
-                    timeout=CYANRIP_VERB_TIMEOUT_S,
+                    timeout=timeout_s,
                     stdin_devnull=True,  # cyanrip reads stdin; it must be closed
                     cwd=workdir,
                 )
@@ -1952,7 +1993,7 @@ class ScriptRunner(
         assert job is not None  # noqa: S101 — narrows for mypy; the tick calls this only while the job is pending
         elapsed = time.monotonic() - job.started
         if not job.done.is_set():
-            if elapsed <= CYANRIP_VERB_TIMEOUT_S + CYANRIP_VERB_GRACE_S:
+            if elapsed <= job.timeout_s + CYANRIP_VERB_GRACE_S:
                 return
             # `run_capture` enforces its own timeout and kills the child, so
             # reaching here means the child could not be reaped — the drive-ioctl

@@ -180,14 +180,17 @@ class TestWiredIntoTheWindow:
 
     def test_close_waits_for_the_pending_write(self) -> None:
         """`closeEvent` must pass wait=True, or the last report dies with the
-        process now that the write is asynchronous."""
+        process now that the write is asynchronous; and the close's shared
+        deadline, or the wait is a bound of its own past the budget (TASKS R128
+        (b); `tests/test_close_never_raises.py` measures that one)."""
         import inspect
 
         from platterpus.ui.main_window import MainWindow
 
         src = inspect.getsource(MainWindow.closeEvent)
-        assert "_flush_rip_report(wait=True)" in src, (
-            "close no longer waits for the report; the final revision is lost"
+        assert "_flush_rip_report(wait=True, deadline=deadline)" in src, (
+            "close no longer waits for the report within the shared deadline; "
+            "either the final revision is lost or the close outlasts its budget"
         )
 
     def test_flush_without_wait_does_not_block(self) -> None:
@@ -239,3 +242,28 @@ class TestTheDocstringsNoLongerLie:
             assert "false" in source.lower() or "used to say" in source.lower(), (
                 f"{module} still asserts {banned!r} without the correction"
             )
+
+
+def test_stop_never_outlasts_its_timeout_while_a_write_is_wedged() -> None:
+    """`stop(timeout)` is the close's whole bound for the report (TASKS R128 (b)):
+    the flush AND the join of the worker thread, not the flush plus half a second.
+    A write that will not finish is abandoned; the daemon thread is released at
+    the end of the test."""
+    import threading
+    import time
+
+    from platterpus.report_writer import ReportWriter
+
+    gate = threading.Event()
+    writer = ReportWriter(name="test-wedged-writer")
+    writer.submit(lambda: gate.wait(30) and None)
+    try:
+        started = time.monotonic()
+        landed = writer.stop(0.2)
+        took = time.monotonic() - started
+        assert landed is False, "a wedged write was reported as landed"
+        # 0.2 s asked; the old join added up to 0.5 s after it.
+        assert took < 0.45, f"stop(0.2) took {took:.2f}s"
+    finally:
+        gate.set()
+        writer.stop(5.0)

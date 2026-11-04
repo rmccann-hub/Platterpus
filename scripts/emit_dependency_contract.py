@@ -187,6 +187,15 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # build prints it. Fork-only: the option is theirs, and upstream's header
         # has `Frame retries:` alone.
         "reread_time_limit",
+        # The fork's PROPOSED `.29` lines (round 38 lap 1 S5, S7, S8;
+        # `cyanrip@f1bcb683:docs/handshake/round-38-lap-01.md`), read before any
+        # build prints them. Fork-only: none of the three strings is in their
+        # tree at `3f288fb`. `track_embedded_cover_art` is NOT here: upstream
+        # prints its `Embedded cover art:` header too
+        # (`cyanrip@3f288fb:src/cyanrip_log.c:932-936`).
+        "secure_rereads",
+        "track_filtered",
+        "track_pregap_length_undecided",
     }
 )
 
