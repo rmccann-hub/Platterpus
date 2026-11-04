@@ -2774,6 +2774,16 @@ fi
 # spelled like the pin would win. `--force` discards a half-finished previous
 # attempt; the tree is a build cache we own, never the user's work.
 git -C "$src" checkout --force --detach "${full:-$pin}"
+# THE BUILD TAG'S LENGTH MUST NOT DEPEND ON THE CLONE'S SIZE (2026-11-04). The
+# fork's meson `vcs_tag` prints `git rev-parse --short HEAD`, and git sizes a
+# short hash by how many objects the repository holds: seven characters until
+# a clone passes about 16,000 objects, eight after. The fork's repository passed
+# that line with `.29`, so a reused clone built a tag ending `-g8d2ca726` where
+# the published build, and the pin, end `-g8d2ca72`, and the check
+# below refused a correct build (the owner's install of 0.7.120, 2026-11-04).
+# Seven, git's own floor, is what the fork publishes; git still lengthens a
+# prefix that is ambiguous, and the check below then refuses, which is right.
+git -C "$src" config core.abbrev 7
 
 # --- Prove the tree is what we asked for, before building it ----------------
 # A build tag names a commit; it does not name what was built (CLAUDE.md rule
@@ -2901,6 +2911,10 @@ case "$_banner" in
     echo "platterpus: FATAL built binary reports \\"$_banner\\"" >&2
     echo "platterpus: but commit $4 must produce build tag \\"$5\\"" >&2
     case "$_banner" in
+      *"($5"[0-9a-f]*)
+        echo "platterpus: that is the right commit with a LONGER short hash" \\
+             "than the published tag; the source tree's git abbreviates it" \\
+             "differently, so the binary's tag would not match the pin" >&2 ;;
       *"($5-dirty)"*)
         echo "platterpus: that is a DIRTY build of the right commit — its own" \\
              "tag says the tree it was built from had changes, so it is not" \\
