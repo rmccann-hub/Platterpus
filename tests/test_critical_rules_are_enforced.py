@@ -1108,7 +1108,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **350 -> 381** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 406** (2026-10-21): the entries above landed together on one branch.
     # **406 -> 447** (2026-10-26, TASKS R43, the CTDB localisation): the result carries `localisation`, and the verify makes the second, lazy decode pass that feeds it and hangs each track's located samples on the track before the sentence is worded. The arithmetic lives in `ctdb/localise.py`, `ctdb/verify_parity.py`, `ctdb/syndromes.py` and `ctdb/rs_decode.py`; this is where the verify meets it.
-    "ctdb/verify.py": 447,
+    # **447 -> 461** (2026-11-04, TASKS R43, the CTDB repair): the result keeps the lookup's `entries`, every measured whole-disc CRC by offset (`disc_crcs`) and the `repair` record, which is what a repair reads and the report writes. The repair itself is `ctdb/repair*.py`.
+    "ctdb/verify.py": 461,
     # 299 -> 306 on 2026-10-20, crossing the heuristic. **One job, kept as one
     # module**: replacing home paths at export. The 2026-10-20 Full run left the
     # owner's username in a filed bundle, because a JSON ``\n`` escape sits
@@ -2160,7 +2161,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1094 -> 1096** (2026-11-03, review B4): `OutcomeBlock.securing_pass_paranoia_counts`, the securing pass's own disc paranoia block (the album's `paranoia_counts` left that run out).
     # **1094 -> 1096** (2026-11-03, review C4): `TranscodeBlock.encoder_argv`, beside the block it types.
     # **1143 -> 1167** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): schema 43's typed fields: `rip.secure_rereads`, per track `pregap_undecided_frames` / `filtered` / `ripper_cover_art`, and the error-positions row's `block_crcs`.
-    "report_types.py": 1167,
+    # **1167 -> 1216** (2026-11-04, TASKS R43, the CTDB repair): schema 44's `ctdb.repair` typed as three blocks (the record, a rewritten track, a corrected word), beside the CTDB blocks they extend.
+    "report_types.py": 1216,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2309,7 +2311,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3583 -> 3592** (2026-11-03, review B4): `outcome.securing_pass_paranoia_counts` with its v42 schema note; the coercion is `paranoia_scope.counts_block`.
     # **3583 -> 3590** (2026-11-03, review C4): `verification.transcode.encoder_argv` serialised, and its line in the schema history (v42, additions only).
     # **3685 -> 3732** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): schema 43's history note and the keys and issue calls that place `.29`'s readings; the blocks are built in their own modules.
-    "rip_report.py": 3732,
+    # **3732 -> 3809** (2026-11-04, TASKS R43, the CTDB repair): schema 44's history note and `_ctdb_repair`, the serializer for `ctdb.repair` beside the other CTDB serializers (a dict literal here, so `tests/test_report_types_completeness.py` can read it). The repair is `ctdb/repair*.py`.
+    "rip_report.py": 3809,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

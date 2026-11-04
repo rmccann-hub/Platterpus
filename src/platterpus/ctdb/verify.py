@@ -33,12 +33,13 @@ import dataclasses
 import enum
 import logging
 import subprocess
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from platterpus.adapters.ctdb_client import (
     CTDBClient,
+    CtdbEntry,
     CtdbLookupError,
     CtdbLookupResult,
 )
@@ -53,6 +54,7 @@ from platterpus.ctdb.matching import (
     match_disc,
     match_tracks,
 )
+from platterpus.ctdb.repair_types import RepairRecord
 from platterpus.ctdb.sweep import (
     DISC_OFFSET_RANGE,
     SweepResult,
@@ -125,6 +127,14 @@ class CtdbVerifyResult:
     # samples also sit on each track as `differences`. None when the check never
     # got as far as our CRCs.
     localisation: CtdbLocalisation | None = None
+    # **What a repair needs** (2026-11-04, `ctdb/repair_run.py`): the lookup's
+    # entries, and every whole-disc CRC the sweep measured, by offset (to see
+    # whether we already match the entry a repair would aim at). Not reported.
+    entries: tuple[CtdbEntry, ...] = ()
+    disc_crcs: Mapping[int, int] = field(default_factory=dict)
+    # The repair's outcome, once one was asked for: the report's `ctdb.repair`
+    # (schema 44). None when no repair was attempted.
+    repair: RepairRecord | None = None
 
     @property
     def outvoted(self) -> bool:
@@ -360,6 +370,8 @@ def _match_verdict(
             offset_range=swept,
             matched_offset=offset,
             localisation=localisation,
+            entries=tuple(result.entries),
+            disc_crcs=disc_crcs,
         )
     n = len(result.entries)
     # The message MUST depend on whether our CRC algorithm is trustworthy. While
@@ -409,6 +421,8 @@ def _match_verdict(
         tracks=tracks,
         offset_range=swept,
         localisation=localisation,
+        entries=tuple(result.entries),
+        disc_crcs=disc_crcs,
     )
 
 

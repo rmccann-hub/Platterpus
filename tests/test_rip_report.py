@@ -1403,7 +1403,10 @@ def test_schema_version_is_27() -> None:
     # per track `pregap_undecided_frames`, `filtered` and `ripper_cover_art`, and
     # per `disc.error_positions` row the `/12` record's `block_crcs`. v42 had
     # shipped in 0.7.118.
-    assert REPORT_SCHEMA_VERSION == 43
+    # v44 added `ctdb.repair`, the CTDB repair's record (TASKS R43; read back by
+    # `tests/test_ctdb_repair.py::test_the_report_carries_the_repair`). v43 had
+    # shipped in 0.7.120.
+    assert REPORT_SCHEMA_VERSION == 44
 
 
 def _issue_codes(report: dict) -> set[str]:

@@ -700,7 +700,22 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      (`read`, `not_stated`, `unrecognised`, `not_present` for `/11` and
 #      earlier), `block_crcs_not_read` and `block_crcs_not_kept`
 #      (`record_block_crcs.py`).
-REPORT_SCHEMA_VERSION: int = 43
+# v44: `ctdb.repair` (TASKS R43, the CTDB repair built 2026-11-04 on the owner's
+#      word). v43 shipped in 0.7.120, so this is a new number. Additions only.
+#      Null unless a repair was asked for (`ctdb/repair_run.py`). `status`
+#      (`repaired`, `refused`, `failed`: only `repaired` means a file changed) and
+#      `reason`; the entry repaired toward (`entry_id`, `confidence`), `offset`
+#      in our sign and `cuetools_offset` in CUETools' (the opposite); the whole-
+#      disc CTDB CRC at that offset `disc_crc_expected` / `_before` / `_after`;
+#      `words`, each correction (`track`, `frame` in the file, `channel` 0 left 1
+#      right, `disc_word`, `value` the 16-bit XOR in hex), at most 1,000 with the
+#      rest counted in `words_elided`; `tracks`, per rewritten file its `path`,
+#      `original_kept_as`, `samples_corrected`, whole-file `pcm_crc32_before` /
+#      `_after` (EAC's Copy CRC), the track's CTDB CRC `ctdb_crc_expected` /
+#      `_before` (null unless measured) / `_after`, and our own AccurateRip
+#      `accuraterip_v1_before` / `v2_before` / `v1_after` / `v2_after`;
+#      `encoder_argv` as spawned; `untouched`, what the repair never changes.
+REPORT_SCHEMA_VERSION: int = 44
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -2664,6 +2679,9 @@ def _ctdb(result: object | None) -> dict | None:
         "tracks": _ctdb_tracks(getattr(result, "tracks", ())),
         # Where it differs (v40, R43): the parity-based localisation's outcome.
         "localisation": _ctdb_localisation(getattr(result, "localisation", None)),
+        # The repair (v44, R43): what was rewritten toward which entry, and the
+        # CRCs that proved it, or why it was refused. Null when none was asked.
+        "repair": _ctdb_repair(getattr(result, "repair", None)),
     }
 
 
@@ -2686,6 +2704,65 @@ def _ctdb_localisation(found: object | None) -> dict[str, object] | None:
             }
             for row in rows
         ],
+    }
+
+
+#: The most corrected words ``ctdb.repair.words`` lists; the rest are counted in
+#: ``words_elided``, never dropped silently (a disc's worst case is ~94,000).
+_MAX_REPAIR_WORDS: int = 1000
+
+
+def _ctdb_repair(record: object | None) -> dict[str, object] | None:
+    """Serialize ``CtdbVerifyResult.repair`` (v44; ``ctdb/repair_types.py``)."""
+    if record is None:
+        return None
+    words = getattr(record, "words", ()) or ()
+    words = words if isinstance(words, tuple | list) else ()
+
+    def _crc(owner: object, name: str) -> str | None:
+        return _hex_crc(getattr(owner, name, None))
+
+    return {
+        "status": getattr(getattr(record, "status", None), "value", None),
+        "reason": getattr(record, "reason", "") or None,
+        "entry_id": getattr(record, "entry_id", "") or None,
+        "confidence": getattr(record, "confidence", None),
+        "offset": getattr(record, "offset", None),
+        "cuetools_offset": getattr(record, "cuetools_offset", None),
+        "disc_crc_expected": _crc(record, "disc_crc_expected"),
+        "disc_crc_before": _crc(record, "disc_crc_before"),
+        "disc_crc_after": _crc(record, "disc_crc_after"),
+        "words": [
+            {
+                "track": getattr(w, "track", None),
+                "frame": getattr(w, "frame", None),
+                "channel": getattr(w, "channel", None),
+                "disc_word": getattr(w, "disc_word", None),
+                "value": f"{getattr(w, 'value', 0):04X}",
+            }
+            for w in words[:_MAX_REPAIR_WORDS]
+        ],
+        "words_elided": max(0, len(words) - _MAX_REPAIR_WORDS),
+        "tracks": [
+            {
+                "track": getattr(t, "track", None),
+                "path": getattr(t, "path", None),
+                "original_kept_as": getattr(t, "original_kept_as", None),
+                "samples_corrected": getattr(t, "samples_corrected", None),
+                "pcm_crc32_before": _crc(t, "pcm_crc32_before"),
+                "pcm_crc32_after": _crc(t, "pcm_crc32_after"),
+                "ctdb_crc_expected": _crc(t, "ctdb_crc_expected"),
+                "ctdb_crc_before": _crc(t, "ctdb_crc_before"),
+                "ctdb_crc_after": _crc(t, "ctdb_crc_after"),
+                "accuraterip_v1_before": _crc(t, "accuraterip_v1_before"),
+                "accuraterip_v2_before": _crc(t, "accuraterip_v2_before"),
+                "accuraterip_v1_after": _crc(t, "accuraterip_v1_after"),
+                "accuraterip_v2_after": _crc(t, "accuraterip_v2_after"),
+            }
+            for t in (getattr(record, "tracks", ()) or ())
+        ],
+        "encoder_argv": list(getattr(record, "encoder_argv", ()) or ()) or None,
+        "untouched": list(getattr(record, "untouched", ()) or ()),
     }
 
 
