@@ -255,6 +255,52 @@ def test_a_binary_whose_own_tag_says_dirty_is_refused(rig: Rig) -> None:
     assert "DIRTY build of the right commit" in done.stderr, done.stderr
 
 
+def test_the_build_tag_s_short_hash_does_not_grow_with_the_clone(rig: Rig) -> None:
+    """The owner's install of 0.7.120 (2026-11-04) refused a correct `.29` build.
+
+    The fork's ``vcs_tag`` prints ``git rev-parse --short HEAD``, whose length
+    git sizes by the repository's object count: the fork's repository passed the
+    eight-character line with ``.29``, so a reused clone built
+    ``platterpus-fork-g8d2ca726`` against a pin of ``8d2ca72``. Here the fake
+    ninja derives its banner the same way, from git in the source tree, and the
+    cached clone is made to abbreviate at eight (the stand-in for a large
+    repository: git's auto length and ``core.abbrev`` set the same thing). The
+    script must pin seven and build the published tag.
+    """
+    assert _good(rig).returncode == 0  # makes the cached clone
+    _git(rig.clone, "config", "core.abbrev", "8")
+    assert len(_git(rig.clone, "rev-parse", "--short", "HEAD")) == 8  # landed
+    _write_exe(
+        rig.bin_dir / "ninja",
+        "#!/bin/sh\n"
+        'mkdir -p "$2/src"\n'
+        'short="$(git -C "$2/.." rev-parse --short HEAD)"\n'
+        'printf \'#!/bin/sh\\nprintf "%%s\\\\n" "cyanrip 0.9.4-test '
+        '(platterpus-fork-g%s)"\\n\' "$short" > "$2/src/cyanrip"\n'
+        'chmod +x "$2/src/cyanrip"\n'
+        'echo ran >> "$NINJA_LOG"\n',
+    )
+    tag = rig.tag_for(rig.first)
+    done = rig.run(pin=rig.first[:7], full=rig.first, tag=tag, banner="unused")
+    assert done.returncode == 0, done.stderr
+    assert f"built banner=cyanrip 0.9.4-test ({tag})" in done.stdout, done.stdout
+    assert "safe to install" in done.stdout
+
+
+def test_a_longer_short_hash_is_refused_and_named(rig: Rig) -> None:
+    """If a tag still arrives longer (an ambiguous prefix), it is refused, and
+    the refusal says why rather than only that the tags differ."""
+    tag = rig.tag_for(rig.first)
+    done = rig.run(
+        pin=rig.first[:7],
+        full=rig.first,
+        tag=tag,
+        banner=f"cyanrip 0.9.4-test ({BRANCH}-g{rig.first[:8]})",
+    )
+    assert done.returncode != 0, "a longer tag was accepted for install"
+    assert "LONGER short hash" in done.stderr, done.stderr
+
+
 # --- The recorded full commits ------------------------------------------------
 
 

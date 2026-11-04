@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Installing the fork's `.29` no longer refuses a correct build.** The fork's build tag is git's short hash of the commit, and git lengthens a short hash once a clone holds more than about 16,000 objects; the fork's repository passed that line with `.29`, so a reused clone built `platterpus-fork-g8d2ca726` where the pin says `platterpus-fork-g8d2ca72`, and the installer's check refused it before installing anything (the owner's install of 0.7.120). The build script now pins git's abbreviation at seven characters in its clone, and a tag that still arrives longer is refused with a sentence saying so.
 - **Our round 38 lap 6 is released** (contributor-facing; on the owner's word of 2026-11-04, *"Send it"*, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it tells the fork that 0.7.120 names `.29` as our build under review, verifies their lap 5, and binds our next lap to `GO` unless the Full run on `.29` shows a defect that makes the pin unsafe.
 
 ## [0.7.120] — 2026-11-04
