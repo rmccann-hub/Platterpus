@@ -1323,7 +1323,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1573 -> 1581** (2026-10-21, TASKS P2 #5): the unattended quit's give-up asks the window to record the cut-short verification in the report before `app.quit()`.
     # **-> 1490** (2026-10-21): the entries above landed together on one branch.
     # **1490 -> 1495** (2026-10-27, external review item 3.4): the default `--rig-session` folder is stamped in UTC, with the reason (ruff DTZ005).
-    "app.py": 1495,
+    # **1495 -> 1532** (2026-11-04, TASKS R128 (a)): `_fatal_dialog_parent`, which refuses a hidden `activeWindow()` (activation is asynchronous, so a dialog hidden in one go becomes active after it is hidden, and the box died with it), and the `finally` surviving a box destroyed with its window, with the warning that says so. Both sit beside the box and the `finally` they change.
+    "app.py": 1532,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the

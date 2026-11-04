@@ -191,6 +191,27 @@ def _arm_fatal_dialog_auto_dismiss(
     return deadline, countdown
 
 
+def _fatal_dialog_parent() -> QWidget | None:
+    """The window the fatal dialog attaches to: the active one, if it is ON SCREEN.
+
+    `activeWindow()` is Qt's last record of activation, and it can name a window
+    that has been hidden and is waiting for its deferred delete (TASKS R128,
+    measured: a hidden `GettingStartedDialog` and `ReleasePickerDialog`). A box
+    parented to that dies with it the moment the box's own `exec()` loop runs the
+    delete, before anyone has read it. So a hidden answer is not used: the first
+    main window on screen is, and None only when no window of ours is up.
+    """
+    from PySide6.QtWidgets import QApplication, QMainWindow
+
+    active = QApplication.activeWindow()
+    if active is not None and active.isVisible():
+        return active
+    for widget in QApplication.topLevelWidgets():
+        if isinstance(widget, QMainWindow) and widget.isVisible():
+            return widget
+    return None
+
+
 def _show_fatal_dialog(
     title: str, exc: BaseException, *, unattended: bool = False
 ) -> None:
@@ -231,6 +252,7 @@ def _show_fatal_dialog(
     """
     global _fatal_dialog_open
     try:
+        import shiboken6
         from PySide6.QtCore import Qt, QThread
         from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -277,9 +299,9 @@ def _show_fatal_dialog(
         # PARENTED to the window the user is looking at (operator, 2026-10-19:
         # a prompt must never open as a window of its own). With no parent it was
         # a free-standing top-level, which a desktop may place anywhere, give its
-        # own taskbar entry, or put behind the app. `activeWindow()` is None only
-        # when no window of ours is up, and then there is nothing to attach to.
-        box = QMessageBox(QApplication.activeWindow())
+        # own taskbar entry, or put behind the app. None only when no window of
+        # ours is on screen, and then there is nothing to attach to.
+        box = QMessageBox(_fatal_dialog_parent())
         box.setIcon(QMessageBox.Icon.Critical)
         # PlainText, because `{exc}` below is EXTERNAL TEXT. Qt's default
         # `AutoText` auto-detects HTML, so an exception message containing `<` —
@@ -338,9 +360,24 @@ def _show_fatal_dialog(
             # a reference Python's GC cannot see, so without this every dialog
             # that closed itself stayed alive, hidden, as a top-level widget
             # (measured: one leaked QMessageBox per auto-close).
+            #
+            # Unless the box is gone: a window destroyed under it takes the box
+            # and its child timers along, Qt having stopped and disconnected them,
+            # and `stop()` on a deleted timer raised, which the `except` below
+            # then reported as "failed to show" (TASKS R128).
             for timer in timers:
-                timer.stop()
-                timer.timeout.disconnect()
+                if shiboken6.isValid(timer):
+                    timer.stop()
+                    timer.timeout.disconnect()
+            if not shiboken6.isValid(box):
+                log.warning(
+                    "fatal-error dialog %r was destroyed before anyone dismissed "
+                    "it: the window it was attached to went away. The error it "
+                    "showed was %s: %s",
+                    title,
+                    type(exc).__name__,
+                    exc,
+                )
     except Exception:  # noqa: BLE001 — the crash handler must never crash
         log.exception("failed to show the fatal-error dialog")
 
