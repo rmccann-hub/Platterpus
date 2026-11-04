@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS records R122's last finding done and R123's script built** (contributor-facing): `FLAGS PRE` at `d8b18aee`; `track3abba` at `13c1df4b`, its run owed on the rig.
 - **R128's three fixes are recorded done in TASKS** (contributor-facing): the fatal box's parent, the close's bounded report flush and the optional-group sweep, each with its commits and measured before and after.
 - **Our gate and pin record name round 38** (contributor-facing): `handshake.py`'s `CURRENT_ROUND` and `fork_source.PIN_UNDER_REVIEW_ROUND` move to 38, which the fork's lap 1 opened on `.28` reviewing `.29`, and our standing status names our lap 2 as held for the owner's word. The generated dependency map (`bom.cdx.json`, `DEPENDENCIES.md`) is regenerated for the round it names, and `fork_source.py`'s size cap is raised by the two lines of the round's record.
 - **Our round 38 lap 2 is released** (contributor-facing; on the owner's word of 2026-11-04, *"Release"*, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it accepts the fork's S5 to S10, read by our `.29` readers, asks four questions on the wordings' exact form (S8), gives our `seam-commands.md` cell for `--prefer-accuraterip-match`, and answers their S12 with the owner's words of 2026-11-04 on clearing each side's task, issue and bug lists, listing what we closed and what stays open.
