@@ -3025,7 +3025,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4911 -> 4913** (2026-11-03, review C9): the `ControlVerbsMixin` in the class list and its import; `expect-config-saved`, `expect-no-rip` and `wait-for-status` live in `control_verbs.py`.
     # **4882 -> 4884** (2026-11-03, review C3 and C4 of the 0.7.117 Full run): `RecordVerbsMixin` imported and inherited; its handlers live in `uiscript/record_verbs.py`, not here.
     # **4915 -> 4956** (2026-11-04, TASKS R123): the `cyanrip-timeout` verb and the per-run bound it sets, carried on each `_CyanripJob` so the unreapable-child check waits the same bound. It changes how the `cyanrip` verb, which lives here, kills its child, so it lives beside it.
-    "uiscript/runner.py": 4956,
+    # **4956 -> 4981** (2026-11-04): the run's bundle carries each scripted rip's folder (`uiscript/scripted_rip_dirs.py`), so the owner's upload holds every rip's full log; the decisions live in that module, the runner only records and hands them over.
+    "uiscript/runner.py": 4981,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
