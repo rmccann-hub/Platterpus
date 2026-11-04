@@ -16,8 +16,10 @@ the match ``<m>`` is resolved to the compiled pattern it came from:
 
 * a binding in the same function, ``<m> = PATTERN.search|match|fullmatch(...)``,
   a walrus, or ``for <m> in PATTERN.finditer(...)``, nearest before the call;
-* a parameter, through every call of that function in the same module, or the
-  ``_LineRule(<name>, PATTERN, handler)`` table that dispatches it.
+* a parameter, through every call of that function in the package (by name,
+  ``f(m)`` or ``module.f(m)``), or the ``_LineRule(<name>, PATTERN, handler)``
+  table that dispatches it;
+* through a conditional, ``PATTERN.fullmatch(t) if guard else None``.
 
 Then CPython's own regex parser (``re._parser``, present in 3.11 to 3.14) says
 whether the group can be absent. A call the sweep cannot resolve fails it, unless
@@ -161,7 +163,13 @@ class _Site:
 
 
 def _matched_pattern(node: ast.expr) -> ast.expr | None:
-    """``PATTERN`` out of ``PATTERN.search(...)`` and its siblings."""
+    """``PATTERN`` out of ``PATTERN.search(...)`` and its siblings.
+
+    Also through a conditional, ``PATTERN.fullmatch(t) if guard else None``:
+    the other arm is no match at all, so it reads no group.
+    """
+    if isinstance(node, ast.IfExp):
+        return _matched_pattern(node.body) or _matched_pattern(node.orelse)
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
@@ -257,41 +265,67 @@ class _Module:
         return [compiled for line, compiled in found if line == newest]
 
     def through_parameter(
-        self, function: ast.FunctionDef | ast.AsyncFunctionDef, name: str
+        self,
+        function: ast.FunctionDef | ast.AsyncFunctionDef,
+        name: str,
+        package: list[_Module],
     ) -> list[re.Pattern[str]]:
-        """The patterns a parameter ``name`` of ``function`` is called with."""
+        """The patterns a parameter ``name`` of ``function`` is called with.
+
+        Callers anywhere in the package: ``f(m)`` in this module, ``mod.f(m)`` in
+        another (a public reader the parser calls, as `ripper_track_notes`'s).
+        Matched by the function's name, so two functions sharing one name pool
+        their callers: the union can only flag MORE groups, never fewer.
+        """
         params = [a.arg for a in function.args.args]
         if name not in params:
             return []
         index = params.index(name)
         found: list[re.Pattern[str]] = []
-        for node in ast.walk(self.tree):
-            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
-                continue
-            # `_LineRule("label", PATTERN, handler)`: the table hands the match in.
-            if node.func.id == "_LineRule" and len(node.args) >= 3:
-                handler = node.args[2]
-                if isinstance(handler, ast.Name) and handler.id == function.name:
-                    compiled = self.pattern(node.args[1])
-                    if compiled is not None:
-                        found.append(compiled)
-                continue
-            if node.func.id != function.name or len(node.args) <= index:
-                continue
-            arg = node.args[index]
-            if isinstance(arg, ast.Name):
-                found.extend(
-                    self.bindings(arg.id, self.scope_of(node.lineno), node.lineno)
-                )
+        for caller in package:
+            for node in ast.walk(caller.tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                callee = node.func
+                # `_LineRule("label", PATTERN, handler)`: the table hands it in.
+                if (
+                    caller is self
+                    and isinstance(callee, ast.Name)
+                    and callee.id == "_LineRule"
+                    and len(node.args) >= 3
+                ):
+                    handler = node.args[2]
+                    if isinstance(handler, ast.Name) and handler.id == function.name:
+                        compiled = self.pattern(node.args[1])
+                        if compiled is not None:
+                            found.append(compiled)
+                    continue
+                if isinstance(callee, ast.Name):
+                    if caller is not self or callee.id != function.name:
+                        continue
+                elif isinstance(callee, ast.Attribute):
+                    if callee.attr != function.name:
+                        continue
+                else:
+                    continue
+                if len(node.args) <= index:
+                    continue
+                arg = node.args[index]
+                if isinstance(arg, ast.Name):
+                    found.extend(
+                        caller.bindings(
+                            arg.id, caller.scope_of(node.lineno), node.lineno
+                        )
+                    )
         return found
 
 
 def _sites() -> list[_Site]:
     sites: list[_Site] = []
-    for path in sorted(_PACKAGE.rglob("*.py")):
-        if path.name == "safe_int.py":
+    package = [_Module(path) for path in sorted(_PACKAGE.rglob("*.py"))]
+    for module in package:
+        if module.path.name == "safe_int.py":
             continue
-        module = _Module(path)
         for node in ast.walk(module.tree):
             if not (
                 isinstance(node, ast.Call)
@@ -307,7 +341,7 @@ def _sites() -> list[_Site]:
             scope = module.scope_of(node.lineno)
             patterns = module.bindings(match_name, scope, node.lineno)
             if not patterns and scope is not None:
-                patterns = module.through_parameter(scope, match_name)
+                patterns = module.through_parameter(scope, match_name, package)
             function = scope.name if scope is not None else "<module>"
             sites.append(
                 _Site(
@@ -323,8 +357,9 @@ def _sites() -> list[_Site]:
 
 _SITES: list[_Site] = _sites()
 
-#: Measured 2026-11-04: 56 calls on a named group, every one resolved (the six
-#: `pregap_search` reads by a computed name are not this shape). A floor, so a
+#: Measured 2026-11-04: 59 calls on a named group, every one resolved (the six
+#: `pregap_search` reads by a computed name are not this shape; three are `.29`'s
+#: readers, two reached across modules and one through a conditional). A floor, so a
 #: resolver that stopped finding calls fails instead of passing on nothing.
 _MIN_SITES: int = 50
 
