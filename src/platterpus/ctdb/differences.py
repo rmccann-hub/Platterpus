@@ -7,8 +7,9 @@ EAC's CTDB plugin prints it: ``differs in 16 samples @04:04:68,04:05:17,04:11:32
 Pure and numpy-free, so the report, the results pane and ``--ctdb-calibrate`` can
 read a localisation without importing the arithmetic that made it.
 
-**The positions, the way CUETools writes them** (LGPL ``CDRepair.cs``,
-``GetAffectedSectors``; written from its behaviour, not its code): each position
+**The positions, the way CUETools writes them** (``CDRepair.cs``,
+``GetAffectedSectors``; CUETools is GPL-2.0-or-later, its ``License.txt``;
+written from its behaviour, not its code): each position
 is the SECTOR (588 frames, 1/75 s) the sample sits in, counted from the start of
 its track, as ``mm:ss:ff``; differing samples within five sectors of each other
 are one place, written ``a-b`` when it spans more than one sector. A "sample" is
@@ -50,6 +51,12 @@ class EntryLocalisation:
     ``words`` are the differing 16-bit words, counted from the start of the disc's
     audio (word ``2f`` is frame ``f``'s left channel), sorted. ``offset`` is the
     alignment it was found at, in frames.
+
+    ``values`` (2026-11-04, the repair): ``values[i]`` is the 16-bit XOR that turns
+    our word ``words[i]`` into the entry's, the Forney value the decoder computed
+    and the CRC check proved. Same length and order as ``words`` when located.
+    Until the repair needed them they were computed and dropped; locating a
+    difference says WHERE, and only the value says WHAT the entry holds there.
     """
 
     entry_id: str
@@ -58,15 +65,25 @@ class EntryLocalisation:
     offset: int | None = None
     words: tuple[int, ...] = ()
     reason: str = ""
+    values: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
 class CtdbLocalisation:
-    """The disc-level answer: one row per entry tried, and the reason when none was."""
+    """The disc-level answer: one row per entry tried, and the reason when none was.
+
+    ``track_crc32s`` (2026-11-04, the repair) is the plain CRC-32 of each chunk of
+    PCM the localisation pass decoded, in order; the verify feeds one chunk per
+    track, so it is each track's whole-file "Copy CRC" as the parity saw it. The
+    repair refuses a file whose audio no longer has this CRC: the corrections
+    were located in THAT audio, and applied to any other they would be a guess.
+    Empty when the pass never ran or stopped before the last chunk.
+    """
 
     status: LocalisationStatus
     reason: str = ""
     entries: tuple[EntryLocalisation, ...] = ()
+    track_crc32s: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)

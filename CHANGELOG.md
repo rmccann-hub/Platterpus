@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The CTDB localisation keeps what it found, not only where** (contributor-facing, TASKS R43): each located sample now carries the 16-bit value the CTDB entry holds there (the decoder computed it and dropped it), sorted with its position so the two cannot be paired wrongly, and the localisation keeps the CRC-32 of each track's audio as it decoded it. Both are what a repair needs: the value to write, and the proof that the file has not changed since.
+
 ### Changed
 
 - **The 2026-11-04 Full run on 0.7.120 with `.29` is filed** (contributor-facing): round 38's closing run, 591 pass and 2 fail, on `evidence` at `78cff7e8` with its 155 manifest rows, and a `partial` row in the field-evidence ledger. Both failures are the CTDB check on track 5 of the reference disc, a read `.27` and `.28` made the same way, which the check has failed since it stopped accepting an outvoted match (0.7.118). The filing tool now names section H2's `overwrite answers` album folder.
