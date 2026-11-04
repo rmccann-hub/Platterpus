@@ -1669,7 +1669,6 @@ def test_a_fatal_dialog_whose_window_is_destroyed_under_it_says_so(
     """A window ON SCREEN can still go while the box is up (a close, a quit). The
     box goes with it; the `finally` must not raise over that, the guard must
     clear, and the log must say what happened rather than "failed to show"."""
-    import shiboken6
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QMainWindow
 
@@ -1696,7 +1695,7 @@ def test_a_fatal_dialog_whose_window_is_destroyed_under_it_says_so(
         destroyer.stop()
 
     assert len(opened) == 1
-    assert not shiboken6.isValid(opened[0]), "fixture: the box was not destroyed"
+    assert not app_module._qt_object_alive(opened[0]), "fixture: the box survived"
     assert not _messages(caplog, "failed to show the fatal-error dialog"), [
         r.getMessage() for r in caplog.records
     ]

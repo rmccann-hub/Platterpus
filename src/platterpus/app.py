@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     # importing it at module scope purely to annotate a signature would undo that
     # (and `from __future__ import annotations` means these names are never
     # evaluated at runtime).
-    from PySide6.QtCore import QCoreApplication, QTimer
+    from PySide6.QtCore import QCoreApplication, QObject, QTimer
     from PySide6.QtWidgets import QMessageBox, QWidget
 
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
@@ -191,6 +191,20 @@ def _arm_fatal_dialog_auto_dismiss(
     return deadline, countdown
 
 
+def _qt_object_alive(obj: QObject) -> bool:
+    """Whether Qt has NOT yet destroyed ``obj``'s C++ side. Never raises.
+
+    A wrapper whose object Qt deleted (a child destroyed with its parent) raises
+    `RuntimeError` on any call; asked here with the cheapest one. `shiboken6`
+    has `isValid`, but it is not a declared dependency of ours.
+    """
+    try:
+        obj.objectName()
+    except RuntimeError:
+        return False
+    return True
+
+
 def _fatal_dialog_parent() -> QWidget | None:
     """The window the fatal dialog attaches to: the active one, if it is ON SCREEN.
 
@@ -252,7 +266,6 @@ def _show_fatal_dialog(
     """
     global _fatal_dialog_open
     try:
-        import shiboken6
         from PySide6.QtCore import Qt, QThread
         from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -366,10 +379,10 @@ def _show_fatal_dialog(
             # and `stop()` on a deleted timer raised, which the `except` below
             # then reported as "failed to show" (TASKS R128).
             for timer in timers:
-                if shiboken6.isValid(timer):
+                if _qt_object_alive(timer):
                     timer.stop()
                     timer.timeout.disconnect()
-            if not shiboken6.isValid(box):
+            if not _qt_object_alive(box):
                 log.warning(
                     "fatal-error dialog %r was destroyed before anyone dismissed "
                     "it: the window it was attached to went away. The error it "
