@@ -11,6 +11,13 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-04 — round 38 laps 2 and 4; `.29` under review; 0.7.120
+
+- **Round 38, our side.** Laps 2 and 4 released on the owner's word: the fork's six `.29` wordings read before the build (14ec9bb9), four questions on their exact form, and the owner's directive that each side clear its own task, issue and bug lists (R126, R128, R122's last finding and R123's rig script closed or built). The fork's laps 3 and 5 filed and verified: their digests reproduce, `.29`'s `src/` equals what we read, and their `block_crcs` combine by zlib's `crc32_combine` to each track's `eac_crc`.
+- **A defect their lap 3 exposed** (3fe172ad): `.29`'s undecided `Gaps:` row was missed by both our readers of that block; the EAC-layout log would have claimed *Appended to previous track*. The fork found the same hole in two of their own tools after our lap 4 said so.
+- **`.29` (`8d2ca72`) named under review** (#446), and **0.7.120 cut** on the owner's word ("Do the next release so we can do a test run") for round 38's Full run.
+- **Learned.** A status test that looks for the word "open" passed for a round only because the word appeared inside an unrelated phrase; a check that matches a label must also require the subject (CLAUDE.md, *can it be satisfied by the wrong thing?*). And a sweep that cannot trace a new code shape (`A.match(t) or B.match(t)`) is taught the shape, not given an exemption.
+
 ## 2026-11-03 (evening) — round 37 closed; `.28` the default; 0.7.119
 
 - **The owner's four decisions** ("do 1 - 4 as recommended", #438): a CTDB-only disagreement is a note and never "WRONG"; the Tracks table opens with four rows; an unwritable output folder is refused before the rip; the WAV warning names what a WAV keeps, measured through our own transcode. Critical rule 4 amended to match, on the owner's word ("update rule 4", #439).
@@ -11056,4 +11063,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.119.*
+*Last updated for Platterpus v0.7.120.*
