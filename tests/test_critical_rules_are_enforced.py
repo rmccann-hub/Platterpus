@@ -1620,7 +1620,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3126 -> 3159** (2026-11-03, round 37's pin moves to `.28` at its release, the fork's lap 4): `PIN_UNDER_REVIEW` `3f288fb`, its release sequence 39, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version, each with the source it was read from.
     # **3159 -> 3178** (2026-11-03): the roll to `3f288fb` on round 37's close, recorded beside `FORK_PIN` and `FORK_EXPECTED_VERSION`, as each roll is, and `.27` named in the `--verify-log` set, which it reached only as `FORK_PIN`.
     # **3178 -> 3180** (2026-11-04): `PIN_UNDER_REVIEW_ROUND` moves to 38 when the fork's lap 1 opens round 38, recorded beside the constant as each round is.
-    "deps/fork_source.py": 3180,
+    # **3180 -> 3218** (2026-11-04, round 38's pin moves to `.29` at its release, the fork's lap 5): `PIN_UNDER_REVIEW` `8d2ca72`, its release sequence 40, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version and full commit, each with the source it was read from.
+    "deps/fork_source.py": 3218,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2348,7 +2349,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1332 -> 1362** (2026-10-19): regenerated from `.25`'s contract (`round-35-lap-15-provider-contract-g3e978f9.md`), 142 P5 and 11 P5a; the nine argument errors their lap 15 S10 restored. Generated, not hand-grown.
     # **1362 -> 1421** (2026-10-19): six `.24` wordings `.25` reworded kept in `RETAINED_BEYOND_P5` with their reasons, since an install may still run `.24`, and the hand-kept "Offset is unset!" row removed now that `.25`'s P5 carries it.
     # **1421 -> 1599** (2026-11-03): regenerated from `.28`'s contract (`round-37-lap-04-provider-contract-gef413b1.md`), 161 P5 and 14 P5a, generated; five `.27` wordings `.28` dropped or reworded kept in `RETAINED_BEYOND_P5`, since `.27` is `FORK_PIN` and the default ripper until round 37 closes; and three new P5a rows decided in `P5A_NOT_RETAINED`; and `.28`'s lone closing quote excluded from surfacing with its reason, the fused cover-art exclusion replaced by why it left.
-    "ripper_message_inventory.py": 1609,
+    # **1609 -> 1625** (2026-11-04): regenerated from `.29`'s contract (`round-38-lap-05-provider-contract-g2a06e064.md`), 162 P5 and 14 P5a, generated: the two cover-art refusals added, and libcdio's two messages published as composed rows (`cdio: "%s"`, `cdio error: %s`), so `.27`'s retained copies of those left `RETAINED_BEYOND_P5` and `.28`'s fragments (`cdio: "`, `cdio error:`) took their place with their reasons, `.28` being `FORK_PIN` until round 38 closes.
+    "ripper_message_inventory.py": 1625,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own

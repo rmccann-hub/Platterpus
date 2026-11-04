@@ -321,6 +321,14 @@ FORK_PIN: Final[str] = "3f288fb"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 38's subject from 2026-11-04, on BETA only: `release_seq` 40,
+    # `handshake_round` 38, `round_closed: false`, version `0.9.4-rc3+platterpus.29`.
+    # Read off their `release-manifest.json` at `1d7a1a4` (the commit that published
+    # it; unchanged at the merge of their PR #92, `8b891645`), filed byte-exact as
+    # `tests/fixtures/fork_release_manifest_1d7a1a4.json`. Round 38's pin moves here
+    # at its release, on their operator's word of 2026-11-04, "Yes to all" (their
+    # lap 5's PIN-POLICY).
+    "8d2ca72": 40,
     # Round 37's subject from 2026-11-03, on BETA only: `release_seq` 39,
     # `handshake_round` 37, `round_closed: false`, version `0.9.4-rc3+platterpus.28`.
     # Read off their `release-manifest.json` at `8a9a21d` (the commit that published
@@ -986,7 +994,21 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: `--prefer-disc-isrc` (line 60), `--prefer-accuraterip-match` (line 61) and `-Y`
 #: (line 111), and adds `--reread-time-limit` (line 62), which we read and do not
 #: send. **`FORK_PIN` stays `5aeefc4` until round 37 closes.**
-PIN_UNDER_REVIEW: Final[str] = "3f288fb"
+#: **Round 37 closed on 2026-11-03** and `FORK_PIN` rolled to `3f288fb`; round 38's
+#: lap 1 opened on `.28`, the newest released pair, so the two pins coincided.
+#: **Moved `3f288fb` -> `8d2ca72` on 2026-11-04, round 38**, at `.29`'s release, on
+#: their operator's word of that day, *"Yes to all"*, which their lap 5's PIN-POLICY
+#: records (their lap 1's said the pin moves only on that word). `.29` is published
+#: on beta at `1d7a1a4` (`release_seq` 40, `round_closed: false`;
+#: `tests/fixtures/fork_release_manifest_1d7a1a4.json`), merged at `8b891645` (their
+#: PR #92), and `meson.build` line 21 at `8d2ca72` declares the version. Its
+#: `PROVIDER-CONTRACT.md` (built at `g2a06e064`, whose `src/` and `meson.build` equal
+#: `8d2ca72`'s; source anchor `70549c5b81227f06` recomputed at both) is filed as
+#: `round-38-lap-05-provider-contract-g2a06e064.md`; P1 keeps `--consumer` (line 58),
+#: `--prefer-disc-isrc` (line 60), `--prefer-accuraterip-match` (line 61),
+#: `--reread-time-limit` (line 62), which we read and do not send, and `-Y` (line
+#: 111). **`FORK_PIN` stays `3f288fb` until round 38 closes.**
+PIN_UNDER_REVIEW: Final[str] = "8d2ca72"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -1029,6 +1051,8 @@ PIN_UNDER_REVIEW: Final[str] = "3f288fb"
 #: is open (`release_seq` 39, `handshake_round` 37, `round_closed: false`).
 #: **38 from 2026-11-04**: their lap 1 opens round 38 on `.28`, the newest released
 #: pair, reviewing `.29`; the pin moves to `.29` when it is released, on the owner's word.
+#: **Still 38 for `.29` from 2026-11-04**: published on beta inside round 38 while it
+#: is open (`release_seq` 40, `handshake_round` 38, `round_closed: false`).
 PIN_UNDER_REVIEW_ROUND: Final[int] = 38
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
@@ -1510,6 +1534,10 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # `PROVIDER-CONTRACT.md` at `3f288fb` (built at `gef413b1`, same `src/` and
         # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
         "platterpus-fork-g3f288fb",
+        # Round 38's subject from 2026-11-04, `+platterpus.29`. Its
+        # `PROVIDER-CONTRACT.md` at `8d2ca72` (built at `g2a06e064`, same `src/` and
+        # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-g8d2ca72",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1736,7 +1764,8 @@ def accepts_consumer_flag(build_tag: str) -> bool:
 #: ``g3e978f9``, line 60) on 2026-10-19; ``.26`` (``ca0f097``, built at
 #: ``ge2b52b1``, line 60) on 2026-10-21; ``.27`` (``5aeefc4``, built at
 #: ``g580c46c``, line 60) on 2026-10-26; ``.28`` (``3f288fb``, built at
-#: ``gef413b1``, line 60) on 2026-11-03.
+#: ``gef413b1``, line 60) on 2026-11-03; ``.29`` (``8d2ca72``, built at
+#: ``g2a06e064``, line 60) on 2026-11-04.
 BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
     {
         "platterpus-fork-g93afa15",
@@ -1744,6 +1773,7 @@ BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
         "platterpus-fork-gca0f097",
         "platterpus-fork-g5aeefc4",
         "platterpus-fork-g3f288fb",
+        "platterpus-fork-g8d2ca72",
     }
 )
 
@@ -1773,13 +1803,18 @@ def accepts_prefer_disc_isrc(build_tag: str) -> bool:
 #: ``.24``'s, ``.25``'s and ``.26``'s tags joined
 #: :data:`BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC`. A later build joins when its own
 #: contract is filed and still lists it: ``.28`` (``3f288fb``, built at
-#: ``gef413b1``, line 61) on 2026-11-03. Enumerated, never inferred from a
+#: ``gef413b1``, line 61) on 2026-11-03; ``.29`` (``8d2ca72``, built at
+#: ``g2a06e064``, line 61) on 2026-11-04. Enumerated, never inferred from a
 #: version, for the reason ``--consumer``'s set gives: cyanrip refuses an option
 #: it does not know, and a refused rip reads as a missing ripper. Every build not
 #: listed reaches the verified-read chase instead (``verified_read_chase.py``,
 #: TASKS R7), which stays for every build without the option.
 BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH: Final[frozenset[str]] = frozenset(
-    {"platterpus-fork-g5aeefc4", "platterpus-fork-g3f288fb"}
+    {
+        "platterpus-fork-g5aeefc4",
+        "platterpus-fork-g3f288fb",
+        "platterpus-fork-g8d2ca72",
+    }
 )
 
 
@@ -1787,8 +1822,8 @@ def accepts_prefer_accuraterip_match(build_tag: str) -> bool:
     """Whether a build identified by ``build_tag`` accepts ``--prefer-accuraterip-match``.
 
     Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
-    as :func:`accepts_prefer_disc_isrc`. True for ``.27`` (``5aeefc4``) and ``.28``
-    (``3f288fb``) today.
+    as :func:`accepts_prefer_disc_isrc`. True for ``.27`` (``5aeefc4``), ``.28``
+    (``3f288fb``) and ``.29`` (``8d2ca72``) today.
     """
     tag = (build_tag or "").strip().casefold()
     if tag.endswith("-dirty"):
@@ -1823,7 +1858,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 #: :data:`FORK_PIN` in full.
 FORK_PIN_FULL: Final[str] = "3f288fb735215e067f4c5ba36d15fba1c084e972"
 #: :data:`PIN_UNDER_REVIEW` in full.
-PIN_UNDER_REVIEW_FULL: Final[str] = "3f288fb735215e067f4c5ba36d15fba1c084e972"
+PIN_UNDER_REVIEW_FULL: Final[str] = "8d2ca7260781b476f156ddffe01c811550fce29a"
 #: :data:`FORK_TEST_PIN` in full.
 FORK_TEST_PIN_FULL: Final[str] = "3952c03a397790b7c6bd4ae07a5a01c0a5d65e77"
 
@@ -2388,7 +2423,10 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # **Round 37's subject from 2026-11-03, `.28`, from their manifest's beta entry
     # at `8a9a21d`**: `commit` `3f288fb`, `version` `0.9.4-rc3+platterpus.28`, as
     # `meson.build` line 21 there declares.
-    version="0.9.4-rc3+platterpus.28",
+    # **Round 38's subject from 2026-11-04, `.29`, from their manifest's beta entry
+    # at `1d7a1a4`**: `commit` `8d2ca72`, `version` `0.9.4-rc3+platterpus.29`, as
+    # `meson.build` line 21 there declares.
+    version="0.9.4-rc3+platterpus.29",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`
