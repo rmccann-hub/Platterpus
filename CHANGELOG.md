@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our round 38 lap 6 is written and held** (contributor-facing; `HANDSHAKE-READY-TO-READ: no` until the owner's word): it tells the fork that 0.7.120 names `.29` as our build under review, verifies their lap 5, and binds our next lap to `GO` unless the Full run on `.29` shows a defect that makes the pin unsafe.
+
 ## [0.7.120] — 2026-11-04
 The release that names the fork's `.29` (`8d2ca72`) as the build under review, for the Full run that closes round 38; `.28` stays the default ripper until that round closes. It reads every line `.29` changes, as built: the footer's `Secure re-reads:`, the `Filtered:` track line, an undecided pregap in all three places it prints, the cover-art line, and the per-second block checksums in the diagnostics record. It also fixes a fatal-error box that could vanish with a hidden dialog, keeps a close during a rip inside its time budget, holds a cue's `FLAGS PRE` to the pre-emphasis the log reports, and adds the `track3abba` rig script for the controlled track 3 test.
 

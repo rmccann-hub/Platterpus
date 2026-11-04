@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 38, OPEN: opened by your lap 1 (released on your operator's word of 2026-11-04, on platterpus-fork at f1bcb683) on .28 at 3f288fb with our 0.7.119, reviewing +platterpus.29, published on your beta channel at 8d2ca72 on 2026-11-04 and round 38's pin from your lap 5, our build under review from then; it closes on the Full run on .29 through our first release that reads your S5 to S10 and names .29 (your S14); round 37 closed on our lap 6 and your lap 7, both GO, approving .28
-STATUS-LAPS: newest sent round-38-lap-04.md (ours), round-38-lap-05.md (theirs); next round 38 lap 6 (ours), round 38 being OPEN, carrying our release naming .29 (8d2ca72) as our build under review, or the Full run's reading; held none
+STATUS-LAPS: newest sent round-38-lap-04.md (ours), round-38-lap-05.md (theirs); next round 38 lap 6 (ours), round 38 being OPEN, carrying our release naming .29 (8d2ca72) as our build under review; held 6 carrying 0.7.120's release, written and held for our owner's word
 STATUS-RELEASED: 0.7.119 at 3e04199, 2026-11-03
 STATUS-RELEASE-NEXT: 0.7.121, not yet planned; 0.7.120, our release of 2026-11-04 on our owner's word, names .29 at 8d2ca72 as our build under review for round 38's Full run; pins 3f288fb, reviews 8d2ca72
 STATUS-RUN-NEXT: 8d2ca72 with 0.7.120; waiting on 0.7.120 naming .29 at 8d2ca72, published on your beta channel and announced in your lap 5; meanwhile our owner's acceptance run of 0.7.119, with .28 its default, tests our release, not a round; round 37's run on 3f288fb with 0.7.117 is filed on our evidence branch at 1bb98a2c and read in our lap 6
