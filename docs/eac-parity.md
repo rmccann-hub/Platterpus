@@ -1648,7 +1648,7 @@ and Part F's per-run scores stay the dated record.
 
 From source, at pinned commits: **redumper** (`fa5d243`, GPL-3.0) keeps a per-sample
 state from C2 and re-reads only incomplete sectors (`refine`); without C2 it has
-nothing to revisit, so it adds nothing on this drive. **whipper** (`71251a0`) re-rips
+nothing to revisit, so it adds nothing on this drive. **The ripper older versions of Platterpus used** (`71251a0`) re-rips
 whole tracks on a test/copy mismatch; its issues #667 and #679 ask for AccurateRip-
 guided selection and splicing, unbuilt. **rubyripper** (`6ed1d6c`) votes per 2,352-byte
 chunk across whole-track passes, the closest prior art for voting, but its trigger is
