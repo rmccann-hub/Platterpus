@@ -951,6 +951,14 @@ def test_a_weekly_job_regenerates_the_locks_and_proposes_them() -> None:
     )
     create = executable.index('if ! url="$(gh pr create ')
     assert push < dispatch < create
+    # The dispatch starts a run only while ci.yml accepts `workflow_dispatch`;
+    # without that trigger `gh workflow run` fails and the relock gets no CI
+    # again, so the other end of the dispatch is held too (TASKS R126 (a)).
+    ci_on = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8").split("\njobs:", 1)[0]
+    assert re.search(r"^  workflow_dispatch:", ci_on, re.M), (
+        "ci.yml no longer accepts workflow_dispatch, so the relock job's "
+        "`gh workflow run ci.yml` cannot start CI on its branch"
+    )
     # Superseded relock branches are deleted, the run's own is not, and that
     # happens whether or not the pull request opened.
     cleanup = executable.index("git ls-remote --heads origin 'refs/heads/relock/*'")
