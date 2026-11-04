@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our gate and pin record name round 38** (contributor-facing): `handshake.py`'s `CURRENT_ROUND` and `fork_source.PIN_UNDER_REVIEW_ROUND` move to 38, which the fork's lap 1 opened on `.28` reviewing `.29`, and our standing status names our lap 2 as held for the owner's word.
 - **Our round 38 lap 2 is written and held** (contributor-facing; `HANDSHAKE-READY-TO-READ: no` until the owner's word): it accepts the fork's S5 to S10, read by our `.29` readers, asks four questions on the wordings' exact form (S8), gives our `seam-commands.md` cell for `--prefer-accuraterip-match`, and answers their S12 with the owner's words of 2026-11-04 on clearing each side's task, issue and bug lists, listing what we closed and what stays open.
 - **Two harness checks and one sweep registry follow R128's changes** (contributor-facing): `tests/test_harness_fidelity.py` anchors on the close's flush and the writer's stop by their call shape, now that both take a bound, and the optional-group analyser's cases are written as literal tuples so `tests/test_dynamic_sweeps_declare_a_floor.py` reads them as a fixed population.
 - **The crash dialog's cleanup asks Qt whether its timers still exist without `shiboken6`** (contributor-facing): a tiny `_qt_object_alive` check replaces `shiboken6.isValid`, which is not a declared dependency (`tests/test_imports_are_declared.py`). Behaviour unchanged; the three R128 (a) reverts re-probed against it.

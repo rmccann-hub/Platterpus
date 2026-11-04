@@ -1027,7 +1027,9 @@ PIN_UNDER_REVIEW: Final[str] = "3f288fb"
 #: pair; the pin moves to `.28` when it is released, on the owner's word (R4).
 #: **Still 37 for `.28` from 2026-11-03**: published on beta inside round 37 while it
 #: is open (`release_seq` 39, `handshake_round` 37, `round_closed: false`).
-PIN_UNDER_REVIEW_ROUND: Final[int] = 37
+#: **38 from 2026-11-04**: their lap 1 opens round 38 on `.28`, the newest released
+#: pair, reviewing `.29`; the pin moves to `.29` when it is released, on the owner's word.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 38
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
