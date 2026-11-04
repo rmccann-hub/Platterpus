@@ -126,18 +126,18 @@ def optional_groups(pattern: re.Pattern[str]) -> tuple[frozenset[str], frozenset
 @pytest.mark.parametrize(
     ("pattern", "optional", "mandatory"),
     [
-        (r"(?P<a>\d+)", set(), {"a"}),
-        (r"x(?:\s+(?P<a>\d+))?", {"a"}, set()),
-        (r"(?P<a>\d)*", {"a"}, set()),
-        (r"(?P<a>\d){1,3}", set(), {"a"}),
-        (r"(?P<a>\d)|z", {"a"}, set()),
-        (r"(?P<a>\d)|(?P<b>z)", {"a", "b"}, set()),
-        (r"(?:(?P<a>\d)|x)(?P<b>y)", {"a"}, {"b"}),
-        (r"(?:(?P<a>\d)y|(?P<a2>\d)z)?w", {"a", "a2"}, set()),
+        (r"(?P<a>\d+)", (), ("a",)),
+        (r"x(?:\s+(?P<a>\d+))?", ("a",), ()),
+        (r"(?P<a>\d)*", ("a",), ()),
+        (r"(?P<a>\d){1,3}", (), ("a",)),
+        (r"(?P<a>\d)|z", ("a",), ()),
+        (r"(?P<a>\d)|(?P<b>z)", ("a", "b"), ()),
+        (r"(?:(?P<a>\d)|x)(?P<b>y)", ("a",), ("b",)),
+        (r"(?:(?P<a>\d)y|(?P<a2>\d)z)?w", ("a", "a2"), ()),
     ],
 )
 def test_the_analyser_tells_an_optional_group_from_a_mandatory_one(
-    pattern: str, optional: set[str], mandatory: set[str]
+    pattern: str, optional: tuple[str, ...], mandatory: tuple[str, ...]
 ) -> None:
     """The sweep below is only as good as this reading, so it is pinned first."""
     assert optional_groups(re.compile(pattern)) == (
