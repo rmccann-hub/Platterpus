@@ -119,9 +119,11 @@ text is taken verbatim as one value.
 | `skip-if-same-build` | 2 | ready | skip-if-same-build <A> <B> — when A and B (as install-ripper reads them) name one build, say 'nothing to compare' (info) and mark the rest of this section N/A instead of running it |
 | `record-timing` | 1 | ready | record-timing <label> — record the last rip's per-track Elapsed: seconds, AccurateRip results and log-named build, under <label> (info; an untimed track or an unnamed build is an error, not determined) |
 | `compare-timings` | 2–4 | ready | compare-timings <base> <candidate> [<base2> <candidate2>] — the ratio of candidate's summed Elapsed: to base's over the same tracks; with four labels, both ratios and whether they agree within 0.05; names each timed read AccurateRip did not verify (info, a measurement; not determined when the tracks, read counts or builds do not allow it) |
-| `record-accuracy` | 1 | ready | record-accuracy <label> — record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32 and extraction speed, and the build its log names, under <label> (info; a log naming no build is an error, not determined) |
+| `record-accuracy` | 1–2 | ready | record-accuracy <label> [<folder>] — record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32, extraction speed and FIXUP_ATOM, the log's Cache probe: line, and the build its log names, under <label>; with <folder>, the rip is the one cyanrip log a `cyanrip ... -D <folder>` step wrote this run in the rips folder (info; a log naming no build, or not exactly one log, is an error, not determined) |
 | `compare-accuracy` | 2–16 | ready | compare-accuracy <label> <label>… — per build and per track, right in N of M rips, with the distinct CRC32s each build read (info, a measurement; refused as not determined when a log names no build, the tracks differ, only one build is named, or AccurateRip gave no answer) |
+| `compare-conditions` | 3–17 | ready | compare-conditions <track> <label> <label>… — per condition (the label without its trailing digits: pair1 and pair2 are `pair`), right in N of M rips of that track, its CRC32s, FIXUP_ATOM and cache probe per rip (info, a measurement; refused as not determined when a log names no build, the rips came from more than one build, a rip lacks the track, only one condition is named, or AccurateRip gave no answer) |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (device) to the selected drive (as -d, refused when none is selected), (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
+| `cyanrip-timeout` | 1 | ready | cyanrip-timeout <seconds> — how long each later `cyanrip` step in this run may take before it is killed (default 300; over the rip cap of 21600 is clamped to it and said); for a scripted rip, not a probe |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code|refused> — assert the last cyanrip exit code; `refused` is the build's own code for refusing to start (1, or 64 from .25) |
 | `expect-deemphasis-pair` | 2 | ready | expect-deemphasis-pair <forced-folder> <disabled-folder> — read this run's cyanrip log in each -D folder (de-emphasis forced first): pass when every EAC CRC32 agrees and the integrated loudness differs by at least 0.3 LU; fail when either does not hold; blocked (not determined) when a log or value is missing or the build measures loudness before the filter |
@@ -969,10 +971,10 @@ found nothing wrong*.
     {
       "name": "record-accuracy",
       "min_args": 1,
-      "max_args": 1,
+      "max_args": 2,
       "takes_paths": false,
       "implemented": true,
-      "help": "record-accuracy <label> \u2014 record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32 and extraction speed, and the build its log names, under <label> (info; a log naming no build is an error, not determined)"
+      "help": "record-accuracy <label> [<folder>] \u2014 record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32, extraction speed and FIXUP_ATOM, the log's Cache probe: line, and the build its log names, under <label>; with <folder>, the rip is the one cyanrip log a `cyanrip ... -D <folder>` step wrote this run in the rips folder (info; a log naming no build, or not exactly one log, is an error, not determined)"
     },
     {
       "name": "compare-accuracy",
@@ -983,12 +985,28 @@ found nothing wrong*.
       "help": "compare-accuracy <label> <label>\u2026 \u2014 per build and per track, right in N of M rips, with the distinct CRC32s each build read (info, a measurement; refused as not determined when a log names no build, the tracks differ, only one build is named, or AccurateRip gave no answer)"
     },
     {
+      "name": "compare-conditions",
+      "min_args": 3,
+      "max_args": 17,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "compare-conditions <track> <label> <label>\u2026 \u2014 per condition (the label without its trailing digits: pair1 and pair2 are `pair`), right in N of M rips of that track, its CRC32s, FIXUP_ATOM and cache probe per rip (info, a measurement; refused as not determined when a log names no build, the rips came from more than one build, a rip lacks the track, only one condition is named, or AccurateRip gave no answer)"
+    },
+    {
       "name": "cyanrip",
       "min_args": 1,
       "max_args": null,
       "takes_paths": true,
       "implemented": true,
       "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (device) to the selected drive (as -d, refused when none is selected), (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends"
+    },
+    {
+      "name": "cyanrip-timeout",
+      "min_args": 1,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "cyanrip-timeout <seconds> \u2014 how long each later `cyanrip` step in this run may take before it is killed (default 300; over the rip cap of 21600 is clamped to it and said); for a scripted rip, not a probe"
     },
     {
       "name": "expect-cyanrip",

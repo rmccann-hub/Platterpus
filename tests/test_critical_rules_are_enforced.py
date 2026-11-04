@@ -1093,6 +1093,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **359 -> 364** (2026-11-03, TASKS R66): `grade_accuraterip` words each AccurateRip state through `accuracy_grading.STATE_WORDS`, so a frame-450-only match reads "frame 450 only", not `offset-variant`.
     # **364 -> 328** (2026-11-03, review A3/C1 of the 0.7.117 Full run): lowered: `grade_ctdb` moved to `uiscript/record_grading.py`, beside the other graders that read a verdict the report computed; `derived_verification_refusal` refuses a derived gate that ran and FAILED.
     "uiscript/artifact_grading.py": 328,
+    # **296 -> 310** (2026-11-04, TASKS R123, the track-3 script): crossed the heuristic by a FIXUP_ATOM count on each track record and the log's `Cache probe:` value on each rip record, the two facts the fork's round 37 lap 7 S11 asks every track-3 rip to carry. They belong to the record this module defines; the per-condition comparison is its own module, `condition_grading.py`.
+    "uiscript/accuracy_grading.py": 310,
     # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
     # claude-code-skills audit check. **Kept as one module deliberately**: the
     # weight behind a match (`best_confidence`, `outvoted`) and its one wording
@@ -3017,7 +3019,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4909 -> 4911** (2026-11-03, review C5): the `DeemphasisVerbsMixin` in the class list and its import; the handler lives in `deemphasis_verbs.py`, the grade in `deemphasis_grading.py`.
     # **4911 -> 4913** (2026-11-03, review C9): the `ControlVerbsMixin` in the class list and its import; `expect-config-saved`, `expect-no-rip` and `wait-for-status` live in `control_verbs.py`.
     # **4882 -> 4884** (2026-11-03, review C3 and C4 of the 0.7.117 Full run): `RecordVerbsMixin` imported and inherited; its handlers live in `uiscript/record_verbs.py`, not here.
-    "uiscript/runner.py": 4915,
+    # **4915 -> 4956** (2026-11-04, TASKS R123): the `cyanrip-timeout` verb and the per-run bound it sets, carried on each `_CyanripJob` so the unreapable-child check waits the same bound. It changes how the `cyanrip` verb, which lives here, kills its child, so it lives beside it.
+    "uiscript/runner.py": 4956,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3074,7 +3077,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1096 -> 1121** (2026-11-03, review C9): the `expect-config-saved`, `wait-for-status` and `expect-no-rip` declarations, which let sections D2, H2 and the unknown-disc run's G assert what a user's press did. The table is the vocabulary's security boundary, so a verb is an entry here by design; the handlers are a new mixin, `control_verbs.py`.
     # **1082 -> 1090** (2026-11-03, review C3 of the 0.7.117 Full run): the `expect-read-offset` declaration, beside `expect-ctdb`. The table is the vocabulary's security boundary, so a verb is an entry here.
     # **1090 -> 1098** (2026-11-03, review C4): the `expect-derived-files` declaration, beside `expect-read-offset`.
-    "uiscript/verbs.py": 1137,
+    # **1137 -> 1162** (2026-11-04, TASKS R123): the `compare-conditions` and `cyanrip-timeout` declarations, and `record-accuracy`'s optional folder. The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 1162,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

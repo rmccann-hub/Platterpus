@@ -1,0 +1,175 @@
+# =============================================================================
+# TRACK 3 — does it read wrong after track 2? One variable at a time (TASKS R123)
+# =============================================================================
+#
+#   Run it:   ./platterpus-x86_64.AppImage --run-script track3abba
+#   Costs:    typically about 25 to 40 minutes on the reference rig (not yet
+#             measured: an estimate from P6's track-3 rips). Twelve rips, all
+#             of track 3, eight of them with track 2 before it.
+#
+# THREE STEPS FOR THE OWNER. Nothing in this file needs editing.
+#   1. Put the reference disc in the drive (The Police, "Every Breath You Take:
+#      The Classics", the disc of every Full run) and close any rip in progress.
+#   2. Run the line above. Leave the machine alone until the app log says DONE.
+#   3. Send the ONE .tar.gz named on the "SEND THIS ONE FILE" line of the app
+#      log (under ~/.local/share/platterpus/bundles/) the way you send a Full
+#      run's bundle. Its transcript carries every rip's result.
+#
+# -----------------------------------------------------------------------------
+# WHY THIS EXISTS
+# -----------------------------------------------------------------------------
+# In the owner's Full runs, track 3 of the reference disc read wrong whenever it
+# was ripped straight after track 2 (section P5's four timed rips of tracks 1 to
+# 3, and the 0.7.119 run's secure re-read) and right whenever it was ripped alone
+# (section P6, 8 of 8, CRC32 59D352DD). The fork's round 37 lap 7 S11 names what
+# to vary, one thing at a time, with each rip's AccurateRip verdict: "Tracks 2
+# and 3 together against track 3 alone, then: the speed (no `-S`, then `-S 4`);
+# `--cache-probe` on every rip, so each carries the cache model it read under;
+# the paranoia level (the default, then `-P 0`), which shows whether the
+# difference arrives from the drive or from paranoia's fix-ups, since the wrong
+# reads carry 12 to 24 `FIXUP_ATOM` and the right ones 0 to 8; and a second
+# drive, which separates the disc from the drive." (cyanrip@93c70cbc:
+# docs/handshake/round-37-lap-07.md, S11). The second drive is not in this
+# script: it needs a second drive, and this script runs on the one selected.
+#
+# A MEASUREMENT, NOT A VERDICT. Every result is `info`: a track that reads wrong
+# is a finding for the fork and the drive, not a defect of the app. What can go
+# red is a rip that did not finish (`expect-exit 0`) or a comparison that cannot
+# be made (`compare-conditions` refuses rips from two builds, a rip without track
+# 3, one condition only, or a rip AccurateRip said nothing about).
+#
+# HOW EACH RIP IS MADE. Straight through cyanrip (the `cyanrip` verb), because an
+# app rip cannot send `--cache-probe` or `-P 0`. Each rip sends what an app rip
+# sends that bears on the read (`-N -U -W`, this drive's offset, `-o flac`, the
+# shipped retry ceiling `-r 5`, no `-Z` securing pass, no `-S` unless the arm
+# says so), plus `--cache-probe`, into its own folder in the rips folder, named
+# for its label. `record-accuracy <label> <folder>` then reads that folder's one
+# log from this run: track 3's AccurateRip state, CRC32, speed, FIXUP_ATOM, and
+# the log's `Cache probe:` line. `compare-conditions 3 ...` groups the records
+# by condition, the label without its trailing digits (pair1 to pair4 are
+# `pair`), and prints right in N of M per condition.
+#
+# THE ORDER. Section C alternates ABBA over four pairs (A = tracks 2 and 3, B =
+# track 3 alone), so a drift that grows through the run (the drive warming, the
+# disc heating) favours neither. Sections D and E then change ONE thing from A,
+# twice each, and compare against C's four A rips; they come after C, so drift
+# is not balanced there, and their comparison says so by its order.
+#
+# THE TIME BOUND. A scripted cyanrip step is killed after 300 s by default, which
+# a two-track rip at a slow speed can pass. `cyanrip-timeout 1800` gives each rip
+# 30 minutes; a rip past that is killed and the batch continues.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log TRACK 3 - after track 2, or alone? one variable at a time
+log typically about 25-40 minutes, twelve rips of track 3
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+# --- A. IDENTITY -----------------------------------------------------------
+# Which binary made every read below. Each record also names the build from its
+# own log, and `compare-conditions` refuses rips from two builds.
+
+log --- A. identity ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+snapshot identity
+
+# --- B. THE DRIVE AND THE DISC ---------------------------------------------
+# The offset is this drive's own (`set-drive-offset`, as every script sets it).
+# The disc must be the reference disc with at least three tracks.
+
+log --- B. drive offset, disc, and the time bound ---
+set-drive-offset
+expect-drive-offset
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+rescan
+pick-release 1 120
+expect-tracks 3+
+abort-if-failed no disc with three tracks is loaded — put the reference disc in, then run again
+cyanrip-timeout 1800
+snapshot discready
+
+# --- C. TRACKS 2 AND 3 TOGETHER AGAINST TRACK 3 ALONE (ABBA) ---------------
+# A = `-l 2,3` (track 3 read straight after track 2), B = `-l 3`. Order:
+# A B B A A B B A, four of each.
+
+log --- C. tracks 2+3 (pair) against track 3 alone (alone), ABBA ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 2,3 -D t3pair1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pair1 t3pair1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D t3alone1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy alone1 t3alone1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D t3alone2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy alone2 t3alone2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 2,3 -D t3pair2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pair2 t3pair2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 2,3 -D t3pair3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pair3 t3pair3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D t3alone3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy alone3 t3alone3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D t3alone4 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy alone4 t3alone4
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 2,3 -D t3pair4 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pair4 t3pair4
+compare-conditions 3 pair1 alone1 alone2 pair2 pair3 alone3 alone4 pair4
+snapshot afterselection
+
+# --- D. THE SPEED: `-S 4` ON THE PAIR --------------------------------------
+# C's pair rips sent no `-S` (the drive's own speed). These two send `-S 4` and
+# nothing else different.
+
+log --- D. tracks 2+3 at -S 4 (pairslow) against C's pairs ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 2,3 -D t3pairslow1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pairslow1 t3pairslow1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 2,3 -D t3pairslow2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pairslow2 t3pairslow2
+compare-conditions 3 pair1 pair2 pair3 pair4 pairslow1 pairslow2
+snapshot afterspeed
+
+# --- E. THE PARANOIA LEVEL: `-P 0` ON THE PAIR -----------------------------
+# C's pair rips ran paranoia at cyanrip's default (the maximum). These two send
+# `-P 0`, paranoia off, and nothing else different: if track 3 still reads wrong
+# with no fix-ups, the difference arrives from the drive.
+
+log --- E. tracks 2+3 at -P 0 (pairnofix) against C's pairs ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -P 0 -l 2,3 -D t3pairnofix1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pairnofix1 t3pairnofix1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -P 0 -l 2,3 -D t3pairnofix2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy pairnofix2 t3pairnofix2
+compare-conditions 3 pair1 pair2 pair3 pair4 pairnofix1 pairnofix2
+snapshot afterparanoia
+
+# --- F. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+# Nothing above changed a setting but debug logging; the time bound ends with
+# the run. The read offset stays: it is this drive's own.
+
+log --- F. restoring ---
+set debug_logging off
+expect-drive-offset
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log Its transcript holds every rip's track 3 result and the three
+log comparisons; the rips' own logs are in the t3* folders of the
+log rips folder.
+log =============================================================

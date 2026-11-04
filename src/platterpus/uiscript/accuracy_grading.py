@@ -85,6 +85,10 @@ class TrackAccuracy:
     crc32: str = ""
     #: ``Extraction speed:`` in X; ``None`` when the log printed none.
     speed: float | None = None
+    #: The track's paranoia ``FIXUP_ATOM`` count, ``None`` when the log has none.
+    #: The fork's round 37 lap 7 S11: track 3's wrong reads carried 12 to 24, the
+    #: right ones 0 to 8.
+    fixups: int | None = None
 
     def describe(self) -> str:
         """``track 3: verified (128 of 200), CRC32 59D352DD, 0.96x``."""
@@ -93,7 +97,8 @@ class TrackAccuracy:
             words += f" ({self.confidence})"
         crc = self.crc32 or "(none)"
         speed = f"{self.speed:.2f}x" if self.speed is not None else "speed (none)"
-        return f"track {self.number}: {words}, CRC32 {crc}, {speed}"
+        fixups = "" if self.fixups is None else f", FIXUP_ATOM {self.fixups}"
+        return f"track {self.number}: {words}, CRC32 {crc}, {speed}{fixups}"
 
 
 @dataclass(frozen=True)
@@ -109,6 +114,9 @@ class AccuracyRecord:
     build: str
     tracks: tuple[TrackAccuracy, ...] = ()
     source: str = ""
+    #: The log's ``Cache probe:`` value verbatim, ``""`` when it has none (a rip
+    #: without ``--cache-probe``): the cache model this rip read under.
+    cache: str = ""
 
     @property
     def track_numbers(self) -> tuple[int, ...]:
@@ -124,6 +132,8 @@ class AccuracyRecord:
         lines += [f"  {t.describe()}" for t in self.tracks]
         if not self.tracks:
             lines.append("  the log holds no audio track")
+        if self.cache:
+            lines.append(f"  cache probe: {self.cache}")
         if self.source:
             lines.append(f"  from {self.source}")
         return "\n".join(lines)
@@ -149,7 +159,9 @@ def _confidence(track: object, state: str) -> str:
     return ""
 
 
-def accuracy_from_log(label: str, log: RipLog, source: str = "") -> AccuracyRecord:
+def accuracy_from_log(
+    label: str, log: RipLog, source: str = "", cache: str = ""
+) -> AccuracyRecord:
     """An :class:`AccuracyRecord` from a parsed rip log. Never raises.
 
     Data tracks are left out: AccurateRip has nothing to say about them, and a
@@ -167,6 +179,7 @@ def accuracy_from_log(label: str, log: RipLog, source: str = "") -> AccuracyReco
                 confidence=_confidence(track, state),
                 crc32=(track.copy_crc or "").strip().upper(),
                 speed=track.extraction_speed,
+                fixups=track.paranoia_counts.get("FIXUP_ATOM"),
             )
         )
     return AccuracyRecord(
@@ -174,6 +187,7 @@ def accuracy_from_log(label: str, log: RipLog, source: str = "") -> AccuracyReco
         build=(log.ripper_build or "").strip(),
         tracks=tuple(tracks),
         source=source,
+        cache=cache,
     )
 
 
