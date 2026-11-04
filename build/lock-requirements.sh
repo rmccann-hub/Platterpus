@@ -402,7 +402,7 @@ lock_universal "$PUBLISH_LOCK" publish \
     extra:publish build-system
 lock_universal "$AUDIT_LOCK" audit \
     extra:dev:pip-audit
-# CI's test and typecheck jobs, on every Python of the matrix (3.11 to
+# CI's test and typecheck jobs, on every Python of the matrix (3.12 to
 # 3.14) from one resolution: the runtime dependencies, the dev extra, and the
 # backend the editable install builds with (`--no-build-isolation`).
 lock_universal "$CI_LOCK" ci \

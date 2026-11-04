@@ -2,7 +2,7 @@
 # Build the Platterpus AppImage via python-appimage.
 #
 # What this script does:
-#   1. Verifies the build prerequisites (python3 ≥ 3.11, `build`,
+#   1. Verifies the build prerequisites (python3 ≥ 3.12, `build`,
 #      `python-appimage`) are installed; offers a hint if not.
 #   2. Builds a wheel from the local source via `python -m build`.
 #   3. Places the wheel under build/python-appimage/ where
@@ -296,7 +296,7 @@ echo "Bundling CPython $PLATTERPUS_PYTHON_VERSION (python-appimage base)."
 # beside it, so the bundle can only contain what the lock names.
 #
 # The download runs on the HOST's Python, which is not the one being bundled
-# (CI runs 3.11; the AppImage bundles 3.12). numpy, cffi and pydantic-core ship
+# (the release job's is 3.12; the AppImage bundles 3.14). numpy, cffi and pydantic-core ship
 # one wheel per CPython minor, so the download asks for the BUNDLED target: the
 # lock's own header names the Python and platform it was resolved for, and a
 # build for another Python is refused here rather than failing later, offline,
