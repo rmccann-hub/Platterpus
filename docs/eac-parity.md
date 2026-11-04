@@ -23,6 +23,12 @@ were asked. The project's direction is now the other way round.
   would supply it. "Better diagnostics" is not "accepted". A gap in it is recorded
   as a gap, never filled with a plausible value.
 
+* **The bar for the audio and its verification: EAC is the gold standard.** The
+  owner, 2026-11-04: *"eac parity is good and is acceptable. doing better is fantastic, and we want to do that if technically possible. but they are the "gold" standard, if we match them 100% we succeed. if we are better we win. keep those priorities in mind when make tasks and such."* So a gap where EAC succeeds and we do not is a
+  **parity** gap and comes first; doing what EAC cannot is a **win** and comes
+  after, when it is technically possible. Tasks say which they are (TASKS R133 to
+  R135, Part G.4).
+
 This does not reverse Part C or Part D: tracker acceptance is still unreachable
 and still not chased. What changed is that the open-trust path is now the **route**
 to being accepted on merit, rather than the consolation for not being.
@@ -1667,6 +1673,15 @@ multiples of 2^16). A false match is about M x 2^-32 for v1 alone over M candida
 about 2^-64 for v1 and v2 together.
 
 ### G.4 The plan, in order (the owner's word of 2026-11-04: "yes" to each)
+
+**Parity first, then the win** (the standing direction above). **Track 3 is a parity
+gap:** EAC's secure read verifies it on this drive and ours does not reliably, so
+making our *read* of track 3 as reliable as EAC's (items 2 to 4) is the priority.
+**Track 5 is not:** EAC cannot verify it on this drive either, so verifying it is a
+win, and repair (item 1) delivers it, as EAC needs CUETools for. Repair is built
+first only because it is nearly done (the localiser exists) and it also fixes track
+3 whenever CTDB holds the disc; it does not stand in for reading track 3 right.
+
 
 1. **Native CTDB repair** (ours; TASKS R133). The localiser exists; what remains is
    to keep each correction's value, map it to a track, sample and channel, patch only
