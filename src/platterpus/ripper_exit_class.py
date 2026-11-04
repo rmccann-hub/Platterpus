@@ -197,3 +197,21 @@ def explain_failed_exit(
         # exit status it ended on.
         return ""
     return describe_exit_class(classify_exit(exit_code, build_tag), exit_code)
+
+
+def classed_exit_words(exit_code: int | None) -> str:
+    """cyanrip's own words for a classed exit that leaves a pass unfinished, or ``""``.
+
+    For the ladder and the securing pass (``ladder_trigger``), which judge whether
+    a pass finished without knowing the build. That is safe for 64 and 74: before
+    ``.25`` cyanrip's ``main()`` returned only 0 or 1, so either number is its own
+    class whatever the build. The 2026-11-03 Full run on 0.7.119 is why this
+    exists: the drive failed in section N, cyanrip exited 74, and the ladder's line
+    called 74 a code cyanrip "never returns (a signal, a crash or the container)"
+    beside the report's correct "its code for a disc or drive failure".
+    """
+    if exit_code == DISC_OR_DRIVE_EXIT:
+        return "its code for a disc or drive failure"
+    if exit_code == REFUSED_EXIT_WITH_CLASSES:
+        return "its code for a refused argument"
+    return ""

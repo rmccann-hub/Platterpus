@@ -54,33 +54,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from platterpus.read_speed_ladder import read_errors_present, unstable_tracks
+from platterpus.ripper_exit_class import classed_exit_words
 
 log = logging.getLogger(__name__)
 
-#: The exit codes after which cyanrip's own ``main()`` finished the pass and wrote
-#: its log: ``0`` and ``1`` (upstream returns ``!!err_cnt``; the fork kept every
-#: exit "within {0, 1}" until ``.25``, ``cyanrip@910dd99:src/cyanrip_main.c:3123``).
-#: From ``.25`` the fork ALSO returns its own classed exits, ``64`` for a refused
-#: argument and ``74`` for a disc or drive failure (:mod:`platterpus.ripper_exit_class`),
-#: but neither is a finished pass, so they stay out of this set and get their own
-#: words in :func:`_why_process_did_not_finish`.
+#: The exits after which cyanrip finished the pass (upstream returns ``!!err_cnt``);
+#: from ``.25`` it also returns 64 and 74 itself, unfinished (``classed_exit_words``).
 CYANRIP_OWN_EXITS: frozenset[int] = frozenset({0, 1})
-
-
-# cyanrip's classed exits from ``.25`` that mean the pass did NOT finish, with the
-# words for each. Read from :mod:`platterpus.ripper_exit_class` and
-# :mod:`platterpus.ripper_exit` rather than restated, so the numbers live in one
-# place. A build before ``.25`` cannot return either from its own ``main()``, so
-# neither needs the build tag to be read correctly here.
-def _classed_exit_words(exit_code: int) -> str:
-    from platterpus.ripper_exit import REFUSED_EXIT_WITH_CLASSES
-    from platterpus.ripper_exit_class import DISC_OR_DRIVE_EXIT
-
-    if exit_code == DISC_OR_DRIVE_EXIT:
-        return "its code for a disc or drive failure"
-    if exit_code == REFUSED_EXIT_WITH_CLASSES:
-        return "its code for a refused argument"
-    return ""
 
 
 @dataclass(frozen=True)
@@ -237,12 +217,7 @@ def _why_process_did_not_finish(
     if exit_code is None:
         return "cyanrip's exit status was never collected"
     if exit_code not in CYANRIP_OWN_EXITS:
-        classed = _classed_exit_words(exit_code)
-        if classed:
-            # The 2026-11-03 Full run's section N: the drive failed on track 10,
-            # cyanrip exited 74, and this sentence said 74 was a code its main()
-            # never returns "(a signal, a crash or the container)" beside the
-            # report's correct "its code for a disc or drive failure".
+        if classed := classed_exit_words(exit_code):
             return f"cyanrip exited {exit_code}, {classed}, so the pass did not finish"
         return (
             f"cyanrip exited {exit_code}, which its own main() never returns "
