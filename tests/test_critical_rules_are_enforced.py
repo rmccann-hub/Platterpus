@@ -1354,7 +1354,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
     # **1264 -> 1301** (2026-10-26, runs A and D of the 0.7.112 Full runs): `ExpectedCue.disc_isrcs` and `_check_isrcs` expecting the disc's own ISRC under `--prefer-disc-isrc`, with a difference from MusicBrainz a note naming both; the ISRC check's own home.
-    "cue_validate.py": 1301,
+    # **1301 -> 1313** (2026-11-04, TASKS R122): the parser reads a track's `FLAGS` line into `CueTrack.flags`. Only the reading lives here; the FLAGS PRE rule, which needs the argv and cyanrip's pre-emphasis reading, is `cue_emphasis.py`.
+    "cue_validate.py": 1313,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
     # **426 -> 429** (2026-09-28, the argv chokepoint half): the mechanism's hardware citation names the committed round-27 log the new test reads, instead of an uncommitted bundle.
     "cyanrip_cli.py": 429,
@@ -2205,7 +2206,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1641 -> 1654** (2026-10-26, `.27`, round 36 lap 8 S21): an unknown pre-gap's finding names what the sub-channel search saw, the counts that tell CRC failures from misplaced frames. The sentence is `pregap_search.describe`.
     # **1654 -> 1667** (2026-11-03, TASKS R112): the completion grade withholds its OK when the report records a track AccurateRip contradicts, worded by `track_proof.contradicted_tracks_sentence`.
     # **1667 -> 1684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the completion grade reads the report's per-track contradiction, recognises the `health_status` sentence `rip_health.contradicted_health` writes, and keeps the clean word out of its OK.
-    "rip_audit.py": 1684,
+    # **1684 -> 1702** (2026-11-04, TASKS R122): `cue_integrity` hands `cue_emphasis.check_flags_pre` every pass's argv and each track's `pre_emphasis`, so a pre-emphasised track kept with `-W` whose cue lacks FLAGS PRE warns. The rule is `cue_emphasis.py`.
+    "rip_audit.py": 1702,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,

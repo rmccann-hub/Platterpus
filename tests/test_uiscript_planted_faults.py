@@ -150,7 +150,7 @@ def test_a_truncated_duration_fails_expect_derived_files(
     assert not grade.passed and "track 2" in grade.detail
 
 
-# --- the holes: planted, and no grader catches them yet -----------------------------
+# --- the cue's FLAGS PRE (R122: a hole until 2026-11-04, now caught) ---------------
 
 
 def _audit(tmp_path: Path, report: dict[str, Any]) -> ag.Grade:
@@ -164,24 +164,80 @@ def _audit(tmp_path: Path, report: dict[str, Any]) -> ag.Grade:
     return ag.grade_album_audit(path, ("cue_integrity",), report)
 
 
-def test_the_clean_cue_check_passes_so_the_hole_below_is_about_the_fault(
-    tmp_path: Path,
+def _sent(report: dict[str, Any], *flags: str) -> dict[str, Any]:
+    """The report with ``flags`` added to every pass's argv.
+
+    Round 29 (0.6.63) predates `-W`, which every rip has sent since 0.7.102, so
+    the rip "as today" is round 29 with `-W` added.
+    """
+    report = copy.deepcopy(report)
+    for key in ("ripper_argv_first_pass", "ripper_argv"):
+        report["outcome"][key] = [*report["outcome"][key], *flags]
+    return report
+
+
+def _flag_track_one(report: dict[str, Any]) -> dict[str, Any]:
+    """The report with ``FLAGS PRE`` written into track 1's block of its cue."""
+    report = copy.deepcopy(report)
+    cue = report["artifacts"]["cue"]
+    marker = "  TRACK 01 AUDIO\n"
+    assert cue["text"].count(marker) == 1, "round 29's cue has one track 1"
+    cue["text"] = cue["text"].replace(marker, marker + "    FLAGS PRE\n")
+    return report
+
+
+def _emphasised(report: dict[str, Any]) -> dict[str, Any]:
+    """The report with cyanrip's reading of track 1 as pre-emphasised."""
+    report = copy.deepcopy(report)
+    report["tracks"][0]["pre_emphasis"] = True
+    return report
+
+
+@pytest.mark.parametrize("flags", [(), ("-W",)], ids=["round29", "with-W"])
+def test_the_clean_cue_check_passes_so_the_faults_below_are_about_the_fault(
+    tmp_path: Path, flags: tuple[str, ...]
 ) -> None:
-    """The xfail below needs its clean half to hold, or it xfails on setup."""
-    assert _audit(tmp_path, _wholedisc()).passed
+    """Each planted case below needs its clean half: no track emphasised, no flag."""
+    grade = _audit(tmp_path, _sent(_wholedisc(), *flags))
+    assert grade.passed, grade.detail
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "HOLE: the cue check (rip_audit._audit_cue_integrity, cue_validate) never "
-        "reads FLAGS PRE, so a pre-emphasised track whose cue omits it passes. A "
-        "correct rule needs to know whether de-emphasis was applied (section P3's "
-        "subject), which neither the report nor the cue states today."
-    ),
-)
 def test_a_missing_flags_pre_fails_the_cue_check(tmp_path: Path) -> None:
-    planted = _wholedisc()
-    planted["tracks"][0]["pre_emphasis"] = True  # the cue still has no FLAGS PRE
-    assert not _audit(tmp_path / "planted", planted).passed
+    """R122: `-W` kept the disc's samples, track 1 is pre-emphasised, no FLAGS PRE."""
+    planted = _emphasised(_sent(_wholedisc(), "-W"))
+    grade = _audit(tmp_path, planted)
+    assert not grade.passed
+    assert "FLAGS PRE missing on track 1" in grade.detail
+
+
+@pytest.mark.parametrize(
+    ("flags", "emphasised", "flagged", "passes"),
+    [
+        # -W: the file keeps the emphasis, so the cue must say so.
+        (("-W",), True, True, True),
+        # Neither flag: cyanrip's default de-emphasised track 1, so no flag.
+        ((), True, False, True),
+        # -E wins over -W in cyanrip's predicate: de-emphasised, flag is wrong.
+        (("-W", "-E"), True, True, False),
+        (("-E",), True, False, True),
+        # No emphasis on the disc: a flag would cut the treble of plain audio.
+        (("-W",), False, True, False),
+    ],
+    ids=["W-flagged", "default-unflagged", "E-flagged", "E-unflagged", "plain-flagged"],
+)
+def test_flags_pre_follows_the_argv_and_the_preemphasis_reading(
+    tmp_path: Path,
+    flags: tuple[str, ...],
+    emphasised: bool,
+    flagged: bool,
+    passes: bool,
+) -> None:
+    report = _sent(_wholedisc(), *flags)
+    if emphasised:
+        report = _emphasised(report)
+    if flagged:
+        report = _flag_track_one(report)
+    grade = _audit(tmp_path, report)
+    assert grade.passed is passes, grade.detail
+    if not passes:
+        assert "FLAGS PRE present on track 1" in grade.detail

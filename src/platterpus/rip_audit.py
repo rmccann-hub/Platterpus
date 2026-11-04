@@ -1328,6 +1328,24 @@ def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
     for finding in validate_cue(str(text), expected=expected):
         album.add(finding.level, finding.text)
 
+    # FLAGS PRE, against what the ripper was told (every pass's argv: -W kept the
+    # disc's samples, -E or no -W removed the emphasis) and which tracks cyanrip's
+    # own `Preemphasis:` row flagged. The rule is `cue_emphasis`'s.
+    from platterpus.cue_emphasis import check_flags_pre, handling_of_passes
+    from platterpus.cue_validate import parse_cue
+
+    passes = [outcome.get("ripper_argv_first_pass"), outcome.get("ripper_argv")]
+    emphasis: dict[int, bool | None] = {
+        t["number"]: t.get("pre_emphasis")
+        if isinstance(t.get("pre_emphasis"), bool)
+        else None
+        for t in tracks
+        if isinstance(t.get("number"), int)
+    }
+    handling = handling_of_passes([p for p in passes if isinstance(p, list)])
+    for finding in check_flags_pre(parse_cue(str(text)), emphasis, handling):
+        album.add(finding.level, finding.text)
+
 
 def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
     """Record the TOC-derived disc identity, and whether it is the disc looked up.

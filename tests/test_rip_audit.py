@@ -83,7 +83,7 @@ def _healthy(**over: object) -> dict:
             # — a WARN, and a fixture-only one. One occurrence of each is enough
             # precisely because the comparison is set-based.
             "invoked_as": (
-                "/usr/local/bin/cyanrip -d /dev/sr0 -N "
+                "/usr/local/bin/cyanrip -d /dev/sr0 -N -W "
                 "-t 1=title=One:isrc=GBAAM0000001 "
                 "-t 2=title=Two:isrc=GBAAM0000002 -a album=Healthy"
             ),
@@ -108,6 +108,7 @@ def _healthy(**over: object) -> dict:
                 "-d",
                 "/dev/sr0",
                 "-N",
+                "-W",
                 "-t",
                 "1=title=One:isrc=GBAAM0000001",
                 "-t",
@@ -143,10 +144,14 @@ def _healthy(**over: object) -> dict:
         # Without them this fixture would take the "not determined" path, and the
         # clean-rip test below would pass without the accounting ever running.
         # The names match what `_write` puts on disk.
+        # `pre_emphasis: False` on each track and `-W` in the argv, as every rip
+        # from 0.7.102 records them: the cue check judges FLAGS PRE from the two
+        # (`cue_emphasis`), and without them it says "not determined".
         "log_parse": {"ok": True, "note": None},
         "tracks": [
             {
                 "filename": "Artist/Healthy/01.flac",
+                "pre_emphasis": False,
                 "pregap_source": "TOC",
                 "number": 1,
                 "pregap_state": "known",
@@ -160,6 +165,7 @@ def _healthy(**over: object) -> dict:
             },
             {
                 "filename": "Artist/Healthy/02.flac",
+                "pre_emphasis": False,
                 "pregap_source": "TOC",
                 "number": 2,
                 "pregap_state": "known",
