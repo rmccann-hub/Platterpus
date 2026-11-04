@@ -303,3 +303,30 @@ def test_an_interrupted_pass_is_unfinished_and_says_where() -> None:
     reason = _unfinished(_fork_log(footer="no (interrupted by SIGTERM, 1 of 2 tracks)"))
     assert reason.startswith("the pass did not finish: ")
     assert "interrupted by SIGTERM" in reason
+
+
+def test_a_classed_exit_is_named_as_the_ripper_s_own_code_not_a_crash() -> None:
+    """The 2026-11-03 Full run on 0.7.119, section N: the drive failed on track 10
+    and cyanrip exited 74. The report said *"its code for a disc or drive failure"*
+    while this sentence said 74 was a code cyanrip's main() *"never returns (a
+    signal, a crash or the container)"*: one exit, two causes. From ``.25`` cyanrip
+    returns 74 and 64 itself, so both are named as its own, and both still leave the
+    pass unfinished. A real signal death keeps the signal wording."""
+    text = _fork_log(failed=(2,), ripping_errors="3")
+    drive = _unfinished(text, exit_code=74)
+    refused = _unfinished(text, exit_code=64)
+    killed = _unfinished(text, exit_code=137)
+    assert (
+        drive
+        == "cyanrip exited 74, its code for a disc or drive failure, so the pass did not finish"
+    )
+    assert (
+        refused
+        == "cyanrip exited 64, its code for a refused argument, so the pass did not finish"
+    )
+    assert "never returns" in killed
+    for reason in (drive, refused):
+        assert "never returns" not in reason and "crash" not in reason
+    # And the ladder, which shares the helper, says the same and does not step.
+    warranted, reason = _judge(text, exit_code=74)
+    assert warranted is False and reason == drive

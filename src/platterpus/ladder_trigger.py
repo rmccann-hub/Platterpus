@@ -54,12 +54,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from platterpus.read_speed_ladder import read_errors_present, unstable_tracks
+from platterpus.ripper_exit_class import classed_exit_words
 
 log = logging.getLogger(__name__)
 
-#: The exit codes cyanrip's own ``main()`` returns. The fork keeps every exit
-#: "within {0, 1}" as a standing requirement of ours
-#: (``cyanrip@910dd99:src/cyanrip_main.c:3123``), and upstream returns ``!!err_cnt``.
+#: The exits after which cyanrip finished the pass (upstream returns ``!!err_cnt``);
+#: from ``.25`` it also returns 64 and 74 itself, unfinished (``classed_exit_words``).
 CYANRIP_OWN_EXITS: frozenset[int] = frozenset({0, 1})
 
 
@@ -217,6 +217,8 @@ def _why_process_did_not_finish(
     if exit_code is None:
         return "cyanrip's exit status was never collected"
     if exit_code not in CYANRIP_OWN_EXITS:
+        if classed := classed_exit_words(exit_code):
+            return f"cyanrip exited {exit_code}, {classed}, so the pass did not finish"
         return (
             f"cyanrip exited {exit_code}, which its own main() never returns "
             "(a signal, a crash or the container), so the pass did not finish"
