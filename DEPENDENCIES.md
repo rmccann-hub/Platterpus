@@ -166,7 +166,7 @@ Details for `cyanrip`:
 - `installed-at`: /usr/local/bin/cyanrip inside the ripping container
 - `host-export`: ~/.local/bin/cyanrip
 - `exported-from`: /usr/bin/cyanrip, /usr/local/bin/cyanrip (the last export wins)
-- `pin-under-review`: 3f288fb (0.9.4-rc3+platterpus.28, round 37, published: yes)
+- `pin-under-review`: 3f288fb (0.9.4-rc3+platterpus.28, round 38, published: yes)
 - `test-pin`: 3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)
 - `handshake`: bidirectional release handshake: docs/cyanrip-handshake.md
 
