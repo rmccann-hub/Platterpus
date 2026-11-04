@@ -137,6 +137,30 @@ condition, right in N of M with the CRC32s, FIXUP_ATOM and cache probe of each
 rip. All of it is `info`, a measurement for the fork, not a pass or a fail. The
 run's own bundle is the one file to send: its transcript holds every result.
 
+## Drive mode and session: `drivemode.txt`
+
+**Typically about 35 to 50 minutes, twelve rips: track 5 and track 3 alone,
+alternating, three early and three late in the session (an estimate, not yet
+measured).** Round 38's research found two candidate causes for tracks 3 and 5
+of the reference disc reading differently between sessions on one drive: the
+drive's PureRead mode (set only by Pioneer's Windows or Mac utility; "Standard"
+interpolates silently over a frame it cannot correct) and the session itself
+(whether the disc was just put in, whether it was cleaned, how warm the drive
+is). The owner runs the same file under each condition and says, with each
+bundle, the PureRead mode, whether the disc was just inserted, and whether it was
+cleaned. `compare-conditions` prints early against late per track. 0.7.120
+already has every verb it uses, so a downloaded copy runs on it:
+
+```sh
+~/Applications/platterpus-x86_64.AppImage --run-script ~/drivemode.txt
+```
+
+Like every rig run it is **unattended**: it never stops to ask for anything, and
+the disc is touched only between runs (the owner, 2026-11-04). A Full acceptance
+run follows the same rule; a cleaned-disc comparison is two runs, one with the disc
+left in and one after it is taken out and cleaned, never a prompt mid-run. The
+findings it serves: `docs/eac-parity.md` Part G.
+
 ## Which collector gathers what
 
 Four things can pack a session into a file, and **only one of them gathers every

@@ -281,6 +281,7 @@ Platterpus/
         │   ├── accuracy_verbs.py       # runner mixin: section P6's record-accuracy, compare-accuracy (paired rips of track 3)
         │   ├── accuracy_grading.py     # their pure half: each track's AccurateRip state, CRC32 and speed; right in N of M rips per build (no Qt)
         │   ├── condition_grading.py    # compare-conditions' pure half: one track, per condition, one build (the track-3 script, no Qt)
+        │   ├── scripted_rip_dirs.py    # which folders a run's own cyanrip -D steps wrote, and the bundle's extra_dirs built from them
         │   ├── folder_logs.py          # the one cyanrip log a scripted `cyanrip … -D <folder>` rip wrote this run
         │   ├── deemphasis_verbs.py     # runner mixin: section P3's expect-deemphasis-pair (round 16's clause 2), reading each -D folder's log off the GUI thread
         │   ├── deemphasis_grading.py   # its pure half: CRCs agree and integrated loudness moved by 0.3 LU; tri-state, and gated on a build that measures after the filter (no Qt)
@@ -597,6 +598,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`uiscript/timing_grading.py`** — their pure half: `timing_from_log` reads `TrackResult.extraction_elapsed_seconds` (no second parser of cyanrip's text), `ratio` refuses differing tracks, read counts, unnamed builds and a build against itself, `agreement` is inclusive at 0.05 without float error deciding the boundary. Never raises.
 - **`uiscript/accuracy_verbs.py`** — a **mixin** for section P6 (the owner's paired `.25`/`.26` rips of track 3, 2026-10-26): `record-accuracy <label> [<folder>]` (the last rip's log, read from disk, or with a folder the log a scripted `cyanrip … -D <folder>` rip wrote, `folder_logs`: each track's AccurateRip state, CRC32, speed and FIXUP_ATOM, the `Cache probe:` line and the build the log names), `compare-conditions <track> <label>…` (the track-3 script, `condition_grading`) and `compare-accuracy <label>…` (per build and per track, right in N of M rips with the distinct CRC32s). INFO or a not-determined ERROR, never a pass or a fail.
 - **`uiscript/condition_grading.py`** — `compare-conditions`' pure half (TASKS R123, the track-3 script `rig_scripts/track3abba.txt`): one track ripped under several conditions on ONE build, grouped by the label without its trailing digits (`pair1`…`pair4` are `pair`), right in N of M per condition with the CRC32s, FIXUP_ATOM and `Cache probe:` value per rip. Refuses as not determined rips from two builds, a rip without the track, one condition only, or a rip AccurateRip said nothing about. `compare-accuracy` compares builds over the same tracks and cannot.
+- **`uiscript/scripted_rip_dirs.py`** — which folders a script run's own `cyanrip -D` steps wrote, resolved as cyanrip resolves them, and the bundle's `extra_dirs` built from them (`scriptrips/<folder>`, at most 64 a run), so a run's upload carries each rip's full log, cue and record, never its audio (2026-11-04, preparing round 38's drive-mode test).
 - **`uiscript/folder_logs.py`** — the one reader of a scripted rip's log: the one cyanrip log in `<rips folder>/<folder>` written since the run started, read with its addendum, a plain folder name only. Shared by `expect-deemphasis-pair` and `record-accuracy <label> <folder>` so the two cannot read different logs by different rules. Thread-safe and Qt-free; never raises.
 - **`uiscript/deemphasis_verbs.py`** — a **mixin** for section P3 (the review of the 2026-11-03 Full run, C5): `expect-deemphasis-pair <forced> <disabled>` reads the one cyanrip log this run wrote in each `-D` folder under the rips folder (on a helper thread, through `rip_addendum.with_addendum`) and grades the pair. PASS, FAIL, or BLOCKED when not determined.
 - **`uiscript/deemphasis_grading.py`** — its pure half: `grade_pair` passes when every EAC CRC32 agrees (taken on the read) and the integrated loudness differs by at least `LOUDNESS_DIFFERENCE_FLOOR_LU` (measured on the delivered audio from the fork's `.20`); `measures_delivered_audio` places a build tag in the release list, and a build before `.20`, an unplaceable one, or a missing value is not determined. Never raises.
@@ -2368,6 +2370,33 @@ Three packages needed only on 3.11 leave the locks (`backports-tarfile`,
 for it: the three `TypeAlias` aliases became `type` statements and the two generic helpers
 in `main_window_rip.py` use type parameters. `test (py3.11)` leaves the default-branch
 ruleset's required checks with the leg, an owner's change, made before the change merged.
+
+### KDD-47 — CTDB repair is built natively, and round 38 stays open until tracks 3 and 5 are resolved (decided 2026-11-04)
+
+**Context.** Tracks 3 and 5 of the reference disc have failed to verify on the owner's
+BDR-209D across many rounds (`docs/eac-parity.md` Part G). On 2026-11-04 the run on
+`.29` failed its two CTDB steps on track 5 alone, and the owner asked for a solution:
+*"Is EAC able to do it? Then so should we."* EAC cannot verify track 5 on this drive
+either; the EAC workflow fixes it with CUETools repair. KDD-14 chose to wrap `ctdb-cli`
+for repair, and KDD-14's July revision ("D -> B") deferred it because every repair tool
+on Linux needs .NET. Since then our clean-room localiser (TASKS R43, 2026-10-26) has
+implemented CUETools' `VerifyParity` in Python and numpy, and located both tracks'
+errors on hardware.
+
+**Decision (the owner's: "Start building CTDB repair now? yes").** Repair is built
+natively on that localiser, with no .NET: patch only the damaged track, prove the
+result against the CTDB entry and AccurateRip before replacing the master, keep the
+original, record the repair, and never edit the EAC-compatible log. This supersedes
+KDD-14's Phase 2 choice to wrap `ctdb-cli`; `docs/manual-ctdb-repair.md` stays as the
+power-user path. A second track, rebuilding a disputed second from several reads and
+accepting it only on AccurateRip v1 and v2, is built beside it, with the fork asked to
+keep every read. **And round 38 stays open** until this is resolved, on the owner's
+word (*"lets keep this round going until we can resolve this and do as much as
+possible"*), which overrides our lap 6's pre-commit to `GO` on the run alone.
+
+**Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
+LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room
+rule KDD-16 set remains the practice.
 
 ---
 

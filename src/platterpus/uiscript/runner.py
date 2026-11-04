@@ -93,6 +93,11 @@ from platterpus.uiscript.script_values import (
 from platterpus.uiscript.script_values import (
     parse_track_spec as _parse_track_spec,
 )
+from platterpus.uiscript.scripted_rip_dirs import (
+    MAX_RIP_DIRS,
+    bundle_extra_dirs,
+    rip_output_dir,
+)
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.timing_verbs import TimingVerbsMixin
 from platterpus.uiscript.unknown_disc_verbs import UnknownDiscVerbsMixin
@@ -535,6 +540,10 @@ class ScriptRunner(
         #: How long a `cyanrip` step may run before it is killed; the
         #: `cyanrip-timeout` verb sets it for the rest of a run (TASKS R123).
         self._cyanrip_timeout_s: float = CYANRIP_VERB_TIMEOUT_S
+        #: The folders this run's `cyanrip -D` steps wrote, in order, so the run's
+        #: bundle carries each rip's own log, cue and record
+        #: (`uiscript/scripted_rip_dirs.py`, 2026-11-04).
+        self._scripted_rip_dirs: list[Path] = []
         self._pending_rig_check: _RigCheckJob | None = None
         self._pending_wrapper_probe: _WrapperProbeJob | None = None
         self._timer: QTimer = QTimer(self)
@@ -573,6 +582,7 @@ class ScriptRunner(
         self._deadline = None
         self._pending_cyanrip = None
         self._cyanrip_timeout_s = CYANRIP_VERB_TIMEOUT_S
+        self._scripted_rip_dirs = []
         # A new run starts with no tier, no dependency and an empty ledger. Reset
         # explicitly: a ledger surviving into the next run would prune steps on the
         # strength of a failure in a different script, and report it as a
@@ -1935,6 +1945,11 @@ class ScriptRunner(
             return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
         self._last_cyanrip_argv = argv
+        # Remember the folder this step writes, so the run's bundle carries the
+        # rip's full log and not only the transcript's one-line summary of it.
+        rip_dir = rip_output_dir(args, workdir)
+        if rip_dir is not None and rip_dir not in self._scripted_rip_dirs:
+            self._scripted_rip_dirs.append(rip_dir)
         job = _CyanripJob(
             step=step,
             argv=argv,
@@ -4407,6 +4422,16 @@ class ScriptRunner(
         # Qt, and CI's py3.14 leg hung once with the bundle thread on exactly that
         # line and the GUI thread inside a `QLineEdit` constructor.
         steps = str(len(self._report.steps))
+        # Read on the GUI thread, before the closure: the list is this runner's.
+        extra_dirs, left_out = bundle_extra_dirs(directory, self._scripted_rip_dirs)
+        if left_out:
+            log.warning(
+                "bundle: %d scripted rip folder(s) past the %d carried are not in "
+                "it, first %s",
+                len(left_out),
+                MAX_RIP_DIRS,
+                left_out[0],
+            )
         results = (
             ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "(not counted)"
         )
@@ -4423,7 +4448,7 @@ class ScriptRunner(
                     "run folder": str(directory),
                 },
                 log_dir=log_dir,
-                extra_dirs={"scriptrun": directory},
+                extra_dirs=extra_dirs,
             )
             if result.ok and result.path is not None:
                 log.info(
