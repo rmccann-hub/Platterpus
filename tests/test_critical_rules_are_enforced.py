@@ -2522,7 +2522,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1794 -> 1809** (2026-11-03, TASKS R107): the first-run offer runs on a child timer of the window, so it cannot fire on a torn-down one, and six config writes go through `_save_config_or_report`, which logs a failed write instead of raising into Qt.
     # **1809 -> 1821** (2026-11-03, TASKS R118): `closeEvent` logs a failed report flush instead of raising it into Qt, which left the close half done and failed every Python event filter Qt called while the exception was pending.
     # **1821 -> 1855** (2026-11-03, the owner's screenshot on 0.7.117, the rip pane's Tracks table at ~1.5 rows): `_PANE_SHARES` 0.40/0.40 -> 0.30/0.50 with its measurement, and `_default_pane_sizes`, which lifts the disc-info pane and the track list to their floors from the rip pane, so the bigger share cannot take the track list back to two rows on a small screen. Beside the split it computes.
-    "ui/main_window.py": 1855,
+    # **1855 -> 1856** (2026-11-04, TASKS R128 (b)): the close hands its shared `ShutdownDeadline` to the report flush, and the comment says the flush has no bound of its own.
+    "ui/main_window.py": 1856,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2738,7 +2739,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5272 -> 5275** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): a rip's start blanks the disc panel's AccurateRip row.
     # **5275 -> 5278** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): the finish handler ends the track table's live status.
     # **5268 -> 5271** (2026-11-03, review B4): hands the worker's securing-pass paranoia counts to `build_outcome`.
-    "ui/main_window_rip.py": 5290,
+    # **5290 -> 5305** (2026-11-04, TASKS R128 (b)): `_flush_rip_report` takes the close's `ShutdownDeadline` and waits only what is left of it, with the docstring paragraph saying why (Critical rule 9: bound the whole shutdown). The flush lives here, so its bound does.
+    "ui/main_window_rip.py": 5305,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

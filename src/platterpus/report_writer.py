@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -61,6 +62,10 @@ log = logging.getLogger(__name__)
 #: unbounded wait here is the "Not Responding" this module exists to remove,
 #: relocated to the one moment the user is trying to leave.
 FLUSH_TIMEOUT_S: float = 5.0
+
+#: The most `stop()` waits for the worker thread to end once the writes are done;
+#: within the caller's timeout, never added to it.
+_STOP_JOIN_S: float = 0.5
 
 
 class ReportWriter:
@@ -139,7 +144,7 @@ class ReportWriter:
         return finished
 
     def stop(self, timeout: float = FLUSH_TIMEOUT_S) -> bool:
-        """Finish what is pending, then end the worker thread. Bounded.
+        """Finish what is pending, then end the worker thread. Bounded by ``timeout``, in all.
 
         Called from `closeEvent`. The thread is a daemon, so an over-running
         write is abandoned rather than holding the process open — and because
@@ -149,13 +154,19 @@ class ReportWriter:
         **Not terminal.** A later :meth:`submit` starts a fresh thread; see the
         note there for why refusing would be the worse failure.
         """
+        started = time.monotonic()
         landed = self.flush(timeout)
         with self._lock:
             self._stopping = True
         self._wake.set()
         thread = self._thread
         if thread is not None and thread.is_alive():
-            thread.join(timeout=0.5)
+            # Half a second at most, and never past ``timeout``: the caller's
+            # bound is the whole of this call (R128), so the join takes only what
+            # the flush left. The thread is a daemon; one still running is
+            # abandoned, which an atomic write makes safe.
+            left = timeout - (time.monotonic() - started)
+            thread.join(timeout=max(0.0, min(_STOP_JOIN_S, left)))
         return landed
 
     # --- The worker ---------------------------------------------------------

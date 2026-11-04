@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
+    from platterpus.workers import ShutdownDeadline
 
 # `report_writer` is imported HERE, at load, and never inside a method (R118).
 # The close path flushes through it, and a close can come from a session logout
@@ -4981,7 +4982,9 @@ class RipMixin(MainWindowShared):
             return  # nothing on disk to describe yet
         self._rip_report_timer.start()  # (re)arm; single-shot, so it coalesces
 
-    def _flush_rip_report(self, *, wait: bool = False) -> None:
+    def _flush_rip_report(
+        self, *, wait: bool = False, deadline: ShutdownDeadline | None = None
+    ) -> None:
         """Write any pending debounced rip report (timer slot + close).
 
         Stops the debounce timer and submits now, so a queued write is never
@@ -4994,6 +4997,13 @@ class RipMixin(MainWindowShared):
         exit. It is a **bounded** wait (`report_writer.FLUSH_TIMEOUT_S`), because
         the output folder is allowed to be a network share and an unbounded one
         would put the freeze back at the moment the user is trying to leave.
+
+        ``deadline`` is the close's shared ``ShutdownDeadline``: the wait takes
+        what is LEFT of it, not a bound of its own (Critical rule 9, TASKS R128).
+        With its own 5 s it ran after the workers had spent the budget, so a
+        close could take the budget plus 5.5 s. A report write still running
+        when the budget is spent is said in the log, below; the write is atomic,
+        so the file on disk is the previous complete report, never a torn one.
         """
         self._rip_report_timer.stop()
         record = self._post_rip_record()
@@ -5001,7 +5011,12 @@ class RipMixin(MainWindowShared):
             self._write_rip_report(record)
         if wait:
             # No import here: the close path (see the import block, R118).
-            if not report_writer.writer().stop():
+            timeout_s = (
+                report_writer.FLUSH_TIMEOUT_S
+                if deadline is None
+                else deadline.remaining_ms() / 1000.0
+            )
+            if not report_writer.writer().stop(timeout_s):
                 # Said, not swallowed. The report on disk may be one revision
                 # behind, and a silent return here would be indistinguishable
                 # from a complete write — the shape CLAUDE.md calls a silent

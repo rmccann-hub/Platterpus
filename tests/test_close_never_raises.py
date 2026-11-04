@@ -89,13 +89,37 @@ window.show()
 for _ in range(5):
     app.processEvents()
 
+# MID-RIP (TASKS R128 (b)): a rip worker and its thread are live, the reader's
+# stop is handed to exit work, and a report write is in flight that will not
+# finish inside the shared budget, which is shortened so a flush with its own
+# bound shows as seconds over it. Set up BEFORE the finder, as a rip would be.
+import threading, time
+budget_ms = int(sys.argv[3])
+if sys.argv[2] == "mid-rip":
+    from platterpus import drive_control, report_writer, workers
+    reader_stops = []
+    drive_control.stop_reader_gracefully = lambda **_kw: reader_stops.append(1) or ""
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
+    )
+    window._rip_thread = SimpleNamespace(isRunning=lambda: False)
+    _real_deadline = workers.ShutdownDeadline
+    workers.ShutdownDeadline = lambda: _real_deadline(budget_ms=budget_ms)
+    _wedged = threading.Event()
+    report_writer.writer().submit(lambda: _wedged.wait(60) and None)
+
 import logging
 errors = []
+warnings = []
 class _Keep(logging.Handler):
     def emit(self, record):
-        errors.append(record.getMessage())
-_keep = _Keep(level=logging.ERROR)
+        (errors if record.levelno >= logging.ERROR else warnings).append(
+            record.getMessage()
+        )
+_keep = _Keep(level=logging.WARNING)
 logging.getLogger().addHandler(_keep)
+from platterpus import exit_work
 
 refused = []
 class _MountGone(importlib.abc.MetaPathFinder):
@@ -106,11 +130,16 @@ class _MountGone(importlib.abc.MetaPathFinder):
         return None
 
 sys.meta_path.insert(0, _MountGone())
+started = time.monotonic()
 try:
     window.close()
     outcome = "closed"
 except Exception as exc:
     outcome = f"raised {type(exc).__name__}: {exc}"
+close_s = time.monotonic() - started
+# Joined as `app.main` does, and still under the finder: the exit work's thread
+# is part of the close, and a late import there fails the same way.
+exit_joined = exit_work.wait()
 closing_refused = list(refused)
 logging.getLogger().removeHandler(_keep)
 # The floor: the finder really refuses. A module certainly not loaded by now.
@@ -125,20 +154,39 @@ sys.meta_path.pop(0)
 print(json.dumps({
     "refused": closing_refused, "outcome": outcome, "errors": errors,
     "visible": window.isVisible(), "probe_was_loaded": probe_was_loaded,
-    "probe_refused": probe_refused,
+    "probe_refused": probe_refused, "close_s": close_s, "warnings": warnings,
+    "exit_joined": exit_joined,
+    "reader_stops": len(reader_stops) if sys.argv[2] == "mid-rip" else None,
 }))
 sys.stdout.flush()
 os._exit(0)
 """
 
 
-def test_a_close_after_the_mount_is_gone_imports_nothing(tmp_path: Path) -> None:
+#: The shared budget the mid-rip close is given (`ShutdownDeadline`), shortened
+#: from 10 s so the test is quick; the flush's own bound (5 s) is far over it.
+_MID_RIP_BUDGET_MS: int = 1500
+#: What the close may take beyond the budget: the steps after the last wait (Qt's
+#: own close) and a loaded CI machine. Far under the 5 s the old flush added.
+_MID_RIP_SLACK_S: float = 1.5
+
+
+@pytest.mark.parametrize("state", ["idle", "mid-rip"])
+def test_a_close_after_the_mount_is_gone_imports_nothing(
+    tmp_path: Path, state: str
+) -> None:
     """Close a freshly started window while no new module can be found.
 
     Before the fix this printed the field's own sentence, ``ImportError: cannot
     import name 'report_writer' from 'platterpus'``, and ``refused`` was
     ``['platterpus.report_writer']``. Now the module is bound when
     `main_window_rip` loads, so the close needs no file.
+
+    ``mid-rip`` (TASKS R128 (b)) closes with a rip worker live, so the reader's
+    stop and the rip thread's stop run too, and with a report write wedged: the
+    whole close must stay inside the ONE shared budget (Critical rule 9). Before
+    the flush drew from it, the flush waited its own 5 s, plus 0.5 s for the
+    writer thread, after the budget.
     """
     env = dict(os.environ)
     # The child's config and log land in the test's own folder, never the user's.
@@ -147,7 +195,7 @@ def test_a_close_after_the_mount_is_gone_imports_nothing(tmp_path: Path) -> None
     env["XDG_DATA_HOME"] = str(tmp_path / "data")
     env["QT_QPA_PLATFORM"] = "offscreen"
     completed = subprocess.run(
-        [sys.executable, "-c", _CHILD, str(_SRC)],
+        [sys.executable, "-c", _CHILD, str(_SRC), state, str(_MID_RIP_BUDGET_MS)],
         capture_output=True,
         text=True,
         timeout=120,
@@ -170,6 +218,20 @@ def test_a_close_after_the_mount_is_gone_imports_nothing(tmp_path: Path) -> None
         "the close path imported a module start-up had not loaded; after a "
         f"logout takes the AppImage's mount, that import fails: {result['refused']}"
     )
+    if state == "mid-rip":
+        # The floor: the close really ran the mid-rip path (the reader's stop,
+        # handed to exit work and joined) and really met a write it could not wait out,
+        # which it said rather than swallowed.
+        assert result["exit_joined"] is True and result["reader_stops"] == 1, result
+        assert any(
+            "closed before the rip report finished writing" in w
+            for w in result["warnings"]
+        ), result["warnings"]
+        limit_s = _MID_RIP_BUDGET_MS / 1000 + _MID_RIP_SLACK_S
+        assert result["close_s"] < limit_s, (
+            f"the close took {result['close_s']:.2f}s against a shared budget of "
+            f"{_MID_RIP_BUDGET_MS} ms: a step waited on a bound of its own"
+        )
 
 
 class _Backend(RipBackend):
