@@ -54,6 +54,7 @@ from typing import Final
 
 from platterpus import inbound_text
 from platterpus.error_positions import TrackReads, parse_reads
+from platterpus.record_block_crcs import BlockCrcs, parse_block_crcs
 from platterpus.record_track_v11 import (
     TrackRecordV11,
     isrc_disc_read_meaning,
@@ -117,6 +118,9 @@ class TrackIsrc:
     #: The row's two ``/11`` keys; a row from an earlier build reads as
     #: ``not_present`` in both.
     record: TrackRecordV11 = TrackRecordV11()
+    #: The row's ``/12`` ``block_crcs`` (``record_block_crcs``); a row from an
+    #: earlier build reads as ``not_present``.
+    block_crcs: BlockCrcs = BlockCrcs()
 
 
 @dataclass(frozen=True)
@@ -350,6 +354,7 @@ def _track(row: object) -> TrackIsrc | None:
         complete=complete,
         reads=parse_reads(row),
         record=parse_row(row),
+        block_crcs=parse_block_crcs(row),
     )
 
 

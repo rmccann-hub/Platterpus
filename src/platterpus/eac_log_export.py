@@ -75,6 +75,7 @@ from platterpus.reread_limit import stopped_by_time_limit
 from platterpus.rip_health import CLEAN_HEALTH
 from platterpus.rip_health import DISC_HAD_ERRORS as RIP_HEALTH_DISC_HAD_ERRORS
 from platterpus.ripper_identity import identify_ripper
+from platterpus.ripper_track_notes import filter_sentence, undecided_text
 from platterpus.safe_int import int_or_none
 from platterpus.track_proof import (
     ctdb_tracks_by_number,
@@ -1067,6 +1068,11 @@ def _pregap_line(track: TrackResult) -> list[str]:
         reason = getattr(track, "pregap_unknown_reason", "") or "not determined"
         # From `.27`, what the search saw, so the log itself tells a CRC failure
         # from a frame that answered for another sector (their round 36 lap 8 S21).
+        # `.29` (round 38 lap 1 S8): a search that narrowed it to one sector says
+        # the two bounds, as a range; neither is printed as the length.
+        narrowed = undecided_text(getattr(track, "pregap_undecided_frames", None))
+        if narrowed:
+            reason = f"{reason}; {narrowed}"
         seen = describe_pregap_search(getattr(track, "pregap_search", None))
         if seen:
             reason = f"{reason}; the search saw: {seen}"
@@ -1927,6 +1933,12 @@ def _track_block(
             track, verified_reread=verified_reread, ctdb_track=ctdb_track
         )
         out.append(f"     Proof: {proof.line}")
+    # `.29` (round 38 lap 1 S7): a filter changed the audio after its checksums,
+    # so the rows above describe the read, not the file. Only when printed: our
+    # rips send no filter, and this line never appears unless the ripper's did.
+    filtered = filter_sentence(getattr(track, "filtered", None))
+    if filtered:
+        out.append(f"     Filtered: {filtered}")
     contradiction = track_accuraterip_contradiction(track)
     if track.status:
         verdict = _status_line(

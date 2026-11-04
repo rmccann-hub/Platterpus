@@ -77,7 +77,9 @@ from platterpus import (
     pregap_search,
     reread_limit,
     ripper_error_lines,
+    secure_rereads_footer,
 )
+from platterpus import ripper_track_notes as _notes
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers import cyanrip_disc_blocks as _blocks
@@ -972,8 +974,11 @@ _END_LSN = re.compile(r"^\s+End LSN:\s+(?P<value>\d+)")
 # when it tried a Q-subchannel scan and could not tell. The old
 # `(\d+|none)` matched neither, so the row fell through entirely and the track
 # came out identical to a measured "none" — see TrackResult.pregap_state.
+# `(?!\d)(?!\s+or\b)`: `.29` proposes `A or B frames (undecided)` for a pre-gap a
+# search narrowed without deciding (their round 38 lap 1 S8); should the LSN row
+# ever take that shape, its first number must not read as a known LSN.
 _PREGAP_LSN = re.compile(
-    r"^\s{1,8}Pregap LSN:\s+(?P<value>\d{1,9}|none|unknown)"
+    r"^\s{1,8}Pregap LSN:\s+(?P<value>\d{1,9}(?!\d)(?!\s+or\b)|none|unknown)"
     r"(?:\s+\((?P<reason>[^)]{0,64})\))?"
 )
 # Fork-only, and authoritative when present: the only field that can express
@@ -2012,6 +2017,8 @@ class _Disc:
     encoder_failed_tracks: int | None = None
     # `.27`'s `not written whole:` paths, below `Encoder errors:` (bounded).
     not_written_whole: PathSample = field(default_factory=PathSample)
+    # `.29`'s proposed `Secure re-reads:` footer line; None when not printed.
+    secure_rereads: secure_rereads_footer.SecureRereads | None = None
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
@@ -2162,6 +2169,10 @@ class _TrackAcc:
     pregap_search_frames: tuple[int, int] | None = None
     # `.27`'s `Pregap search:` line, read (see TrackResult.pregap_search).
     pregap_search: PregapSearch | None = None
+    # `.29`'s proposed lines (`ripper_track_notes`, round 38 lap 1 S7 to S9).
+    pregap_undecided_frames: tuple[int, int] | None = None
+    filtered: _notes.TrackFilter | None = None
+    ripper_cover_art: _notes.RipperCoverArt | None = None
     replaygain: dict[str, str] = field(default_factory=dict)
     # The three new per-track facts. All default to None — "the ripper did not say"
     # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
@@ -2209,6 +2220,8 @@ def _is_track_verdict_row(line: str) -> bool:
             _TRACK_ACCURIP_STATUS,
             _ACCURIP_TRACK,
             _ACCURIP_OFFSET,
+            # `.29`: printed after the `Accurip` rows, before `Metadata:`.
+            _notes.FILTERED_LINE,
         )
     )
 
@@ -3022,6 +3035,12 @@ def _take_not_written_whole(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_secure_rereads(disc: _Disc, match: re.Match[str]) -> bool:
+    """`.29`'s `Secure re-reads:` (their round 38 lap 1 S5), read in its module."""
+    disc.secure_rereads = secure_rereads_footer.read_value(match.group("value"))
+    return True
+
+
 def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
     disc.creation_date = match.group("when").strip()
     return True
@@ -3188,6 +3207,8 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     ),
     _LineRule("accuraterip_total", _ACCURATE_TOTAL, _take_accurate_total),
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
+    # `.29`, above `Ripping errors:` under `-Z`; never a read error (its module).
+    _LineRule("secure_rereads", secure_rereads_footer.LINE, _take_secure_rereads),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
     _LineRule("encoder_errors", _ENCODER_ERRORS, _take_encoder_errors),
     # `.27`: the files a failed encoder left, each below `Encoder errors:`.
@@ -3313,6 +3334,10 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_pregap_source", _PREGAP_SOURCE),
     # `.27`: what the sub-channel search saw, below `Pregap source:`.
     ("track_pregap_search", _PREGAP_SEARCH),
+    # `.29`, proposed in round 38 lap 1 (S8, S7, S9; `ripper_track_notes`).
+    ("track_pregap_length_undecided", _notes.PREGAP_LENGTH_UNDECIDED),
+    ("track_filtered", _notes.FILTERED_LINE),
+    ("track_embedded_cover_art", _notes.EMBEDDED_COVER_ART_LINE),
     ("track_preemphasis", PREEMPHASIS_LABEL),  # read by `preemphasis_text`
     # `+platterpus.24`: the disc's own ISRC, beside the metadata's (R20).
     ("track_disc_isrc", _DISC_ISRC),
@@ -3849,6 +3874,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # time on anyone's recollection.
         if current.pregap_length_frames is not None:
             current.pregap_sectors = current.pregap_length_frames
+        elif current.pregap_undecided_frames is not None:
+            current.pregap_sectors = None  # a range is not a length (`.29` S8)
         elif current.pregap_start_lsn is not None:
             if current.start_sector is None:
                 current.pregap_sectors = None
@@ -3887,6 +3914,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 pregap_source=current.pregap_source,
                 pregap_search_frames=current.pregap_search_frames,
                 pregap_search=current.pregap_search,
+                pregap_undecided_frames=current.pregap_undecided_frames,
+                filtered=current.filtered,
+                ripper_cover_art=current.ripper_cover_art,
                 filename=current.filename,
                 pre_emphasis=current.pre_emphasis,
                 copy_crc=current.copy_crc,
@@ -4273,6 +4303,29 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.pregap_length_frames = int_or_none(
                     match.group("frames"), field="cyanrip Pregap length"
                 )
+                continue
+            # `.29`: `A or B frames (undecided)` is a range, never A: the pre-gap
+            # stays not determined, both bounds kept (`ripper_track_notes`).
+            match = _notes.PREGAP_LENGTH_UNDECIDED.match(line)
+            if match:
+                pair = _notes.read_undecided(match)
+                if pair is not None:
+                    current.pregap_undecided_frames = pair
+                    current.pregap_length_frames = None
+                    current.pregap_state = "unknown"
+                    current.pregap_unknown_reason = (
+                        current.pregap_unknown_reason or "undecided"
+                    )
+                continue
+            # `.29`: which filters changed the audio, after the `Accurip` rows.
+            match = _notes.FILTERED_LINE.match(line)
+            if match:
+                current.filtered = _notes.read_filtered(match.group("value"))
+                continue
+            # `.29`: what the ripper says the file holds; the later line wins.
+            match = _notes.EMBEDDED_COVER_ART_LINE.match(line)
+            if match:
+                current.ripper_cover_art = _notes.read_cover_art(match.group("value"))
                 continue
 
             # `.26`'s two-search form FIRST: the general row below would take
@@ -4733,4 +4786,5 @@ def parse_cyanrip_log(text: str) -> RipLog:
         ripper_error_lines_total=error_total,
         not_written_whole=disc.not_written_whole.paths(),
         not_written_whole_total=disc.not_written_whole.total,
+        secure_rereads=disc.secure_rereads,
     )

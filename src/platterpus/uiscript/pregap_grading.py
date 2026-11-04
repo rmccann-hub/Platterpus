@@ -72,6 +72,7 @@ from typing import Final
 
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.pregap_search import describe as describe_search
+from platterpus.ripper_track_notes import undecided_text
 from platterpus.safe_int import int_or_none
 
 #: The floor: how many readable lists of one disc a comparison needs.
@@ -255,9 +256,23 @@ def read_gap_list(text: str, label: str) -> GapReading:
         getattr(t, "number", None): getattr(t, "pregap_search", None)
         for t in parsed.tracks
     }
+    # `.29`'s `Pregap length: A or B frames (undecided)`: still unknown here, a
+    # range and never a number to compare, so it goes in the note (S8).
+    ranges = {
+        getattr(t, "number", None): undecided_text(
+            getattr(t, "pregap_undecided_frames", None)
+        )
+        for t in parsed.tracks
+    }
     notes = {
         track: "; ".join(
-            part for part in (reason, describe_search(searches.get(track))) if part
+            part
+            for part in (
+                reason,
+                ranges.get(track, ""),
+                describe_search(searches.get(track)),
+            )
+            if part
         )
         for track, reason in reasons.items()
     }

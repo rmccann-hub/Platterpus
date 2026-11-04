@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (83)
+## 1. Log lines we parse (87)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -82,6 +82,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `album_true_peak_level` **(fork-only)** | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^(?:Tracks ripped partially accurately\|Tracks matched on one frame only):\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
+| `secure_rereads` **(fork-only)** | disc | `^Secure re-reads:\\s+(?P<value>\\S(?:.{0,398}\\S)?)\\s*$` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)(?:\\s{1,4}\\(including\\s{1,4}(?P<skips>\\d{1,20})\\s{1,4}paranoia\\s{1,4}skips?\\))?` |
 | `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `not_written_whole` **(fork-only)** | disc | `^\\s{1,8}not written whole: (?P<path>.+)$` |
@@ -113,11 +114,14 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_replaygain` | indented | `^\\s+(?P<key>REPLAYGAIN_[A-Z_]+\|R128_TRACK_GAIN):\\s+(?P<val>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `track_start_lsn` | indented | `^\\s+Start LSN:\\s+(?P<value>\\d+)` |
 | `track_end_lsn` | indented | `^\\s+End LSN:\\s+(?P<value>\\d+)` |
-| `track_pregap_lsn` | indented | `^\\s{1,8}Pregap LSN:\\s+(?P<value>\\d{1,9}\|none\|unknown)(?:\\s+\\((?P<reason>[^)]{0,64})\\))?` |
+| `track_pregap_lsn` | indented | `^\\s{1,8}Pregap LSN:\\s+(?P<value>\\d{1,9}(?!\\d)(?!\\s+or\\b)\|none\|unknown)(?:\\s+\\((?P<reason>[^)]{0,64})\\))?` |
 | `track_pregap_length` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<frames>\\d{1,9})\\s+frames?\\b` |
 | `track_pregap_source_two_searches` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+sub-channel \\(not signalled by TOC; two searches read (?P<first>-?\\d{1,9}) and (?P<second>-?\\d{1,9}) frames, the first is used\\)\\s*$` |
 | `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,198}\\S)?)\\s*$` |
 | `track_pregap_search` **(fork-only)** | indented | `^\\s{1,8}Pregap search:\\s{1,8}(?P<value>\\S.*)$` |
+| `track_pregap_length_undecided` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<shorter>\\d{1,9})\\s+or\\s+(?P<longer>\\d{1,9})\\s+frames\\s+\\(undecided\\)\\s*$` |
+| `track_filtered` **(fork-only)** | indented | `^\\s{1,8}Filtered:\\s+(?P<value>\\S(?:.{0,398}\\S)?)\\s*$` |
+| `track_embedded_cover_art` | indented | `^\\s{1,8}Embedded cover art:(?:\\s+(?P<value>\\S(?:.{0,598}\\S)?))?\\s*$` |
 | `track_preemphasis` | indented | `^\\s+Preemphasis:\\s` |
 | `track_disc_isrc` | indented | `^\\s+Disc ISRC:\\s+(?:(?P<state>none\|unknown) \\((?P<reason>[^()\\n]{1,120})\\)\|(?P<unused>[^\\s()][^()\\n]{0,39}?) \\((?P<unused_reason>[^()\\n]{1,120})\\)\|(?P<code>[^\\s()]{1,40}))\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
@@ -136,7 +140,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 | `track_echo_header` | indented | `^\\s{1,8}(?:Metadata\|CD-TEXT):\\s*$` |
 
-Of these, **28 exist only in the fork** and match nothing in
+Of these, **31 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -149,6 +153,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `album_loudness_range`
 - `album_sample_peak_level`
 - `album_true_peak_level`
+- `secure_rereads`
 - `encoder_errors`
 - `not_written_whole`
 - `interrupted_at`
@@ -160,6 +165,8 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_pregap_source_two_searches`
 - `track_pregap_source`
 - `track_pregap_search`
+- `track_pregap_length_undecided`
+- `track_filtered`
 - `track_peak_kind_header`
 - `track_sample_peak`
 - `track_extraction_speed`

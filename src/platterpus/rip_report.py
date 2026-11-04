@@ -27,8 +27,10 @@ from platterpus import (
     album_loudness,
     build_info,
     diagnostics,
+    secure_rereads_footer,
     written_whole,
 )
+from platterpus import ripper_track_notes as track_notes
 from platterpus.atomic_write import atomic_write_text
 from platterpus.cancel_cause import outcome_block as cancel_outcome_block
 from platterpus.cancel_cause import sentence_from_outcome
@@ -674,7 +676,31 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      Full run): `verification.transcode.encoder_argv`, the ffmpeg argv the first
 #      derived file was encoded with, as spawned (null when none encoded), so the
 #      encoder and the MP3 quality that reached it are on the record.
-REPORT_SCHEMA_VERSION: int = 42
+# v43: what the fork's `.29` proposes (their round 38 lap 1, S5 and S7 to S10,
+#      `cyanrip@f1bcb683:docs/handshake/round-38-lap-01.md`; none built at their
+#      pin `3f288fb`), read before any build prints it. v42 shipped in 0.7.118
+#      and 0.7.119, so this is a new number. Additions only. `rip.secure_rereads`,
+#      the `Secure re-reads:` footer line above `Ripping errors:` under `-Z`
+#      (`state` `all_converged` / `some_did_not_converge` / `unrecognised`,
+#      `did_not_converge_count`, `did_not_converge_tracks`, `tracks_truncated`,
+#      `agrees_with_track_blocks`, `text`), null when not printed; a footer that
+#      names other tracks than the track rows raises the
+#      `secure_rereads_footer_disagrees` info issue (`secure_rereads_footer.py`).
+#      It is never a read error: the speed ladder keys on the drive's count. Per
+#      track `pregap_undecided_frames`, `[shorter, longer]` from `Pregap length:
+#      A or B frames (undecided)`: a range, with `pregap_state` `unknown` and no
+#      length; `filtered` (`state`, `filters`, `text`): the filters that changed
+#      the audio after its checksums, raising the `track_audio_filtered` warning;
+#      `ripper_cover_art` (`state` `stated_embedded` / `none` / `unrecognised`,
+#      `codec`, `saved_as`, `text`): what the ripper's log says the file holds,
+#      never our own embedding (`ripper_track_notes.py`). Each null when the log
+#      printed no such line. Per `disc.error_positions` row, the `-j` record's
+#      `/12` `block_crcs`, a CRC32 per 75 frames of the kept read,
+#      position-aligned with null for an unreadable entry, `block_crcs_state`
+#      (`read`, `not_stated`, `unrecognised`, `not_present` for `/11` and
+#      earlier), `block_crcs_not_read` and `block_crcs_not_kept`
+#      (`record_block_crcs.py`).
+REPORT_SCHEMA_VERSION: int = 43
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -2195,6 +2221,11 @@ def _rip_block(
         # shortened:` blocks, which reached nothing; null when no block was printed.
         "pregap_searches": _pregap_searches_block(info),
         "names_shortened": _names_shortened_block(info),
+        # v43: `.29`'s `Secure re-reads:` footer, checked against the track rows.
+        "secure_rereads": secure_rereads_footer.report_block(
+            getattr(rip_log, "secure_rereads", None),
+            getattr(rip_log, "tracks", ()) or (),
+        ),
         "paranoia_level": getattr(info, "paranoia_level", "") or None,
         "overread_mode": getattr(info, "overread_mode", "") or None,
         # Which cyanrip BINARY produced this rip ("release", "fork", a git
@@ -2414,6 +2445,16 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         # of an `unknown` pre-gap can tell reads that failed the CRC from frames
         # that answered for another sector; null when the log printed no line.
         "pregap_search": pregap_search_block(getattr(track, "pregap_search", None)),
+        # v43: `.29`'s proposed lines (`ripper_track_notes`), each null unless
+        # printed: an undecided pre-gap's two bounds, the filters that changed
+        # the audio after its checksums, and what the ripper says the file holds.
+        "pregap_undecided_frames": _search_pair(
+            getattr(track, "pregap_undecided_frames", None)
+        ),
+        "filtered": track_notes.filter_block(getattr(track, "filtered", None)),
+        "ripper_cover_art": track_notes.cover_art_block(
+            getattr(track, "ripper_cover_art", None)
+        ),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
@@ -2984,6 +3025,12 @@ def _issues(
     # AccurateRip and CTDB, not this list, say whether the audio is right. A
     # list that disagrees with its own counters is the record contradicting
     # itself, said as information. Wording lives in `error_positions`.
+    for found_code, sentence in secure_rereads_footer.findings(
+        (rip or {}).get("secure_rereads")
+    ):
+        add("info", found_code, sentence)
+    for found_code, sentence in track_notes.filter_findings(tracks):
+        add("warning", found_code, sentence)
     for found_code, sentence in error_position_findings(
         (disc or {}).get("error_positions")
     ):

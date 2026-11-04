@@ -86,7 +86,9 @@ from platterpus.first_pass_reread import FirstPassReread, did_not_converge
 from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
 from platterpus.pregap_search import PregapSearch
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
+from platterpus.ripper_track_notes import RipperCoverArt, TrackFilter
 from platterpus.safe_int import int_or_none
+from platterpus.secure_rereads_footer import SecureRereads
 
 # --- the two drive facts in cyanrip's disc header, from the fork's `.26` ------
 #
@@ -453,6 +455,16 @@ class TrackResult:
     # apart. None is NO LINE: an older build, an image rip, a pre-gap the TOC or
     # the lead-in gave; never "no search", and never "the search was clean".
     pregap_search: PregapSearch | None = None
+    # `.29`'s proposed lines (their round 38 lap 1; `ripper_track_notes`), each
+    # None when not printed. `pregap_undecided_frames` is `Pregap length: A or B
+    # frames (undecided)` as (shorter, longer): a RANGE, so `pregap_state` stays
+    # `unknown` and no length is derived. `filtered`: the filters that changed
+    # the audio written, so the checksums above it are of the read, not the
+    # file. `ripper_cover_art`: what the ripper's log says the file holds, never
+    # our own embedding (the report's `cover_art`).
+    pregap_undecided_frames: tuple[int, int] | None = None
+    filtered: TrackFilter | None = None
+    ripper_cover_art: RipperCoverArt | None = None
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-upstream.md Part A §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
@@ -717,6 +729,9 @@ class RipLog:
     # "every file written whole".
     not_written_whole: tuple[str, ...] = ()
     not_written_whole_total: int = 0
+    # `.29`'s proposed `Secure re-reads:` footer line (`secure_rereads_footer`);
+    # None when not printed, never "every track converged". Not a read error.
+    secure_rereads: SecureRereads | None = None
 
     @property
     def drive_read_errors(self) -> int | None:
