@@ -2031,7 +2031,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4651 -> 4732** (2026-11-03, TASKS R86): the disc header's echo guards. Each held row's `echo_latch` and the ONCE rows' `clear` in the rule tables (most of the growth is those entries no longer fitting one line), the five clearers beside the `_LineRule` they serve, one check in `_apply_line_rules`, one call in the loop and the clearing after it. They must sit at the dispatch they guard; the state, the order argument and the logging live in `parsers/cyanrip_echo_guard.py`.
     # **4732 -> 4736** (2026-11-03, TASKS R113): the health line says "1 ripping error", not "1 ripping errors", with the comment that says why.
     # **4736 -> 4790** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the loop's dispatch, `_TrackAcc` slots and table rows for S5 `Secure re-reads:`, S7 `Filtered:` (refused inside the echo), S8 `Pregap length: A or B frames (undecided)` with the guard that keeps a range from reading as a known LSN, and S9 `Embedded cover art:`; every reading lives in `secure_rereads_footer.py` and `ripper_track_notes.py`.
-    "parsers/cyanrip_log.py": 4790,
+    # **4790 -> 4796** (2026-11-04, TASKS R128 (c)): `_take_rip_completed` reads its optional `(N of M tracks)` with `present_int_or_none`, two calls reflowed onto three lines each, with the comment that says why. The sweep that found it is `tests/test_optional_groups_are_read_as_optional.py`.
+    "parsers/cyanrip_log.py": 4796,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one

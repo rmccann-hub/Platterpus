@@ -112,7 +112,7 @@ from platterpus.reread_limit import RereadLimitStop
 # one place that did not follow it, and its warnings could not name the field.
 # See safe_int.py's docstring for why the guard exists at all (CPython refuses a
 # digit run longer than 4300 characters, and a `\d+` group is unbounded).
-from platterpus.safe_int import int_or_none
+from platterpus.safe_int import int_or_none, present_int_or_none
 from platterpus.written_whole import PathSample
 
 log = logging.getLogger(__name__)
@@ -2571,8 +2571,14 @@ def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
     says the log stops early, the other says the rip did.
     """
     disc.rip_completed = match.group("verdict") == "yes"
-    disc.rip_completed_tracks = int_or_none(match.group("done"), field="rip_completed")
-    disc.rip_completed_total = int_or_none(match.group("total"), field="rip_completed")
+    # `(N of M tracks)` is optional, so both are None on a line without it:
+    # absent, not unusable, and silent (TASKS R128 (c), as R116).
+    disc.rip_completed_tracks = present_int_or_none(
+        match.group("done"), field="rip_completed"
+    )
+    disc.rip_completed_total = present_int_or_none(
+        match.group("total"), field="rip_completed"
+    )
     # "interrupted by user" and the like. Kept verbatim rather than inferred
     # from the verdict: the ripper may grow other reasons, and reconstructing
     # its sentence from a boolean would be us inventing wording it never used.

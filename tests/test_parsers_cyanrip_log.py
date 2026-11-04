@@ -3553,3 +3553,54 @@ def test_an_implausible_ripping_errors_count_is_not_determined_and_not_no_errors
     assert parsed.health_status is not None
     assert "No errors" not in parsed.health_status
     assert parsed.health_status.startswith("9999")
+
+
+# --- `Rip completed:`'s optional parenthetical: absent is silent (TASKS R128 (c)) --
+
+
+def _safe_int_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "platterpus.safe_int" and record.levelno >= logging.WARNING
+    ]
+
+
+def test_a_rip_completed_line_without_its_track_count_logs_no_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`(N of M tracks)` sits inside an optional group of `_RIP_COMPLETED`, so a
+    line without it gave `int_or_none` two `None`s and logged "unusable integer
+    for rip_completed: None" twice per log. Found by the R128 (c) sweep
+    (`tests/test_optional_groups_are_read_as_optional.py`)."""
+    with caplog.at_level(logging.WARNING, logger="platterpus.safe_int"):
+        bare = parse_cyanrip_log("cyanrip 0.9.4\nRip completed:  yes\n")
+        counted = parse_cyanrip_log(
+            "cyanrip 0.9.4\nRip completed:  no (interrupted by SIGTERM, 2 of 3 tracks)\n"
+        )
+    # The floor: both lines were read, so the silence is about the clause.
+    assert bare.rip_completed is True
+    assert (bare.rip_completed_tracks, bare.rip_completed_total) == (None, None)
+    assert counted.rip_completed is False
+    assert (counted.rip_completed_tracks, counted.rip_completed_total) == (2, 3)
+    assert _safe_int_warnings(caplog) == []
+
+
+def test_a_present_but_unusable_rip_completed_count_still_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The silence is for ABSENT only. `_RIP_COMPLETED` bounds both counts to four
+    digits, so an unreadable one cannot come through the parser; the handler is
+    driven with a match whose groups are there and are not numbers, and it must
+    still say so, naming the field."""
+    disc = cyanrip_log._Disc()
+    stand_in = re.match(
+        r"(?P<verdict>yes)(?: \((?P<reason>x)?(?P<done>\w+) of (?P<total>\w+)\))?",
+        "yes (ten of twelve)",
+    )
+    assert stand_in is not None
+    with caplog.at_level(logging.WARNING, logger="platterpus.safe_int"):
+        cyanrip_log._take_rip_completed(disc, stand_in)
+    assert (disc.rip_completed_tracks, disc.rip_completed_total) == (None, None)
+    warned = _safe_int_warnings(caplog)
+    assert len(warned) == 2 and all("rip_completed" in m for m in warned), warned
