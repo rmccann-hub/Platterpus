@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS holds one row per number** (contributor-facing): cherry-pick merges had left R117, R119 and R120 twice, an open copy beside the done one, so three finished tasks read as open. The stale copies are removed, and `tests/test_tasks_rows_are_unique.py` refuses a repeated row number.
 - **The app log names cyanrip's exit 74 and 64 as its own codes, not a crash.** When a read-speed step or the securing pass is skipped because the pass did not finish, the log used to say 74 was a code cyanrip "never returns (a signal, a crash or the container)", beside the report's correct "its code for a disc or drive failure". It now says "cyanrip exited 74, its code for a disc or drive failure" (and 64, a refused argument). Found in the owner's 0.7.119 Full run, where the drive failed mid-rip.
 - **Our standing status says 0.7.119 is published** (contributor-facing): released 2026-11-03 from `3e041997` (release run 41715497154), the first release installing `.28` by default; PyPI's publish passed on its second attempt, after Sigstore's transparency log returned HTTP 502 while signing the attestation, before any upload.
 
