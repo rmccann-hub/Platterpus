@@ -1,0 +1,155 @@
+=== Platterpus diagnostics ===
+
+Approved pair: Platterpus 0.7.117 + cyanrip 0.9.4-rc3+platterpus.28 (platterpus-fork-g3f288fb) — verified by handshake round 37. This app is Platterpus 0.7.120, which that round did NOT approve — it verified this ripper build with Platterpus 0.7.117 and never saw this app. The pair is what the record APPROVES, not what is installed — the ripper build that produced a given rip is named in that rip's own log and report.
+Installed ripper: cyanrip 0.9.4-rc3+platterpus.29 (commit 8d2ca72, fork release 40), the Platterpus fork of cyanrip. ⓘ Being tested, not approved yet: handshake round 38 is testing this build now, and the acceptance test needs it. Until a handshake round approves it, every rip records its ripper as unapproved in its rip report. The audio is unaffected: a rip whose own checks pass is still bit-perfect. Keep it until the round closes.
+
+--- Environment ---
+install_channel: appimage
+platform: Linux-7.2.15-ogc1.1.fc45.x86_64-x86_64-with-glibc2.44
+pyside6: 6.11.2
+python: 3.14.9
+
+--- Dependencies ---
+measured 2 hours ago (12:54 UTC)
+cdparanoia: present=True version=10.2 min_version_met=True
+cyanrip: present=True version=0.9.4 build=0.9.4-rc3+platterpus.29 min_version_met=True
+ffmpeg: present=True version=9.0.2 min_version_met=True
+flac: present=True version=1.5.0 min_version_met=True
+metaflac: present=True version=1.5.0 min_version_met=True
+musicbrainzngs: present=True version=0.7.1 min_version_met=True
+numpy: present=True version=2.5.4 min_version_met=True
+picard: present=True version=3.0.4 min_version_met=True
+
+--- Diagnostics ---
+errors: 0  warnings: 2  info: 16
+worst: warning
+scope: process session (not only this rip)
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T13:16:12+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T13:19:53+00:00
+  Done; (2 out of 2 matches for current checksum E0036697)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T13:54:29+00:00
+  Done; (2 out of 2 matches for current checksum B0D122E7)
+  tool: cyanrip
+  track: 1
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T13:57:48+00:00
+  Done; (2 out of 2 matches for current checksum 985AAE32)
+  tool: cyanrip
+  track: 2
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:06:02+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:10:44+00:00
+  Done; (2 out of 2 matches for current checksum 60D796AE)
+  tool: cyanrip
+  track: 4
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:14:24+00:00
+  Done; (2 out of 2 matches for current checksum E0036697)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:17:54+00:00
+  Done; (2 out of 2 matches for current checksum B32769D6)
+  tool: cyanrip
+  track: 6
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:21:27+00:00
+  Done; (2 out of 2 matches for current checksum CCBFF669)
+  tool: cyanrip
+  track: 7
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:24:26+00:00
+  Done; (2 out of 2 matches for current checksum D723C1B0)
+  tool: cyanrip
+  track: 8
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:26:46+00:00
+  Done; (2 out of 2 matches for current checksum 6F6E4A5F)
+  tool: cyanrip
+  track: 9
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:29:56+00:00
+  Done; (2 out of 2 matches for current checksum 3A33519F)
+  tool: cyanrip
+  track: 10
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:33:31+00:00
+  Done; (2 out of 2 matches for current checksum 56BFC63D)
+  tool: cyanrip
+  track: 11
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:37:13+00:00
+  Done; (2 out of 2 matches for current checksum D78CEAEF)
+  tool: cyanrip
+  track: 12
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:40:37+00:00
+  Done; (2 out of 2 matches for current checksum DA6A4DAF)
+  tool: cyanrip
+  track: 13
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-04T14:43:54+00:00
+  Done; (2 out of 2 matches for current checksum 787BA2D6)
+  tool: cyanrip
+  track: 14
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] deps.command_failed @ 2026-11-04T14:48:15+00:00
+  cyanrip exited 64: Offset is unset! To continue with an offset of 0, run with -s 0!
+  tool: cyanrip
+  exit code: 64
+  argv: ~/.local/bin/cyanrip -N -d /dev/sr0 -l 1
+  where: adapters.rip_backend.run_capture
+  detail:
+    Checking /dev/sr0 for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    Offset is unset! To continue with an offset of 0, run with -s 0!
+    Paranoia status counts:
+      none
+    
+    Ripping errors: 0
+    Encoder errors: not applicable; no track was encoded
+    Read stalls:    none (no read exceeded 10s)
+    Rip completed:  no (aborted, 0 of 14 tracks)
+    Ripping finished at 2026-11-04T09:48:15-05:00
+
+[warning] coverart.fetch_failed @ 2026-11-04T15:17:32+00:00
+  cover art was not applied (reason: network) — Cover art: could not reach the Cover Art Archive — art was not fetched, so this release may still have one (rip unaffected).
+  tool: Cover Art Archive (HTTP)
+  where: adapters.cover_art.fetch_and_apply
+  detail:
+    release 65282302-368b-4ba2-953a-483bcdef2410: HTTP 500
+
+--- Where the rest lives ---
+app log: ~/.local/share/platterpus/log.txt
+per-rip report: a `.platterpus.json` beside each album's audio — it embeds the ripper's own output and that session's debug log.

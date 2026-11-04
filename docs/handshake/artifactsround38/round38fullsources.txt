@@ -1,0 +1,48 @@
+PLATTERPUS ACCEPTANCE SESSION — SOURCES
+=======================================
+
+session stamp      20261104T125346Z
+session folder     ~/platterpus-rig/platterpustestsession20261104t125346z
+deliverable        ~/platterpus-rig/platterpustestsession20261104t125346z/platterpusbundle20261104t125346z.tar.gz
+
+Every path this session asked for is listed below, INCLUDING the ones
+that were not there. An absence somebody can read is a finding; an
+absence nobody can see reads as a complete bundle. Each file's line
+says what the bundle did with it, as MANIFEST.txt does.
+
+asked for 15: 5 collected, 0 not archived, 0 absent, 0 failed, 10 older than this session
+
+  ~/platterpus-rig/platterpustestsession20261104t125346z/evidence/transcript.txt
+      in the session folder — archived as session/transcript.txt
+  ~/platterpus-rig/platterpustestsession20261104t125346z/evidence/artifacts
+      in the session folder — archived as session/artifacts
+  ~/.local/share/platterpus/log.txt
+      archived as session/artifacts/02platterpus/log.txt
+  ~/.local/share/platterpus/log.txt.1
+      NOT COLLECTED — older than this session: last written 20261029T044817Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.2
+      NOT COLLECTED — older than this session: last written 20261021T115047Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.3
+      NOT COLLECTED — older than this session: last written 20261016T034011Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.4
+      NOT COLLECTED — older than this session: last written 20261016T010942Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.5
+      NOT COLLECTED — older than this session: last written 20261014T150507Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.6
+      NOT COLLECTED — older than this session: last written 20261014T123528Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.7
+      NOT COLLECTED — older than this session: last written 20261013T154644Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.8
+      NOT COLLECTED — older than this session: last written 20261013T131809Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.9
+      NOT COLLECTED — older than this session: last written 20261012T084328Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.local/share/platterpus/log.txt.10
+      NOT COLLECTED — older than this session: last written 20261012T061337Z, before the session began (20261104T125346Z), so it holds none of this run's lines; left on disk, not archived
+  ~/.config/platterpus/config.toml
+      archived as session/artifacts/13platterpus/config.toml
+  ~/platterpus-rig/platterpustestsession20261104t125346z/evidence/run
+      in the session folder — archived as session/run
+
+No audio can be in this archive: everything above passed the
+allowlist in evidence_bundle (see MANIFEST.txt, which names every
+file it refused and why).
