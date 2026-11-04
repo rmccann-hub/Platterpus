@@ -2369,6 +2369,33 @@ for it: the three `TypeAlias` aliases became `type` statements and the two gener
 in `main_window_rip.py` use type parameters. `test (py3.11)` leaves the default-branch
 ruleset's required checks with the leg, an owner's change, made before the change merged.
 
+### KDD-47 — CTDB repair is built natively, and round 38 stays open until tracks 3 and 5 are resolved (decided 2026-11-04)
+
+**Context.** Tracks 3 and 5 of the reference disc have failed to verify on the owner's
+BDR-209D across many rounds (`docs/eac-parity.md` Part G). On 2026-11-04 the run on
+`.29` failed its two CTDB steps on track 5 alone, and the owner asked for a solution:
+*"Is EAC able to do it? Then so should we."* EAC cannot verify track 5 on this drive
+either; the EAC workflow fixes it with CUETools repair. KDD-14 chose to wrap `ctdb-cli`
+for repair, and KDD-14's July revision ("D -> B") deferred it because every repair tool
+on Linux needs .NET. Since then our clean-room localiser (TASKS R43, 2026-10-26) has
+implemented CUETools' `VerifyParity` in Python and numpy, and located both tracks'
+errors on hardware.
+
+**Decision (the owner's: "Start building CTDB repair now? yes").** Repair is built
+natively on that localiser, with no .NET: patch only the damaged track, prove the
+result against the CTDB entry and AccurateRip before replacing the master, keep the
+original, record the repair, and never edit the EAC-compatible log. This supersedes
+KDD-14's Phase 2 choice to wrap `ctdb-cli`; `docs/manual-ctdb-repair.md` stays as the
+power-user path. A second track, rebuilding a disputed second from several reads and
+accepting it only on AccurateRip v1 and v2, is built beside it, with the fork asked to
+keep every read. **And round 38 stays open** until this is resolved, on the owner's
+word (*"lets keep this round going until we can resolve this and do as much as
+possible"*), which overrides our lap 6's pre-commit to `GO` on the run alone.
+
+**Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
+LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room
+rule KDD-16 set remains the practice.
+
 ---
 
 *Last updated for Platterpus v0.7.120.*

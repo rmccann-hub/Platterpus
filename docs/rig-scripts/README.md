@@ -152,8 +152,14 @@ cleaned. `compare-conditions` prints early against late per track. 0.7.120
 already has every verb it uses, so a downloaded copy runs on it:
 
 ```sh
-./platterpus-x86_64.AppImage --run-script drivemode.txt
+~/Applications/platterpus-x86_64.AppImage --run-script ~/drivemode.txt
 ```
+
+Like every rig run it is **unattended**: it never stops to ask for anything, and
+the disc is touched only between runs (the owner, 2026-11-04). A Full acceptance
+run follows the same rule; a cleaned-disc comparison is two runs, one with the disc
+left in and one after it is taken out and cleaned, never a prompt mid-run. The
+findings it serves: `docs/eac-parity.md` Part G.
 
 ## Which collector gathers what
 

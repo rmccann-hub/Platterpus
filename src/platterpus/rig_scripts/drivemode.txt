@@ -2,11 +2,16 @@
 # DRIVE MODE AND SESSION — do tracks 3 and 5 read the same way every time?
 # =============================================================================
 #
-#   Run it:   ./platterpus-x86_64.AppImage --run-script drivemode.txt
-#             (the file you downloaded; 0.7.120 already has every verb it uses)
+#   Run it:   ~/Applications/platterpus-x86_64.AppImage --run-script ~/drivemode.txt
+#             (the AppImage where the installer parks it, and the file you
+#             downloaded; 0.7.120 already has every verb it uses)
 #   Costs:    typically about 35 to 50 minutes on the reference rig (an
 #             estimate, not yet measured): twelve rips, six of track 5 and six
 #             of track 3, alternating.
+#
+# UNATTENDED, LIKE EVERY RIG RUN. It never stops to ask for anything; the disc
+# is touched only BETWEEN runs (the owner, 2026-11-04: a run is meant to go on
+# its own, overnight or during work).
 #
 # THE OWNER RUNS THE SAME FILE SEVERAL TIMES, AND ONLY THE CONDITION CHANGES.
 # Nothing in this file needs editing. Which condition a run was made under is

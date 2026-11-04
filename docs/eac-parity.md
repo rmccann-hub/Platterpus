@@ -1576,6 +1576,143 @@ that passes a logchecker. Its claim that with its settings "the only possible er
 would be with the CD itself" is contradicted by track 3 on this drive (E2), which reads
 right in some rips and wrong in others, on both builds, with no read error reported.
 
+
+## Part G — Tracks 3 and 5 on the reference rig: what we know, what we think, the plan (2026-11-04)
+
+**Why this part exists.** Tracks 3 and 5 of the reference disc (The Police, *Every
+Breath You Take: The Classics*) have kept this repository and the fork busy since
+round 30. On 2026-11-04 the owner asked for a solution rather than another lap
+about it: *"Is EAC able to do it? Then so should we, unless they are flawed."* This
+part is the single record of what is known, what is believed and on what evidence,
+and what both sides are building. It supersedes nothing above; Part A's TL;DR item 1
+and Part F's per-run scores stay the dated record.
+
+### G.1 What we know (measured)
+
+- **EAC on the same drive cannot verify track 5 either.** Its own log
+  (`output_reference/EAC_flac/eac_baseline_police_classics.log:264`) reads
+  *"(1339/1441) Differs in 3 samples @02:24:59"*, and *"Cannot be verified as
+  accurate"*. The EAC world reaches a verified track 5 with a second tool: CUETools
+  repairing the rip from CTDB's parity. EAC is not reading better; it is repairing.
+- **The disputed region is one second per track.** `.29`'s per-second block CRCs
+  (round 38 lap 1 S10), compared between two reads of one session on 2026-11-04
+  (evidence `78cff7e8`): track 3 differs only in second 251 (04:11), track 5 only in
+  second 144 (02:24), the second CTDB names. In a one-pass rip the block CRCs of all
+  14 tracks combine by zlib's `crc32_combine` to the copy CRC.
+- **Our clean-room CTDB localiser already finds both.** Built 2026-10-26 (TASKS R43);
+  on 2026-10-28 it located, on EAC's FLACs of this disc, *"track 5 differs in 3 samples
+  @02:24:59"* (entry 32115, offset -7) and track 3's *"16 samples @04:04:68, 04:05:17,
+  04:11:32"*. Both are within CTDB's correctable range (npar 16 corrects up to 8 bad
+  words per column of a 10-sector stride; about one second of burst).
+- **The results cluster by session, with no trend over time.** Every filed run of the
+  reference disc, 2026-10-20 to 11-04 (the chart is in TASKS, row *"Tracks 3 and 5 of
+  the reference disc have each converged on two different values"*): track 3 ripped
+  alone was right in 1 of 8 on 10-26, 8 of 8 on 11-03 and 0 of 8 on 11-04; whole-disc
+  rips with the app's secure re-rip got it right in 6 of 7 sessions. Track 3's wrong
+  reads take about sixteen distinct values; track 5 takes two or three
+  (`E0036697`, `6902BCF0`) and was AccurateRip-verified once in about fourteen
+  (`C96464AB`, 2026-10-26).
+- **The drive.** Pioneer BDR-209D, firmware 1.51: no C2 pointers (our records and
+  redumper's drive table, `superg/redumper@fa5d243:drive.ixx:239`, which lists it
+  among "generic (bad) drives" with no C2 field); a cache of about 140 sectors that a
+  backseek flushes (`tests/fixtures/cdparanoia_A_bdr209d.txt`), far smaller than a
+  track, so cache cannot explain whole-track disagreement.
+- **The owner's handling** (2026-11-04): the disc usually stays in the drive between
+  runs; when it comes out it is sometimes wiped for dust.
+
+### G.2 What we think (hypotheses, ranked by fit)
+
+1. **Track 5 is the drive interpolating silently, the same way every time.** Pioneer
+   documents PureRead: in "Standard" mode the drive interpolates over a frame it
+   cannot correct and continues, reporting nothing to the host (and this drive has no
+   C2 to report it with); "Master" retries with changed read parameters; "Perfect"
+   reports a read error instead (Pioneer's PureRead page; a 2009 interview with its
+   engineers, phileweb.com 200909/04/26). A deterministic interpolation explains why
+   EAC and every cyanrip build read `E0036697`, and why re-reading and voting do not
+   help. Untested: which mode this drive is in, and whether the setting persists
+   across operating systems.
+2. **Track 3 is random error in one second, decided per session.** Many distinct
+   wrong values and one right one is the signature of random error, which per-sample
+   voting across reads can correct. The session factor is most likely the disc's
+   seating and surface after insertion (eccentricity, dust) and the approach path:
+   whole-disc rips reach track 3 at steady speed, single-track rips seek there cold.
+   Heat is a weaker candidate (one anecdote). Wear does not fit: no trend over time.
+
+### G.3 What other rippers do (research, 2026-11-04)
+
+From source, at pinned commits: **redumper** (`fa5d243`, GPL-3.0) keeps a per-sample
+state from C2 and re-reads only incomplete sectors (`refine`); without C2 it has
+nothing to revisit, so it adds nothing on this drive. **whipper** (`71251a0`) re-rips
+whole tracks on a test/copy mismatch; its issues #667 and #679 ask for AccurateRip-
+guided selection and splicing, unbuilt. **rubyripper** (`6ed1d6c`) votes per 2,352-byte
+chunk across whole-track passes, the closest prior art for voting, but its trigger is
+inverted since `066d305` (2011): `lib/rubyripper/secureRip.rb:285` marks a chunk for
+re-reading when the two reads are *equal*; a design to learn from, not a witness.
+**CUETools** (`gchudov/cuetools.net@f2ec334`, GPL-2.0-or-later, not LGPL as this
+repository said; see G.6) repairs from CTDB parity: Reed-Solomon over GF(2^16), stride
+11,760 words, up to npar/2 errors per column, accepted only when the corrected CRC
+equals the entry's (`CUETools.AccurateRip/CDRepair.cs:178-233`). **cdverify**
+(`neheb/cdverify@19ded51`, Rust, GPL-3.0-or-later, first commit 2026-10-10) is a native
+port of that repair that rewrites only the damaged tracks and re-decodes before keeping
+them; a reference for the design, not an independent witness (it shares CUETools'
+ancestry). From vendor documentation only: **dBpoweramp** re-rips bad frames and lets
+AccurateRip stop a rip after any pass that matches; **EAC** re-reads a differing
+sector until 8 of 16 agree; **XLD** does unpublished statistical correction. No ripper
+found automates combining per-region variants across reads against AccurateRip.
+
+**AccurateRip is a position-weighted sum, not a CRC** (`CUETools.AccurateRip/
+AccurateRip.cs:523-525`, `:135-141`), so a search over region variants can be scored
+cheaply, and v1 alone has a blind spot (the right channel at positions that are
+multiples of 2^16). A false match is about M x 2^-32 for v1 alone over M candidates,
+about 2^-64 for v1 and v2 together.
+
+### G.4 The plan, in order (the owner's word of 2026-11-04: "yes" to each)
+
+1. **Native CTDB repair** (ours; TASKS R133). The localiser exists; what remains is
+   to keep each correction's value, map it to a track, sample and channel, patch only
+   the damaged track, re-encode with the host `flac` and copy every metadata block, and
+   prove it before replacing anything: the new file re-decodes to exactly the original
+   with the plan applied, the whole-disc CTDB CRC and the entry's track CRC match, and
+   AccurateRip v1 and v2 are recomputed. The original is kept beside it; the repair is
+   recorded in the report; the EAC-compatible log is never edited (KDD-24). Strongest
+   entry only, never a minority, never against AccurateRip. Decision: KDD-47.
+2. **Rebuild a disputed second from several reads, accepted only on AccurateRip v1 and
+   v2** (ours, with the fork's help; TASKS R134). Keep each read, find the seconds that
+   differ by block CRC, build candidates from per-sample majority and each observed
+   variant, every sample one the drive returned, accept only when AccurateRip v1 and v2
+   both match (and the CTDB track CRC where present), cap and record the number tried.
+3. **The drive's PureRead mode** (the owner, on Windows 11 on the same machine; TASKS
+   R135), measured with `rig_scripts/drivemode.txt`: twelve rips of tracks 5 and 3,
+   early and late in a session, run once per condition.
+4. **The session** (the owner; TASKS R135): the same script with the disc left in, then
+   after it is taken out, wiped and reinserted. Never by interrupting a run: a Full
+   acceptance run stays unattended, and a disc is touched only between runs.
+
+### G.5 The split with the fork (proposed in our round 38 lap 8)
+
+- **Ours:** repair (G.4 item 1) and the AccurateRip-checked rebuild (item 2); the rig
+  script; reading every result.
+- **Asked of the fork:** for item 2, keep the audio and the block CRCs of *every*
+  `-Z` read of a track, not only the kept one, so one rip yields several reads of a
+  disputed second without separate rips; and, as they see fit, a log line when a read
+  of a second disagrees with the kept one. Their build tag is already seven characters
+  (`cyanrip@27e17393`), which answers our lap 7 draft's S10.
+- **Both:** the round stays open until this is resolved, on the owner's word of
+  2026-11-04: *"lets keep this round going until we can resolve this and do as much as
+  possible."*
+
+### G.6 Corrections to our own record
+
+- **CUETools' licence.** `PLANNING.md` KDD-16, `docs/archive/upstream-modification-
+  investigation.md` and some `src/platterpus/ctdb/` docstrings call `cuetools.net`
+  LGPL. Its root `License.txt` gives CUETools as GPL-2.0-or-later; only
+  `CUETools.Codecs` is LGPL-2.1-or-later. The "LGPL" traces to a 2010 forum post.
+  Either licence permits a GPL-3.0-only port, so nothing built is affected; the wording
+  is corrected where it is touched (TASKS R136).
+- **"Track 5 is the disc."** Part A and the TASKS row said so; G.2 refines it: the disc
+  has a marginal spot that this drive, in its current mode, interpolates the same way
+  every time. The same disc read right once.
+
 ---
 
 *Last updated for Platterpus v0.7.120.*
