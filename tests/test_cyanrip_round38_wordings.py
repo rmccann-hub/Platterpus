@@ -417,3 +417,65 @@ def test_the_new_readers_never_raise(text: str) -> None:
 def test_the_parser_never_raises_on_a_mangled_round38_line(text: str) -> None:
     parse_cyanrip_log(_log(secure="Secure re-reads: " + text))
     parse_cyanrip_log(_log().replace("94 or 95 frames (undecided)", text))
+
+
+# --- `.29` as built: the fork's round 38 lap 3 S2 to S5 -------------------------
+#
+# Lap 3 answered our lap 2 S8 with each form as `.29` prints it
+# (`cyanrip@f932d6c2`). Two of them differ from the lap-1 wording the log above
+# was made from: the undecided pregap is on `Pregap LSN:` as well as
+# `Pregap length:`, and the `Gaps:` row reads `pregap of track N: A or B frames
+# (undecided)` (their S4, a correction of their own lap 1). The `Gaps:` row is
+# what our two readers of that block missed: the pregap comparison called the
+# whole list unreadable, and the EAC-layout log claimed "Appended to previous
+# track" for a pregap cyanrip did not decide.
+
+_AS_BUILT_GAP_ROW: Final[str] = "    pregap of track 3: 94 or 95 frames (undecided)"
+_AS_BUILT_LSN_ROW: Final[str] = "    Pregap LSN:  145567 or 145568 (undecided)\n"
+
+
+def _as_built() -> str:
+    return (
+        _log()
+        .replace(
+            "    pregap of track 3 unknown (sub-channel search bounds did not meet)",
+            _AS_BUILT_GAP_ROW,
+        )
+        .replace(
+            "    Pregap LSN:  unknown (sub-channel search bounds did not meet)\n",
+            _AS_BUILT_LSN_ROW,
+        )
+    )
+
+
+def test_lap3_s4_the_built_gaps_row_reads_as_unknown_in_the_pregap_comparison() -> None:
+    log = _as_built()
+    assert _AS_BUILT_GAP_ROW in log and _AS_BUILT_LSN_ROW in log
+    reading = pregap_grading.read_gap_list(log, "a")
+    assert reading.problem == ""
+    assert reading.pregaps == {1: 150, 2: 75, 3: None}
+    assert "two lengths" in reading.unknown_notes[3]
+    assert "94 or 95 frames, undecided" in reading.unknown_notes[3]
+
+
+def test_lap3_s4_the_built_gaps_row_never_lets_the_eac_log_claim_appending() -> None:
+    eac = render_eac_style_log(parse_cyanrip_log(_as_built()), disc_track_total=3)
+    row = next(line for line in eac.splitlines() if line.startswith("Gap handling"))
+    assert "undetermined" in row
+    assert "Appended to previous track" not in row
+
+
+def test_lap3_s4_the_built_lsn_row_is_a_range_and_never_a_known_lsn() -> None:
+    three = next(t for t in parse_cyanrip_log(_as_built()).tracks if t.number == 3)
+    assert three.pregap_state == "unknown"
+    assert three.pregap_undecided_frames == (94, 95)
+    assert three.pregap_start_lsn is None
+
+
+def test_lap3_s2_s3_the_built_forms_read_exactly() -> None:
+    one = footer.read_value("1 track did not converge (track 3)")
+    two = footer.read_value("2 tracks did not converge (tracks 3, 5)")
+    assert (one.count, one.tracks, one.truncated) == (1, (3,), False)
+    assert (two.count, two.tracks, two.truncated) == (2, (3, 5), False)
+    built = notes.read_filtered(_FILTERED.split("Filtered:", 1)[1].strip())
+    assert built.filters == ("hdcd", "de-emphasis")

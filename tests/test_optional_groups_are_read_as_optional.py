@@ -162,21 +162,26 @@ class _Site:
     patterns: tuple[re.Pattern[str], ...]  # empty when unresolved
 
 
-def _matched_pattern(node: ast.expr) -> ast.expr | None:
-    """``PATTERN`` out of ``PATTERN.search(...)`` and its siblings.
+def _matched_patterns(node: ast.expr) -> list[ast.expr]:
+    """Every ``PATTERN`` out of ``PATTERN.search(...)`` and its siblings.
 
-    Also through a conditional, ``PATTERN.fullmatch(t) if guard else None``:
-    the other arm is no match at all, so it reads no group.
+    Also through a conditional, ``PATTERN.fullmatch(t) if guard else None``
+    (the other arm is no match at all, so it reads no group), and through a
+    fallback, ``A.match(t) or B.match(t)`` (`.29`'s undecided `Gaps:` row,
+    `uiscript/pregap_grading.py`): either may be the match, so a group optional
+    in EITHER pattern is optional at the read.
     """
     if isinstance(node, ast.IfExp):
-        return _matched_pattern(node.body) or _matched_pattern(node.orelse)
+        return _matched_patterns(node.body) + _matched_patterns(node.orelse)
+    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+        return [found for value in node.values for found in _matched_patterns(value)]
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in _MATCHERS
     ):
-        return node.func.value
-    return None
+        return [node.func.value]
+    return []
 
 
 def _read_group(arg: ast.expr) -> tuple[str, str] | None:
@@ -243,22 +248,23 @@ class _Module:
         found: list[tuple[int, re.Pattern[str]]] = []
         for node in ast.walk(scope if scope is not None else self.tree):
             target: ast.expr | None = None
-            source: ast.expr | None = None
+            sources: list[ast.expr] = []
             if isinstance(node, ast.Assign) and len(node.targets) == 1:
-                target, source = node.targets[0], _matched_pattern(node.value)
+                target, sources = node.targets[0], _matched_patterns(node.value)
             elif isinstance(node, ast.NamedExpr):
-                target, source = node.target, _matched_pattern(node.value)
+                target, sources = node.target, _matched_patterns(node.value)
             elif isinstance(node, ast.For):
-                target, source = node.target, _matched_pattern(node.iter)
+                target, sources = node.target, _matched_patterns(node.iter)
             if not (isinstance(target, ast.Name) and target.id == name):
                 continue
-            if source is None or node.lineno > before:
+            if not sources or node.lineno > before:
                 continue
             if self.scope_of(node.lineno) is not scope:
                 continue
-            compiled = self.pattern(source)
-            if compiled is not None:
-                found.append((node.lineno, compiled))
+            for source in sources:
+                compiled = self.pattern(source)
+                if compiled is not None:
+                    found.append((node.lineno, compiled))
         if not found:
             return []
         newest = max(line for line, _ in found)

@@ -1139,7 +1139,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is gathered rather than graded and what the floor refuses.
     # **333 -> 421** (2026-10-26, the fork's round 36 lap 8 S11): a pregap the log calls unknown is read as a reading that disagrees with a number, where it used to set the whole log aside. The unknown line's pattern, the reading's `unknown_notes`, the difference's `notes`, the sort that puts unknown last, and the docstring saying why; still one job, the same comparison.
     # **421 -> 436** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): an undecided pre-gap's two bounds (S8) join the unknown track's note; still unknown, never a number compared.
-    "uiscript/pregap_grading.py": 436,
+    # **436 -> 449** (2026-11-04): `.29`'s `Gaps:` row for an undecided pregap, `pregap of track N: A or B frames (undecided)` (the fork's round 38 lap 3 S4), read as unknown rather than making the whole list unreadable.
+    "uiscript/pregap_grading.py": 449,
     # 356 lines on 2026-09-14, crossing the ~300 heuristic with round 18's rename.
     # **Kept as one module deliberately.** The heuristic asks whether a file is
     # doing more than one job, and this one is not: it is the script run report —
@@ -1761,7 +1762,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2277 -> 2282** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): the Copy CRC note adds the first pass's clause; the words and the slot live in `first_pass_reread.py`.
     # **2277 -> 2278** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `_health_lines` asks `verdict.accuraterip_contradictions` and takes `DISC_HAD_ERRORS` from `rip_health`, which the report's `health_status` shares.
     # **2283 -> 2295** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the undecided pre-gap's range in the not-determined row (S8) and the `Filtered:` note beside a track's proof (S7); the wording is `ripper_track_notes.py`.
-    "eac_log_export.py": 2295,
+    # **2295 -> 2300** (2026-11-04): the same row decides the Gap handling row as unknown does, so the log never claims appending for a pregap cyanrip did not decide.
+    "eac_log_export.py": 2300,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
