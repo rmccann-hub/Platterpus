@@ -219,6 +219,20 @@ jobs:
       # pushed onto one, could release code that never reached `main`. This refuses
       # any commit `main` does not contain.
       #
+      # A commit on `main` but OLDER than its tip passes, on purpose: `main` can
+      # move between a dispatch and its run. That cannot publish a stale commit as
+      # a new version (TASKS R126 (b), asked by the audits of 2026-10-27/28),
+      # because the gates after this one read the checked-out commit and key on
+      # the tag: the changelog gate needs that commit's own non-empty
+      # `## [X.Y.Z]` under an empty `[Unreleased]`, the version check needs the
+      # binary built from it to print exactly X.Y.Z, and the tag step refuses a
+      # tag already on another commit, while the publish step refuses a release
+      # already published. So an older commit goes out only as the version it
+      # names itself, and only once. A dispatch names a branch or a tag, never a
+      # SHA, so on `main` it builds the tip; an older commit arrives only by a tag
+      # pushed onto it by hand. tests/test_release_git_steps.py runs each gate on
+      # that case.
+      #
       # It needs `main`'s history, and the checkout holds one commit: `$SHA`. A
       # fetch with no `--depth` brings `main`'s history down to the commits the
       # clone already has, so walking back from `main`'s tip reaches `$SHA` when

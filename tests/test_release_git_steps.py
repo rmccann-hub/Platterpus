@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Final
 
@@ -484,3 +485,128 @@ def test_the_tag_gate_runs_after_the_ref_gate_and_before_the_build() -> None:
         < text.index(f"- name: {TAG_GATE}")
         < text.index("- name: Build wheel + sdist and validate metadata")
     )
+
+
+# --- an older `main` commit (TASKS R126 (b)) ---------------------------------
+#
+# The branch gate passes a commit that is on `main` but behind its tip, on
+# purpose (`test_a_commit_on_main_that_is_no_longer_its_tip_passes`: `main` moves
+# between a dispatch and its run). The audits of 2026-10-27/28 asked whether that
+# lets a stale commit go out as a new version. It does not, because the later
+# gates read the CHECKED-OUT commit and key on the TAG, so an older commit can
+# only be released as the version it names itself, and only once:
+#
+#   * the changelog gate wants that commit's own CHANGELOG to carry a non-empty
+#     `## [X.Y.Z]` for the tag under an empty `[Unreleased]`, which, of the
+#     commits on `main`, only release commits have;
+#   * the version check wants the binary built from that commit to print exactly
+#     the tag's version (its `__version__`), which pins it to ONE release commit;
+#   * the tag step refuses a tag that already names another commit, and the
+#     publish step refuses a release that is already published
+#     (`test_a_tag_on_another_commit_is_refused`,
+#     `tests/test_release_uploads_while_draft.py`).
+#
+# A dispatch names a branch or a tag, never a SHA, so a dispatch on `main`
+# releases its tip; an older commit arrives only by a tag pushed onto it, which
+# takes push rights to tags and is then the deliberate release of that commit's
+# own version. The PyPI half is publish-pypi.yml's tag gate (TASKS R94).
+
+CHANGELOG_GATE: Final[str] = (
+    "Changelog gate — refuse to tag with a non-empty [Unreleased]"
+)
+VERSION_CHECK: Final[str] = "Sanity-check the built AppImage"
+
+#: The CHANGELOG of an older release commit: 0.7.5's, with nothing unreleased.
+_OLD_CHANGELOG: Final[str] = (
+    "# Changelog\n\n## [Unreleased]\n\n## [0.7.5] — 2026-10-01\n\n### Changed\n\n"
+    "- What 0.7.5 shipped.\n\n## [0.7.4] — 2026-09-30\n\n- Before.\n"
+)
+
+
+def _python_on_path() -> dict[str, str]:
+    """PATH with this interpreter's directory first: the gate runs `python`."""
+    return {"PATH": f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}"}
+
+
+@pytest.mark.parametrize(
+    ("tag", "passes"),
+    [
+        ("v0.7.5", True),  # the version this commit's CHANGELOG released
+        ("v0.7.6", False),  # a newer version this commit knows nothing of
+        ("v0.8.0", False),
+    ],
+)
+def test_the_changelog_gate_refuses_an_older_commit_under_a_newer_tag(
+    tmp_path: Path, tag: str, passes: bool
+) -> None:
+    (tmp_path / "CHANGELOG.md").write_text(_OLD_CHANGELOG, encoding="utf-8")
+    code, out = _run_step(CHANGELOG_GATE, tmp_path, TAG=tag, **_python_on_path())
+    assert (code == 0) is passes, out
+    if not passes:
+        assert f"no '## [{tag[1:]}]' section" in out, out
+
+
+def test_the_changelog_gate_refuses_an_older_commit_with_entries_unreleased(
+    tmp_path: Path,
+) -> None:
+    """An ordinary commit between releases: its [Unreleased] is not empty."""
+    text = _OLD_CHANGELOG.replace(
+        "## [Unreleased]\n\n", "## [Unreleased]\n\n- Not released yet.\n\n"
+    )
+    (tmp_path / "CHANGELOG.md").write_text(text, encoding="utf-8")
+    code, out = _run_step(CHANGELOG_GATE, tmp_path, TAG="v0.7.5", **_python_on_path())
+    assert code == 1, out
+    assert "still has 1 line(s) under [Unreleased]" in out, out
+
+
+def _fake_appimage(where: Path, version: str) -> None:
+    """A stand-in that answers `--version` the way the built AppImage does.
+
+    What it does that the real one does not: nothing else. The step under test
+    reads only the first line of `--version`, so that is all it prints.
+    """
+    stub = where / "platterpus-x86_64.AppImage"
+    stub.write_text(
+        f'#!/bin/sh\necho "platterpus {version} (abc1234)"\n', encoding="utf-8"
+    )
+
+
+@pytest.mark.parametrize(
+    ("built", "tag", "passes"),
+    [
+        ("0.7.5", "v0.7.5", True),
+        ("0.7.5", "v0.7.6", False),  # an older commit under a newer tag
+        ("0.7.5", "v0.7.4", False),  # and under an older one
+        ("0.7.50", "v0.7.5", False),  # a prefix is not a match
+        ("0.7.5", "v0.7.50", False),
+    ],
+)
+def test_the_version_check_releases_a_build_only_under_its_own_version(
+    tmp_path: Path, built: str, tag: str, passes: bool
+) -> None:
+    _fake_appimage(tmp_path, built)
+    code, out = _run_step(VERSION_CHECK, tmp_path, TAG=tag)
+    assert (code == 0) is passes, out
+    if not passes:
+        assert f"built version ('{built}'" in out, out
+
+
+def test_the_gates_that_make_an_older_commit_safe_run_before_the_tag() -> None:
+    """They refuse before anything is tagged or published, and they read the
+    checkout (`$SHA`), never `main`'s tip, which is not what is being built."""
+    text = RELEASE_YML.read_text(encoding="utf-8")
+    order = [
+        text.index(f"- name: {BRANCH_GATE}"),
+        text.index(f"- name: {CHANGELOG_GATE}"),
+        text.index(f"- name: {VERSION_CHECK}"),
+        text.index(f"- name: {TAG_STEP}"),
+        text.index(f"- name: {PUBLISH_STEP}"),
+    ]
+    assert order == sorted(order), order
+    for step in (CHANGELOG_GATE, VERSION_CHECK):
+        assert "origin/main" not in _step_script(step), step
+    # The branch gate's own comment says why an older main commit passes it, so
+    # the next reader of the gate finds the reasoning where the question arises.
+    head = text[: text.index(f"- name: {BRANCH_GATE}")]
+    gate_comment = head[head.rindex("# THE BRANCH GATE") :]
+    assert "OLDER" in gate_comment and "R126" in gate_comment, gate_comment
