@@ -521,16 +521,12 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
     # until `.28`'s own contract was filed on 2026-11-03
     # (`round-37-lap-04-provider-contract-gef413b1.md`); the stale check below then
     # required its removal.
-    #
-    # The fork's three PROPOSED `.29` lines (their round 38 lap 1 S5, S7 and S8,
-    # `cyanrip@f1bcb683:docs/handshake/round-38-lap-01.md`), read before any build
-    # prints them. Their provider contract cannot list a line not yet built; each
-    # row goes when `.29`'s own contract is filed, which the stale check enforces.
-    "secure_rereads": "proposed for `.29` (round 38 lap 1 S5), not built yet",
-    "track_filtered": "proposed for `.29` (round 38 lap 1 S7), not built yet",
-    "track_pregap_length_undecided": (
-        "proposed for `.29` (round 38 lap 1 S8), not built yet"
-    ),
+    # The fork's three `.29` lines (`secure_rereads`, `track_filtered`,
+    # `track_pregap_length_undecided`; their round 38 lap 1 S5, S7 and S8) sat here
+    # from 2026-11-04, read before any build printed them, until `.29`'s own
+    # contract was filed the same day
+    # (`round-38-lap-05-provider-contract-g2a06e064.md`, P2 lines 312-313, 385 and
+    # 327); the stale check below then required their removal.
 }
 
 
