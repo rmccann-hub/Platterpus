@@ -93,3 +93,71 @@ def test_the_reader_never_raises(value: object) -> None:
     parsed = blocks.parse_block_crcs({"block_crcs": value})
     assert parsed.state in blocks.STATES
     blocks.differing_seconds(parsed, parsed)
+
+
+# --- Derived, not accepted: the fork's own `.29` record (round 38 lap 3 S6) -----
+#
+# Their lap 3 S6 says each entry is zlib's CRC-32 over 176,400 bytes of the same
+# bytes `eac_crc` covers. If that is so, the blocks COMBINE to `eac_crc`, which
+# we can check without the audio: zlib's `crc32_combine` needs only each block's
+# length. The values are copied from their regenerated golden record,
+# `cyanrip@838fb437:docs/golden-reference.diagnostics.json` (tracks of 225, 150
+# and 75 frames, so every block is a whole 75 frames).
+
+_GOLDEN_29: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    ("D36D9296", ("6457F1AA", "214ABF76", "A7F68480")),
+    ("07B89F6F", ("3E9C7536", "CE785ED8")),
+    ("CC206A3D", ("CC206A3D",)),
+)
+_BLOCK_BYTES: Final[int] = 176_400
+
+
+def _gf2_times(mat: list[int], vec: int) -> int:
+    total, index = 0, 0
+    while vec:
+        if vec & 1:
+            total ^= mat[index]
+        vec >>= 1
+        index += 1
+    return total
+
+
+def _crc32_combine(first: int, second: int, second_length: int) -> int:
+    """zlib's ``crc32_combine``, by its GF(2) matrix method."""
+    odd = [0xEDB88320] + [1 << n for n in range(31)]
+    even = [_gf2_times(odd, odd[n]) for n in range(32)]
+    odd = [_gf2_times(even, even[n]) for n in range(32)]
+    while True:
+        even = [_gf2_times(odd, odd[n]) for n in range(32)]
+        if second_length & 1:
+            first = _gf2_times(even, first)
+        second_length >>= 1
+        if not second_length:
+            break
+        odd = [_gf2_times(even, even[n]) for n in range(32)]
+        if second_length & 1:
+            first = _gf2_times(odd, first)
+        second_length >>= 1
+        if not second_length:
+            break
+    return first ^ second
+
+
+def test_the_combine_is_zlib_s() -> None:
+    import zlib
+
+    one, two = b"\x01" * _BLOCK_BYTES, b"\x7f" * _BLOCK_BYTES
+    combined = _crc32_combine(zlib.crc32(one), zlib.crc32(two), _BLOCK_BYTES)
+    assert combined == zlib.crc32(one + two)
+
+
+def test_the_fork_s_blocks_combine_to_its_eac_crc() -> None:
+    assert len(_GOLDEN_29) == 3  # floor: three tracks compared, one multi-block
+    for eac_crc, entries in _GOLDEN_29:
+        read = blocks.parse_block_crcs({"block_crcs": list(entries)})
+        assert read.state == blocks.READ and read.not_read == 0
+        crcs = [int(crc, 16) for crc in read.crcs if crc is not None]
+        total = crcs[0]
+        for crc in crcs[1:]:
+            total = _crc32_combine(total, crc, _BLOCK_BYTES)
+        assert f"{total:08X}" == eac_crc

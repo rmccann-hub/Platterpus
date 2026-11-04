@@ -93,6 +93,13 @@ _UNKNOWN_LINE: Final[re.Pattern[str]] = re.compile(
     r"^pregap of track (?P<track>\d{1,3}) unknown(?: \((?P<reason>[^()]{1,120})\))?$"
 )
 
+#: ``.29``'s line for a search narrowed to one sector and left undecided
+#: (``pregap of track 9: 94 or 95 frames (undecided)``, the fork's round 38 lap 3
+#: S4, ``cyanrip@f932d6c2:src/cyanrip_log.c:617-641``): unknown, never either bound.
+_UNDECIDED_LINE: Final[re.Pattern[str]] = re.compile(
+    r"^pregap of track (?P<track>\d{1,3}): \d{1,7} or \d{1,7} frames \(undecided\)$"
+)
+
 #: Stock cyanrip 0.9.3's whole ``Gaps:`` block when there are none.
 _NONE_SIGNALLED: Final[str] = "None signalled"
 
@@ -195,7 +202,9 @@ def _read_gap_lines(
     pregaps: dict[int, int | None] = {}
     reasons: dict[int, str] = {}
     for fragment in text.split(_JOINED_BY):
-        unknown = _UNKNOWN_LINE.match(fragment.strip())
+        unknown = _UNKNOWN_LINE.match(fragment.strip()) or _UNDECIDED_LINE.match(
+            fragment.strip()
+        )
         if unknown is not None:
             track_said = int_or_none(unknown.group("track"), field="Gaps: track")
             if track_said is None:
@@ -207,7 +216,11 @@ def _read_gap_lines(
             if track_said in pregaps and pregaps[track_said] is not None:
                 return None, {}, f"its Gaps: block names track {track_said} twice"
             pregaps[track_said] = None
-            reasons[track_said] = unknown.group("reason") or "no reason given"
+            reasons[track_said] = unknown.groupdict().get("reason") or (
+                "the search narrowed it to two lengths"
+                if unknown.re is _UNDECIDED_LINE
+                else "no reason given"
+            )
             continue
         match = _GAP_LINE.match(fragment.strip())
         if match is None:

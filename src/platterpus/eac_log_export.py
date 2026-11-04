@@ -776,8 +776,13 @@ _GAP_NONE_SIGNALLED = re.compile(r"\bnone\b", re.IGNORECASE)
 # The fork's proposed line for a pregap its sub-channel search could not determine
 # (round 31 lap 1 S27): `pregap of track N unknown (reason)`. "None signalled" is
 # then printed only when every search succeeded.
+# `.29` (the fork's round 38 lap 3 S4, `cyanrip@f932d6c2:src/cyanrip_log.c:617-641`)
+# prints a search narrowed to one sector as `pregap of track 9: 94 or 95 frames
+# (undecided)`: no more decided than `unknown`, so it decides the row the same way.
 _GAP_UNKNOWN = re.compile(
-    r"\bpregap\s+of\s+track\s+(?P<track>\d{1,4})\s+unknown\b", re.I
+    r"\bpregap\s+of\s+track\s+(?P<track>\d{1,4})"
+    r"(?:\s+unknown\b|:\s+\d{1,9}\s+or\s+\d{1,9}\s+frames\s+\(undecided\))",
+    re.I,
 )
 _GAP_UNDETERMINED = "(undetermined: the ripper could not measure a pregap)"
 _GAP_PER_TRACK = re.compile(
