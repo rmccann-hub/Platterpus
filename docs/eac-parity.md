@@ -1650,7 +1650,17 @@ and Part F's per-run scores stay the dated record.
    its spinning speed depending on the situation". A read speed the drive chooses for
    itself, differently by session, fits the per-session clustering at least as well
    as seating or dust, and our rips do not set a speed (no `-S`). Untested; the
-   settings read in G.4 item 3 reports this mode too.
+   settings read in G.4 item 3 reports this mode too. **It can be tested from Linux:**
+   upstream cyanrip stopped refusing `-S` on a drive that does not advertise speed
+   selection on 2026-10-10 (`cyanrip@0be45a36`, `src/cyanrip_main.c`: "try it, and only
+   give up if the drive refuses"), and `.29` carries it, so whether this drive honours
+   a set speed is now the drive's answer, not cyanrip's guess. It refused in 2026-07
+   only because the drive does not advertise the capability (`docs/dependency-contracts.md`,
+   `-S`). `rig_scripts/drivespeed.txt` asks it: track 3 three times each at the drive's
+   own speed, at `-S 4` and at `-S 24`, track 5 once at each, and once more unset to
+   see whether a set speed stays set. The app's own rips keep the speed lock (any
+   answer but *changeable* locks, TASKS R95), so nothing a user rips changes until a
+   result says it should.
 
 ### G.3 What other rippers do (research, 2026-11-04)
 

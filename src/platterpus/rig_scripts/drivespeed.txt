@@ -1,0 +1,155 @@
+# =============================================================================
+# DRIVE SPEED — does track 3 read right when WE choose the speed, not the drive?
+# =============================================================================
+#
+#   Run it:   ~/Applications/platterpus-x86_64.AppImage --run-script ~/drivespeed.txt
+#             (the AppImage where the installer parks it, and the file you
+#             downloaded; 0.7.120 already has every verb it uses)
+#   Costs:    typically about 40 to 60 minutes on the reference rig (an
+#             estimate, not yet measured): thirteen rips of one track each.
+#             Much shorter if the drive refuses a set speed: each fixed-speed
+#             rip then fails in seconds, and that refusal is the answer.
+#
+# UNATTENDED, LIKE EVERY RIG RUN. It never stops to ask for anything; the disc
+# is touched only BETWEEN runs (the owner, 2026-11-04).
+#
+# -----------------------------------------------------------------------------
+# WHY THIS EXISTS (round 38, 2026-11-04)
+# -----------------------------------------------------------------------------
+# Track 3 of the reference disc reads right in some sessions and wrong in
+# others on the same drive and disc (docs/eac-parity.md Part G). Pioneer's own
+# help for this drive's utility describes its default speed policy, "Quiet
+# Mode": slow after a disc goes in, then it "will adjust its spinning speed
+# depending on the situation". Our rips set no speed, so the drive chooses, and
+# may choose differently per session. This file takes the choice away from it.
+#
+# CAN WE SET THE SPEED ON THIS DRIVE? NOT KNOWN, AND THIS FILE FINDS OUT.
+# In 2026-07 cyanrip refused `-S` outright on this drive, because the drive does
+# not advertise speed selection (docs/dependency-contracts.md, `-S`). Upstream
+# cyanrip changed that on 2026-10-10 (commit 0be45a36, "Set the drive speed even
+# if the drive doesn't advertise it": try it, give up only if the drive itself
+# refuses), and `.29` carries it. Whether THIS drive honours the request has not
+# been tried since. If it refuses, cyanrip says "Device does not support
+# changing speeds!", each fixed-speed rip fails in seconds with that sentence
+# in the transcript, and the run carries on (a finding never stops a run).
+#
+# THE ORDER IS DELIBERATE. Unset speed first, because a speed once set may stay
+# set: the last rip is unset again, to show whether it did.
+#
+# A MEASUREMENT, NOT A VERDICT. Every result is `info`. What can go red is a
+# rip that did not finish (`expect-exit 0`) or a comparison that cannot be made.
+#
+# HOW EACH RIP IS MADE. As drivemode.txt does (the read-bearing flags an app rip
+# sends, this drive's offset, `-o flac`, `-r 5`, no `-Z`, plus `--cache-probe`),
+# with `-S 4` or `-S 24` added for the fixed-speed rips, each into its own
+# folder named for its label.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log DRIVE SPEED - track 3 (and 5) at the drive's speed, 4x, 24x
+log typically about 40-60 minutes
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+# --- A. IDENTITY -----------------------------------------------------------
+
+log --- A. identity ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+snapshot identity
+
+# --- B. THE DRIVE AND THE DISC ---------------------------------------------
+
+log --- B. drive offset, disc, and the time bound ---
+set-drive-offset
+expect-drive-offset
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+rescan
+pick-release 1 120
+expect-tracks 5+
+abort-if-failed no disc with five tracks is loaded — put the reference disc in, then run again
+cyanrip-timeout 1800
+snapshot discready
+
+# --- C. THE DRIVE'S OWN SPEED (no -S), as every rip so far ------------------
+
+log --- C. no speed set ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dsnospeed1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy nospeed1 dsnospeed1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dsnospeed2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy nospeed2 dsnospeed2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dsnospeed3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy nospeed3 dsnospeed3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dsfivenospeed1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivenospeed1 dsfivenospeed1
+snapshot afternospeed
+
+# --- D. FIXED AT 4x. The first rip also asks: does the drive take -S? ---
+
+log --- D. speed 4 ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 3 -D dsspeedfour1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy speedfour1 dsspeedfour1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 3 -D dsspeedfour2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy speedfour2 dsspeedfour2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 3 -D dsspeedfour3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy speedfour3 dsspeedfour3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 5 -D dsfivespeedfour1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivespeedfour1 dsfivespeedfour1
+snapshot afterspeedfour
+
+# --- E. FIXED AT 24x ------------------------------------------------------
+
+log --- E. speed 24 ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 24 -l 3 -D dsspeedtwentyfour1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy speedtwentyfour1 dsspeedtwentyfour1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 24 -l 3 -D dsspeedtwentyfour2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy speedtwentyfour2 dsspeedtwentyfour2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 24 -l 3 -D dsspeedtwentyfour3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy speedtwentyfour3 dsspeedtwentyfour3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 24 -l 5 -D dsfivespeedtwentyfour1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivespeedtwentyfour1 dsfivespeedtwentyfour1
+snapshot afterspeedtwentyfour
+
+# --- F. UNSET AGAIN: did a set speed stay set? ------------------------------
+
+log --- F. no speed set, after ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dsnospeedafter1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy nospeedafter1 dsnospeedafter1
+
+# --- G. THE COMPARISONS ----------------------------------------------------
+
+log --- G. per speed, per track ---
+compare-conditions 3 nospeed1 nospeed2 nospeed3 speedfour1 speedfour2 speedfour3 speedtwentyfour1 speedtwentyfour2 speedtwentyfour3 nospeedafter1
+compare-conditions 5 fivenospeed1 fivespeedfour1 fivespeedtwentyfour1
+
+# --- H. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+
+log --- H. restoring ---
+set debug_logging off
+expect-drive-offset
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log Say with it whether the disc had just been put in.
+log =============================================================
