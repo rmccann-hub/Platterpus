@@ -1,0 +1,150 @@
+# =============================================================================
+# DRIVE MODE AND SESSION — do tracks 3 and 5 read the same way every time?
+# =============================================================================
+#
+#   Run it:   ./platterpus-x86_64.AppImage --run-script drivemode.txt
+#             (the file you downloaded; 0.7.120 already has every verb it uses)
+#   Costs:    typically about 35 to 50 minutes on the reference rig (an
+#             estimate, not yet measured): twelve rips, six of track 5 and six
+#             of track 3, alternating.
+#
+# THE OWNER RUNS THE SAME FILE SEVERAL TIMES, AND ONLY THE CONDITION CHANGES.
+# Nothing in this file needs editing. Which condition a run was made under is
+# what the owner says when sending its bundle: the drive's PureRead mode as
+# Pioneer's utility showed it, whether the disc was just put in, and whether it
+# was cleaned first. (The owner, 2026-11-04: the disc usually stays in the
+# drive between runs, and is sometimes wiped for dust when it comes out, so a
+# session's state can be the disc's surface as much as the drive's.)
+#
+# -----------------------------------------------------------------------------
+# WHY THIS EXISTS (round 38, 2026-11-04)
+# -----------------------------------------------------------------------------
+# Track 5 of the reference disc reads E0036697 nearly every time on this drive,
+# which AccurateRip answers only at frame 450 and CTDB's majority entry says
+# differs in 3 samples at 02:24:59; EAC on the same drive reads the same. Track
+# 3 reads one of about sixteen wrong values or the right one, 59D352DD, and
+# which it reads clusters by session: 8 of 8 right on 2026-11-03, 0 of 8 the
+# next day, same disc, drive and machine.
+#
+# Two hypotheses, each testable with this one file:
+#   1. THE DRIVE'S OWN ERROR HANDLING. Pioneer's PureRead "Standard" mode
+#      interpolates over a frame it cannot correct and reports nothing (this
+#      drive gives no C2 pointers), which would make track 5's error the same
+#      on every read. "Master" retries with changed read parameters; "Perfect"
+#      reports a read error instead of interpolating. The mode is set only by
+#      Pioneer's Windows or Mac utility. Runs under each mode answer it.
+#   2. THE SESSION. Whether the disc was just inserted, and how warm the drive
+#      is. Each run rips early and late (three of each, per track), so drift
+#      inside a session shows; runs after removing and reinserting the disc
+#      show the insertion.
+#
+# A MEASUREMENT, NOT A VERDICT. Every result is `info`. What can go red is a
+# rip that did not finish (`expect-exit 0`) or a comparison that cannot be made.
+#
+# HOW EACH RIP IS MADE. Straight through cyanrip, as `track3abba.txt` does: the
+# flags an app rip sends that bear on the read (`-N -U -W`, this drive's offset,
+# `-o flac`, the shipped retry ceiling `-r 5`, no `-Z`, no `-S`), plus
+# `--cache-probe`, each into its own folder named for its label. A paranoia
+# skip or read error in Perfect mode shows in the rip's own log and in its
+# record; that is the point of running it there.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log DRIVE MODE AND SESSION - tracks 5 and 3, six rips each
+log typically about 35-50 minutes
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+# --- A. IDENTITY -----------------------------------------------------------
+
+log --- A. identity ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+snapshot identity
+
+# --- B. THE DRIVE AND THE DISC ---------------------------------------------
+
+log --- B. drive offset, disc, and the time bound ---
+set-drive-offset
+expect-drive-offset
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+rescan
+pick-release 1 120
+expect-tracks 5+
+abort-if-failed no disc with five tracks is loaded — put the reference disc in, then run again
+cyanrip-timeout 1800
+snapshot discready
+
+# --- C. EARLY IN THE SESSION: track 5, track 3, three times ----------------
+
+log --- C. early: track 5 then track 3, three times ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfiveearly1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fiveearly1 dmfiveearly1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreeearly1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy threeearly1 dmthreeearly1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfiveearly2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fiveearly2 dmfiveearly2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreeearly2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy threeearly2 dmthreeearly2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfiveearly3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fiveearly3 dmfiveearly3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreeearly3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy threeearly3 dmthreeearly3
+snapshot afterearly
+
+# --- D. LATE IN THE SESSION: the same six again, the drive now warm --------
+
+log --- D. late: track 5 then track 3, three times ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfivelate1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivelate1 dmfivelate1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreelate1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy threelate1 dmthreelate1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfivelate2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivelate2 dmfivelate2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreelate2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy threelate2 dmthreelate2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfivelate3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivelate3 dmfivelate3
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreelate3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy threelate3 dmthreelate3
+snapshot afterlate
+
+# --- E. THE COMPARISONS ----------------------------------------------------
+# Per track, early against late: right in N of M, with each rip's CRC32,
+# FIXUP_ATOM and cache probe.
+
+log --- E. early against late, per track ---
+compare-conditions 5 fiveearly1 fiveearly2 fiveearly3 fivelate1 fivelate2 fivelate3
+compare-conditions 3 threeearly1 threeearly2 threeearly3 threelate1 threelate2 threelate3
+
+# --- F. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+
+log --- F. restoring ---
+set debug_logging off
+expect-drive-offset
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log Say with it which PureRead mode the drive was in, whether the
+log disc had just been put in, and whether it was cleaned first.
+log =============================================================
