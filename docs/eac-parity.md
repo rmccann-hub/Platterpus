@@ -1643,6 +1643,14 @@ and Part F's per-run scores stay the dated record.
    seating and surface after insertion (eccentricity, dust) and the approach path:
    whole-disc rips reach track 3 at steady speed, single-track rips seek there cold.
    Heat is a weaker candidate (one anecdote). Wear does not fit: no trend over time.
+   **A further candidate, from Pioneer's own help (2026-11-04): the drive's speed
+   policy.** The Drive Utility's help (`BDR-209_English.chm`, shipped inside
+   `PioneerBDR-209-211_DriveUtility_v1.2.0.3.exe`, sha256 `e193c899…d029`) says the
+   default "Quiet Mode" spins the disc slowly after insertion and then "will adjust
+   its spinning speed depending on the situation". A read speed the drive chooses for
+   itself, differently by session, fits the per-session clustering at least as well
+   as seating or dust, and our rips do not set a speed (no `-S`). Untested; the
+   settings read in G.4 item 3 reports this mode too.
 
 ### G.3 What other rippers do (research, 2026-11-04)
 
@@ -1698,12 +1706,35 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
    both match (and the CTDB track CRC where present), cap and record the number tried.
 3. **The drive's PureRead mode** (the owner, on Windows 11 on the same machine; TASKS
    R135), measured with `rig_scripts/drivemode.txt`: twelve rips of tracks 5 and 3,
-   early and late in a session, run once per condition.
+   early and late in a session, run once per condition. **Research of 2026-11-04
+   says this drive most likely has no PureRead at all**, so item 3 may be moot:
+   Pioneer's Drive Utility (`PioneerBDR-209-211_DriveUtility_v1.2.0.3.exe`) lists the
+   BDR-209EBK/UBK and 211, not the BDR-209DBK; the 209DBK's product page does not
+   name PureRead where the 209UBK's does; and a published census of Pioneer
+   firmware settings reports *PureRead supported = 0* for the 209D at firmware
+   1.51, the owner's own (its file hashes match the owner's download by sha256;
+   `MattJackson/pioneer-optical@d2cbbf26`
+   `tests/evidence/device-settings-hoard-2026-10-08.json:4535`, `:5064`). The drive
+   answers it directly: Pioneer's settings are read with READ BUFFER (`0x3C`),
+   buffer ID `0xF4`, 256 bytes, byte 9 being *supported*; read-only, and the first
+   step of the owner's procedure. Not done, on purpose: decrypting or disassembling
+   the firmware or utility (Pioneer's licence forbids it), writing the settings
+   buffer (`0xFA`), and cross-flashing another model's firmware. If byte 9 is 0,
+   G.2 hypothesis 1 changes: the interpolation is the drive's fixed behaviour, not
+   a mode, and repair (item 1) is the only route to track 5. **Pioneer's help states
+   the modes in its own words** (the same `.chm`, page *Pure Read*): with the
+   feature OFF, on an error CIRC cannot correct "the drive interpolates the data and
+   continue[s]"; Master "will change its parameters and retry", then interpolates;
+   Perfect retries, then "a read error is returned". The utility's own text names
+   the models only as `BDR-209` and `BDR-211`, so whether it accepts the 209DBK is
+   for the owner's Windows attempt to show; the drive's byte 9 decides support
+   either way. Read as documentation only: the help pages were unpacked from the
+   archive and read as text; no program in it was run or disassembled.
 4. **The session** (the owner; TASKS R135): the same script with the disc left in, then
    after it is taken out, wiped and reinserted. Never by interrupting a run: a Full
    acceptance run stays unattended, and a disc is touched only between runs.
 
-### G.5 The split with the fork (proposed in our round 38 lap 8)
+### G.5 The split with the fork (proposed in our round 38 lap 7)
 
 - **Ours:** repair (G.4 item 1) and the AccurateRip-checked rebuild (item 2); the rig
   script; reading every result.
