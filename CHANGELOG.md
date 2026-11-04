@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Platterpus computes AccurateRip v1 and v2 itself** (contributor-facing, TASKS R43): every AccurateRip number until now was the ripper's, which describes the bytes the ripper wrote. A file rewritten after the rip needs its own, so `accuraterip_crc.py` computes them from the audio, checked against Leo Bogert's C implementation on the same test audio rather than against a second copy of our own reading.
 - **The CTDB localisation keeps what it found, not only where** (contributor-facing, TASKS R43): each located sample now carries the 16-bit value the CTDB entry holds there (the decoder computed it and dropped it), sorted with its position so the two cannot be paired wrongly, and the localisation keeps the CRC-32 of each track's audio as it decoded it. Both are what a repair needs: the value to write, and the proof that the file has not changed since.
 
 ### Changed
