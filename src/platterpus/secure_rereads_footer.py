@@ -64,7 +64,7 @@ _SOME: Final[re.Pattern[str]] = re.compile(
 )
 
 #: Splits the track list: a comma, ``and``, or whitespace.
-_SEPARATOR: Final[re.Pattern[str]] = re.compile(r"\s*(?:,|\band\b)\s*|\s+")
+_SEPARATOR: Final[re.Pattern[str]] = re.compile(r"\s{0,4}(?:,|\band\b)\s{0,4}|\s{1,4}")
 
 #: The states of the line, and of the report's block.
 ALL_CONVERGED: Final[str] = "all_converged"

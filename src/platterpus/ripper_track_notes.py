@@ -72,7 +72,7 @@ FILTERED_TAIL: Final[str] = (
 FILTER_NAMES: Final[tuple[str, ...]] = ("hdcd", "de-emphasis")
 
 #: How the names may be joined: a comma, ``and`` or ``+``.
-_JOIN: Final[re.Pattern[str]] = re.compile(r"\s*(?:,|\+|\band\b)\s*")
+_JOIN: Final[re.Pattern[str]] = re.compile(r"\s{0,4}(?:,|\+|\band\b)\s{0,4}")
 
 # --- S8: an undecided pre-gap ---------------------------------------------------
 
