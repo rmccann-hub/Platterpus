@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.120] — 2026-11-04
+The release that names the fork's `.29` (`8d2ca72`) as the build under review, for the Full run that closes round 38; `.28` stays the default ripper until that round closes. It reads every line `.29` changes, as built: the footer's `Secure re-reads:`, the `Filtered:` track line, an undecided pregap in all three places it prints, the cover-art line, and the per-second block checksums in the diagnostics record. It also fixes a fatal-error box that could vanish with a hidden dialog, keeps a close during a rip inside its time budget, holds a cue's `FLAGS PRE` to the pre-emphasis the log reports, and adds the `track3abba` rig script for the controlled track 3 test.
+
 ### Changed
 
 - **`.29` is the build under review** (contributor-facing, TASKS R130). The fork published `0.9.4-rc3+platterpus.29` on its beta channel at `8d2ca72` on 2026-11-04 (`release_seq` 40, round 38), and its lap 5 moved round 38's pin to it on their operator's word. `.29` gets `--consumer`, `--prefer-disc-isrc` and `--prefer-accuraterip-match` like `.28`, whose rows stay, and exit class 64. Its provider contract, built at `g2a06e064` from the same source (anchor `70549c5b81227f06`, recomputed by their method), is filed, and the message inventory is regenerated from it: 162 messages and 14 unprefixed ones, with the two cover-art refusals new and libcdio's two messages now published as composed rows, so `.28`'s fragments of them are kept for `.28`. The default ripper stays `.28` until round 38 closes. The collected-test floor rises from 10,126 to 10,137, the `--prefer-accuraterip-match` tests now run for `.29` too.
@@ -19787,7 +19790,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.119...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.120...HEAD
+[0.7.120]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.119...v0.7.120
 [0.7.119]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.118...v0.7.119
 [0.7.118]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...v0.7.118
 [0.7.117]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.116...v0.7.117
@@ -19877,4 +19881,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.119.*
+*Last updated for Platterpus v0.7.120.*
