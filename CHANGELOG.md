@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The fork's round 38 lap 3 is filed** (contributor-facing), byte for byte from `platterpus-fork` at `838fb437` (their PR #91): each `.29` form as built, `.29` built but for B6, their lists cleared, and three questions for the next round.
 - **`.29`'s undecided-pregap row in the `Gaps:` block is read as unknown by both of its readers.** The fork's round 38 lap 3 gave the row as `.29` prints it, `pregap of track 9: 94 or 95 frames (undecided)`, where their lap 1 had named `Pregap length:` alone. Our EAC-layout log would have said *Appended to previous track* for a pregap cyanrip did not decide, and the acceptance run's pregap comparison called the whole list unreadable; both now read it as not determined. A test also derives the fork's `block_crcs` from their own golden record: each track's blocks combine, by zlib's `crc32_combine`, to its `eac_crc`.
 - **TASKS records R122's last finding done and R123's script built** (contributor-facing): `FLAGS PRE` at `d8b18aee`; `track3abba` at `13c1df4b`, its run owed on the rig.
 - **R128's three fixes are recorded done in TASKS** (contributor-facing): the fatal box's parent, the close's bounded report flush and the optional-group sweep, each with its commits and measured before and after.
