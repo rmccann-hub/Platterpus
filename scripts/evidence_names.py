@@ -33,6 +33,9 @@ ALBUMS: tuple[tuple[str, str], ...] = (
     ("after cancel", "aftercancel"),
     ("cancel me", "cancelme"),
     ("permutations", "permutations"),
+    # Section H2's overwrite prompt (0.7.118, `74c36cfe`): Cancel, then Replace,
+    # over one album folder of its own.
+    ("overwrite answers", "overwriteanswers"),
     ("secure reread", "securereread"),
     ("r16deemphoff", "deemphoff"),
     ("r16deemphon", "deemphon"),
