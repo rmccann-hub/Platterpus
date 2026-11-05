@@ -88,7 +88,15 @@ set-drive-offset
 expect-drive-offset
 abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
 rescan
-pick-release 1 120
+# THE RELEASE IS NAMED, NOT NUMBERED. The owner rips the reference disc as the
+# BMG club release (MusicBrainz d14a7546…, the third row of four on 2026-11-05)
+# and said so on 2026-11-05: "make sure you are choosing the correct album, i
+# have been manually choosing the highlighted 3rd option". Row 1 is the 2003 GB
+# release, which this script picked until then; MusicBrainz's order is not stable
+# either, so a row number would mean a different release later (round08joint.txt
+# names the same MBID for the same reason). The read does not depend on it; the
+# tags and the record's release ID do.
+pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 120
 expect-tracks 5+
 abort-if-failed no disc with five tracks is loaded — put the reference disc in, then run again
 cyanrip-timeout 1800

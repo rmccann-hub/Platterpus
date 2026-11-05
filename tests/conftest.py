@@ -473,6 +473,38 @@ def hard_exit_calls(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
 
 @pytest.fixture(autouse=True)
+def drive_frees(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[list[tuple[str, str]], None, None]:
+    """Record, never perform, every drive free `exit_work` would run.
+
+    `exit_work.free_drive_after_cancel` and `free_probe_drive_now` run
+    `fuser -k <device>` (and a rip's SIGTERM/grace/SIGKILL), which signals
+    WHATEVER holds that drive on the machine the suite runs on: a developer's
+    own rip, on the rig. Autouse for the reason `hard_exit_calls` is: an opt-in
+    guard protects only the tests whose authors knew. The stand-in differs from
+    the real step in one way, pinned here: it signals nothing. Every decision
+    BEFORE the step (which device, which kind of stop, the dedup) is the
+    product's own code. Yields ``(kind, device)`` per step, ``kind`` "probe" or
+    "rip"; joins any free still running and forgets the dedup state after.
+    """
+    from platterpus import exit_work
+
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        exit_work,
+        "probe_reader_stop",
+        lambda device, _run: calls.append(("probe", device)),
+    )
+    monkeypatch.setattr(
+        exit_work, "rip_reader_stop", lambda device, _run: calls.append(("rip", device))
+    )
+    yield calls
+    exit_work.wait()
+    exit_work._FREEING.clear()
+
+
+@pytest.fixture(autouse=True)
 def _no_test_leaves_the_crash_dialog_armed() -> Generator[None, None, None]:
     """No test may leave the PRODUCT's fatal-error excepthook installed.
 

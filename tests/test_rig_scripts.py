@@ -1534,6 +1534,40 @@ def _live_text_files() -> list[tuple[str, Path]]:
     return found
 
 
+#: A download link to a file in this repository, up to and including its ref:
+#: `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/`. What follows it is a
+#: repo-relative path, and the sweep below must resolve THAT, not the URL.
+_RAW_URL_PREFIX: Final[re.Pattern[str]] = re.compile(
+    r"^.*raw\.githubusercontent\.com/[^/]+/[^/]+/[^/]+/"
+)
+
+
+def _repo_path_of(mention: str) -> str:
+    """The repo-relative path a rig-script mention names.
+
+    A raw download link names a path too, and it is the link an operator pastes,
+    so it is the one that most needs to resolve (``drivetest.sh``, 2026-11-05: the
+    sweep met its first ``curl`` of a ``.sh`` and could not read it). Teaching the
+    sweep to read the link, rather than exempting it, keeps a dead link reported.
+    """
+    return _RAW_URL_PREFIX.sub("", mention).lstrip("./")
+
+
+def test_a_raw_download_link_is_judged_by_the_path_it_names() -> None:
+    """Non-triviality for the URL reading: both a live and a dead link resolve to
+    their paths, so a link to a file that is gone is reported, not skipped."""
+    root = Path(__file__).resolve().parents[1]
+    base = "https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/"
+    live = _rig_script_path_mentions(
+        f"curl -L -o x {base}docs/rig-scripts/drivetest.sh"
+    )
+    dead = _rig_script_path_mentions(f"curl -L -o x {base}docs/rig-scripts/gone.sh")
+    assert [_repo_path_of(m) for m in live] == ["docs/rig-scripts/drivetest.sh"]
+    assert (root / _repo_path_of(live[0])).is_file()
+    assert [_repo_path_of(m) for m in dead] == ["docs/rig-scripts/gone.sh"]
+    assert not (root / _repo_path_of(dead[0])).is_file()
+
+
 def test_no_live_doc_names_a_rig_script_path_that_does_not_exist() -> None:
     """The regression test for the four-day-stale paths.
 
@@ -1550,7 +1584,7 @@ def test_no_live_doc_names_a_rig_script_path_that_does_not_exist() -> None:
             path.read_text(encoding="utf-8", errors="replace")
         ):
             examined += 1
-            candidate = mention.lstrip("./")
+            candidate = _repo_path_of(mention)
             # TWO ROOTS, because both spellings are legitimate: a doc names
             # the path from the repo root, while `rig_session.sh` names its
             # siblings package-relative (`rig_scripts/x.txt`) — and it is

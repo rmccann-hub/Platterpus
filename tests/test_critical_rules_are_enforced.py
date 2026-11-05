@@ -1257,7 +1257,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **1983 -> 1998** (2026-10-26, TASKS R88, the owner's interim): the argv chokepoint calls `cyanrip_name_lengths.assert_names_fit`, so no route to the ripper skips the name-length check; the check itself lives in its own module.
     # **1998 -> 1999** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
-    "adapters/cyanrip_backend.py": 1999,
+    # **1999 -> 2026** (2026-11-05, the rig's overlapping `cyanrip -I`): `version()` runs in the version probe's own killable slot (`slot="version"` through `_run`), and stops on `ProbeCancelled` rather than trying the next flag in a child the cancel did not cover.
+    "adapters/cyanrip_backend.py": 2026,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     # **618 -> 624** (2026-11-03, TASKS R89): `MB_HOST` and the constructor's `set_hostname(MB_HOST, use_https=True)`, the premise of accepting musicbrainzngs' uncapped read; it must sit where the library is configured, and the reasoning lives in `docs/dependency-contracts.md`.
@@ -1282,7 +1283,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **701 -> 703** (2026-10-19): `supports_offset_detection`'s docstring says the same (docs audit).
     # **703 -> 710** (2026-10-20, round 35, the fork's exit classes from release 36): `RipHandle.build_tag`, the banner read at spawn, so the worker reads the exit code by the build that ran.
     # **710 -> 731** (2026-11-03, TASKS R117, records that reached no reader): `ripper_sentence`, so a failed probe's `deps.command_failed` message leads with the ripper's own sentence, judged by the parser's `is_ripper_error_line`; it sits beside `run_capture`, the one site that records the failure.
-    "adapters/rip_backend.py": 731,
+    # **731 -> 777** (2026-11-05, the rig's overlapping `cyanrip -I`): one killable slot per logical operation — `RIPPER_VERSION_PROBE` beside `INFO_PROBE`, `cancel_ripper_version_probe`, and `run_capture`'s `slot` selector read at call time — with why the shared slot was a defect; it sits beside `run_capture`, the one site that runs the probes.
+    "adapters/rip_backend.py": 777,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1817,6 +1819,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1161 -> 1189** (2026-10-16, TASKS R16): the bundle passes this machine's hostname and the owner's names (from the list outside the repository) to the export's redaction, records the hostname and name counts per member, and redacts its own manifest for all three. Finding and replacing them is `export_identity.py`; this is where the bundle's members are written.
     # **1189 -> 1194** (2026-11-03, review B8): `late_text`, text rendered from the entries after every file is judged, so the session's SOURCES.txt and MANIFEST.txt are one account.
     "evidence_bundle.py": 1194,
+    # **334 lines on 2026-11-05**, crossing the ~300 heuristic with
+    # `free_drive_after_cancel` (the rig's in-container cyanrip left reading after
+    # a cancel). Kept as one module: it is one job, the work and the check the
+    # process owes on its way out, and a drive free started mid-session is exit
+    # work precisely so the process cannot exit before it and the exit check
+    # reports what is left after it.
+    "exit_work.py": 334,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1912,7 +1921,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the gate itself lives in `container_gate.py`.
     # **323 -> 324** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     # **324 -> 518** (2026-11-05, TASKS R133, the automatic CTDB repair): `run_bytes` (binary children) and `KillableJob` (a cancel that ends a job of several runs) for the CTDB repair; the one killable implementation, so they belong beside it rather than in a second.
-    "killable.py": 518,
+    # **518 -> 588** (2026-11-05, the rig's overlapping `cyanrip -I`): the slot tracks EVERY live child (`_live`, keyed by sequence number) so `cancel()` kills each one its watermark covers, and says so in the log when there is none; one implementation of `_deregister` for both run shapes. One class, the killable child slot, so it stays here.
+    "killable.py": 588,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -2561,7 +2571,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1821 -> 1855** (2026-11-03, the owner's screenshot on 0.7.117, the rip pane's Tracks table at ~1.5 rows): `_PANE_SHARES` 0.40/0.40 -> 0.30/0.50 with its measurement, and `_default_pane_sizes`, which lifts the disc-info pane and the track list to their floors from the rip pane, so the bigger share cannot take the track list back to two rows on a small screen. Beside the split it computes.
     # **1855 -> 1856** (2026-11-04, TASKS R128 (b)): the close hands its shared `ShutdownDeadline` to the report flush, and the comment says the flush has no bound of its own.
     # **1856 -> 1872** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's state, its `stop_thread` in `closeEvent` and the outcome recorded before the flush.
-    "ui/main_window.py": 1872,
+    # **1872 -> 1878** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): `closeEvent` frees a cancelled probe's drive as exit work, and `_start_disc_info` hands the superseded probe's drive to the new worker to free first; the decisions live in `main_window_drive.py`.
+    "ui/main_window.py": 1878,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2604,7 +2615,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **752 -> 760** (2026-11-03, TASKS R109): `_record_drive_fact` builds from the existing profile so `read_rate` survives a drive sighting, with the comment that says why.
     # **760 -> 768** (2026-11-03, TASKS R63): `_learn_read_rate` logs how many tracks it left out of the drive's speed for paranoia skips; the rule is `rip_estimate.struggled`.
     # **768 -> 784** (2026-11-03, review B9): `_drive_being_freed`: the media poll and a retry's check never open the drive while a force-stop thread runs, so a device-wide `fuser -k` cannot signal this app.
-    "ui/main_window_drive.py": 784,
+    # **784 -> 853** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): when freeing a cancelled probe's drive is safe (`_drive_free_refusal`: not under a rip, a pending rescue, a ui-script ripper call or a stop already running) and the two callers, beside the drive logic they belong to.
+    "ui/main_window_drive.py": 853,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -3058,7 +3070,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4882 -> 4884** (2026-11-03, review C3 and C4 of the 0.7.117 Full run): `RecordVerbsMixin` imported and inherited; its handlers live in `uiscript/record_verbs.py`, not here.
     # **4915 -> 4956** (2026-11-04, TASKS R123): the `cyanrip-timeout` verb and the per-run bound it sets, carried on each `_CyanripJob` so the unreapable-child check waits the same bound. It changes how the `cyanrip` verb, which lives here, kills its child, so it lives beside it.
     # **4956 -> 4981** (2026-11-04): the run's bundle carries each scripted rip's folder (`uiscript/scripted_rip_dirs.py`), so the owner's upload holds every rip's full log; the decisions live in that module, the runner only records and hands them over.
-    "uiscript/runner.py": 4981,
+    # **4981 -> 5038** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): every path that kills the `cyanrip` verb's child (stop, timeout, unreapable) also frees its drive (`_free_the_jobs_drive`, `_argv_device`), and `cyanrip_in_flight` lets the window stand aside while one runs.
+    "uiscript/runner.py": 5038,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.rip_backend import (
@@ -81,3 +82,53 @@ def test_worker_wraps_unexpected_error(qapp: QApplication) -> None:
     device, message = failed[0]
     assert device == "/dev/sr0"
     assert "weird" in message
+
+
+# --- free_first: the superseded probe's drive is freed before this one reads ---
+
+
+def test_the_superseded_probes_drive_is_freed_before_this_probe_reads(
+    qapp: QApplication, drive_frees: list[tuple[str, str]]
+) -> None:
+    """Cancelling the superseded probe killed only its host side; its reader in
+    the container reads on. The new probe frees that drive, on its own thread,
+    BEFORE it reads, so two probes never read one drive (the rig, 2026-11-05)."""
+    order: list[str] = []
+
+    class _Ordered(_Backend):
+        def disc_info(self, drive: str) -> DiscInfo:
+            order.append(f"read {drive}, frees so far {drive_frees}")
+            return DiscInfo()
+
+    worker = DiscInfoWorker(_Ordered(), "/dev/sr0", free_first="/dev/sr0")
+    worker.run()
+    assert order == ["read /dev/sr0, frees so far [('probe', '/dev/sr0')]"], order
+
+
+def test_a_probe_with_nothing_superseded_frees_nothing(
+    qapp: QApplication, drive_frees: list[tuple[str, str]]
+) -> None:
+    DiscInfoWorker(_Backend(), "/dev/sr0").run()
+    assert drive_frees == []
+
+
+def test_a_cancel_during_the_free_means_the_probe_never_starts(
+    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cancel cannot reach a run issued after it (`killable`'s watermark), so a
+    probe cancelled while the drive was being freed must not start at all."""
+    from platterpus import exit_work
+
+    read: list[str] = []
+
+    class _Recording(_Backend):
+        def disc_info(self, drive: str) -> DiscInfo:
+            read.append(drive)
+            return DiscInfo()
+
+    worker = DiscInfoWorker(_Recording(), "/dev/sr0", free_first="/dev/sr0")
+    monkeypatch.setattr(
+        exit_work, "probe_reader_stop", lambda _device, _run: worker.cancel()
+    )
+    worker.run()
+    assert read == [], "the probe ran after it was cancelled"

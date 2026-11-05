@@ -444,6 +444,36 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   its own status, and so does a `-9` nobody here sent. Why: on the round-29 Full run
   (2026-09-28) a Rescan superseded the disc probe, and `cyanrip exited -9` was
   recorded as a dependency failure that every rip report of the session carried.
+- **One `KillableCommand` slot per logical operation, and a slot tracks EVERY
+  live child it spawned.** Runs through one slot can overlap (a superseded disc
+  probe is still dying while its replacement starts), so the slot keys each live
+  child by its run's sequence number, a run removes only its own entry, and
+  `cancel()` kills every child its watermark covers. Two operations never share a
+  slot: the disc probe is `rip_backend.INFO_PROBE`, the version probe
+  `rip_backend.RIPPER_VERSION_PROBE` (`run_capture(..., slot="version")`), so one
+  operation's cancel never reaches the other. Why: the slot held one child and the
+  two probes shared it, so an overlapping run that finished first left the older
+  child where no cancel could find it, and on the owner's rig (2026-11-05) two
+  `cyanrip -I` read one drive until both timed out. A loop that retries on failure
+  (`CyanripImpl.version` trying each version flag) must stop on its own cancel
+  (`ProbeCancelled`) rather than retry in a child the cancel did not cover.
+- **Every path that kills a ripper child also frees its drive.** A
+  `KillableCommand` cancel or timeout SIGKILLs OUR process group: the host
+  wrapper and the `podman exec` client. The `cyanrip` inside the `ripping`
+  container is not in it, and reads on. So the disc probe, the ui-script
+  `cyanrip` verb (stop, timeout, unreapable) and the window's close each free the
+  drive through `exit_work.free_drive_after_cancel` (a rip's reader gets
+  `drive_control.stop_reader_gracefully`, a probe's a device-scoped `fuser -k`),
+  started as exit work so the GUI thread never waits and the process never exits
+  first, with one stop per drive at a time. A superseded probe's drive is freed
+  by the NEW `DiscInfoWorker` on its own thread before it reads
+  (`free_first`). The free is refused while a rip, a pending rescue or a script
+  ripper call may hold the drive (`DriveMixin._drive_free_refusal`), because a
+  device-scoped kill cannot tell their reader from a probe's. Why: on the
+  owner's rig (2026-11-05) a script rip stopped from the console left two
+  `cyanrip` reading `/dev/sr0` after the app had closed, until the disc was
+  ejected by hand. The exit check (`exit_work.audit`) runs after every free, so
+  it reports only what is left.
 
 ### 3.4 Parsers never raise (institutional rule)
 Anything that parses external output uses **named-group regexes** (not column

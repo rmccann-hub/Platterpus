@@ -1078,6 +1078,7 @@ class MainWindow(
         # makes the workers' `cancel()` dead code (CLAUDE.md rule 9: grep for a call
         # site before believing a cancel works — including your own, same day).
         stop_thread(self._dep_check_thread, self._dep_check_worker, deadline=deadline)
+        probe_device = self._disc_probe_in_flight_device()  # before the stop ends it
         stop_thread(self._disc_info_thread, self._disc_info_worker, deadline=deadline)
         stop_thread(self._drive_list_thread, deadline=deadline)
         # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
@@ -1092,6 +1093,8 @@ class MainWindow(
         # (the app is exiting, so a daemon thread would be killed mid-kill — see
         # its docstring). This is the "exit = force stop" contract, done right.
         self._stop_rip_on_shutdown()
+        # A cancelled probe's in-container reader outlives the kill (DriveMixin).
+        self._free_drive_after_probe_cancel(probe_device, "the window closed")
         # …and then stop the rip THREAD, which nothing used to do.
         #
         # `_stop_rip_on_shutdown` cancels the *worker* and frees the drive, but
@@ -1434,16 +1437,17 @@ class MainWindow(
         # ABANDONS it instead (retaining the reference — Qt has no "detach"), and
         # its disconnected result is simply ignored.
         #
-        # **The worker is passed**, which is the part that changed: `cancel()` kills
-        # the superseded probe's child. Without it the old reader kept the drive busy
-        # while the new probe contended for it — and, worse, two children ended up
-        # inside the shared `INFO_PROBE` slot at once, so whichever finished LAST
-        # deregistered the other and left it unkillable (audit, 2026-07-29).
-        # `killable` also guards that race directly, but not overlapping in the first
-        # place is the real fix; the guard is the belt.
+        # **The worker is passed**: `cancel()` kills the superseded probe's child, which
+        # otherwise kept the drive busy while the new probe contended for it. Underneath,
+        # the `INFO_PROBE` slot tracks EVERY live child (2026-11-05), so the cancel
+        # reaches it even with another run in the slot beside it; until then it tracked
+        # one, an overlapping run could strand the older child unkillable, and two
+        # `cyanrip -I` ran on one drive on the rig until both timed out. The version
+        # probe has its own slot, so this cancel cannot kill a rip's build-tag read.
         #
         # `superseded_by` makes the log say this abandonment is planned, at INFO.
         # Without it every rescan wrote a WARNING into the rig transcript.
+        free_first = self._superseded_probe_device()  # read before it is stopped
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
             if self._disc_info_worker is not None:
                 try:
@@ -1462,7 +1466,9 @@ class MainWindow(
         # Force-stop available for the duration and clear any prior stop flag.
         self._scan_force_stopped = False
         self._rip_controls.set_scan_active(True)
-        self._disc_info_worker = DiscInfoWorker(self._backend, device)
+        self._disc_info_worker = DiscInfoWorker(
+            self._backend, device, free_first=free_first
+        )
         self._disc_info_thread = QThread(self)
         self._disc_info_worker.finished.connect(self._on_disc_info_ready)
         self._disc_info_worker.failed.connect(self._on_disc_info_failed)

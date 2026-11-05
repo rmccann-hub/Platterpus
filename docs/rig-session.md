@@ -35,198 +35,125 @@ answers, which is what phases 1 to 3 ask it.
 | 3 | Windows 11, then Bazzite | Pioneer's utility: screenshots, PureRead to Perfect, Run D, put it back | after phase 2 | an estimate of 1 to 1 h 30 min |
 | 4 | Bazzite | one Full acceptance run, on the same 0.7.121 with `.30` | after phase 3 | 2 h 31 min last time (2026-11-04) |
 
-**Your time.** Phase 1 and 2 need you at the keyboard twice:
+**One script does every terminal step: `docs/rig-scripts/drivetest.sh`** (the owner,
+2026-11-05: *"is there not a way you can give me to make all these test automated …
+instead of 15 steps where i am copy and pasting?"*). It replaced fifteen pastes. It
+checks the build, installs the read-only tools, reads the drive, runs Runs A, B and C
+and phase 2, packs each run's logs (never audio), writes its own times in UTC to
+`~/platterpus-rig/drivetest38/drivetest.log` (the log sheet, kept for you), and ends by naming **one
+file to upload**. It keeps the machine awake while it runs, and **it resumes**: running
+the same command again after a stop carries on from the step that stopped
+(`bash drivetest.sh status` lists them; a marker in `~/platterpus-rig/drivetest38/state/` per step).
 
-1. **Sitting 1, about 10 minutes:** steps 1.1 to 1.4 (download, install, the drive
-   query, start Run A). Then leave it, an estimated 30 to 40 minutes.
-2. **Sitting 2, about 5 minutes, when Run A says DONE:** pack Run A, wipe the disc and
-   put it back, and paste **one block** (step 1.5) that runs Run B, Run C and phase 2
-   one after another without you, an estimated 1 h 30 min to 2 h, overnight or during
-   work is fine.
-3. **Then send** the files listed at the end of phase 2.
+**Everything lives in one folder: `~/platterpus-rig/`**, the folder the app already keeps
+every rig session in (named to mirror the fork's `~/cyanrip-rig`). The script lives at
+`~/platterpus-rig/drivetest.sh`, and the test writes only to
+`~/platterpus-rig/drivetest38/`. On its first run it **moves** what the first version of
+this sheet left loose in your home folder (`~/drivemode.txt`, `~/drivespeed.txt`,
+`~/drivemode/`, `~/drivetest.sh`) into that folder: the drive readings already taken
+are reused, and nothing is deleted. Deleting `~/platterpus-rig/drivetest38/` removes the
+whole test.
+It fetches the current `drivemode.txt` and `drivespeed.txt` from `main` each time, so a
+fix to a rip script reaches the test without a release. Both pick the reference disc as
+the **BMG club release** by its MusicBrainz ID (`d14a7546…`), the release the owner rips
+it as (2026-11-05: *"make sure you are choosing the correct album, i have been manually
+choosing the highlighted 3rd option"*); they picked row 1, the 2003 GB release, before.
 
-Phase 3 (Windows) is a third sitting of about an hour, whenever suits you after that.
+**It retries a run that stopped before its first rip, and only that.** The first
+attempt at Run A (2026-11-05, 22:24 UTC, 0.7.121 with `.30`) stopped in its first three
+minutes when two of the app's own disc reads overlapped at start-up and neither
+finished within 120 s (the shared probe slot, fixed for the next release). Nothing had
+been read from the disc for the test, so a retry loses nothing. A run that stopped
+after its rips began is packed and kept, never retried: a second run would be a
+different session.
+
+**Your time.** You are needed four times, a few minutes each:
+
+| When | What you do | Then |
+|---|---|---|
+| Phases 1 and 2 | the three commands below | it runs Run A unattended (an estimated 30 to 40 min) |
+| After Run A | it ejects the disc and asks: wipe it from the centre outward with a soft, dry, lint-free cloth, put it back, type what you used | Run B, Run C and phase 2 unattended (an estimated 1 h 30 min to 2 h); upload the one file it names |
+| Phase 3 | Windows (below), then `bash ~/platterpus-rig/drivetest.sh perfect` | Run D unattended; upload the one file it names |
+| After phase 3 | Windows again, then `bash ~/platterpus-rig/drivetest.sh restored` | upload the one file it names, with your screenshots |
 
 *How the times are estimated, since no run of these scripts has been timed yet:*
 track 3 is 4:51 and track 5 is 4:01 long (`output_reference/EAC_flac/eac_baseline_police_classics.log`),
 this drive reads them at 2.8x to 3.1x (the fork's lap 8 S7), and each rip adds
 spin-up, a cache probe and the FLAC encode: about 2 to 3 minutes a rip. Run A and Run
-B are 12 rips each; Run C is 17, one of them up to twelve reads of track 5. The runs
-themselves will measure it.
+B are 12 rips each; Run C is 17, one of them up to twelve reads of track 5. The script's
+log will measure them.
 
-What to send after each phase is at the end of it. **Send it to both sessions**, this
-one and the fork's (the fork's lap 8 S11): each side files and reads every run.
+**Send every upload to both sessions**, this one and the fork's (the fork's lap 8 S11):
+each side files and reads every run.
 
-### Phase 0 — Bazzite, update and install `.30` (once 0.7.121 is out)
+### Phase 0 — Bazzite, update and install `.30`
 
 The drive test runs on the fork's `.30` (`0.9.4-rc3+platterpus.30`, `cyanrip@5cc1c6b`), so it
 also tests the new release (the owner, 2026-11-05). Its scripts ask the drive for its
-own PureRead answer with `--read-vendor-settings`, which only `.30` has: on an older
-build the first rip of each run fails.
+own PureRead answer with `--read-vendor-settings`, which only `.30` has. The script
+refuses to start on any other build and says how to pick `.30`.
 
-1. Open Platterpus. **Tools → Setup & Updates… → Check for updates**, and take 0.7.121
-   (it restarts itself).
+1. Open Platterpus. **Tools → Setup & Updates… → Check for updates**, and take the
+   newest release (it restarts itself).
 2. **Tools → Setup & Updates… → Choose a build…**, and pick the one labelled as the
    build under test, `.30`.
-3. **Help → About Platterpus…** should show 0.7.121, and the same commit on its
-   *Installed* line as on its *Build under test* line.
-4. Close Platterpus.
+3. Close Platterpus.
 
-### Phase 1 — Bazzite, on 0.7.121 with `.30`
+### Phases 1 and 2 — Bazzite, three commands
 
-**1.1 Get the two test scripts and the read-only drive tools** (once). Put the reference
-disc in the drive, open a terminal, and run:
+Put the reference disc in the drive, open a terminal, and run:
 
 ```sh
-BASE=https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/src/platterpus/rig_scripts
-curl -L -o ~/drivemode.txt "$BASE/drivemode.txt"
-curl -L -o ~/drivespeed.txt "$BASE/drivespeed.txt"
-wc -c ~/drivemode.txt ~/drivespeed.txt
-distrobox enter ripping -- sudo dnf install -y sg3_utils cdrdao
+mkdir -p ~/platterpus-rig && curl -L -o ~/platterpus-rig/drivetest.sh https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/docs/rig-scripts/drivetest.sh
+bash ~/platterpus-rig/drivetest.sh
 ```
 
-`wc` should print 8,598 and 9,492. The last line installs tools that only *read* from the drive (`cdrdao` is for
-phase 2).
+It may ask for your password once (installing `sg3_utils` and `cdrdao` inside the
+container; both only *read* from the drive), and asks one optional question about the
+room. Then leave it until it ejects the disc and asks you to wipe it. After the wipe it
+needs nothing until it prints **DONE. Upload this ONE file**, naming
+`~/platterpus-rig/drivetest38/platterpusdrivetest38phase12.tar.gz`.
 
-**Through every phase, write down each time the computer or the drive is powered
-off**, with the time: a restart counts, a shutdown counts more. Pioneer documents that
-a setting not stored in the drive is forgotten at power-off, so the dumps can only be
-read against that list.
+**Write down each time the computer or the drive is powered off**, with the time: a
+restart counts, a shutdown counts more. Pioneer documents that a setting not stored in
+the drive is forgotten at power-off, so the drive readings can only be read against
+that list. Put the list in the message with the upload.
 
-**1.2 Ask the drive for its settings (read-only).** The first command is Pioneer's own
-settings query (READ BUFFER, buffer `0xF4`); the second lists the drive's standard
-settings pages and its feature list (the CD Read feature's DAP and C2 bits are only in
-the feature list). Each file starts with the time it was taken. No `sudo` is needed:
-Linux lets any user who can open the drive send these read-only commands (the fork's
-round 38 lap 8, S11):
+What it runs, in order (the commands are in the script, each with its reason):
 
-```sh
-mkdir -p ~/drivemode/dumps
-dump() { distrobox enter ripping -- sh -c "date -u; $2" > ~/drivemode/dumps/$1.txt 2>&1; }
-dump pioneer-f4 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
-dump before 'sg_inq /dev/sr0; sg_get_config -q /dev/sr0; sg_get_config -q -H /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done'
-cat ~/drivemode/dumps/pioneer-f4.txt; wc -l ~/drivemode/dumps/before.txt
-```
+1. **The drive's own settings, read-only**, saved to `~/platterpus-rig/drivetest38/dumps/`: Pioneer's
+   settings query (READ BUFFER, buffer `0xF4`) into `pioneer-f4.txt`; the standard
+   settings pages and the feature list into `before.txt` (the CD Read feature's DAP and
+   C2 bits are only in the feature list); and the same Pioneer query sent by `.30`
+   itself into `cyanrip-vendor.json` and `.txt` (the fork's round 38 lap 12 S7). The two
+   Pioneer answers should hold the same 256 bytes, which says both programs read the
+   drive. No `sudo` is needed: Linux lets any user who can open the drive send these
+   read-only commands (the fork's lap 8, S11). Skipped when they are already saved, as
+   they were on 2026-11-05.
+2. **Run A**, disc left in: `drivemode.txt`, twelve rips of tracks 5 and 3, early and
+   late. Its first rip also asks the drive for its settings (`--read-vendor-settings`;
+   the owner's word of 2026-11-05, TASKS R137), so every run's record carries the
+   drive's own PureRead answer.
+3. **The wipe**, the one stop.
+4. **Run B**, disc just reinserted: `drivemode.txt` again.
+5. **Run C**, disc left in: `drivespeed.txt`, the speed test. If the drive refuses a set
+   speed, each fixed-speed rip fails in seconds saying *"Device does not support
+   changing speeds!"*: that is an answer, and the run carries on. Its last rip reads
+   track 5 up to twelve times in one rip (`-Z 4 -r 12`, the fork's lap 8 S11), because
+   the drive has given the verified read of track 5 in three earlier sessions.
+6. **Phase 2**, below.
 
-The same query is now also asked by cyanrip itself: the first rip of each run sends
-`--read-vendor-settings` (the fork's `.30`, `cyanrip@5cc1c6b3`; the owner's word of
-2026-11-05, TASKS R137; a build before `.30` refuses it, and only that rip fails), so every run's record carries the drive's own PureRead
-answer, and this `sg_raw` dump stays as the independent second witness to it.
+### Phase 2 — track 9 read two ways (confirmed by the fork, lap 8 S12 to S14)
 
-Then the same query sent by `.30` itself, through the ripper Platterpus uses (the fork's
-round 38 lap 12 S7): the two files should hold the same 256 bytes, which says both
-programs read the drive, and the JSON adds `.30`'s own PureRead reading and everything
-else the drive declares about itself:
-
-```sh
-~/.local/bin/cyanrip -d /dev/sr0 -I -N -U --diagnostics ~/drivemode/dumps/cyanrip-vendor.json --read-vendor-settings > ~/drivemode/dumps/cyanrip-vendor.txt 2>&1
-```
-
-If `pioneer-f4.txt` shows an error such as *illegal request*, run
-`dump pioneer-f4-alt 'sg_raw -R -r 256 /dev/sr0 3c 01 f4 00 00 00 00 01 00 00'`. If
-either says *permission denied*, put `sudo ` before each command inside the quotes.
-(`dump` lasts as long as the terminal; in a new one, paste its line again.)
-
-**1.3 Find your rips folder** (keep this terminal open; later commands use `$RIPS`; in a
-new terminal, run this line again):
-
-```sh
-RIPS="$(grep -E '^output_dir' ~/.config/platterpus/config.toml | sed -E 's/.*= *"(.*)"/\1/')"; RIPS="${RIPS:-$HOME/Music/rips}"; echo "$RIPS"
-```
-
-**1.4 Run A — disc left in.** Close Platterpus if it is open, then:
-
-```sh
-~/Applications/platterpus-x86_64.AppImage --run-script ~/drivemode.txt
-```
-
-Leave it until the app log says **DONE** (an estimated 30 to 40 minutes).
-
-**1.5 Sitting 2: pack Run A, wipe the disc, then Runs B and C and phase 2 in one go.**
-**If this is a new terminal, paste the `RIPS` line from 1.3 first** (the fork's lap 12
-S8): without it the next lines cannot find Run A's folders, and Run B could overwrite
-them. First pack Run A (this moves its folders aside so Run B cannot overwrite them, and packs
-their logs, never audio):
-
-```sh
-mkdir -p ~/drivemode/runA && mv "$RIPS"/dm* ~/drivemode/runA/
-tar czf ~/drivemode/runA-logs.tar.gz --exclude='*.flac' -C ~/drivemode runA
-```
-
-Then eject the disc, wipe it gently from the centre outward with a soft, dry,
-lint-free cloth (if you use a liquid, say which when you send), put it back and wait
-about 10 seconds. Then paste **this whole block**, and leave it:
-
-```sh
-APP=~/Applications/platterpus-x86_64.AppImage
-"$APP" --run-script ~/drivemode.txt
-mkdir -p ~/drivemode/runB && mv "$RIPS"/dm* ~/drivemode/runB/
-tar czf ~/drivemode/runB-logs.tar.gz --exclude='*.flac' -C ~/drivemode runB
-"$APP" --run-script ~/drivespeed.txt
-mkdir -p ~/drivemode/runC && mv "$RIPS"/ds* ~/drivemode/runC/
-tar czf ~/drivemode/runC-logs.tar.gz --exclude='*.flac' -C ~/drivemode runC
-# phase 2: track 9 read two ways, then cdrdao (explained under Phase 2 below)
-mkdir -p ~/drivemode/track9 && cd ~/drivemode/track9 && date -u > times.txt
-flush() { distrobox enter ripping -- sh -c 'for l in 0 26 52 78 104 130 156 182 208 234 260 286; do sg_raw -R -r 61152 /dev/sr0 be 00 $(printf "%02x %02x %02x %02x" 0 0 $((l>>8)) $((l&255))) 00 00 1a 10 00 00 >/dev/null 2>&1; done'; }
-for n in 1 2 3; do
-  flush; { echo "raw$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o raw$n.bin -r 39168 /dev/sr0 be 00 00 02 38 98 00 00 10 10 01 00"; } >> times.txt 2>&1
-  flush; { echo "q$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o q$n.bin -r 37888 /dev/sr0 be 00 00 02 38 98 00 00 10 10 02 00"; } >> times.txt 2>&1
-done
-ls -l *.bin >> times.txt
-distrobox enter ripping -- cdrdao read-toc --device /dev/sr0 ~/drivemode/track9/cdrdao.toc > cdrdao-output.txt 2>&1
-cd ~ && tar czf ~/drivemode/track9.tar.gz -C ~/drivemode track9
-echo "Runs B and C and phase 2 done $(date -u)"
-```
-
-When it prints **Runs B and C and phase 2 done**, everything for phases 1 and 2 is on
-disk.
-
-That is Run B (`drivemode.txt` again, disc just reinserted) and then Run C
-(`drivespeed.txt`, the speed test, disc left in). In Run C, if the drive refuses a set
-speed, each fixed-speed rip fails in seconds saying *"Device does not support changing
-speeds!"*: that is an answer, and the run carries on. Its last rip reads track 5 with
-up to twelve reads in one rip (`-Z 4 -r 12`, the fork's lap 8 S11), because the drive
-has given the verified read of track 5 in three earlier sessions.
-
-**1.6 Phase 2 is already in that block** (its last part); the section below says what
-it does and why.
-
-**Send after phases 1 and 2:** `~/drivemode/dumps/pioneer-f4.txt` (and `-alt` if made),
-`cyanrip-vendor.json` and `cyanrip-vendor.txt`,
-`~/drivemode/dumps/before.txt`; for each of Runs A, B and C, the newest bundle from
-`~/.local/share/platterpus/bundles/` (`ls -t ~/.local/share/platterpus/bundles/ | head -3`
-lists the three) and its `run*-logs.tar.gz`; and a line saying whether anything was
-unusual (a run that stopped early, the room unusually warm or cold); your list of
-power-offs; and `~/drivemode/track9.tar.gz` from phase 2.
-
-### Phase 2 — Bazzite, track 9 read two ways (confirmed by the fork, lap 8 S12 to S14)
-
-Read-only, about 10 minutes, disc left in. Track 9's sub-channel at LBA 145560 to
-145575 is read six times, raw and formatted alternately, and before each read the
-drive's cache is flushed by reading 312 other sectors (its cache holds 128 to 255).
-Each read is timed: an uncached read on this drive took about 360 ms and a cached one
-about 1 ms, so a read that returns in a few milliseconds came from the cache, and we
-report it rather than count it. Then `cdrdao` reads the disc's table of contents, a
-second program's view of track 9's pregap. **Step 1.5's block runs it for you**; this
-is the same block on its own, for running it again or separately:
-
-```sh
-mkdir -p ~/drivemode/track9 && cd ~/drivemode/track9 && date -u > times.txt
-flush() { distrobox enter ripping -- sh -c 'for l in 0 26 52 78 104 130 156 182 208 234 260 286; do sg_raw -R -r 61152 /dev/sr0 be 00 $(printf "%02x %02x %02x %02x" 0 0 $((l>>8)) $((l&255))) 00 00 1a 10 00 00 >/dev/null 2>&1; done'; }
-for n in 1 2 3; do
-  flush; { echo "raw$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o raw$n.bin -r 39168 /dev/sr0 be 00 00 02 38 98 00 00 10 10 01 00"; } >> times.txt 2>&1
-  flush; { echo "q$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o q$n.bin -r 37888 /dev/sr0 be 00 00 02 38 98 00 00 10 10 02 00"; } >> times.txt 2>&1
-done
-ls -l *.bin >> times.txt
-distrobox enter ripping -- cdrdao read-toc --device /dev/sr0 ~/drivemode/track9/cdrdao.toc > cdrdao-output.txt 2>&1
-cd ~ && tar czf ~/drivemode/track9.tar.gz -C ~/drivemode track9
-```
-
-Each read is timed inside the container, so the time is the read's alone and not the
-container starting (the fork's lap 10 S9: a start that varies by a few hundred
-milliseconds could hide a cached pass). The fork reads the files.
-
-(Send it with phase 1's files, above.)
+Read-only, about 10 minutes, disc left in, run by the script after Run C. Track 9's
+sub-channel at LBA 145560 to 145575 is read six times, raw and formatted alternately,
+and before each read the drive's cache is flushed by reading 312 other sectors (its
+cache holds 128 to 255). Each read is timed inside the container, so the time is the
+read's alone and not the container starting (the fork's lap 10 S9). An uncached read on
+this drive took about 360 ms and a cached one about 1 ms, so a read that returns in a
+few milliseconds came from the cache, and we report it rather than count it. Then
+`cdrdao` reads the disc's table of contents, a second program's view of track 9's
+pregap. The fork reads the files.
 
 ### Phase 3 — Windows 11, then Bazzite
 
@@ -239,48 +166,30 @@ milliseconds could hide a cached pass). The fork reads the files.
    administrator* if it asks).
 3. Start it. **Whether it opens on this drive is itself an answer**: Pioneer lists it for
    the BDR-209EBK/UBK and 211, not the 209DBK. If it says no supported drive is found,
-   screenshot that and go to 3.4.
+   screenshot that, and that is the whole of phase 3.
 4. If it opens: screenshot the **Pure Read** page and the **Advanced Quiet Drive** page,
    **before changing anything**. Do not change Quiet Drive.
 
 **3.2 Windows: set PureRead to Perfect.** Choose **Perfect**, Apply, screenshot again.
 Then **restart** (not shut down) straight into **Bazzite**, so the drive stays powered.
 
-**3.3 Bazzite: read the settings again, then Run D.** In a new terminal, first paste
-the `dump` line from 1.2 and the `RIPS` line from 1.3 (a restart forgets both). Then,
-before any rip:
+**3.3 Bazzite: `bash ~/platterpus-rig/drivetest.sh perfect`.** It reads the drive's settings again
+before any rip (`pioneer-f4-perfect.txt`, `after-perfect.txt`), says whether the Pioneer
+bytes changed, runs Run D (`drivemode.txt`, disc left in), and names
+`~/platterpus-rig/drivetest38/platterpusdrivetest38phase3.tar.gz`.
 
-```sh
-dump pioneer-f4-perfect 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
-dump after-perfect 'sg_inq /dev/sr0; sg_get_config -q /dev/sr0; sg_get_config -q -H /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done'
-```
+**3.4 Put it back.** Restart into Windows, set Pure Read back to what your first
+screenshot showed, Apply, restart into Bazzite, and run `bash ~/platterpus-rig/drivetest.sh restored`.
+It reads the Pioneer settings once more and says **BACK TO ORIGINAL** or **NOT THE
+SAME**, then names `~/platterpus-rig/drivetest38/platterpusdrivetest38restored.tar.gz`. Send it with every screenshot
+and your list of power-offs.
 
-Then Run D, with the disc left in: the Run A command, and when it says **DONE**:
+### Phase 4 — Bazzite, one Full run on the same release with `.30`
 
-```sh
-mkdir -p ~/drivemode/runD && mv "$RIPS"/dm* ~/drivemode/runD/
-tar czf ~/drivemode/runD-logs.tar.gz --exclude='*.flac' -C ~/drivemode runD
-```
+The release repairs a rip from CTDB on its own when every proof passes, so this run is
+the first hardware proof of that, and the Full run that tests the release.
 
-**3.4 Windows: put it back.** Restart into Windows, set Pure Read back to what your
-first screenshot showed, Apply, and restart into Bazzite. Then check it really went
-back (in a new terminal, paste the `dump` line from 1.2 first):
-
-```sh
-dump pioneer-f4-restored 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
-```
-
-**Send after phase 3:** every screenshot; the three dumps (`pioneer-f4-perfect`, `after-perfect`, `pioneer-f4-restored`); your list of power-offs; Run D's newest bundle and
-`runD-logs.tar.gz`. If the utility did not open, the screenshot of what it said is the
-whole of phase 3.
-
-### Phase 4 — Bazzite, one Full run on the same 0.7.121 with `.30`
-
-0.7.121 repairs a rip from CTDB on its own when every proof passes, so this run is the
-first hardware proof of that, and the Full run that tests the release.
-
-1. **Nothing to update:** phase 0 already put 0.7.121 and `.30` in place.
-2. **Run the Full acceptance test:** **Tools → Advanced → Run acceptance test…**, choose
+1. **Run the Full acceptance test:** **Tools → Advanced → Run acceptance test…**, choose
    **Full**, and leave it (2 h 31 min on 2026-11-04; it holds sleep and the screen off and puts
    your settings back at the end). **During the run, don't close any other Platterpus
    window or any terminal you have used distrobox in.**
@@ -290,15 +199,27 @@ under `~/platterpus-rig/`.
 
 ### If something goes wrong
 
+**When something fails, the script decides whether going on still means something.**
+It **stops** only when nothing can run: no AppImage, the wrong cyanrip build, no disc,
+under 2 GB free, or a run that cannot start three times. When a reading or a run fails
+**after it produced something** (a drive query, a run whose rips began, the track 9
+reads, `cdrdao`), it keeps what was made, writes the **full error** (the failing step's
+whole text, the command, its exit code and output) to `errors.txt` in the test folder, prints
+it, and **goes on**, because every later step is a separate answer. **Either way it
+builds the upload**: a stopped test names `platterpusdrivetest38…stopped.tar.gz`, holding everything
+measured so far, `errors.txt`, the app's log and every script run's transcript and
+report. Running the same command again resumes from the step that stopped.
+
 | What you see | What to do |
 |---|---|
-| `No such file or directory` for the AppImage | `ls ~/Applications ~/Downloads \| grep -i platterpus`, and use that path. |
-| `mv: cannot stat …/dm*` (or `ds*`) | The rips went elsewhere: `find ~ -maxdepth 4 -type d -name 'dmfiveearly1'` (or `dsnospeed1`) shows where; use that folder in place of `$RIPS`. |
-| A run stops before DONE | Send what it produced, with a note saying where it stopped. Do not restart it mid-run. |
-| The app says fewer than five tracks | Reinsert the disc, wait, run again. |
-| `sg_raw: command not found` | Step 1.1's last line did not finish; run it again. |
-| `permission denied` from `sg_raw` or `sg_modes` | Put `sudo ` in front of each command **inside** the quotes and paste again (step 1.2's note). |
-| `dump: command not found` | A new terminal forgets it: paste the `dump` line from step 1.2 again. |
+| `STOPPED: no Platterpus AppImage` | Put the AppImage in `~/Applications` (where the app's own updater keeps it). |
+| `STOPPED: cyanrip is not platterpus.30` | Phase 0, step 2, then run the script again. |
+| `STOPPED: the drive did not report a disc ready` | Check the disc is in and the tray closed, then run it again. |
+| `STOPPED: … stopped before its first rip three times` | Upload the `…stopped.tar.gz` it names: it holds every attempt's full error. |
+| `… ENDED WITH A FAILED STEP after its rips began` | Not a stop: it kept the run and carried on. Its report is in the upload. |
+| It asks *"Use them as runA?"* | Folders from a Run A you started by hand were found. **y** only if that run finished. **n**, the default, moves them aside, puts their logs in the upload, and runs Run A again. |
+| `a cyanrip from an earlier run is still running` | It waits up to 10 minutes for it to finish. If it says so after 10 minutes, eject the disc, put it back, and run the same command again. |
+| `permission denied` from `sg_raw` or `sg_modes` | Tell the Platterpus session: the script would need `sudo` inside the container on this machine. |
 
 ## What each step measures, and what is not verified
 
@@ -308,11 +229,12 @@ step says which of the two it is.
 
 | Step | What it measures | Verified before you run it | Not verified, and how we find out |
 |---|---|---|---|
-| 1.1 | nothing; downloads | both URLs serve the files on `main` (8,598 and 9,492 bytes once this sheet's change is merged); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
-| 1.2 | the drive's own settings and feature list | the command's shape against `sg_raw` and `sg_get_config` 1.46's own help (`-R` opens the drive **read-only**, `-r 256` reads 256 bytes, the output is a hex dump); the 10-byte READ BUFFER command against the SCSI layout | what buffer `0xF4`'s bytes mean on this firmware: a published census's reading, which the Windows step checks (A4 in lap 7) |
-| 1.3 | nothing; finds a folder | the setting is a top-level `output_dir` in `config.toml`, default `~/Music/rips` (`config.py:146`, `:63`) | none |
-| 1.4, 1.5 | tracks 3 and 5, early and late, disc left in and reinserted | the script's verbs, labels and folder names (`dm…`) by test | how long a run takes: the first run measures it |
-| 1.6 | tracks 3 and 5 at the drive's own speed, 4x and 24x | the same, and the folder names (`ds…`) | whether this drive accepts a set speed at all: that is what the run finds out |
+| the script itself | nothing; it runs the steps | `shellcheck` 0.11 finds nothing; a stand-in run (fake AppImage, container and drive, 2026-11-05) took it through a run that stops before its first rip and is retried, three packed runs, the wipe stop, phase 2, the upload (no audio inside, checked by listing it), resume, `perfect` and `restored`; its Pioneer-byte comparison read the owner's real `pioneer-f4.txt` and matched `.30`'s JSON byte for byte | what the stand-in does not: a real AppImage's report, real `sg_turs` on this drive, `systemd-inhibit` on Bazzite. The first real run settles them |
+| tools | nothing; installs | `tests/test_rig_scripts.py` checks every verb and setting the rip scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
+| drive readings | the drive's own settings and feature list | the command's shape against `sg_raw` and `sg_get_config` 1.46's own help (`-R` opens the drive **read-only**, `-r 256` reads 256 bytes, the output is a hex dump); the 10-byte READ BUFFER command against the SCSI layout | what buffer `0xF4`'s bytes mean on this firmware: a published census's reading, which the Windows step checks (A4 in lap 7) |
+| rips folder | nothing; finds a folder | the setting is a top-level `output_dir` in `config.toml`, default `~/Music/rips` (`config.py:146`, `:63`) | none |
+| Runs A, B, D | tracks 3 and 5, early and late, disc left in and reinserted | the script's verbs, labels and folder names (`dm…`) by test | how long a run takes: the first run measures it |
+| Run C | tracks 3 and 5 at the drive's own speed, 4x and 24x | the same, and the folder names (`ds…`) | whether this drive accepts a set speed at all: that is what the run finds out |
 | 2 | track 9's sub-channel, and a second program's table of contents | the READ CD commands' bytes and sizes (the fork's lap 8 S2, S12, S13); `cdrdao read-toc --device` against `cdrdao` 1.2.4's own help | whether the cache flush worked: each pass's time says, and a pass that came from the cache is reported, not counted |
 | 3 | PureRead's effect, if the utility opens | the utility's own help text, read from its archive | whether it opens on the BDR-209DBK, and whether a setting made in Windows survives a restart into Bazzite: the dumps before and after show it |
 | 4 | the whole app, with repair running on its own | the release's own CI and suite | the repair on real hardware: this run is its first proof |
@@ -329,7 +251,7 @@ settle*.
 - **Do not update the drive's firmware** for this test, and do not flash another
   model's firmware to get a feature: either can leave the drive unusable, and a
   different firmware would make every earlier result incomparable.
-- **Never send audio.** Bundles and the `tar` lines above carry logs, cue sheets,
+- **Never send audio.** Bundles and the script's uploads carry logs, cue sheets,
   reports and CRCs only (Critical rule #8).
 
 ## A Full run, in general

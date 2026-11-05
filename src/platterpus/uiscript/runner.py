@@ -557,6 +557,11 @@ class ScriptRunner(
         return self._timer.isActive()
 
     @property
+    def cyanrip_in_flight(self) -> bool:
+        """Whether a ``cyanrip`` verb's child is running (it may hold a drive)."""
+        return self._pending_cyanrip is not None
+
+    @property
     def estimate(self) -> str:
         """The estimate the current run started with; "" before any run."""
         return self._report.estimate
@@ -646,6 +651,11 @@ class ScriptRunner(
 
             log.info("ui script stopping with a cyanrip call in flight; killing it")
             cancel_info_probe()
+            _free_the_jobs_drive(
+                self._pending_cyanrip,
+                selected_device(self._window) or "",
+                "ui script stopped with a cyanrip call in flight",
+            )
             self._report.steps.append(
                 StepRecord(
                     self._pending_cyanrip.step.line_no,
@@ -2018,6 +2028,11 @@ class ScriptRunner(
             from platterpus.adapters.rip_backend import cancel_info_probe
 
             cancel_info_probe()
+            _free_the_jobs_drive(
+                job,
+                selected_device(self._window) or "",
+                "a cyanrip verb did not return after its kill",
+            )
             self._pending_cyanrip = None
             self._last_cyanrip_exit = None
             self._last_cyanrip_output = ""
@@ -2032,6 +2047,12 @@ class ScriptRunner(
             )
             return
         self._pending_cyanrip = None
+        if job.result is None and "timed out" in job.error:
+            # `run_capture`'s timeout killed the HOST side only; the reader in
+            # the container reads on unless its drive is freed.
+            _free_the_jobs_drive(
+                job, selected_device(self._window) or "", "a cyanrip verb timed out"
+            )
         if job.result is None:
             # Tri-state, always: nothing was reaped, so the exit code is None and
             # must never be written as 0.
@@ -4559,6 +4580,42 @@ def _ripper_workdir(window: object) -> tuple[Path | None, str]:
             "the app was started from. Set the output directory in Settings."
         )
     return Path(raw), ""
+
+
+def _free_the_jobs_drive(job: _CyanripJob, fallback_device: str, why: str) -> None:
+    """Stop the in-container reader a killed ``cyanrip`` verb left on its drive.
+
+    Killing the verb's child kills our host process group (the wrapper and the
+    ``podman exec`` client), not the ``cyanrip`` inside the container, which
+    reads on: on the owner's rig (2026-11-05) a rip stopped from the console was
+    still reading ``/dev/sr0`` after the app had closed. So every path that
+    kills the verb's child also frees its drive, through the same exit-work stop
+    (``exit_work.free_drive_after_cancel``), graceful because the verb may be a
+    rip whose log needs its footer. The drive is the argv's own ``-d``, else the
+    selected one. A call that opens no device frees nothing, since a free there
+    could only hit a drive it never touched: a probe (``-N --version``,
+    ``--help``; ``-N`` only switches the lookup off) or a log check
+    (``--verify-log <file>``).
+    """
+    from platterpus import exit_work
+    from platterpus.uiscript.verbs import FILE_ONLY_FLAGS, PROBE_FLAGS
+
+    args = job.argv[1:]
+    words = [arg for arg in args if arg != "-N"]
+    if words and all(arg in PROBE_FLAGS for arg in words):
+        return
+    if len(words) == 2 and words[0] in FILE_ONLY_FLAGS:
+        return
+    device = _argv_device(args) or fallback_device
+    exit_work.free_drive_after_cancel(device, writes_log=True, why=why)
+
+
+def _argv_device(args: list[str]) -> str:
+    """The value of the ripper's ``-d`` in ``args``, or "" when it names none."""
+    for flag, value in zip(args, args[1:], strict=False):
+        if flag == "-d":
+            return value
+    return ""
 
 
 def _job_invocation(job: _CyanripJob) -> str:

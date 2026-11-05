@@ -111,7 +111,7 @@ class InstallVerbsMixin:
 
     def _do_install_ripper(self, step: Step) -> None:
         """``install-ripper <commit|(pin)|(under-review)|(fork-pin)>``."""
-        from platterpus.adapters.rip_backend import cancel_info_probe
+        from platterpus.adapters.rip_backend import cancel_ripper_version_probe
         from platterpus.deps import ripper_install
         from platterpus.deps.fork_source import target_for_commit
         from platterpus.deps.step_engine import SubprocessRunner
@@ -155,8 +155,9 @@ class InstallVerbsMixin:
                     # The banner the HOST EXPORT prints now: the binary every rip
                     # after this one runs, by the route every rip takes. Asked of
                     # the cyanrip ADAPTER (Critical rule #1), whose `version()`
-                    # tries each version flag through the killable info probe and
-                    # raises on a non-zero exit rather than returning error text.
+                    # tries each version flag through the killable VERSION probe
+                    # slot and raises on a non-zero exit rather than returning
+                    # error text.
                     backend = build_cyanrip_backend(CYANRIP_BINARY_DEFAULT)
                     job.banner = backend.version()
                     job.banner_exit = 0
@@ -174,7 +175,9 @@ class InstallVerbsMixin:
 
         def cancel() -> None:
             job.cancel.set()
-            cancel_info_probe()
+            # The version probe's own slot: the disc probe's cancel no longer
+            # reaches it, and this cancel must not reach a disc probe either.
+            cancel_ripper_version_probe()
 
         def answered() -> bool:
             if not job.done.is_set():
