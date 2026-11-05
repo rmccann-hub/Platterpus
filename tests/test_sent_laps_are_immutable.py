@@ -282,6 +282,7 @@ SENT_LAPS: dict[str, str] = {
     # that you can"; "don't wait for me make it all merged"): 0.7.121 names .30;
     # 11,399 bytes.
     "outbound/round-38-lap-13.md": "7ad6ac0bfaab9291888c0d797d1c1a7e9fe5806ad84633935a6eb1d162051baa",
+    "outbound/round-38-lap-14.md": "02c14987cdd1ce1279324b9dfb82d4ebf1a71ed011561441ac3ec6056b1b869c",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
