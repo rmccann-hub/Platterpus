@@ -163,12 +163,12 @@ findings it serves: `docs/eac-parity.md` Part G.
 
 ## Drive speed: `drivespeed.txt`
 
-**Typically about 40 to 60 minutes, sixteen rips (an estimate, not yet measured),
+**Typically about 45 to 65 minutes, seventeen rips (an estimate, not yet measured),
 far less if the drive refuses a set speed.** Track 3 of the reference disc reads
 right in some sessions and wrong in others, and the drive picks its own read speed
 (Pioneer's default *Quiet Mode*: slow after insertion, then "depending on the
 situation"). This file takes the choice away: track 3 three times at the drive's
-own speed, at `-S 4` and at `-S 24`, track 5 twice unset, three times at `-S 4` (the fork asked for track 5 at a forced lower speed) and once at `-S 24`, then track 3 once more unset.
+own speed, at `-S 4` and at `-S 24`, track 5 twice unset, three times at `-S 4` (the fork asked for track 5 at a forced lower speed) and once at `-S 24`, then track 3 once more unset, and last track 5 with up to twelve reads in one rip (`-Z 4 -r 12`, the fork's round 38 lap 8 S11).
 Whether this drive honours `-S` is itself a result: since upstream `0be45a36`
 (2026-10-10) cyanrip tries it and stops only if the drive refuses, printing
 `Device does not support changing speeds!`; each refused rip fails in seconds and

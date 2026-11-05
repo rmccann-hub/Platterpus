@@ -1632,7 +1632,10 @@ and Part F's per-run scores stay the dated record.
   rips with the app's secure re-rip got it right in 6 of 7 sessions. Track 3's wrong
   reads take about sixteen distinct values; track 5 takes two or three
   (`E0036697`, `6902BCF0`) and was AccurateRip-verified once in about fourteen
-  (`C96464AB`, 2026-10-26).
+  (`C96464AB`, 2026-10-26). **Corrected 2026-11-05:** that count was our sample. Over
+  the fork's whole filed record (their round 38 lap 8 S5, 533 logs; 326 of this disc
+  at +667) track 3 read 59 values in 171 reads, and track 5 six values in 106 reads,
+  `C96464AB` in three sessions, which we reproduced from their `evidence` branch.
 - **The drive.** Pioneer BDR-209D, firmware 1.51: no C2 pointers (our records and
   redumper's drive table, `superg/redumper@fa5d243:drive.ixx:239`, which lists it
   among "generic (bad) drives" with no C2 field); a cache of about 140 sectors that a
@@ -1643,7 +1646,15 @@ and Part F's per-run scores stay the dated record.
 
 ### G.2 What we think (hypotheses, ranked by fit)
 
-1. **Track 5 is the drive interpolating silently, the same way every time.** Pioneer
+1. **Refuted as first written (2026-11-05, the fork's round 38 lap 8 S5, reproduced by
+   us from their filed record):** track 5 is *not* read the same way every time. Over
+   their 326 logs of this disc at offset +667 it read six ways, `E0036697` most often,
+   and the AccurateRip-verified `C96464AB` in three separate sessions (2026-10-06,
+   2026-10-07, 2026-10-26; one cyanrip log in each, `cyanrip@7c832173`, their
+   `evidence` branch). So the verified read is one this drive gives, and a rip that
+   keeps reading until AccurateRip verifies (their R1), or rebuilds from several reads
+   (R134), can reach it without repair. What follows is the hypothesis as it stood:
+   **Track 5 is the drive interpolating silently, the same way every time.** Pioneer
    documents PureRead: in "Standard" mode the drive interpolates over a frame it
    cannot correct and continues, reporting nothing to the host (and this drive has no
    C2 to report it with); "Master" retries with changed read parameters; "Perfect"
