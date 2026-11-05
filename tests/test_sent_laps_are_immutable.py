@@ -275,6 +275,9 @@ SENT_LAPS: dict[str, str] = {
     # that you can", "make it all merged"): the fork's lap 8 corrections folded
     # into the drive test, A1 refuted by both; 13,178 bytes.
     "outbound/round-38-lap-09.md": "29fffd1b1abca1de1eed6d04c0a5a2ed7aea32053bd0a29ae36182719b3e7633",
+    # Released 2026-11-05 on the owner's word ("Yes do this", to the vendor
+    # read): relays that answer, corrects our lap 9 counts; 9,114 bytes.
+    "outbound/round-38-lap-11.md": "4055cb431e408ef62b37842dac92c10c432a40bb77f4ec7a606402946a10a8cf",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

@@ -1981,13 +1981,8 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # lap 1, which declares protocol(v9)=c0539096… and is their newest.
     # Our round 36 lap 6's seam-commands entry left with our lap 9, which declares
     # add9024f…, the fork's lap 7 copy filed at 6177b3e7.
-    # Round 38, 2026-11-05: our lap 9 declares seam-commands=a2dbc839… (the
-    # fork's row for `--keep-every-read` with PP `?`); the fork's lap 10 S7 wrote
-    # our lap 9 S9 cell into it at `cyanrip@c6916e64`, and our copy of their file
-    # hashes to a5968c79…, which their lap 10 declares. Leaves with our lap 11.
-    ("round-38-lap-09.md", "seam-commands"): (
-        "a5968c792d9e46bbc76dbd36e3b97e2dcc4ef1ba7bb6d2a359cfc673c9845215"
-    ),
+    # Our round 38 lap 9's seam-commands entry left with our lap 11, which
+    # declares a5968c79…, the fork's lap 10 copy filed at fcb75b5f.
 }
 
 
