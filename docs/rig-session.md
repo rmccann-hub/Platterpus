@@ -297,7 +297,8 @@ under `~/platterpus-rig/`.
 | A run stops before DONE | Send what it produced, with a note saying where it stopped. Do not restart it mid-run. |
 | The app says fewer than five tracks | Reinsert the disc, wait, run again. |
 | `sg_raw: command not found` | Step 1.1's last line did not finish; run it again. |
-| `permission denied` from `sg_raw` or `sg_modes` | Check the command starts with `distrobox enter ripping -- sudo`. |
+| `permission denied` from `sg_raw` or `sg_modes` | Put `sudo ` in front of each command **inside** the quotes and paste again (step 1.2's note). |
+| `dump: command not found` | A new terminal forgets it: paste the `dump` line from step 1.2 again. |
 
 ## What each step measures, and what is not verified
 

@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The rig sheet's troubleshooting row for *permission denied* no longer contradicts its own steps** (contributor-facing): it said the command starts with `distrobox enter ripping -- sudo`, where step 1.2 runs without `sudo` and adds it only on that error; it now says to add `sudo` inside the quotes, and a new row covers a `dump` forgotten by a new terminal.
 - **Our round 38 lap 13 is released** (contributor-facing; on the owner's word of 2026-11-05, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it tells the fork 0.7.121 is published naming `.30` as our build under review, gives our cell for their `--read-vendor-settings` row, and leaves the round open for the owner's drive test on `.30`.
 
 ## [0.7.121] — 2026-11-05
