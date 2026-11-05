@@ -24,6 +24,17 @@
 #                                drive once more and says whether it matches.
 #   bash drivetest.sh status     what is done and what is next.
 #
+# WHEN SOMETHING FAILS, IT DECIDES WHETHER GOING ON STILL MEANS SOMETHING:
+#   * nothing can run (no AppImage, the wrong cyanrip build, no disc, no disk
+#     space, a run that cannot even start three times): it STOPS;
+#   * a reading or a run fails after it produced something (a drive query, a run
+#     whose rips began, the track 9 reads, cdrdao): it KEEPS what it made, writes
+#     the full error to ~/drivemode/errors.txt, and GOES ON, because every later
+#     step is still a separate answer.
+# Either way it builds the upload, so nothing that was measured is lost, and the
+# full error (the failing step's whole text, the command, its exit code and its
+# output) is in errors.txt inside it and printed on the screen.
+#
 # IT RESUMES. Each finished step leaves a marker in ~/drivemode/state/, so
 # running the same command again after a stop carries on from where it stopped
 # instead of starting over. Delete a marker to redo that step.
@@ -72,7 +83,47 @@ exec > >(tee -a "$LOG") 2>&1
 say()  { printf '\n[%s UTC] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$*"; }
 done_mark() { date -u > "$STATE/$1.done"; }
 is_done()   { [ -f "$STATE/$1.done" ]; }
-stop() { say "STOPPED: $*"; exit 1; }
+# Set by each entry point: what to upload if the script has to stop early.
+UPLOAD_NAME=""
+UPLOAD_SINCE=""
+UPLOAD_PIECES=()
+IN_UPLOAD=""
+
+# Write a full error into errors.txt (part of the upload) and on the screen.
+# $1 a one-line title; the rest of the text comes on stdin.
+note_error() {
+  {
+    printf '\n===== %s UTC: %s =====\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$1"
+    cat
+  } | tee -a "$DM/errors.txt"
+}
+
+# Stop, but first build the upload of everything measured so far, so a stop never
+# loses a reading. (Not from inside make_upload: its own failure must not loop.)
+stop() {
+  say "STOPPED: $*"
+  echo "$*" | note_error "stopped"
+  if [ -n "$UPLOAD_NAME" ] && [ -z "$IN_UPLOAD" ]; then
+    make_upload "$UPLOAD_NAME-stopped" "$UPLOAD_SINCE" "${UPLOAD_PIECES[@]}" || true
+  fi
+  exit 1
+}
+
+# Every step of a ui-script run that did not pass, with its whole text: what the
+# script asked, and what the app said. Read from the run's own report.json.
+report_failures() {
+  python3 -I - "$1" <<'PY' || echo "(could not read $1 as JSON; it is in the upload)"
+import json, sys
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+print("report:", sys.argv[1])
+print("ok:", report.get("ok"), "| ended:", report.get("ended_reason") or "normally")
+bad = [s for s in report.get("steps", []) if s.get("outcome") in ("fail", "error", "blocked")]
+print(f"{len(bad)} step(s) did not pass")
+for step in bad:
+    print(f"--- line {step.get('line_no')} [{step.get('outcome')}]: {step.get('source')}")
+    print(step.get("detail") or "(no detail recorded)")
+PY
+}
 
 # A command inside the ripping container, the same route cyanrip takes.
 inbox() { distrobox enter ripping -- "$@"; }
@@ -215,14 +266,19 @@ run_script() {
       # Ended with something not ok after rips began. Keep it, mark it, and
       # carry on: every step after it is still worth having, and the report
       # inside the upload says what went wrong.
-      say "$label ENDED WITH A FAILED STEP after its rips began. Kept and packed; its report is in the upload."
+      say "$label ENDED WITH A FAILED STEP after its rips began. Kept and packed; going on, because every later run is a separate answer."
+      if [ -n "$report" ]; then report_failures "$report"; else echo "no report was written"; fi \
+        | note_error "$label ended with a failed step after its rips began (kept)"
       done_mark "$label"
       return 0
     fi
     say "$label stopped before its first rip. Retrying (that loses nothing)."
+    { if [ -n "$report" ]; then report_failures "$report"; else echo "no report was written"; fi
+      echo "--- cyanrip processes running now:"; pgrep -a cyanrip || echo "none"
+    } | note_error "$label attempt $attempt stopped before its first rip"
     wait_disc
   done
-  stop "$label stopped before its first rip three times. Upload $DM/drivetest.log and the newest bundle in $BUNDLES."
+  stop "$label stopped before its first rip three times; every attempt's full error is in errors.txt."
 }
 
 # Move a run's folders out of the rips folder (so the next run cannot overwrite
@@ -322,8 +378,15 @@ track9_reads() {
       { echo "q$n"; inbox bash -c "time sg_raw -R -o q$n.bin -r 37888 $DEVICE be 00 00 02 38 98 00 00 10 10 02 00"; } >> times.txt 2>&1
     done
     ls -l ./*.bin >> times.txt
-    inbox cdrdao read-toc --device "$DEVICE" "$DM/track9/cdrdao.toc" > cdrdao-output.txt 2>&1 \
-      || echo "(cdrdao exited non-zero; its output is saved)"
+    local rc=0
+    inbox cdrdao read-toc --device "$DEVICE" "$DM/track9/cdrdao.toc" > cdrdao-output.txt 2>&1 || rc=$?
+    if [ "$rc" != 0 ]; then
+      { echo "command: cdrdao read-toc --device $DEVICE (inside the container)"; echo "exit code: $rc"; cat cdrdao-output.txt; } \
+        | note_error "cdrdao read-toc failed (kept; going on)"
+    fi
+    if grep -q -i -E "error|illegal|denied" times.txt; then
+      grep -i -E -B2 -A2 "error|illegal|denied" times.txt | note_error "a track 9 read reported an error (kept; going on)"
+    fi
   )
   tar czf "$DM/track9.tar.gz" -C "$DM" track9
   done_mark track9
@@ -331,6 +394,7 @@ track9_reads() {
 
 # One upload: the named pieces, the log, and every bundle made since the test began.
 make_upload() {
+  IN_UPLOAD=1
   local name="$1" since="$2"; shift 2
   local stage="$DM/upload-$name"
   rm -rf "$stage"   # our own staging folder, rebuilt each time
@@ -340,6 +404,13 @@ make_upload() {
     [ -e "$DM/$piece" ] && cp -r "$DM/$piece" "$stage/"
   done
   cp "$LOG" "$stage/"
+  [ -f "$DM/errors.txt" ] && cp "$DM/errors.txt" "$stage/"
+  [ -f "$DM/preflight.txt" ] && cp "$DM/preflight.txt" "$stage/"
+  # The app's own log, and every script run's transcript and report since the
+  # test began: the full text behind any failure, whether or not a bundle was made.
+  mkdir -p "$stage/applog" "$stage/scriptruns"
+  find "$HOME/.local/share/platterpus" -maxdepth 1 -name 'log.txt*' -exec cp -t "$stage/applog/" {} + 2>/dev/null || true
+  find "$UISCRIPT" -mindepth 1 -maxdepth 1 -type d -newer "$since" -exec cp -r -t "$stage/scriptruns/" {} + 2>/dev/null || true
   find "$DM" -maxdepth 1 -name 'leftover-*.tar.gz' -exec cp -t "$stage/" {} +
   [ -f "$DM/notes.txt" ] && cp "$DM/notes.txt" "$stage/"
   find "$BUNDLES" -maxdepth 1 -name '*.tar.gz' -newer "$since" -exec cp -t "$stage/bundles/" {} + 2>/dev/null || true
@@ -355,7 +426,37 @@ make_upload() {
     rm -f "$out"
     stop "an audio file got into the upload, so it was deleted. Tell the Platterpus session."
   fi
-  say "DONE. Upload this ONE file to both sessions: $out ($(du -h "$out" | cut -f1))"
+  IN_UPLOAD=""
+  if [ -s "$DM/errors.txt" ]; then
+    say "Errors were recorded; the full text is in errors.txt inside the upload, and here:"
+    cat "$DM/errors.txt"
+  fi
+  case "$name" in
+    *-stopped) say "THE TEST STOPPED. Upload this ONE file to both sessions anyway; it holds everything measured so far and the full error: $out ($(du -h "$out" | cut -f1))" ;;
+    *) say "DONE. Upload this ONE file to both sessions: $out ($(du -h "$out" | cut -f1))" ;;
+  esac
+}
+
+# Checks before anything runs. A missing build, disc space or disc stops it; a
+# drive that is not the reference rig's, or an unreachable MusicBrainz, is
+# recorded and the test goes on (any drive may run it, TASKS R137).
+preflight() {
+  say "Preflight"
+  {
+    echo "app: $("$APP" --version 2>&1 | head -1)"
+    echo "cyanrip: $("$HOME/.local/bin/cyanrip" --version 2>&1 | head -1)"
+    echo "kernel: $(uname -r)"
+    echo "drive: $(inbox sg_inq "$DEVICE" 2>&1 | grep -E 'Vendor|Product|revision' | tr -s ' ' | tr '\n' ' ')"
+    echo "rips folder: $RIPS"
+    df -h "$HOME" | tail -1
+  } > "$DM/preflight.txt" 2>&1 || true
+  "$APP" --doctor >> "$DM/preflight.txt" 2>&1 || echo "(--doctor reported a problem; see preflight.txt)" >> "$DM/preflight.txt"
+  cat "$DM/preflight.txt"
+  local free_kb
+  free_kb="$(df -Pk "$HOME" | awk 'NR==2 {print $4}')" || free_kb=0
+  [ "${free_kb:-0}" -gt 2000000 ] || stop "less than 2 GB free in your home folder; the runs need room for their FLACs."
+  grep -q "BDR-209D" "$DM/preflight.txt" \
+    || echo "This is not the reference rig's drive. The test still runs; the readings are this drive's." | note_error "different drive (going on)"
 }
 
 # The test began when its first reading was saved. A bundle older than that is
@@ -377,9 +478,12 @@ phase12() {
   say "Round 38 drive test, phases 1 and 2. Rips go to $RIPS"
   local since
   since="$(start_marker)"
+  UPLOAD_NAME=phase12; UPLOAD_SINCE="$since"
+  UPLOAD_PIECES=(dumps runA-logs.tar.gz runB-logs.tar.gz runC-logs.tar.gz track9.tar.gz)
   check_versions
   fetch_scripts
   install_tools
+  preflight
   if ! is_done notes; then
     local room=""
     read -r -p "Room: normal, warm or cold? Anything else unusual? (Enter to skip): " room || true
@@ -394,7 +498,7 @@ phase12() {
   run_script drivemode dm runB
   run_script drivespeed ds runC
   track9_reads
-  make_upload phase12 "$since" dumps runA-logs.tar.gz runB-logs.tar.gz runC-logs.tar.gz track9.tar.gz
+  make_upload phase12 "$since" "${UPLOAD_PIECES[@]}"
   echo
   echo "Next: phase 3 in Windows (the sheet's step 3.1). Then come back and run:"
   echo "  bash $0 perfect"
@@ -404,6 +508,7 @@ phase3() {
   is_done track9 || stop "phases 1 and 2 are not finished. Run: bash $0"
   say "Phase 3: PureRead should now be Perfect. Reading the drive again (read-only)"
   date -u > "$STATE/phase3.started"
+  UPLOAD_NAME=phase3; UPLOAD_SINCE="$STATE/phase3.started"; UPLOAD_PIECES=(dumps runD-logs.tar.gz)
   fetch_scripts
   wait_disc
   if ! is_done perfectreadings; then
@@ -417,7 +522,7 @@ phase3() {
     say "The drive's settings bytes CHANGED since before Windows."
   fi
   run_script drivemode dm runD
-  make_upload phase3 "$STATE/phase3.started" dumps runD-logs.tar.gz
+  make_upload phase3 "$STATE/phase3.started" "${UPLOAD_PIECES[@]}"
   echo
   echo "Next: put PureRead back in Windows (the sheet's step 3.4), then come back and run:"
   echo "  bash $0 restored"
@@ -426,6 +531,7 @@ phase3() {
 
 restored() {
   say "Checking PureRead went back (read-only)"
+  UPLOAD_NAME=restored; UPLOAD_SINCE="$STATE/test.started"; UPLOAD_PIECES=(dumps)
   wait_disc
   dump pioneer-f4-restored "sg_raw -R -r 256 $DEVICE 3c 02 f4 00 00 00 00 01 00 00"
   if [ "$(f4_bytes "$DM/dumps/pioneer-f4.txt")" = "$(f4_bytes "$DM/dumps/pioneer-f4-restored.txt")" ]; then

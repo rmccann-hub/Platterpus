@@ -190,8 +190,16 @@ under `~/platterpus-rig/`.
 
 ### If something goes wrong
 
-The script stops with a line starting **STOPPED:** that says what to do. Running the
-same command again resumes from the step that stopped.
+**When something fails, the script decides whether going on still means something.**
+It **stops** only when nothing can run: no AppImage, the wrong cyanrip build, no disc,
+under 2 GB free, or a run that cannot start three times. When a reading or a run fails
+**after it produced something** (a drive query, a run whose rips began, the track 9
+reads, `cdrdao`), it keeps what was made, writes the **full error** (the failing step's
+whole text, the command, its exit code and output) to `~/drivemode/errors.txt`, prints
+it, and **goes on**, because every later step is a separate answer. **Either way it
+builds the upload**: a stopped test names `upload-…-stopped.tar.gz`, holding everything
+measured so far, `errors.txt`, the app's log and every script run's transcript and
+report. Running the same command again resumes from the step that stopped.
 
 | What you see | What to do |
 |---|---|
