@@ -40,10 +40,19 @@ answers, which is what phases 1 to 3 ask it.
 instead of 15 steps where i am copy and pasting?"*). It replaced fifteen pastes. It
 checks the build, installs the read-only tools, reads the drive, runs Runs A, B and C
 and phase 2, packs each run's logs (never audio), writes its own times in UTC to
-`~/drivemode/drivetest.log` (the log sheet, kept for you), and ends by naming **one
+`~/platterpus-rig/drivetest38/drivetest.log` (the log sheet, kept for you), and ends by naming **one
 file to upload**. It keeps the machine awake while it runs, and **it resumes**: running
 the same command again after a stop carries on from the step that stopped
-(`bash drivetest.sh status` lists them; a marker in `~/drivemode/state/` per step).
+(`bash drivetest.sh status` lists them; a marker in `~/platterpus-rig/drivetest38/state/` per step).
+
+**Everything lives in one folder: `~/platterpus-rig/`**, the folder the app already keeps
+every rig session in (named to mirror the fork's `~/cyanrip-rig`). The script lives at
+`~/platterpus-rig/drivetest.sh`, and the test writes only to
+`~/platterpus-rig/drivetest38/`. On its first run it **moves** what the first version of
+this sheet left loose in your home folder (`~/drivemode.txt`, `~/drivespeed.txt`,
+`~/drivemode/`, `~/drivetest.sh`) into that folder: the drive readings already taken
+are reused, and nothing is deleted. Deleting `~/platterpus-rig/drivetest38/` removes the
+whole test.
 It fetches the current `drivemode.txt` and `drivespeed.txt` from `main` each time, so a
 fix to a rip script reaches the test without a release. Both pick the reference disc as
 the **BMG club release** by its MusicBrainz ID (`d14a7546…`), the release the owner rips
@@ -64,8 +73,8 @@ different session.
 |---|---|---|
 | Phases 1 and 2 | the three commands below | it runs Run A unattended (an estimated 30 to 40 min) |
 | After Run A | it ejects the disc and asks: wipe it from the centre outward with a soft, dry, lint-free cloth, put it back, type what you used | Run B, Run C and phase 2 unattended (an estimated 1 h 30 min to 2 h); upload the one file it names |
-| Phase 3 | Windows (below), then `bash ~/drivetest.sh perfect` | Run D unattended; upload the one file it names |
-| After phase 3 | Windows again, then `bash ~/drivetest.sh restored` | upload the one file it names, with your screenshots |
+| Phase 3 | Windows (below), then `bash ~/platterpus-rig/drivetest.sh perfect` | Run D unattended; upload the one file it names |
+| After phase 3 | Windows again, then `bash ~/platterpus-rig/drivetest.sh restored` | upload the one file it names, with your screenshots |
 
 *How the times are estimated, since no run of these scripts has been timed yet:*
 track 3 is 4:51 and track 5 is 4:01 long (`output_reference/EAC_flac/eac_baseline_police_classics.log`),
@@ -95,15 +104,15 @@ refuses to start on any other build and says how to pick `.30`.
 Put the reference disc in the drive, open a terminal, and run:
 
 ```sh
-curl -L -o ~/drivetest.sh https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/docs/rig-scripts/drivetest.sh
-bash ~/drivetest.sh
+mkdir -p ~/platterpus-rig && curl -L -o ~/platterpus-rig/drivetest.sh https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/docs/rig-scripts/drivetest.sh
+bash ~/platterpus-rig/drivetest.sh
 ```
 
 It may ask for your password once (installing `sg3_utils` and `cdrdao` inside the
 container; both only *read* from the drive), and asks one optional question about the
 room. Then leave it until it ejects the disc and asks you to wipe it. After the wipe it
 needs nothing until it prints **DONE. Upload this ONE file**, naming
-`~/drivemode/upload-phase12.tar.gz`.
+`~/platterpus-rig/drivetest38/platterpusdrivetest38phase12.tar.gz`.
 
 **Write down each time the computer or the drive is powered off**, with the time: a
 restart counts, a shutdown counts more. Pioneer documents that a setting not stored in
@@ -112,7 +121,7 @@ that list. Put the list in the message with the upload.
 
 What it runs, in order (the commands are in the script, each with its reason):
 
-1. **The drive's own settings, read-only**, saved to `~/drivemode/dumps/`: Pioneer's
+1. **The drive's own settings, read-only**, saved to `~/platterpus-rig/drivetest38/dumps/`: Pioneer's
    settings query (READ BUFFER, buffer `0xF4`) into `pioneer-f4.txt`; the standard
    settings pages and the feature list into `before.txt` (the CD Read feature's DAP and
    C2 bits are only in the feature list); and the same Pioneer query sent by `.30`
@@ -164,15 +173,15 @@ pregap. The fork reads the files.
 **3.2 Windows: set PureRead to Perfect.** Choose **Perfect**, Apply, screenshot again.
 Then **restart** (not shut down) straight into **Bazzite**, so the drive stays powered.
 
-**3.3 Bazzite: `bash ~/drivetest.sh perfect`.** It reads the drive's settings again
+**3.3 Bazzite: `bash ~/platterpus-rig/drivetest.sh perfect`.** It reads the drive's settings again
 before any rip (`pioneer-f4-perfect.txt`, `after-perfect.txt`), says whether the Pioneer
 bytes changed, runs Run D (`drivemode.txt`, disc left in), and names
-`~/drivemode/upload-phase3.tar.gz`.
+`~/platterpus-rig/drivetest38/platterpusdrivetest38phase3.tar.gz`.
 
 **3.4 Put it back.** Restart into Windows, set Pure Read back to what your first
-screenshot showed, Apply, restart into Bazzite, and run `bash ~/drivetest.sh restored`.
+screenshot showed, Apply, restart into Bazzite, and run `bash ~/platterpus-rig/drivetest.sh restored`.
 It reads the Pioneer settings once more and says **BACK TO ORIGINAL** or **NOT THE
-SAME**, then names `~/drivemode/upload-restored.tar.gz`. Send it with every screenshot
+SAME**, then names `~/platterpus-rig/drivetest38/platterpusdrivetest38restored.tar.gz`. Send it with every screenshot
 and your list of power-offs.
 
 ### Phase 4 — Bazzite, one Full run on the same release with `.30`
@@ -195,9 +204,9 @@ It **stops** only when nothing can run: no AppImage, the wrong cyanrip build, no
 under 2 GB free, or a run that cannot start three times. When a reading or a run fails
 **after it produced something** (a drive query, a run whose rips began, the track 9
 reads, `cdrdao`), it keeps what was made, writes the **full error** (the failing step's
-whole text, the command, its exit code and output) to `~/drivemode/errors.txt`, prints
+whole text, the command, its exit code and output) to `errors.txt` in the test folder, prints
 it, and **goes on**, because every later step is a separate answer. **Either way it
-builds the upload**: a stopped test names `upload-…-stopped.tar.gz`, holding everything
+builds the upload**: a stopped test names `platterpusdrivetest38…stopped.tar.gz`, holding everything
 measured so far, `errors.txt`, the app's log and every script run's transcript and
 report. Running the same command again resumes from the step that stopped.
 
@@ -206,7 +215,7 @@ report. Running the same command again resumes from the step that stopped.
 | `STOPPED: no Platterpus AppImage` | Put the AppImage in `~/Applications` (where the app's own updater keeps it). |
 | `STOPPED: cyanrip is not platterpus.30` | Phase 0, step 2, then run the script again. |
 | `STOPPED: the drive did not report a disc ready` | Check the disc is in and the tray closed, then run it again. |
-| `STOPPED: … stopped before its first rip three times` | Upload `~/drivemode/drivetest.log` and the newest bundle in `~/.local/share/platterpus/bundles/`. |
+| `STOPPED: … stopped before its first rip three times` | Upload the `…stopped.tar.gz` it names: it holds every attempt's full error. |
 | `… ENDED WITH A FAILED STEP after its rips began` | Not a stop: it kept the run and carried on. Its report is in the upload. |
 | It asks *"Use them as runA?"* | Folders from a Run A you started by hand were found. **y** only if that run finished. **n**, the default, moves them aside, puts their logs in the upload, and runs Run A again. |
 | `a cyanrip from an earlier run is still running` | It waits up to 10 minutes for it to finish. If it says so after 10 minutes, eject the disc, put it back, and run the same command again. |

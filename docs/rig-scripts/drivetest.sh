@@ -29,13 +29,13 @@
 #     space, a run that cannot even start three times): it STOPS;
 #   * a reading or a run fails after it produced something (a drive query, a run
 #     whose rips began, the track 9 reads, cdrdao): it KEEPS what it made, writes
-#     the full error to ~/drivemode/errors.txt, and GOES ON, because every later
+#     the full error to ~/platterpus-rig/drivetest38/errors.txt, and GOES ON, because every later
 #     step is still a separate answer.
 # Either way it builds the upload, so nothing that was measured is lost, and the
 # full error (the failing step's whole text, the command, its exit code and its
 # output) is in errors.txt inside it and printed on the screen.
 #
-# IT RESUMES. Each finished step leaves a marker in ~/drivemode/state/, so
+# IT RESUMES. Each finished step leaves a marker in ~/platterpus-rig/drivetest38/state/, so
 # running the same command again after a stop carries on from where it stopped
 # instead of starting over. Delete a marker to redo that step.
 #
@@ -47,7 +47,13 @@ set -euo pipefail
 
 # --- where things are ---------------------------------------------------------
 
-DM="$HOME/drivemode"                 # everything this test writes lives here
+# EVERYTHING THIS TEST WRITES LIVES IN ONE FOLDER, under the one folder the app
+# keeps all rig evidence in (`~/platterpus-rig`, test_session.RIG_PARENT_NAME,
+# named to mirror the fork's `~/cyanrip-rig`; the owner's "stop polluting my home
+# directory", 2026-09-11). One folder per round's drive test, so a later round's
+# test cannot mix with this one. Deleting the folder removes all of it.
+ROUND="${DRIVETEST_ROUND:-38}"
+DM="$HOME/platterpus-rig/drivetest$ROUND"
 STATE="$DM/state"
 LOG="$DM/drivetest.log"
 DEVICE="${DRIVETEST_DEVICE:-/dev/sr0}"
@@ -104,7 +110,7 @@ stop() {
   say "STOPPED: $*"
   echo "$*" | note_error "stopped"
   if [ -n "$UPLOAD_NAME" ] && [ -z "$IN_UPLOAD" ]; then
-    make_upload "$UPLOAD_NAME-stopped" "$UPLOAD_SINCE" "${UPLOAD_PIECES[@]}" || true
+    make_upload "${UPLOAD_NAME}stopped" "$UPLOAD_SINCE" "${UPLOAD_PIECES[@]}" || true
   fi
   exit 1
 }
@@ -165,7 +171,7 @@ check_versions() {
   esac
 }
 
-# Fetch the two rip scripts into ~/drivemode/scripts. A short or empty file is a
+# Fetch the two rip scripts into the test folder's scripts/. A short or empty file is a
 # failed download, not a script, and the run would fail in a less obvious way.
 fetch_scripts() {
   local name
@@ -290,7 +296,7 @@ pack() {
   pack_logs "$label" "$label-logs.tar.gz"
 }
 
-# Pack a folder under ~/drivemode into a .tar.gz of its logs, leaving out every
+# Pack a folder under the test folder into a .tar.gz of its logs, leaving out every
 # audio ending in both cases.
 pack_logs() {
   local folder="$1" out="$2" excludes=() ext
@@ -396,7 +402,10 @@ track9_reads() {
 make_upload() {
   IN_UPLOAD=1
   local name="$1" since="$2"; shift 2
-  local stage="$DM/upload-$name"
+  # Cross-machine artifact spelling: letters and digits only (CLAUDE.md), since
+  # this name is typed into a chat client's upload dialog.
+  local base="platterpusdrivetest$ROUND$name"
+  local stage="$DM/$base"
   rm -rf "$stage"   # our own staging folder, rebuilt each time
   mkdir -p "$stage/bundles"
   local piece
@@ -414,8 +423,8 @@ make_upload() {
   find "$DM" -maxdepth 1 -name 'leftover-*.tar.gz' -exec cp -t "$stage/" {} +
   [ -f "$DM/notes.txt" ] && cp "$DM/notes.txt" "$stage/"
   find "$BUNDLES" -maxdepth 1 -name '*.tar.gz' -newer "$since" -exec cp -t "$stage/bundles/" {} + 2>/dev/null || true
-  local out="$DM/upload-$name.tar.gz"
-  tar czf "$out" -C "$DM" "upload-$name"
+  local out="$DM/$base.tar.gz"
+  tar czf "$out" -C "$DM" "$base"
   # Prove no audio got in, by listing what is actually in the archive. Listed
   # first, searched second: inside one pipeline a failed listing would read as
   # "no audio found", which is a different fact.
@@ -432,7 +441,7 @@ make_upload() {
     cat "$DM/errors.txt"
   fi
   case "$name" in
-    *-stopped) say "THE TEST STOPPED. Upload this ONE file to both sessions anyway; it holds everything measured so far and the full error: $out ($(du -h "$out" | cut -f1))" ;;
+    *stopped) say "THE TEST STOPPED. Upload this ONE file to both sessions anyway; it holds everything measured so far and the full error: $out ($(du -h "$out" | cut -f1))" ;;
     *) say "DONE. Upload this ONE file to both sessions: $out ($(du -h "$out" | cut -f1))" ;;
   esac
 }
@@ -472,6 +481,35 @@ start_marker() {
   echo "$STATE/test.started"
 }
 
+# THE FIRST VERSION OF THIS TEST LEFT FILES LOOSE IN THE HOME FOLDER: the rig
+# sheet's pastes downloaded ~/drivemode.txt and ~/drivespeed.txt (which, being
+# found first, also shadow the copies packaged in the app by name) and wrote
+# ~/drivemode/. Move them into this test's folder, never delete them: the drive
+# readings in ~/drivemode/dumps are this test's own and are reused, not redone.
+tidy_old_locations() {
+  local moved=0 f
+  mkdir -p "$DM/old"
+  if [ -d "$HOME/drivemode/dumps" ]; then
+    for f in "$HOME"/drivemode/dumps/*; do
+      [ -e "$f" ] || continue
+      if [ -e "$DM/dumps/$(basename "$f")" ]; then mv "$f" "$DM/old/"; else mv "$f" "$DM/dumps/"; fi
+      moved=$((moved + 1))
+    done
+    rmdir "$HOME/drivemode/dumps" 2>/dev/null || true
+  fi
+  if [ -d "$HOME/drivemode" ]; then
+    find "$HOME/drivemode" -mindepth 1 -maxdepth 1 -exec mv -t "$DM/old/" {} + 2>/dev/null || true
+    rmdir "$HOME/drivemode" 2>/dev/null && moved=$((moved + 1))
+  fi
+  for f in "$HOME/drivemode.txt" "$HOME/drivespeed.txt" "$HOME/drivetest.sh"; do
+    [ -f "$f" ] && { mv "$f" "$DM/old/"; moved=$((moved + 1)); }
+  done
+  rmdir "$DM/old" 2>/dev/null || true
+  if [ "$moved" -gt 0 ]; then
+    echo "Tidied $moved old item(s) from your home folder into $DM (kept, not deleted)."
+  fi
+}
+
 # --- the three entry points ---------------------------------------------------
 
 phase12() {
@@ -501,11 +539,11 @@ phase12() {
   make_upload phase12 "$since" "${UPLOAD_PIECES[@]}"
   echo
   echo "Next: phase 3 in Windows (the sheet's step 3.1). Then come back and run:"
-  echo "  bash $0 perfect"
+  echo "  bash $SELF perfect"
 }
 
 phase3() {
-  is_done track9 || stop "phases 1 and 2 are not finished. Run: bash $0"
+  is_done track9 || stop "phases 1 and 2 are not finished. Run: bash $SELF"
   say "Phase 3: PureRead should now be Perfect. Reading the drive again (read-only)"
   date -u > "$STATE/phase3.started"
   UPLOAD_NAME=phase3; UPLOAD_SINCE="$STATE/phase3.started"; UPLOAD_PIECES=(dumps runD-logs.tar.gz)
@@ -525,7 +563,7 @@ phase3() {
   make_upload phase3 "$STATE/phase3.started" "${UPLOAD_PIECES[@]}"
   echo
   echo "Next: put PureRead back in Windows (the sheet's step 3.4), then come back and run:"
-  echo "  bash $0 restored"
+  echo "  bash $SELF restored"
   echo "Upload your Windows screenshots with that file."
 }
 
@@ -551,10 +589,18 @@ status() {
   done
 }
 
+# The one place this script lives, so every "run this next" names a path that
+# exists, whatever folder it was first run from.
+SELF="$HOME/platterpus-rig/drivetest.sh"
+if [ "$(readlink -f "$0")" != "$(readlink -f "$SELF" 2>/dev/null || echo none)" ]; then
+  cp "$0" "$SELF"
+fi
+[ "${1:-}" = status ] || tidy_old_locations
+
 case "${1:-}" in
   "")       phase12 ;;
   perfect)  phase3 ;;
   restored) restored ;;
   status)   status ;;
-  *) echo "usage: bash $0 [perfect|restored|status]"; exit 2 ;;
+  *) echo "usage: bash $SELF [perfect|restored|status]"; exit 2 ;;
 esac
