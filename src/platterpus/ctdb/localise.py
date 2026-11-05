@@ -2,8 +2,9 @@
 """Locate the samples a rip differs from a CTDB entry in (TASKS R43).
 
 What EAC's CTDB plugin prints as ``(1416/1441) Differs in 16 samples
-@04:04:68,04:05:17,04:11:32``: CUETools' ``CDRepairEncode.VerifyParity`` (LGPL,
-``CUETools.AccurateRip/CDRepair.cs``), rebuilt clean-room (KDD-16) from its
+@04:04:68,04:05:17,04:11:32``: CUETools' ``CDRepairEncode.VerifyParity``
+(GPL-2.0-or-later, ``CUETools.AccurateRip/CDRepair.cs``; this said LGPL until
+2026-11-04), rebuilt clean-room (KDD-16) from its
 published behaviour and the mathematics, with no code copied:
 
 1. compute OUR syndromes over the disc's audio, one streamed pass
@@ -40,6 +41,7 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
+import zlib
 from collections.abc import Iterable, Mapping, Sequence
 
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbEntry
@@ -124,9 +126,15 @@ def localise_disc(
         return _not_determined("the disc is too short to hold one parity row", picked)
     deadline = time.monotonic() + budget_s
     accumulator = syndromes.SyndromeAccumulator(columns, deadline)
+    # Each chunk's CRC-32, measured on the very bytes the syndromes are made
+    # from: the repair's proof that a file has not changed since (differences.
+    # CtdbLocalisation.track_crc32s). Kept only when every chunk was read.
+    chunk_crcs: list[int] = []
     try:
         for chunk in chunks:
+            chunk_crcs.append(zlib.crc32(chunk) & 0xFFFFFFFF)
             if not accumulator.feed(chunk):
+                chunk_crcs.clear()
                 break
     except (
         decode.DecoderUnavailable,
@@ -156,4 +164,4 @@ def localise_disc(
         LocalisationStatus.LOCATED if located else LocalisationStatus.NOT_DETERMINED
     )
     reason = "" if located else (rows[0].reason if rows else "")
-    return CtdbLocalisation(status, reason, tuple(rows))
+    return CtdbLocalisation(status, reason, tuple(rows), tuple(chunk_crcs))

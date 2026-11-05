@@ -102,6 +102,10 @@ SPAWN_SITES: dict[str, tuple[str, str]] = {
     "app.py": ("other", "desktop-database refresh (kbuildsycoca6) at first run"),
     "appimage_integration.py": ("other", "desktop integration + relaunch"),
     "ctdb/decode.py": ("other", "CTDB payload decode"),
+    "adapters/flac_rewrite.py": (
+        "other",
+        "CTDB repair: host flac encode and metaflac block copy; never the ripper",
+    ),
     "deps/resolvers.py": ("other", "dependency presence/version probes"),
     "deps/step_engine.py": (
         "other",

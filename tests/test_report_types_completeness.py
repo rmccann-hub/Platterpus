@@ -45,6 +45,10 @@ _BLOCKS: dict[str, str] = {
     "CtdbLocalisationBlock": "entries_tried",
     "CtdbLocalisationEntryBlock": "samples_located",
     "CtdbDifferenceBlock": "places_elided",
+    # Joined 2026-11-04 with the blocks themselves (v44, TASKS R43, the repair).
+    "CtdbRepairBlock": "cuetools_offset",
+    "CtdbRepairTrackBlock": "original_kept_as",
+    "CtdbRepairWordBlock": "disc_word",
 }
 
 

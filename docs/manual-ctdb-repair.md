@@ -13,6 +13,12 @@ needs repair, and then `ctdb-cli` arrives as an optional user-installed tool,
 never a bundled .NET; the repair path itself is still unvalidated); this page exists so a power user with a
 stubborn disc isn't stuck waiting on that decision.
 
+> **2026-11-04: Platterpus now repairs natively, in its core** (KDD-14 amended,
+> TASKS R43): toward the strongest CTDB entry only, proved against the entry's
+> CRCs before any file is replaced, with the original kept beside the repaired
+> file. It has no button or script verb yet, so until it does this page remains
+> the way for a user to repair a disc by hand.
+
 ## When to reach for this
 
 Repair is the *last* resort, after the in-app remedies:
@@ -101,4 +107,4 @@ mathematically, without re-reading the disc. It operates on the **whole disc**
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.120.*

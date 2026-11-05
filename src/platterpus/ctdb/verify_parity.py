@@ -6,8 +6,14 @@ one entry, once our syndromes are computed. Imports numpy through
 :mod:`platterpus.ctdb.syndromes`, so ``localise`` imports this module only after
 the dependency registry says numpy is installed.
 
-Written from CUETools' published behaviour (LGPL ``CDRepair.cs``: ``FindOffset``,
+Written from CUETools' published behaviour (``CDRepair.cs``: ``FindOffset``,
 ``VerifyParity``; ``CUEToolsDB.cs``: ``FetchDB``), not its code (KDD-16).
+CUETools is GPL-2.0-or-later (its ``License.txt``), not LGPL as this module
+used to say; the clean-room choice stands either way.
+
+The located corrections keep their VALUES (2026-11-04): ``EntryLocalisation.
+values`` beside ``words``, the 16-bit XOR the entry holds at each one, which is
+what :mod:`platterpus.ctdb.repair_plan` turns into a repair.
 """
 
 from __future__ import annotations
@@ -115,12 +121,17 @@ def verify_at(
     if corrected_crc(our_crc, words, values, window, deadline) != entry.crc:
         return None  # a stray decode, or the time bound (the caller tells which)
     start = STRIDE + 2 * offset  # the window's first word in our audio
+    # Sorted as PAIRS, so each value stays with its word: sorting the words alone
+    # (as this did before the values were kept) would hand a repair the right
+    # places and the wrong numbers.
+    pairs = sorted(zip((start + w for w in words), values, strict=True))
     return EntryLocalisation(
         entry.entry_id,
         entry.confidence,
         LocalisationStatus.LOCATED,
         offset,
-        words=tuple(sorted(start + w for w in words)),
+        words=tuple(w for w, _v in pairs),
+        values=tuple(v for _w, v in pairs),
     )
 
 

@@ -737,6 +737,21 @@ pursued. No code ever proceeds on the signing path.
 
 ### Part C §2 — In-app CUETools / CTDB *repair*
 
+> **Status 2026-11-04: built natively, no new dependency; not yet a button.** On
+> the owner's word (*"Start building CTDB repair now? yes"*), the repair was
+> built in Python as the step after the localisation (TASKS R43), which had
+> already reproduced EAC's `Differs in 3 samples @02:24:59` on hardware: CUETools'
+> `CDRepairFix.Write` (XOR each located word), with every change proved before a
+> file is replaced. The new file must decode to the original XOR the plan, the
+> whole repaired disc must reproduce the strongest entry's CRC and the repaired
+> track's CRC at its offset, AccurateRip v1/v2 are recomputed beside them, and
+> the original is kept as `<name>.flac.before-ctdb-repair`; a minority entry, a
+> track AccurateRip verified, a guard band and a pregap are refused. The
+> `ctdb-cli`/.NET discussion below is the dated record of the route this
+> replaced (KDD-14, amended). What remains: the GUI action on a worker, and the
+> hardware proof on the reference disc against the prediction in TASKS R43
+> (track 5's Copy CRC `C96464AB`, AccurateRip v2 `BCF4E815`).
+
 #### What "repair" buys us
 
 CTDB stores whole-disc **parity**, so for a rip that's a near-miss (a handful of

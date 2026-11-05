@@ -520,6 +520,53 @@ class CtdbLocalisationBlock(TypedDict):
     entries_tried: list[CtdbLocalisationEntryBlock]
 
 
+class CtdbRepairWordBlock(TypedDict):
+    """One row of ``ctdb.repair.words`` (v44, TASKS R43; ``repair_types.SampleFix``)."""
+
+    track: int | None
+    frame: int | None
+    channel: int | None
+    disc_word: int | None
+    value: str
+
+
+class CtdbRepairTrackBlock(TypedDict):
+    """One row of ``ctdb.repair.tracks`` (v44; ``repair_types.RepairedTrack``)."""
+
+    track: int | None
+    path: str | None
+    original_kept_as: str | None
+    samples_corrected: int | None
+    pcm_crc32_before: str | None
+    pcm_crc32_after: str | None
+    ctdb_crc_expected: str | None
+    ctdb_crc_before: str | None
+    ctdb_crc_after: str | None
+    accuraterip_v1_before: str | None
+    accuraterip_v2_before: str | None
+    accuraterip_v1_after: str | None
+    accuraterip_v2_after: str | None
+
+
+class CtdbRepairBlock(TypedDict):
+    """``ctdb.repair`` (v44, TASKS R43; ``ctdb/repair_types.RepairRecord``)."""
+
+    status: str | None
+    reason: str | None
+    entry_id: str | None
+    confidence: int | None
+    offset: int | None
+    cuetools_offset: int | None
+    disc_crc_expected: str | None
+    disc_crc_before: str | None
+    disc_crc_after: str | None
+    words: list[CtdbRepairWordBlock]
+    words_elided: int
+    tracks: list[CtdbRepairTrackBlock]
+    encoder_argv: list[str] | None
+    untouched: list[str]
+
+
 class CtdbTrackBlock(TypedDict):
     """One row of ``ctdb.tracks`` (v39, TASKS R43; ``ctdb/matching.py``)."""
 
@@ -557,6 +604,8 @@ class CtdbBlock(TypedDict):
     tracks: list[CtdbTrackBlock] | None
     # v40 (TASKS R43): the parity-based localisation's outcome.
     localisation: CtdbLocalisationBlock | None
+    # v44 (TASKS R43): the repair, or why it was refused; null when none asked.
+    repair: CtdbRepairBlock | None
 
 
 class CoverArtBlock(TypedDict):
