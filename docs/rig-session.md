@@ -44,6 +44,11 @@ and phase 2, packs each run's logs (never audio), writes its own times in UTC to
 file to upload**. It keeps the machine awake while it runs, and **it resumes**: running
 the same command again after a stop carries on from the step that stopped
 (`bash drivetest.sh status` lists them; a marker in `~/drivemode/state/` per step).
+It fetches the current `drivemode.txt` and `drivespeed.txt` from `main` each time, so a
+fix to a rip script reaches the test without a release. Both pick the reference disc as
+the **BMG club release** by its MusicBrainz ID (`d14a7546…`), the release the owner rips
+it as (2026-11-05: *"make sure you are choosing the correct album, i have been manually
+choosing the highlighted 3rd option"*); they picked row 1, the 2003 GB release, before.
 
 **It retries a run that stopped before its first rip, and only that.** The first
 attempt at Run A (2026-11-05, 22:24 UTC, 0.7.121 with `.30`) stopped in its first three
@@ -195,7 +200,8 @@ same command again resumes from the step that stopped.
 | `STOPPED: the drive did not report a disc ready` | Check the disc is in and the tray closed, then run it again. |
 | `STOPPED: … stopped before its first rip three times` | Upload `~/drivemode/drivetest.log` and the newest bundle in `~/.local/share/platterpus/bundles/`. |
 | `… ENDED WITH A FAILED STEP after its rips began` | Not a stop: it kept the run and carried on. Its report is in the upload. |
-| It asks *"Use them as runA?"* | Folders from a Run A you started by hand were found. **Y** keeps them as Run A; **n** moves them aside (kept, and uploaded). |
+| It asks *"Use them as runA?"* | Folders from a Run A you started by hand were found. **y** only if that run finished. **n**, the default, moves them aside, puts their logs in the upload, and runs Run A again. |
+| `a cyanrip from an earlier run is still running` | It waits up to 10 minutes for it to finish. If it says so after 10 minutes, eject the disc, put it back, and run the same command again. |
 | `permission denied` from `sg_raw` or `sg_modes` | Tell the Platterpus session: the script would need `sudo` inside the container on this machine. |
 
 ## What each step measures, and what is not verified

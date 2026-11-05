@@ -42,6 +42,12 @@ LOG="$DM/drivetest.log"
 DEVICE="${DRIVETEST_DEVICE:-/dev/sr0}"
 # The build under test. Overridable so a later round can reuse the script.
 EXPECT_BUILD="${DRIVETEST_EXPECT_BUILD:-platterpus.30}"
+# Where the rip scripts are fetched from. This script runs the CURRENT
+# drivemode.txt and drivespeed.txt from the repository, not the copies packaged
+# in the installed release, so a fix to a rip script (the release it picks, on
+# 2026-11-05) reaches a test without waiting for a release.
+REF="${DRIVETEST_REF:-main}"
+RAW="https://raw.githubusercontent.com/rmccann-hub/Platterpus/$REF/src/platterpus/rig_scripts"
 BUNDLES="$HOME/.local/share/platterpus/bundles"
 UISCRIPT="$HOME/.local/share/platterpus/uiscript"
 # The same audio list as platterpuscollect.sh and .githooks/audio-extensions.txt:
@@ -108,6 +114,20 @@ check_versions() {
   esac
 }
 
+# Fetch the two rip scripts into ~/drivemode/scripts. A short or empty file is a
+# failed download, not a script, and the run would fail in a less obvious way.
+fetch_scripts() {
+  local name
+  mkdir -p "$DM/scripts"
+  for name in drivemode drivespeed; do
+    curl -fsSL -o "$DM/scripts/$name.txt" "$RAW/$name.txt" \
+      || stop "could not download $name.txt from $RAW. Check the internet connection and run this again."
+    [ "$(wc -c < "$DM/scripts/$name.txt")" -gt 1000 ] \
+      || stop "$name.txt downloaded empty or short. Run this again."
+  done
+  echo "Rip scripts fetched from $REF: $(wc -c < "$DM/scripts/drivemode.txt") and $(wc -c < "$DM/scripts/drivespeed.txt") bytes."
+}
+
 install_tools() {
   if inbox sh -c 'command -v sg_raw && command -v sg_turs && command -v cdrdao' >/dev/null 2>&1; then
     echo "sg3_utils and cdrdao are already in the container."
@@ -117,9 +137,18 @@ install_tools() {
   inbox sudo dnf install -y sg3_utils cdrdao
 }
 
-# Wait until the drive says the disc is ready (TEST UNIT READY), up to 2 minutes.
+# Wait until no cyanrip is running and the drive says the disc is ready (TEST
+# UNIT READY). A cyanrip left running by an earlier, stopped run still holds the
+# drive (2026-11-05: two survived the app closing), and a run started beside it
+# reads the disc twice at once. Waiting is safe; killing it is the app's job.
 wait_disc() {
   local i
+  for i in $(seq 1 60); do
+    pgrep -x cyanrip >/dev/null 2>&1 || break
+    [ "$i" = 1 ] && echo "A cyanrip from an earlier run is still running; waiting for it to finish (up to 10 minutes)..."
+    [ "$i" = 60 ] && stop "a cyanrip from an earlier run is still running after 10 minutes. Eject the disc, put it back, and run this again."
+    sleep 10
+  done
   for i in $(seq 1 24); do
     if inbox sg_turs "$DEVICE" >/dev/null 2>&1; then
       echo "Disc ready."
@@ -167,7 +196,7 @@ run_script() {
     marker="$STATE/$label.attempt$attempt.started"
     date -u > "$marker"
     say "$label, attempt $attempt: running the $name script (no input needed)"
-    "$APP" --run-script "$name" || echo "(the app exited non-zero; reading its report)"
+    "$APP" --run-script "$DM/scripts/$name.txt" || echo "(the app exited non-zero; reading its report)"
     report="$(last_report "$marker")"
     if [ -n "$report" ]; then
       echo "Report: $report"
@@ -199,14 +228,21 @@ run_script() {
 # Move a run's folders out of the rips folder (so the next run cannot overwrite
 # them) and pack their logs, never their audio.
 pack() {
-  local prefix="$1" label="$2" excludes=() ext
+  local prefix="$1" label="$2"
   mkdir -p "$DM/$label"
   find "$RIPS" -mindepth 1 -maxdepth 1 -type d -name "$prefix*" -exec mv -t "$DM/$label/" {} +
+  pack_logs "$label" "$label-logs.tar.gz"
+}
+
+# Pack a folder under ~/drivemode into a .tar.gz of its logs, leaving out every
+# audio ending in both cases.
+pack_logs() {
+  local folder="$1" out="$2" excludes=() ext
   for ext in $AUDIO_EXTS; do
     excludes+=("--exclude=*.$ext" "--exclude=*.$(echo "$ext" | tr '[:lower:]' '[:upper:]')")
   done
-  tar czf "$DM/$label-logs.tar.gz" "${excludes[@]}" -C "$DM" "$label"
-  echo "Packed $DM/$label-logs.tar.gz"
+  tar czf "$DM/$out" "${excludes[@]}" -C "$DM" "$folder"
+  echo "Packed $DM/$out"
 }
 
 # Folders left in the rips folder by a run started by hand would be overwritten
@@ -217,18 +253,20 @@ adopt_or_move_aside() {
   n="$(count_rips "$prefix")"
   [ "$n" -eq 0 ] && return 0
   echo "Found $n '$prefix' folder(s) in $RIPS from a run started by hand."
-  read -r -p "Use them as $label? [Y/n] " answer || answer=y
+  echo "If that run FINISHED, answer y. If it was stopped early, answer n: they are kept aside, uploaded, and $label runs again."
+  read -r -p "Use them as $label? [y/N] " answer || answer=n
   case "$answer" in
-    n|N|no|NO)
+    y|Y|yes|YES)
+      pack "$prefix" "$label"
+      done_mark "$label"
+      echo "$label taken from the run you started by hand." ;;
+    *)
       local aside
       aside="$DM/leftover-$(date -u +%Y%m%dT%H%M%S)"
       mkdir -p "$aside"
       find "$RIPS" -mindepth 1 -maxdepth 1 -type d -name "$prefix*" -exec mv -t "$aside/" {} +
-      echo "Moved aside to $aside (kept, and included in the upload)." ;;
-    *)
-      pack "$prefix" "$label"
-      done_mark "$label"
-      echo "$label taken from the run you started by hand." ;;
+      pack_logs "$(basename "$aside")" "$(basename "$aside").tar.gz"
+      echo "Moved aside to $aside (kept; its logs are in the upload)." ;;
   esac
 }
 
@@ -302,6 +340,7 @@ make_upload() {
     [ -e "$DM/$piece" ] && cp -r "$DM/$piece" "$stage/"
   done
   cp "$LOG" "$stage/"
+  find "$DM" -maxdepth 1 -name 'leftover-*.tar.gz' -exec cp -t "$stage/" {} +
   [ -f "$DM/notes.txt" ] && cp "$DM/notes.txt" "$stage/"
   find "$BUNDLES" -maxdepth 1 -name '*.tar.gz' -newer "$since" -exec cp -t "$stage/bundles/" {} + 2>/dev/null || true
   local out="$DM/upload-$name.tar.gz"
@@ -339,6 +378,7 @@ phase12() {
   local since
   since="$(start_marker)"
   check_versions
+  fetch_scripts
   install_tools
   if ! is_done notes; then
     local room=""
@@ -364,6 +404,7 @@ phase3() {
   is_done track9 || stop "phases 1 and 2 are not finished. Run: bash $0"
   say "Phase 3: PureRead should now be Perfect. Reading the drive again (read-only)"
   date -u > "$STATE/phase3.started"
+  fetch_scripts
   wait_disc
   if ! is_done perfectreadings; then
     dump pioneer-f4-perfect "sg_raw -R -r 256 $DEVICE 3c 02 f4 00 00 00 00 01 00 00"
