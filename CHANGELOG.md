@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.121] — 2026-11-05
+The release that names the fork's `.30` (`5cc1c6b`) as the build under review, for round 38's drive test and the Full run that doubles as this release's test; `.28` stays the default ripper until round 38 closes. A rip that CTDB says differs from the strongest entry is now repaired on its own when every proof passes, with the original kept beside it and the user told what was done or why not; a Settings switch, on by default, turns it off. It reads everything `.30` adds: the `Other read:` lines, every kept read in the diagnostics record, everything the drive declares about itself, and the drive's own PureRead answer through the vendor read. A script run's bundle now carries every scripted rip's full log, the installer accepts a build whose short hash git lengthened, and the `drivemode` and `drivespeed` rig scripts carry round 38's drive test.
+
 ### Added
 
 - **The fork's round 38 lap 12 is filed** (contributor-facing): `.30` is published and round 38's pin moves to it on both owners' word; the shared `seam-commands.md` takes its `--read-vendor-settings` row; `docs/rig-session.md` step 1.2 adds the same vendor query sent through `.30` itself beside the `sg_raw` one, and step 1.5 reminds to paste the `RIPS` line in a new terminal (the fork's lap 12 S7, S8).
@@ -19827,7 +19830,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.120...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.121...HEAD
+[0.7.121]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.120...v0.7.121
 [0.7.120]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.119...v0.7.120
 [0.7.119]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.118...v0.7.119
 [0.7.118]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.117...v0.7.118
@@ -19918,4 +19922,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.120.*
+*Last updated for Platterpus v0.7.121.*
