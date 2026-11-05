@@ -1731,8 +1731,10 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
    both match (and the CTDB track CRC where present), cap and record the number tried.
 3. **The drive's PureRead mode** (the owner, on Windows 11 on the same machine; TASKS
    R135), measured with `rig_scripts/drivemode.txt`: twelve rips of tracks 5 and 3,
-   early and late in a session, run once per condition. **Research of 2026-11-04
-   says this drive most likely has no PureRead at all**, so item 3 may be moot:
+   early and late in a session, run once per condition. **Not determined, and kept
+   open until the drive answers** (the owner, 2026-11-05: *"we don't know exactly
+   what my drive can and cannot do yet, so keep them open"*). Research of
+   2026-11-04 points to this drive having no PureRead:
    Pioneer's Drive Utility (`PioneerBDR-209-211_DriveUtility_v1.2.0.3.exe`) lists the
    BDR-209EBK/UBK and 211, not the BDR-209DBK; the 209DBK's product page does not
    name PureRead where the 209UBK's does; and a published census of Pioneer
