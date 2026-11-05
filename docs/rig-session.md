@@ -113,6 +113,15 @@ The same query is now also asked by cyanrip itself: the first rip of each run se
 2026-11-05, TASKS R137; a build before `.30` refuses it, and only that rip fails), so every run's record carries the drive's own PureRead
 answer, and this `sg_raw` dump stays as the independent second witness to it.
 
+Then the same query sent by `.30` itself, through the ripper Platterpus uses (the fork's
+round 38 lap 12 S7): the two files should hold the same 256 bytes, which says both
+programs read the drive, and the JSON adds `.30`'s own PureRead reading and everything
+else the drive declares about itself:
+
+```sh
+~/.local/bin/cyanrip -d /dev/sr0 -I -N -U --diagnostics ~/drivemode/dumps/cyanrip-vendor.json --read-vendor-settings > ~/drivemode/dumps/cyanrip-vendor.txt 2>&1
+```
+
 If `pioneer-f4.txt` shows an error such as *illegal request*, run
 `dump pioneer-f4-alt 'sg_raw -R -r 256 /dev/sr0 3c 01 f4 00 00 00 00 01 00 00'`. If
 either says *permission denied*, put `sudo ` before each command inside the quotes.
@@ -134,7 +143,9 @@ RIPS="$(grep -E '^output_dir' ~/.config/platterpus/config.toml | sed -E 's/.*= *
 Leave it until the app log says **DONE** (an estimated 30 to 40 minutes).
 
 **1.5 Sitting 2: pack Run A, wipe the disc, then Runs B and C and phase 2 in one go.**
-First pack Run A (this moves its folders aside so Run B cannot overwrite them, and packs
+**If this is a new terminal, paste the `RIPS` line from 1.3 first** (the fork's lap 12
+S8): without it the next lines cannot find Run A's folders, and Run B could overwrite
+them. First pack Run A (this moves its folders aside so Run B cannot overwrite them, and packs
 their logs, never audio):
 
 ```sh
@@ -181,6 +192,7 @@ has given the verified read of track 5 in three earlier sessions.
 it does and why.
 
 **Send after phases 1 and 2:** `~/drivemode/dumps/pioneer-f4.txt` (and `-alt` if made),
+`cyanrip-vendor.json` and `cyanrip-vendor.txt`,
 `~/drivemode/dumps/before.txt`; for each of Runs A, B and C, the newest bundle from
 `~/.local/share/platterpus/bundles/` (`ls -t ~/.local/share/platterpus/bundles/ | head -3`
 lists the three) and its `run*-logs.tar.gz`; and a line saying whether anything was
