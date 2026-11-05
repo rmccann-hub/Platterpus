@@ -11,6 +11,12 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-05 (day) — 0.7.121 names `.30`; the drive test moves to it
+
+- **Built.** The readers for everything `.30` adds (`other_reads.py`, `record_reads.py`, `record_drive_declared.py`, `record_vendor_settings.py`; PR #458 and this release), the vendor read in the two drive-test scripts, `.30` (`5cc1c6b`) under review, and 0.7.121 (the automatic CTDB repair, the `.30` readers, scripted rips' logs in bundles, the installer's seven-character short hash). Our lap 11 relayed the owner's yes to the vendor read; the fork's lap 12 published `.30` and moved round 38's pin to it on both owners' word.
+- **Decided.** The drive test runs on 0.7.121 with `.30`, and its Full run doubles as the release's test (the owner, 2026-11-05). The scripts' vendor read needs `.30`, so they landed with the release naming it, not before.
+- **Learned.** (1) Moving `PIN_UNDER_REVIEW` can silently drop the previous build from a set that held it only *as* the pin under review (the `-Y` set; the 2026-08-25 defect); name it explicitly when the pin moves. (2) A shell `sed` on `__version__ = ` missed the annotated `__version__: str = `, and an `&&` chain then skipped every edit after it without a word; check the edit landed before the next step.
+
 ## 2026-11-05 (night) — round 38 laps 8 to 10: the drive test agreed
 
 - **Built.** The automatic CTDB repair merged (PR #454, no button, KDD-47); the drive test folded the fork's corrections (PR #455) and their timing refinement; our lap 9 released; the fork's laps 8 and 10 filed and verified (digests reproduced).
@@ -11081,4 +11087,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.120.*
+*Last updated for Platterpus v0.7.121.*

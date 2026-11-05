@@ -134,6 +134,7 @@ has no row in §1, §1b or §2.
 | `--prefer-accuraterip-match` | At the -Z repeat limit, keep the read AccurateRip matches at the highest confidence, where one does (default: false) | ? | HAVE |
 | `--reread-time-limit` | Seconds a -Z track's reads may take, checked between whole-track reads; then no further read starts (default: 0) | NO: read, not sent; Platterpus reads every line the flag prints (TASKS R81) and passes no time limit | HAVE |
 | `--keep-every-read` | Save every distinct -Z read of a track, the kept one too, as WAV in this folder | NO: not sent yet; our rebuild of a disputed second from several reads (TASKS R134) is what will send it, once a release of yours carries it | HAVE |
+| `--read-vendor-settings` | Ask the drive for its settings with its vendor's read-only query, where cyanrip has one for its vendor (Pioneer's settings block), into the --diagnostics record (default: false) | ? | HAVE |
 | `--encoder-option` | Pass key=value to every output's encoder, as FFmpeg names its options (repeatable) | NO: our rips write FLAC at your encoder's defaults; other formats are derived from the FLAC master by our own transcoder | HAVE |
 | `-p`, `--pregap` | Track pregap handling: N=default\|drop\|merge\|track (repeatable) | NO: your default pregap handling is kept; a per-track choice is not offered | HAVE |
 | `-P`, `--paranoia` | Paranoia level (0..max, or 'none'/'max') | NO: your default level is kept; a lower level is not offered | HAVE |

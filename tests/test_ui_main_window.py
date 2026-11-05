@@ -6742,6 +6742,7 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
             "cd_read_feature": None,
             "mode_sense_all_pages": None,
             "mode_sense_not_kept": 0,
+            "vendor_settings": None,
         },
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}

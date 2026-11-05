@@ -1666,8 +1666,8 @@ def prefer_accuraterip_match_args_for_build(build_tag: str) -> list[str]:
     """``["--prefer-accuraterip-match"]`` for a build that lists it, else ``[]``.
 
     One home for the words and their gate, as for ``--prefer-disc-isrc``. Sent to
-    `.27` (``5aeefc4``), `.28` (``3f288fb``) and `.29` (``8d2ca72``) today, the tags in
-    ``fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH``.
+    `.27` to `.30` today (``5aeefc4``, ``3f288fb``, ``8d2ca72``, ``5cc1c6b``), the
+    tags in ``fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH``.
     """
     from platterpus.deps import fork_source
 

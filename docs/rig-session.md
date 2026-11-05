@@ -29,10 +29,11 @@ answers, which is what phases 1 to 3 ask it.
 
 | Phase | Where | What | When | About |
 |---|---|---|---|---|
-| 1 | Bazzite | one read-only drive query; Runs A, B, C | now, on 0.7.120 | an estimate of 2 to 3 h, of which you are needed twice, a few minutes each (see *Your time* below) |
+| 0 | Bazzite | update Platterpus to 0.7.121 and install `.30`, the build under test | first, once 0.7.121 is out | 10 min |
+| 1 | Bazzite | one read-only drive query; Runs A, B, C | after phase 0, on 0.7.121 with `.30` | an estimate of 2 to 3 h, of which you are needed twice, a few minutes each (see *Your time* below) |
 | 2 | Bazzite | track 9's sub-channel read two ways; `cdrdao read-toc` | straight after Run C, in the same paste (the fork confirmed the commands in its lap 8) | 10 min |
 | 3 | Windows 11, then Bazzite | Pioneer's utility: screenshots, PureRead to Perfect, Run D, put it back | after phase 2 | an estimate of 1 to 1 h 30 min |
-| 4 | Bazzite | update to the next release; one Full acceptance run | when I say 0.7.121 is out | 2 h 31 min last time (2026-11-04) |
+| 4 | Bazzite | one Full acceptance run, on the same 0.7.121 with `.30` | after phase 3 | 2 h 31 min last time (2026-11-04) |
 
 **Your time.** Phase 1 and 2 need you at the keyboard twice:
 
@@ -56,7 +57,22 @@ themselves will measure it.
 What to send after each phase is at the end of it. **Send it to both sessions**, this
 one and the fork's (the fork's lap 8 S11): each side files and reads every run.
 
-### Phase 1 — Bazzite, now (0.7.120, no update needed)
+### Phase 0 — Bazzite, update and install `.30` (once 0.7.121 is out)
+
+The drive test runs on the fork's `.30` (`0.9.4-rc3+platterpus.30`, `cyanrip@5cc1c6b`), so it
+also tests the new release (the owner, 2026-11-05). Its scripts ask the drive for its
+own PureRead answer with `--read-vendor-settings`, which only `.30` has: on an older
+build the first rip of each run fails.
+
+1. Open Platterpus. **Tools → Setup & Updates… → Check for updates**, and take 0.7.121
+   (it restarts itself).
+2. **Tools → Setup & Updates… → Choose a build…**, and pick the one labelled as the
+   build under test, `.30`.
+3. **Help → About Platterpus…** should show 0.7.121, and the same commit on its
+   *Installed* line as on its *Build under test* line.
+4. Close Platterpus.
+
+### Phase 1 — Bazzite, on 0.7.121 with `.30`
 
 **1.1 Get the two test scripts and the read-only drive tools** (once). Put the reference
 disc in the drive, open a terminal, and run:
@@ -69,7 +85,7 @@ wc -c ~/drivemode.txt ~/drivespeed.txt
 distrobox enter ripping -- sudo dnf install -y sg3_utils cdrdao
 ```
 
-`wc` should print 7,753 and 8,647. The last line installs tools that only *read* from the drive (`cdrdao` is for
+`wc` should print 8,598 and 9,492. The last line installs tools that only *read* from the drive (`cdrdao` is for
 phase 2).
 
 **Through every phase, write down each time the computer or the drive is powered
@@ -90,6 +106,20 @@ dump() { distrobox enter ripping -- sh -c "date -u; $2" > ~/drivemode/dumps/$1.t
 dump pioneer-f4 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
 dump before 'sg_inq /dev/sr0; sg_get_config -q /dev/sr0; sg_get_config -q -H /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done'
 cat ~/drivemode/dumps/pioneer-f4.txt; wc -l ~/drivemode/dumps/before.txt
+```
+
+The same query is now also asked by cyanrip itself: the first rip of each run sends
+`--read-vendor-settings` (the fork's `.30`, `cyanrip@5cc1c6b3`; the owner's word of
+2026-11-05, TASKS R137; a build before `.30` refuses it, and only that rip fails), so every run's record carries the drive's own PureRead
+answer, and this `sg_raw` dump stays as the independent second witness to it.
+
+Then the same query sent by `.30` itself, through the ripper Platterpus uses (the fork's
+round 38 lap 12 S7): the two files should hold the same 256 bytes, which says both
+programs read the drive, and the JSON adds `.30`'s own PureRead reading and everything
+else the drive declares about itself:
+
+```sh
+~/.local/bin/cyanrip -d /dev/sr0 -I -N -U --diagnostics ~/drivemode/dumps/cyanrip-vendor.json --read-vendor-settings > ~/drivemode/dumps/cyanrip-vendor.txt 2>&1
 ```
 
 If `pioneer-f4.txt` shows an error such as *illegal request*, run
@@ -113,7 +143,9 @@ RIPS="$(grep -E '^output_dir' ~/.config/platterpus/config.toml | sed -E 's/.*= *
 Leave it until the app log says **DONE** (an estimated 30 to 40 minutes).
 
 **1.5 Sitting 2: pack Run A, wipe the disc, then Runs B and C and phase 2 in one go.**
-First pack Run A (this moves its folders aside so Run B cannot overwrite them, and packs
+**If this is a new terminal, paste the `RIPS` line from 1.3 first** (the fork's lap 12
+S8): without it the next lines cannot find Run A's folders, and Run B could overwrite
+them. First pack Run A (this moves its folders aside so Run B cannot overwrite them, and packs
 their logs, never audio):
 
 ```sh
@@ -160,6 +192,7 @@ has given the verified read of track 5 in three earlier sessions.
 it does and why.
 
 **Send after phases 1 and 2:** `~/drivemode/dumps/pioneer-f4.txt` (and `-alt` if made),
+`cyanrip-vendor.json` and `cyanrip-vendor.txt`,
 `~/drivemode/dumps/before.txt`; for each of Runs A, B and C, the newest bundle from
 `~/.local/share/platterpus/bundles/` (`ls -t ~/.local/share/platterpus/bundles/ | head -3`
 lists the three) and its `run*-logs.tar.gz`; and a line saying whether anything was
@@ -241,16 +274,13 @@ dump pioneer-f4-restored 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 0
 `runD-logs.tar.gz`. If the utility did not open, the screenshot of what it said is the
 whole of phase 3.
 
-### Phase 4 — when I say 0.7.121 is out: update, then one Full run
+### Phase 4 — Bazzite, one Full run on the same 0.7.121 with `.30`
 
-0.7.121 carries the CTDB repair running on its own after a rip, and a script run's
-bundle that holds every rip's log (so the `tar` steps above become unnecessary).
+0.7.121 repairs a rip from CTDB on its own when every proof passes, so this run is the
+first hardware proof of that, and the Full run that tests the release.
 
-1. **Update Platterpus:** open it, **Tools → Setup & Updates… → Check for updates**, and
-   take the newest release (it restarts itself). **Help → About Platterpus…** should
-   then name 0.7.121.
-2. **The ripper needs no change** unless I say so: 0.7.121 keeps `.29`.
-3. **Run the Full acceptance test:** **Tools → Advanced → Run acceptance test…**, choose
+1. **Nothing to update:** phase 0 already put 0.7.121 and `.30` in place.
+2. **Run the Full acceptance test:** **Tools → Advanced → Run acceptance test…**, choose
    **Full**, and leave it (2 h 31 min on 2026-11-04; it holds sleep and the screen off and puts
    your settings back at the end). **During the run, don't close any other Platterpus
    window or any terminal you have used distrobox in.**
@@ -277,7 +307,7 @@ step says which of the two it is.
 
 | Step | What it measures | Verified before you run it | Not verified, and how we find out |
 |---|---|---|---|
-| 1.1 | nothing; downloads | both URLs serve the files on `main` (7,753 and 8,647 bytes once this sheet's change is merged); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
+| 1.1 | nothing; downloads | both URLs serve the files on `main` (8,598 and 9,492 bytes once this sheet's change is merged); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
 | 1.2 | the drive's own settings and feature list | the command's shape against `sg_raw` and `sg_get_config` 1.46's own help (`-R` opens the drive **read-only**, `-r 256` reads 256 bytes, the output is a hex dump); the 10-byte READ BUFFER command against the SCSI layout | what buffer `0xF4`'s bytes mean on this firmware: a published census's reading, which the Windows step checks (A4 in lap 7) |
 | 1.3 | nothing; finds a folder | the setting is a top-level `output_dir` in `config.toml`, default `~/Music/rips` (`config.py:146`, `:63`) | none |
 | 1.4, 1.5 | tracks 3 and 5, early and late, disc left in and reinserted | the script's verbs, labels and folder names (`dm…`) by test | how long a run takes: the first run measures it |
@@ -314,4 +344,4 @@ mode, and the `[plan]` block at the top of each rip's live log names every flag 
 
 ---
 
-*Last updated for Platterpus v0.7.120.*
+*Last updated for Platterpus v0.7.121.*

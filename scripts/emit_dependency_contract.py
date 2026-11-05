@@ -198,9 +198,9 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         "track_pregap_length_undecided",
         # The fork's `.30` line, each `-Z` read not kept (round 38 lap 8 S16),
         # read from their source at `cyanrip@40dc64d7:src/cyanrip_log.c:891`
-        # and their P2 at `cyanrip@40dc64d7:PROVIDER-CONTRACT.md:375`, before a
-        # `.30` contract is filed with us. Fork-only: the reads it lists are the
-        # fork's own, kept by their round 38 work.
+        # and their P2 at `cyanrip@40dc64d7:PROVIDER-CONTRACT.md:375`; `.30`'s own
+        # `round-38-lap-12-provider-contract-g0c276fc.md` lists it (P2 line 376).
+        # Fork-only: the reads it lists are the fork's own (round 38 work).
         "track_other_read",
     }
 )
