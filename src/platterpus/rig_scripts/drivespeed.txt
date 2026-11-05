@@ -6,7 +6,7 @@
 #             (the AppImage where the installer parks it, and the file you
 #             downloaded; 0.7.120 already has every verb it uses)
 #   Costs:    typically about 40 to 60 minutes on the reference rig (an
-#             estimate, not yet measured): sixteen rips of one track each.
+#             estimate, not yet measured): seventeen rips of one track each.
 #             Much shorter if the drive refuses a set speed: each fixed-speed
 #             rip then fails in seconds, and that refusal is the answer.
 #
@@ -142,11 +142,20 @@ cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dsno
 expect-exit 0
 record-accuracy nospeedafter1 dsnospeedafter1
 
+# --- F2. TRACK 5, UP TO TWELVE READS IN ONE RIP (the fork's round 38 lap 8 S11) ---
+# The drive has given the AccurateRip-verified read of track 5 (C96464AB) in three
+# earlier sessions; one rip with -Z 4 and twelve retries logs every read it makes.
+
+log --- F2. track 5, -Z 4 -r 12 ---
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 12 -Z 4 --cache-probe -l 5 -D dsfivemanyreads1 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivemanyreads1 dsfivemanyreads1
+
 # --- G. THE COMPARISONS ----------------------------------------------------
 
 log --- G. per speed, per track ---
 compare-conditions 3 nospeed1 nospeed2 nospeed3 speedfour1 speedfour2 speedfour3 speedtwentyfour1 speedtwentyfour2 speedtwentyfour3 nospeedafter1
-compare-conditions 5 fivenospeed1 fivenospeed2 fivespeedfour1 fivespeedfour2 fivespeedfour3 fivespeedtwentyfour1
+compare-conditions 5 fivenospeed1 fivenospeed2 fivespeedfour1 fivespeedfour2 fivespeedfour3 fivespeedtwentyfour1 fivemanyreads1
 
 # --- H. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 

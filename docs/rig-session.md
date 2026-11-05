@@ -30,12 +30,12 @@ answers, which is what phases 1 to 3 ask it.
 | Phase | Where | What | When | About |
 |---|---|---|---|---|
 | 1 | Bazzite | one read-only drive query; Runs A, B, C | now, on 0.7.120 | not yet measured; an estimate of 2 to 3 h |
-| 2 | Bazzite | track 9's sub-channel read two ways; `cdrdao read-toc` | when I say the fork has confirmed the commands | 10 min |
+| 2 | Bazzite | track 9's sub-channel read two ways; `cdrdao read-toc` | after phase 1 (the fork confirmed the commands in its lap 8) | 10 min |
 | 3 | Windows 11, then Bazzite | Pioneer's utility: screenshots, PureRead to Perfect, Run D, put it back | after phase 2 | an estimate of 1 to 1 h 30 min |
 | 4 | Bazzite | update to the next release; one Full acceptance run | when I say 0.7.121 is out | 2 h 31 min last time (2026-11-04) |
 
-What to send after each phase is at the end of it. Send it here; you do not need to send
-it to the fork, which reads our repository.
+What to send after each phase is at the end of it. **Send it to both sessions**, this
+one and the fork's (the fork's lap 8 S11): each side files and reads every run.
 
 ### Phase 1 — Bazzite, now (0.7.120, no update needed)
 
@@ -47,25 +47,36 @@ BASE=https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/src/platterpu
 curl -L -o ~/drivemode.txt "$BASE/drivemode.txt"
 curl -L -o ~/drivespeed.txt "$BASE/drivespeed.txt"
 wc -c ~/drivemode.txt ~/drivespeed.txt
-distrobox enter ripping -- sudo dnf install -y sg3_utils
+distrobox enter ripping -- sudo dnf install -y sg3_utils cdrdao
 ```
 
-`wc` should print 7,753 and 8,155. The last line installs tools that only *read*
-from the drive.
+`wc` should print 7,753 and 8,647. The last line installs tools that only *read* from the drive (`cdrdao` is for
+phase 2).
+
+**Through every phase, write down each time the computer or the drive is powered
+off**, with the time: a restart counts, a shutdown counts more. Pioneer documents that
+a setting not stored in the drive is forgotten at power-off, so the dumps can only be
+read against that list.
 
 **1.2 Ask the drive for its settings (read-only).** The first command is Pioneer's own
 settings query (READ BUFFER, buffer `0xF4`); the second lists the drive's standard
-settings pages:
+settings pages and its feature list (the CD Read feature's DAP and C2 bits are only in
+the feature list). Each file starts with the time it was taken. No `sudo` is needed:
+Linux lets any user who can open the drive send these read-only commands (the fork's
+round 38 lap 8, S11):
 
 ```sh
 mkdir -p ~/drivemode/dumps
-distrobox enter ripping -- sudo sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00 > ~/drivemode/dumps/pioneer-f4.txt 2>&1
-distrobox enter ripping -- sudo sh -c 'sg_inq /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done' > ~/drivemode/dumps/before.txt 2>&1
+dump() { distrobox enter ripping -- sh -c "date -u; $2" > ~/drivemode/dumps/$1.txt 2>&1; }
+dump pioneer-f4 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
+dump before 'sg_inq /dev/sr0; sg_get_config -q /dev/sr0; sg_get_config -q -H /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done'
 cat ~/drivemode/dumps/pioneer-f4.txt; wc -l ~/drivemode/dumps/before.txt
 ```
 
-If `pioneer-f4.txt` shows an error such as *illegal request*, run the first command
-again with `3c 01 f4` in place of `3c 02 f4`, into `pioneer-f4-alt.txt`.
+If `pioneer-f4.txt` shows an error such as *illegal request*, run
+`dump pioneer-f4-alt 'sg_raw -R -r 256 /dev/sr0 3c 01 f4 00 00 00 00 01 00 00'`. If
+either says *permission denied*, put `sudo ` before each command inside the quotes.
+(`dump` lasts as long as the terminal; in a new one, paste its line again.)
 
 **1.3 Find your rips folder** (keep this terminal open; later commands use `$RIPS`; in a
 new terminal, run this line again):
@@ -105,7 +116,9 @@ tar czf ~/drivemode/runB-logs.tar.gz --exclude='*.flac' -C ~/drivemode runB
 
 If the drive refuses a set speed, each fixed-speed rip fails in seconds saying *"Device
 does not support changing speeds!"* and the run finishes early: that is an answer, let
-it finish. When it says **DONE**:
+it finish. Its last rip reads track 5 with up to twelve reads in one rip (`-Z 4 -r 12`,
+the fork's lap 8 S11), because the drive has given the verified read of track 5 in
+three earlier sessions. When it says **DONE**:
 
 ```sh
 mkdir -p ~/drivemode/runC && mv "$RIPS"/ds* ~/drivemode/runC/
@@ -118,13 +131,32 @@ tar czf ~/drivemode/runC-logs.tar.gz --exclude='*.flac' -C ~/drivemode runC
 lists the three) and its `run*-logs.tar.gz`; and a line saying whether anything was
 unusual (a run that stopped early, the room unusually warm or cold).
 
-### Phase 2 — Bazzite, when I say the fork has confirmed the commands
+### Phase 2 — Bazzite, track 9 read two ways (confirmed by the fork, lap 8 S12 to S14)
 
-Two short read-only reads the fork asked for: track 9's sub-channel read raw and
-formatted, and `cdrdao`'s reading of the disc's table of contents. Our lap 7 (S18,
-S19) proposes the exact commands and asks the fork to confirm them first, because
-drive commands are their side's knowledge. **This section is rewritten in place with
-the confirmed commands**; until then there is nothing to run here.
+Read-only, about 10 minutes, disc left in. Track 9's sub-channel at LBA 145560 to
+145575 is read six times, raw and formatted alternately, and before each read the
+drive's cache is flushed by reading 312 other sectors (its cache holds 128 to 255).
+Each read is timed: an uncached read on this drive took about 360 ms and a cached one
+about 1 ms, so a read that returns in a few milliseconds came from the cache, and we
+report it rather than count it. Then `cdrdao` reads the disc's table of contents, a
+second program's view of track 9's pregap. Paste this whole block into the terminal:
+
+```sh
+mkdir -p ~/drivemode/track9 && cd ~/drivemode/track9 && date -u > times.txt
+flush() { distrobox enter ripping -- sh -c 'for l in 0 26 52 78 104 130 156 182 208 234 260 286; do sg_raw -R -r 61152 /dev/sr0 be 00 $(printf "%02x %02x %02x %02x" 0 0 $((l>>8)) $((l&255))) 00 00 1a 10 00 00 >/dev/null 2>&1; done'; }
+for n in 1 2 3; do
+  flush; { echo "raw$n"; time distrobox enter ripping -- sg_raw -R -o raw$n.bin -r 39168 /dev/sr0 be 00 00 02 38 98 00 00 10 10 01 00; } >> times.txt 2>&1
+  flush; { echo "q$n"; time distrobox enter ripping -- sg_raw -R -o q$n.bin -r 37888 /dev/sr0 be 00 00 02 38 98 00 00 10 10 02 00; } >> times.txt 2>&1
+done
+ls -l *.bin >> times.txt
+distrobox enter ripping -- cdrdao read-toc --device /dev/sr0 ~/drivemode/track9/cdrdao.toc > cdrdao-output.txt 2>&1
+cd ~ && tar czf ~/drivemode/track9.tar.gz -C ~/drivemode track9
+```
+
+The `time` lines include starting the container (a second or so), so what matters is
+the difference between passes, not the number alone; the fork reads the files.
+
+**Send after phase 2:** `~/drivemode/track9.tar.gz`.
 
 ### Phase 3 — Windows 11, then Bazzite
 
@@ -144,11 +176,11 @@ the confirmed commands**; until then there is nothing to run here.
 **3.2 Windows: set PureRead to Perfect.** Choose **Perfect**, Apply, screenshot again.
 Then **restart** (not shut down) straight into **Bazzite**, so the drive stays powered.
 
-**3.3 Bazzite: read the settings again, then Run D.** Before any rip:
+**3.3 Bazzite: read the settings again, then Run D.** Before any rip (in this new terminal, paste the `dump` line from 1.2 first):
 
 ```sh
-distrobox enter ripping -- sudo sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00 > ~/drivemode/dumps/pioneer-f4-perfect.txt 2>&1
-distrobox enter ripping -- sudo sh -c 'sg_inq /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done' > ~/drivemode/dumps/after-perfect.txt 2>&1
+dump pioneer-f4-perfect 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
+dump after-perfect 'sg_inq /dev/sr0; sg_get_config -q /dev/sr0; sg_get_config -q -H /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done'
 ```
 
 Then Run D, with the disc left in: the Run A command, and when it says **DONE**:
@@ -159,9 +191,14 @@ tar czf ~/drivemode/runD-logs.tar.gz --exclude='*.flac' -C ~/drivemode runD
 ```
 
 **3.4 Windows: put it back.** Restart into Windows, set Pure Read back to what your
-first screenshot showed, Apply, and restart into Bazzite.
+first screenshot showed, Apply, and restart into Bazzite. Then check it really went
+back:
 
-**Send after phase 3:** every screenshot; the two dumps; Run D's newest bundle and
+```sh
+dump pioneer-f4-restored 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
+```
+
+**Send after phase 3:** every screenshot; the three dumps (`pioneer-f4-perfect`, `after-perfect`, `pioneer-f4-restored`); your list of power-offs; Run D's newest bundle and
 `runD-logs.tar.gz`. If the utility did not open, the screenshot of what it said is the
 whole of phase 3.
 
@@ -201,12 +238,12 @@ step says which of the two it is.
 
 | Step | What it measures | Verified before you run it | Not verified, and how we find out |
 |---|---|---|---|
-| 1.1 | nothing; downloads | both URLs serve the files on `main` (7,753 and 8,155 bytes, read 2026-11-05); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
-| 1.2 | the drive's own settings | the command's shape against `sg_raw` 1.46's own help (`-R` opens the drive **read-only**, `-r 256` reads 256 bytes, the output is a hex dump); the 10-byte READ BUFFER command against the SCSI layout | what buffer `0xF4`'s bytes mean on this firmware: a published census's reading, which the Windows step checks (A4 in lap 7) |
+| 1.1 | nothing; downloads | both URLs serve the files on `main` (7,753 and 8,647 bytes once this sheet's change is merged); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
+| 1.2 | the drive's own settings and feature list | the command's shape against `sg_raw` and `sg_get_config` 1.46's own help (`-R` opens the drive **read-only**, `-r 256` reads 256 bytes, the output is a hex dump); the 10-byte READ BUFFER command against the SCSI layout | what buffer `0xF4`'s bytes mean on this firmware: a published census's reading, which the Windows step checks (A4 in lap 7) |
 | 1.3 | nothing; finds a folder | the setting is a top-level `output_dir` in `config.toml`, default `~/Music/rips` (`config.py:146`, `:63`) | none |
 | 1.4, 1.5 | tracks 3 and 5, early and late, disc left in and reinserted | the script's verbs, labels and folder names (`dm…`) by test | how long a run takes: the first run measures it |
 | 1.6 | tracks 3 and 5 at the drive's own speed, 4x and 24x | the same, and the folder names (`ds…`) | whether this drive accepts a set speed at all: that is what the run finds out |
-| 2 | track 9's sub-channel, and a second program's table of contents | nothing yet: the commands wait on the fork's confirmation | the fork's lap 8 |
+| 2 | track 9's sub-channel, and a second program's table of contents | the READ CD commands' bytes and sizes (the fork's lap 8 S2, S12, S13); `cdrdao read-toc --device` against `cdrdao` 1.2.4's own help | whether the cache flush worked: each pass's time says, and a pass that came from the cache is reported, not counted |
 | 3 | PureRead's effect, if the utility opens | the utility's own help text, read from its archive | whether it opens on the BDR-209DBK, and whether a setting made in Windows survives a restart into Bazzite: the dumps before and after show it |
 | 4 | the whole app, with repair running on its own | the release's own CI and suite | the repair on real hardware: this run is its first proof |
 
