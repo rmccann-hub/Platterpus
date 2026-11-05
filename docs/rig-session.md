@@ -29,10 +29,11 @@ answers, which is what phases 1 to 3 ask it.
 
 | Phase | Where | What | When | About |
 |---|---|---|---|---|
-| 1 | Bazzite | one read-only drive query; Runs A, B, C | now, on 0.7.120 | an estimate of 2 to 3 h, of which you are needed twice, a few minutes each (see *Your time* below) |
+| 0 | Bazzite | update Platterpus to 0.7.121 and install `.30`, the build under test | first, once 0.7.121 is out | 10 min |
+| 1 | Bazzite | one read-only drive query; Runs A, B, C | after phase 0, on 0.7.121 with `.30` | an estimate of 2 to 3 h, of which you are needed twice, a few minutes each (see *Your time* below) |
 | 2 | Bazzite | track 9's sub-channel read two ways; `cdrdao read-toc` | straight after Run C, in the same paste (the fork confirmed the commands in its lap 8) | 10 min |
 | 3 | Windows 11, then Bazzite | Pioneer's utility: screenshots, PureRead to Perfect, Run D, put it back | after phase 2 | an estimate of 1 to 1 h 30 min |
-| 4 | Bazzite | update to the next release; one Full acceptance run | when I say 0.7.121 is out | 2 h 31 min last time (2026-11-04) |
+| 4 | Bazzite | one Full acceptance run, on the same 0.7.121 with `.30` | after phase 3 | 2 h 31 min last time (2026-11-04) |
 
 **Your time.** Phase 1 and 2 need you at the keyboard twice:
 
@@ -56,7 +57,22 @@ themselves will measure it.
 What to send after each phase is at the end of it. **Send it to both sessions**, this
 one and the fork's (the fork's lap 8 S11): each side files and reads every run.
 
-### Phase 1 — Bazzite, now (0.7.120, no update needed)
+### Phase 0 — Bazzite, update and install `.30` (once 0.7.121 is out)
+
+The drive test runs on the fork's `.30` (`0.9.4-rc3+platterpus.30`, `cyanrip@5cc1c6b`), so it
+also tests the new release (the owner, 2026-11-05). Its scripts ask the drive for its
+own PureRead answer with `--read-vendor-settings`, which only `.30` has: on an older
+build the first rip of each run fails.
+
+1. Open Platterpus. **Tools → Setup & Updates… → Check for updates**, and take 0.7.121
+   (it restarts itself).
+2. **Tools → Setup & Updates… → Choose a build…**, and pick the one labelled as the
+   build under test, `.30`.
+3. **Help → About Platterpus…** should show 0.7.121, and the same commit on its
+   *Installed* line as on its *Build under test* line.
+4. Close Platterpus.
+
+### Phase 1 — Bazzite, on 0.7.121 with `.30`
 
 **1.1 Get the two test scripts and the read-only drive tools** (once). Put the reference
 disc in the drive, open a terminal, and run:
@@ -246,16 +262,13 @@ dump pioneer-f4-restored 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 0
 `runD-logs.tar.gz`. If the utility did not open, the screenshot of what it said is the
 whole of phase 3.
 
-### Phase 4 — when I say 0.7.121 is out: update, then one Full run
+### Phase 4 — Bazzite, one Full run on the same 0.7.121 with `.30`
 
-0.7.121 carries the CTDB repair running on its own after a rip, and a script run's
-bundle that holds every rip's log (so the `tar` steps above become unnecessary).
+0.7.121 repairs a rip from CTDB on its own when every proof passes, so this run is the
+first hardware proof of that, and the Full run that tests the release.
 
-1. **Update Platterpus:** open it, **Tools → Setup & Updates… → Check for updates**, and
-   take the newest release (it restarts itself). **Help → About Platterpus…** should
-   then name 0.7.121.
-2. **The ripper needs no change** unless I say so: 0.7.121 keeps `.29`.
-3. **Run the Full acceptance test:** **Tools → Advanced → Run acceptance test…**, choose
+1. **Nothing to update:** phase 0 already put 0.7.121 and `.30` in place.
+2. **Run the Full acceptance test:** **Tools → Advanced → Run acceptance test…**, choose
    **Full**, and leave it (2 h 31 min on 2026-11-04; it holds sleep and the screen off and puts
    your settings back at the end). **During the run, don't close any other Platterpus
    window or any terminal you have used distrobox in.**
