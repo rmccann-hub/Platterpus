@@ -10,8 +10,10 @@ from typing import NotRequired, TypedDict
 
 from platterpus.cancel_cause import CancelledByBlock
 from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.other_reads import OtherReadsBlock
 from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
+from platterpus.record_drive_declared import DriveDeclaredBlock
 from platterpus.record_fate import SecuringRecordBlock
 from platterpus.ripper_exit_class import ExitClass
 from platterpus.ripper_track_notes import RipperCoverArtBlock, TrackFilterBlock
@@ -295,6 +297,29 @@ class ErrorPositionEntry(TypedDict):
     kind: str
 
 
+class DistinctReadEntry(TypedDict):
+    """One entry of a row's ``distinct_reads`` (v44, ``record_reads``): one ``-Z`` read."""
+
+    eac_crc: str | None
+    #: How many whole-track reads gave it, and the newest of them from 1.
+    count: int | None
+    last_read: int | None
+    #: Whether it is the read the files carry.
+    kept: bool | None
+    accurip_v1: str | None
+    accurip_v2: str | None
+    #: Its own per-second CRCs, position-aligned; null unless the state is `read`.
+    block_crcs: list[str | None] | None
+    block_crcs_state: str
+    #: Where `--keep-every-read` saved it, as cyanrip wrote it; null when not saved.
+    file: str | None
+    #: False when a field was missing or mistyped (that field is then null).
+    complete: bool
+    #: For a read not kept, the seconds (from 0) its `block_crcs` differ from the
+    #: kept read's in, derived here; null for the kept read, or not comparable.
+    differs_from_kept_in_seconds: list[int] | None
+
+
 class TrackErrorPositionsBlock(TypedDict):
     """One track's row of ``disc.error_positions`` (v39, ``error_positions``)."""
 
@@ -327,6 +352,15 @@ class TrackErrorPositionsBlock(TypedDict):
     block_crcs_state: str
     block_crcs_not_read: int
     block_crcs_not_kept: int
+    #: v44 (`cyanrip-diagnostics/13`): every distinct `-Z` read of the track, in
+    #: the order first read, null unless `distinct_reads_state` is `read`
+    #: (`not_stated` is a track read without `-Z`; `not_present` a `/12` or
+    #: earlier record). `_not_kept` counts entries cut from the middle past the
+    #: bound, `_not_read` entries that were not objects.
+    distinct_reads: list[DistinctReadEntry] | None
+    distinct_reads_state: str
+    distinct_reads_not_kept: int
+    distinct_reads_not_read: int
 
 
 class ErrorPositionsBlock(TypedDict):
@@ -374,6 +408,9 @@ class DiscBlock(TypedDict):
     #: v39: where paranoia reported read errors and skips, per track, with the
     #: drop counts beside each list (`error_positions`, TASKS R44).
     error_positions: NotRequired[ErrorPositionsBlock]
+    #: v44: what the drive declares, asked in full, from the `-j` record's `/13`
+    #: `drive_declared` (`record_drive_declared`); declarations, not measurements.
+    drive_declared: NotRequired[DriveDeclaredBlock]
 
 
 class DependencyEntry(TypedDict):
@@ -723,6 +760,9 @@ class TrackBlock(TypedDict):
     secure_rerip_kept_read: KeptReadBlock | None
     #: Schema 41: which limit stopped a re-read that did not converge.
     secure_rerip_limit_stop: LimitStopBlock | None
+    #: v44: `.30`'s `Other read:` lines, each -Z read not kept (`other_reads`);
+    #: None when none was printed, which is never "no other read".
+    other_reads: OtherReadsBlock | None
     #: v42 (TASKS R114): the album pass's own facts for a track a securing read
     #: replaced; None when nothing replaced them.
     first_pass_reread: FirstPassRereadBlock | None

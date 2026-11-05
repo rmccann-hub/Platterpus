@@ -68,6 +68,7 @@ from typing import TYPE_CHECKING, Final
 
 from platterpus import inbound_text
 from platterpus.record_block_crcs import READ as BLOCK_CRCS_READ
+from platterpus.record_reads import report_entries
 from platterpus.report_types import (
     ErrorPositionEntry,
     ErrorPositionsBlock,
@@ -265,6 +266,12 @@ def report_block(reading: IsrcReading | None) -> ErrorPositionsBlock:
                 "block_crcs_state": track.block_crcs.state,
                 "block_crcs_not_read": track.block_crcs.not_read,
                 "block_crcs_not_kept": track.block_crcs.not_kept,
+                # v44 (`/13`): every distinct -Z read, the kept one among them,
+                # each with its own per-second CRCs (`record_reads`).
+                "distinct_reads": report_entries(track.distinct_reads),
+                "distinct_reads_state": track.distinct_reads.state,
+                "distinct_reads_not_kept": track.distinct_reads.not_kept,
+                "distinct_reads_not_read": track.distinct_reads.not_read,
             }
         )
     return {

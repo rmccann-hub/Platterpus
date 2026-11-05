@@ -527,6 +527,13 @@ _FORK_ONLY_WITHOUT_A_PUBLISHED_LITERAL: dict[str, str] = {
     # contract was filed the same day
     # (`round-38-lap-05-provider-contract-g2a06e064.md`, P2 lines 312-313, 385 and
     # 327); the stale check below then required their removal.
+    "track_other_read": (
+        "`.30`'s `Other read:` line (the fork's round 38 lap 8 S16), read from their "
+        "source at `cyanrip@40dc64d7:src/cyanrip_log.c:891` and their own P2 row at "
+        "`cyanrip@40dc64d7:PROVIDER-CONTRACT.md:375` before `.30`'s contract is filed "
+        "under `docs/handshake/inbound/artifacts/`; the stale check below requires "
+        "this row's removal once it is"
+    ),
 }
 
 
