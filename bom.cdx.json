@@ -585,7 +585,7 @@
         },
         {
           "name": "platterpus:pin-under-review",
-          "value": "8d2ca72 (0.9.4-rc3+platterpus.29, round 38, published: yes)"
+          "value": "5cc1c6b (0.9.4-rc3+platterpus.30, round 38, published: yes)"
         },
         {
           "name": "platterpus:test-pin",
@@ -602,11 +602,11 @@
       "bom-ref": "ripper:cyanrip-fork-under-review",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip (build under review)",
-      "version": "0.9.4-rc3+platterpus.29",
+      "version": "0.9.4-rc3+platterpus.30",
       "isExternal": true,
       "description": "The build handshake round 38 is reviewing; installable on request, never the default.",
       "scope": "optional",
-      "purl": "pkg:github/rmccann-hub/cyanrip@8d2ca72",
+      "purl": "pkg:github/rmccann-hub/cyanrip@5cc1c6b",
       "pedigree": {
         "ancestors": [
           {
@@ -639,7 +639,7 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "8d2ca72"
+          "value": "5cc1c6b"
         },
         {
           "name": "platterpus:round",

@@ -96,6 +96,13 @@ _FILED_MANIFESTS: Final[dict[str, str]] = {
     # stable `.23` (`release_seq` 34), 2026-10-26: round 36's subject from that day,
     # published at `cyanrip@a3f7043` and unchanged at the merge of their PR #61
     # (`52501ed`).
+    # `.30` on beta (`release_seq` 41, `handshake_round` 38, `round_closed: false`),
+    # stable `.23` (`release_seq` 34), 2026-11-05: round 38's subject from that day,
+    # published at `cyanrip@1c8099c3` and unchanged at the merge of their PR #100
+    # (`581a9a78`) and at their tip `7365d16f`.
+    "fork_release_manifest_1c8099c3.json": (
+        "21ca6181a44d222bc492ebc3571573b1f533b961f36cc1199860bf5ea31345a7"
+    ),
     # `.29` on beta (`release_seq` 40, `handshake_round` 38, `round_closed: false`),
     # stable `.23` (`release_seq` 34), 2026-11-04: round 38's subject from that day,
     # published at `cyanrip@1d7a1a4` and unchanged at the merge of their PR #92
