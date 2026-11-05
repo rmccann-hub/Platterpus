@@ -183,54 +183,12 @@ Part G.2.
 
 ## Round 38's drive test: the order, and what to send
 
-**This is the procedure our round 38 lap 7 (S17) proposes to the fork; it lives
-here, beside the scripts it runs, and is rewritten in place as the round agrees
-changes, never handed out as a separate file.** On 0.7.120, from Bazzite, each run
-unattended and the disc touched only between runs. **Nothing about what this drive
-can do is settled yet:** every capability below is *not determined* until the
-drive itself answers, and the Windows step stays in the plan whatever the first
-answer looks like.
-
-**Part 0, once.** Download both scripts (`curl -L -o ~/drivemode.txt` and
-`~/drivespeed.txt` from `https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/src/platterpus/rig_scripts/`),
-install the read-only tools in the container (`distrobox enter ripping -- sudo dnf install -y sg3_utils`),
-then ask the drive for its settings, read-only, into `~/drivemode/dumps/`:
-
-```sh
-mkdir -p ~/drivemode/dumps
-distrobox enter ripping -- sudo sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00 > ~/drivemode/dumps/pioneer-f4.txt 2>&1
-distrobox enter ripping -- sudo sh -c 'sg_inq /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done' > ~/drivemode/dumps/before.txt 2>&1
-```
-
-The first is Pioneer's own settings query (READ BUFFER, buffer `0xF4`); a published
-census reads its byte 9 as PureRead's support, a third party's reading we check
-against the drive rather than trust.
-
-**Runs A, B and C.** A: `drivemode.txt`, disc left in. B: the disc taken out, wiped
-and reinserted, `drivemode.txt` again. C: `drivespeed.txt`, disc left in. Each with
-`~/Applications/platterpus-x86_64.AppImage --run-script ~/<script>`. After each,
-move its folders aside so the next run cannot overwrite them, and pack their logs
-(0.7.120's bundle does not carry them; from 0.7.121 it does):
-
-```sh
-RIPS="$(grep -E '^output_dir' ~/.config/platterpus/config.toml | sed -E 's/.*= *"(.*)"/\1/')"; RIPS="${RIPS:-$HOME/Music/rips}"
-mkdir -p ~/drivemode/runA && mv "$RIPS"/dm* ~/drivemode/runA/      # Run C: ds* into runC
-tar czf ~/drivemode/runA-logs.tar.gz --exclude='*.flac' -C ~/drivemode runA
-```
-
-**Windows 11, kept in the plan.** Pioneer's `PioneerBDR-209-211_DriveUtility_v1.2.0.3.exe`
-(Pioneer's page for the BDR-209/211 series). Whether it opens on the BDR-209DBK is
-itself an answer: screenshot whatever it shows, and, if it opens, the *Pure Read*
-and *Advanced Quiet Drive* pages **before changing anything**. Then Perfect, a
-restart (not a shutdown) into Bazzite, the two reads above again, and Run A's steps
-as Run D; and afterwards PureRead set back as the first screenshot showed.
-
-**Later, once the fork's lap 8 confirms them:** track 9's sub-channel read raw and
-formatted, and `cdrdao read-toc` (lap 7 S18, S19).
-
-**What to send:** the dumps; per run, the newest bundle under
-`~/.local/share/platterpus/bundles/` and its `run*-logs.tar.gz`, with a note (disc
-left in, or wiped and reinserted; anything unusual); the screenshots.
+**The procedure is [`docs/rig-session.md`](../rig-session.md), the one rig sheet**,
+rewritten in place as round 38 agrees changes (our lap 7, S17 to S19, proposes it to
+the fork). It runs `drivemode.txt` and `drivespeed.txt` above, in four phases on
+Bazzite and Windows 11, and says for each step what it measures and what is not yet
+verified. Nothing about what the owner's drive can do is settled until the drive
+answers.
 
 ## Which collector gathers what
 
