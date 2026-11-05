@@ -30,6 +30,7 @@ from platterpus import (
     secure_rereads_footer,
     written_whole,
 )
+from platterpus import other_reads as other_reads_line
 from platterpus import ripper_track_notes as track_notes
 from platterpus.atomic_write import atomic_write_text
 from platterpus.cancel_cause import outcome_block as cancel_outcome_block
@@ -723,6 +724,24 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `ctdb.tracks`), null otherwise. Every other `ctdb` field stays the READ's
 #      verdict, measured before the repair. And `settings.ctdb_repair_after_rip`,
 #      the repair's switch, frozen at Start.
+#      Also v44, still unreleased, additions only (the fork's `.30`, their round
+#      38 lap 8 S16 and S17, our lap 9 S10): per track `other_reads`, `.30`'s
+#      `Other read:` lines (`reads`, each `state`, `crc`, `count`, `differs`
+#      (`seconds` / `not_known` / `not_stated` / `unrecognised`),
+#      `differing_seconds` named from 0, `differing_seconds_not_named`,
+#      `differing_seconds_total`, `file`, `text`; and `not_kept`), null when no
+#      line was printed (`other_reads.py`). Per `disc.error_positions` row the
+#      `/13` record's `distinct_reads` (each `eac_crc`, `count`, `last_read`,
+#      `kept`, `accurip_v1`, `accurip_v2`, `block_crcs` with its state, `file`,
+#      `complete`, `differs_from_kept_in_seconds`), `distinct_reads_state`
+#      (`read`, `not_stated` for a track read without -Z, `unrecognised`,
+#      `not_present` for `/12` and earlier), `distinct_reads_not_kept` and
+#      `distinct_reads_not_read` (`record_reads.py`). And `disc.drive_declared`,
+#      the record's `drive_declared` (`record_drive_declared.py`): INQUIRY, GET
+#      CONFIGURATION and the four MODE SENSE (10) replies, each `answered`,
+#      `length`, `truncated`, `bytes` in hex and `agrees`, and the CD Read
+#      feature's bits with `bits_agree_with_bytes`; declarations, not
+#      measurements.
 REPORT_SCHEMA_VERSION: int = 44
 
 
@@ -2385,6 +2404,12 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         # repeat limit or the fork's proposed time limit (round 36 lap 10 S11).
         "secure_rerip_limit_stop": _limit_stop_block(
             getattr(track, "secure_rerip_limit_stop", None)
+        ),
+        # Schema 44: `.30`'s `Other read:` lines, each -Z read NOT kept, beside
+        # the kept read's own facts above; null when none was printed.
+        "other_reads": other_reads_line.block(
+            getattr(track, "other_reads", ()),
+            getattr(track, "other_reads_not_kept", 0),
         ),
         # Schema 42 (TASKS R114): the album pass's own -Z facts for a track a
         # securing read replaced; the fields above describe the shipped read.

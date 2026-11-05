@@ -96,6 +96,7 @@ from platterpus.parsers.rip_log import (
     parse_rip_log,
 )
 from platterpus.paths import LOG_PATH
+from platterpus.record_drive_declared import report_block as drive_declared_block
 from platterpus.replaced_read_errors import (
     ErrorsInReplacedReads,
     errors_in_replaced_reads_of,
@@ -2026,6 +2027,11 @@ class RipMixin(MainWindowShared):
             # Where paranoia reported read errors and skips, per track, from the
             # same reading of the same record (v39, TASKS R44).
             "error_positions": error_positions_block(
+                getattr(self._rip_worker, "isrc_reading", None)
+            ),
+            # What the drive declares, asked in full, from the same reading
+            # (v44, the record's `/13` `drive_declared`).
+            "drive_declared": drive_declared_block(
                 getattr(self._rip_worker, "isrc_reading", None)
             ),
         }

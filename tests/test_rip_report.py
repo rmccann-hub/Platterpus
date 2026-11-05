@@ -1405,7 +1405,9 @@ def test_schema_version_is_27() -> None:
     # shipped in 0.7.118.
     # v44 added `ctdb.repair`, the CTDB repair's record (TASKS R43; read back by
     # `tests/test_ctdb_repair.py::test_the_report_carries_the_repair`). v43 had
-    # shipped in 0.7.120.
+    # shipped in 0.7.120. v44, still unreleased, also took the fork's `.30`
+    # readings: per track `other_reads`, per `disc.error_positions` row the `/13`
+    # `distinct_reads`, and `disc.drive_declared` (`tests/test_round38_dot30_reads.py`).
     assert REPORT_SCHEMA_VERSION == 44
 
 
