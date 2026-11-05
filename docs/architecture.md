@@ -444,6 +444,19 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   its own status, and so does a `-9` nobody here sent. Why: on the round-29 Full run
   (2026-09-28) a Rescan superseded the disc probe, and `cyanrip exited -9` was
   recorded as a dependency failure that every rip report of the session carried.
+- **One `KillableCommand` slot per logical operation, and a slot tracks EVERY
+  live child it spawned.** Runs through one slot can overlap (a superseded disc
+  probe is still dying while its replacement starts), so the slot keys each live
+  child by its run's sequence number, a run removes only its own entry, and
+  `cancel()` kills every child its watermark covers. Two operations never share a
+  slot: the disc probe is `rip_backend.INFO_PROBE`, the version probe
+  `rip_backend.RIPPER_VERSION_PROBE` (`run_capture(..., slot="version")`), so one
+  operation's cancel never reaches the other. Why: the slot held one child and the
+  two probes shared it, so an overlapping run that finished first left the older
+  child where no cancel could find it, and on the owner's rig (2026-11-05) two
+  `cyanrip -I` read one drive until both timed out. A loop that retries on failure
+  (`CyanripImpl.version` trying each version flag) must stop on its own cancel
+  (`ProbeCancelled`) rather than retry in a child the cancel did not cover.
 
 ### 3.4 Parsers never raise (institutional rule)
 Anything that parses external output uses **named-group regexes** (not column

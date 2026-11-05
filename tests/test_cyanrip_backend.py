@@ -77,6 +77,10 @@ def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
     the GUI can signal it. So the seam is that command's `run`, not
     `subprocess.run` (docs/testing.md §8: move the monkeypatch target to where the
     code now lives — this is the second such move for this helper).
+
+    BOTH slots are stubbed: the disc probe runs in ``INFO_PROBE`` and, since
+    2026-11-05, the version probe in its own ``RIPPER_VERSION_PROBE``, so a
+    cancel aimed at one cannot kill the other.
     """
     import platterpus.adapters.rip_backend as mod
 
@@ -86,6 +90,7 @@ def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
         return SimpleNamespace(returncode=0, stdout=stdout, stderr=stderr)
 
     monkeypatch.setattr(mod.INFO_PROBE, "run", fake_run)
+    monkeypatch.setattr(mod.RIPPER_VERSION_PROBE, "run", fake_run)
 
 
 def _impl() -> CyanripImpl:
@@ -1035,7 +1040,7 @@ def test_version_raises_on_a_nonzero_exit_instead_of_returning_a_string(
     import platterpus.adapters.rip_backend as mod
 
     monkeypatch.setattr(
-        mod.INFO_PROBE,
+        mod.RIPPER_VERSION_PROBE,  # the version probe's own slot
         "run",
         lambda *a, **k: SimpleNamespace(
             returncode=127,
@@ -1066,7 +1071,7 @@ def test_a_failed_probe_logs_the_tools_own_output(
     import platterpus.adapters.rip_backend as mod
 
     monkeypatch.setattr(
-        mod.INFO_PROBE,
+        mod.RIPPER_VERSION_PROBE,  # the version probe's own slot
         "run",
         lambda *a, **k: SimpleNamespace(
             returncode=127, stdout="", stderr="cannot connect to Podman\n"

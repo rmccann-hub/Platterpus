@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **A superseded disc probe is killed again when a rescan or a drive change replaces it, even if another probe overlapped it.** A killable slot held one child, so when two runs overlapped and the newer one finished first, the older child was left where `cancel()` could not find it: no log line, no kill. On the owner's rig (0.7.121 with cyanrip `.30`, 2026-11-05) two `cyanrip -I` then read one drive until both timed out at 120 s, and the ui-script `rescan` step failed. `killable.KillableCommand` now tracks every live child by its run's sequence number and kills each one its cancel covers, and logs a cancel that finds none. The ripper version probe has its own slot (`rip_backend.RIPPER_VERSION_PROBE`, stopped by `cancel_ripper_version_probe`, which the `install-ripper` verb now uses), so a disc probe's cancel cannot kill a rip's build-tag read and the reverse. A cancelled version probe now stops instead of trying the next version flag in a new child the cancel did not cover. Regression tests in `tests/test_killable.py` and `tests/test_rip_backend.py`.
+
 ### Changed
 
 - **The drive test keeps everything in one folder and tidies what the earlier pastes left loose** (operator-facing): `drivetest.sh` lives at `~/platterpus-rig/drivetest.sh` and writes only to `~/platterpus-rig/drivetest38/`, inside the folder the app already keeps every rig session in. On its first run it moves `~/drivemode.txt`, `~/drivespeed.txt`, `~/drivemode/` and `~/drivetest.sh` into that folder (reusing the drive readings already taken, deleting nothing), and its uploads are named in the cross-machine spelling, `platterpusdrivetest38phase12.tar.gz` and the like.

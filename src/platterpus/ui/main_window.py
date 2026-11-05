@@ -1434,13 +1434,13 @@ class MainWindow(
         # ABANDONS it instead (retaining the reference — Qt has no "detach"), and
         # its disconnected result is simply ignored.
         #
-        # **The worker is passed**, which is the part that changed: `cancel()` kills
-        # the superseded probe's child. Without it the old reader kept the drive busy
-        # while the new probe contended for it — and, worse, two children ended up
-        # inside the shared `INFO_PROBE` slot at once, so whichever finished LAST
-        # deregistered the other and left it unkillable (audit, 2026-07-29).
-        # `killable` also guards that race directly, but not overlapping in the first
-        # place is the real fix; the guard is the belt.
+        # **The worker is passed**: `cancel()` kills the superseded probe's child, which
+        # otherwise kept the drive busy while the new probe contended for it. Underneath,
+        # the `INFO_PROBE` slot tracks EVERY live child (2026-11-05), so the cancel
+        # reaches it even with another run in the slot beside it; until then it tracked
+        # one, an overlapping run could strand the older child unkillable, and two
+        # `cyanrip -I` ran on one drive on the rig until both timed out. The version
+        # probe has its own slot, so this cancel cannot kill a rip's build-tag read.
         #
         # `superseded_by` makes the log say this abandonment is planned, at INFO.
         # Without it every rescan wrote a WARNING into the rig transcript.

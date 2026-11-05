@@ -1257,7 +1257,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1976 -> 1983** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **1983 -> 1998** (2026-10-26, TASKS R88, the owner's interim): the argv chokepoint calls `cyanrip_name_lengths.assert_names_fit`, so no route to the ripper skips the name-length check; the check itself lives in its own module.
     # **1998 -> 1999** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
-    "adapters/cyanrip_backend.py": 1999,
+    # **1999 -> 2026** (2026-11-05, the rig's overlapping `cyanrip -I`): `version()` runs in the version probe's own killable slot (`slot="version"` through `_run`), and stops on `ProbeCancelled` rather than trying the next flag in a child the cancel did not cover.
+    "adapters/cyanrip_backend.py": 2026,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     # **618 -> 624** (2026-11-03, TASKS R89): `MB_HOST` and the constructor's `set_hostname(MB_HOST, use_https=True)`, the premise of accepting musicbrainzngs' uncapped read; it must sit where the library is configured, and the reasoning lives in `docs/dependency-contracts.md`.
@@ -1282,7 +1283,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **701 -> 703** (2026-10-19): `supports_offset_detection`'s docstring says the same (docs audit).
     # **703 -> 710** (2026-10-20, round 35, the fork's exit classes from release 36): `RipHandle.build_tag`, the banner read at spawn, so the worker reads the exit code by the build that ran.
     # **710 -> 731** (2026-11-03, TASKS R117, records that reached no reader): `ripper_sentence`, so a failed probe's `deps.command_failed` message leads with the ripper's own sentence, judged by the parser's `is_ripper_error_line`; it sits beside `run_capture`, the one site that records the failure.
-    "adapters/rip_backend.py": 731,
+    # **731 -> 777** (2026-11-05, the rig's overlapping `cyanrip -I`): one killable slot per logical operation — `RIPPER_VERSION_PROBE` beside `INFO_PROBE`, `cancel_ripper_version_probe`, and `run_capture`'s `slot` selector read at call time — with why the shared slot was a defect; it sits beside `run_capture`, the one site that runs the probes.
+    "adapters/rip_backend.py": 777,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1912,7 +1914,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the gate itself lives in `container_gate.py`.
     # **323 -> 324** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     # **324 -> 518** (2026-11-05, TASKS R133, the automatic CTDB repair): `run_bytes` (binary children) and `KillableJob` (a cancel that ends a job of several runs) for the CTDB repair; the one killable implementation, so they belong beside it rather than in a second.
-    "killable.py": 518,
+    # **518 -> 588** (2026-11-05, the rig's overlapping `cyanrip -I`): the slot tracks EVERY live child (`_live`, keyed by sequence number) so `cancel()` kills each one its watermark covers, and says so in the log when there is none; one implementation of `_deregister` for both run shapes. One class, the killable child slot, so it stays here.
+    "killable.py": 588,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect

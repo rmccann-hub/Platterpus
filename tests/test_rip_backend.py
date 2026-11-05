@@ -433,3 +433,154 @@ def test_optional_capability_defaults() -> None:
     with pytest.raises(NotImplementedError):
         backend.find_offset("/dev/sr0")
     backend.cancel_setup()  # no-op, must not raise
+
+
+# --- One slot per logical operation (2026-11-05) ------------------------------
+
+
+def _fake_cyanrip(tmp_path: Path) -> Path:
+    """A stand-in ``cyanrip``: ``-I`` reads "the disc" for 30 s, a version flag
+    answers after a short pause.
+
+    A real executable, so the children are real process groups and the kill is
+    real; the pause makes the version probe overlap the disc probe.
+    """
+    script = tmp_path / "cyanrip"
+    script.write_text(
+        "#!/bin/sh\n"
+        'case "$1" in\n'
+        "  -I) sleep 30 ;;\n"
+        "  *) sleep 1.5; echo 'cyanrip 0.9.3.1 (release)' ;;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return script
+
+
+def test_cancelling_the_disc_probe_does_not_kill_a_concurrent_version_probe(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A rescan's cancel must stop the disc probe and ONLY the disc probe.
+
+    The disc probe and the version probe shared one slot (``INFO_PROBE``), so a
+    superseded disc probe's cancel also killed whatever version probe was in
+    flight (a rip's build-tag read, ``--verify-log``, the ``install-ripper``
+    verb's banner), and a version probe overlapping a disc probe could hide the
+    disc probe from that cancel. Each now has its own slot.
+
+    Driven through the real adapter (``CyanripImpl.version`` and ``disc_info``)
+    so the test fails if the version probe is routed back into the disc slot.
+    """
+    import threading
+    import time
+
+    from platterpus.adapters.cyanrip_backend import CyanripImpl
+    from platterpus.killable import KillableCommand
+
+    # Fresh slots, so no other test's state is in play.
+    monkeypatch.setattr(rip_backend, "INFO_PROBE", KillableCommand("disc slot"))
+    monkeypatch.setattr(
+        rip_backend, "RIPPER_VERSION_PROBE", KillableCommand("version slot")
+    )
+    impl = CyanripImpl(binary_path=str(_fake_cyanrip(tmp_path)))
+    disc: list[object] = []
+    version: list[object] = []
+
+    def _disc() -> None:
+        try:
+            disc.append(impl.disc_info("/dev/sr0"))
+        except BaseException as exc:  # noqa: BLE001 — the assertion is on the type
+            disc.append(exc)
+
+    def _version() -> None:
+        try:
+            version.append(impl.version())
+        except BaseException as exc:  # noqa: BLE001 — the assertion is on the type
+            version.append(exc)
+
+    disc_thread = threading.Thread(target=_disc, daemon=True)
+    version_thread = threading.Thread(target=_version, daemon=True)
+    disc_thread.start()
+    version_thread.start()
+    # Both children alive at once, wherever they were routed: the overlap is real.
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        live = (
+            rip_backend.INFO_PROBE.live_count()
+            + rip_backend.RIPPER_VERSION_PROBE.live_count()
+        )
+        if live >= 2:
+            break
+        time.sleep(0.01)
+    else:  # pragma: no cover — the premise never held
+        pytest.fail("the two probes never ran at the same time")
+
+    rip_backend.cancel_info_probe()
+    disc_thread.join(15)
+    version_thread.join(15)
+
+    assert disc and isinstance(disc[0], rip_backend.ProbeCancelled), (
+        f"the disc probe was not stopped by its own cancel: {disc!r}"
+    )
+    assert version == ["cyanrip 0.9.3.1 (release)"], (
+        f"the disc probe's cancel reached the version probe: {version!r}. A "
+        "rescan must not kill a rip's build-tag read."
+    )
+
+
+def test_a_cancelled_version_probe_does_not_go_on_to_the_next_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``cancel_ripper_version_probe`` must END ``version()``, not skip a flag.
+
+    ``version()`` tries each version flag in turn and moves on when one fails.
+    A run OUR cancel ended raised a ``RipError`` like any failure, so the loop
+    went on to the next flag, spawning a child the cancel did not cover (its
+    watermark scopes it to runs already issued): the probe carried on after the
+    stop, which is the cancel-that-does-not-stop CLAUDE.md rule 9 forbids. Found
+    2026-11-05 by revert-probing the version probe's own slot. Each spawn is
+    counted in a file, so the test reads how many children ran, not a guess.
+    """
+    import threading
+    import time
+
+    from platterpus.adapters.cyanrip_backend import CyanripImpl
+    from platterpus.killable import KillableCommand
+
+    monkeypatch.setattr(
+        rip_backend, "RIPPER_VERSION_PROBE", KillableCommand("version slot")
+    )
+    spawns = tmp_path / "spawns.txt"
+    script = tmp_path / "cyanrip"
+    script.write_text(
+        f"#!/bin/sh\necho \"$1\" >> '{spawns}'\nsleep 30\n", encoding="utf-8"
+    )
+    script.chmod(0o755)
+    impl = CyanripImpl(binary_path=str(script))
+    outcome: list[object] = []
+
+    def _version() -> None:
+        try:
+            outcome.append(impl.version())
+        except BaseException as exc:  # noqa: BLE001 — the assertion is on the type
+            outcome.append(exc)
+
+    thread = threading.Thread(target=_version, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not rip_backend.RIPPER_VERSION_PROBE.is_running():
+        assert time.monotonic() < deadline, "the version probe never started"
+        time.sleep(0.01)
+    rip_backend.cancel_ripper_version_probe()
+    thread.join(15)
+
+    assert not thread.is_alive(), "version() did not return after the cancel"
+    assert outcome and isinstance(outcome[0], rip_backend.ProbeCancelled), (
+        f"version() did not end with our cancel: {outcome!r}"
+    )
+    flags = spawns.read_text(encoding="utf-8").split()
+    assert len(flags) == 1, (
+        f"version() spawned {flags!r} after a cancel: it went on to the next "
+        "flag, so the cancel did not stop the probe"
+    )

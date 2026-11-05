@@ -42,6 +42,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from platterpus.adapters.rip_backend import (
+    ProbeCancelled,
+    ProbeSlot,
     RipBackend,
     RipError,
     RipHandle,
@@ -583,7 +585,19 @@ class CyanripImpl(RipBackend):
         last_error: RipError | None = None
         for flag in VERSION_FLAGS:
             try:
-                return self._run([flag], strict=True).strip()
+                # Its own slot (`rip_backend.RIPPER_VERSION_PROBE`), not the disc
+                # probe's: a rescan's cancel must not kill a rip's build-tag read,
+                # and an overlapping version probe must not hide a disc probe
+                # from that cancel (the rig, 2026-11-05).
+                return self._run([flag], strict=True, slot="version").strip()
+            except ProbeCancelled:
+                # OUR cancel ended this flag's run: stop, do not try the next
+                # flag. Trying it spawned a fresh child the cancel did not cover
+                # (its watermark scopes it to runs already issued), so a cancelled
+                # version probe carried on as if nothing had happened, which is
+                # the cancel-that-does-not-stop CLAUDE.md rule 9 forbids. Found
+                # 2026-11-05 by revert-probing the version probe's own slot.
+                raise
             except RipError as exc:
                 last_error = exc
         assert last_error is not None  # noqa: S101 — narrows for mypy; VERSION_FLAGS is a non-empty constant
@@ -707,7 +721,12 @@ class CyanripImpl(RipBackend):
     # comes from the bundled AccurateRip drive-model list + manual entry instead.
 
     def _run(
-        self, args: list[str], timeout: float = _INFO_TIMEOUT_S, *, strict: bool = False
+        self,
+        args: list[str],
+        timeout: float = _INFO_TIMEOUT_S,
+        *,
+        strict: bool = False,
+        slot: ProbeSlot = "info",
     ) -> str:
         """Run a cyanrip info/version probe and return its combined output.
 
@@ -734,9 +753,17 @@ class CyanripImpl(RipBackend):
         Note ``stderr`` is folded into the returned text by ``run_capture``, so a
         build that prints its banner there is unaffected by the strictness — what is
         checked is the exit *code*, not which stream spoke.
+
+        ``slot`` is the killable slot the child runs in (``run_capture``): the
+        disc probe takes the default, the version probe passes ``"version"``.
         """
         rc, combined = run_capture(
-            "cyanrip", self._binary, args, timeout=timeout, stdin_devnull=True
+            "cyanrip",
+            self._binary,
+            args,
+            timeout=timeout,
+            stdin_devnull=True,
+            slot=slot,
         )
         if rc != 0:
             # Truncated: cyanrip can dump a lot on a bad disc, and the log is a
