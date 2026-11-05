@@ -29,10 +29,29 @@ answers, which is what phases 1 to 3 ask it.
 
 | Phase | Where | What | When | About |
 |---|---|---|---|---|
-| 1 | Bazzite | one read-only drive query; Runs A, B, C | now, on 0.7.120 | not yet measured; an estimate of 2 to 3 h |
-| 2 | Bazzite | track 9's sub-channel read two ways; `cdrdao read-toc` | after phase 1 (the fork confirmed the commands in its lap 8) | 10 min |
+| 1 | Bazzite | one read-only drive query; Runs A, B, C | now, on 0.7.120 | an estimate of 2 to 3 h, of which you are needed twice, a few minutes each (see *Your time* below) |
+| 2 | Bazzite | track 9's sub-channel read two ways; `cdrdao read-toc` | straight after Run C, in the same paste (the fork confirmed the commands in its lap 8) | 10 min |
 | 3 | Windows 11, then Bazzite | Pioneer's utility: screenshots, PureRead to Perfect, Run D, put it back | after phase 2 | an estimate of 1 to 1 h 30 min |
 | 4 | Bazzite | update to the next release; one Full acceptance run | when I say 0.7.121 is out | 2 h 31 min last time (2026-11-04) |
+
+**Your time.** Phase 1 and 2 need you at the keyboard twice:
+
+1. **Sitting 1, about 10 minutes:** steps 1.1 to 1.4 (download, install, the drive
+   query, start Run A). Then leave it, an estimated 30 to 40 minutes.
+2. **Sitting 2, about 5 minutes, when Run A says DONE:** pack Run A, wipe the disc and
+   put it back, and paste **one block** (step 1.5) that runs Run B, Run C and phase 2
+   one after another without you, an estimated 1 h 30 min to 2 h, overnight or during
+   work is fine.
+3. **Then send** the files listed at the end of phase 2.
+
+Phase 3 (Windows) is a third sitting of about an hour, whenever suits you after that.
+
+*How the times are estimated, since no run of these scripts has been timed yet:*
+track 3 is 4:51 and track 5 is 4:01 long (`output_reference/EAC_flac/eac_baseline_police_classics.log`),
+this drive reads them at 2.8x to 3.1x (the fork's lap 8 S7), and each rip adds
+spin-up, a cache probe and the FLAC encode: about 2 to 3 minutes a rip. Run A and Run
+B are 12 rips each; Run C is 17, one of them up to twelve reads of track 5. The runs
+themselves will measure it.
 
 What to send after each phase is at the end of it. **Send it to both sessions**, this
 one and the fork's (the fork's lap 8 S11): each side files and reads every run.
@@ -91,45 +110,61 @@ RIPS="$(grep -E '^output_dir' ~/.config/platterpus/config.toml | sed -E 's/.*= *
 ~/Applications/platterpus-x86_64.AppImage --run-script ~/drivemode.txt
 ```
 
-When the app log says **DONE** (about 40 minutes), move the run's folders aside so the
-next run cannot overwrite them, and pack their logs (no audio):
+Leave it until the app log says **DONE** (an estimated 30 to 40 minutes).
+
+**1.5 Sitting 2: pack Run A, wipe the disc, then Runs B and C and phase 2 in one go.**
+First pack Run A (this moves its folders aside so Run B cannot overwrite them, and packs
+their logs, never audio):
 
 ```sh
 mkdir -p ~/drivemode/runA && mv "$RIPS"/dm* ~/drivemode/runA/
 tar czf ~/drivemode/runA-logs.tar.gz --exclude='*.flac' -C ~/drivemode runA
 ```
 
-**1.5 Run B — disc wiped and reinserted.** Eject the disc, wipe it gently from the centre
-outward with a soft, dry, lint-free cloth, put it back and wait about 10 seconds. Then
-the same command as Run A, and when it says **DONE**:
+Then eject the disc, wipe it gently from the centre outward with a soft, dry,
+lint-free cloth (if you use a liquid, say which when you send), put it back and wait
+about 10 seconds. Then paste **this whole block**, and leave it:
 
 ```sh
+APP=~/Applications/platterpus-x86_64.AppImage
+"$APP" --run-script ~/drivemode.txt
 mkdir -p ~/drivemode/runB && mv "$RIPS"/dm* ~/drivemode/runB/
 tar czf ~/drivemode/runB-logs.tar.gz --exclude='*.flac' -C ~/drivemode runB
-```
-
-**1.6 Run C — the speed test, disc left in.**
-
-```sh
-~/Applications/platterpus-x86_64.AppImage --run-script ~/drivespeed.txt
-```
-
-If the drive refuses a set speed, each fixed-speed rip fails in seconds saying *"Device
-does not support changing speeds!"* and the run finishes early: that is an answer, let
-it finish. Its last rip reads track 5 with up to twelve reads in one rip (`-Z 4 -r 12`,
-the fork's lap 8 S11), because the drive has given the verified read of track 5 in
-three earlier sessions. When it says **DONE**:
-
-```sh
+"$APP" --run-script ~/drivespeed.txt
 mkdir -p ~/drivemode/runC && mv "$RIPS"/ds* ~/drivemode/runC/
 tar czf ~/drivemode/runC-logs.tar.gz --exclude='*.flac' -C ~/drivemode runC
+# phase 2: track 9 read two ways, then cdrdao (explained under Phase 2 below)
+mkdir -p ~/drivemode/track9 && cd ~/drivemode/track9 && date -u > times.txt
+flush() { distrobox enter ripping -- sh -c 'for l in 0 26 52 78 104 130 156 182 208 234 260 286; do sg_raw -R -r 61152 /dev/sr0 be 00 $(printf "%02x %02x %02x %02x" 0 0 $((l>>8)) $((l&255))) 00 00 1a 10 00 00 >/dev/null 2>&1; done'; }
+for n in 1 2 3; do
+  flush; { echo "raw$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o raw$n.bin -r 39168 /dev/sr0 be 00 00 02 38 98 00 00 10 10 01 00"; } >> times.txt 2>&1
+  flush; { echo "q$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o q$n.bin -r 37888 /dev/sr0 be 00 00 02 38 98 00 00 10 10 02 00"; } >> times.txt 2>&1
+done
+ls -l *.bin >> times.txt
+distrobox enter ripping -- cdrdao read-toc --device /dev/sr0 ~/drivemode/track9/cdrdao.toc > cdrdao-output.txt 2>&1
+cd ~ && tar czf ~/drivemode/track9.tar.gz -C ~/drivemode track9
+echo "Runs B and C and phase 2 done $(date -u)"
 ```
 
-**Send after phase 1:** `~/drivemode/dumps/pioneer-f4.txt` (and `-alt` if made),
+When it prints **Runs B and C and phase 2 done**, everything for phases 1 and 2 is on
+disk.
+
+That is Run B (`drivemode.txt` again, disc just reinserted) and then Run C
+(`drivespeed.txt`, the speed test, disc left in). In Run C, if the drive refuses a set
+speed, each fixed-speed rip fails in seconds saying *"Device does not support changing
+speeds!"*: that is an answer, and the run carries on. Its last rip reads track 5 with
+up to twelve reads in one rip (`-Z 4 -r 12`, the fork's lap 8 S11), because the drive
+has given the verified read of track 5 in three earlier sessions.
+
+**1.6 Phase 2 is already in that block** (its last part); the section below says what
+it does and why.
+
+**Send after phases 1 and 2:** `~/drivemode/dumps/pioneer-f4.txt` (and `-alt` if made),
 `~/drivemode/dumps/before.txt`; for each of Runs A, B and C, the newest bundle from
 `~/.local/share/platterpus/bundles/` (`ls -t ~/.local/share/platterpus/bundles/ | head -3`
 lists the three) and its `run*-logs.tar.gz`; and a line saying whether anything was
-unusual (a run that stopped early, the room unusually warm or cold).
+unusual (a run that stopped early, the room unusually warm or cold); your list of
+power-offs; and `~/drivemode/track9.tar.gz` from phase 2.
 
 ### Phase 2 — Bazzite, track 9 read two ways (confirmed by the fork, lap 8 S12 to S14)
 
@@ -139,7 +174,8 @@ drive's cache is flushed by reading 312 other sectors (its cache holds 128 to 25
 Each read is timed: an uncached read on this drive took about 360 ms and a cached one
 about 1 ms, so a read that returns in a few milliseconds came from the cache, and we
 report it rather than count it. Then `cdrdao` reads the disc's table of contents, a
-second program's view of track 9's pregap. Paste this whole block into the terminal:
+second program's view of track 9's pregap. **Step 1.5's block runs it for you**; this
+is the same block on its own, for running it again or separately:
 
 ```sh
 mkdir -p ~/drivemode/track9 && cd ~/drivemode/track9 && date -u > times.txt
@@ -157,7 +193,7 @@ Each read is timed inside the container, so the time is the read's alone and not
 container starting (the fork's lap 10 S9: a start that varies by a few hundred
 milliseconds could hide a cached pass). The fork reads the files.
 
-**Send after phase 2:** `~/drivemode/track9.tar.gz`.
+(Send it with phase 1's files, above.)
 
 ### Phase 3 — Windows 11, then Bazzite
 
@@ -177,7 +213,9 @@ milliseconds could hide a cached pass). The fork reads the files.
 **3.2 Windows: set PureRead to Perfect.** Choose **Perfect**, Apply, screenshot again.
 Then **restart** (not shut down) straight into **Bazzite**, so the drive stays powered.
 
-**3.3 Bazzite: read the settings again, then Run D.** Before any rip (in this new terminal, paste the `dump` line from 1.2 first):
+**3.3 Bazzite: read the settings again, then Run D.** In a new terminal, first paste
+the `dump` line from 1.2 and the `RIPS` line from 1.3 (a restart forgets both). Then,
+before any rip:
 
 ```sh
 dump pioneer-f4-perfect 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
@@ -193,7 +231,7 @@ tar czf ~/drivemode/runD-logs.tar.gz --exclude='*.flac' -C ~/drivemode runD
 
 **3.4 Windows: put it back.** Restart into Windows, set Pure Read back to what your
 first screenshot showed, Apply, and restart into Bazzite. Then check it really went
-back:
+back (in a new terminal, paste the `dump` line from 1.2 first):
 
 ```sh
 dump pioneer-f4-restored 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
