@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 38's drive test is one script instead of fifteen pastes** (operator-facing): `docs/rig-scripts/drivetest.sh` checks the build, installs the read-only tools, reads the drive, runs Runs A, B and C and the track 9 reads, packs each run's logs (never audio, and it lists the upload to prove it), writes its own UTC times, keeps the machine awake, resumes from the step that stopped, and names one file to upload. It stops once, for the disc wipe; `perfect` and `restored` cover phase 3. It retries a run only when that run stopped before its first rip, as the first Run A did on 2026-11-05. `docs/rig-session.md` is rewritten around it.
 - **The rig sheet's troubleshooting row for *permission denied* no longer contradicts its own steps** (contributor-facing): it said the command starts with `distrobox enter ripping -- sudo`, where step 1.2 runs without `sudo` and adds it only on that error; it now says to add `sudo` inside the quotes, and a new row covers a `dump` forgotten by a new terminal.
 - **Our round 38 lap 13 is released** (contributor-facing; on the owner's word of 2026-11-05, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it tells the fork 0.7.121 is published naming `.30` as our build under review, gives our cell for their `--read-vendor-settings` row, and leaves the round open for the owner's drive test on `.30`.
 

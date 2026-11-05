@@ -197,6 +197,19 @@ Bazzite and Windows 11, and says for each step what it measures and what is not 
 verified. Nothing about what the owner's drive can do is settled until the drive
 answers.
 
+**`drivetest.sh`, in this folder, runs every terminal step of it** (the owner,
+2026-11-05, asking for *"a couple things instead of 15 steps where i am copy and
+pasting"*): `bash drivetest.sh` for phases 1 and 2, `bash drivetest.sh perfect` after
+Windows sets PureRead to Perfect, `bash drivetest.sh restored` after it is put back,
+`bash drivetest.sh status` to see what is done. It stops once (the disc wipe), resumes
+from where it stopped, keeps the machine awake, retries a run only when it stopped
+before its first rip, packs logs and never audio (the same `AUDIO_EXTS` list as
+`platterpuscollect.sh`, and it lists the upload to prove it), and names one file to
+upload each time. It does not replace a `.txt` script: it runs `drivemode` and
+`drivespeed` through `--run-script` and does the shell-only steps (the drive readings,
+the track 9 reads, packing) a script verb cannot, because they happen outside a rip and
+between app launches.
+
 ## Which collector gathers what
 
 Four things can pack a session into a file, and **only one of them gathers every
