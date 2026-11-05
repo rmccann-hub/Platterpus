@@ -145,16 +145,17 @@ second program's view of track 9's pregap. Paste this whole block into the termi
 mkdir -p ~/drivemode/track9 && cd ~/drivemode/track9 && date -u > times.txt
 flush() { distrobox enter ripping -- sh -c 'for l in 0 26 52 78 104 130 156 182 208 234 260 286; do sg_raw -R -r 61152 /dev/sr0 be 00 $(printf "%02x %02x %02x %02x" 0 0 $((l>>8)) $((l&255))) 00 00 1a 10 00 00 >/dev/null 2>&1; done'; }
 for n in 1 2 3; do
-  flush; { echo "raw$n"; time distrobox enter ripping -- sg_raw -R -o raw$n.bin -r 39168 /dev/sr0 be 00 00 02 38 98 00 00 10 10 01 00; } >> times.txt 2>&1
-  flush; { echo "q$n"; time distrobox enter ripping -- sg_raw -R -o q$n.bin -r 37888 /dev/sr0 be 00 00 02 38 98 00 00 10 10 02 00; } >> times.txt 2>&1
+  flush; { echo "raw$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o raw$n.bin -r 39168 /dev/sr0 be 00 00 02 38 98 00 00 10 10 01 00"; } >> times.txt 2>&1
+  flush; { echo "q$n"; distrobox enter ripping -- bash -c "time sg_raw -R -o q$n.bin -r 37888 /dev/sr0 be 00 00 02 38 98 00 00 10 10 02 00"; } >> times.txt 2>&1
 done
 ls -l *.bin >> times.txt
 distrobox enter ripping -- cdrdao read-toc --device /dev/sr0 ~/drivemode/track9/cdrdao.toc > cdrdao-output.txt 2>&1
 cd ~ && tar czf ~/drivemode/track9.tar.gz -C ~/drivemode track9
 ```
 
-The `time` lines include starting the container (a second or so), so what matters is
-the difference between passes, not the number alone; the fork reads the files.
+Each read is timed inside the container, so the time is the read's alone and not the
+container starting (the fork's lap 10 S9: a start that varies by a few hundred
+milliseconds could hide a cached pass). The fork reads the files.
 
 **Send after phase 2:** `~/drivemode/track9.tar.gz`.
 

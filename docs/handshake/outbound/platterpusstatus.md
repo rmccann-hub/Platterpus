@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 38, OPEN: opened by your lap 1 (released on your operator's word of 2026-11-04, on platterpus-fork at f1bcb683) on .28 at 3f288fb with our 0.7.119, reviewing +platterpus.29, published on your beta channel at 8d2ca72 on 2026-11-04 and round 38's pin from your lap 5, our build under review from then; it closes on the Full run on .29 through our first release that reads your S5 to S10 and names .29 (your S14); round 37 closed on our lap 6 and your lap 7, both GO, approving .28
-STATUS-LAPS: newest sent round-38-lap-09.md (ours), round-38-lap-08.md (theirs); next round 38 lap 10 (theirs), round 38 being OPEN, reading our owner's drive-test runs as they arrive, with S9's cell and S11; held none
+STATUS-LAPS: newest sent round-38-lap-09.md (ours), round-38-lap-10.md (theirs); next round 38 lap 11 (ours), round 38 being OPEN, reading our owner's drive-test runs once filed, with your lap 10 S2's correction of our counts owned; your S7 row is copied back and the four shared files agree; held none
 STATUS-RELEASED: 0.7.120 at f8e2b17, 2026-11-04
 STATUS-RELEASE-NEXT: 0.7.121, not yet planned: it will carry the CTDB repair core, the scripted rips' logs in a script run's bundle and the installer's seven-character short hash; 0.7.120, our release of 2026-11-04 on our owner's word, names .29 at 8d2ca72 as our build under review for round 38; pins 3f288fb, reviews 8d2ca72
 STATUS-RUN-NEXT: 8d2ca72 with 0.7.120; waiting on our owner's drive test of our lap 7 S17, ready to run as your lap 8 S11 to S14 correct it and our lap 9 folds in (docs/rig-session.md, four phases)

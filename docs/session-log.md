@@ -11,6 +11,12 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-05 (night) — round 38 laps 8 to 10: the drive test agreed
+
+- **Built.** The automatic CTDB repair merged (PR #454, no button, KDD-47); the drive test folded the fork's corrections (PR #455) and their timing refinement; our lap 9 released; the fork's laps 8 and 10 filed and verified (digests reproduced).
+- **Decided.** A1 refuted by both sides: track 5 is read six ways and gave the AccurateRip-verified read in three sessions, so a keep-until-verified rule can reach it without repair (their round 39 R1). No lap 11 until the owner's runs exist: a lap only to acknowledge is not sent.
+- **Learned.** (1) **`git ls-tree --name-only` quotes a path with non-ASCII characters** (`"…\342\210\266…"`, closing quote and all), so a `grep '\.log$'` over it silently drops those files; our lap 9 S3 undercounted two runs that way, and the fork's lap 10 S2 caught it. List with `-z` or `-c core.quotepath=off`. (2) A count is a claim about its filter: our 10-06 denominator counted `.eac.log` files as cyanrip logs. Say the filter beside the number. (3) Both sides made the same slip in the same week, a placeholder substitution hitting a header key (`HANDSHAKE-ROUND-DIGEST`); our lap checker caught ours, theirs passed theirs, and they now refuse it.
+
 ## 2026-11-05 — round 38 lap 7: the run read, a test plan for tracks 3 and 5, Pioneer's documentation
 
 - **Built.** `rig_scripts/drivemode.txt` (twelve rips, early and late) and `rig_scripts/drivespeed.txt` (sixteen rips at the drive's own speed, `-S 4` and `-S 24`); a script run's bundle now carries every scripted rip's folder (`uiscript/scripted_rip_dirs.py`); the installer pins git's short hash at seven characters; the CTDB repair core merged (PR #453). Our round 38 lap 7 (`OPEN`) reads the Full run on `.29`, reports the repair, and proposes the owner's test plan for the fork's agreement before it runs.
