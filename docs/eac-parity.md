@@ -1724,6 +1724,16 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
    AccurateRip v1 and v2 are recomputed. The original is kept beside it; the repair is
    recorded in the report; the EAC-compatible log is never edited (KDD-24). Strongest
    entry only, never a minority, never against AccurateRip. Decision: KDD-47.
+   **Status (2026-11-05):** the core was built on 2026-11-04, and it now runs **on its
+   own after every rip whose CTDB check differs from the strongest entry**, with no
+   button (KDD-47 amended, the owner's word of 2026-11-05): on a worker whose
+   `cancel()` kills the `flac`/`metaflac` child, then a fresh CTDB check of the
+   repaired files, the derived copies made again from the repaired FLAC, and the user
+   told what was repaired and how it was proved, or why not and what to do. A Settings
+   switch, *Repair from CTDB after a rip*, is on by default. The report keeps the
+   read's verdict in `ctdb` and adds the repaired files' in `ctdb.after_repair`, and
+   `expect-ctdb` grades the read, naming the repair as information. **Not yet done:**
+   the hardware proof on the reference disc, against the prediction in TASKS R43.
 2. **Rebuild a disputed second from several reads, accepted only on AccurateRip v1 and
    v2** (ours, with the fork's help; TASKS R134). Keep each read, find the seconds that
    differ by block CRC, build candidates from per-sample majority and each observed

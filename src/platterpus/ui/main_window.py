@@ -56,6 +56,7 @@ from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlo
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.getting_started_dialog import GettingStartedDialog
+from platterpus.ui.main_window_ctdb_repair import CtdbRepairMixin
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_disc_return import DiscReturnMixin, ParkedDisc
 from platterpus.ui.main_window_drive import DriveMixin
@@ -245,6 +246,7 @@ def _default_window_size() -> tuple[int, int]:
 class MainWindow(
     QMainWindow,
     RipMixin,
+    CtdbRepairMixin,
     UpdateMixin,
     ProvisioningMixin,
     DriveMixin,
@@ -630,6 +632,10 @@ class MainWindow(
         # comes back via the ctdb_verify_done signal. Stored so tests can join
         # it; not joined in closeEvent (daemon + guarded emit), like cover art.
         self._ctdb_thread: threading.Thread | None = None
+        # The automatic CTDB repair that may follow it (TASKS R133): a QThread
+        # worker with a real cancel(), stopped in closeEvent — it rewrites the
+        # master, so unlike the read-only checks it must be stoppable on demand.
+        self._init_ctdb_repair_state()
         # Post-rip FLAC encode-verify (opt-in, default on). Same daemon-thread +
         # queued-signal pattern as CTDB; only runs for a backend that doesn't
         # already self-verify (cyanrip, the sole backend, does not — so it runs
@@ -1100,6 +1106,16 @@ class MainWindow(
         # never caught it because `tests/conftest.py`'s window fixture stops
         # `_rip_thread` itself, silently compensating for this gap.
         stop_thread(self._rip_thread, self._rip_worker, deadline=deadline)
+        # The automatic CTDB repair (TASKS R133). Its worker is passed, so its
+        # cancel() runs: it SIGKILLs the `flac`/`metaflac` child the repair is
+        # blocked in and refuses every later one (`killable.KillableJob`). A kill is
+        # safe by construction, since those children write only a hidden candidate
+        # beside the original. Then what it did (or that the app closed first) is
+        # recorded against its album BEFORE the flush below writes the report.
+        stop_thread(
+            self._ctdb_repair_thread, self._ctdb_repair_worker, deadline=deadline
+        )
+        self._land_ctdb_repair_on_close()
         # Now it is safe to disarm: the reader has been dealt with synchronously
         # above, so the timer has nothing left to rescue and must not fire into a
         # torn-down window.

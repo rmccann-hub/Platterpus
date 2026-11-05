@@ -19,6 +19,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
+from platterpus.killable import KillableCommand
 from platterpus.tool_paths import find_tool
 
 log = logging.getLogger(__name__)
@@ -75,6 +76,32 @@ def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(  # noqa: S603 — callers pass a list argv for the flac decoder, no shell
         argv, capture_output=True, timeout=_DECODE_TIMEOUT_S, check=False
     )
+
+
+def killable_runner(command: KillableCommand) -> Runner:
+    """A decode :data:`Runner` whose ``flac`` another thread can kill.
+
+    The default runner goes through ``subprocess.run``, which hands out no
+    process to signal; a worker that offers a ``cancel()`` passes this instead,
+    so the cancel reaches a decode in flight (the CTDB repair worker). Same
+    timeout as the default. A run the job's own cancel ended comes back with
+    its SIGKILL exit status, which :func:`decode_flac_to_pcm` reports as a
+    failed decode; the worker, which knows it cancelled, says "cancelled".
+    """
+
+    def _runner(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
+        return command.run_bytes(argv, stdin=None, timeout=_DECODE_TIMEOUT_S)
+
+    return _runner
+
+
+def killable_probe_runner(command: KillableCommand) -> ProbeRunner:
+    """:func:`killable_runner` for the ``metaflac`` sample-count probe."""
+
+    def _runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        return command.run(argv, timeout=_PROBE_TIMEOUT_S)
+
+    return _runner
 
 
 def flac_available() -> bool:

@@ -563,6 +563,17 @@ class RipProgress(QWidget):
         self._ctdb_reconcile_label.setStyleSheet(SECONDARY_STYLE)
         details.addWidget(self._ctdb_reconcile_label)
 
+        # --- The automatic CTDB repair (KDD-47, amended 2026-11-05: no button) ---
+        # What the repair did, or why it did not, in plain words and with its
+        # marker (`ctdb/repair_wording.py`). Its own line, under the CTDB verdict:
+        # the verdict above stays the READ's, and this says what happened after it.
+        # PlainText, because the reason can quote a tool (`flac`, `metaflac`).
+        self._ctdb_repair_label: QLabel = QLabel("", self)
+        self._ctdb_repair_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._ctdb_repair_label.setWordWrap(True)
+        self._ctdb_repair_label.setVisible(False)
+        details.addWidget(self._ctdb_repair_label)
+
         # --- Album loudness + partial-accurate footnote ---
         # A neutral one-liner surfacing two facts cyanrip already computed and
         # that we were only writing to the JSON: the album loudness (integrated
@@ -683,6 +694,7 @@ class RipProgress(QWidget):
         self._ctdb_reconcile_label.setAccessibleName(
             "CTDB and AccurateRip reconciliation"
         )
+        self._ctdb_repair_label.setAccessibleName("CTDB repair result")
         self._loudness_label.setAccessibleName(
             "Album loudness and partial-match summary"
         )
@@ -727,6 +739,8 @@ class RipProgress(QWidget):
         self._ctdb_label.setVisible(False)
         self._ctdb_reconcile_label.clear()
         self._ctdb_reconcile_label.setVisible(False)
+        self._ctdb_repair_label.clear()
+        self._ctdb_repair_label.setVisible(False)
         self._ctdb_note_label.clear()
         self._ctdb_note_label.setVisible(False)
         self._ctdb_tracks = ()
@@ -1126,6 +1140,21 @@ class RipProgress(QWidget):
         self._ctdb_label.setVisible(True)
         self._refresh_details_tab_marker()
         self._announce_ctdb(text)
+
+    def set_ctdb_repair(self, text: str, level: str) -> None:
+        """Show what the automatic CTDB repair did, or why it did not.
+
+        ``text`` carries its own marker (``✓``/``⚠``/``ⓘ``), so the colour from
+        ``level`` is never the only signal. Empty ``text`` hides the line.
+        """
+        self._ctdb_repair_label.setText(text)
+        self._ctdb_repair_label.setStyleSheet(
+            status_style(level, self._ctdb_repair_label)
+        )
+        self._ctdb_repair_label.setVisible(bool(text))
+        if text:
+            self._refresh_details_tab_marker()
+            self._announce_ctdb(text)
 
     def set_ctdb_result(self, result: CtdbVerifyResult) -> None:
         """Render the final CTDB verdict under the AccurateRip table.

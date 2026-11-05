@@ -286,6 +286,9 @@ class PostRipRecord:
 STEP_LABELS: Final[dict[str, str]] = {
     "post_rip": "tagging, cover art and format conversion",
     "ctdb": "CTDB verify",
+    # Its own label (TASKS R133): the repair holds the CTDB gate pending, so a
+    # quit mid-repair cuts that gate short, and the step says why.
+    "ctdb_repair": "CTDB repair",
     "flac_verify": "FLAC integrity",
     "derived_verify": "derived-format verification",
     "checksums": "SHA-256 checksums",

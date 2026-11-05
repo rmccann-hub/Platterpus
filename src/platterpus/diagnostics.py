@@ -126,6 +126,15 @@ KNOWN_CODES: Final[frozenset[str]] = frozenset(
         "accuraterip.query_failed",
         "ctdb.query_failed",
         "ctdb.crc_mismatch",
+        # The CTDB repair (KDD-47; TASKS R133). The two tool codes are what
+        # `adapters/flac_rewrite.py` records a failing `flac`/`metaflac` under;
+        # they were in use from 2026-11-04 without being listed here. The three
+        # outcomes are what the window records when the automatic repair lands.
+        "ctdb_repair.flac",
+        "ctdb_repair.metaflac",
+        "ctdb_repair.repaired",
+        "ctdb_repair.refused",
+        "ctdb_repair.failed",
         # Environment / dependency subsystem.
         "deps.missing",
         "deps.version_unreadable",

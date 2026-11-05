@@ -245,6 +245,10 @@ set second_read_without_accuraterip on
 set read_speed_mode auto_ladder
 set read_speed 0
 set ctdb_verify_after_rip on
+# The shipped default (TASKS R133, no button): a rip that differs from CTDB's
+# strongest entry is repaired after the read. `expect-ctdb` grades the READ either
+# way and names the repair as information, so this changes no step's grade.
+set ctdb_repair_after_rip on
 set verify_flac_after_rip on
 set write_eac_log_after_rip off
 set output_format flac

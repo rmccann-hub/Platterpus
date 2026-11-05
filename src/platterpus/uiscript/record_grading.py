@@ -61,7 +61,48 @@ def _ctdb_outvoted(block: Mapping[str, Any]) -> bool | None:
     return None
 
 
+def _ctdb_repair_note(block: Mapping[str, Any]) -> str:
+    """The automatic CTDB repair, as INFORMATION beside the grade of the read.
+
+    **The grade is of the READ, and never of the repair** (TASKS R133, 2026-11-05).
+    ``ctdb.verdict``, ``outvoted`` and ``trustworthy`` stay what the rip's own
+    audio measured; the repair and the verify after it sit beside them, in
+    ``ctdb.repair`` and ``ctdb.after_repair``. A step whose severity is archival
+    asks whether the drive read the disc right, and a repair that made the files
+    right afterwards does not answer that: grading it would let a repair satisfy
+    an archival grade the read failed. So it is named here, after the verdict,
+    and changes nothing. "" when the report holds no repair. Never raises.
+    """
+    repair = block.get("repair")
+    if not isinstance(repair, dict):
+        return ""
+    status = str(repair.get("status") or "unrecorded")
+    reason = str(repair.get("reason") or "").strip()
+    after = block.get("after_repair")
+    after_verdict = after.get("verdict") if isinstance(after, dict) else None
+    detail = f": {reason}" if reason else ""
+    then = f"; CTDB after it: {after_verdict}" if after_verdict else ""
+    return (
+        f" ⓘ After the read, the app's CTDB repair was {status}{detail}{then}. "
+        "This step grades the read, not the repair."
+    )
+
+
 def grade_ctdb(report: Mapping[str, Any], scope: str) -> Grade:
+    """The CTDB check reached the verdict this rip's SCOPE calls for (the READ's).
+
+    Graded on ``ctdb``'s own fields, which are the read's verdict; an automatic
+    repair after it is reported as information only (:func:`_ctdb_repair_note`).
+    """
+    graded = _grade_ctdb_read(report, scope)
+    block = report.get("ctdb")
+    note = _ctdb_repair_note(block) if isinstance(block, dict) else ""
+    if not note:
+        return graded
+    return Grade(graded.passed, graded.detail + note, blocked=graded.blocked)
+
+
+def _grade_ctdb_read(report: Mapping[str, Any], scope: str) -> Grade:
     """The CTDB check reached the verdict this rip's SCOPE calls for.
 
     ``scope`` is what the script knows about its own rip and the report is not

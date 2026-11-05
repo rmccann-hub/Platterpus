@@ -135,6 +135,13 @@ class CtdbVerifyResult:
     # The repair's outcome, once one was asked for: the report's `ctdb.repair`
     # (schema 44). None when no repair was attempted.
     repair: RepairRecord | None = None
+    # **The verify run again on the repaired files** (TASKS R133, 2026-11-05): a
+    # fresh lookup and decode after a REPAIRED repair, the report's
+    # `ctdb.after_repair`. Kept BESIDE the fields above, never in place of them:
+    # they are the record of the read (KDD-24), and a scripted acceptance run
+    # grades the read, so a repair can never turn a failed read into a pass.
+    # None when no repair changed a file, or the re-verify did not run.
+    after_repair: CtdbVerifyResult | None = None
 
     @property
     def outvoted(self) -> bool:

@@ -549,6 +549,7 @@ _BAD_VALUES: dict[str, object] = {
     "rerip_offset_variant": "yes",
     "second_read_without_accuraterip": "yes",
     "ctdb_verify_after_rip": "yes",
+    "ctdb_repair_after_rip": "yes",
     "verify_flac_after_rip": "yes",
     "write_eac_log_after_rip": "yes",
     "save_additional_art": "yes",
