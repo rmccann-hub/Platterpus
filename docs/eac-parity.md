@@ -1672,7 +1672,7 @@ and Part F's per-run scores stay the dated record.
    a set speed is now the drive's answer, not cyanrip's guess. It refused in 2026-07
    only because the drive does not advertise the capability (`docs/dependency-contracts.md`,
    `-S`). `rig_scripts/drivespeed.txt` asks it: track 3 three times each at the drive's
-   own speed, at `-S 4` and at `-S 24`, track 5 once at each, and once more unset to
+   own speed, at `-S 4` and at `-S 24`, track 5 twice unset, three times at `-S 4` and once at `-S 24`, and track 3 once more unset to
    see whether a set speed stays set. The app's own rips keep the speed lock (any
    answer but *changeable* locks, TASKS R95), so nothing a user rips changes until a
    result says it should.

@@ -6,7 +6,7 @@
 #             (the AppImage where the installer parks it, and the file you
 #             downloaded; 0.7.120 already has every verb it uses)
 #   Costs:    typically about 40 to 60 minutes on the reference rig (an
-#             estimate, not yet measured): thirteen rips of one track each.
+#             estimate, not yet measured): sixteen rips of one track each.
 #             Much shorter if the drive refuses a set speed: each fixed-speed
 #             rip then fails in seconds, and that refusal is the answer.
 #
@@ -90,6 +90,9 @@ record-accuracy nospeed3 dsnospeed3
 cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dsfivenospeed1 (consumer) (diagnostics)
 expect-exit 0
 record-accuracy fivenospeed1 dsfivenospeed1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dsfivenospeed2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivenospeed2 dsfivenospeed2
 snapshot afternospeed
 
 # --- D. FIXED AT 4x. The first rip also asks: does the drive take -S? ---
@@ -107,6 +110,12 @@ record-accuracy speedfour3 dsspeedfour3
 cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 5 -D dsfivespeedfour1 (consumer) (diagnostics)
 expect-exit 0
 record-accuracy fivespeedfour1 dsfivespeedfour1
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 5 -D dsfivespeedfour2 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivespeedfour2 dsfivespeedfour2
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -S 4 -l 5 -D dsfivespeedfour3 (consumer) (diagnostics)
+expect-exit 0
+record-accuracy fivespeedfour3 dsfivespeedfour3
 snapshot afterspeedfour
 
 # --- E. FIXED AT 24x ------------------------------------------------------
@@ -137,7 +146,7 @@ record-accuracy nospeedafter1 dsnospeedafter1
 
 log --- G. per speed, per track ---
 compare-conditions 3 nospeed1 nospeed2 nospeed3 speedfour1 speedfour2 speedfour3 speedtwentyfour1 speedtwentyfour2 speedtwentyfour3 nospeedafter1
-compare-conditions 5 fivenospeed1 fivespeedfour1 fivespeedtwentyfour1
+compare-conditions 5 fivenospeed1 fivenospeed2 fivespeedfour1 fivespeedfour2 fivespeedfour3 fivespeedtwentyfour1
 
 # --- H. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 
