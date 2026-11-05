@@ -19,7 +19,8 @@ written at ``:1010-1014``; pinned by their ``tests/diagrecord.c:404-493``)::
                           "dap": bool|null, "c2_flags": bool|null,
                           "cd_text": bool|null},
       "mode_sense_all_pages": [{"page_control": "current"|"changeable"|
-                                "default"|"saved", REPLY...}, ...]   (four)
+                                "default"|"saved", REPLY...}, ...],  (four)
+      "vendor_settings": {...}        (from 5cc1c6b3: record_vendor_settings)
     }
 
 where a REPLY is ``"answered": bool, "length": int|null, "truncated": bool|null,
@@ -34,14 +35,12 @@ are null whenever its bytes are**, which includes ``found: true`` with fewer
 than 5 bytes (``:389``, ``f.found && f.nb_bytes >= 5``), so ``found`` alone never
 means the bits were read.
 
-**Derived, not taken.** Two claims in the record can be checked against bytes in
-the same record, and are: ``truncated`` against ``length`` and the bytes kept
-(``agrees``), and the four feature bits against the feature's own bytes
-(``bits_agree_with_bytes``). Each is None when there is nothing to compare.
-**Declarations, not measurements** (their comment at ``:365-372``): nothing here
-says what the drive does. Tri-state throughout: absent key ``not_present``,
-``null`` ``not_stated``, a wrong type ``unrecognised``, never a negative. Pure,
-Qt-free, never raises; read once by :func:`platterpus.isrc_provenance.parse_isrcs`.
+**Derived, not taken:** ``truncated`` checked against ``length`` and the bytes
+kept (``agrees``), the four feature bits against the feature's own bytes
+(``bits_agree_with_bytes``), each None with nothing to compare. **Declarations,
+not measurements** (their comment at ``:365-372``). Tri-state throughout: absent
+key ``not_present``, ``null`` ``not_stated``, a wrong type ``unrecognised``, never
+a negative. Pure, never raises; read by :func:`platterpus.isrc_provenance.parse_isrcs`.
 """
 
 from __future__ import annotations
@@ -52,6 +51,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, TypedDict
 
 from platterpus import inbound_text
+from platterpus.record_vendor_settings import VendorSettingsBlock, parse_vendor_settings
 from platterpus.ripper_ending import DESCRIBES, STATE_NOT_READ, STATE_READ
 
 if TYPE_CHECKING:  # the reader imports this module, so only its type is needed
@@ -137,6 +137,8 @@ class DriveDeclaredBlock(TypedDict):
     cd_read_feature: CdReadFeatureBlock | None
     mode_sense_all_pages: list[ModeSenseBlock] | None
     mode_sense_not_kept: int
+    #: The vendor's settings query (``record_vendor_settings``); null unless read.
+    vendor_settings: VendorSettingsBlock | None
 
 
 @dataclass(frozen=True)
@@ -149,6 +151,7 @@ class DriveDeclared:
     cd_read_feature: CdReadFeatureBlock | None = None
     mode_sense: tuple[ModeSenseBlock, ...] = ()
     mode_sense_not_kept: int = 0
+    vendor_settings: VendorSettingsBlock | None = None
 
 
 def _bool(value: object) -> bool | None:
@@ -255,13 +258,16 @@ def parse_drive_declared(data: Mapping[str, object]) -> DriveDeclared:
         if not isinstance(value, Mapping):
             return DriveDeclared(state=UNRECOGNISED)
         pages, not_kept = _mode_sense(value.get("mode_sense_all_pages"))
+        inquiry = _reply(value.get("inquiry"))
+        vendor = _reply(value.get("vendor_settings"))  # its REPLY is inline
         return DriveDeclared(
             state=READ,
-            inquiry=_reply(value.get("inquiry")),
+            inquiry=inquiry,
             configuration=_reply(value.get("configuration")),
             cd_read_feature=_feature(value.get("cd_read_feature")),
             mode_sense=pages,
             mode_sense_not_kept=not_kept,
+            vendor_settings=parse_vendor_settings(value, inquiry=inquiry, reply=vendor),
         )
     except (AttributeError, TypeError, ValueError):
         return DriveDeclared(state=UNRECOGNISED)
@@ -290,4 +296,5 @@ def report_block(reading: IsrcReading | None) -> DriveDeclaredBlock:
         "cd_read_feature": declared.cd_read_feature,
         "mode_sense_all_pages": list(declared.mode_sense) if listed else None,
         "mode_sense_not_kept": declared.mode_sense_not_kept,
+        "vendor_settings": declared.vendor_settings,
     }

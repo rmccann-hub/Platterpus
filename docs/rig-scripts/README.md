@@ -148,7 +148,11 @@ interpolates silently over a frame it cannot correct) and the session itself
 (whether the disc was just put in, whether it was cleaned, how warm the drive
 is). The owner runs the same file under each condition and says, with each
 bundle, the PureRead mode, whether the disc was just inserted, and whether it was
-cleaned. `compare-conditions` prints early against late per track. 0.7.120
+cleaned. `compare-conditions` prints early against late per track. Its first rip
+adds `--read-vendor-settings` (the fork's `.30`, `cyanrip@5cc1c6b3`; the owner's
+word of 2026-11-05, *"Yes do this"*, TASKS R137), so that rip's `-j` record carries
+the drive's own PureRead answer, read-only, under `drive_declared.vendor_settings`;
+an earlier build refuses the option and only that rip fails. 0.7.120
 already has every verb it uses, so a downloaded copy runs on it:
 
 ```sh
@@ -172,7 +176,10 @@ own speed, at `-S 4` and at `-S 24`, track 5 twice unset, three times at `-S 4` 
 Whether this drive honours `-S` is itself a result: since upstream `0be45a36`
 (2026-10-10) cyanrip tries it and stops only if the drive refuses, printing
 `Device does not support changing speeds!`; each refused rip fails in seconds and
-the run carries on. 0.7.120 already has every verb it uses:
+the run carries on. Its first rip asks the drive for its settings as
+`drivemode.txt`'s does (`--read-vendor-settings`, read-only, `.30` or later), so
+each run's record carries the drive's own PureRead answer. 0.7.120 already has
+every verb it uses:
 
 ```sh
 ~/Applications/platterpus-x86_64.AppImage --run-script ~/drivespeed.txt

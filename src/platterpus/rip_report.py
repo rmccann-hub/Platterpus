@@ -740,8 +740,8 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      the record's `drive_declared` (`record_drive_declared.py`): INQUIRY, GET
 #      CONFIGURATION and the four MODE SENSE (10) replies, each `answered`,
 #      `length`, `truncated`, `bytes` in hex and `agrees`, and the CD Read
-#      feature's bits with `bits_agree_with_bytes`; declarations, not
-#      measurements.
+#      feature's bits with `bits_agree_with_bytes`, and `vendor_settings`
+#      (`record_vendor_settings.py`); declarations, not measurements.
 REPORT_SCHEMA_VERSION: int = 44
 
 

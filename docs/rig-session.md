@@ -69,7 +69,7 @@ wc -c ~/drivemode.txt ~/drivespeed.txt
 distrobox enter ripping -- sudo dnf install -y sg3_utils cdrdao
 ```
 
-`wc` should print 7,753 and 8,647. The last line installs tools that only *read* from the drive (`cdrdao` is for
+`wc` should print 8,598 and 9,492. The last line installs tools that only *read* from the drive (`cdrdao` is for
 phase 2).
 
 **Through every phase, write down each time the computer or the drive is powered
@@ -91,6 +91,11 @@ dump pioneer-f4 'sg_raw -R -r 256 /dev/sr0 3c 02 f4 00 00 00 00 01 00 00'
 dump before 'sg_inq /dev/sr0; sg_get_config -q /dev/sr0; sg_get_config -q -H /dev/sr0; for c in 0 1 2 3; do echo "=== page control $c ==="; sg_modes -a -c $c /dev/sr0; done'
 cat ~/drivemode/dumps/pioneer-f4.txt; wc -l ~/drivemode/dumps/before.txt
 ```
+
+The same query is now also asked by cyanrip itself: the first rip of each run sends
+`--read-vendor-settings` (the fork's `.30`, `cyanrip@5cc1c6b3`; the owner's word of
+2026-11-05, TASKS R137; a build before `.30` refuses it, and only that rip fails), so every run's record carries the drive's own PureRead
+answer, and this `sg_raw` dump stays as the independent second witness to it.
 
 If `pioneer-f4.txt` shows an error such as *illegal request*, run
 `dump pioneer-f4-alt 'sg_raw -R -r 256 /dev/sr0 3c 01 f4 00 00 00 00 01 00 00'`. If
@@ -277,7 +282,7 @@ step says which of the two it is.
 
 | Step | What it measures | Verified before you run it | Not verified, and how we find out |
 |---|---|---|---|
-| 1.1 | nothing; downloads | both URLs serve the files on `main` (7,753 and 8,647 bytes once this sheet's change is merged); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
+| 1.1 | nothing; downloads | both URLs serve the files on `main` (8,598 and 9,492 bytes once this sheet's change is merged); `tests/test_rig_scripts.py` checks every verb and setting the scripts use | that `sudo` inside the container asks no password on your machine: the command either runs or asks |
 | 1.2 | the drive's own settings and feature list | the command's shape against `sg_raw` and `sg_get_config` 1.46's own help (`-R` opens the drive **read-only**, `-r 256` reads 256 bytes, the output is a hex dump); the 10-byte READ BUFFER command against the SCSI layout | what buffer `0xF4`'s bytes mean on this firmware: a published census's reading, which the Windows step checks (A4 in lap 7) |
 | 1.3 | nothing; finds a folder | the setting is a top-level `output_dir` in `config.toml`, default `~/Music/rips` (`config.py:146`, `:63`) | none |
 | 1.4, 1.5 | tracks 3 and 5, early and late, disc left in and reinserted | the script's verbs, labels and folder names (`dm…`) by test | how long a run takes: the first run measures it |
