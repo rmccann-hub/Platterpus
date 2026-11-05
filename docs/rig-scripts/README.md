@@ -161,6 +161,26 @@ run follows the same rule; a cleaned-disc comparison is two runs, one with the d
 left in and one after it is taken out and cleaned, never a prompt mid-run. The
 findings it serves: `docs/eac-parity.md` Part G.
 
+## Drive speed: `drivespeed.txt`
+
+**Typically about 40 to 60 minutes, sixteen rips (an estimate, not yet measured),
+far less if the drive refuses a set speed.** Track 3 of the reference disc reads
+right in some sessions and wrong in others, and the drive picks its own read speed
+(Pioneer's default *Quiet Mode*: slow after insertion, then "depending on the
+situation"). This file takes the choice away: track 3 three times at the drive's
+own speed, at `-S 4` and at `-S 24`, track 5 twice unset, three times at `-S 4` (the fork asked for track 5 at a forced lower speed) and once at `-S 24`, then track 3 once more unset.
+Whether this drive honours `-S` is itself a result: since upstream `0be45a36`
+(2026-10-10) cyanrip tries it and stops only if the drive refuses, printing
+`Device does not support changing speeds!`; each refused rip fails in seconds and
+the run carries on. 0.7.120 already has every verb it uses:
+
+```sh
+~/Applications/platterpus-x86_64.AppImage --run-script ~/drivespeed.txt
+```
+
+Unattended, like every rig run. The findings it serves: `docs/eac-parity.md`
+Part G.2.
+
 ## Which collector gathers what
 
 Four things can pack a session into a file, and **only one of them gathers every
@@ -169,7 +189,7 @@ rip**. Worth stating because the others look as if they do.
 | collector | app log | script transcript + screenshots | the run's rip folders |
 |---|---|---|---|
 | **Tools → Advanced → Run acceptance test…** (the one session bundle) | ✅ | ✅ | ✅ **every rip the session made** (capped at 40; any dropped are counted in the bundle) |
-| a `--run-script` run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | ❌ — `build_bundle()` is called without `album_dir` (open in `TASKS.md`) |
+| a `--run-script` run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | from 0.7.121, **every folder a scripted `cyanrip … -D` wrote** (`scriptrips/<folder>`, capped at 64, any dropped named); the app's own rips are still not gathered (`build_bundle()` is called without `album_dir`, open in `TASKS.md`); before 0.7.121, ❌ |
 | `--rig-session` | ✅ | ❌ | the **newest** `.platterpus.json` only |
 | `platterpuscollect.sh` | ✅ | partial | **newest rip only** |
 

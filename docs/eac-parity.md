@@ -737,6 +737,21 @@ pursued. No code ever proceeds on the signing path.
 
 ### Part C §2 — In-app CUETools / CTDB *repair*
 
+> **Status 2026-11-04: built natively, no new dependency; not yet a button.** On
+> the owner's word (*"Start building CTDB repair now? yes"*), the repair was
+> built in Python as the step after the localisation (TASKS R43), which had
+> already reproduced EAC's `Differs in 3 samples @02:24:59` on hardware: CUETools'
+> `CDRepairFix.Write` (XOR each located word), with every change proved before a
+> file is replaced. The new file must decode to the original XOR the plan, the
+> whole repaired disc must reproduce the strongest entry's CRC and the repaired
+> track's CRC at its offset, AccurateRip v1/v2 are recomputed beside them, and
+> the original is kept as `<name>.flac.before-ctdb-repair`; a minority entry, a
+> track AccurateRip verified, a guard band and a pregap are refused. The
+> `ctdb-cli`/.NET discussion below is the dated record of the route this
+> replaced (KDD-14, amended). What remains: the GUI action on a worker, and the
+> hardware proof on the reference disc against the prediction in TASKS R43
+> (track 5's Copy CRC `C96464AB`, AccurateRip v2 `BCF4E815`).
+
 #### What "repair" buys us
 
 CTDB stores whole-disc **parity**, so for a rip that's a near-miss (a handful of
@@ -1643,6 +1658,24 @@ and Part F's per-run scores stay the dated record.
    seating and surface after insertion (eccentricity, dust) and the approach path:
    whole-disc rips reach track 3 at steady speed, single-track rips seek there cold.
    Heat is a weaker candidate (one anecdote). Wear does not fit: no trend over time.
+   **A further candidate, from Pioneer's own help (2026-11-04): the drive's speed
+   policy.** The Drive Utility's help (`BDR-209_English.chm`, shipped inside
+   `PioneerBDR-209-211_DriveUtility_v1.2.0.3.exe`, sha256 `e193c899…d029`) says the
+   default "Quiet Mode" spins the disc slowly after insertion and then "will adjust
+   its spinning speed depending on the situation". A read speed the drive chooses for
+   itself, differently by session, fits the per-session clustering at least as well
+   as seating or dust, and our rips do not set a speed (no `-S`). Untested; the
+   settings read in G.4 item 3 reports this mode too. **It can be tested from Linux:**
+   upstream cyanrip stopped refusing `-S` on a drive that does not advertise speed
+   selection on 2026-10-10 (`cyanrip@0be45a36`, `src/cyanrip_main.c`: "try it, and only
+   give up if the drive refuses"), and `.29` carries it, so whether this drive honours
+   a set speed is now the drive's answer, not cyanrip's guess. It refused in 2026-07
+   only because the drive does not advertise the capability (`docs/dependency-contracts.md`,
+   `-S`). `rig_scripts/drivespeed.txt` asks it: track 3 three times each at the drive's
+   own speed, at `-S 4` and at `-S 24`, track 5 twice unset, three times at `-S 4` and once at `-S 24`, and track 3 once more unset to
+   see whether a set speed stays set. The app's own rips keep the speed lock (any
+   answer but *changeable* locks, TASKS R95), so nothing a user rips changes until a
+   result says it should.
 
 ### G.3 What other rippers do (research, 2026-11-04)
 
@@ -1698,12 +1731,35 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
    both match (and the CTDB track CRC where present), cap and record the number tried.
 3. **The drive's PureRead mode** (the owner, on Windows 11 on the same machine; TASKS
    R135), measured with `rig_scripts/drivemode.txt`: twelve rips of tracks 5 and 3,
-   early and late in a session, run once per condition.
+   early and late in a session, run once per condition. **Research of 2026-11-04
+   says this drive most likely has no PureRead at all**, so item 3 may be moot:
+   Pioneer's Drive Utility (`PioneerBDR-209-211_DriveUtility_v1.2.0.3.exe`) lists the
+   BDR-209EBK/UBK and 211, not the BDR-209DBK; the 209DBK's product page does not
+   name PureRead where the 209UBK's does; and a published census of Pioneer
+   firmware settings reports *PureRead supported = 0* for the 209D at firmware
+   1.51, the owner's own (its file hashes match the owner's download by sha256;
+   `MattJackson/pioneer-optical@d2cbbf26`
+   `tests/evidence/device-settings-hoard-2026-10-08.json:4535`, `:5064`). The drive
+   answers it directly: Pioneer's settings are read with READ BUFFER (`0x3C`),
+   buffer ID `0xF4`, 256 bytes, byte 9 being *supported*; read-only, and the first
+   step of the owner's procedure. Not done, on purpose: decrypting or disassembling
+   the firmware or utility (Pioneer's licence forbids it), writing the settings
+   buffer (`0xFA`), and cross-flashing another model's firmware. If byte 9 is 0,
+   G.2 hypothesis 1 changes: the interpolation is the drive's fixed behaviour, not
+   a mode, and repair (item 1) is the only route to track 5. **Pioneer's help states
+   the modes in its own words** (the same `.chm`, page *Pure Read*): with the
+   feature OFF, on an error CIRC cannot correct "the drive interpolates the data and
+   continue[s]"; Master "will change its parameters and retry", then interpolates;
+   Perfect retries, then "a read error is returned". The utility's own text names
+   the models only as `BDR-209` and `BDR-211`, so whether it accepts the 209DBK is
+   for the owner's Windows attempt to show; the drive's byte 9 decides support
+   either way. Read as documentation only: the help pages were unpacked from the
+   archive and read as text; no program in it was run or disassembled.
 4. **The session** (the owner; TASKS R135): the same script with the disc left in, then
    after it is taken out, wiped and reinserted. Never by interrupting a run: a Full
    acceptance run stays unattended, and a disc is touched only between runs.
 
-### G.5 The split with the fork (proposed in our round 38 lap 8)
+### G.5 The split with the fork (proposed in our round 38 lap 7)
 
 - **Ours:** repair (G.4 item 1) and the AccurateRip-checked rebuild (item 2); the rig
   script; reading every result.

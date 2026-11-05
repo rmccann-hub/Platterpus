@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import random
 import re
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -179,12 +180,18 @@ def _sixteen_errors() -> dict[int, int]:
 @pytest.mark.parametrize("offset", [0, 667, -1500])
 def test_the_verify_names_exactly_the_injected_samples(offset: int) -> None:
     errors = _sixteen_errors()
-    result, client, _ = _scenario(1, errors, offset)
+    result, client, ours = _scenario(1, errors, offset)
     located = result.localisation
     assert located is not None and located.status is LocalisationStatus.LOCATED
     entry = located.entries[0]
     assert entry.entry_id == "32115" and entry.offset == offset
     assert entry.words == tuple(sorted(errors))
+    # Each word keeps its own value (the repair's input, 2026-11-04): the XOR the
+    # entry holds there is exactly the damage injected at that word.
+    assert entry.values == tuple(errors[w] for w in entry.words)
+    # And each track's whole-PCM CRC-32, as the localisation pass decoded it.
+    pieces = _split(ours)
+    assert located.track_crc32s == tuple(zlib.crc32(pieces[p]) for p in _FILES)
     assert client.fetched == [("32115", 16)]  # only the entry that outweighs ours
     by_track = {t.track: t.differences for t in result.tracks}
     assert by_track[1] == ()

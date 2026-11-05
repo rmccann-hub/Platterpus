@@ -59,6 +59,15 @@ def _fsync_dir(directory: Path) -> None:
         os.close(fd)
 
 
+def fsync_directory(directory: Path) -> None:
+    """Public form of :func:`_fsync_dir`, for a caller that renames files itself.
+
+    The CTDB repair (``ctdb/repair.py``) renames a new FLAC over the original
+    with ``os.replace`` and needs the same durability for that rename.
+    """
+    _fsync_dir(directory)
+
+
 def atomic_write_bytes(path: Path, data: bytes) -> None:
     """Atomically and durably write ``data`` to ``path``.
 
