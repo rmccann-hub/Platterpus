@@ -323,6 +323,79 @@ class TestStopWhileInFlight:
         assert run._report.ended_reason
         fake_capture.released.set()
 
+    def test_stopping_a_ripper_call_frees_its_drive(
+        self,
+        window: QWidget,
+        fake_capture: _FakeCapture,
+        monkeypatch: pytest.MonkeyPatch,
+        drive_frees: list[tuple[str, str]],
+    ) -> None:
+        """Killing the child kills our host group, not the cyanrip in the container.
+
+        The owner's rig, 2026-11-05: a ui-script rip stopped from the console was
+        still reading /dev/sr0 after the app had closed, until the disc was
+        ejected. So the stop also frees the drive the argv's ``-d`` names, with
+        the graceful stop a rip's log needs.
+        """
+        from platterpus import exit_work
+
+        monkeypatch.setattr(
+            "platterpus.adapters.rip_backend.cancel_info_probe", lambda: None
+        )
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip -N -I -d /dev/sr9"))
+        while not fake_capture.entered.is_set():
+            run._tick()
+            time.sleep(0.005)
+        run.stop("stopped by the user")
+        fake_capture.released.set()
+        assert exit_work.wait()
+        assert drive_frees == [("rip", "/dev/sr9")], drive_frees
+
+    def test_stopping_a_version_call_frees_no_drive(
+        self,
+        window: QWidget,
+        fake_capture: _FakeCapture,
+        monkeypatch: pytest.MonkeyPatch,
+        drive_frees: list[tuple[str, str]],
+    ) -> None:
+        """A probe-only call opens no device; a free there could only hit a drive
+        it never touched."""
+        from platterpus import exit_work
+
+        monkeypatch.setattr(
+            "platterpus.adapters.rip_backend.cancel_info_probe", lambda: None
+        )
+        # A drive IS selected, so the only thing that can keep it untouched is
+        # the probe-only rule, not the absence of a device to free.
+        monkeypatch.setattr(runner_mod, "selected_device", lambda _window: "/dev/sr9")
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip -N --version"))
+        while not fake_capture.entered.is_set():
+            run._tick()
+            time.sleep(0.005)
+        run.stop("stopped by the user")
+        fake_capture.released.set()
+        assert exit_work.wait()
+        assert drive_frees == []
+
+    def test_a_timed_out_ripper_call_frees_its_drive(
+        self,
+        window: QWidget,
+        fake_capture: _FakeCapture,
+        drive_frees: list[tuple[str, str]],
+    ) -> None:
+        """`run_capture`'s timeout kills the host side only, like a stop does."""
+        from platterpus import exit_work
+
+        fake_capture.raise_riperror = "cyanrip timed out after 320s"
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip -N -I -d /dev/sr9"))
+        _pump(run)
+        assert exit_work.wait()
+        assert drive_frees == [("rip", "/dev/sr9")], drive_frees
+
     def test_a_second_run_does_not_inherit_the_first_ones_pending_job(
         self, window: QWidget, fake_capture: _FakeCapture
     ) -> None:

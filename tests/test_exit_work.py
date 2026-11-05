@@ -176,3 +176,72 @@ def test_app_main_runs_the_exit_check_after_the_exit_work() -> None:
     assert source.index("window.exit_audit_device()") < check
     leave = source.index("hard_exit.exit_now_if_threads_abandoned(status)")
     assert join < check < leave
+
+
+# --- Freeing the drive after a cancelled ripper child (2026-11-05) -------------
+#
+# `drive_frees` (tests/conftest.py, autouse) records each drive_control step in
+# place of running it, so these read which stop was chosen for which drive.
+
+
+def test_a_cancelled_rip_gets_the_graceful_stop_and_a_probe_the_sigkill(
+    drive_frees: list[tuple[str, str]],
+) -> None:
+    """The kind of stop follows what the child writes: a rip's log needs its footer."""
+    assert exit_work.free_drive_after_cancel("/dev/sr5", writes_log=True, why="t")
+    assert exit_work.free_drive_after_cancel("/dev/sr6", writes_log=False, why="t")
+    assert exit_work.wait()
+    assert sorted(drive_frees) == [("probe", "/dev/sr6"), ("rip", "/dev/sr5")]
+
+
+def test_a_second_cancel_of_the_same_drive_does_not_start_a_competing_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A SIGKILL racing a graceful stop's grace would cost the rip its footer.
+
+    The first stop is held open; a second request for the same drive while it
+    runs starts nothing, and once it has finished a new request starts again.
+    """
+    release = threading.Event()
+    started: list[str] = []
+
+    def held_stop(device: str, _run: object) -> None:
+        started.append(device)
+        release.wait(10.0)
+
+    monkeypatch.setattr(exit_work, "rip_reader_stop", held_stop)
+    monkeypatch.setattr(exit_work, "probe_reader_stop", held_stop)
+    try:
+        assert exit_work.free_drive_after_cancel("/dev/sr5", writes_log=True, why="a")
+        assert exit_work.freeing("/dev/sr5")
+        assert not exit_work.free_drive_after_cancel(
+            "/dev/sr5", writes_log=False, why="b"
+        ), "a second stop of a drive already being freed was started"
+    finally:
+        release.set()
+    assert exit_work.wait()
+    assert started == ["/dev/sr5"]
+    assert not exit_work.freeing("/dev/sr5")
+    assert exit_work.free_drive_after_cancel("/dev/sr5", writes_log=True, why="c")
+    assert exit_work.wait()
+    assert started == ["/dev/sr5", "/dev/sr5"]
+
+
+def test_no_device_frees_nothing_and_says_so(
+    drive_frees: list[tuple[str, str]], caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level("WARNING", logger="platterpus.exit_work"):
+        assert not exit_work.free_drive_after_cancel("", writes_log=True, why="t")
+    assert drive_frees == []
+    assert "NOT DETERMINED" in caplog.text
+
+
+def test_the_real_steps_are_the_drive_control_ones() -> None:
+    """What the recorders stand in for: device-scoped SIGKILL for a probe (never
+    `free_drive`'s broad pkill), `stop_reader_gracefully` for a rip. Read off the
+    source, because running them would signal a real drive."""
+    probe = inspect.getsource(exit_work._sigkill_probe_reader)
+    rip = inspect.getsource(exit_work._stop_rip_reader)
+    assert "drive_control.free_device_holders(" in probe
+    assert "free_drive(" not in probe.replace("free_drive(s)", "")
+    assert "drive_control.stop_reader_gracefully(" in rip

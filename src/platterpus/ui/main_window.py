@@ -1078,6 +1078,7 @@ class MainWindow(
         # makes the workers' `cancel()` dead code (CLAUDE.md rule 9: grep for a call
         # site before believing a cancel works — including your own, same day).
         stop_thread(self._dep_check_thread, self._dep_check_worker, deadline=deadline)
+        probe_device = self._disc_probe_in_flight_device()  # before the stop ends it
         stop_thread(self._disc_info_thread, self._disc_info_worker, deadline=deadline)
         stop_thread(self._drive_list_thread, deadline=deadline)
         # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
@@ -1092,6 +1093,8 @@ class MainWindow(
         # (the app is exiting, so a daemon thread would be killed mid-kill — see
         # its docstring). This is the "exit = force stop" contract, done right.
         self._stop_rip_on_shutdown()
+        # A cancelled probe's in-container reader outlives the kill (DriveMixin).
+        self._free_drive_after_probe_cancel(probe_device, "the window closed")
         # …and then stop the rip THREAD, which nothing used to do.
         #
         # `_stop_rip_on_shutdown` cancels the *worker* and frees the drive, but
@@ -1444,6 +1447,7 @@ class MainWindow(
         #
         # `superseded_by` makes the log say this abandonment is planned, at INFO.
         # Without it every rescan wrote a WARNING into the rig transcript.
+        free_first = self._superseded_probe_device()  # read before it is stopped
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
             if self._disc_info_worker is not None:
                 try:
@@ -1462,7 +1466,9 @@ class MainWindow(
         # Force-stop available for the duration and clear any prior stop flag.
         self._scan_force_stopped = False
         self._rip_controls.set_scan_active(True)
-        self._disc_info_worker = DiscInfoWorker(self._backend, device)
+        self._disc_info_worker = DiscInfoWorker(
+            self._backend, device, free_first=free_first
+        )
         self._disc_info_thread = QThread(self)
         self._disc_info_worker.finished.connect(self._on_disc_info_ready)
         self._disc_info_worker.failed.connect(self._on_disc_info_failed)

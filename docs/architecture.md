@@ -457,6 +457,23 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   `cyanrip -I` read one drive until both timed out. A loop that retries on failure
   (`CyanripImpl.version` trying each version flag) must stop on its own cancel
   (`ProbeCancelled`) rather than retry in a child the cancel did not cover.
+- **Every path that kills a ripper child also frees its drive.** A
+  `KillableCommand` cancel or timeout SIGKILLs OUR process group: the host
+  wrapper and the `podman exec` client. The `cyanrip` inside the `ripping`
+  container is not in it, and reads on. So the disc probe, the ui-script
+  `cyanrip` verb (stop, timeout, unreapable) and the window's close each free the
+  drive through `exit_work.free_drive_after_cancel` (a rip's reader gets
+  `drive_control.stop_reader_gracefully`, a probe's a device-scoped `fuser -k`),
+  started as exit work so the GUI thread never waits and the process never exits
+  first, with one stop per drive at a time. A superseded probe's drive is freed
+  by the NEW `DiscInfoWorker` on its own thread before it reads
+  (`free_first`). The free is refused while a rip, a pending rescue or a script
+  ripper call may hold the drive (`DriveMixin._drive_free_refusal`), because a
+  device-scoped kill cannot tell their reader from a probe's. Why: on the
+  owner's rig (2026-11-05) a script rip stopped from the console left two
+  `cyanrip` reading `/dev/sr0` after the app had closed, until the disc was
+  ejected by hand. The exit check (`exit_work.audit`) runs after every free, so
+  it reports only what is left.
 
 ### 3.4 Parsers never raise (institutional rule)
 Anything that parses external output uses **named-group regexes** (not column
