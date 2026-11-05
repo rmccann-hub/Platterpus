@@ -45,6 +45,7 @@ from pathlib import Path
 
 from platterpus import diagnostics
 from platterpus.adapters.tool_run import ToolRun
+from platterpus.killable import KillableCommand, was_cancelled
 from platterpus.tool_paths import find_tool
 
 #: A track takes seconds to encode; the bound only stops a wedged encoder.
@@ -70,20 +71,71 @@ class BytesRun:
 BytesRunner = Callable[[list[str], bytes | None], BytesRun]
 
 
-def run_bytes(
-    argv: list[str], stdin: bytes | None, *, timeout_s: float, tool: str, code: str
+def _run_for_tool(
+    argv: list[str], stdin: bytes | None, command: KillableCommand | None
 ) -> BytesRun:
-    """Run ``argv`` with binary stdin and stdout. Never raises; failures recorded."""
+    """:func:`run_bytes` with the timeout and diagnostic code for ``argv[0]``."""
+    tool = Path(argv[0]).name if argv else "?"
+    timeout = ENCODE_TIMEOUT_S if tool == "flac" else METAFLAC_TIMEOUT_S
+    return run_bytes(
+        argv,
+        stdin,
+        timeout_s=timeout,
+        tool=tool,
+        code=f"ctdb_repair.{tool}",
+        command=command,
+    )
+
+
+def killable_runner(command: KillableCommand) -> BytesRunner:
+    """A :data:`BytesRunner` whose children ``command.cancel()`` can kill.
+
+    The default runner's timeouts and diagnostic codes, through ``command``'s
+    process group: what the repair worker hands :class:`FlacRewriter` so its
+    ``cancel()`` reaches an encode in flight (``workers/ctdb_repair_worker.py``).
+    """
+
+    def _runner(argv: list[str], stdin: bytes | None) -> BytesRun:
+        return _run_for_tool(argv, stdin, command)
+
+    return _runner
+
+
+#: The sentence a run this module's own job cancelled carries. Not a failure of
+#: the tool, so it is never recorded as one (``killable.was_cancelled``).
+CANCELLED: str = "cancelled (the repair was stopped before this finished)"
+
+
+def run_bytes(
+    argv: list[str],
+    stdin: bytes | None,
+    *,
+    timeout_s: float,
+    tool: str,
+    code: str,
+    command: KillableCommand | None = None,
+) -> BytesRun:
+    """Run ``argv`` with binary stdin and stdout. Never raises; failures recorded.
+
+    ``command`` is the killable slot to run it in (the repair worker's
+    :class:`~platterpus.killable.KillableJob`), so another thread's ``cancel()``
+    reaches the child. Without one it runs through ``subprocess.run``, which no
+    other thread can stop: fine for a caller with nothing to cancel, wrong for
+    any worker that offers a ``cancel()`` (``CLAUDE.md`` rule 9).
+    """
     frozen = tuple(argv)
     try:
-        proc = subprocess.run(  # noqa: S603 — a resolved binary, a list argv, no shell
-            argv,
-            input=stdin,
-            stdin=None if stdin is not None else subprocess.DEVNULL,
-            capture_output=True,
-            timeout=timeout_s,
-            check=False,
-        )
+        if command is not None:
+            proc = command.run_bytes(argv, stdin=stdin, timeout=timeout_s)
+        else:
+            proc = subprocess.run(  # noqa: S603 — a resolved binary, a list argv, no shell
+                argv,
+                input=stdin,
+                stdin=None if stdin is not None else subprocess.DEVNULL,
+                capture_output=True,
+                timeout=timeout_s,
+                check=False,
+            )
     except FileNotFoundError:
         run = ToolRun.failed_to_run(f"'{argv[0] if argv else '?'}' not found", frozen)
         result = BytesRun(run)
@@ -97,6 +149,15 @@ def run_bytes(
         result = BytesRun(ToolRun.failed_to_run(f"could not run {tool}: {exc}", frozen))
     else:
         text = (proc.stderr or b"").decode("utf-8", "replace")
+        if was_cancelled(proc):
+            # OUR kill, not the tool's answer: never recorded as the tool failing.
+            run = ToolRun(
+                exit_code=proc.returncode,
+                output=diagnostics.bounded_output(text),
+                argv=frozen,
+                error=CANCELLED,
+            )
+            return BytesRun(run)
         run = ToolRun(
             exit_code=proc.returncode,
             output=diagnostics.bounded_output(text),
@@ -157,11 +218,7 @@ class FlacRewriter:
 
     @staticmethod
     def _default_runner(argv: list[str], stdin: bytes | None) -> BytesRun:
-        tool = Path(argv[0]).name if argv else "?"
-        timeout = ENCODE_TIMEOUT_S if tool == "flac" else METAFLAC_TIMEOUT_S
-        return run_bytes(
-            argv, stdin, timeout_s=timeout, tool=tool, code=f"ctdb_repair.{tool}"
-        )
+        return _run_for_tool(argv, stdin, None)
 
     def missing(self) -> str | None:
         """Which tool cannot be found, as a sentence, or ``None``."""

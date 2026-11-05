@@ -65,6 +65,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "read_speed_mode": "Read speed",
     "read_speed": "Read speed",
     "ctdb_verify_after_rip": "Verify with CTDB",
+    "ctdb_repair_after_rip": "Repair from CTDB after a rip",
     "verify_flac_after_rip": "Verify FLAC files",
     "write_eac_log_after_rip": "EAC-compatible log",
     "output_format": "Output format",

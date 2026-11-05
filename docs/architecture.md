@@ -192,6 +192,32 @@ Worker mechanics, all demonstrated in `workers/`:
   the event loop has already ended. Use it only for work whose absence would
   leave something outside the process wrong. Anything that only reports back
   belongs on a daemon thread and a queued signal, as above.
+- **Post-rip work that WRITES the master → a `QThread` worker whose `cancel()`
+  kills every child, one `KillableJob` per job** (the automatic CTDB repair,
+  2026-11-05, TASKS R133; `workers/ctdb_repair_worker.py`,
+  `ui/main_window_ctdb_repair.py`). The daemon pattern above is for work that
+  only *reads*: dying with the process loses nothing. A step that rewrites the
+  archival master must be stoppable on demand instead, so it runs on a `QThread`
+  stopped in `closeEvent` (`stop_thread(thread, worker, deadline=…)`), and every
+  child it runs goes through ONE `killable.KillableJob`: a `KillableCommand`
+  whose cancel also refuses every *later* run, because a job of a dozen
+  `flac`/`metaflac` runs would otherwise carry on with the next one after a
+  cancel that landed between two of them. A SIGKILL is safe only because every
+  child that writes, writes a hidden candidate the step deletes on failure; the
+  original is replaced by a link and a rename in Python, with no child to kill.
+  Three more things the repair needed, each general: **(1)** the decision that
+  a step will follow is made on the *previous step's daemon, before it emits*
+  (`_arm_ctdb_repair` sets `_ctdb_repair_busy`), so the settlement poll cannot
+  see "everything finished" in the gap before the slot that starts it runs;
+  **(2)** while it runs, the gate it will change stays *pending* on the record
+  (the CTDB result is held, not recorded), so no grader or library move settles
+  on files about to change; **(3)** the outcome is kept on the worker
+  (`CtdbRepairWorker.outcome`) as well as emitted, so `closeEvent` can record it
+  after `stop_thread`, when the queued signal can no longer be delivered. What a
+  repair changes is then checked again: the derived copies are made again from
+  the repaired FLAC and the derived verify, checksums and FLAC integrity re-run,
+  with their earlier results cleared, since they describe files that no longer
+  exist.
 - **Clean up deterministically:** connect `worker.finished → thread.quit`,
   `worker.finished → worker.deleteLater`, `thread.finished →
   thread.deleteLater`. **Join/stop threads before the window closes**
@@ -471,12 +497,13 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | The release picker: hold it until the main window is in use (`hold_for_user.py`), open it, act on the answer, close one a newer scan supersedes | `main_window_picker.py` (`ReleasePickerMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
 | Settings' OK/Apply, and saving one setting from its home control | `main_window_settings.py` (`SettingsMixin`) |
+| The automatic CTDB repair after a rip: when it starts, the worker it owns, what the user is told, the re-runs after it (TASKS R133) | `main_window_ctdb_repair.py` (`CtdbRepairMixin`) |
 | Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |
 
-`MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin, SettingsMixin)`
-— a 1707-line god-object reduced to an assembler plus seven focused
-modules: six mixins and the pure helpers (`SettingsMixin` was the sixth mixin,
-2026-09-24). (The split first landed it at ~460 lines; it has since grown as
+`MainWindow(QMainWindow, RipMixin, CtdbRepairMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DiscReturnMixin, ReleasePickerMixin, DependencyMixin, SettingsMixin)`
+— a 1707-line god-object reduced to an assembler plus focused modules: the
+mixins in the table above and the pure helpers (`SettingsMixin` was the sixth
+mixin, 2026-09-24; `CtdbRepairMixin` joined on 2026-11-05). (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
 
@@ -2221,4 +2248,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.7.118.*
+*Last updated for Platterpus v0.7.120.*

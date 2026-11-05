@@ -715,6 +715,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `_before` (null unless measured) / `_after`, and our own AccurateRip
 #      `accuraterip_v1_before` / `v2_before` / `v1_after` / `v2_after`;
 #      `encoder_argv` as spawned; `untouched`, what the repair never changes.
+#      Also v44, still unreleased, additions only (TASKS R133, 2026-11-05, the
+#      automatic repair: no button): `ctdb.after_repair`, the CTDB verify run again
+#      on the repaired files after a `repaired` repair (`verdict`, `confidence`,
+#      `trustworthy`, `best_confidence`, `total_confidence`, `outvoted`,
+#      `matched_offset`, `our_crc`, `matched_crc`, `message`, `tracks` shaped as
+#      `ctdb.tracks`), null otherwise. Every other `ctdb` field stays the READ's
+#      verdict, measured before the repair. And `settings.ctdb_repair_after_rip`,
+#      the repair's switch, frozen at Start.
 REPORT_SCHEMA_VERSION: int = 44
 
 
@@ -1431,6 +1439,10 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
         "secure_rerip_matches": getattr(config, "secure_rerip_matches", None),
         "max_retries": getattr(config, "max_retries", None),
         "ctdb_verify_after_rip": getattr(config, "ctdb_verify_after_rip", None),
+        # v44, still unreleased (TASKS R133): whether the automatic CTDB repair was
+        # on for this rip, frozen at Start like the rest of this block; the window
+        # reads it from the record, so the report and the decision cannot differ.
+        "ctdb_repair_after_rip": getattr(config, "ctdb_repair_after_rip", None),
         "verify_flac_after_rip": getattr(config, "verify_flac_after_rip", None),
         # DERIVED, not read back. `rip_goal` in the config file is a label for a
         # bundle of the six fields above it, and nothing keeps the two in step:
@@ -2682,7 +2694,42 @@ def _ctdb(result: object | None) -> dict | None:
         # The repair (v44, R43): what was rewritten toward which entry, and the
         # CRCs that proved it, or why it was refused. Null when none was asked.
         "repair": _ctdb_repair(getattr(result, "repair", None)),
+        # The verify run again on the repaired files (v44, still unreleased, R133).
+        # BESIDE the read's verdict above, never in its place: those fields are the
+        # record of the read (KDD-24) and what an acceptance step grades.
+        "after_repair": _ctdb_after_repair(getattr(result, "after_repair", None)),
     }
+
+
+#: The fields of ``ctdb.after_repair`` (v44, R133): ``report_types.
+#: CtdbAfterRepairBlock``, held equal to it by ``tests/test_ctdb_repair_auto.py``.
+AFTER_REPAIR_KEYS: tuple[str, ...] = (
+    "verdict",
+    "confidence",
+    "trustworthy",
+    "best_confidence",
+    "total_confidence",
+    "outvoted",
+    "matched_offset",
+    "our_crc",
+    "matched_crc",
+    "message",
+    "tracks",
+)
+
+
+def _ctdb_after_repair(result: object | None) -> dict[str, object] | None:
+    """Serialize ``CtdbVerifyResult.after_repair`` (v44): the fresh verify, in brief.
+
+    The verdict and its weight, the CRCs and the per-track rows, taken from
+    :func:`_ctdb` itself so each field is serialised one way only; no
+    localisation, repair or nested re-verify, which a check of already-repaired
+    files has no business carrying.
+    """
+    full = _ctdb(result)
+    if full is None:
+        return None
+    return {key: full.get(key) for key in AFTER_REPAIR_KEYS}
 
 
 def _ctdb_localisation(found: object | None) -> dict[str, object] | None:

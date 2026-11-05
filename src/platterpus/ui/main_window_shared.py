@@ -104,6 +104,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.rip_backend import RipBackend
     from platterpus.cancel_cause import CancelCause
     from platterpus.config import Config
+    from platterpus.ctdb.verify import CtdbVerifyResult
     from platterpus.deps.manager import DependencyManager, DependencyReport
     from platterpus.disc_probe_retry import DiscReadRetries
     from platterpus.drive_media import MediaWatcher
@@ -118,6 +119,7 @@ if TYPE_CHECKING:
     from platterpus.ui.disc_info_panel import DiscInfoPanel
     from platterpus.ui.drive_picker import DrivePicker
     from platterpus.ui.host_setup_dialog import HostSetupDialog
+    from platterpus.ui.main_window_ctdb_repair import CtdbRepairContext
     from platterpus.ui.main_window_disc_return import ParkedDisc
 
     # TYPE_CHECKING-only, and it has to be: ``main_window_rip`` imports THIS
@@ -131,6 +133,7 @@ if TYPE_CHECKING:
     from platterpus.ui.rip_progress import RipProgress
     from platterpus.ui.track_table import TrackTable
     from platterpus.user_settings import SettingWrite
+    from platterpus.workers.ctdb_repair_worker import CtdbRepairWorker
     from platterpus.workers.dependency_worker import DependencyCheckWorker
     from platterpus.workers.disc_info_worker import DiscInfoWorker
     from platterpus.workers.drive_list_worker import DriveListWorker
@@ -250,6 +253,19 @@ class MainWindowShared(_SeamBase):
     # Launch-time drive listing.
     _drive_list_worker: DriveListWorker | None
     _drive_list_thread: QThread | None
+    # The automatic CTDB repair after a rip (CtdbRepairMixin, TASKS R133). A
+    # QThread worker, unlike the read-only post-rip checks: it rewrites the master,
+    # so closing the window must be able to stop it (`cancel()` kills its child).
+    _ctdb_repair_worker: CtdbRepairWorker | None
+    _ctdb_repair_thread: QThread | None
+    #: True from the moment a repair may start until it has landed; the library
+    #: move and the unattended quit wait on it (`main_window_ctdb_repair`).
+    _ctdb_repair_busy: bool
+    #: The album the running repair belongs to, and the read's verdict it started
+    #: from (recorded with a "closed" outcome if the app closes mid-repair).
+    _ctdb_repair_generation: int | None
+    _ctdb_repair_pending: CtdbVerifyResult | None
+    _ctdb_repair_contexts: dict[int, CtdbRepairContext]
 
     # In-flight rip bookkeeping.
     _active_rip_params: RipParameters | None
@@ -441,6 +457,41 @@ class MainWindowShared(_SeamBase):
         def _album_folder_settled(self) -> bool: ...
         def _post_rip_still_running(self) -> str: ...
         def open_unknown_album_dialog(self) -> bool: ...
+
+        # Also RipMixin: the post-rip chain the CTDB repair records into and runs
+        # again after a repair (CtdbRepairMixin, main_window_ctdb_repair.py).
+        def _post_rip_record(
+            self, generation: int | None = ...
+        ) -> PostRipRecord | None: ...
+        def _record_post_rip_result(
+            self, generation: int, attribute: str, value: object
+        ) -> None: ...
+        def _launch_post_rip_daemon(
+            self,
+            compute: Callable[[Callable[[], bool]], object],
+            signal: object,
+            thread_attr: str,
+            gate: str | None = ...,
+        ) -> threading.Thread: ...
+        def _start_derived_verify(
+            self, rip_dir: Path, fmt: str, wait_for: threading.Thread | None
+        ) -> None: ...
+        def _start_checksums(
+            self, rip_dir: Path, wait_for: threading.Thread | None
+        ) -> None: ...
+        def _start_flac_verify(
+            self, rip_dir: Path, wait_for: threading.Thread | None
+        ) -> None: ...
+
+        # Defined in CtdbRepairMixin (main_window_ctdb_repair.py); RipMixin calls
+        # them from the finish handler and the CTDB check's landing:
+        def _init_ctdb_repair_state(self) -> None: ...
+        def _note_ctdb_repair_context(self, context: CtdbRepairContext) -> None: ...
+        def _arm_ctdb_repair(self, generation: int, result: object) -> None: ...
+        def _route_ctdb_result(
+            self, generation: int, result: object
+        ) -> object | None: ...
+        def _land_ctdb_repair_on_close(self) -> None: ...
 
         # Defined in UpdateMixin (main_window_update.py). Declared on the seam
         # because it answers "may I raise a dialog right now?" for EVERY surface

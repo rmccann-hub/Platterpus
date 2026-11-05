@@ -412,7 +412,13 @@ def test_the_report_carries_the_repair(tmp_path: Path) -> None:
     assert [r["track"] for r in rows] == [1, 2]
     assert rows[0]["original_kept_as"].endswith("01.flac.before-ctdb-repair")
     assert rows[0]["ctdb_crc_after"] == rows[0]["ctdb_crc_expected"]
-    assert rows[0]["ctdb_crc_before"] is None  # the thin caller does not measure it
+    # The thin caller passes each track's CTDB CRC at offset 0 from the verify
+    # (TASKS R133), so at an offset-0 entry the record names it: the track's own
+    # CRC as the verify measured it, before the repair, which is not the entry's.
+    measured = disc.result.tracks[0].our_crc
+    assert isinstance(measured, int)
+    assert rows[0]["ctdb_crc_before"] == f"{measured:08X}"
+    assert rows[0]["ctdb_crc_before"] != rows[0]["ctdb_crc_expected"]
     assert len(rows[0]["accuraterip_v2_after"]) == 8
     assert repair["encoder_argv"][0] == "flac"
     assert any("KDD-24" in u for u in repair["untouched"])

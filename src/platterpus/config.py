@@ -373,6 +373,18 @@ class Config:
     # whatever value it saved — defaults only fill an absent field.)
     ctdb_verify_after_rip: bool = True
 
+    # --- CTDB repair (KDD-47, amended 2026-11-05: no button) ---
+    # When the CTDB check finds the rip differs from CTDB's strongest entry, repair
+    # the damaged track(s) from that entry's parity, on its own, IF AND ONLY IF
+    # every proof passes (the new file decodes to the original plus exactly the
+    # planned corrections; the whole disc's CTDB checksum then equals the entry's).
+    # The original is kept beside it as `<name>.flac.before-ctdb-repair`, and the
+    # logs are never edited. When it cannot repair, the rip's result says why and
+    # what to do. On by default, on the owner's word ("Should ripping to a good file
+    # need a button?"); needs `ctdb_verify_after_rip`, whose result it reads. A new
+    # key that fills from this default on load, so no schema bump.
+    ctdb_repair_after_rip: bool = True
+
     # --- FLAC encode-verify ---
     # After a successful rip, run `flac --test` on each output FLAC to confirm it
     # decodes back to its stored MD5 (catches encode/disk corruption). On by

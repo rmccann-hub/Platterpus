@@ -707,6 +707,28 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("CTDB:", self._ctdb_verify_check)
 
+        # --- CTDB repair (KDD-47, amended 2026-11-05: no button) ---
+        # On by default: a rip that differs from CTDB's strongest entry is repaired
+        # on its own when every proof passes, and the user is told what happened
+        # either way. Reads the CTDB check's result, so it does nothing with that
+        # check off; the box stays enabled so the choice is kept for when it is on.
+        self._ctdb_repair_check: QCheckBox = QCheckBox(
+            "Repair from CTDB after a rip", self
+        )
+        self._ctdb_repair_check.setChecked(config.ctdb_repair_after_rip)
+        self._ctdb_repair_check.setToolTip(
+            "ON (default): when the CTDB check finds a track differs from the "
+            "version most people's copies hold, Platterpus repairs that track from "
+            "CTDB's recovery data, but only if it can prove the result first: the "
+            "repaired file must decode to the original plus exactly the planned "
+            "corrections, and the whole disc must then match CTDB. The original "
+            "file is kept beside it, the rip's logs are not edited, and you are told "
+            "what was repaired, or why nothing was. OFF: a difference is reported "
+            "and the files are left as ripped. Needs the CTDB check above, and "
+            "`flac` and `metaflac` 1.4 or later."
+        )
+        form.addRow("CTDB repair:", self._ctdb_repair_check)
+
         # --- FLAC encode-verify ---
         # Post-rip `flac --test` of each output FLAC (decode + MD5 check). On by
         # default — cyanrip (FFmpeg) doesn't self-verify, so this is a real check.
@@ -1028,6 +1050,7 @@ class SettingsDialog(CenteredDialog):
             "read_speed_mode": self._read_speed_mode_combo.currentData(),
             "read_speed": self._read_speed_spin.value(),
             "ctdb_verify_after_rip": self._ctdb_verify_check.isChecked(),
+            "ctdb_repair_after_rip": self._ctdb_repair_check.isChecked(),
             "verify_flac_after_rip": self._verify_flac_check.isChecked(),
             "write_eac_log_after_rip": self._eac_log_check.isChecked(),
             "save_additional_art": self._additional_art_check.isChecked(),

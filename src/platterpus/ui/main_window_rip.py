@@ -105,6 +105,7 @@ from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.rip_pass_exit import PassExits, securing_fact
 from platterpus.ripper_ending import status_suffix
 from platterpus.ui import message_boxes
+from platterpus.ui.main_window_ctdb_repair import CtdbRepairContext
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
     ambiguous_overwrite_text,
@@ -2389,6 +2390,25 @@ class RipMixin(MainWindowShared):
             # mid-rewrite. Works for known and unknown discs (CTDB is keyed by
             # TOC, not MBID).
             if self._config.ctdb_verify_after_rip:
+                # What an automatic CTDB repair of THIS rip would need, frozen now
+                # (TASKS R133): the CTDB answer lands later, when the window may
+                # show another disc and Settings may have changed, and the copies
+                # re-made after a repair must be the format this rip made.
+                self._note_ctdb_repair_context(
+                    CtdbRepairContext(
+                        rip_dir=Path(rip_dir),
+                        rip_log=self._last_rip_log,
+                        disc_tracks_hint=(
+                            int(getattr(self, "_current_num_tracks", 0) or 0) or None
+                        ),
+                        transcode_fmt=transcode_fmt,
+                        mp3_vbr_quality=self._config.mp3_vbr_quality,
+                        flac_verify=bool(
+                            self._config.verify_flac_after_rip
+                            and not self._backend.self_verifies_encode()
+                        ),
+                    )
+                )
                 self._start_ctdb_verify(rip_dir, wait_for=post_rip_thread)
 
             # Opt-in (default on) FLAC encode-verify — only for a backend that
@@ -3374,6 +3394,10 @@ class RipMixin(MainWindowShared):
             thread = getattr(self, attr, None)
             if thread is not None and thread.is_alive():
                 alive.append(attr.strip("_").removesuffix("_thread"))
+        # A QThread worker, not a daemon, so it is asked by its own flag: the same
+        # one `_post_rip_work_settled` reads, so the two cannot disagree.
+        if getattr(self, "_ctdb_repair_busy", False):
+            alive.append("ctdb_repair")
         if self._pending_library_move is not None:
             alive.append("library move (queued)")
         return alive
@@ -3469,15 +3493,27 @@ class RipMixin(MainWindowShared):
         # probe's `Disc tracks:` count only covers a build that prints no footer.
         rip_log = self._last_rip_log
         disc_tracks_hint = int(getattr(self, "_current_num_tracks", 0) or 0) or None
-        self._launch_post_rip_daemon(
-            compute=lambda still_current: verify_rip_dir(
+        generation = self._rip_generation
+
+        def compute(still_current: Callable[[], bool]) -> object:
+            result = verify_rip_dir(
                 self._ctdb_client,
                 rip_dir,
                 rip_log=rip_log,
                 disc_tracks_hint=disc_tracks_hint,
                 wait_for=wait_for,
                 still_current=still_current,
-            ),
+            )
+            # HOLD THE LIBRARY MOVE before this result is emitted, when a repair
+            # may follow it (TASKS R133). Set here, on this daemon, because the
+            # settlement poll would otherwise see every check finished in the gap
+            # between this thread ending and `_on_ctdb_verified` running.
+            if result is not None:
+                self._arm_ctdb_repair(generation, result)
+            return result
+
+        self._launch_post_rip_daemon(
+            compute=compute,
             signal=self.ctdb_verify_done,
             thread_attr="_ctdb_thread",
             gate="ctdb",
@@ -3494,11 +3530,18 @@ class RipMixin(MainWindowShared):
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
         # The EAC-layout log first, so the report write below embeds the copy
-        # whose Proof: rows name CTDB (TASKS R51).
+        # whose Proof: rows name CTDB (TASKS R51). Always the READ's verdict: a
+        # repair that may follow never rewrites this log (KDD-24).
         self._rewrite_eac_log_with_ctdb(generation, result)
+        # The automatic CTDB repair (TASKS R133) decides here. When it starts, it
+        # records this verdict itself once it lands, with the repair beside it, so
+        # the report's CTDB gate stays pending while the files may still change.
+        routed = self._route_ctdb_result(generation, result)
+        if routed is None:
+            return
         # Record + schedule a (debounced) re-write so the report picks up the
         # CTDB verdict alongside whatever else has finished.
-        self._record_post_rip_result(generation, "ctdb", result)
+        self._record_post_rip_result(generation, "ctdb", routed)
 
     def _rewrite_eac_log_with_ctdb(self, generation: int, result: object) -> None:
         """Write this album's EAC-layout log again, naming CTDB in its Proof: rows.
@@ -3701,6 +3744,10 @@ class RipMixin(MainWindowShared):
             thread = getattr(self, attr, None)
             if thread is not None and thread.is_alive():
                 return False
+        # The automatic CTDB repair REWRITES the album's files (TASKS R133): from
+        # the moment one may start until its re-runs are launched, nothing settles.
+        if getattr(self, "_ctdb_repair_busy", False):
+            return False
         return not self._rip_report_timer.isActive()
 
     def _post_rip_failure_summary(self) -> str:

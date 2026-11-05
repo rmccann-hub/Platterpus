@@ -746,6 +746,7 @@ def test_restore_defaults_resets_every_control_this_dialog_owns(
         read_speed_mode="fixed",
         read_speed=8,
         ctdb_verify_after_rip=not shipped.ctdb_verify_after_rip,
+        ctdb_repair_after_rip=not shipped.ctdb_repair_after_rip,
         verify_flac_after_rip=not shipped.verify_flac_after_rip,
         write_eac_log_after_rip=not shipped.write_eac_log_after_rip,
         rip_goal=GOAL_CUSTOM,

@@ -1062,6 +1062,12 @@ _MODULE_LINE_THRESHOLD: Final[int] = 300
 #: this was written. A file may shrink or leave; it may not grow, and no new file
 #: may join.
 _OVERSIZE_MODULES: Final[dict[str, int]] = {
+    # Joined 2026-11-05 (TASKS R133, the automatic CTDB repair). One job each, so
+    # recorded rather than split: the repair's window half (when it starts, the
+    # worker it owns, what the user is told, the re-runs after it, the close), and
+    # the FLAC rewrite adapter, which gained the killable runner its worker uses.
+    "ui/main_window_ctdb_repair.py": 418,
+    "adapters/flac_rewrite.py": 329,
     # 383 (2026-10-26, TASKS R88, the owner's interim): born over 300. **Kept as one module deliberately**: one job,
     # predicting every name a rip needs and refusing one over 255 bytes. Most of
     # its length is the citation for each thing cyanrip adds that the renderer
@@ -1109,7 +1115,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 406** (2026-10-21): the entries above landed together on one branch.
     # **406 -> 447** (2026-10-26, TASKS R43, the CTDB localisation): the result carries `localisation`, and the verify makes the second, lazy decode pass that feeds it and hangs each track's located samples on the track before the sentence is worded. The arithmetic lives in `ctdb/localise.py`, `ctdb/verify_parity.py`, `ctdb/syndromes.py` and `ctdb/rs_decode.py`; this is where the verify meets it.
     # **447 -> 461** (2026-11-04, TASKS R43, the CTDB repair): the result keeps the lookup's `entries`, every measured whole-disc CRC by offset (`disc_crcs`) and the `repair` record, which is what a repair reads and the report writes. The repair itself is `ctdb/repair*.py`.
-    "ctdb/verify.py": 461,
+    # **461 -> 468** (2026-11-05, TASKS R133, the automatic CTDB repair): `after_repair`, the verify run again on the repaired files, beside the read's verdict.
+    "ctdb/verify.py": 468,
     # 299 -> 306 on 2026-10-20, crossing the heuristic. **One job, kept as one
     # module**: replacing home paths at export. The 2026-10-20 Full run left the
     # owner's username in a filed bundle, because a JSON ``\n`` escape sits
@@ -1353,7 +1360,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **854 -> 851** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `recompress_flac_after_rip` left the dataclass and joined `RETIRED_CONFIG_KEYS` with its reason, shorter than the field's own comment was.
     # **851 -> 860** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` setting and its reason.
     # **860 -> 871** (2026-10-20, the owner's word "yes, read twice by default"): the `second_read_without_accuraterip` setting, with the owner's word that set its default.
-    "config.py": 871,
+    # **871 -> 883** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb_repair_after_rip`, the automatic CTDB repair's switch, with its comment.
+    "config.py": 883,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -1670,7 +1678,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **693 -> 695** (2026-09-29): `deps.command_cancelled`, a probe Platterpus stopped itself.
     # **695 -> 717** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): `bounded_chars`, the one-line form of `bounded_output`, so the fourteen head-only cuts fixed with the sweep share one helper instead of fourteen slices.
     # **717 -> 716** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac.recompress_failed` code.
-    "diagnostics.py": 716,
+    # **716 -> 725** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's codes in `KNOWN_CODES`, two of them in use since 2026-11-04 and unlisted.
+    "diagnostics.py": 725,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1900,7 +1909,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
     # the gate itself lives in `container_gate.py`.
     # **323 -> 324** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
-    "killable.py": 324,
+    # **324 -> 518** (2026-11-05, TASKS R133, the automatic CTDB repair): `run_bytes` (binary children) and `KillableJob` (a cancel that ends a job of several runs) for the CTDB repair; the one killable implementation, so they belong beside it rather than in a second.
+    "killable.py": 518,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -1946,7 +1956,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **661 -> 664** (2026-10-21, TASKS R43): the whole-disc offset sweep: a match names its offset and a no-match the range tried; the sweep itself is in `ctdb/sweep.py` and the matching in `ctdb/matching.py`.
     # **-> 667** (2026-10-21): items 3+12 and R43 each added 3 lines of help text; both landed on one branch.
     # **667 -> 668** (2026-11-03, the WAV warning): the Output format help says WAV keeps basic tags only, naming them, where it said WAV has none.
-    "help_content.py": 668,
+    # **668 -> 678** (2026-11-05, TASKS R133, the automatic CTDB repair): the User Guide's entry for *Repair from CTDB after a rip*.
+    "help_content.py": 678,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2162,7 +2173,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1094 -> 1096** (2026-11-03, review C4): `TranscodeBlock.encoder_argv`, beside the block it types.
     # **1143 -> 1167** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): schema 43's typed fields: `rip.secure_rereads`, per track `pregap_undecided_frames` / `filtered` / `ripper_cover_art`, and the error-positions row's `block_crcs`.
     # **1167 -> 1216** (2026-11-04, TASKS R43, the CTDB repair): schema 44's `ctdb.repair` typed as three blocks (the record, a rewritten track, a corrected word), beside the CTDB blocks they extend.
-    "report_types.py": 1216,
+    # **1216 -> 1237** (2026-11-05, TASKS R133, the automatic CTDB repair): `CtdbAfterRepairBlock` and `settings.ctdb_repair_after_rip` (schema 44, unreleased).
+    "report_types.py": 1237,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2312,7 +2324,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3583 -> 3590** (2026-11-03, review C4): `verification.transcode.encoder_argv` serialised, and its line in the schema history (v42, additions only).
     # **3685 -> 3732** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): schema 43's history note and the keys and issue calls that place `.29`'s readings; the blocks are built in their own modules.
     # **3732 -> 3809** (2026-11-04, TASKS R43, the CTDB repair): schema 44's history note and `_ctdb_repair`, the serializer for `ctdb.repair` beside the other CTDB serializers (a dict literal here, so `tests/test_report_types_completeness.py` can read it). The repair is `ctdb/repair*.py`.
-    "rip_report.py": 3809,
+    # **3809 -> 3856** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb.after_repair`, selected from `_ctdb` itself, and its schema note.
+    "rip_report.py": 3856,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2374,7 +2387,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1207 -> 1208** (2026-10-16, TASKS R20 part 2, round 35): `prefer_disc_isrc` among the booleans.
     # **1208 -> 1209** (2026-10-20, the owner's word "yes, read twice by default"): the new boolean setting in the validated list.
     # **1209 -> 1223** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
-    "settings_validation.py": 1223,
+    # **1223 -> 1224** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair switch in `_BOOL_FIELDS`.
+    "settings_validation.py": 1224,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     # **600 -> 601** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     "sleep_inhibit.py": 601,
@@ -2538,7 +2552,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1809 -> 1821** (2026-11-03, TASKS R118): `closeEvent` logs a failed report flush instead of raising it into Qt, which left the close half done and failed every Python event filter Qt called while the exception was pending.
     # **1821 -> 1855** (2026-11-03, the owner's screenshot on 0.7.117, the rip pane's Tracks table at ~1.5 rows): `_PANE_SHARES` 0.40/0.40 -> 0.30/0.50 with its measurement, and `_default_pane_sizes`, which lifts the disc-info pane and the track list to their floors from the rip pane, so the bigger share cannot take the track list back to two rows on a small screen. Beside the split it computes.
     # **1855 -> 1856** (2026-11-04, TASKS R128 (b)): the close hands its shared `ShutdownDeadline` to the report flush, and the comment says the flush has no bound of its own.
-    "ui/main_window.py": 1856,
+    # **1856 -> 1872** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's state, its `stop_thread` in `closeEvent` and the outcome recorded before the flush.
+    "ui/main_window.py": 1872,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2755,7 +2770,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5275 -> 5278** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): the finish handler ends the track table's live status.
     # **5268 -> 5271** (2026-11-03, review B4): hands the worker's securing-pass paranoia counts to `build_outcome`.
     # **5290 -> 5305** (2026-11-04, TASKS R128 (b)): `_flush_rip_report` takes the close's `ShutdownDeadline` and waits only what is left of it, with the docstring paragraph saying why (Critical rule 9: bound the whole shutdown). The flush lives here, so its bound does.
-    "ui/main_window_rip.py": 5305,
+    # **5305 -> 5352** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's context frozen at finish, its hold set on the CTDB daemon, and the two settlement checks; the repair itself is its own mixin.
+    "ui/main_window_rip.py": 5352,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2786,7 +2802,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **482 -> 484** (2026-11-03, TASKS R62, who cancelled a rip): the seam declares `_rip_cancel_cause`.
     # **485 -> 488** (2026-11-03, TASKS R107): the seam declares `_save_config_or_report`.
     # **488 -> 490** (2026-11-03, TASKS R96): the seam declares `run_dependency_check_async`'s `launch` marker, which the formatter wraps onto three lines.
-    "ui/main_window_shared.py": 490,
+    # **490 -> 541** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's slots and the cross-mixin stubs it and RipMixin call.
+    "ui/main_window_shared.py": 541,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2809,7 +2826,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1087 -> 1093** (2026-11-03, review of that day's Full run, B2): the cyanrip install offer is deleted when it closes, with why, beside the line that sets it; its sibling box already did.
     "ui/main_window_update.py": 1093,
     # One record type and the per-album store it lives in, cohesive. **-> 304** (2026-11-03, TASKS R51 and R62 meeting): `EacLogRender` keeps what the EAC-layout log was rendered from, who cancelled included, so CTDB's later answer renders it the same way.
-    "ui/post_rip_record.py": 304,
+    # **304 -> 307** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's step label.
+    "ui/post_rip_record.py": 307,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
@@ -2822,7 +2840,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **-> 1750** (2026-10-26): the entries above landed together on one branch.
     # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1759 -> 1834** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 1): a CTDB-only disagreement is a NOTE, never WRONG. The note line under the status line (built, named, cleared), `_render_ctdb_note` (rewrites each row's Status cell when the rip log or the CTDB answer arrives, whichever is last) and `_status_cell`'s ⓘ branch. The decision and the wording are the new focused module `ctdb_disagreement.py`; this is the pane that shows them.
-    "ui/rip_progress.py": 1834,
+    # **1834 -> 1863** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's own result line, under the CTDB verdict.
+    "ui/rip_progress.py": 1863,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2862,7 +2881,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1390 -> 1412** (2026-10-20, the owner's word "yes, read twice by default"): the second-read checkbox and its tooltip, which says what turning it off gives up.
     # **1412 -> 1415** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1415 -> 1427** (2026-11-03, the WAV warning): the WAV warning says what a WAV keeps and loses (title, artist, album, track number, year and genre kept; album artist, disc number, the MusicBrainz IDs and cover lost), from `WAV_KEPT_TAGS`, the measured list a test checks against our own transcode's output, built from that value, so it states PlainText.
-    "ui/settings_dialog.py": 1427,
+    # **1427 -> 1450** (2026-11-05, TASKS R133, the automatic CTDB repair): the *Repair from CTDB after a rip* box.
+    "ui/settings_dialog.py": 1450,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.

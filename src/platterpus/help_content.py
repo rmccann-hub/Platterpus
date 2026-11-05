@@ -296,6 +296,16 @@ and the startup test script in the script console.
   say "verified". A rip of only some tracks is not checked at all: CTDB checks
   whole discs, so the result says *not run* and how many tracks were ripped,
   rather than anything about the disc.
+- **Repair from CTDB after a rip** — when the CTDB check finds a track differs
+  from the version most people's copies hold, repair that track from CTDB's
+  recovery data, on its own (**on by default**). It only ever replaces a file it
+  has proved first: the repaired file must decode to the original plus exactly the
+  planned corrections, and the whole disc must then match CTDB's strongest entry.
+  The original is kept beside it as `<name>.flac.before-ctdb-repair`, the logs are
+  left as the record of the read, and the Details tab says what was repaired — or,
+  when it could not be, why, and what you can do (clean the disc and rip again, or
+  try another drive). Any MP3, WavPack or WAV copies are made again from the
+  repaired FLAC. Off: a difference is reported and the files are left as ripped.
 - **Verify FLAC files after a rip** — decode each FLAC back and check it against its
   stored checksum (on by default). There is no compression setting: cyanrip
   already writes every FLAC at maximum compression.
