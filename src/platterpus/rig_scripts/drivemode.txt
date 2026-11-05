@@ -52,6 +52,16 @@
 # `--cache-probe`, each into its own folder named for its label. A paranoia
 # skip or read error in Perfect mode shows in the rip's own log and in its
 # record; that is the point of running it there.
+#
+# THE FIRST RIP ALSO ASKS THE DRIVE FOR ITS SETTINGS, READ-ONLY. It adds
+# `--read-vendor-settings` (the fork's `.30`, cyanrip@5cc1c6b3): cyanrip sends
+# Pioneer's own settings query (READ BUFFER, buffer F4h, a read; nothing is
+# written to the drive) only to a drive whose INQUIRY names Pioneer, and keeps
+# the answer, with PureRead's support and mode read from it, in that rip's -j
+# record (`drive_declared.vendor_settings`). The owner's word of 2026-11-05, "Yes
+# do this" (TASKS R137). One rip is enough: the mode is the drive's, not the
+# track's. It needs `.30` or later; an earlier build refuses the option, so
+# that one rip fails in seconds and the run carries on.
 # -----------------------------------------------------------------------------
 
 log =============================================================
@@ -87,7 +97,9 @@ snapshot discready
 # --- C. EARLY IN THE SESSION: track 5, track 3, three times ----------------
 
 log --- C. early: track 5 then track 3, three times ---
-cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfiveearly1 (consumer) (diagnostics)
+# The first rip also asks the drive for its own settings (read-only; see the
+# header): its -j record then carries the drive's PureRead answer.
+cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 5 -D dmfiveearly1 --read-vendor-settings (consumer) (diagnostics)
 expect-exit 0
 record-accuracy fiveearly1 dmfiveearly1
 cyanrip -N -U -W -d (device) -s (offset) -o flac -r 5 --cache-probe -l 3 -D dmthreeearly1 (consumer) (diagnostics)

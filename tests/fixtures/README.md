@@ -80,6 +80,18 @@ times, `file` null, and `drive_declared` null, since a disc image has no drive t
 ask. `tests/test_round38_dot30_reads.py` reads it. Its `invocation` line is the
 fork's build path, not anyone's home folder. Do not edit it.
 
+## cyanrip_fork_diagnostics13_golden_5cc1c6b3.json (added 2026-11-05)
+
+**The same golden record as published with `.30`'s vendor settings query**, byte for
+byte from `cyanrip@5cc1c6b3:docs/golden-reference.diagnostics.json` (sha256
+`5919e84b1610ea4ce3f54b50988d8ece66f6bcd9850f2ccb30f0ba06771631c6`), the tree that
+adds `--read-vendor-settings` and `drive_declared.vendor_settings`. It differs from
+the `40dc64d7` copy above only in its version, `vcs` and times: an image is no drive,
+so `drive_declared` stays null and no vendor query is sent (their
+`tests/rip_images.py`, `sc_vendor_settings`). Kept beside the older copy so a test
+can show both read the same. `tests/test_round38_dot30_vendor_settings.py` reads it.
+Do not edit it.
+
 ## ctdb_lookup_police_classics.xml (added 2026-10-21)
 
 **The live CTDB answer for the reference disc**, byte for byte: the body of
