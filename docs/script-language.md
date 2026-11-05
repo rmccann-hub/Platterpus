@@ -221,6 +221,7 @@ than the UI it stands in for.
 | `read_speed_mode` | text |
 | `read_speed` | integer |
 | `ctdb_verify_after_rip` | boolean (on/off) |
+| `ctdb_repair_after_rip` | boolean (on/off) |
 | `verify_flac_after_rip` | boolean (on/off) |
 | `write_eac_log_after_rip` | boolean (on/off) |
 | `output_format` | text |
@@ -1190,6 +1191,10 @@ found nothing wrong*.
     },
     {
       "field": "ctdb_verify_after_rip",
+      "type": "boolean (on/off)"
+    },
+    {
+      "field": "ctdb_repair_after_rip",
       "type": "boolean (on/off)"
     },
     {

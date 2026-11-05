@@ -380,6 +380,7 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "rerip_offset_variant",
     "second_read_without_accuraterip",
     "ctdb_verify_after_rip",
+    "ctdb_repair_after_rip",
     "verify_flac_after_rip",
     "write_eac_log_after_rip",
     "save_additional_art",

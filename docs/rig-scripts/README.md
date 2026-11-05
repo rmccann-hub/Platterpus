@@ -181,6 +181,15 @@ the run carries on. 0.7.120 already has every verb it uses:
 Unattended, like every rig run. The findings it serves: `docs/eac-parity.md`
 Part G.2.
 
+## Round 38's drive test: the order, and what to send
+
+**The procedure is [`docs/rig-session.md`](../rig-session.md), the one rig sheet**,
+rewritten in place as round 38 agrees changes (our lap 7, S17 to S19, proposes it to
+the fork). It runs `drivemode.txt` and `drivespeed.txt` above, in four phases on
+Bazzite and Windows 11, and says for each step what it measures and what is not yet
+verified. Nothing about what the owner's drive can do is settled until the drive
+answers.
+
 ## Which collector gathers what
 
 Four things can pack a session into a file, and **only one of them gathers every

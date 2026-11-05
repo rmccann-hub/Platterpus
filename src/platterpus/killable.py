@@ -39,6 +39,13 @@ escalation — i.e. waiting. Everything routed through here is a **read-only pro
 so a hard kill costs nothing and is the only thing that reliably returns the drive.
 A child that *does* have state to flush — the rip itself — deliberately does not
 use this module; it uses `RipHandle`, which escalates properly on a worker thread.
+
+The one writer routed through here is the CTDB repair (:class:`KillableJob`,
+2026-11-05), and a hard kill is safe for it by construction: every ``flac`` and
+``metaflac`` that writes, writes only to a hidden candidate file beside the
+original (``ctdb/repair_commit.candidate_path``), which the repair deletes on
+any failure. The original is touched only by the commit, a link and a rename in
+Python, with no child process to kill.
 """
 
 from __future__ import annotations
@@ -74,9 +81,18 @@ class CancelledRun(subprocess.CompletedProcess[str]):
     """
 
 
+class CancelledBytesRun(subprocess.CompletedProcess[bytes]):
+    """:class:`CancelledRun` for a binary run (:meth:`KillableCommand.run_bytes`).
+
+    A second class rather than a generic one because ``CompletedProcess`` is
+    generic only to the type checker; at run time a binary run and a text run
+    are the same class, and :func:`was_cancelled` must recognise both.
+    """
+
+
 def was_cancelled(proc: object) -> bool:
     """Whether ``proc`` is a run that its own slot's ``cancel()`` ended."""
-    return isinstance(proc, CancelledRun)
+    return isinstance(proc, CancelledRun | CancelledBytesRun)
 
 
 class KillableCommand:
@@ -91,7 +107,9 @@ class KillableCommand:
     def __init__(self, name: str) -> None:
         self._name: str = name
         self._lock: threading.Lock = threading.Lock()
-        self._proc: subprocess.Popen[str] | None = None
+        # Text-mode children (`run`) and binary ones (`run_bytes`, the CTDB
+        # repair's `flac` pipes) share the slot: one operation, one live child.
+        self._proc: subprocess.Popen[str] | subprocess.Popen[bytes] | None = None
         # **A cancel is scoped to a RUN, not to this slot.**
         #
         # `_issued` counts runs; each `run()` takes its own sequence number
@@ -143,7 +161,9 @@ class KillableCommand:
         log.info("%s: cancelling (SIGKILL to the process group)", self._name)
         self._kill_group(proc)
 
-    def _kill_group(self, proc: subprocess.Popen[str]) -> None:
+    def _kill_group(
+        self, proc: subprocess.Popen[str] | subprocess.Popen[bytes]
+    ) -> None:
         """SIGKILL the child's whole group, falling back to the child alone."""
         if proc.poll() is not None:
             return  # already exited; nothing to signal
@@ -208,7 +228,113 @@ class KillableCommand:
     def _covered_by_cancel(self, seq: int) -> bool:
         """Whether a cancel has been issued that covers run ``seq``."""
         with self._lock:
-            return seq <= self._cancel_through
+            return self._covered_locked(seq)
+
+    def _covered_locked(self, seq: int) -> bool:
+        """:meth:`_covered_by_cancel` for a caller already holding ``_lock``.
+
+        The one place the coverage rule is written, so a subclass that widens it
+        (:class:`KillableJob`: a cancel covers every later run too) changes the
+        startup check, the registration check and the "ended by our cancel"
+        check together rather than one of the three.
+        """
+        return seq <= self._cancel_through
+
+    def _register(
+        self, proc: subprocess.Popen[str] | subprocess.Popen[bytes], seq: int
+    ) -> bool:
+        """Put ``proc`` in the slot; True when a cancel already covers its run."""
+        with self._lock:
+            self._proc = proc
+            return self._covered_locked(seq)
+
+    def _deregister(
+        self, proc: subprocess.Popen[str] | subprocess.Popen[bytes], seq: int
+    ) -> bool:
+        """Clear the slot if it still holds ``proc``; True when our cancel ended it.
+
+        See the long comment in :meth:`_spawn_and_wait` for why the slot is
+        cleared only when it still holds *this* child, and why "ended by our
+        cancel" needs both a covering cancel and a SIGKILL exit status.
+        """
+        with self._lock:
+            if self._proc is proc:
+                self._proc = None
+            return self._covered_locked(seq) and proc.returncode == -signal.SIGKILL
+
+    def run_bytes(
+        self, argv: list[str], *, stdin: bytes | None, timeout: float
+    ) -> subprocess.CompletedProcess[bytes]:
+        """:meth:`run` for a binary child: bytes in on stdin, bytes out. Cancellable.
+
+        **Why a second entry point and not a flag on** :meth:`run`: the CTDB
+        repair pipes raw PCM through ``flac`` in both directions (its decode
+        writes the audio to stdout, its encode reads it from stdin), which a
+        text-mode child would corrupt. Everything else is the same contract,
+        through the same helpers: a sequence number claimed before the spawn,
+        the startup-race check, the process group (``start_new_session=True``),
+        a kill on timeout that keeps what the child had already written, and a
+        :class:`CancelledBytesRun` when this slot's own cancel ended the run.
+
+        ``stdin`` is the child's whole input, or ``None`` for ``/dev/null``.
+        Raises ``FileNotFoundError`` and ``subprocess.TimeoutExpired`` exactly as
+        ``subprocess.run`` does.
+        """
+        with self._lock:
+            self._issued += 1
+            seq = self._issued
+        first = FIRST_ENTRY.claim(
+            argv[0] if argv else "",
+            name=self._name,
+            should_stop=lambda: self._covered_by_cancel(seq),
+        )
+        try:
+            return self._spawn_and_wait_bytes(argv, seq, stdin=stdin, timeout=timeout)
+        finally:
+            if first:
+                FIRST_ENTRY.release()
+
+    def _spawn_and_wait_bytes(
+        self, argv: list[str], seq: int, *, stdin: bytes | None, timeout: float
+    ) -> subprocess.CompletedProcess[bytes]:
+        """The body of :meth:`run_bytes`; the binary twin of :meth:`_spawn_and_wait`."""
+        proc = subprocess.Popen(  # noqa: S603 — callers pass a resolved binary
+            argv,
+            stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,  # see the module docstring — load-bearing
+        )
+        if self._register(proc, seq):
+            self._kill_group(proc)
+        try:
+            # A child killed during startup closes its stdin; `communicate` swallows
+            # the broken pipe that writing to it would raise (CPython's
+            # `_stdin_write`), so a cancelled encode ends here, not in an exception.
+            stdout, stderr = proc.communicate(input=stdin, timeout=timeout)
+        except subprocess.TimeoutExpired as timed_out:
+            self._kill_group(proc)
+            try:
+                # Keep what it already said, as `_spawn_and_wait` does and why.
+                late_stdout, late_stderr = proc.communicate(timeout=REAP_TIMEOUT_S)
+                timed_out.stdout = late_stdout
+                timed_out.stderr = late_stderr
+            except subprocess.TimeoutExpired:
+                log.error(
+                    "%s: child unreapable after SIGKILL — leaked; no output could "
+                    "be recovered",
+                    self._name,
+                )
+            raise
+        finally:
+            ended_by_our_cancel = self._deregister(proc, seq)
+        if ended_by_our_cancel:
+            return CancelledBytesRun(
+                args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
+            )
+        return subprocess.CompletedProcess(
+            args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
+        )
 
     def _spawn_and_wait(
         self,
@@ -231,10 +357,7 @@ class KillableCommand:
             errors="replace",
             start_new_session=True,  # see the module docstring — load-bearing
         )
-        with self._lock:
-            self._proc = proc
-            cancelled_during_startup = seq <= self._cancel_through
-        if cancelled_during_startup:
+        if self._register(proc, seq):
             self._kill_group(proc)
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -313,7 +436,7 @@ class KillableCommand:
                 # kill landed keeps its own exit status, and so does a -9 nobody here
                 # sent (the kernel's OOM killer), because no cancel covered it.
                 ended_by_our_cancel = (
-                    seq <= self._cancel_through and proc.returncode == -signal.SIGKILL
+                    self._covered_locked(seq) and proc.returncode == -signal.SIGKILL
                 )
         if ended_by_our_cancel:
             return CancelledRun(
@@ -322,3 +445,74 @@ class KillableCommand:
         return subprocess.CompletedProcess(
             args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
         )
+
+
+def _tool(argv: list[str]) -> str:
+    """The program an argv runs, for a log line: its first element, whole."""
+    return argv[0] if argv else "(no program)"
+
+
+class KillableJob(KillableCommand):
+    """A :class:`KillableCommand` for ONE job of several runs: a cancel ends the job.
+
+    **Why a second shape.** A :class:`KillableCommand` slot is shared by
+    operations the GUI restarts (a rescan cancels the probe in flight and starts
+    another at once), so its cancel deliberately has no authority over a run
+    issued afterwards. The CTDB repair is the opposite case: one job that runs
+    ``flac`` and ``metaflac`` a dozen times in a row, decoding, encoding and
+    decoding again. A cancel that landed between two of those runs would find
+    nothing to kill, and the job would carry on with the next one: a ``cancel()``
+    that does not stop the work, which ``CLAUDE.md`` rule 9 forbids shipping.
+
+    So here a cancel covers the run in flight AND every run after it: a later
+    :meth:`run` or :meth:`run_bytes` returns a cancelled result at once, without
+    spawning anything. Create one per job; never reuse one after it is cancelled.
+    The coverage rule is widened in :meth:`_covered_locked`, the one place it is
+    written, so the startup race stays closed for the widened rule too (the flag
+    is set BEFORE the lock is taken, so either the registering run sees it, or
+    ``cancel()`` sees the registered child).
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self._job_cancelled: threading.Event = threading.Event()
+
+    @property
+    def cancelled(self) -> bool:
+        """Whether :meth:`cancel` has been called on this job."""
+        return self._job_cancelled.is_set()
+
+    def cancel(self) -> None:
+        """Kill the run in flight and refuse every later one. Thread-safe."""
+        self._job_cancelled.set()
+        super().cancel()
+
+    def _covered_locked(self, seq: int) -> bool:
+        return self._job_cancelled.is_set() or super()._covered_locked(seq)
+
+    def run(
+        self,
+        argv: list[str],
+        *,
+        timeout: float,
+        stdin_devnull: bool = True,
+        cwd: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """:meth:`KillableCommand.run`, or a cancelled result once the job is cancelled."""
+        if self._job_cancelled.is_set():
+            log.info("%s: cancelled, so %s is not started", self._name, _tool(argv))
+            return CancelledRun(
+                args=argv, returncode=-signal.SIGKILL, stdout="", stderr=""
+            )
+        return super().run(argv, timeout=timeout, stdin_devnull=stdin_devnull, cwd=cwd)
+
+    def run_bytes(
+        self, argv: list[str], *, stdin: bytes | None, timeout: float
+    ) -> subprocess.CompletedProcess[bytes]:
+        """:meth:`KillableCommand.run_bytes`, or a cancelled result once cancelled."""
+        if self._job_cancelled.is_set():
+            log.info("%s: cancelled, so %s is not started", self._name, _tool(argv))
+            return CancelledBytesRun(
+                args=argv, returncode=-signal.SIGKILL, stdout=b"", stderr=b""
+            )
+        return super().run_bytes(argv, stdin=stdin, timeout=timeout)

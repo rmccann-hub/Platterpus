@@ -264,6 +264,8 @@ class SettingsBlock(TypedDict):
     secure_rerip_matches: int | None
     max_retries: int | None
     ctdb_verify_after_rip: bool | None
+    # v44 (TASKS R133): the automatic CTDB repair's switch, frozen at Start.
+    ctdb_repair_after_rip: bool | None
     verify_flac_after_rip: bool | None
     #: DERIVED from the six preset fields by `goal_presets.detect_goal`, not read
     #: back from `config.rip_goal` — the stored label is only a name for those
@@ -583,6 +585,22 @@ class CtdbTrackBlock(TypedDict):
     differences: list[CtdbDifferenceBlock]
 
 
+class CtdbAfterRepairBlock(TypedDict):
+    """``ctdb.after_repair`` (v44, TASKS R133): the verify run on the repaired files."""
+
+    verdict: str | None
+    confidence: int | None
+    trustworthy: bool | None
+    best_confidence: int | None
+    total_confidence: int | None
+    outvoted: bool | None
+    matched_offset: int | None
+    our_crc: str | None
+    matched_crc: str | None
+    message: str | None
+    tracks: list[CtdbTrackBlock] | None
+
+
 class CtdbBlock(TypedDict):
     verdict: str | None
     confidence: int | None
@@ -606,6 +624,9 @@ class CtdbBlock(TypedDict):
     localisation: CtdbLocalisationBlock | None
     # v44 (TASKS R43): the repair, or why it was refused; null when none asked.
     repair: CtdbRepairBlock | None
+    # v44 (TASKS R133): the verify run again after a repair; the fields above stay
+    # the read's. Null unless a repair changed a file.
+    after_repair: CtdbAfterRepairBlock | None
 
 
 class CoverArtBlock(TypedDict):

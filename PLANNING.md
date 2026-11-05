@@ -413,7 +413,8 @@ Platterpus/
         │   ├── repair_apply.py          # unchanged-file check, XOR, and the whole-disc CRC proof (pure)
         │   ├── repair_commit.py         # keep the original, rename the proved file in, undo on failure
         │   ├── repair.py                # the repair core: plan → apply → encode → prove → commit (blocking; off the GUI thread)
-        │   ├── repair_run.py            # the thin caller: repair from a CtdbVerifyResult
+        │   ├── repair_run.py            # the thin caller: repair from a CtdbVerifyResult; when to repair; AR per track
+        │   ├── repair_wording.py        # what the user is told about a repair, or why there was none (pure)
         │   └── verify.py                # verify_rip() orchestration + Verdict enum
         │
         ├── deps/                        # dependency self-management subsystem (brief P0 #11)
@@ -466,6 +467,7 @@ Platterpus/
         │   ├── main_window_deps.py      # DependencyMixin — dependency check + resolution-routing UI
         │   ├── dependency_check_status.py # what the dependency check says while it runs and when it lands (pure)
         │   ├── main_window_settings.py  # SettingsMixin — Settings' OK/Apply + saving one setting from its home
+        │   ├── main_window_ctdb_repair.py # CtdbRepairMixin — the automatic CTDB repair after a rip (R133)
         │   ├── setting_homes.py         # the one window + control that edits each user setting (pure)
         │   ├── drive_picker.py          # drive dropdown widget
         │   ├── disc_info_panel.py       # TOC / MB match / AccurateRip availability
@@ -513,6 +515,7 @@ Platterpus/
             ├── ripper_update_worker.py  # asks the cyanrip fork's manifest whether a newer ripper build exists
             ├── update_worker.py         # drives the release check + the download/verify/install off-thread
             ├── ctdb_worker.py           # drives CTDB verify for a finished rip off-thread (KDD-14)
+            ├── ctdb_repair_worker.py    # the automatic CTDB repair on a QThread, cancel() kills its child (R133)
             ├── flac_verify_worker.py    # drives the post-rip `flac --test` integrity check off-thread
             └── derived_verify_worker.py # off-thread verify of derived MP3/WavPack/WAV files (KDD-22)
 ```
@@ -750,7 +753,8 @@ Clean-room CTDB verify support (KDD-16), kept as a standalone library so the det
 - **`repair_apply.py`** (2026-11-04, TASKS R43) — checks a file is still the audio the localisation measured (length and CRC-32), XORs the words, and proves the whole repaired disc against the entry's whole-disc and per-track CRCs at its offset. Pure.
 - **`repair_commit.py`** (2026-11-04, TASKS R43) — keeps the original as `<name>.flac.before-ctdb-repair` (hard link, or a compared copy on FAT/exFAT), never over an earlier one, renames the proved file in, and undoes everything on a failure part-way.
 - **`repair.py`** (2026-11-04, TASKS R43) — the repair core, in order: plan, unchanged check, apply, encode through `adapters/flac_rewrite.py`, re-decode, prove, commit, with AccurateRip recomputed by `accuraterip_crc.py`. Never raises; blocking, so off the GUI thread. No GUI action or worker yet.
-- **`repair_run.py`** (2026-11-04, TASKS R43) — the thin caller: reads the inputs off a `CtdbVerifyResult` and the files' lengths, and returns the result with `repair` set.
+- **`repair_run.py`** (2026-11-04, TASKS R43) — the thin caller: reads the inputs off a `CtdbVerifyResult` and the files' lengths, and returns the result with `repair` set. From 2026-11-05 (TASKS R133) also the two predicates the worker and the window share: `differs_from_strongest` (when to repair at all) and `accuraterip_answers` (AccurateRip's per-track answer from the rip log, `None` when the log and the files cannot be lined up, which refuses the repair).
+- **`repair_wording.py`** (2026-11-05, TASKS R133) — what the user is told: a repair (track, samples, entry and submissions, the proof, the fresh CTDB check, AccurateRip *not determined* with our checksums stated, where the original is kept) or why there was none and what to do, each with its ✓/⚠/ⓘ marker and level. Pure and Qt-free.
 
 ### Dependency self-management subsystem (`deps/`)
 
@@ -830,6 +834,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`ui/scroll_guards.py`** — two scrolling rules the whole UI obeys, both reported from real use (2026-08-13). **(1) A scroll gesture must never change a value:** Qt's default is that a `QSpinBox`/`QComboBox`/`QSlider` under the pointer swallows the wheel and increments *itself*, so scrolling the Settings page past a control silently edits it. For most apps that is an annoyance; here it is **data integrity** — a nudged `read_offset` or `-Z` count rips the *next disc wrong* with no error and a clean-looking log, because those settings are calibration that reaches cyanrip's argv. The guard ignores the wheel unless the widget already holds keyboard focus, so deliberate adjustment still works and scrolling past does not. **(2) A log pane must not yank you back:** appending scrolls to the end, which is right while a run streams past and wrong the moment you scroll up to read a failure. Sticky-bottom — follow only if already at the bottom — and the at-the-bottom check must happen *before* the append, or the question is unanswerable. One module rather than N patched widgets, because the rule is about widget *types*, not about the ten controls that happened to be reported.
 - **`dialogs/setup_center.py`** — **Tools → Setup & Updates…**: setup, dependencies and both update checks in one modeless window. **It owns no logic** — every button delegates to the method that already does the job (`_on_check_updates`, `_on_check_ripper_updates`, `_on_pick_ripper_build`, `_on_check_dependencies`, `open_host_setup_dialog`, `_on_drive_setup`, `_show_drive_access_diagnosis`, `_on_add_app_shortcut`), because a consolidated window that re-derived any of those answers would be a second opinion free to disagree with the one a rip records. It replaced **six** menu items across two menus plus a button buried in Settings, on a real-user report (*"we dont need 20 menues when 5 will do"*). Modeless for a structural reason rather than a stylistic one: its buttons open modal dialogs, so an `exec()` here would nest every one of them inside this window's event loop — the stacking `run_setup_wizard` exists to prevent. It never probes: what it shows is constants and the window's cached dependency report, so nothing on this path can enter the container on the GUI thread.
 - **`setting_homes.py`** — pure data: `SETTING_HOMES` maps every user setting to its ONE window and control (`SETTINGS`, `DRIVE_SETUP`, `SETUP_CENTER`, `SCRIPT_CONSOLE`), with `WINDOW_PATHS` for the menu path a read-only view names. The rule it records: a setting lives beside what it steers. `tests/test_setting_homes.py` builds every such window and fails on a setting with no home or a value control no setting is homed on (the second-editor defect that once let Settings write a stale offset over the wizard's).
+- **`main_window_ctdb_repair.py`** (2026-11-05, TASKS R133, KDD-47 amended) — `CtdbRepairMixin`: the automatic CTDB repair after a rip, no button. Holds the library move from the CTDB check's own daemon before it emits (`_arm_ctdb_repair`), decides on the GUI thread (`_route_ctdb_result`: the Settings switch frozen at Start, a newer rip, another repair running), starts and owns `CtdbRepairWorker` on a `QThread` stopped in `closeEvent`, keeps the CTDB gate pending while it runs, then records the read's verdict with `repair` and `after_repair` beside it, tells the user, and makes the derived copies again from the repaired FLAC with the derived verify, checksums and FLAC integrity re-run. `_land_ctdb_repair_on_close` records the outcome when the window closes mid-repair.
 - **`main_window_settings.py`** — `SettingsMixin`: the two write paths. `_on_open_settings` / `_apply_settings_from` (Settings' OK and Apply, only what the user changed) and `_save_user_setting(field, value) -> SettingWrite` for a control that saves as it changes — validated by the same `settings_validation.field_error` as the `set` script verb, refusing app state and unknown names. `_refresh_setting_views` keeps an open Setup & Updates showing the current channels and offset.
 - **`dialogs/script_settings_box.py`** — `ScriptSettingsBox`, the script console's startup script (Choose / Use built-in / Clear) and autorun box, saved as they change through `_save_user_setting`. Split from the console so the console stays about running a batch; the console never replaces a typed batch when the startup script changes.
 - **`dialogs/script_console.py`** — **Tools → Advanced → Run test script…**: paste or load a batch, run it against the live window, read the transcript. It adds no behaviour — `uiscript/` already had the parser, vocabulary, runner and renderer, with tests — it adds the **surface**, which that subsystem shipped without: `grep` for the package outside itself returned nothing, so the maintainer's own ask (*"a debug testing option where i can copy and paste command code into it so i dont need to be present"*) existed as a library nobody could invoke. Modeless on purpose (a modal console would sit in front of the window it drives), and its transcript widget is `PlainText` because it carries the ripper's own output. The same method backs the menu item, `--run-script` and the config's autorun, so there is one description of how a batch starts.
@@ -856,6 +861,7 @@ module's `QThread` keep working) and connects its own result slots first.
 - **`ripper_update_worker.py`** — `RipperUpdateWorker`: fetches the cyanrip fork's release manifest off-thread and emits a `RipperOffer`. Always emits an offer, never `None` — "couldn't determine" is a verdict this subsystem carries explicitly rather than something every caller has to re-derive from a null. Its `cancel()` is real, not a flag: it closes the socket via `ripper_manifest.CancellableFetcher`, which is the only thing that can break a thread blocked in `read()`.
 - **`update_worker.py`** — `UpdateCheckWorker` (release lookup) + `UpdateInstallWorker` (download/verify/install with progress) off-thread.
 - **`ctdb_worker.py`** — runs CTDB verify for a finished rip off-thread on a daemon thread (KDD-14 Phase 1; it can outlive any sane `wait()`, see architecture.md §3.2).
+- **`ctdb_repair_worker.py`** (2026-11-05, TASKS R133) — `CtdbRepairWorker`: the automatic CTDB repair. A `QThread` worker, not a daemon, because it rewrites the master: every child process it runs goes through one `killable.KillableJob`, so `cancel()` SIGKILLs the one in flight and refuses every later one. Waits for the album's other readers, repairs through `repair_run.repair_verified_rip`, verifies the repaired files again, and keeps its outcome on itself as well as emitting it.
 - **`flac_verify_worker.py`** — runs the post-rip `flac --test` integrity check off-thread (same daemon-thread + `wait_for` pattern as `ctdb_worker`, so it never tests a FLAC mid-metaflac-rewrite); reports a `FlacVerifyResult` via a queued signal.
 - **`derived_verify_worker.py`** — runs `derived_verify` over a finished rip's derived files off the GUI thread on a daemon thread (a full-album decode per file; queued-signal result), the same pattern as `ctdb_worker`/`flac_verify_worker`.
 
@@ -2411,6 +2417,27 @@ accepting it only on AccurateRip v1 and v2, is built beside it, with the fork as
 keep every read. **And round 38 stays open** until this is resolved, on the owner's
 word (*"lets keep this round going until we can resolve this and do as much as
 possible"*), which overrides our lap 6's pre-commit to `GO` on the run alone.
+
+**Amended 2026-11-05 — no button: repair runs on its own when it is proved, and
+says so when it is not** (the owner: *"Should ripping to a good file need a button?
+Either we are confident it will happen or not, if not we need to fix that or then
+leave for the user but let them know"*). After every rip whose CTDB check finds it
+differs from the strongest entry, the app repairs it **automatically, on a worker,
+if and only if every proof passes** (the new file decodes to the original with the
+planned corrections and nothing else; the whole-disc CRC and each repaired track's
+CRC match the entry), then verifies again and says what it did: which track, how
+many samples, the entry and its confidence, and AccurateRip's answer after, the one
+witness that is not CTDB. The original stays beside it. When the repair refuses or
+fails, the rip's result **tells the user in plain words** what is wrong, why it was
+not repaired, and what they can do (re-rip, clean the disc, another drive). A
+Settings switch, on by default, lets a user turn it off; the derived copies (MP3,
+WavPack, WAV) are made from the repaired FLAC. **Why this is safe enough to run
+unasked:** the fail-safe direction is the archival master's, not the user's
+convenience. A false repair would corrupt audio, so nothing is replaced until the
+result reproduces the entry's CRC32s, a false match being about 2^-32 per CRC, and
+the original is kept; a false refusal costs only a rip left as it was, with a
+sentence saying so. The same rule binds the rebuild from several reads (R134):
+automatic, accepted only on AccurateRip v1 and v2, and told when it is not.
 
 **Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
 LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room

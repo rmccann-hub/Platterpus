@@ -266,6 +266,11 @@ SENT_LAPS: dict[str, str] = {
     # Released 2026-11-04 on the owner's word ("Send it"), telling the fork
     # 0.7.120 names .29; 8,836 bytes.
     "outbound/round-38-lap-06.md": "581ffb30bd8c154b320ecb0713ad6a1581b6d56f8f6b18ec2fde9020cf637abe",
+    # Released 2026-11-05 on the owner's word ("do it, release it"): the run on
+    # .29 read, CTDB repair built, the test plan for tracks 3 and 5 proposed for
+    # the fork's agreement, with the owner's words of 2026-11-05, our assumptions
+    # and four questions added before it was carried (S37); 28,696 bytes.
+    "outbound/round-38-lap-07.md": "4fbefba13824ff58df5541543fda33c942963141365c57775d132db92e097a17",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

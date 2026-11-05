@@ -777,6 +777,7 @@ def stop_window_threads(window: object) -> None:
         "_rip_thread",
         "_update_thread",
         "_install_thread",
+        "_ctdb_repair_thread",
     ):
         thread = getattr(window, name, None)
         # Duck-typed on purpose: many tests put a stand-in (a SimpleNamespace, a
