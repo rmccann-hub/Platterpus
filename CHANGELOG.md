@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our round 38 lap 13 is released** (contributor-facing; on the owner's word of 2026-11-05, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it tells the fork 0.7.121 is published naming `.30` as our build under review, gives our cell for their `--read-vendor-settings` row, and leaves the round open for the owner's drive test on `.30`.
+
 ## [0.7.121] — 2026-11-05
 The release that names the fork's `.30` (`5cc1c6b`) as the build under review, for round 38's drive test and the Full run that doubles as this release's test; `.28` stays the default ripper until round 38 closes. A rip that CTDB says differs from the strongest entry is now repaired on its own when every proof passes, with the original kept beside it and the user told what was done or why not; a Settings switch, on by default, turns it off. It reads everything `.30` adds: the `Other read:` lines, every kept read in the diagnostics record, everything the drive declares about itself, and the drive's own PureRead answer through the vendor read. A script run's bundle now carries every scripted rip's full log, the installer accepts a build whose short hash git lengthened, and the `drivemode` and `drivespeed` rig scripts carry round 38's drive test.
 

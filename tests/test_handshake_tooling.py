@@ -1983,13 +1983,8 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # add9024f…, the fork's lap 7 copy filed at 6177b3e7.
     # Our round 38 lap 9's seam-commands entry left with our lap 11, which
     # declares a5968c79…, the fork's lap 10 copy filed at fcb75b5f.
-    # Round 38, 2026-11-05: our lap 11 declares seam-commands=a5968c79…; the
-    # fork's lap 12 (S6) adds the `--read-vendor-settings` row, PP `?`, at
-    # `cyanrip@3c8b002a`, and our copy of their file hashes to c76a54e9…, which
-    # their lap 12 declares. Leaves with our lap 13.
-    ("round-38-lap-11.md", "seam-commands"): (
-        "c76a54e95c040b20f91c38647bb7caded566c147bd56bf2c9c9fc212a11e0c25"
-    ),
+    # Our round 38 lap 11's seam-commands entry left with our lap 13, which
+    # declares c76a54e9…, the fork's lap 12 copy filed at 1fa67602.
 }
 
 
