@@ -2412,6 +2412,27 @@ keep every read. **And round 38 stays open** until this is resolved, on the owne
 word (*"lets keep this round going until we can resolve this and do as much as
 possible"*), which overrides our lap 6's pre-commit to `GO` on the run alone.
 
+**Amended 2026-11-05 — no button: repair runs on its own when it is proved, and
+says so when it is not** (the owner: *"Should ripping to a good file need a button?
+Either we are confident it will happen or not, if not we need to fix that or then
+leave for the user but let them know"*). After every rip whose CTDB check finds it
+differs from the strongest entry, the app repairs it **automatically, on a worker,
+if and only if every proof passes** (the new file decodes to the original with the
+planned corrections and nothing else; the whole-disc CRC and each repaired track's
+CRC match the entry), then verifies again and says what it did: which track, how
+many samples, the entry and its confidence, and AccurateRip's answer after, the one
+witness that is not CTDB. The original stays beside it. When the repair refuses or
+fails, the rip's result **tells the user in plain words** what is wrong, why it was
+not repaired, and what they can do (re-rip, clean the disc, another drive). A
+Settings switch, on by default, lets a user turn it off; the derived copies (MP3,
+WavPack, WAV) are made from the repaired FLAC. **Why this is safe enough to run
+unasked:** the fail-safe direction is the archival master's, not the user's
+convenience. A false repair would corrupt audio, so nothing is replaced until the
+result reproduces the entry's CRC32s, a false match being about 2^-32 per CRC, and
+the original is kept; a false refusal costs only a rip left as it was, with a
+sentence saying so. The same rule binds the rebuild from several reads (R134):
+automatic, accepted only on AccurateRip v1 and v2, and told when it is not.
+
 **Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
 LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room
 rule KDD-16 set remains the practice.
