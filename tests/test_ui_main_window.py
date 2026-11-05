@@ -53,6 +53,7 @@ from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.paths import LOG_PATH
+from platterpus.record_drive_declared import NOTE as DRIVE_DECLARED_NOTE
 from platterpus.ui import message_boxes
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
 from platterpus.ui.main_window_rip import TaggingResult
@@ -6727,6 +6728,20 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
             "note": NOTE,
             "tracks": [],
             "rows_not_read": 0,
+        },
+        # v44 (`.30`'s `/13`): what the drive declares, from the same reading;
+        # null replies and a null `declared_state`, since no record was read.
+        "drive_declared": {
+            "describes": "album pass",
+            "state": "not_read",
+            "detail": None,
+            "declared_state": None,
+            "note": DRIVE_DECLARED_NOTE,
+            "inquiry": None,
+            "configuration": None,
+            "cd_read_feature": None,
+            "mode_sense_all_pages": None,
+            "mode_sense_not_kept": 0,
         },
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}

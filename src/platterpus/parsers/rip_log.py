@@ -83,6 +83,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from platterpus.first_pass_reread import FirstPassReread, did_not_converge
+from platterpus.other_reads import OtherRead
 from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
 from platterpus.pregap_search import PregapSearch
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
@@ -465,6 +466,13 @@ class TrackResult:
     pregap_undecided_frames: tuple[int, int] | None = None
     filtered: TrackFilter | None = None
     ripper_cover_art: RipperCoverArt | None = None
+    # `.30`'s `Other read:` lines (`other_reads`): each `-Z` read of this track
+    # that was not kept, in the order first read, with where it differs from the
+    # kept one. Empty is NO LINE: an older build, a track read without `-Z`, or
+    # reads that all agreed, never "no other read". `other_reads_not_kept` counts
+    # lines past the bound, from the middle.
+    other_reads: tuple[OtherRead, ...] = ()
+    other_reads_not_kept: int = 0
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-upstream.md Part A §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and

@@ -1756,7 +1756,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `isrc_provenance.py`.
     # **400 -> 404** (2026-10-26, TASKS R48, `/11`): each row carries the record's `kept_read_began` and its state beside the reads, from `TrackIsrc.record`.
     # **404 -> 415** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the `/12` record's `block_crcs` in each per-track row beside `kept_read_began`; the reading is `record_block_crcs.py`.
-    "error_positions.py": 415,
+    # **415 -> 422** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): the row's four `/13` `distinct_reads` keys, built by `record_reads.report_entries`.
+    "error_positions.py": 422,
     # **1924 -> 1957** the 2026-10-21 known-fixes item 3: the `Read stability` line names skipped tracks AccurateRip did not confirm (`_listed_tracks` shared by both lines), and the comment on why the disc-level health sentence stays verbatim until the round 36 handshake.
     # **-> 1972** (2026-10-21): the entries above landed together on one branch.
     # **1924 -> 1952** (2026-10-21, TASKS R7, the verified-read chase): `_verified_reread_line`, the status-report line naming each track whose file is a single re-read AccurateRip verifies, beside the interrupted-pass line it mirrors. The decision and the reads live in `verified_read_chase.py` and `workers/verified_read_run.py`.
@@ -1949,7 +1950,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **347 -> 359** (2026-10-26, TASKS R48, `cyanrip-diagnostics/11`): the reader hands each row to `record_track_v11.parse_row` as well, `TrackIsrc.record`, and the block's rows carry `disc_read` and its state. The reading lives in `record_track_v11.py`.
     # **359 -> 366** (2026-10-26, the fork's round 36 lap 10 S12, TASKS R82): the row's `disc_read_meaning`, so `disc image` reads as the image's own file; the words and meanings live in `record_track_v11.py`.
     # **366 -> 371** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): each row's `/12` `block_crcs`, read with the rest of the row by the one reader of `track_state`.
-    "isrc_provenance.py": 371,
+    # **371 -> 385** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): the one reader of the record hands each row to `record_reads` and the record to `record_drive_declared`, so it is still opened and parsed once.
+    "isrc_provenance.py": 385,
     # **646 -> 651** (2026-10-16, TASKS R20 part 2, round 35): the User Guide's `Disc ISRC` entry.
     # **651 -> 661** (2026-10-20, the owner's word "yes, read twice by default"): the User Guide entry for the second-read setting, saying what 'reads agree' does and does not prove.
     # **661 -> 664** the 2026-10-21 known-fixes item 12: the amber banner's help says a disc with some matches is in AccurateRip and names the tracks that differ.
@@ -2053,7 +2055,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4732 -> 4736** (2026-11-03, TASKS R113): the health line says "1 ripping error", not "1 ripping errors", with the comment that says why.
     # **4736 -> 4790** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the loop's dispatch, `_TrackAcc` slots and table rows for S5 `Secure re-reads:`, S7 `Filtered:` (refused inside the echo), S8 `Pregap length: A or B frames (undecided)` with the guard that keeps a range from reading as a known LSN, and S9 `Embedded cover art:`; every reading lives in `secure_rereads_footer.py` and `ripper_track_notes.py`.
     # **4790 -> 4796** (2026-11-04, TASKS R128 (c)): `_take_rip_completed` reads its optional `(N of M tracks)` with `present_int_or_none`, two calls reflowed onto three lines each, with the comment that says why. The sweep that found it is `tests/test_optional_groups_are_read_as_optional.py`.
-    "parsers/cyanrip_log.py": 4796,
+    # **4796 -> 4821** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): the `track_other_read` rule in the indented table, the echo boundary's refusal of it, and the per-track accumulator and its flush; the reading is `other_reads.py`.
+    "parsers/cyanrip_log.py": 4821,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2087,7 +2090,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1209 -> 1214** (2026-10-29, round 37 lap 1): `RippingInfo.pregap_searches` and `names_shortened`, with the import of their type.
     # **1214 -> 1222** (2026-11-03, TASKS R114, a first pass a securing read replaced keeps its own -Z verdict): `TrackResult.first_pass_reread` with its comment, and `track_read_effort_flag` asking `first_pass_reread.did_not_converge`; the dataclass and the reading live in that module.
     # **1222 -> 1237** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): `RipLog.secure_rereads` and the three per-track fields, `pregap_undecided_frames`, `filtered`, `ripper_cover_art`, with their imports.
-    "parsers/rip_log.py": 1237,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1237 -> 1245** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `TrackResult.other_reads` and its count, with what an empty one does not mean.
+    "parsers/rip_log.py": 1245,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2174,7 +2178,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1143 -> 1167** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): schema 43's typed fields: `rip.secure_rereads`, per track `pregap_undecided_frames` / `filtered` / `ripper_cover_art`, and the error-positions row's `block_crcs`.
     # **1167 -> 1216** (2026-11-04, TASKS R43, the CTDB repair): schema 44's `ctdb.repair` typed as three blocks (the record, a rewritten track, a corrected word), beside the CTDB blocks they extend.
     # **1216 -> 1237** (2026-11-05, TASKS R133, the automatic CTDB repair): `CtdbAfterRepairBlock` and `settings.ctdb_repair_after_rip` (schema 44, unreleased).
-    "report_types.py": 1237,
+    # **1237 -> 1277** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `DistinctReadEntry`, the row's four `distinct_reads` keys, `TrackBlock.other_reads` and `DiscBlock.drive_declared`.
+    "report_types.py": 1277,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2325,7 +2330,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3685 -> 3732** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): schema 43's history note and the keys and issue calls that place `.29`'s readings; the blocks are built in their own modules.
     # **3732 -> 3809** (2026-11-04, TASKS R43, the CTDB repair): schema 44's history note and `_ctdb_repair`, the serializer for `ctdb.repair` beside the other CTDB serializers (a dict literal here, so `tests/test_report_types_completeness.py` can read it). The repair is `ctdb/repair*.py`.
     # **3809 -> 3856** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb.after_repair`, selected from `_ctdb` itself, and its schema note.
-    "rip_report.py": 3856,
+    # **3856 -> 3881** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): schema 44's note for the three `.30` readings and the per-track `other_reads` key; the blocks are built in `other_reads.py`, `record_reads.py` and `record_drive_declared.py`.
+    "rip_report.py": 3881,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2771,7 +2777,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5268 -> 5271** (2026-11-03, review B4): hands the worker's securing-pass paranoia counts to `build_outcome`.
     # **5290 -> 5305** (2026-11-04, TASKS R128 (b)): `_flush_rip_report` takes the close's `ShutdownDeadline` and waits only what is left of it, with the docstring paragraph saying why (Critical rule 9: bound the whole shutdown). The flush lives here, so its bound does.
     # **5305 -> 5352** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's context frozen at finish, its hold set on the CTDB daemon, and the two settlement checks; the repair itself is its own mixin.
-    "ui/main_window_rip.py": 5352,
+    # **5352 -> 5358** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `disc.drive_declared`, read off the worker's reading beside `error_positions`.
+    "ui/main_window_rip.py": 5358,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3299,7 +3306,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **580 -> 585** (2026-10-26, round 36 lap 8 S21): `.27`'s `Pregap search:` declared fork-only, with the citation into their source and their P2.
     # **585 -> 591** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the proposed `Re-read limit:` header declared fork-only, with its citation.
     # **591 -> 600** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the three proposed fork-only rules, with why the cover-art header is not one.
-    "scripts/emit_dependency_contract.py": 600,
+    # **600 -> 606** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `track_other_read` declared fork-only, with its source citation.
+    "scripts/emit_dependency_contract.py": 606,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the

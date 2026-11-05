@@ -68,6 +68,18 @@ the per-track `error_positions`, `error_positions_dropped` and `paranoia_all_rea
 a track read with nothing reported, and tracks never read, all three null. Its
 `invocation` line is the fork's build path, not anyone's home folder. Do not edit it.
 
+## cyanrip_fork_diagnostics13_golden.json (added 2026-11-05)
+
+**The fork's golden-reference `-j` record for `.30`** (`cyanrip-diagnostics/13`),
+byte for byte from `cyanrip@40dc64d7:docs/golden-reference.diagnostics.json`
+(sha256 `0e3796c84154102f8f0c91f699c1759a737ee9d4646fd3b8136a6b37c4290233`). A copy
+for the reason the `/10` record above is one: no `/13` record is committed under
+`docs/handshake/inbound/artifacts/` yet. It is the first record carrying `/13`'s two
+additions as a build writes them: each track's `reads`, one read kept, read 3
+times, `file` null, and `drive_declared` null, since a disc image has no drive to
+ask. `tests/test_round38_dot30_reads.py` reads it. Its `invocation` line is the
+fork's build path, not anyone's home folder. Do not edit it.
+
 ## ctdb_lookup_police_classics.xml (added 2026-10-21)
 
 **The live CTDB answer for the reference disc**, byte for byte: the body of
@@ -103,7 +115,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.120.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 

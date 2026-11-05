@@ -79,6 +79,7 @@ from platterpus import (
     ripper_error_lines,
     secure_rereads_footer,
 )
+from platterpus import other_reads as _other
 from platterpus import ripper_track_notes as _notes
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
@@ -2182,6 +2183,8 @@ class _TrackAcc:
     # `.27`'s `Kept read began:` (see TrackResult): "" with state "" = no line.
     kept_read_began: str = ""
     kept_read_began_state: str = ""
+    # `.30`'s `Other read:` lines (`other_reads`): each `-Z` read not kept.
+    other_reads: _other.OtherReadsAcc = field(default_factory=_other.OtherReadsAcc)
     appended_silence_frames: int | None = None
     # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`
     # only for `Track N is data:`, whose meaning depends on what follows (see
@@ -2222,6 +2225,8 @@ def _is_track_verdict_row(line: str) -> bool:
             _ACCURIP_OFFSET,
             # `.29`: printed after the `Accurip` rows, before `Metadata:`.
             _notes.FILTERED_LINE,
+            # `.30`: after `Secure re-read:`, before `Accurip:` (`other_reads`).
+            _other.OTHER_READ_LINE,
         )
     )
 
@@ -3369,6 +3374,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
     # `.27`: when the read the track's files carry began, below `Elapsed:`.
     ("track_kept_read_began", _KEPT_READ_BEGAN),
+    # `.30`: each `-Z` read not kept, after `Secure re-read:` (`other_reads`).
+    ("track_other_read", _other.OTHER_READ_LINE),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
     ("track_accurip_status", _TRACK_ACCURIP_STATUS),
     # A boundary, not a fact: after it, a verdict-shaped row is an echoed value.
@@ -3911,6 +3918,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 status = DATA_TRACK_COPY_NOT_COMPLETED
             else:
                 undecided_data_tracks.add(current.number)
+        other_reads, other_reads_not_kept = current.other_reads.result()
         disc.tracks.append(
             TrackResult(
                 number=current.number,
@@ -3950,6 +3958,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 extraction_elapsed_seconds=current.extraction_elapsed_seconds,
                 kept_read_began=current.kept_read_began,
                 kept_read_began_state=current.kept_read_began_state,
+                other_reads=other_reads,
+                other_reads_not_kept=other_reads_not_kept,
                 appended_silence_frames=current.appended_silence_frames,
                 data_crc32=current.data_crc32,
                 data_sector_edc=current.data_sector_edc,
@@ -4497,6 +4507,21 @@ def parse_cyanrip_log(text: str) -> RipLog:
                             head=_UNRECOGNISED_VALUE_HEAD,
                             tail=_UNRECOGNISED_VALUE_TAIL,
                         ),
+                    )
+                continue
+
+            # `.30`: a `-Z` read that was not kept, one line each, in the order
+            # first read. A wording we do not read is kept as `unrecognised` and
+            # logged, never half read (`other_reads.py`).
+            match = _other.OTHER_READ_LINE.match(line)
+            if match:
+                other = _other.read_other_read(match.group("value"))
+                current.other_reads.add(other)
+                if other.state != _other.READ or other.where == _other.UNRECOGNISED:
+                    log.warning(
+                        "cyanrip log: track %s: unrecognised Other read: %r",
+                        current.number,
+                        other.text,
                     )
                 continue
 

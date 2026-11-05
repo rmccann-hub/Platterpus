@@ -55,6 +55,8 @@ from typing import Final
 from platterpus import inbound_text
 from platterpus.error_positions import TrackReads, parse_reads
 from platterpus.record_block_crcs import BlockCrcs, parse_block_crcs
+from platterpus.record_drive_declared import DriveDeclared, parse_drive_declared
+from platterpus.record_reads import DistinctReads, parse_distinct_reads
 from platterpus.record_track_v11 import (
     TrackRecordV11,
     isrc_disc_read_meaning,
@@ -121,6 +123,9 @@ class TrackIsrc:
     #: The row's ``/12`` ``block_crcs`` (``record_block_crcs``); a row from an
     #: earlier build reads as ``not_present``.
     block_crcs: BlockCrcs = BlockCrcs()
+    #: The row's ``/13`` ``reads``, every distinct ``-Z`` read (``record_reads``);
+    #: a row from an earlier build reads as ``not_present``.
+    distinct_reads: DistinctReads = DistinctReads()
 
 
 @dataclass(frozen=True)
@@ -132,6 +137,9 @@ class IsrcReading:
     tracks: tuple[TrackIsrc, ...] = ()
     #: Rows dropped past :data:`MAX_TRACKS`, or skipped as not a track at all.
     dropped: int = 0
+    #: The record's top-level ``/13`` ``drive_declared`` (``record_drive_declared``);
+    #: ``not_present`` for an earlier record, or none read.
+    drive_declared: DriveDeclared = DriveDeclared()
 
 
 def normalise(code: str) -> str:
@@ -191,12 +199,15 @@ def parse_isrcs(text: str) -> IsrcReading:
             STATE_UNRECOGNISED,
             f"its schema is {_value(schema)!r}, not {RECORD_SCHEMA_PREFIX}…",
         )
+    declared = parse_drive_declared(data)
     rip = data.get("rip")
     rows = rip.get("track_state") if isinstance(rip, Mapping) else None
     if not isinstance(rows, list):
         # A run refused before it ripped has `rip: null`; an older build has no
         # `track_state`. Read, and nothing to say: not the same as unreadable.
-        return IsrcReading(STATE_READ, "the record lists no tracks")
+        return IsrcReading(
+            STATE_READ, "the record lists no tracks", drive_declared=declared
+        )
     tracks: list[TrackIsrc] = []
     dropped = 0
     for row in rows:
@@ -205,7 +216,9 @@ def parse_isrcs(text: str) -> IsrcReading:
             dropped += 1
             continue
         tracks.append(track)
-    return IsrcReading(STATE_READ, tracks=tuple(tracks), dropped=dropped)
+    return IsrcReading(
+        STATE_READ, tracks=tuple(tracks), dropped=dropped, drive_declared=declared
+    )
 
 
 def read_isrcs(path: Path | None) -> IsrcReading:
@@ -355,6 +368,7 @@ def _track(row: object) -> TrackIsrc | None:
         reads=parse_reads(row),
         record=parse_row(row),
         block_crcs=parse_block_crcs(row),
+        distinct_reads=parse_distinct_reads(row),
     )
 
 
