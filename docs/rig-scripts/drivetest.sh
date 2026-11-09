@@ -163,8 +163,11 @@ check_versions() {
   say "Checking versions"
   "$APP" --version || stop "the AppImage did not start"
   local banner
-  banner="$("$HOME/.local/bin/cyanrip" --version 2>&1 | head -3)" || true
-  echo "$banner"
+  # The WHOLE output, not its first lines: the first container command after a
+  # boot prints distrobox's own "Starting container..." lines before cyanrip
+  # speaks, and a check that read three lines missed the banner (2026-11-09).
+  banner="$("$HOME/.local/bin/cyanrip" --version 2>&1)" || true
+  printf '%s\n' "$banner" | grep -i cyanrip || printf '%s\n' "$banner"
   case "$banner" in
     *"$EXPECT_BUILD"*) echo "cyanrip is the build under test ($EXPECT_BUILD)." ;;
     *) stop "cyanrip is not $EXPECT_BUILD. Open Platterpus, Tools > Setup & Updates > Choose a build..., pick it, close Platterpus, and run this again." ;;
