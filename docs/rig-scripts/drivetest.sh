@@ -20,7 +20,10 @@
 #                                the disc; everything else is unattended.
 #   bash drivetest.sh perfect    phase 3, after Windows has set PureRead to
 #                                Perfect: reads the drive again, then Run D.
-#   bash drivetest.sh restored   after Windows has put PureRead back: reads the
+#   bash drivetest.sh quiet      after Windows has put PureRead back and turned
+#                                Advanced Quiet Drive OFF: reads the drive, then
+#                                the speed test again (Run E).
+#   bash drivetest.sh restored   after Windows has put everything back: reads the
 #                                drive once more and says whether it matches.
 #   bash drivetest.sh status     what is done and what is next.
 #
@@ -565,9 +568,40 @@ phase3() {
   run_script drivemode dm runD
   make_upload phase3 "$STATE/phase3.started" "${UPLOAD_PIECES[@]}"
   echo
-  echo "Next: put PureRead back in Windows (the sheet's step 3.4), then come back and run:"
-  echo "  bash $SELF restored"
+  echo "Next, in Windows: put PureRead back as your first screenshot shows, AND turn"
+  echo "Advanced Quiet Drive OFF. Then come back and run:"
+  echo "  bash $SELF quiet"
+  echo "(To skip the Quiet Drive test, put only PureRead back and run: bash $SELF restored)"
   echo "Upload your Windows screenshots with that file."
+}
+
+# Phase 3b, agreed with the fork on 2026-11-10 (their reading of Run C: every rip
+# read at 2.9x to 3.5x whether 4x or 24x was asked, and the drive's settings
+# block reports Quiet mode on, which may cap the speed). Run after Windows has
+# put PureRead back and turned Advanced Quiet Drive OFF: reads the settings, then
+# runs the speed test again (Run E). `restored` afterwards checks both went back.
+quiet() {
+  is_done track9 || stop "phases 1 and 2 are not finished. Run: bash $SELF"
+  say "Phase 3b: Quiet Drive should now be OFF. Reading the drive again (read-only)"
+  date -u > "$STATE/quiet.started"
+  UPLOAD_NAME=quiet; UPLOAD_SINCE="$STATE/quiet.started"; UPLOAD_PIECES=(dumps runE-logs.tar.gz)
+  fetch_scripts
+  wait_disc
+  if ! is_done quietreadings; then
+    dump pioneer-f4-quiet "sg_raw -R -r 256 $DEVICE 3c 02 f4 00 00 00 00 01 00 00"
+    dump after-quiet "sg_inq $DEVICE; sg_get_config -q $DEVICE; sg_get_config -q -H $DEVICE; for c in 0 1 2 3; do echo \"=== page control \$c ===\"; sg_modes -a -c \$c $DEVICE; done"
+    done_mark quietreadings
+  fi
+  if [ "$(f4_bytes "$DM/dumps/pioneer-f4.txt")" = "$(f4_bytes "$DM/dumps/pioneer-f4-quiet.txt")" ]; then
+    say "The drive's settings bytes are THE SAME as the first reading, so Quiet Drive may not have changed. Running Run E anyway."
+  else
+    say "The drive's settings bytes CHANGED since the first reading."
+  fi
+  run_script drivespeed ds runE
+  make_upload quiet "$STATE/quiet.started" "${UPLOAD_PIECES[@]}"
+  echo
+  echo "Next: in Windows, put Advanced Quiet Drive back as your first screenshot shows, then come back and run:"
+  echo "  bash $SELF restored"
 }
 
 restored() {
@@ -587,7 +621,7 @@ restored() {
 
 status() {
   local s
-  for s in readings runA wipe runB runC track9 perfectreadings runD; do
+  for s in readings runA wipe runB runC track9 perfectreadings runD quietreadings runE; do
     if is_done "$s"; then echo "done   $s ($(cat "$STATE/$s.done"))"; else echo "to do  $s"; fi
   done
 }
@@ -603,7 +637,8 @@ fi
 case "${1:-}" in
   "")       phase12 ;;
   perfect)  phase3 ;;
+  quiet)    quiet ;;
   restored) restored ;;
   status)   status ;;
-  *) echo "usage: bash $SELF [perfect|restored|status]"; exit 2 ;;
+  *) echo "usage: bash $SELF [perfect|quiet|restored|status]"; exit 2 ;;
 esac

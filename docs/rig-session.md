@@ -178,11 +178,22 @@ before any rip (`pioneer-f4-perfect.txt`, `after-perfect.txt`), says whether the
 bytes changed, runs Run D (`drivemode.txt`, disc left in), and names
 `~/platterpus-rig/drivetest38/platterpusdrivetest38phase3.tar.gz`.
 
-**3.4 Put it back.** Restart into Windows, set Pure Read back to what your first
-screenshot showed, Apply, restart into Bazzite, and run `bash ~/platterpus-rig/drivetest.sh restored`.
-It reads the Pioneer settings once more and says **BACK TO ORIGINAL** or **NOT THE
-SAME**, then names `~/platterpus-rig/drivetest38/platterpusdrivetest38restored.tar.gz`. Send it with every screenshot
-and your list of power-offs.
+**3.4 Quiet Drive off, then the speed test again (optional; agreed with the fork,
+2026-11-10).** Run C read every rip at 2.9x to 3.5x whether 4x or 24x was asked, and the
+drive's settings block reports Quiet mode on, which may cap the speed (the fork's
+reading; a guess until the drive shows it). Restart into Windows, set Pure Read back to
+what your first screenshot showed **and** turn **Advanced Quiet Drive off**, Apply,
+screenshot, restart into Bazzite, and run `bash ~/platterpus-rig/drivetest.sh quiet`. It
+reads the settings again, runs the speed test as Run E, and names
+`~/platterpus-rig/drivetest38/platterpusdrivetest38quiet.tar.gz`. To skip it, set only
+Pure Read back and go to 3.5.
+
+**3.5 Put it back.** Restart into Windows, set Advanced Quiet Drive back as your first
+screenshot showed (and Pure Read, if 3.4 was skipped), Apply, restart into Bazzite, and
+run `bash ~/platterpus-rig/drivetest.sh restored`. It reads the Pioneer settings once
+more and says **BACK TO ORIGINAL** or **NOT THE SAME**, then names
+`~/platterpus-rig/drivetest38/platterpusdrivetest38restored.tar.gz`. Send it with every
+screenshot and your list of power-offs.
 
 ### Phase 4 — Bazzite, one Full run on the same release with `.30`
 
