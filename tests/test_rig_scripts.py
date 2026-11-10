@@ -1538,7 +1538,9 @@ def _live_text_files() -> list[tuple[str, Path]]:
 #: `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/`. What follows it is a
 #: repo-relative path, and the sweep below must resolve THAT, not the URL.
 _RAW_URL_PREFIX: Final[re.Pattern[str]] = re.compile(
-    r"^.*raw\.githubusercontent\.com/[^/]+/[^/]+/[^/]+/"
+    # Anchored at the start: the mention regex captures a link from its `//`
+    # (`https:` is outside its character class), so nothing may come before it.
+    r"^/*raw\.githubusercontent\.com/[^/]+/[^/]+/[^/]+/"
 )
 
 
