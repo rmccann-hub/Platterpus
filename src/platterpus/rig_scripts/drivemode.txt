@@ -87,8 +87,22 @@ log --- B. drive offset, disc, and the time bound ---
 set-drive-offset
 expect-drive-offset
 abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
-rescan
-pick-release 1 120
+# NO `rescan` HERE, AND THE PICK WAITS TEN MINUTES (2026-11-09). On 0.7.121 with
+# `.30` a single disc read can outlast the app's 120 s probe limit (the owner's
+# GUI launch of 2026-11-06 17:29:52 UTC, killed during track 2's ISRC read, with no
+# second read beside it), and `rescan` failed the run at its own 120 s while the
+# app's two automatic re-reads were still coming. A forced re-read also started a
+# second read over the one in flight, which 0.7.121 cannot stop. The app reads the
+# disc itself at start-up, so the pick below waits for that read and its retries.
+# THE RELEASE IS NAMED, NOT NUMBERED. The owner rips the reference disc as the
+# BMG club release (MusicBrainz d14a7546…, the third row of four on 2026-11-05)
+# and said so on 2026-11-05: "make sure you are choosing the correct album, i
+# have been manually choosing the highlighted 3rd option". Row 1 is the 2003 GB
+# release, which this script picked until then; MusicBrainz's order is not stable
+# either, so a row number would mean a different release later (round08joint.txt
+# names the same MBID for the same reason). The read does not depend on it; the
+# tags and the record's release ID do.
+pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 600
 expect-tracks 5+
 abort-if-failed no disc with five tracks is loaded — put the reference disc in, then run again
 cyanrip-timeout 1800

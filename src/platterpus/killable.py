@@ -27,6 +27,13 @@ Three things this gets right that a hand-rolled version tends not to:
   and the check is re-run right after registering. The scoping is the half that was
   missing: a slot-wide flag let a cancel aimed at one probe kill the *replacement*
   the GUI started immediately afterwards, which is a rescan that never completes.
+* **Every live child is tracked, not just the newest.** Two runs through one slot
+  can overlap (a superseded disc probe still unwinding while its replacement
+  starts), and a slot that remembered only the most recent child lost the older
+  one the moment the newer one finished: ``cancel()`` then found nothing to kill
+  while the older reader went on holding the drive (the owner's rig, 2026-11-05,
+  two ``cyanrip -I`` on one drive until both timed out at 120 s). So the slot keeps
+  each live child under its own sequence number, and a cancel reaches all of them.
 * **A timeout kills the child.** `subprocess.run` does that for free; `Popen` does
   not, so migrating to `Popen` for cancellability silently *loses* it and leaves a
   timed-out probe running. That is the "what new state does this fix create"
@@ -96,20 +103,42 @@ def was_cancelled(proc: object) -> bool:
 
 
 class KillableCommand:
-    """One named slot holding at most one live child, killable from any thread.
+    """One named slot for one logical operation, killable from any thread.
 
-    Not a pool: each instance models a single logical operation the GUI can have in
-    flight (the disc-info probe, the cache probe, …), which is all the callers need
-    and keeps `cancel()` unambiguous about what it stops. Create one per operation
-    at module scope and reuse it.
+    Each instance models a single logical operation the GUI can have in flight (the
+    disc-info probe, the ripper version probe, the cache probe, …), which keeps
+    `cancel()` unambiguous about WHAT it stops: create one per operation at module
+    scope and reuse it, and never share one slot between two operations, because a
+    cancel aimed at one would reach the other.
+
+    **One operation can still have more than one child alive at once**, and the
+    slot must not pretend otherwise. The GUI supersedes an in-flight disc probe by
+    starting a new one, and the old child takes a moment to die. So the slot keeps
+    every live child it spawned, keyed by its run's sequence number, and
+    :meth:`cancel` SIGKILLs every one its watermark covers. It used to keep only
+    the newest, and an older child it had forgotten could not be killed at all.
     """
 
     def __init__(self, name: str) -> None:
         self._name: str = name
         self._lock: threading.Lock = threading.Lock()
-        # Text-mode children (`run`) and binary ones (`run_bytes`, the CTDB
-        # repair's `flac` pipes) share the slot: one operation, one live child.
-        self._proc: subprocess.Popen[str] | subprocess.Popen[bytes] | None = None
+        # EVERY live child this slot spawned, keyed by its run's sequence number
+        # (below). Text-mode children (`run`) and binary ones (`run_bytes`, the
+        # CTDB repair's `flac` pipes) share it.
+        #
+        # **A dict, not a single `_proc`, and the single one was a defect.** Two
+        # runs through one slot can overlap: the GUI supersedes a disc probe by
+        # starting another, and the module-level `rip_backend.INFO_PROBE` served
+        # the disc probe and the version probe both. With one field, the later
+        # run's registration overwrote the earlier child, the later run's
+        # deregistration then emptied the field, and the earlier child was left
+        # running where no `cancel()` could find it: no log line, no kill, though
+        # the watermark covered its run. Reproduced 2026-11-05 with two `sleep`s
+        # (the earlier one ran its full 8 s after a cancel), and seen on the
+        # owner's rig the same day as two `cyanrip -I` on one drive until both
+        # timed out. Keyed by sequence number, each run adds and removes only its
+        # own entry, so no run can hide or evict another.
+        self._live: dict[int, subprocess.Popen[str] | subprocess.Popen[bytes]] = {}
         # **A cancel is scoped to a RUN, not to this slot.**
         #
         # `_issued` counts runs; each `run()` takes its own sequence number
@@ -142,24 +171,56 @@ class KillableCommand:
         return self._name
 
     def is_running(self) -> bool:
-        """Whether a child is currently registered. For diagnostics and tests."""
+        """Whether any child is currently registered. For diagnostics and tests."""
         with self._lock:
-            return self._proc is not None
+            return bool(self._live)
+
+    def live_count(self) -> int:
+        """How many children are registered right now. For diagnostics and tests."""
+        with self._lock:
+            return len(self._live)
 
     def cancel(self) -> None:
-        """SIGKILL the running child's process group. Thread-safe, non-blocking.
+        """SIGKILL the process group of every covered live child. Thread-safe.
 
-        Safe to call when nothing is running, and safe to call twice. Raises the
-        watermark either way, so a child that was *issued* before this call is
-        killed as soon as it appears — and a run issued afterwards is untouched.
+        Non-blocking, safe to call when nothing is running, and safe to call
+        twice. Raises the watermark either way, so a child that was *issued*
+        before this call is killed as soon as it appears, and a run issued
+        afterwards is untouched.
+
+        **Every** live child the watermark covers is killed, not only the newest:
+        an operation the GUI superseded can still have its older child alive
+        beside the replacement's, and the older one is the one holding the drive.
         """
         with self._lock:
             self._cancel_through = self._issued
-            proc = self._proc
-        if proc is None:
+            # Snapshot under the lock, signal outside it: `_kill_group` makes
+            # system calls, and a run registering or deregistering on another
+            # thread must not wait behind them.
+            victims = [
+                proc for seq, proc in self._live.items() if self._covered_locked(seq)
+            ]
+            through = self._cancel_through
+        if not victims:
+            # SAID, not silent. An absence in the log is a fact about the logger
+            # first (CLAUDE.md), and the 2026-11-05 rig log had no line here at
+            # all, so nobody could tell "nothing was running" from "something was
+            # running and we lost it". A run issued but not yet registered is
+            # still covered, and is killed as it registers (`_register`).
+            log.info(
+                "%s: cancel requested with no child registered; any run issued "
+                "through #%d is killed as it starts",
+                self._name,
+                through,
+            )
             return
-        log.info("%s: cancelling (SIGKILL to the process group)", self._name)
-        self._kill_group(proc)
+        log.info(
+            "%s: cancelling %d live child(ren) (SIGKILL to each process group)",
+            self._name,
+            len(victims),
+        )
+        for proc in victims:
+            self._kill_group(proc)
 
     def _kill_group(
         self, proc: subprocess.Popen[str] | subprocess.Popen[bytes]
@@ -243,23 +304,52 @@ class KillableCommand:
     def _register(
         self, proc: subprocess.Popen[str] | subprocess.Popen[bytes], seq: int
     ) -> bool:
-        """Put ``proc`` in the slot; True when a cancel already covers its run."""
+        """Add run ``seq``'s child to the slot; True when a cancel already covers it.
+
+        Adds, never replaces: another run's child stays registered beside this
+        one, so a cancel can still reach it (see ``_live`` in ``__init__``).
+        """
         with self._lock:
-            self._proc = proc
-            return self._covered_locked(seq)
+            self._live[seq] = proc
+            covered = self._covered_locked(seq)
+        if covered:
+            # The cancel landed before this child existed (between the sequence
+            # number and `Popen`, or while the run waited at the container gate).
+            # Logged because the kill that follows is otherwise the one kill this
+            # module makes without a line saying so.
+            log.info(
+                "%s: run #%d was cancelled before it started; killing it at birth",
+                self._name,
+                seq,
+            )
+        return covered
 
     def _deregister(
         self, proc: subprocess.Popen[str] | subprocess.Popen[bytes], seq: int
     ) -> bool:
-        """Clear the slot if it still holds ``proc``; True when our cancel ended it.
+        """Remove run ``seq``'s own entry; True when our cancel ended that run.
 
-        See the long comment in :meth:`_spawn_and_wait` for why the slot is
-        cleared only when it still holds *this* child, and why "ended by our
-        cancel" needs both a covering cancel and a SIGKILL exit status.
+        **Only its own entry.** Two runs can overlap, and the one finishing first
+        must not take the other's child out of the slot: that would leave a live
+        child no `cancel()` can reach, which defeats the whole module. Keyed by
+        sequence number, the run removes exactly what it added. (The first
+        version cleared the slot unconditionally and stranded the NEWER child,
+        audit 2026-07-29; the second kept one field with an identity check and
+        stranded the OLDER one, rig 2026-11-05. A dict has neither failure.)
+
+        The cancel watermark is NOT reset here. It is a high-water mark over
+        issued sequence numbers, so it excludes every later run by construction:
+        there is nothing to clear, and clearing it was what made the flag's
+        lifetime depend on which thread unwound first (see ``__init__``).
+
+        "Ended by our cancel" needs BOTH a covering cancel and a SIGKILL exit
+        status. A child that exited on its own just before the kill landed keeps
+        its own exit status, and so does a -9 nobody here sent (the kernel's OOM
+        killer), because no cancel covered it.
         """
         with self._lock:
-            if self._proc is proc:
-                self._proc = None
+            if self._live.get(seq) is proc:
+                del self._live[seq]
             return self._covered_locked(seq) and proc.returncode == -signal.SIGKILL
 
     def run_bytes(
@@ -414,30 +504,10 @@ class KillableCommand:
                 )
             raise
         finally:
-            with self._lock:
-                # Clear the slot ONLY if it still holds *our* child. Two runs can
-                # overlap — the GUI supersedes an in-flight disc scan by starting a
-                # second one — and the loser finishing later must not deregister the
-                # winner. Without this identity check the second child becomes
-                # unkillable and `cancel()` silently degrades to a no-op, which
-                # defeats the entire point of the module. Found by audit immediately
-                # after this module was written (2026-07-29): the fix's own new state
-                # needed its own thinking, exactly as the pre-flight checklist asks.
-                #
-                # The cancel watermark is NOT reset here. It is a high-water mark
-                # over issued sequence numbers, so it excludes every later run by
-                # construction — there is nothing to clear, and clearing it was
-                # what made the flag's lifetime depend on which thread unwound
-                # first (see `__init__`).
-                if self._proc is proc:
-                    self._proc = None
-                # Ours only when BOTH hold: a cancel covered this run, and the child
-                # died of SIGKILL. A child that exited on its own just before the
-                # kill landed keeps its own exit status, and so does a -9 nobody here
-                # sent (the kernel's OOM killer), because no cancel covered it.
-                ended_by_our_cancel = (
-                    self._covered_locked(seq) and proc.returncode == -signal.SIGKILL
-                )
+            # Remove ONLY this run's own child, and decide whether our cancel
+            # ended it: the one implementation of both, shared with the binary
+            # twin (`_deregister` says why each half is the way it is).
+            ended_by_our_cancel = self._deregister(proc, seq)
         if ended_by_our_cancel:
             return CancelledRun(
                 args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr

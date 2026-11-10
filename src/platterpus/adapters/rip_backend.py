@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 # Re-exported deliberately (`as DiscInfo`): the UI imports DiscInfo from this
 # module because the backend ABC is the seam it depends on, not the parser.
@@ -94,21 +95,59 @@ class ProbeCancelled(RipError):
     """
 
 
-# The single in-flight info/version probe, so the GUI can stop one. A module-level
-# slot rather than a per-call object because only one such probe is ever in flight
-# (the disc-info worker is superseded, not parallelised) and `cancel()` must be
+# **One killable slot per logical operation**, module-level so `cancel()` is
 # reachable from the GUI thread without plumbing a handle through every caller.
+#
+# `INFO_PROBE` is the disc probe (`cyanrip -I`, `CyanripImpl.disc_info`) and the
+# ui-script `cyanrip` verb; `RIPPER_VERSION_PROBE` is the version/build-tag probe
+# (`CyanripImpl.version`, which a rip's start, `--verify-log`, `--doctor` and the
+# `install-ripper` verb all reach).
+#
+# **They were one slot until 2026-11-05, and that was a defect, not a
+# simplification.** The old comment said "only one such probe is ever in flight";
+# it was not true, because the version probe is not a disc probe and nothing
+# serialised the two. Sharing a slot made each operation's cancel reach the other
+# (a rescan could kill a rip's build-tag read), and, with the slot then holding
+# one child, an overlapping run could strand the other's child where no cancel
+# could find it (`killable.KillableCommand._live`). The slot now tracks every live
+# child, and the two operations no longer share one.
 INFO_PROBE: KillableCommand = KillableCommand("ripper info probe")
+RIPPER_VERSION_PROBE: KillableCommand = KillableCommand("ripper version probe")
+
+#: Which slot a :func:`run_capture` call runs in. A name rather than the slot
+#: object so the slot is looked up when the call is made: a test that swaps a
+#: module-level slot for its own (``monkeypatch.setattr(rip_backend,
+#: "INFO_PROBE", ...)``) is then honoured, where a default argument would have
+#: bound the original at import.
+ProbeSlot = Literal["info", "version"]
+
+
+def _slot(which: ProbeSlot) -> KillableCommand:
+    """The module-level slot named ``which``, read at call time (see :data:`ProbeSlot`)."""
+    return RIPPER_VERSION_PROBE if which == "version" else INFO_PROBE
 
 
 def cancel_info_probe() -> None:
-    """Stop an in-flight :func:`run_capture`. Thread-safe, non-blocking.
+    """Stop every in-flight disc probe (:data:`INFO_PROBE`). Thread-safe, non-blocking.
 
     Exposed so a worker's ``cancel()`` can be real. `DiscInfoWorker` blocks inside
     `run_capture` for up to 120 s on a cold container, where `QThread.quit()`
     cannot reach it — so without this, cancelling was a flag nothing read.
+
+    It does NOT reach a version probe: that is :func:`cancel_ripper_version_probe`, so a
+    superseded disc probe can never take a rip's build-tag read down with it.
     """
     INFO_PROBE.cancel()
+
+
+def cancel_ripper_version_probe() -> None:
+    """Stop every in-flight ripper version probe. Thread-safe, non-blocking.
+
+    The twin of :func:`cancel_info_probe` for :data:`RIPPER_VERSION_PROBE`: the
+    ``install-ripper`` script verb's stop, whose helper thread blocks in
+    ``CyanripImpl.version()`` after the install.
+    """
+    RIPPER_VERSION_PROBE.cancel()
 
 
 def _raise_if_cwd_failed(
@@ -150,6 +189,7 @@ def run_capture(
     timeout: float,
     stdin_devnull: bool = False,
     cwd: Path | None = None,
+    slot: ProbeSlot = "info",
 ) -> tuple[int, str]:
     """Run a one-shot ripper subprocess; return (returncode, combined output).
 
@@ -178,11 +218,17 @@ def run_capture(
     ``cwd=output_dir`` for exactly this reason (``cyanrip_backend``). A ``cwd``
     that cannot be entered is reported as that, never as a missing binary: both
     arrive from ``Popen`` as the same exception type.
+
+    ``slot`` names which killable slot the child runs in, and so which cancel
+    reaches it: ``"info"`` (the default: the disc probe and the ui-script verb,
+    stopped by :func:`cancel_info_probe`) or ``"version"`` (the version probe,
+    stopped by :func:`cancel_ripper_version_probe`). One slot per logical operation,
+    so cancelling one never kills the other.
     """
     argv: list[str] = [binary, *args]
     log.debug("%s: %s (cwd=%s)", tool_name, " ".join(argv), cwd or "inherited")
     try:
-        proc = INFO_PROBE.run(
+        proc = _slot(slot).run(
             argv, timeout=timeout, stdin_devnull=stdin_devnull, cwd=cwd
         )
     except (NotADirectoryError, PermissionError) as exc:

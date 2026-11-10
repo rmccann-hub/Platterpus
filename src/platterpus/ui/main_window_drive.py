@@ -42,7 +42,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 if TYPE_CHECKING:  # the type only; the module is imported where it is used
     from platterpus.rip_estimate import ReadRate
 
-from platterpus import drive_media
+from platterpus import drive_media, exit_work
 from platterpus.disc_probe_retry import (
     AUTO_RETRY_DELAY_MS,
     READ_NOW,
@@ -740,6 +740,75 @@ class DriveMixin(MainWindowShared):
             ):
                 label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         box.exec()
+
+    # --- Freeing the drive after a disc probe is cancelled (2026-11-05) ------
+    #
+    # Cancelling a disc probe kills its HOST side (the wrapper and the `podman
+    # exec` client), not the `cyanrip -I` inside the container, which reads on
+    # and holds the drive. On the owner's rig (2026-11-05) that left a probe
+    # reading beside its replacement, and readers running after the app had
+    # closed. These decide when the drive is freed, and when doing so is unsafe.
+
+    def _disc_probe_in_flight_device(self) -> str:
+        """The drive a running disc probe is reading, or "" when none is running."""
+        thread = self._disc_info_thread
+        worker = self._disc_info_worker
+        if thread is None or worker is None or not thread.isRunning():
+            return ""
+        return worker.device
+
+    def _drive_free_refusal(self, device: str) -> str:
+        """Why freeing ``device`` after a probe's cancel would be unsafe, or "".
+
+        The free is a device-scoped SIGKILL, and it cannot tell a probe's reader
+        from anything else holding the drive. So it is refused while something
+        else may legitimately hold it: a rip (whose own stop frees the drive
+        gracefully, so its log keeps its footer), a cancelled rip's pending
+        rescue, a ui-script ``cyanrip`` call, or a stop already under way.
+        """
+        if self._rip_thread is not None:
+            return "a rip is in flight, and its own stop frees the drive"
+        if self._force_stop_timer.isActive():
+            return "a cancelled rip's rescue is pending"
+        console = self._script_console
+        runner = console.runner if console is not None else None
+        if runner is not None and runner.cyanrip_in_flight:
+            return "a ui-script cyanrip call is running and may be reading it"
+        if exit_work.freeing(device):
+            return "it is already being freed"
+        return ""
+
+    def _superseded_probe_device(self) -> str:
+        """The drive the probe being superseded reads, to free before the new one.
+
+        "" when no probe is running, or when freeing is unsafe
+        (:meth:`_drive_free_refusal`, said in the log). The NEW worker frees it
+        on its own thread before it reads (``DiscInfoWorker``'s ``free_first``),
+        so the two probes never read one drive at once.
+        """
+        device = self._disc_probe_in_flight_device()
+        if not device:
+            return ""
+        refusal = self._drive_free_refusal(device)
+        if refusal:
+            log.info("not freeing %s before the new disc probe: %s", device, refusal)
+            return ""
+        return device
+
+    def _free_drive_after_probe_cancel(self, device: str, why: str) -> None:
+        """Free ``device`` after its probe was cancelled at close, as exit work.
+
+        Exit work (``exit_work.free_drive_after_cancel``) so the GUI thread does
+        not wait and the process does not exit first; the exit check then reports
+        what is left after it.
+        """
+        if not device:
+            return
+        refusal = self._drive_free_refusal(device)
+        if refusal:
+            log.info("%s: not freeing %s: %s", why, device, refusal)
+            return
+        exit_work.free_drive_after_cancel(device, writes_log=False, why=why)
 
 
 def _format_offset_provenance(

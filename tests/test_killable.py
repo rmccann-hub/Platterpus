@@ -62,7 +62,7 @@ def test_a_timeout_raises_and_kills_the_child() -> None:
     assert not cmd.is_running()
     # The child was reaped by the kill, not left behind. `communicate` in the
     # timeout branch does that; a non-None returncode is the proof.
-    assert cmd._proc is None
+    assert cmd._live == {}
 
 
 def test_cancel_from_another_thread_stops_a_running_child() -> None:
@@ -302,9 +302,12 @@ def test_an_overlapping_run_does_not_deregister_the_newer_child() -> None:
     tests that?" — the fix's own failure mode, which every original test missed
     because each ran a single child at a time.
 
-    What is under test is the **identity check** in the `finally`, so the stand-in
-    winner does not need to be alive: an already-exited `Popen` has a distinct object
-    identity and keeps this test free of process-cleanup flakiness. No patching.
+    What is under test is that a finishing run removes **only its own** entry, so the
+    stand-in winner does not need to be alive: an already-exited `Popen` has a
+    distinct object identity and keeps this test free of process-cleanup flakiness.
+    No patching. (Since 2026-11-05 the slot keeps every live child keyed by its run's
+    sequence number; the stand-in is registered under a sequence number no real run
+    in this test takes.)
     """
     cmd = KillableCommand("test overlap")
     winner = subprocess.Popen(
@@ -331,21 +334,21 @@ def test_an_overlapping_run_does_not_deregister_the_newer_child() -> None:
         time.sleep(0.01)
     assert cmd.is_running(), "the first child never started"
 
-    # A second probe takes the slot mid-run, exactly as "Rescan disc" does.
+    # A second probe registers mid-run, exactly as "Rescan disc" does.
     with cmd._lock:
-        cmd._proc = winner
+        cmd._live[999] = winner
 
     worker.join(20)
     assert not worker.is_alive(), "the first run never finished"
     assert outcome and not isinstance(outcome[0], BaseException), (
         f"the superseded run did not complete cleanly: {outcome}"
     )
-    assert cmd._proc is winner, (
+    assert cmd._live == {999: winner}, (
         "the finishing run deregistered the newer child. The live probe would then "
         "be unkillable and cancel() a no-op, defeating the whole module."
     )
     with cmd._lock:
-        cmd._proc = None  # don't hand a later test a stale slot
+        cmd._live.clear()  # don't hand a later test a stale slot
 
 
 def test_a_cancel_aimed_at_one_run_does_not_kill_the_next_one() -> None:
@@ -365,7 +368,7 @@ def test_a_cancel_aimed_at_one_run_does_not_kill_the_next_one() -> None:
     a thread — lets the cancelled run's `finally` win most of the time, and a test
     that passes against the bug proves nothing. The first attempt at this test did
     exactly that and passed, which is why the state is set up explicitly instead:
-    `_proc` still points at the SIGKILLed predecessor, the cancel has been
+    the slot still holds the SIGKILLed predecessor, the cancel has been
     recorded, and the replacement then runs. Against the boolean this produced
     `returncode -9` with empty output — the same signature the 2026-08-19 rig run
     recorded for a rescan that never completed.
@@ -383,7 +386,7 @@ def test_a_cancel_aimed_at_one_run_does_not_kill_the_next_one() -> None:
     predecessor.communicate(timeout=10)
     with cmd._lock:
         cmd._issued += 1
-        cmd._proc = predecessor
+        cmd._live[cmd._issued] = predecessor
     cmd.cancel()
 
     result = cmd.run(["sh", "-c", "sleep 0.3; echo alive"], timeout=30)
@@ -417,3 +420,107 @@ def test_the_cancel_watermark_still_stops_the_run_it_was_aimed_at() -> None:
             "the cancel did not cover the run that was already issued — a cancel "
             "landing between Popen and registration would be silently dropped"
         )
+
+
+def _start_in_thread(
+    cmd: KillableCommand, argv: list[str], timeout: float
+) -> tuple[threading.Thread, list[object], list[float]]:
+    """Run ``argv`` through ``cmd`` on a thread; return it, its outcome, its end time.
+
+    The outcome list receives the ``CompletedProcess`` (or the exception), and the
+    second list the ``time.monotonic()`` at which the run returned, so a test can
+    say WHEN a run ended, not only how.
+    """
+    outcome: list[object] = []
+    ended: list[float] = []
+
+    def _run() -> None:
+        try:
+            outcome.append(cmd.run(argv, timeout=timeout))
+        except BaseException as exc:  # noqa: BLE001 — record whatever happened
+            outcome.append(exc)
+        finally:
+            ended.append(time.monotonic())
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    return thread, outcome, ended
+
+
+def _wait_for_live(cmd: KillableCommand, count: int) -> None:
+    """Block (bounded) until ``cmd`` has ``count`` children registered."""
+    deadline = time.monotonic() + 10
+    while cmd.live_count() < count and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert cmd.live_count() >= count, (
+        f"only {cmd.live_count()} of {count} children ever registered; this test's "
+        "premise (overlapping runs) never existed"
+    )
+
+
+def test_a_cancel_reaches_an_older_run_after_a_newer_overlapping_one_finished() -> None:
+    """THE RIG DEFECT OF 2026-11-05: an older child the slot had forgotten.
+
+    The slot held ONE child. Run A registered; run B, overlapping it, registered
+    over A; B finished and emptied the slot. A was now running where `cancel()`
+    could not see it: it found nothing, logged nothing, killed nothing, though
+    its watermark covered A. On the owner's rig that was a superseded
+    `cyanrip -I` left reading the drive beside its replacement until both hit
+    the 120 s timeout, and the ui-script `rescan` step failed.
+
+    Real children, the sequence from the report: A sleeps 8 s, B starts while A
+    runs and sleeps 1 s, and the cancel lands AFTER B has finished. Against the
+    single-child slot A ran its full 8 s and returned 0; the assertions below are
+    that it was killed promptly instead, and that the kill is recorded as ours.
+    """
+    cmd = KillableCommand("test overlap cancel")
+    thread_a, outcome_a, ended_a = _start_in_thread(cmd, ["sleep", "8"], 30)
+    _wait_for_live(cmd, 1)
+    thread_b, outcome_b, _ = _start_in_thread(cmd, ["sleep", "1"], 30)
+    _wait_for_live(cmd, 2)  # both alive at once: the overlap is real, not assumed
+    thread_b.join(15)
+    assert not thread_b.is_alive(), "run B never finished"
+    assert outcome_b and getattr(outcome_b[0], "returncode", None) == 0, outcome_b
+    assert thread_a.is_alive(), (
+        "run A finished before the cancel, so this test would prove nothing"
+    )
+
+    cancelled_at = time.monotonic()
+    cmd.cancel()
+    thread_a.join(15)
+
+    assert not thread_a.is_alive(), "run A never returned"
+    assert outcome_a, "run A neither returned nor raised"
+    result = outcome_a[0]
+    assert killable.was_cancelled(result), (
+        f"run A was not ended by the cancel (got {result!r}). The slot forgot the "
+        "older child when the newer one finished, so cancel() found nothing to "
+        "kill: the superseded reader keeps the drive until its own timeout."
+    )
+    took = ended_a[0] - cancelled_at
+    assert took < 3, f"run A outlived the cancel by {took:.1f}s; it was not killed"
+    assert not cmd.is_running(), "a child was left registered after both runs ended"
+
+
+def test_a_finishing_run_removes_only_its_own_child() -> None:
+    """The bookkeeping under the test above, from the other side.
+
+    While two runs overlap, the one that finishes first must leave the other
+    registered: an older run finishing must not hide the newer child, and a
+    newer run finishing must not hide the older one (the 2026-11-05 shape).
+    """
+    cmd = KillableCommand("test own entry")
+    thread_a, _, _ = _start_in_thread(cmd, ["sleep", "4"], 30)
+    _wait_for_live(cmd, 1)
+    thread_b, _, _ = _start_in_thread(cmd, ["sleep", "0.5"], 30)
+    _wait_for_live(cmd, 2)
+    thread_b.join(15)
+    try:
+        assert cmd.live_count() == 1, (
+            f"{cmd.live_count()} child(ren) registered after the newer run "
+            "finished; the older run's child must still be there to be cancelled"
+        )
+    finally:
+        cmd.cancel()
+        thread_a.join(15)
+    assert not thread_a.is_alive()

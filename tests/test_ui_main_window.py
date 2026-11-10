@@ -395,6 +395,97 @@ def test_a_rescan_stops_the_old_probe_as_superseded_not_as_a_fault(
     )
 
 
+def test_a_rescan_frees_the_superseded_probes_drive_before_the_new_probe(
+    teardown_threads: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    drive_frees: list[tuple[str, str]],
+) -> None:
+    """The superseded probe's `cyanrip -I` in the container outlives its cancel.
+
+    On the owner's rig (2026-11-05) it read beside its replacement. The new
+    worker is handed the old probe's drive to free before it reads, and does.
+    """
+    from platterpus import workers
+    from platterpus.workers.disc_info_worker import DiscInfoWorker
+
+    real_stop_thread = workers.stop_thread
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    old_probe = type("RunningProbe", (), {"isRunning": lambda self: True})()
+    window._disc_info_thread = old_probe
+    old_worker = DiscInfoWorker(_FakeBackend(), "/dev/sr0")
+    # Connected as `_start_disc_info` connects a real probe, so the supersession
+    # disconnects what is there rather than warning about what is not.
+    old_worker.finished.connect(window._on_disc_info_ready)
+    old_worker.failed.connect(window._on_disc_info_failed)
+    window._disc_info_worker = old_worker
+    monkeypatch.setattr(workers, "stop_thread", lambda *a, **k: None)
+    try:
+        window._start_disc_info("/dev/sr0")
+    finally:
+        monkeypatch.setattr(workers, "stop_thread", real_stop_thread)
+
+    assert window._disc_info_worker._free_first == "/dev/sr0"
+    deadline = time.monotonic() + 5.0
+    while not drive_frees and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert drive_frees == [("probe", "/dev/sr0")], drive_frees
+
+
+def test_no_drive_is_freed_under_a_rip_or_a_script_ripper_call(
+    teardown_threads: Any,
+) -> None:
+    """The free is a device-scoped SIGKILL that cannot tell a probe's reader from
+    a rip's; a rip's own stop is graceful, so a probe's free must stand aside."""
+    from platterpus.workers.disc_info_worker import DiscInfoWorker
+
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    old_probe = type("RunningProbe", (), {"isRunning": lambda self: True})()
+    window._disc_info_thread = old_probe
+    window._disc_info_worker = DiscInfoWorker(_FakeBackend(), "/dev/sr0")
+    try:
+        assert window._superseded_probe_device() == "/dev/sr0", "the floor"
+        window._rip_thread = object()
+        assert window._superseded_probe_device() == ""
+        window._rip_thread = None
+        busy = type("Runner", (), {"cyanrip_in_flight": True})()
+        window._script_console = type("Console", (), {"runner": busy})()
+        assert window._superseded_probe_device() == ""
+    finally:
+        window._rip_thread = None
+        window._script_console = None
+        window._disc_info_thread = None
+        window._disc_info_worker = None
+
+
+def test_closing_with_a_probe_reading_frees_its_drive_as_exit_work(
+    teardown_threads: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    drive_frees: list[tuple[str, str]],
+) -> None:
+    """At close the probe's cancel kills its host side; the drive is freed as
+    exit work, so the exit check reports what is left AFTER it (the rig,
+    2026-11-05: `exit check: /dev/sr0 is STILL HELD ...`)."""
+    from platterpus import exit_work, workers
+    from platterpus.workers.disc_info_worker import DiscInfoWorker
+
+    real_stop_thread = workers.stop_thread
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    old_probe = type("RunningProbe", (), {"isRunning": lambda self: True})()
+    window._disc_info_thread = old_probe
+    window._disc_info_worker = DiscInfoWorker(_FakeBackend(), "/dev/sr0")
+
+    def stop_all_but_the_fake(thread: object, *args: object, **kwargs: object) -> None:
+        if thread is not old_probe:
+            real_stop_thread(thread, *args, **kwargs)  # type: ignore[arg-type]  # passthrough
+
+    monkeypatch.setattr(workers, "stop_thread", stop_all_but_the_fake)
+    window.close()
+    window._disc_info_thread = None
+    window._disc_info_worker = None
+    assert exit_work.wait()
+    assert drive_frees == [("probe", "/dev/sr0")], drive_frees
+
+
 def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
     teardown_threads,
     monkeypatch: pytest.MonkeyPatch,

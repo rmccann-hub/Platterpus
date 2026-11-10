@@ -23,6 +23,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from platterpus import exit_work
 from platterpus.adapters.rip_backend import RipBackend, RipError, cancel_info_probe
 
 log = logging.getLogger(__name__)
@@ -35,13 +36,32 @@ class DiscInfoWorker(QObject):
     failed = Signal(str, str)  # (device, message)
 
     def __init__(
-        self, backend: RipBackend, device: str, parent: QObject | None = None
+        self,
+        backend: RipBackend,
+        device: str,
+        parent: QObject | None = None,
+        *,
+        free_first: str = "",
     ) -> None:
         super().__init__(parent)
         self._backend = backend
         self._device = device
+        # The drive a SUPERSEDED probe was reading, freed before this one reads,
+        # or "" when nothing was superseded (or the window judged a free unsafe,
+        # `MainWindow._superseded_probe_device`). Why: cancelling the superseded
+        # probe kills only its host side; its `cyanrip -I` inside the container
+        # reads on, and this probe would read the same drive beside it (the
+        # owner's rig, 2026-11-05). Freed HERE, on this worker's thread, so the
+        # GUI thread never waits and the probe cannot start before the drive
+        # is free.
+        self._free_first: str = free_first
         # Set from the GUI thread. Plain bool assignment is atomic under the GIL.
         self._cancelled: bool = False
+
+    @property
+    def device(self) -> str:
+        """The drive this worker probes."""
+        return self._device
 
     @Slot()
     def cancel(self) -> None:
@@ -62,6 +82,16 @@ class DiscInfoWorker(QObject):
 
     @Slot()
     def run(self) -> None:
+        if self._free_first:
+            exit_work.free_probe_drive_now(
+                self._free_first, why="a newer disc probe superseded the one reading it"
+            )
+        if self._cancelled:
+            # Cancelled during the free: the probe has not started, and a cancel
+            # cannot reach a run issued after it (`killable`'s watermark), so it
+            # must not start now.
+            log.info("disc_info cancelled for %s before it started", self._device)
+            return
         try:
             info = self._backend.disc_info(self._device)
         except RipError as exc:
