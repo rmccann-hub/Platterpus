@@ -1477,8 +1477,9 @@ snapshot aftercacheprobe
 
 # --- P2. C1: THE THIRTY-MINUTE HANG, DETECTED (NOT DIAGNOSED) ---------------
 # The fork asked for this in round 14 lap 11 §K2, and the split of labour is the
-# point: THIS STEP DETECTS, their `rig-c1-probe.sh` EXPLAINS. Only run their
-# probe if this step hangs; if it does not hang, that is itself worth knowing —
+# point: THIS STEP DETECTS, the fork EXPLAINS (their former probe script retired
+# in their round 38); if this step hangs, send the run to both sessions; if it
+# does not hang, that is itself worth knowing —
 # it says the hang is not unconditional, which no disc-image fixture could ever
 # establish.
 #
@@ -1599,9 +1600,9 @@ snapshot afterc1
 # two values and nothing else. `md5sum *.flac` differs for byte-identical audio,
 # because a FLAC carries a creation timestamp: a false pass, from an input that
 # cannot confirm. The printed CRCs agree whatever the filter did: a false
-# failure, from an input that cannot refute. The fork's own
-# `tools/rig-round16.sh` decodes the samples (`ffmpeg -f md5`) and remains the
-# stronger evidence where it has been run.
+# failure, from an input that cannot refute. The fork's former round 16 rig
+# script, retired in their round 38, compared decoded samples (`ffmpeg -f md5`) and
+# was the stronger evidence where it was run.
 #
 # EVERY LOG OF A RUN NAMES ITS CALLER AND HAS A RECORD (the fork's round 32
 # lap 9 S9, their data register's X8). These two rips call cyanrip directly, so
