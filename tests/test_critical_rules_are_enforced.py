@@ -1255,7 +1255,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1983 -> 1998** (2026-10-26, TASKS R88, the owner's interim): the argv chokepoint calls `cyanrip_name_lengths.assert_names_fit`, so no route to the ripper skips the name-length check; the check itself lives in its own module.
     # **1998 -> 1999** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     # **1999 -> 2026** (2026-11-05, the rig's overlapping `cyanrip -I`): `version()` runs in the version probe's own killable slot (`slot="version"` through `_run`), and stops on `ProbeCancelled` rather than trying the next flag in a child the cancel did not cover.
-    "adapters/cyanrip_backend.py": 2026,
+    # **2026 -> 2037** (2026-11-11, round 39, `.31`): `reread_until_accuraterip` threaded through `rip` and `_build_rip_argv` to its own module's range, `-Z` rule and gate, as `reread_time_limit_s` is; the words live in `reread_until_accuraterip_args.py`.
+    "adapters/cyanrip_backend.py": 2037,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     # **618 -> 624** (2026-11-03, TASKS R89): `MB_HOST` and the constructor's `set_hostname(MB_HOST, use_https=True)`, the premise of accepting musicbrainzngs' uncapped read; it must sit where the library is configured, and the reasoning lives in `docs/dependency-contracts.md`.
@@ -1282,7 +1283,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **710 -> 731** (2026-11-03, TASKS R117, records that reached no reader): `ripper_sentence`, so a failed probe's `deps.command_failed` message leads with the ripper's own sentence, judged by the parser's `is_ripper_error_line`; it sits beside `run_capture`, the one site that records the failure.
     # **731 -> 777** (2026-11-05, the rig's overlapping `cyanrip -I`): one killable slot per logical operation — `RIPPER_VERSION_PROBE` beside `INFO_PROBE`, `cancel_ripper_version_probe`, and `run_capture`'s `slot` selector read at call time — with why the shared slot was a defect; it sits beside `run_capture`, the one site that runs the probes.
     # **777 -> 782** (2026-11-11, round 39): the ABC's `reread_time_limit_s`, documented where every backend reads its contract.
-    "adapters/rip_backend.py": 782,
+    # **782 -> 786** (2026-11-11, round 39, `.31`): the ABC's `rip` takes `reread_until_accuraterip`, with one sentence of its contract.
+    "adapters/rip_backend.py": 786,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -3242,7 +3244,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4373 -> 4382** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 3): `_write_refusal`, the output-folder writability check before anything spawns, on the worker's thread beside `_space_refusal` and asked first; the check itself is the new focused module `output_writable.py`.
     # **4382 -> 4455** (2026-11-11, round 39 G1, the chase on Archival Exact's album pass, TASKS R7's open item): `_chase_after_album_pass` and its call behind the securing pass's gate, the `after` handed to `_chase_verified_reads`, the chase log appended on a second chase, and the sidecar writer accumulating a rip's swap rows. The entries, the loop and the merge are `verified_read_run.album_pass_entries`, `chase_tracks` and `rip_addendum.merged_rows`; only the worker owns its records and its files.
     # **4455 -> 4470** (same day, TASKS R49; 4470 once its imports were merged): the securing pass's time limit computed (`securing_time_limit.securing_pass_time_limit`), said in the log, and handed through `_rip_once` to the backend.
-    "workers/rip_worker.py": 4470,
+    # **4470 -> 4480** (2026-11-11, round 39, `.31`): `_rip_once` asks for `.31`'s rule on the securing pass alone, with `-Z`; why there and why 2 is `reread_until_accuraterip_args.py`.
+    "workers/rip_worker.py": 4480,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
@@ -3341,7 +3344,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **600 -> 606** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `track_other_read` declared fork-only, with its source citation.
     # 606 -> 609 (2026-11-11, round 39): the maximal argv asks for `--reread-time-limit`, which the securing pass now sends to a build that lists it, so §3 says so.
     # **609 -> 614** (2026-11-11, round 39, `.31`): `secure_rerip_accuraterip_matched` declared fork-only, with its source line and P2 row.
-    "scripts/emit_dependency_contract.py": 614,
+    # **614 -> 616** (2026-11-11, round 39, `.31`): the maximal argv asks for `--reread-until-accuraterip 2`, so the consumer contract publishes the flag for the build that lists it.
+    "scripts/emit_dependency_contract.py": 616,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the

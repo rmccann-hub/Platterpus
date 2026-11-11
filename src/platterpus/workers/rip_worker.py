@@ -46,6 +46,9 @@ from platterpus import (
     ripper_exit_class,
 )
 from platterpus.accuraterip_standing import unvouched_sentence
+from platterpus.adapters.reread_until_accuraterip_args import (
+    SECURING_PASS_ACCURATERIP_CONFIDENCE,
+)
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -2305,6 +2308,13 @@ class RipWorker(QObject):
                 read_speed=read_speed,
                 only_tracks=only_tracks,
                 reread_time_limit_s=reread_time_limit_s,
+                # `.31`'s rule on the securing pass only, which reads with -Z
+                # (`reread_until_accuraterip_args.py` says why there and why 2).
+                reread_until_accuraterip=(
+                    SECURING_PASS_ACCURATERIP_CONFIDENCE
+                    if securing and secure_rerip_matches > 0
+                    else None
+                ),
             )
             # Snapshot the command line as soon as we have a handle, BEFORE the
             # read loop — so a rip that dies in its first second still carries

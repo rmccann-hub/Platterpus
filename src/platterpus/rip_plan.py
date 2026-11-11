@@ -37,6 +37,7 @@ you can only notice it because both exist.
 from __future__ import annotations
 
 from platterpus.adapters import cyanrip_backend as backend
+from platterpus.adapters import reread_until_accuraterip_args as _until
 from platterpus.adapters.reread_time_limit_args import REREAD_TIME_LIMIT_FLAG
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.cyanrip_cli import (
@@ -195,8 +196,7 @@ def describe_rip_plan(
         f"{PLAN_PREFIX}   Overread into lead-in/lead-out (-O): "
         + ("ON" if force_overread else "off")
     )
-    # Asked for, not promised: sent only to a build that lists it (`Invoked as:`).
-    lines.append(
+    lines.append(  # asked for, not promised: only a build that lists it gets it
         f"{PLAN_PREFIX}   Prefer the disc's own ISRC ({backend.PREFER_DISC_ISRC_FLAG}): "
         + (
             "ON, where the ripper build supports it"
@@ -204,13 +204,13 @@ def describe_rip_plan(
             else "off — tracks carry MusicBrainz's ISRC"
         )
     )
-    # Sent on every rip whose build lists them, no setting (TASKS R117).
-    lines.append(
+    lines.append(  # sent to every build that lists them, no setting (TASKS R117)
         f"{PLAN_PREFIX}   Keep the read AccurateRip matches at the re-read limit "
         f"({backend.PREFER_ACCURATERIP_MATCH_FLAG}): ON, where the build supports "
-        "it; it changes nothing until a track reaches the limit. The securing pass "
-        "stops re-reading a track after 5x its length or 2x its first read, the "
-        f"larger ({REREAD_TIME_LIMIT_FLAG}, round 39), where the build supports it."
+        "it. The securing pass stops a track's re-reads after the larger of 5x "
+        f"its length and 2x its first read ({REREAD_TIME_LIMIT_FLAG}) and reads on "
+        f"past an agreement AccurateRip rejects ({_until.REREAD_UNTIL_ACCURATERIP_FLAG} "
+        f"{_until.SECURING_PASS_ACCURATERIP_CONFIDENCE}), where the build takes each."
     )
     lines.append(
         f"{PLAN_PREFIX}   Who drove the rip (--consumer {backend.consumer_tag()}): "
