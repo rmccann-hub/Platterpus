@@ -2456,7 +2456,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1069 -> 1076** (2026-10-14, TASKS R9): the MANIFEST's `ripper -j records missing` line, delegated to `record_fate.record_absences` with the session's own report glob.
     # **1076 -> 1088** (2026-10-26, run B of the 0.7.112 Full runs): `post_rip_wait_s`, the bound on how long a finished session waits for the last rip's post-rip checks, beside `rip_wait_s` which bounds the wait for the rip.
     # **1088 -> 1116** (2026-11-03, review B8): `_stage` names a rotation older than the session and records each staged member's line, so `SOURCES.txt` is rendered from the bundle's verdicts through `late_text`; the record itself moved to `session_sources_record.py`.
-    "test_session.py": 1116,
+    # **1116 -> 1123** (2026-11-11, round 39 lap 1 S10): the record scan's cap 80 -> 400, with why: every chase read now keeps a record, and section R's five rips each chase.
+    "test_session.py": 1123,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -3245,7 +3246,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4382 -> 4455** (2026-11-11, round 39 G1, the chase on Archival Exact's album pass, TASKS R7's open item): `_chase_after_album_pass` and its call behind the securing pass's gate, the `after` handed to `_chase_verified_reads`, the chase log appended on a second chase, and the sidecar writer accumulating a rip's swap rows. The entries, the loop and the merge are `verified_read_run.album_pass_entries`, `chase_tracks` and `rip_addendum.merged_rows`; only the worker owns its records and its files.
     # **4455 -> 4470** (same day, TASKS R49; 4470 once its imports were merged): the securing pass's time limit computed (`securing_time_limit.securing_pass_time_limit`), said in the log, and handed through `_rip_once` to the backend.
     # **4470 -> 4480** (2026-11-11, round 39, `.31`): `_rip_once` asks for `.31`'s rule on the securing pass alone, with `-Z`; why there and why 2 is `reread_until_accuraterip_args.py`.
-    "workers/rip_worker.py": 4480,
+    # **4480 -> 4490** (2026-11-11, round 39 lap 1 S10): `_read_once_for_chase` keeps each chase read's `-j` record before the chase deletes its folder, and names it for the rip's bundle; the copy is `chase_record_keep.py`'s.
+    "workers/rip_worker.py": 4490,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

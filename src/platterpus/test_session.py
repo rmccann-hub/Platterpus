@@ -1003,10 +1003,17 @@ DIAGNOSTICS_RECORD_GLOB: Final[str] = "cyanrip-diagnostics-*.json"
 
 
 def session_diagnostics_records(
-    search_roots: Sequence[Path], *, since: float, limit: int = 80
+    search_roots: Sequence[Path], *, since: float, limit: int = 400
 ) -> tuple[list[Path], int]:
     """The `-j` records written DURING this session, newest first, and how many
     the cap dropped. Never raises.
+
+    **The cap is 400 from 2026-11-11** (it was 80): from 0.7.122 every
+    verified-read chase read keeps its record too (`chase_record_keep.py`, the
+    fork's round 39 lap 1 S10), up to 16 reads a track, and section R's five
+    whole-disc rips each chase, so 80 could drop the earliest rips' records,
+    the ones G4 compares. A record is 20 to 160 kB, so 400 stay well inside the
+    bundle's 64 MB, which is spent after the app log and the album folders.
 
     Discovered on disk like the album folders, for the same reason: a run that
     ended badly still leaves the records of the rips it made.

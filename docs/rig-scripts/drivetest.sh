@@ -28,6 +28,10 @@
 #   bash drivetest.sh probe      round 39's G4, with Platterpus closed: one disc
 #                                read timed, two reads 2.4 s apart, and the C2
 #                                probe at the five places the wrong samples sit.
+#   bash drivetest.sh records    every ripper record (`--diagnostics`, the JSON
+#                                cyanrip writes beside each rip, never audio)
+#                                in the rips folder since 2026-11-09, in one
+#                                upload: the fork's round 39 lap 1 S10.
 #   bash drivetest.sh status     what is done and what is next.
 #
 # WHEN SOMETHING FAILS, IT DECIDES WHETHER GOING ON STILL MEANS SOMETHING:
@@ -412,7 +416,37 @@ track9_reads() {
   done_mark track9
 }
 
-# One upload: the named pieces, the log, and every bundle made since the test began.
+# EVERY RIP'S RIPPER RECORD (the fork's round 39 lap 1 S10, BLOCKING: "put each
+# rip's --diagnostics record in the bundle, in the test burn and from now on").
+# The app asks every fork rip for one (`cyanrip_backend.diagnostics_args_for_build`)
+# and cyanrip writes it where the rip ran, the rips folder's ROOT, as
+# cyanrip-diagnostics-<UTC>.json; the securing pass's is kept beside its album as
+# ...-securingpass.json. pack() moves album folders only, so until now no
+# record of a drive-test rip reached an upload, and the fork could not compare
+# track 3's per-second CRCs (their S9). JSON text, 20 to 160 kB each, never audio;
+# the newest 400 are kept and any more counted. $1 the start marker, $2 the folder.
+copy_records() {
+  local since="$1" dest="$2" found kept
+  mkdir -p "$dest"
+  found="$(find "$RIPS" "$DM" -maxdepth 4 -type f -name 'cyanrip-diagnostics-*.json' \
+    -newer "$since" -not -path "$dest/*" -printf '%T@ %p\n' 2>/dev/null | sort -rn)" || found=""
+  kept=0
+  if [ -n "$found" ]; then
+    while read -r _ f; do
+      [ "$kept" -lt 400 ] || break
+      # A name met twice (a record moved with its album) keeps both, numbered.
+      local name; name="$(basename "$f")"
+      [ -e "$dest/$name" ] && name="$kept-$name"
+      cp "$f" "$dest/$name" && kept=$((kept + 1))
+    done <<< "$found"
+  fi
+  local total; total="$(printf '%s' "$found" | grep -c . || true)"
+  echo "ripper records: $kept of ${total:-0} found in $RIPS and $DM since $(date -u -r "$since" '+%Y-%m-%d %H:%M UTC')" \
+    | tee "$dest/RECORDS.txt"
+}
+
+# One upload: the named pieces, the log, every bundle made since the test began,
+# and every ripper record written since then (copy_records).
 make_upload() {
   IN_UPLOAD=1
   local name="$1" since="$2"; shift 2
@@ -445,6 +479,7 @@ make_upload() {
   find "$DM" -maxdepth 1 -name 'leftover-*.tar.gz' -exec cp -t "$stage/" {} +
   [ -f "$DM/notes.txt" ] && cp "$DM/notes.txt" "$stage/"
   find "$BUNDLES" -maxdepth 1 -name '*.tar.gz' -newer "$since" -exec cp -t "$stage/bundles/" {} + 2>/dev/null || true
+  copy_records "$since" "$stage/records"
   # Listed into a file outside the folder, then moved in, so the manifest never
   # lists itself half-written.
   ( cd "$stage" && find . -type f -exec sha256sum {} + | sort -k2 > "$DM/.manifest.tmp" ) && mv "$DM/.manifest.tmp" "$stage/MANIFEST.txt"
@@ -781,6 +816,17 @@ restored() {
   echo "Last: the Full run, in the app: Tools > Advanced > Run acceptance test..., Full."
 }
 
+# The fork's round 39 lap 1 S10: the records of 2026-11-09 and 2026-11-10, if
+# they are still in the rips folder, give track 3's comparison with no rig time.
+# Reads nothing from the drive; needs neither the app closed nor a disc.
+records() {
+  local since="$STATE/records.since"
+  touch -d "${DRIVETEST_RECORDS_SINCE:-2026-11-09T00:00:00Z}" "$since"
+  UPLOAD_NAME=records; UPLOAD_SINCE="$since"; UPLOAD_PIECES=()
+  say "Collecting every ripper record in $RIPS since $(date -u -r "$since" '+%Y-%m-%d %H:%M UTC')"
+  make_upload records "$since"
+}
+
 status() {
   local s
   for s in readings runA wipe runB runC track9 perfectreadings runD quietreadings runE probe; do
@@ -802,6 +848,7 @@ case "${1:-}" in
   quiet)    quiet ;;
   probe)    probe ;;
   restored) restored ;;
+  records)  records ;;
   status)   status ;;
-  *) echo "usage: bash $SELF [perfect|quiet|restored|probe|status]"; exit 2 ;;
+  *) echo "usage: bash $SELF [perfect|quiet|restored|probe|records|status]"; exit 2 ;;
 esac

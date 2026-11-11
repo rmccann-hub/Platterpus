@@ -58,6 +58,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.chase_record import CHASE_AFTER_ALBUM_PASS, CHASE_AFTER_SECURING_PASS
+from platterpus.chase_record_keep import keep_chase_record
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.isrc_provenance import IsrcReading, read_isrcs
 from platterpus.ladder_trigger import judge_step_down
@@ -3497,6 +3498,15 @@ class RipWorker(QObject):
         )
         if outcome is None:
             return None
+        # Its `-j` record leaves the temporary folder before the chase deletes it,
+        # for the bundle (the fork's round 39 lap 1 S10; `chase_record_keep.py`).
+        kept = keep_chase_record(
+            diagnostics_record.record_path_from_argv(self._ripper_argv, folder),
+            Path(self._params.output_dir),
+            number,
+        )
+        if kept is not None and kept not in self._diagnostics_records:
+            self._diagnostics_records.append(kept)
         success, log_path = outcome
         return SingleRead(success, log_path, self._chase_exit_code, self._ripper_argv)
 
