@@ -1991,6 +1991,13 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # which their lap 1 declares. Our cell for the row (we send it on the securing
     # pass) goes in our round 39 lap 2, which retires this entry: it declares
     # 8bd556f6… and states our cells in its S7, the file staying byte-identical.
+    # Round 39, 2026-11-11: the fork's lap 3 (S5) wrote two of those cells into
+    # the file at `cyanrip@9d6fe67c`, which hashes to 9fcf4b4b…, as their lap 3
+    # declares; our copy is theirs byte for byte. Our lap 4 declares it, which
+    # retires this entry.
+    ("round-39-lap-02.md", "seam-commands"): (
+        "9fcf4b4b354e1875a7db6786e6f42fed553a729a1f0b7eae4257aaaa971753f5"
+    ),
 }
 
 

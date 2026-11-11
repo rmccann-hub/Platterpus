@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The fork's round 39 lap 3 is filed, and the shared `seam-commands.md` takes our two cells** (contributor-facing): lap 3 (OPEN on G5's EAC re-rip; GO pre-committed once it is filed) byte for byte from `platterpus-fork` at `54d66666`; its digest `76df5c9d7f5f93d0` reproduces; `seam-commands.md` copied from theirs (sha256 `9fcf4b4b…`), carrying the `--reread-until-accuraterip` and `--prefer-accuraterip-match` cells our lap 2 S7 gave.
+
 ### Fixed
 
 - **`expect-track-records` reads the EAC-layout log in the rip's folder, as it says it does** (round 39's G3): the runner hands the grader the report file's path, and the grader searched that path as a folder, so the EAC-layout log was never found. Round 39's test burn on 2026-11-11 graded the report alone on all five rips ("no EAC-layout log in the folder") while each folder held one. Graded again by hand on the run's own folders, all five pass with their 14 track blocks, so the run's verdict stands; the step now reads the log. A test through the real runner, with only the log carrying a banned `Copy OK`, fails without the fix (revert-probed); the collected-tests floor rises to 10,533.
