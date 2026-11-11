@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our status block records 0.7.122 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.122 at `667d2ec`, and the next run is the owner's test burn of `.31` through it.
+
 ## [0.7.122] — 2026-11-11
 The first release that installs the fork's `.30` (`5cc1c6b`) by default, after round 38 closed on both sides, and the release that names `.31` (`e531a33`) as the build under review, for round 39's test burn. Every track now says how it was verified, in the EAC-layout log and the report, and a track repaired from CTDB says so, with AccurateRip's own database checked for the repaired audio. A well-known track that would not verify is read again, up to 16 times within a time budget, until AccurateRip agrees. It reads everything `.31` adds and sends `.31` its new option, so a re-read AccurateRip confirms is kept even over reads that agree on something else. Every rip's diagnostics record, the verified-read chase's included, goes into the bundle. The Full acceptance run gains section R, five default whole-disc rips in a row, and picks the reference release by its MusicBrainz id. Slow disc reads are waited out, not killed at 120 s, and an abandoned read no longer keeps the drive.
 
