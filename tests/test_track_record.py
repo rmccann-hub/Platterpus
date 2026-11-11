@@ -570,3 +570,44 @@ def test_expect_track_records_runs_through_the_runner(
     bad = _run(_rip(tmp_path / "c", report), qapp, process_until, verb)
     assert bad.outcome is Outcome.FAIL, bad.detail
     assert "track 1 was repaired from CTDB" in bad.detail
+
+
+def test_expect_track_records_reads_the_eac_layout_log_in_the_rips_folder(
+    qapp: Any, process_until: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression of round 39's test burn (2026-11-11): through the real
+    runner, the step graded the report alone and said "no EAC-layout log in the
+    folder" on all five rips, while each folder held one. The runner hands the
+    grader the REPORT FILE's path and the grader searched it as a folder. Here
+    the report is clean and only the EAC-layout log says `Copy OK` over reads
+    that disagree, so only a step that reads the log can fail it."""
+    pytest.importorskip("PySide6.QtWidgets")
+    from test_uiscript_artifact_verbs import _load, _rip, _run
+
+    from platterpus.uiscript import artifact_verbs
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.track_record_grading import EAC_LOG_SUFFIX
+
+    monkeypatch.setattr(artifact_verbs, "ARTIFACT_WAIT_S", 0.5)
+    report = _load("overwrite")
+    for track in report["tracks"]:
+        track["record"] = {
+            "kind": RECORD_FIRST_READ,
+            "line": "first read; verified by AccurateRip v2 at confidence 200",
+            "reads_disagree": None,
+            "repaired": False,
+        }
+    report["tracks"][0]["record"]["reads_disagree"] = True
+    numbers = [t["number"] for t in report["tracks"]]
+    win = _rip(tmp_path / "eac", report)
+    folder = tmp_path / "eac" / "album"
+    blocks = []
+    for n in numbers:
+        status = "Copy OK" if n == numbers[0] else "Copy finished"
+        blocks.append(f"Track {n:2d}\n\n     Record: first read\n\n     {status}\n")
+    (folder / f"album{EAC_LOG_SUFFIX}").write_text("\n".join(blocks), "utf-8")
+
+    step = _run(win, qapp, process_until, "expect-track-records")
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "status line says 'Copy OK'" in step.detail, step.detail
+    assert "no EAC-layout log in the folder" not in step.detail, step.detail
