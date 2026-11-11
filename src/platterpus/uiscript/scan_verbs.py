@@ -39,10 +39,14 @@ if TYPE_CHECKING:
     from platterpus.uiscript.script import Step
 
 #: How long ``rescan`` waits for its scan. Run A's read and lookup took 15 s
-#: (08:02:41.761 to 08:02:57.043); a retried read adds two 4 s delays.
-RESCAN_WAIT_S: Final[float] = 120.0
+#: (08:02:41.761 to 08:02:57.043), but one read may run to the probe limit
+#: (``cyanrip_backend._INFO_TIMEOUT_S``, 300 s) and then be retried after a 4 s
+#: delay. At 120 s this gave up while the app's own retry was still coming (the
+#: owner's Run A, 2026-11-05 22:24 UTC); 660 s covers one full read, the delay
+#: and a retry, and ``tests/test_uiscript_scan_verbs.py`` holds the relation.
+RESCAN_WAIT_S: Final[float] = 660.0
 #: How long ``rip`` waits for a scan in flight before pressing Start anyway.
-RIP_SCAN_WAIT_S: Final[float] = 120.0
+RIP_SCAN_WAIT_S: Final[float] = 660.0
 #: After the disc read ends, how long the MusicBrainz lookup (and a single
 #: candidate's release fetch) may take to land. Run A's took 0.6 s.
 LOOKUP_GRACE_S: Final[float] = 30.0

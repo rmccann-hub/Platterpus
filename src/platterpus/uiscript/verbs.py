@@ -252,7 +252,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         "rescan",
         0,
         0,
-        "rescan — re-read the disc in the drive, and wait (up to 120 s) until the "
+        "rescan — re-read the disc in the drive, and wait (up to 660 s) until the "
         "read has identified it or its own release picker is open",
     ),
     Verb(
