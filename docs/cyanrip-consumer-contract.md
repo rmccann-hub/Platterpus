@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (88)
+## 1. Log lines we parse (89)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -98,6 +98,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_block_start` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|read with no error reported\\.\|is data, skipping:\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit\|time limit)\\b` |
+| `secure_rerip_accuraterip_matched` **(fork-only)** | section header | `^\\s*Done;\\s+\\(read (?P<read>\\d{1,6}) matches AccurateRip at confidence (?P<confidence>\\d{1,6}); agreement on (?P<overruled>[0-9A-Fa-f]{8}) overruled by AccurateRip; kept (?P<kept>[0-9A-Fa-f]{8}), read (?P<reads>\\d{1,6}) time` |
 | `secure_rerip_progress` | section header | `^\\s*Repeating ripping\\s+\\((?P<matches>\\d{1,6})\\s+out of\\s+(?P<target>\\d{1,6})\\s+matches\\b` |
 | `data_track_outcome` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped successfully!\|ripped with errors\\.)` |
 | `data_track_copy_diagnostic` | section header | `^(?:Frame read failed at LSN -?\\d{1,9}!\|Sector EDC mismatch at LSN -?\\d{1,9}!\|Error writing to ")` |
@@ -141,7 +142,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 | `track_echo_header` | indented | `^\\s{1,8}(?:Metadata\|CD-TEXT):\\s*$` |
 
-Of these, **32 exist only in the fork** and match nothing in
+Of these, **33 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:
 
 - `invoked_as`
@@ -161,6 +162,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `rip_completed`
 - `read_stalls`
 - `secure_rerip_converged`
+- `secure_rerip_accuraterip_matched`
 - `track_paranoia_scope`
 - `track_pregap_length`
 - `track_pregap_source_two_searches`

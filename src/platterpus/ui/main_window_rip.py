@@ -450,6 +450,7 @@ def _merge_shipped_track(
             secure_rerip_agreement=None,
             secure_rerip_kept_read=None,
             secure_rerip_limit_stop=None,
+            secure_rerip_ar_overrule=None,
         )
     verdict = verdicts.get(track.number)
     if verdict is not None:
@@ -478,6 +479,11 @@ def _merge_shipped_track(
             # would describe reads that are no longer the file's.
             secure_rerip_limit_stop=(
                 shipped.secure_rerip_limit_stop if shipped is not None else None
+            ),
+            # And `.31`'s overruled agreement (their round 39 lap 1 S4): the
+            # shipped read's, so the record says AccurateRip ended THESE reads.
+            secure_rerip_ar_overrule=(
+                shipped.secure_rerip_ar_overrule if shipped is not None else None
             ),
         )
     return track

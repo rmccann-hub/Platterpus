@@ -80,6 +80,7 @@ from platterpus import (
     secure_rereads_footer,
 )
 from platterpus import other_reads as _other
+from platterpus import reread_ar_overrule as _ar_overrule
 from platterpus import ripper_track_notes as _notes
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
@@ -698,6 +699,13 @@ def secure_rerip_verdict_converged(line: str) -> bool | None:
         return agreed is not None and agreed >= 1
     if _SECURE_DONE_FAIL.match(line):
         return False
+    # `.31`'s early end (`reread_ar_overrule.EARLY_END`): AccurateRip matched a
+    # read after overruling an agreement. The reads did not converge, as the
+    # fork says (their round 39 lap 1 S6), so this is False, the fail-safe
+    # side; unread, it was no verdict at all, which the EAC-layout log fills
+    # in as convergence for a track read twice or more.
+    if _ar_overrule.EARLY_END.match(line):
+        return False
     return None
 
 
@@ -847,6 +855,22 @@ def secure_rerip_limit_stop(line: str) -> RereadLimitStop | None:
         if row is None or _parse_secure_verdict(row.group("text")) is not False:
             return None
     return reread_limit.limit_stop(line)
+
+
+def secure_rerip_ar_overrule(line: str) -> _ar_overrule.AccurateRipOverrule | None:
+    """`.31`'s overruled agreement from a ``Done;`` line, or ``None``.
+
+    The early end (``cyanrip@e531a33:src/cyanrip_main.c:2140``), or the clause
+    in a limit line this module's ``_SECURE_DONE_FAIL`` claimed
+    (``cyanrip@e531a33:src/cyanrip_main.c:2183-2242``); read by
+    :mod:`platterpus.reread_ar_overrule`. Pure; never raises.
+    """
+    ended = _ar_overrule.early_end(line)
+    if ended is not None:
+        return ended
+    if _SECURE_DONE_FAIL.match(line) is None:
+        return None
+    return _ar_overrule.limit_overrule(line)
 
 
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
@@ -1826,6 +1850,10 @@ _SECURE_DID_NOT_CONVERGE: tuple[str, ...] = (
     # `did NOT converge after 4 reads (time limit of 600 s reached)`, which the
     # phrase above already reads; this keeps a reword without it negative.
     "time limit",
+    # `.31`'s `matched AccurateRip after 4 reads (agreement on X overruled)`
+    # (`cyanrip@e531a33:src/cyanrip_log.c:852`): the reads did not converge, as
+    # the fork says (round 39 lap 1 S6); AccurateRip ended them.
+    "overruled",
     "gave up",
     "failed",
 )
@@ -2136,6 +2164,8 @@ class _TrackAcc:
     secure_rerip_kept_read: LimitKeptRead | None = None
     # Which limit stopped them, buffered the same way (see TrackResult).
     secure_rerip_limit_stop: RereadLimitStop | None = None
+    # `.31`'s overruled agreement, buffered the same way (see TrackResult).
+    secure_rerip_ar_overrule: _ar_overrule.AccurateRipOverrule | None = None
     filename: str = ""
     pre_emphasis: bool | None = None
     copy_crc: str = ""
@@ -3253,6 +3283,9 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # The key is named after the OLD wording and is kept anyway: it is a row key in
     # the published consumer contract, and the row now covers both wordings.
     ("secure_rerip_no_match", _SECURE_DONE_FAIL),
+    # `.31`'s early end, a read AccurateRip matches after an overruled agreement
+    # (round 39 lap 1 S4; `cyanrip@e531a33:src/cyanrip_main.c:2140`).
+    ("secure_rerip_accuraterip_matched", _ar_overrule.EARLY_END),
     # Read for its match count since 2026-10-05; it was on the ignored list.
     ("secure_rerip_progress", _SECURE_PROGRESS),
     # `+platterpus.23`: a data track's outcome, and the data ripper's per-sector
@@ -3795,6 +3828,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     pending_agreement: RereadAgreement | None = None
     pending_kept: LimitKeptRead | None = None
     pending_stop: RereadLimitStop | None = None
+    pending_overrule: _ar_overrule.AccurateRipOverrule | None = None
     # Which peak the NEXT indented "Peak:  N dBFS" line reports: "true", "sample",
     # or "" for no header seen. cyanrip prints its peaks as a sub-header plus a
     # value line, and a FORK adding the sample peak is likely to do the same — so
@@ -3946,6 +3980,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 secure_rerip_agreement=current.secure_rerip_agreement,
                 secure_rerip_kept_read=current.secure_rerip_kept_read,
                 secure_rerip_limit_stop=current.secure_rerip_limit_stop,
+                secure_rerip_ar_overrule=current.secure_rerip_ar_overrule,
                 start_sector=current.start_sector,
                 end_sector=current.end_sector,
                 pregap_sectors=current.pregap_sectors,
@@ -4138,6 +4173,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             pending_agreement = secure_rerip_limit_agreement(line, pending_progress)
             pending_kept = secure_rerip_limit_kept_read(line)
             pending_stop = secure_rerip_limit_stop(line)
+            pending_overrule = secure_rerip_ar_overrule(line)
             pending_progress = []
             continue
         # A progress line from the same repeat loop, buffered for the same track.
@@ -4190,11 +4226,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 secure_rerip_agreement=pending_agreement,
                 secure_rerip_kept_read=pending_kept,
                 secure_rerip_limit_stop=pending_stop,
+                secure_rerip_ar_overrule=pending_overrule,
             )
             pending_converged = None
             pending_agreement = None
             pending_kept = None
             pending_stop = None
+            pending_overrule = None
             # Progress lines with no verdict after them (a cancelled re-read stops
             # without one) describe nothing this track can claim.
             pending_progress = []
@@ -4542,6 +4580,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # last word.
                 if verdict is not None:
                     current.secure_rerip_converged = verdict
+                # `.31`'s row for a track AccurateRip ended: read as not
+                # converged above (`overruled`), joined to the buffered early end.
+                row_overrule = _ar_overrule.row_overrule(match.group("text"))
+                if row_overrule is not None:
+                    current.secure_rerip_ar_overrule = _ar_overrule.combined(
+                        current.secure_rerip_ar_overrule, row_overrule
+                    )
                 # Which limit stopped it, from the row's own parenthetical (the
                 # fork's proposed `(time limit of 600 s reached)` beside `(repeat
                 # limit hit)`). The row wins over the buffered `Done;` line, as

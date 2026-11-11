@@ -15,10 +15,11 @@ EAC-layout log nor the report's track row said so; the repair lived only in
   agreeing (exactly, or as a bound the log proves);
 * **kept at the -Z limit for AccurateRip's match** — the fork's
   ``--prefer-accuraterip-match`` kept a read AccurateRip matches at the limit;
-* **the fork's ``.31`` -Z rule** — an AccurateRip-guided convergence. Not
-  released, so not read: a named seam (:data:`platterpus.track_record_sources.
-  AR_GUIDED_CONVERGENCE_BUILDS`),
-  recognised by build tag once its log text is published, and never guessed;
+* **the fork's ``.31`` -Z rule** — AccurateRip ended the reads after overruling
+  an agreement it does not match (``--reread-until-accuraterip``), read from the
+  log (:mod:`platterpus.reread_ar_overrule`) for the builds in
+  :data:`platterpus.track_record_sources.AR_GUIDED_CONVERGENCE_BUILDS`; a later
+  build we cannot read says *not determined*, never a guess;
 * **chase attempt k** — our verified-read chase (TASKS R7) kept its ``k``-th read;
 * **repaired from CTDB** — with the entry id, the Copy CRC before and after, a
   fresh CTDB check, and AccurateRip v1 and v2 each stated (not determined: see
@@ -56,6 +57,7 @@ from platterpus.track_record_reads import read_path, reads_disagree
 from platterpus.track_record_sources import (
     RepairFacts,
     ar_guided_convergence,
+    ar_overrule_words,
     int_or_none_strict,
     upper_hex,
 )
@@ -205,15 +207,16 @@ def track_record(
                 RECORD_KEPT_AT_LIMIT,
                 f"kept at the -Z limit for AccurateRip's match (the ripper's "
                 f"--prefer-accuraterip-match): {crc}{times}, AccurateRip confidence "
-                f"{confidence} ({path})",
+                f"{confidence} ({path})"
+                + (f"; {words}" if (words := ar_overrule_words(track)) else ""),
                 disagree,
                 False,
             )
         guided = ar_guided_convergence(track, ripper_version)
-        if guided is True:  # unreachable until the `.31` seam is wired
+        if guided is True:  # `.31` and later: AccurateRip ended the reads
             return TrackRecord(
                 RECORD_AR_GUIDED,
-                f"the fork's AccurateRip-guided -Z rule ({path}); {verified}",
+                f"{ar_overrule_words(track)}; {verified}",
                 disagree,
                 False,
             )
@@ -223,6 +226,8 @@ def track_record(
                 "; whether the fork's .31 AccurateRip-guided -Z rule chose this read "
                 "is not determined (this release does not read that build's log)"
             )
+        if (words := ar_overrule_words(track)) is not None:  # `.31`: a limit after
+            caveat += f"; {words}"  # an overrule, which the limit line names
         if proof.kind == PROOF_NONE:
             return TrackRecord(
                 RECORD_NOT_VERIFIED,

@@ -375,25 +375,29 @@ def test_a_track_whose_reads_agreed_is_not_called_disagreeing() -> None:
 
 
 def test_the_31_seam_is_named_and_never_guessed() -> None:
-    """Until `.31`'s log text is published the rule is never claimed, and a re-read
-    from `.31` or later says whether it applied is not determined."""
-    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset()
+    """`.31`'s log text is read (2026-11-11, its contract filed), so a `.31` re-read
+    the rule did not end says so plainly; a re-read from a LATER build we have not
+    read says whether it applied is not determined. `.31`'s own lines are held in
+    `tests/test_cyanrip_dot31_reread_until_accuraterip.py`."""
+    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31})
     assert fork_build_number("cyanrip 0.9.4-rc3+platterpus.31") == 31
     assert fork_build_number("cyanrip 0.9.3") is None
     reread = replace(_verified(1), rip_count=3, secure_rerip_converged=True)
     assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.30") is False
-    assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.31") is None
-    later = track_record(reread, ripper_version="cyanrip 0.9.4-rc3+platterpus.31")
+    assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.31") is False
+    assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.32") is None
+    later = track_record(reread, ripper_version="cyanrip 0.9.4-rc3+platterpus.32")
     assert later.kind == RECORD_REREAD
     assert (
         "whether the fork's .31 AccurateRip-guided -Z rule chose this read is not determined"
         in later.line
     )
-    earlier = track_record(reread, ripper_version="cyanrip 0.9.4-rc3+platterpus.30")
-    assert ".31" not in earlier.line
+    for read_build in ("30", "31"):
+        record = track_record(reread, ripper_version=f"x+platterpus.{read_build}")
+        assert "not determined" not in record.line, read_build
     # A first read cannot have been chosen by a -Z rule, so it carries no caveat.
     assert (
-        ".31" not in track_record(_verified(1), ripper_version="x+platterpus.31").line
+        ".31" not in track_record(_verified(1), ripper_version="x+platterpus.32").line
     )
 
 

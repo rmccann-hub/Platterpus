@@ -86,6 +86,7 @@ from platterpus.first_pass_reread import FirstPassReread, did_not_converge
 from platterpus.other_reads import OtherRead
 from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
 from platterpus.pregap_search import PregapSearch
+from platterpus.reread_ar_overrule import AccurateRipOverrule
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
 from platterpus.ripper_track_notes import RipperCoverArt, TrackFilter
 from platterpus.safe_int import int_or_none
@@ -375,6 +376,11 @@ class TrackResult:
     # with its seconds. None for a converged track, a track never re-read, and a
     # log that names no limit. Describes the same reads as the three above.
     secure_rerip_limit_stop: RereadLimitStop | None = None
+    # `.31`'s `--reread-until-accuraterip`: an agreement AccurateRip overruled,
+    # and whether a read it matches then ended the track (`reread_ar_overrule`).
+    # None for every build before `.31` and every track it did not overrule.
+    # Describes the same reads as the four above.
+    secure_rerip_ar_overrule: AccurateRipOverrule | None = None
     # The album pass's own values of the four fields above and `rip_count`, kept
     # by the merge when a securing re-read replaced them (TASKS R114); None when
     # nothing replaced them. Two facts, two slots: see `first_pass_reread.py`.

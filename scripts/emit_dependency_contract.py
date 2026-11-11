@@ -202,6 +202,11 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # `round-38-lap-12-provider-contract-g0c276fc.md` lists it (P2 line 376).
         # Fork-only: the reads it lists are the fork's own (round 38 work).
         "track_other_read",
+        # The fork's `.31` early end, a read AccurateRip matches after an overruled
+        # agreement (round 39 lap 1 S4), `cyanrip@e531a33:src/cyanrip_main.c:2140`,
+        # their P2 at `round-39-lap-01-provider-contract-g6eacb8b.md:504`.
+        # Fork-only: `--reread-until-accuraterip` is theirs.
+        "secure_rerip_accuraterip_matched",
     }
 )
 
