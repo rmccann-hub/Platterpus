@@ -284,6 +284,7 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-38-lap-13.md": "7ad6ac0bfaab9291888c0d797d1c1a7e9fe5806ad84633935a6eb1d162051baa",
     "outbound/round-38-lap-15.md": "ea1894f168c2aeb28b707f8ebf48b7a77d8af899dd49cb85d91ced8f54734fe5",
     "outbound/round-38-lap-17.md": "e57a60278125f7e16843a2fc8fdf6577ea2b66f240bb7d366bdf09d9837f6847",
+    "outbound/round-39-lap-02.md": "853bf0caf9aac7ec56d8bdaf3f1860ba9661bce95d11e4fbb2a407f870c3518c",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
