@@ -1874,7 +1874,11 @@ expect secure_rerip_dynamic on
 # tags, never the read. `expect-track-records` grades G3 on every rip, and G2
 # where the record carries AccurateRip's answer for a repaired track (TASKS
 # R138). G1 is each record's line for track 3: a read verified by AccurateRip,
-# first read, re-read or chase attempt k; both sides read it from the bundle.
+# first read, re-read, chase attempt k, or, on `.31` (round 39's build under
+# review, which these five run on: section P6 ends on `(pin)`), `re-read: matched
+# AccurateRip at confidence C after N reads, overruling an agreement on X`, its
+# --reread-until-accuraterip ending the securing pass's reads; both sides read it
+# from the bundle, which carries every rip's --diagnostics record for G4.
 # `expect-ctdb whole` is not repeated here: it grades the read of track 5, which
 # sections F and N already grade, and five more of the same failure would hide
 # the repair's result rather than show it.
