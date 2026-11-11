@@ -781,6 +781,9 @@ expect-rip-argv with --prefer-disc-isrc
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+# Round 39's G3 (2026-11-11): every track's record says how it was verified,
+# and none says Accurately ripped over a repair or OK over disagreeing reads.
+expect-track-records
 expect-read-offset
 expect-tags
 expect-cover-art
@@ -1381,6 +1384,9 @@ expect-verification
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+# Round 39's G3 (2026-11-11): every track's record says how it was verified,
+# and none says Accurately ripped over a repair or OK over disagreeing reads.
+expect-track-records
 expect-read-offset
 expect-tags
 expect-cover-art

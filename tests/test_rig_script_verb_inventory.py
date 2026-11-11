@@ -52,21 +52,13 @@ UNUSED_BY_ANY_RIG_SCRIPT: dict[str, tuple[str, str]] = {
         "same reason",
         "tests/test_uiscript_tiers.py::test_a_failure_prunes_its_dependents_and_the_run_CONTINUES",
     ),
-    "expect-track-records": (
-        "round 39's G3 (2026-11-11), built for the burn; it belongs in "
-        "fullacceptance.txt's sections F and N after `expect-ctdb whole`, so the "
-        "CTDB repair has landed. The change that built it was not to edit the rig "
-        "scripts (another change owned them that day), so adding the step is a "
-        "TASKS row, and this entry goes when it lands",
-        "tests/test_track_record.py::test_expect_track_records_runs_through_the_runner",
-    ),
 }
 
 #: How many entries the list above may hold. Lower it when an entry goes; raising
 #: it is a decision, made with the reason in the new entry and the commit message.
-#: 3 -> 4 on 2026-11-11 for `expect-track-records`, whose rig-script step is a
-#: TASKS row (see its entry); back to 3 when the step lands.
-_ALLOWLIST_CEILING: int = 4
+#: 3 -> 4 -> 3 on 2026-11-11: `expect-track-records` waited here until its
+#: fullacceptance.txt step landed (TASKS R139).
+_ALLOWLIST_CEILING: int = 3
 
 
 def _verbs_used_by_rig_scripts() -> dict[str, set[str]]:
