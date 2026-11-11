@@ -1986,7 +1986,11 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
     # release): `git diff --shortstat 3952c03 5cc1c6b -- src meson.build` in a
     # clone of the fork is 40 files, 8205 insertions, 1039 deletions. Different
     # programs, so False.
-    DECLARED_FOR: tuple[str, str, bool] = ("5cc1c6b", "3952c03", False)
+    # Re-derived 2026-11-11 when round 39 named `.31` (`e531a33`, their lap 1):
+    # `git diff --shortstat 3952c03 e531a33 -- src meson.build` in a clone of the
+    # fork is 41 files, 8402 insertions, 1048 deletions. Different programs, so
+    # False.
+    DECLARED_FOR: tuple[str, str, bool] = ("e531a33", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (

@@ -46,6 +46,9 @@ from platterpus import (
     ripper_exit_class,
 )
 from platterpus.accuraterip_standing import unvouched_sentence
+from platterpus.adapters.reread_until_accuraterip_args import (
+    SECURING_PASS_ACCURATERIP_CONFIDENCE,
+)
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -55,6 +58,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.chase_record import CHASE_AFTER_ALBUM_PASS, CHASE_AFTER_SECURING_PASS
+from platterpus.chase_record_keep import keep_chase_record
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.isrc_provenance import IsrcReading, read_isrcs
 from platterpus.ladder_trigger import judge_step_down
@@ -2305,6 +2309,13 @@ class RipWorker(QObject):
                 read_speed=read_speed,
                 only_tracks=only_tracks,
                 reread_time_limit_s=reread_time_limit_s,
+                # `.31`'s rule on the securing pass only, which reads with -Z
+                # (`reread_until_accuraterip_args.py` says why there and why 2).
+                reread_until_accuraterip=(
+                    SECURING_PASS_ACCURATERIP_CONFIDENCE
+                    if securing and secure_rerip_matches > 0
+                    else None
+                ),
             )
             # Snapshot the command line as soon as we have a handle, BEFORE the
             # read loop — so a rip that dies in its first second still carries
@@ -3487,6 +3498,15 @@ class RipWorker(QObject):
         )
         if outcome is None:
             return None
+        # Its `-j` record leaves the temporary folder before the chase deletes it,
+        # for the bundle (the fork's round 39 lap 1 S10; `chase_record_keep.py`).
+        kept = keep_chase_record(
+            diagnostics_record.record_path_from_argv(self._ripper_argv, folder),
+            Path(self._params.output_dir),
+            number,
+        )
+        if kept is not None and kept not in self._diagnostics_records:
+            self._diagnostics_records.append(kept)
         success, log_path = outcome
         return SingleRead(success, log_path, self._chase_exit_code, self._ripper_argv)
 

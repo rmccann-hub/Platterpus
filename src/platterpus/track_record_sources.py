@@ -19,14 +19,16 @@ from dataclasses import dataclass
 from typing import Final
 
 from platterpus.ctdb.repair_wording import after_repair_agrees
+from platterpus.reread_ar_overrule import AccurateRipOverrule, record_phrase
 
 #: **The ``.31`` seam: fork build numbers whose log we can read for the
-#: AccurateRip-guided ``-Z`` rule.** Empty, on purpose: the fork announced the rule
-#: for ``.31`` and has not released it, so its log text is unknown, and inventing
-#: it would be the one thing this record exists to refuse. When ``.31`` is
-#: published: add its number here, write :func:`_ar_guided_read` against the line
-#: its provider contract states, and give it a test from a real ``.31`` log.
-AR_GUIDED_CONVERGENCE_BUILDS: Final[frozenset[int]] = frozenset()
+#: AccurateRip-guided ``-Z`` rule.** Empty until ``.31`` was published
+#: (2026-11-11, ``e531a33``, their round 39 lap 1 S2); its log text is P2 of
+#: ``round-39-lap-01-provider-contract-g6eacb8b.md`` (lines 376 and 504 to 512),
+#: read by :mod:`platterpus.reread_ar_overrule` into the track's
+#: ``secure_rerip_ar_overrule``, which :func:`_ar_guided_read` reads. A later
+#: build joins when its own contract is filed and still prints the lines.
+AR_GUIDED_CONVERGENCE_BUILDS: Final[frozenset[int]] = frozenset({31})
 #: The first fork build that may apply the rule. A re-read from it or later that
 #: this release cannot read says "not determined" rather than calling the read a
 #: plain re-read, which it might not be.
@@ -141,8 +143,8 @@ def ar_guided_convergence(track: object, ripper_version: str) -> bool | None:
     fork number at all: stock cyanrip has no such rule). ``None`` for a ``.31`` or
     later build this release cannot read (not in
     :data:`AR_GUIDED_CONVERGENCE_BUILDS`): it may have applied the rule, and we do
-    not know its words. ``True`` is unreachable until the seam is wired; see
-    :data:`AR_GUIDED_CONVERGENCE_BUILDS` for how.
+    not know its words. For a listed build, ``True`` when AccurateRip ended the
+    track's reads (``.31``'s early end), ``False`` when the log says it did not.
     """
     build = fork_build_number(ripper_version)
     if build is None or build < AR_GUIDED_FIRST_BUILD:
@@ -152,7 +154,27 @@ def ar_guided_convergence(track: object, ripper_version: str) -> bool | None:
     return _ar_guided_read(track)
 
 
-def _ar_guided_read(track: object) -> bool | None:
-    """The ``.31`` log's own statement for this track. Not written: no text yet."""
-    del track  # read once the fork publishes the line (see the seam's constant)
-    return None
+def _ar_guided_read(track: object) -> bool:
+    """The ``.31`` log's own statement for this track: did AccurateRip end it?
+
+    ``True`` for a track whose ``-Z`` reads ended on a read AccurateRip matches
+    after an agreement it overruled (``cyanrip@e531a33:src/cyanrip_main.c:2140``
+    and its row at ``src/cyanrip_log.c:852``); ``False`` otherwise, since a
+    ``.31`` log that names no such end is a statement that none happened.
+    """
+    overrule = getattr(track, "secure_rerip_ar_overrule", None)
+    return isinstance(overrule, AccurateRipOverrule) and overrule.ended_on_match
+
+
+def ar_overrule_words(track: object) -> str | None:
+    """The record's words for ``.31``'s overrule of this track, or ``None``.
+
+    :func:`platterpus.reread_ar_overrule.record_phrase`: an early end reads
+    ``re-read: matched AccurateRip at confidence N after k reads, overruling an
+    agreement on X``; a limit after an overrule reads ``an agreement on X was
+    overruled by AccurateRip``. Never raises.
+    """
+    overrule = getattr(track, "secure_rerip_ar_overrule", None)
+    if not isinstance(overrule, AccurateRipOverrule):
+        return None
+    return record_phrase(overrule)

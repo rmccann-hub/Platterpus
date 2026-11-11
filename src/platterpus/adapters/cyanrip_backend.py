@@ -42,6 +42,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from platterpus.adapters.reread_time_limit_args import reread_time_limit_args
+from platterpus.adapters.reread_until_accuraterip_args import (
+    reread_until_accuraterip_args,
+)
 from platterpus.adapters.rip_backend import (
     ProbeCancelled,
     ProbeSlot,
@@ -196,6 +199,7 @@ class CyanripImpl(RipBackend):
         disc_track_total: int | None = None,
         prefer_disc_isrc: bool = False,
         reread_time_limit_s: int | None = None,
+        reread_until_accuraterip: int | None = None,
         # The build tag of the ripper we are about to run, when known. Empty means
         # "unknown", and an unknown build gets NO capability-gated flags — see
         # `consumer_tag_for_build`. Defaulting to empty is what makes the safe
@@ -345,6 +349,11 @@ class CyanripImpl(RipBackend):
         argv += prefer_accuraterip_match_args_for_build(ripper_build_tag)
         argv += reread_time_limit_args(
             ripper_build_tag, reread_time_limit_s, secure_rerip_matches
+        )
+        # `.31`'s rule (round 39): the securing pass reads on past an agreement
+        # AccurateRip rejects; range, `-Z` rule and gate in its own module.
+        argv += reread_until_accuraterip_args(
+            ripper_build_tag, reread_until_accuraterip, secure_rerip_matches
         )
         # Checked once: `-c` and the %N/%M template tokens below read the same
         # position, so a folder name cannot disagree with the disc tags.
@@ -496,6 +505,7 @@ class CyanripImpl(RipBackend):
         only_tracks: tuple[int, ...] = (),
         prefer_disc_isrc: bool = False,
         reread_time_limit_s: int | None = None,
+        reread_until_accuraterip: int | None = None,
     ) -> RipHandle:
         # disc_template is unused: cyanrip puts the log/cue in the -D folder
         # already (derived from track_template, which carries the same
@@ -521,6 +531,7 @@ class CyanripImpl(RipBackend):
             disc_track_total=disc_track_total,
             prefer_disc_isrc=prefer_disc_isrc,
             reread_time_limit_s=reread_time_limit_s,
+            reread_until_accuraterip=reread_until_accuraterip,
             # WITHOUT THIS, `--consumer` IS NEVER SENT — ON ANY BUILD.
             #
             # `_build_rip_argv` gates the flag on `consumer_tag_for_build(ripper_build_tag)`

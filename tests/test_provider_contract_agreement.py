@@ -127,14 +127,24 @@ def _render(fmt: str) -> str:
     which our ``Speed:`` alternative also matches. `.28` reworded that line to
     ``Speed:  %s`` and the rule read as unbacked, though the row that does back
     it had been in every contract.
+
+    **A zero-padded width is honoured** (``%08X`` renders ``77777777``), as the
+    real line's eight hex digits are (2026-11-11, `.31`'s early end): a single
+    ``7`` is a checksum no build prints, so a rule that reads the eight digits
+    the line really has read as unbacked against its own row.
     """
+
+    def _one(m: re.Match[str]) -> str:
+        conv = m.group("conv")
+        if conv in "iudxX":
+            width = m.group("zero_width")
+            return "7" * int(width) if width else "7"
+        return "1.5" if conv == "f" else "X"
+
     return re.sub(
-        r"%0?\d*[.]?(?:\d+|\*)?(?:hh|h|ll|l|z|j|t)?(?P<conv>[iudxXsfc])",
-        lambda m: (
-            "7"
-            if m.group("conv") in "iudxX"
-            else ("1.5" if m.group("conv") == "f" else "X")
-        ),
+        r"%(?:0(?P<zero_width>\d{1,2}))?\d*[.]?(?:\d+|\*)?(?:hh|h|ll|l|z|j|t)?"
+        r"(?P<conv>[iudxXsfc])",
+        _one,
         fmt.replace('\\"', '"'),
     )
 
