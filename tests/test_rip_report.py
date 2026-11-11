@@ -1410,6 +1410,8 @@ def test_schema_version_is_27() -> None:
     # `distinct_reads`, and `disc.drive_declared` (`tests/test_round38_dot30_reads.py`).
     # v45 added per track `record`, how each copy was verified (round 39's G3;
     # `tests/test_track_record.py`). v44 had shipped in 0.7.121.
+    # v45, still unreleased, also took the verified-read chase's budget and
+    # per-attempt times (round 39 G1; `tests/test_chase_budget.py`).
     assert REPORT_SCHEMA_VERSION == 45
 
 

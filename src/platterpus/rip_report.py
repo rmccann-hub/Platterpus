@@ -757,6 +757,23 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      the EAC-layout log's `Record:` row prints; `reads_disagree`, tri-state,
 #      whether the track's reads gave more than one value; and `repaired`, true
 #      when a CTDB repair rewrote the track's file after the read.
+#      Also v45, still unreleased (round 39's gate G1, the owner's plan of
+#      2026-11-11), additions only and a meaning that WIDENS.
+#      Each `read_speed.retried_tracks[].verified_read_chase` gains `after`
+#      (`securing_pass`, or `album_pass` for Archival Exact's `-Z` album pass),
+#      `attempt_limit_reason` (`repeat_limit`, the user's -r at most 5, or
+#      `high_confidence`, 16 for a top AccurateRip entry at confidence 10 or
+#      more), `accuraterip_top_confidence`, the time budget's `track_seconds`,
+#      `album_read_seconds` and `time_budget_seconds` (max of 5 x the length and
+#      2 x the album-pass read time; null without a stated length),
+#      `elapsed_seconds`, `stopped_reason` (`attempt_limit`, `time_budget`,
+#      `cancelled`, `read_did_not_start`; null when a read was kept or the chase
+#      skipped) and `cache_defeat` (`whole_track_read`, `not_assured`,
+#      `not_determined`); each attempt gains `seconds`, `chase_elapsed_seconds`
+#      and `read_seconds`, so another surface can print "chase attempt k" with
+#      its time (`chase_budget.py`). The widening: `outcome: no_read_verified`
+#      used to mean every attempt ran; it now means no attempt was verified, and
+#      `stopped_reason` says whether the count or the time budget ended it.
 REPORT_SCHEMA_VERSION: int = 45
 
 

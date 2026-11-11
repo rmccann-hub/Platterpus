@@ -81,10 +81,21 @@ def _single_read(crc: str, confidence: int | None) -> str:
     )
 
 
+#: The lines a fork log states for track 3 of the reference disc (LSNs and the
+#: album pass's read time, `output_reference/cyanrip_fork_flac/…police_classics.log`),
+#: which give the chase a time budget and so, with the 200 top entry, 16 reads.
+_FORK_GEOMETRY = (
+    "    Elapsed:            303.06 s\n"
+    "    Start LSN:   28067 (with offset: 28068)\n"
+    "    End LSN:     49919 (with offset: 49921)\n"
+)
+
+
 def _run(
     tmp_path: Path,
     securing: str,
     singles: list[tuple[str, int | None, int]],
+    album: str = _ALBUM_PASS,
 ) -> tuple[RipWorker, _FakeBackend]:
     """Album pass, securing pass, then one scripted single read per later call.
 
@@ -99,7 +110,7 @@ def _run(
         rel = call["output_dir"] / "Artist" / "Album"
         rel.mkdir(parents=True, exist_ok=True)
         if index == 0:
-            (rel / "rip.log").write_text(_ALBUM_PASS, encoding="utf-8")
+            (rel / "rip.log").write_text(album, encoding="utf-8")
             (rel / "01 - A.flac").write_bytes(b"ALBUM-E0036697")
             return
         if index == 1:
@@ -232,3 +243,37 @@ def test_a_drive_that_returned_one_value_every_time_gets_no_extra_reads(
     chase = entry.get("verified_read_chase")
     assert chase is not None and chase["outcome"] == CHASE_SKIPPED_READS_AGREED
     assert chase["attempts"] == []
+
+
+def test_a_track_accuraterip_knows_well_is_read_past_the_old_five(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Round 39, G1: track 3 reads right about one read in three, so five single
+    reads miss it on half of all five-rip runs. With the LSNs and read time a fork
+    log states and a top entry of 200, the chase may read 16 times inside its
+    time budget, and keeps the seventh read here, which the old limit never took."""
+    album = _ALBUM_PASS.replace(
+        "Track 1 ripped and encoded successfully!\n",
+        "Track 1 ripped and encoded successfully!\n" + _FORK_GEOMETRY,
+    )
+    worker, backend = _run(
+        tmp_path,
+        _securing_pass(("C96464AB", "4065BECC"), "4065BECC"),
+        [("4065BECC", None, 0)] * 6 + [("C96464AB", 200, 0)],
+        album=album,
+    )
+    assert len(backend.rip_calls) == 2 + 7
+    album_dir = tmp_path / "Artist" / "Album"
+    assert (album_dir / "01 - A.flac").read_bytes() == b"SINGLE-C96464AB"
+    (entry,) = worker.retried_tracks
+    chase = entry.get("verified_read_chase")
+    assert chase is not None and chase["kept_attempt"] == 7
+    assert chase["attempt_limit"] == 16
+    assert chase.get("attempt_limit_reason") == "high_confidence"
+    assert chase.get("after") == "securing_pass"
+    assert chase.get("time_budget_seconds") == round(5 * 21853 / 75, 2)
+    assert chase.get("cache_defeat") == "whole_track_read"
+    # Every attempt carries its own time, for a surface printing "attempt k".
+    assert all(isinstance(a.get("seconds"), float) for a in chase["attempts"]), chase[
+        "attempts"
+    ]

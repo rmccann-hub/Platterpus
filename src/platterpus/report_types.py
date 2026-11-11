@@ -880,6 +880,16 @@ class ChaseAttemptBlock(TypedDict):
     # The read's exit status; None when it was never reaped.
     exit_code: int | None
     kept: bool
+    # Schema 45 (round 39, G1): what another surface needs to print "chase
+    # attempt k" with its time. `seconds`: this attempt's wall-clock time, from
+    # the moment the read was asked for to the moment its result was judged
+    # (container start included); `chase_elapsed_seconds`: the chase's total
+    # when this attempt ended, the figure the time budget is checked against;
+    # `read_seconds`: the read's own `Elapsed:` from its log, None where the
+    # build prints none. Each None when not measured, never 0.
+    seconds: NotRequired[float | None]
+    chase_elapsed_seconds: NotRequired[float | None]
+    read_seconds: NotRequired[float | None]
 
 
 class VerifiedReadChaseBlock(TypedDict):
@@ -894,6 +904,32 @@ class VerifiedReadChaseBlock(TypedDict):
     distinct_reads_seen: int | None
     attempts: list[ChaseAttemptBlock]
     kept_attempt: int | None
+    # Schema 45 (round 39, G1; `chase_budget.py` rules 1 to 3). Every producer
+    # since writes all of them; a record from before has none.
+    # `verified_read_chase.CHASE_AFTER_*`: the pass whose kept read the chase
+    # tried to better, `securing_pass` or `album_pass` (Archival Exact).
+    after: NotRequired[str]
+    # `chase_budget.LIMIT_FROM_*`: `repeat_limit` (the user's -r, at most 5) or
+    # `high_confidence` (16, for a top entry at confidence 10 or more).
+    attempt_limit_reason: NotRequired[str]
+    # AccurateRip's top-entry confidence for the track (`max confidence:`).
+    accuraterip_top_confidence: NotRequired[int | None]
+    # Rule 2's inputs and result, in seconds: the track's length, the album
+    # pass's read time, and the budget, max(5 x length, 2 x read time). The
+    # budget is None when the length is not stated (the count alone bounds).
+    track_seconds: NotRequired[float | None]
+    album_read_seconds: NotRequired[float | None]
+    time_budget_seconds: NotRequired[float | None]
+    # The chase's whole wall-clock time; None for a skipped chase.
+    elapsed_seconds: NotRequired[float | None]
+    # `verified_read_chase.STOPPED_*`: what ended a chase that kept nothing
+    # (`attempt_limit`, `time_budget`, `cancelled`, `read_did_not_start`); None
+    # when a read was kept, and for a skipped chase.
+    stopped_reason: NotRequired[str | None]
+    # `chase_budget.CACHE_*`: whether each read flushes the drive's cache left
+    # by the read before it (`whole_track_read`), cannot be assured to
+    # (`not_assured`, a track under 567 sectors), or the length is not stated.
+    cache_defeat: NotRequired[str]
 
 
 class RetriedTrackBlock(TypedDict):
