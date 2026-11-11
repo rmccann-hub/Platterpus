@@ -469,3 +469,29 @@ def test_archival_exact_reads_without_printed_values_are_not_determined_not_agre
     chase = entry.get("verified_read_chase")
     assert chase is not None and chase["outcome"] == CHASE_SKIPPED_NOT_DETERMINED
     assert chase["distinct_reads_seen"] is None
+
+
+def test_the_per_track_record_reads_the_chase_attempt_from_the_chase_block(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Round 39 G3's record says "chase attempt k" from the chase block's
+    `kept_attempt` (`track_record_sources.chase_attempts_by_track`), the one
+    field, not a parallel one; it must read the archival path's chase too, and
+    the attempt's own time sits beside it in the same block."""
+    from platterpus.track_record_sources import chase_attempts_by_track
+
+    album = _archival_album(
+        ("59D352DD", "3D8FCF0C", "3D8FCF0C"),
+        "3D8FCF0C",
+        "Done; (2 out of 2 matches for current checksum 3D8FCF0C)",
+    )
+    worker, _backend = _run_archival(
+        tmp_path, album, [("3D8FCF0C", None, 0), ("59D352DD", 200, 0)]
+    )
+    assert chase_attempts_by_track(worker.retried_tracks) == {1: 2}
+    (entry,) = worker.retried_tracks
+    chase = entry.get("verified_read_chase")
+    assert chase is not None
+    kept = chase["attempts"][chase["kept_attempt"] - 1]
+    assert kept["attempt"] == 2 and kept["kept"] is True
+    assert isinstance(kept.get("seconds"), float)
