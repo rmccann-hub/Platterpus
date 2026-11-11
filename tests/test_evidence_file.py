@@ -276,3 +276,39 @@ def test_the_cache_probes_own_log_has_a_filed_name() -> None:
     )
     assert staged_name(f"session/run/{producer}") == "cacheprobelog.txt"
     assert staged_name("session/run/cacheprobe1364.txt") == "cacheprobe.txt"
+
+
+def test_chase_records_and_burn_rips_have_filed_names() -> None:
+    """0.7.122 keeps each verified-read chase read's own ``-j`` record
+    (``chase_record_keep.py``) and adds round 39's five burn rips, each in an
+    album folder of its own; the filing tool refused the 2026-11-11 bundle for
+    want of names for both. The chase name is built here by the producer, so a
+    change to one side fails here rather than at the next filing."""
+    from evidence_names import staged_name
+
+    from platterpus.chase_record_keep import chase_record_destination
+
+    source = Path("cyanrip-diagnostics-20261111T125902Z.json")
+    first = chase_record_destination(source, Path("ripperdiagnostics"), 5)
+    again = chase_record_destination(source, Path("ripperdiagnostics"), 5, attempt=2)
+    assert staged_name(first.as_posix()) == "jrecord20261111t125902zchaset05.json"
+    assert staged_name(again.as_posix()) == "jrecord20261111t125902zchaset05n2.json"
+    # The album pass's records keep the names they had.
+    assert (
+        staged_name(
+            "ripperdiagnostics/cyanrip-diagnostics-20261111T125249Z-securingpass.json"
+        )
+        == "jrecord20261111t125249zsecuringpass.json"
+    )
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "src/platterpus/rig_scripts/fullacceptance.txt"
+    ).read_text(encoding="utf-8")
+    assert "album round 39 burn rip 5 (run) (ripper)" in script
+    folder = "album/round 39 burn rip 5 20261111t123447 platterpus-fork-ge531a33"
+    assert staged_name(f"{folder}/x CD4 (EAC-compatible).log") == "burnrip5eac.log"
+    assert staged_name(f"{folder}/x CD4.platterpus.json") == "burnrip5report.json"
+    assert (
+        staged_name(f"{folder}/x CD4.platterpus-verified-read.txt")
+        == "burnrip5verifiedread.txt"
+    )
