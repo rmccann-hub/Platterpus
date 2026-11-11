@@ -195,15 +195,19 @@ class TestThePlanNamesEveryLongOptionTheArgvSends:
             secure_rerip_matches=2,
             force_overread=True,
             prefer_disc_isrc=True,
+            # Round 39: the securing pass's time limit, which `.28` takes.
+            reread_time_limit_s=600,
             ripper_build_tag=tag,
         )
         long_options = {word for word in argv if word.startswith("--")}
-        # The floor: the four this finding is about, so a sweep of nothing fails.
+        # The floor: the four this finding is about, so a sweep of nothing fails,
+        # and round 39's `--reread-time-limit`.
         assert {
             "--consumer",
             "--prefer-disc-isrc",
             "--prefer-accuraterip-match",
             "--diagnostics",
+            "--reread-time-limit",
         } <= long_options, sorted(long_options)
         text = _plan(prefer_disc_isrc=True, force_overread=True)
         assert [o for o in sorted(long_options) if o not in text] == []

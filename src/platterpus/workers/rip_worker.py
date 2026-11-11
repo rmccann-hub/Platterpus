@@ -54,6 +54,7 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
+from platterpus.chase_record import CHASE_AFTER_ALBUM_PASS, CHASE_AFTER_SECURING_PASS
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.isrc_provenance import IsrcReading, read_isrcs
 from platterpus.ladder_trigger import judge_step_down
@@ -97,6 +98,7 @@ from platterpus.securing_pass import (
     plan_securing_pass,
     why_no_securing_pass,
 )
+from platterpus.securing_time_limit import securing_pass_time_limit
 from platterpus.unfinished_refix import (
     NOT_REPLACED_COPY_FAILED,
     salvage_decision,
@@ -108,16 +110,12 @@ from platterpus.verdict import (
     reread_supersedes,
     track_accuraterip_contradiction,
 )
-from platterpus.verified_read_chase import (
-    CHASE_AFTER_ALBUM_PASS,
-    CHASE_AFTER_SECURING_PASS,
-)
-from platterpus.workers.verified_read_run import (
-    SingleRead,
+from platterpus.workers.chase_passes import (
     album_pass_entries,
     chase_tracks,
     keep_chase_logs,
 )
+from platterpus.workers.verified_read_run import SingleRead
 
 log = logging.getLogger(__name__)
 
@@ -2239,6 +2237,7 @@ class RipWorker(QObject):
         only_tracks: tuple[int, ...] = (),
         pass_kind: str = _PASS_ALBUM,
         verified_reread: bool = False,
+        reread_time_limit_s: int | None = None,
     ) -> tuple[bool, str] | None:
         """Run ONE rip pass at the given speed/``-Z``; stream its output.
 
@@ -2270,6 +2269,10 @@ class RipWorker(QObject):
         verified-read chase (TASKS R7), not the securing pass: it is shown like
         the securing pass, but its exit status and ``-j`` record are not that
         pass's, so it writes neither of the securing pass's fields.
+
+        ``reread_time_limit_s`` is the securing pass's time budget (round 39,
+        `securing_time_limit.securing_pass_time_limit`), handed to the backend, which
+        range-checks it and sends it only to a build that lists the option.
         """
         self._reset_pass_progress(kind=pass_kind, tracks=tuple(only_tracks))
         # An error the securing pass hits says so: the window keeps the last error
@@ -2301,6 +2304,7 @@ class RipWorker(QObject):
                 disc_track_total=self._params.disc_track_total,
                 read_speed=read_speed,
                 only_tracks=only_tracks,
+                reread_time_limit_s=reread_time_limit_s,
             )
             # Snapshot the command line as soon as we have a handle, BEFORE the
             # read loop — so a rip that dies in its first second still carries
@@ -3181,11 +3185,22 @@ class RipWorker(QObject):
             # Never send -S: the speed lever is unreliable / aborts on some drives,
             # and -Z at max speed is the mechanism that actually helps here.
             self._current_read_speed = 0
+            # Round 39 (TASKS R49): each track's -Z reads bounded by time as well
+            # as by -r, through the fork's --reread-time-limit where the build
+            # lists it. None (a track with no stated length) keeps the count alone.
+            time_limit = securing_pass_time_limit(tracks, first_pass_tracks or {})
+            if time_limit is not None:
+                self.log_line.emit(
+                    f"[auto-fix] each track's re-reads stop starting after "
+                    f"{time_limit} s (5x its length or 2x its first read, the "
+                    "larger), where the ripper build takes a time limit"
+                )
             outcome = self._rip_once(
                 read_speed=0,
                 secure_rerip_matches=rerip_z,
                 output_dir=tmp_root,
                 only_tracks=tuple(tracks),
+                reread_time_limit_s=time_limit,
                 # THE DECLARATION. This is the one call site that runs after the
                 # album is already on disk, and saying so here is what stops the
                 # album progress model — bar, label and ETA — from being applied

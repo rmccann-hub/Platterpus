@@ -57,7 +57,9 @@ read in progress is never stopped, so the first read always runs and the last
 can run past the budget. The fork's option cannot carry it here: a chase read is
 a single read with no ``-Z``, and cyanrip refuses ``--reread-time-limit``
 without ``-Z`` (exit 64, ``cyanrip@5cc1c6b:src/cyanrip_main.c:3414-3417``), so
-the chase measures its own time.
+the chase measures its own time. Where ``.31``'s ``--reread-until-accuraterip``
+has already read a ``-Z`` track toward a verified read, the chase is only the
+fallback for a track it left unverified (``workers/chase_passes.py``).
 
 **Rule 3, the drive cache between chase reads.** Each chase read is a separate
 cyanrip run. Inside one run, paranoia's cache model defeats the drive's cache on

@@ -230,7 +230,7 @@ dropped.
 | `^Checking .{1,200} for cdrom\\.\\.\\.\\s*$` | libcdio image-probe chatter; the path is ours and Invoked as: records it |
 | `^Stopping, ripping incomplete!\\s*$` | abort marker; Rip completed: carries the verdict and ripper_messages surfaces this sentence |
 
-## 3. Flags we pass you (25)
+## 3. Flags we pass you (26)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -238,7 +238,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---consumer --diagnostics --prefer-accuraterip-match --prefer-disc-isrc --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -l -o -r -s -t
+--consumer --diagnostics --prefer-accuraterip-match --prefer-disc-isrc --reread-time-limit --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

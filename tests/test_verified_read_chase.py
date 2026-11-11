@@ -421,7 +421,7 @@ def test_the_chase_stops_starting_reads_once_its_time_budget_is_spent() -> None:
     """Rule 2, checked between reads: 100 s a read against 250 s runs three reads
     (100, 200, then 300 s, the last past the budget, as the fork's limit allows)
     and starts no fourth, though the count allowed sixteen."""
-    from platterpus.verified_read_chase import STOPPED_TIME_BUDGET
+    from platterpus.chase_record import STOPPED_TIME_BUDGET
 
     clock = _Clock(per_read=100.0)
     reads = _Reads([("4065BECC", None, 0)] * 16)
@@ -468,7 +468,7 @@ def test_the_first_read_always_runs_however_small_the_budget() -> None:
 
 def test_within_its_budget_a_high_confidence_track_gets_sixteen_reads() -> None:
     """Rule 1: with time to spare the count ends it, at 16, not at the old 5."""
-    from platterpus.verified_read_chase import STOPPED_ATTEMPT_LIMIT
+    from platterpus.chase_record import STOPPED_ATTEMPT_LIMIT
 
     clock = _Clock(per_read=10.0)
     reads = _Reads([("4065BECC", None, 0)] * 16)

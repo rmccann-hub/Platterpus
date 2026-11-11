@@ -37,6 +37,7 @@ you can only notice it because both exist.
 from __future__ import annotations
 
 from platterpus.adapters import cyanrip_backend as backend
+from platterpus.adapters.reread_time_limit_args import REREAD_TIME_LIMIT_FLAG
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.cyanrip_cli import (
     DEFAULT_MAX_RETRIES,
@@ -45,14 +46,12 @@ from platterpus.cyanrip_cli import (
 )
 from platterpus.diagnostics_record import DIAGNOSTICS_FLAG
 
-# The prefix every plan line carries. Grep-able in the app log and visually
-# distinct in the on-screen live log, where these sit above the ripper's own
-# output. Kept as a constant so the tests match what ships rather than a copy.
+# The prefix every plan line carries: grep-able in the app log, distinct in the
+# live log above the ripper's output; a constant so tests match what ships.
 PLAN_PREFIX: str = "[plan]"
 
-# The two secure-re-read modes, named the way the report names them
-# (`rip_report`'s `secure_rerip_mode`) so a reader moving between the pre-rip
-# plan and the post-rip JSON sees the same word for the same thing.
+# The two secure-re-read modes, named as the report's `secure_rerip_mode` names
+# them, so the pre-rip plan and the post-rip JSON use one word for one thing.
 MODE_OFF: str = "off"
 MODE_DYNAMIC: str = "dynamic"
 MODE_UNIFORM: str = "uniform"
@@ -196,8 +195,7 @@ def describe_rip_plan(
         f"{PLAN_PREFIX}   Overread into lead-in/lead-out (-O): "
         + ("ON" if force_overread else "off")
     )
-    # Asked for, not promised: the argv builder sends it only to a build whose
-    # contract lists it, and the rip's own `Invoked as:` line says whether it went.
+    # Asked for, not promised: sent only to a build that lists it (`Invoked as:`).
     lines.append(
         f"{PLAN_PREFIX}   Prefer the disc's own ISRC ({backend.PREFER_DISC_ISRC_FLAG}): "
         + (
@@ -210,7 +208,9 @@ def describe_rip_plan(
     lines.append(
         f"{PLAN_PREFIX}   Keep the read AccurateRip matches at the re-read limit "
         f"({backend.PREFER_ACCURATERIP_MATCH_FLAG}): ON, where the build supports "
-        "it; it changes nothing until a track reaches the limit."
+        "it; it changes nothing until a track reaches the limit. The securing pass "
+        "stops re-reading a track after 5x its length or 2x its first read, the "
+        f"larger ({REREAD_TIME_LIMIT_FLAG}, round 39), where the build supports it."
     )
     lines.append(
         f"{PLAN_PREFIX}   Who drove the rip (--consumer {backend.consumer_tag()}): "

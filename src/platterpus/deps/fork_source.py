@@ -1875,6 +1875,42 @@ def accepts_prefer_accuraterip_match(build_tag: str) -> bool:
     return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH}
 
 
+#: Builds whose provider contract lists ``--reread-time-limit SECONDS`` in P1:
+#: after each whole-track ``-Z`` read of a track that has not converged, once its
+#: reads have taken SECONDS or more, no further read starts (their round 36 lap
+#: 10 S11, accepted by our lap 11 S6). ``.28`` is the first: ``3f288fb``, P1 line
+#: 62 of ``round-37-lap-04-provider-contract-gef413b1.md``; then ``.29``
+#: (``8d2ca72``, ``round-38-lap-05-provider-contract-g2a06e064.md`` line 62) and
+#: ``.30`` (``5cc1c6b``, ``round-38-lap-12-provider-contract-g0c276fc.md`` line
+#: 62). ``.27``'s contract does not list it. The range is a whole number from 1
+#: to INT32_MAX (the option's ``GEN_OPT_ONE`` row at
+#: ``cyanrip@3f288fb:src/cyanrip_main.c:2990``, ``cyanrip@8d2ca72:…:3035`` and
+#: ``cyanrip@5cc1c6b:…:3214``), and it is refused without ``-Z``
+#: (``cyanrip@5cc1c6b:src/cyanrip_main.c:3414-3417``). Sent on the securing pass
+#: from round 39 (``securing_time_limit.securing_pass_time_limit``). Enumerated, never
+#: inferred from a version, for ``--consumer``'s reason.
+BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT: Final[frozenset[str]] = frozenset(
+    {
+        "platterpus-fork-g3f288fb",
+        "platterpus-fork-g8d2ca72",
+        "platterpus-fork-g5cc1c6b",
+    }
+)
+
+
+def accepts_reread_time_limit(build_tag: str) -> bool:
+    """Whether a build identified by ``build_tag`` accepts ``--reread-time-limit``.
+
+    Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
+    as :func:`accepts_prefer_accuraterip_match`. True for ``.28`` (``3f288fb``),
+    ``.29`` (``8d2ca72``) and ``.30`` (``5cc1c6b``) today.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT}
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- The full commits behind the short pins ---------------------------------

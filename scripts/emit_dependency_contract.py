@@ -325,6 +325,9 @@ def _maximal_argv(backend: CyanripImpl, build_tag: str) -> list[str]:
         # avoid. Derived from `fork_source`, never typed, so it moves with the pin.
         ripper_build_tag=build_tag,
         prefer_disc_isrc=True,
+        # The securing pass's time limit (round 39), sent to a build that lists
+        # it; any value in range shows the flag.
+        reread_time_limit_s=600,
     )
 
 

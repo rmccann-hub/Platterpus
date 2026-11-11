@@ -1085,19 +1085,6 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # few dozen lines beside the one dataclass and dispatch they share; split, each file would
     # restate the bounds and the never-raises contract its property test holds.
     "derived_metadata.py": 344,
-    # 300 -> 309 (2026-11-03, TASKS R66): crossed 300 by `plan_chase` counting the
-    # read a limit-hit loop prints no value for, from the `at most M reads agreed`
-    # line. One job still: whether a track is chased, and the chase's record.
-    # 309 -> 410 (2026-11-11, round 39 G1): the budget's place in the bound,
-    # the `STOPPED_*` and `CHASE_AFTER_*` words, and `chase_block`, the one
-    # builder for a run or skipped chase's record. Still one job, the chase's
-    # decision and its record; the arithmetic went to the new `chase_budget.py`.
-    "verified_read_chase.py": 410,
-    # Joined 2026-11-11 (round 39 G1): 296 -> 342, the time budget checked
-    # between reads and each attempt's times. One job: running the chase's reads.
-    # 342 -> 395 (same day): `album_pass_entries` and `chase_tracks`' `after`,
-    # the chase after Archival Exact's album pass, and the appended chase log.
-    "workers/verified_read_run.py": 395,
     # 299 -> 331 on 2026-10-06, crossing the heuristic with the maintainer's
     # narrowing of `expect-album-audit`. **Kept as one module deliberately**: it is
     # one pure grader per artifact verb (album audit, AccurateRip, CTDB, settling),
@@ -1294,7 +1281,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **703 -> 710** (2026-10-20, round 35, the fork's exit classes from release 36): `RipHandle.build_tag`, the banner read at spawn, so the worker reads the exit code by the build that ran.
     # **710 -> 731** (2026-11-03, TASKS R117, records that reached no reader): `ripper_sentence`, so a failed probe's `deps.command_failed` message leads with the ripper's own sentence, judged by the parser's `is_ripper_error_line`; it sits beside `run_capture`, the one site that records the failure.
     # **731 -> 777** (2026-11-05, the rig's overlapping `cyanrip -I`): one killable slot per logical operation — `RIPPER_VERSION_PROBE` beside `INFO_PROBE`, `cancel_ripper_version_probe`, and `run_capture`'s `slot` selector read at call time — with why the shared slot was a defect; it sits beside `run_capture`, the one site that runs the probes.
-    "adapters/rip_backend.py": 777,
+    # **777 -> 782** (2026-11-11, round 39): the ABC's `reread_time_limit_s`, documented where every backend reads its contract.
+    "adapters/rip_backend.py": 782,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1644,7 +1632,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3180 -> 3218** (2026-11-04, round 38's pin moves to `.29` at its release, the fork's lap 5): `PIN_UNDER_REVIEW` `8d2ca72`, its release sequence 40, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version and full commit, each with the source it was read from.
     # **3218 -> 3232** (2026-11-04): the build script pins `core.abbrev 7` so the fork's build tag cannot grow with the clone (the owner's refused `.29` install), and its refusal names a longer short hash.
     # **3232 -> 3280** (2026-11-05, round 38's pin moves to `.30` at its release, the fork's lap 12): `PIN_UNDER_REVIEW` `5cc1c6b`, its release sequence 41, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version and full commit, each with the source it was read from; and `.29` named in the `--verify-log` set, which it reached only as `PIN_UNDER_REVIEW`.
-    "deps/fork_source.py": 3280,
+    # **3280 -> 3316** (2026-11-11, round 39): `BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT` and its accessor, each build cited by its own contract's P1 line, beside the other gated options' sets.
+    "deps/fork_source.py": 3316,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -3246,7 +3235,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4348 -> 4370** (2026-11-03, review C10): `_space_refusal`, the free-space check before anything spawns, on the worker's thread so a stalled mount cannot freeze the window; the floor itself is `disk_space.py`, and `RipParameters.output_format` carries the derived format to it.
     # **4373 -> 4382** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 3): `_write_refusal`, the output-folder writability check before anything spawns, on the worker's thread beside `_space_refusal` and asked first; the check itself is the new focused module `output_writable.py`.
     # **4382 -> 4455** (2026-11-11, round 39 G1, the chase on Archival Exact's album pass, TASKS R7's open item): `_chase_after_album_pass` and its call behind the securing pass's gate, the `after` handed to `_chase_verified_reads`, the chase log appended on a second chase, and the sidecar writer accumulating a rip's swap rows. The entries, the loop and the merge are `verified_read_run.album_pass_entries`, `chase_tracks` and `rip_addendum.merged_rows`; only the worker owns its records and its files.
-    "workers/rip_worker.py": 4455,
+    # **4455 -> 4470** (same day, TASKS R49; 4470 once its imports were merged): the securing pass's time limit computed (`securing_time_limit.securing_pass_time_limit`), said in the log, and handed through `_rip_once` to the backend.
+    "workers/rip_worker.py": 4470,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
@@ -3343,7 +3333,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **585 -> 591** (2026-10-26, the fork's round 36 lap 10 S11, TASKS R81): the proposed `Re-read limit:` header declared fork-only, with its citation.
     # **591 -> 600** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the three proposed fork-only rules, with why the cover-art header is not one.
     # **600 -> 606** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `track_other_read` declared fork-only, with its source citation.
-    "scripts/emit_dependency_contract.py": 606,
+    # 606 -> 609 (2026-11-11, round 39): the maximal argv asks for `--reread-time-limit`, which the securing pass now sends to a build that lists it, so §3 says so.
+    "scripts/emit_dependency_contract.py": 609,
     # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
     # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
     # required `--out DIR` that `refusal_for_destination` refuses inside the

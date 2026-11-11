@@ -428,3 +428,26 @@ def test_the_workers_second_addendum_write_in_one_rip_keeps_the_first(
     )
     text = (tmp_path / "Album.platterpus-addendum.txt").read_text(encoding="utf-8")
     assert "CRC AAAAAAAA" in text and "CRC 59D352DD" in text
+
+
+def test_the_securing_pass_asks_for_its_time_limit_and_a_chase_read_never_does(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Round 39 (TASKS R49): the securing pass hands the backend rule 2's seconds
+    (track 3's ceil(5 x 291.37) = 1457, from the album pass's LSNs), which the
+    backend sends as --reread-time-limit to a build that lists it; the chase's
+    single reads carry no -Z, so they never ask for it."""
+    album = _ALBUM_PASS.replace(
+        "Track 1 ripped and encoded successfully!\n",
+        "Track 1 ripped and encoded successfully!\n" + _FORK_GEOMETRY,
+    )
+    worker, backend = _run(
+        tmp_path,
+        _securing_pass(("C96464AB", "4065BECC"), "4065BECC"),
+        [("C96464AB", 200, 0)],
+        album=album,
+    )
+    assert len(backend.rip_calls) == 3, "floor: album pass, securing pass, a read"
+    assert backend.rip_calls[0]["reread_time_limit_s"] is None, "album pass"
+    assert backend.rip_calls[1]["reread_time_limit_s"] == 1457, "securing pass"
+    assert backend.rip_calls[2]["reread_time_limit_s"] is None, "a chase read"
