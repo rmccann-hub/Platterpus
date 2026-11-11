@@ -1985,6 +1985,14 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # declares a5968c79…, the fork's lap 10 copy filed at fcb75b5f.
     # Our round 38 lap 11's seam-commands entry left with our lap 13, which
     # declares c76a54e9…, the fork's lap 12 copy filed at 1fa67602.
+    # Round 39, 2026-11-11: our round 38 lap 17 declares seam-commands=67e7f928…;
+    # the fork's round 39 lap 1 (S4) adds the `--reread-until-accuraterip` row, PP
+    # `?`, at `cyanrip@85808ae6`, and our copy of their file hashes to 8bd556f6…,
+    # which their lap 1 declares. Our cell for the row (we send it on the securing
+    # pass) goes in our round 39 lap 2, which retires this entry.
+    ("round-38-lap-17.md", "seam-commands"): (
+        "8bd556f6793b2918c0f2455477cbd5f180f6e2d2a022c6edfe3a58818489685a"
+    ),
 }
 
 
