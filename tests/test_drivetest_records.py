@@ -66,8 +66,8 @@ def _run(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
         # Skip the systemd-inhibit re-exec: there is no session bus here.
         "DRIVETEST_AWAKE": "1",
     }
-    return subprocess.run(  # noqa: S603 — our own script, a fixed argv
-        ["bash", str(_SCRIPT), *args],  # noqa: S607 — bash from PATH, as the owner runs it
+    return subprocess.run(
+        ["bash", str(_SCRIPT), *args],
         env=env,
         capture_output=True,
         text=True,
@@ -90,7 +90,9 @@ def test_records_packs_every_record_since_the_date_and_no_audio(tmp_path: Path) 
     done = _run(home, "records")
     assert done.returncode == 0, done.stdout + done.stderr
 
-    upload = home / "platterpus-rig" / "drivetest38" / "platterpusdrivetest38records.tar.gz"
+    upload = (
+        home / "platterpus-rig" / "drivetest38" / "platterpusdrivetest38records.tar.gz"
+    )
     assert upload.is_file(), done.stdout
     with tarfile.open(upload) as archive:
         names = archive.getnames()
