@@ -195,12 +195,12 @@ fetch_scripts() {
 }
 
 install_tools() {
-  if inbox sh -c 'command -v sg_raw && command -v sg_turs && command -v cdrdao' >/dev/null 2>&1; then
-    echo "sg3_utils and cdrdao are already in the container."
+  if inbox sh -c 'command -v sg_raw && command -v sg_turs && command -v cdrdao && command -v strace' >/dev/null 2>&1; then
+    echo "sg3_utils, cdrdao and strace are already in the container."
     return 0
   fi
   say "Installing the read-only tools in the container (it may ask for your password)"
-  inbox sudo dnf install -y sg3_utils cdrdao
+  inbox sudo dnf install -y sg3_utils cdrdao strace
 }
 
 # Wait until no cyanrip is running and the drive says the disc is ready (TEST
@@ -667,6 +667,25 @@ probe() {
     { echo "A exit $ra after ${sa}s, B exit $rb after ${sb}s"; echo "--- A's last lines"; tail -15 "$c/pairA.txt"; echo "--- B's last lines"; tail -15 "$c/pairB.txt"; } \
       | note_error "probe: two reads at once did not both finish (kept; going on)"
   fi
+  # A pair that stalled (killed at the limit: 124 or 137) runs again under
+  # strace, so the record shows the system call each read was in when it
+  # stopped (the fork's lap 16 S9, as their runner does it).
+  case "$ra $rb" in
+    *124*|*137*)
+      say "Probe 2b: a read stalled; the pair again under strace"
+      pgrep -f "cyanrip -I -N -d $DEVICE" >/dev/null 2>&1 && pkill -KILL -f "cyanrip -I -N -d $DEVICE"
+      wait_disc
+      ( timeout -k 5 "$PROBE_SECS" distrobox enter ripping -- strace -f -tt -v -s 32 -e trace=openat,ioctl,read,close \
+          -o "$c/pairA.strace" /usr/local/bin/cyanrip -I -N -d "$DEVICE" > "$c/pairA-strace.txt" 2>&1 || true ) &
+      local ps=$!
+      sleep 2.4
+      timeout -k 5 "$PROBE_SECS" distrobox enter ripping -- strace -f -tt -v -s 32 -e trace=openat,ioctl,read,close \
+          -o "$c/pairB.strace" /usr/local/bin/cyanrip -I -N -d "$DEVICE" > "$c/pairB-strace.txt" 2>&1 || true
+      wait "$ps" || true
+      for f in "$c"/pair?.strace; do
+        [ -f "$f" ] && echo "$(basename "$f"): last call: $(grep -v 'resumed\|exited\|killed' "$f" | tail -1 | cut -c1-200)" | tee -a "$c/summary.txt"
+      done ;;
+  esac
   # A read this probe started and that is still running would hold the drive
   # for the C2 reads; it is ours, so it is stopped (only `-I -N` reads on this
   # device, the ones the probe itself ran).
