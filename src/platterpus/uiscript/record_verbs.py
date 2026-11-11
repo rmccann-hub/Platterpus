@@ -84,6 +84,27 @@ class RecordVerbsMixin:
             lambda _path, report: record_grading.grade_read_offset(report),
         )
 
+    def _do_expect_track_records(self, step: Step) -> None:
+        """Every track's record is truthful, in the EAC-layout log and the report (G3).
+
+        FAIL on ``Accurately ripped`` for a track a CTDB repair rewrote, on any
+        ``OK`` over reads that disagree, or on a track with no record; BLOCKED
+        when the report predates per-track records. Waits for the record to
+        settle, so a CTDB repair still running is waited for, and graded once it
+        has rewritten the log. Severity ARCHIVAL, declared in
+        :mod:`platterpus.uiscript.track_record_grading`.
+        """
+        from platterpus.uiscript import track_record_grading
+
+        folder = self._rip_album_dir(step)
+        if folder is None:
+            return  # the shared reader recorded the FAIL and said why
+        self._grade_when_settled(
+            step,
+            folder,
+            lambda path, report: track_record_grading.grade_track_records(report, path),
+        )
+
     def _do_expect_derived_files(self, step: Step) -> None:
         """Each derived file's own length, tags, art and encoder (C4).
 

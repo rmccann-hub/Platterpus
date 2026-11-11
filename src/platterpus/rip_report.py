@@ -75,6 +75,7 @@ from platterpus.report_types import (
     ReportReadSpeedBlock,
     SecureReripBlock,
     TimingBlock,
+    TrackRecordBlock,
 )
 from platterpus.reread_limit import STOPPED_BY as REREAD_STOPPED_BY
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT
@@ -90,6 +91,11 @@ from platterpus.track_proof import (
     track_proof,
     track_proof_among,
     verified_reread_numbers,
+)
+from platterpus.track_record import record_block, track_record, track_record_among
+from platterpus.track_record_sources import (
+    chase_attempts_by_track,
+    repaired_tracks_by_number,
 )
 from platterpus.user_settings import user_settings
 from platterpus.verdict import (
@@ -742,7 +748,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `length`, `truncated`, `bytes` in hex and `agrees`, and the CD Read
 #      feature's bits with `bits_agree_with_bytes`, and `vendor_settings`
 #      (`record_vendor_settings.py`); declarations, not measurements.
-REPORT_SCHEMA_VERSION: int = 44
+# v45: per track `record` (round 39's gate G3, "the record", 2026-11-11). v44
+#      shipped in 0.7.121, so this is a new number. Additions only. How the
+#      copy was verified (`track_record.py`): `kind`, one of `first_read`,
+#      `reread`, `kept_at_limit_for_accuraterip`, `accuraterip_guided_convergence`
+#      (the fork's `.31` rule: a seam, never written until that build is read),
+#      `chase_attempt`, `repaired_from_ctdb` or `not_verified`; `line`, the words
+#      the EAC-layout log's `Record:` row prints; `reads_disagree`, tri-state,
+#      whether the track's reads gave more than one value; and `repaired`, true
+#      when a CTDB repair rewrote the track's file after the read.
+REPORT_SCHEMA_VERSION: int = 45
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -1927,8 +1942,28 @@ def _build(
     # files are verified-read chase reads, and CTDB's per-track answer.
     chased = verified_reread_numbers(secure_rerip)
     ctdb_rows = ctdb_tracks_by_number(ctdb_result)
+    # And how each copy was verified (v45, G3): which chase attempt was kept and
+    # what a CTDB repair rewrote are facts only the report's inputs hold.
+    chase_attempts = chase_attempts_by_track(
+        (read_speed_block or {}).get("retried_tracks")
+    )
+    repairs = repaired_tracks_by_number(ctdb_result)
+    ripper_version = str(getattr(rip_log, "log_creator", "") or "")
     track_blocks = [
-        _track(t, track_proof_among(t, chased=chased, ctdb_rows=ctdb_rows))
+        _track(
+            t,
+            track_proof_among(t, chased=chased, ctdb_rows=ctdb_rows),
+            record_block(
+                track_record_among(
+                    t,
+                    chased=chased,
+                    chase_attempts=chase_attempts,
+                    repairs=repairs,
+                    ctdb_rows=ctdb_rows,
+                    ripper_version=ripper_version,
+                )
+            ),
+        )
         for t in (getattr(rip_log, "tracks", ()) or ())
     ]
     issues = _issues(
@@ -2374,12 +2409,20 @@ def _search_pair(value: object) -> list[int] | None:
     return None
 
 
-def _track(track: object, proof: TrackProof | None = None) -> dict:
+def _track(
+    track: object,
+    proof: TrackProof | None = None,
+    record: TrackRecordBlock | None = None,
+) -> dict:
     """One track's block. ``proof`` is from :func:`track_proof.track_proof`, with
     the chase and CTDB facts only the report holds; without it (a caller that has
-    neither) the track's own fields decide it."""
+    neither) the track's own fields decide it. ``record`` is
+    :func:`track_record.record_block` (v45), likewise from the track's own fields
+    when not given."""
     if proof is None:
         proof = track_proof(track)
+    if record is None:
+        record = record_block(track_record(track))
     return {
         "number": getattr(track, "number", None),
         "filename": getattr(track, "filename", "") or None,
@@ -2523,6 +2566,12 @@ def _track(track: object, proof: TrackProof | None = None) -> dict:
         # EAC-layout log prints, plus CTDB's per-track result, which that log is
         # written too early to hold.
         "proof": {"kind": proof.kind, "line": proof.line},
+        # v45 (G3, 2026-11-11): HOW this copy was verified (first read, re-read n
+        # of m, kept at the -Z limit for AccurateRip, chase attempt k, repaired
+        # from CTDB, or not verified), in the line the EAC-layout log's Record:
+        # row prints, with whether its reads disagreed and whether a repair
+        # rewrote it (`track_record.py`).
+        "record": record,
         # cyanrip's per-track "Accurip:" status text — the only thing that says
         # whether a lookup happened. Without it a consumer cannot tell "compared
         # and disagreed" from "never asked", which is the distinction the on-screen

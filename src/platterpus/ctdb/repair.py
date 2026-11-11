@@ -34,9 +34,12 @@ than an independent witness.
    file is renamed over the original's name, atomically. A second repair over a
    kept original is refused rather than overwrite it.
 
-**Not edited, ever:** the ripper's log and the EAC-layout log (KDD-24: a log is
-the record of the read, and a repair is not a read). The record names what it
-left untouched, and the rip report carries the record (``ctdb.repair``).
+**Not edited, ever:** the ripper's log (KDD-24: a log is the record of the read,
+and a repair is not a read). Nor are the EAC-layout log's rows of the read: the
+window renders that log once more when a repair lands (G3, 2026-11-11), and its
+Copy CRC and AccurateRip rows still describe the read, while each repaired
+track's ``Record:`` row says what replaced it (``track_record.py``). The record
+names what it left untouched, and the rip report carries it (``ctdb.repair``).
 
 Blocking (it decodes the whole disc once more and runs ``flac``): never on the
 GUI thread (Critical rule 9). There is no worker and no ``cancel()`` yet,
@@ -72,7 +75,9 @@ log = logging.getLogger(__name__)
 
 #: What a repair never changes, said in every record.
 UNTOUCHED: tuple[str, ...] = (
-    "the ripper's log and the EAC-layout log (KDD-24: the record of the read)",
+    "the ripper's log (KDD-24: the record of the read), and the EAC-layout log's "
+    "rows of the read: each repaired track's Record row names this repair beside "
+    "them",
     "derived copies (MP3, WavPack, WAV) made from the original FLAC",
     "samples in CTDB's guard bands (about the disc's first and last 5,880 "
     "frames at the entry's offset), which no parity covers: damage there is "

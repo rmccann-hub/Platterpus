@@ -746,6 +746,19 @@ class TrackProofBlock(TypedDict):
     line: str
 
 
+class TrackRecordBlock(TypedDict):
+    #: v45 (G3, 2026-11-11): how the copy was verified (`track_record.RECORD_KINDS`:
+    #: "first_read", "reread", "kept_at_limit_for_accuraterip",
+    #: "accuraterip_guided_convergence", "chase_attempt", "repaired_from_ctdb",
+    #: "not_verified") and the line the EAC-layout log's `Record:` row prints.
+    kind: str
+    line: str
+    #: Tri-state: whether the track's reads gave more than one value.
+    reads_disagree: bool | None
+    #: True when a CTDB repair rewrote the track's file after the read.
+    repaired: bool
+
+
 class TrackBlock(TypedDict):
     number: int | None
     filename: str | None
@@ -840,6 +853,8 @@ class TrackBlock(TypedDict):
     accuraterip_contradiction: str | None
     #: v40: which proof this copy has (`track_proof.track_proof`), CTDB included.
     proof: TrackProofBlock
+    #: v45: how this copy was verified (`track_record.track_record`).
+    record: TrackRecordBlock
     accuraterip: TrackAccurateRipBlock
 
 

@@ -3954,7 +3954,19 @@ per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
 (`expect-derived-files`, 2026-11-03, review C4): each one's length against its
 master's, its tags and cover, and the codec and MP3 `-q:a` that ran, read from the
 report's `verification.transcode.encoder_argv`; before that they graded only the
-FLAC masters. §I asks only the two audit questions a
+FLAC masters. **`expect-track-records`** (2026-11-11, round 39's G3, the
+record) reads every track's line in the report's `tracks[].record` and the
+EAC-layout log, and fails on `Accurately ripped` for a track a CTDB repair
+rewrote, on any `OK` over reads that disagree, or on a track with no record;
+the subject comes from `ctdb.repair` and each track's own read fields, never
+from the record it grades (`uiscript/track_record_grading.py`). **Its
+severity is ARCHIVAL, declared here before any run**: a track called accurate
+or OK that is neither is Part F1's *wrong and reported as fine*, the worst
+outcome on the yardstick, in the record of the rip. It is not yet a step of
+`fullacceptance.txt` (sections F and N are where it belongs, after
+`expect-ctdb whole`, so the repair has landed); adding it is a TASKS row,
+and a section that runs it inherits nothing from this paragraph but must
+already be ARCHIVAL in the table above. §I asks only the two audit questions a
 cancel leaves standing. The graders delegate to the product's own predicates
 (`uiscript/artifact_grading.py`, `uiscript/record_grading.py`,
 `uiscript/tag_grading.py`); the reasons are in their docstrings. **J2 (2026-10-05)** rips one track with the settings no

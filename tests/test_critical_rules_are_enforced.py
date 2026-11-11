@@ -1066,7 +1066,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # recorded rather than split: the repair's window half (when it starts, the
     # worker it owns, what the user is told, the re-runs after it, the close), and
     # the FLAC rewrite adapter, which gained the killable runner its worker uses.
-    "ui/main_window_ctdb_repair.py": 418,
+    # **418 -> 436** (2026-11-11, round 39's G3, the record): a REPAIRED outcome renders the EAC-layout log once more before the report write, with why (log, not trailer) at the call.
+    "ui/main_window_ctdb_repair.py": 436,
     "adapters/flac_rewrite.py": 329,
     # 383 (2026-10-26, TASKS R88, the owner's interim): born over 300. **Kept as one module deliberately**: one job,
     # predicting every name a rip needs and refusing one over 255 bytes. Most of
@@ -1779,7 +1780,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2277 -> 2278** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `_health_lines` asks `verdict.accuraterip_contradictions` and takes `DISC_HAD_ERRORS` from `rip_health`, which the report's `health_status` shares.
     # **2283 -> 2295** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the undecided pre-gap's range in the not-determined row (S8) and the `Filtered:` note beside a track's proof (S7); the wording is `ripper_track_notes.py`.
     # **2295 -> 2300** (2026-11-04): the same row decides the Gap handling row as unknown does, so the log never claims appending for a pregap cyanrip did not decide.
-    "eac_log_export.py": 2300,
+    # **2300 -> 2245** (2026-11-11, round 39's G3): down: the per-track verdict and its constants moved to `eac_track_verdict.py`, while the `Record:` row and the record's plumbing came in.
+    "eac_log_export.py": 2245,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2190,7 +2192,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1167 -> 1216** (2026-11-04, TASKS R43, the CTDB repair): schema 44's `ctdb.repair` typed as three blocks (the record, a rewritten track, a corrected word), beside the CTDB blocks they extend.
     # **1216 -> 1237** (2026-11-05, TASKS R133, the automatic CTDB repair): `CtdbAfterRepairBlock` and `settings.ctdb_repair_after_rip` (schema 44, unreleased).
     # **1237 -> 1277** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `DistinctReadEntry`, the row's four `distinct_reads` keys, `TrackBlock.other_reads` and `DiscBlock.drive_declared`.
-    "report_types.py": 1277,
+    # **1277 -> 1292** (2026-11-11, round 39's G3, the record): `TrackRecordBlock` and `TrackBlock.record` (schema 45), beside the track block it types.
+    "report_types.py": 1292,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2342,7 +2345,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3732 -> 3809** (2026-11-04, TASKS R43, the CTDB repair): schema 44's history note and `_ctdb_repair`, the serializer for `ctdb.repair` beside the other CTDB serializers (a dict literal here, so `tests/test_report_types_completeness.py` can read it). The repair is `ctdb/repair*.py`.
     # **3809 -> 3856** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb.after_repair`, selected from `_ctdb` itself, and its schema note.
     # **3856 -> 3881** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): schema 44's note for the three `.30` readings and the per-track `other_reads` key; the blocks are built in `other_reads.py`, `record_reads.py` and `record_drive_declared.py`.
-    "rip_report.py": 3881,
+    # **3881 -> 3930** (2026-11-11, round 39's G3, the record): per track `record` (schema 45) built beside `proof` from the same rip-wide facts, the v45 history note, and the schema bump.
+    "rip_report.py": 3930,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2792,7 +2796,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5290 -> 5305** (2026-11-04, TASKS R128 (b)): `_flush_rip_report` takes the close's `ShutdownDeadline` and waits only what is left of it, with the docstring paragraph saying why (Critical rule 9: bound the whole shutdown). The flush lives here, so its bound does.
     # **5305 -> 5352** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's context frozen at finish, its hold set on the CTDB daemon, and the two settlement checks; the repair itself is its own mixin.
     # **5352 -> 5358** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `disc.drive_declared`, read off the worker's reading beside `error_positions`.
-    "ui/main_window_rip.py": 5358,
+    # **5358 -> 5371** (2026-11-11, round 39's G3, the record): the EAC-layout log's render keeps the worker's `retried_tracks` for the chase attempt number, and the two comments on when the log is re-rendered now say the repair does it too.
+    "ui/main_window_rip.py": 5371,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2824,7 +2829,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **485 -> 488** (2026-11-03, TASKS R107): the seam declares `_save_config_or_report`.
     # **488 -> 490** (2026-11-03, TASKS R96): the seam declares `run_dependency_check_async`'s `launch` marker, which the formatter wraps onto three lines.
     # **490 -> 541** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's slots and the cross-mixin stubs it and RipMixin call.
-    "ui/main_window_shared.py": 541,
+    # **541 -> 546** (2026-11-11, round 39's G3, the record): the type-only stub for `_rewrite_eac_log_with_ctdb`, which the repair mixin now calls.
+    "ui/main_window_shared.py": 546,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2848,7 +2854,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_update.py": 1093,
     # One record type and the per-album store it lives in, cohesive. **-> 304** (2026-11-03, TASKS R51 and R62 meeting): `EacLogRender` keeps what the EAC-layout log was rendered from, who cancelled included, so CTDB's later answer renders it the same way.
     # **304 -> 307** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's step label.
-    "ui/post_rip_record.py": 307,
+    # **307 -> 315** (2026-11-11, round 39's G3, the record): `EacLogRender.retried_tracks`, so a render after CTDB or the repair numbers the chase attempt as the first did.
+    "ui/post_rip_record.py": 315,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
@@ -3129,7 +3136,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1082 -> 1090** (2026-11-03, review C3 of the 0.7.117 Full run): the `expect-read-offset` declaration, beside `expect-ctdb`. The table is the vocabulary's security boundary, so a verb is an entry here.
     # **1090 -> 1098** (2026-11-03, review C4): the `expect-derived-files` declaration, beside `expect-read-offset`.
     # **1137 -> 1162** (2026-11-04, TASKS R123): the `compare-conditions` and `cyanrip-timeout` declarations, and `record-accuracy`'s optional folder. The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 1162,
+    # **1162 -> 1170** (2026-11-11, round 39's G3): the `expect-track-records` declaration, beside `expect-read-offset`.
+    "uiscript/verbs.py": 1170,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

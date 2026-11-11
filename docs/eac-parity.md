@@ -539,6 +539,52 @@ it does not contain `Copy aborted`, which checkers score as an automatic zero (P
 §2). We do not imitate EAC's own per-position way of marking a doubtful read: cyanrip
 reports how many skips a track had, not where they were.
 
+##### The record row, and the repaired and disagreeing verdicts (2026-11-11)
+
+Round 39's gate G3, *the record* (the owner-approved plan of 2026-11-11): every
+track's block says **how its copy was verified**, and two wordings never appear on a
+track, `Accurately ripped` on a track a CTDB repair rewrote and `Copy OK` (or any
+`OK`) over reads that disagree, which is EAC's own fault (Part F row 8). Four
+deviations from EAC's layout, each a line EAC has no wording for, each the plainest
+truthful line we could write (`track_record.py`, `eac_track_verdict.py`;
+`tests/test_track_record.py`):
+
+| Where | EAC | Ours | Why |
+|---|---|---|---|
+| A new row after `Proof:` | none (EAC's one path is Test & Copy) | `Record: first read; verified by AccurateRip v1 at confidence 128 and v2 at confidence 200`, or `re-read, 2 agreeing of 2; …`, `re-read, at most 2 agreeing of 3`, `kept at the -Z limit for AccurateRip's match (the ripper's --prefer-accuraterip-match): …`, `chase attempt 3 (TASKS R7), a single read kept in place of a read AccurateRip did not verify; …`, `repaired from CTDB entry … after the read (…): …`, or `not verified — <path>; <reason>` | Our paths to a kept read differ by track, and Part F row 9's `Proof:` row says which database vouches, not how the copy came to be kept. The report carries the same line as `tracks[].record` (schema 45), so the two cannot differ |
+| A repaired track's verdict | none (CUETools repairs, in its own log) | `Copy finished — this read was then repaired from CTDB (see Record above)` | EAC's own non-OK line, with our clause: the rows above describe a read that was not verified. It outranks every verdict but the skip one, whose fact is said nowhere else; a re-read that did not converge stays on the `Copy CRC` line and in `Read stability` |
+| Reads that disagreed | `Copy OK` over a Test CRC unlike the Copy CRC | `Copy finished — the reads disagreed (see Record above)`, or `Copy finished — the reads disagreed, and AccurateRip verifies the read kept (see Record above)` | EAC's fault, not followed. "Disagreed" is what the record shows (`track_record_reads.reads_disagree`): a Test CRC unlike the Copy CRC, a re-read that did not converge or was kept at the limit, `.30`'s `Other read:` lines, a first pass that did not converge, or a verified-read chase. A chase read AccurateRip verifies is not called OK either: the drive gave more than one value, and the `Record:` row says which was kept |
+| A repaired track's AccurateRip row | `Accurately ripped (confidence N)` | unchanged from the read; in the one case it could read `Accurately ripped`, `AccurateRip matched this read (confidence N) …; a CTDB repair then rewrote this track (see Record below)` | The row describes the read, and the file is no longer that read. The repair refuses a track AccurateRip verified (`ctdb/repair_plan.py`), so the case should never arise; the guard makes the invariant structural |
+
+**The repair rewrites our log, never the ripper's** (the decision, and why). The
+repair lands after both of our log's earlier writes, at the rip's end and when CTDB
+answered. Two ways were open: render the EAC-layout log once more when the repair
+lands, or write a separate trailer file. We render the log again
+(`ui/main_window_ctdb_repair._land_ctdb_repair`), before the report write that embeds
+it, because the log is our rendering and is already re-rendered when CTDB answers
+(TASKS R51), and a trailer is a file a reader of the log never opens: the log would
+go on describing a read that is no longer the file on disk, the *looks complete*
+artifact. Every row of the read stays as it was (the same `RipLog`, rendered the same
+way): the `Copy CRC` is still the read's `E0036697`, the AccurateRip row still the
+read's, and the `Record:` row says `Copy CRC E0036697 before, C96464AB after`. The
+ripper's own log is never touched (KDD-24, KDD-47), and `ctdb.repair.untouched` now
+says so in those words.
+
+**AccurateRip after a repair is stated per version, and "not determined".** For the
+owner's 2026-11-10 run the row reads `AccurateRip v1 134C0B9D: not determined; v2
+BCF4E815: not determined (Platterpus has no AccurateRip lookup of its own, and the
+rip's AccurateRip answer describes the read)`. Those are the values AccurateRip has
+verified for track 5 in earlier rips (v2 at confidence 200), and a reader can see
+that; the app cannot, in this rip: cyanrip prints AccurateRip's value only for a read
+that matched it, and a repaired track is one whose read did not. Saying "matched"
+would rest on our memory of other rips, not on this rip's record.
+
+**The fork's `.31` -Z rule is a named seam, not a line.** Its AccurateRip-guided
+convergence is announced and unreleased, so its log text is unknown and nothing reads
+it (`track_record_sources.AR_GUIDED_CONVERGENCE_BUILDS`, empty). A re-read from a
+`.31` or later build this release cannot read says *whether the fork's .31
+AccurateRip-guided -Z rule chose this read is not determined*, never a plain re-read.
+
 #### Summary / status report
 
 | Field | EAC | cyanrip | Notes |
@@ -1529,7 +1575,7 @@ number ("Part F row N").
 | 5 | A damaged disc | Reads a bad sector up to 82 times, then flags it | Track 18 took 5 h 18 min; no time bound (E4) | Behind | A per-track time budget; record a track whose every read skips as unreadable on this drive, with positions. Say what `-r 5` means beside EAC's 82 | Platterpus (R49); the fork for `-r` |
 | 6 | Track 3 on this drive | Right 1 in 3 | Right in some rips, both builds (E2) | Equal | Pair `.25` and `.26` over more rips before naming a cause; the chase is the fix that works | The fork |
 | 7 | Track 5 on this drive | Never | Once | **Not possible** on this drive | The drive returns the same wrong bytes to every program. Another drive can | — |
-| 8 | Saying a wrong track is wrong | `Copy OK` over it | From 2026-10-26, a track AccurateRip contradicts reads `Proof: none — WRONG: …` (or `differs`) and `Copy finished`, never `Copy OK` or "confirmed", and the disc reads `There were errors`; the report and the results table say the same (E5). The fork's `read successfully!` is unchanged | Better (was Equal, both bad) | Send the wording to the fork in our next lap; `read successfully!` over such a track | Platterpus (R50, built); the fork for `read successfully!` |
+| 8 | Saying a wrong track is wrong | `Copy OK` over it | From 2026-10-26, a track AccurateRip contradicts reads `Proof: none — WRONG: …` (or `differs`) and `Copy finished`, never `Copy OK` or "confirmed", and the disc reads `There were errors`; the report and the results table say the same (E5). From 2026-11-11 (G3), no `OK` over reads that disagree at all, and a track a CTDB repair rewrote says so in its `Record:` row and verdict, never `Accurately ripped` (Part B, *The record row*; `expect-track-records` grades both). The fork's `read successfully!` is unchanged | Better (was Equal, both bad) | Send the wording to the fork in our next lap; `read successfully!` over such a track | Platterpus (R50, built); the fork for `read successfully!` |
 | 9 | The proof each track has | Test & Copy CRCs | From 2026-10-26, a `Proof:` row per track naming AccurateRip at confidence N, a verified single re-read, reads that agree, or none and why; the report adds CTDB per track (E5) | Better (was Better once shown) | Name CTDB in the log's row too, by re-rendering it when CTDB answers (done 2026-11-03) | Platterpus (R51, built) |
 | 10 | Where a read was unsure | Suspicious positions | Counts in released builds; positions in `.25`'s record, not yet in the log | Behind | Agree the log wording and print them | Both (R44) |
 | 11 | CTDB check | Per track; names the bad samples | Per track and across offsets, matches weighed | Behind on naming samples | The syndrome pass, on the owner's word on `numpy` or a native extension | Platterpus (R43, R34) |

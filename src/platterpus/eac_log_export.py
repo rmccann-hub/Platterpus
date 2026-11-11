@@ -51,6 +51,14 @@ from datetime import datetime
 
 from platterpus import diagnostics, inbound_text, one_frame_match
 from platterpus.data_tracks import audio_track_totals, is_data_track
+from platterpus.eac_track_verdict import (
+    CONTRADICTED_VERDICT as CONTRADICTED_VERDICT,
+)
+from platterpus.eac_track_verdict import (
+    UNVERIFIED_SKIPS_VERDICT as UNVERIFIED_SKIPS_VERDICT,
+)
+from platterpus.eac_track_verdict import accuraterip_row
+from platterpus.eac_track_verdict import status_line as _status_line
 from platterpus.first_pass_reread import clause as first_pass_clause
 from platterpus.parsers.cyanrip_log import (
     INTERRUPTED_MID_READ,
@@ -78,9 +86,17 @@ from platterpus.ripper_identity import identify_ripper
 from platterpus.ripper_track_notes import filter_sentence, undecided_text
 from platterpus.safe_int import int_or_none
 from platterpus.track_proof import (
+    PROOF_ACCURATERIP,
+    PROOF_VERIFIED_REREAD,
     ctdb_tracks_by_number,
     track_proof,
     verified_reread_numbers,
+)
+from platterpus.track_record import TrackRecord, track_record_among
+from platterpus.track_record_reads import reads_disagree
+from platterpus.track_record_sources import (
+    chase_attempts_by_track,
+    repaired_tracks_by_number,
 )
 from platterpus.verdict import (
     accuraterip_contradictions,
@@ -324,6 +340,7 @@ def render_eac_style_log(
     cancelled_by: str = "",
     replaced_reads: ErrorsInReplacedReads | None = None,
     ctdb_result: object | None = None,
+    retried_tracks: object | None = None,
 ) -> str:
     """The rendered log text; see :func:`render_eac_style_log_and_defused`."""
     text, _defused = render_eac_style_log_and_defused(
@@ -337,6 +354,7 @@ def render_eac_style_log(
         cancelled_by=cancelled_by,
         replaced_reads=replaced_reads,
         ctdb_result=ctdb_result,
+        retried_tracks=retried_tracks,
     )
     return text
 
@@ -353,6 +371,7 @@ def render_eac_style_log_and_defused(
     cancelled_by: str = "",
     replaced_reads: ErrorsInReplacedReads | None = None,
     ctdb_result: object | None = None,
+    retried_tracks: object | None = None,
 ) -> tuple[str, list[str]]:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``,
     and the lines rewritten so metadata could not forge a signature (D16).
@@ -376,7 +395,13 @@ def render_eac_style_log_and_defused(
       (:mod:`platterpus.replaced_read_errors`), for the disc-level health line.
     * ``ctdb_result`` — CTDB's answer, for each track's ``Proof:`` row (TASKS
       R51). The window writes the log at the rip's end, before CTDB answers, and
-      again when it does; ``None`` leaves CTDB unnamed.
+      again when it does; ``None`` leaves CTDB unnamed. Its ``repair`` names the
+      tracks a CTDB repair rewrote, for their ``Record:`` rows: the window writes
+      the log once more when a repair lands (G3, 2026-11-11), keeping every row
+      of the read as it was and saying the repair beside them.
+    * ``retried_tracks`` — the report's ``read_speed.retried_tracks``, for which
+      chase attempt a verified-read chase kept (TASKS R7); ``None`` leaves the
+      attempt unnumbered.
 
     The honesty gate still holds: any value not supplied is **omitted, never
     invented**, the cyanrip source line is left exactly as parsed, and EAC's own
@@ -401,6 +426,7 @@ def render_eac_style_log_and_defused(
             cancelled_by=cancelled_by,
             replaced_reads=replaced_reads,
             ctdb_result=ctdb_result,
+            retried_tracks=retried_tracks,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -423,6 +449,7 @@ def _render(
     cancelled_by: str = "",
     replaced_reads: ErrorsInReplacedReads | None = None,
     ctdb_result: object | None = None,
+    retried_tracks: object | None = None,
 ) -> tuple[str, list[str]]:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -589,12 +616,24 @@ def _render(
     # --- Per-track blocks ---
     chased = verified_reread_numbers(secure_rerip)
     ctdb_rows = ctdb_tracks_by_number(ctdb_result)
+    # The record of how each copy was verified (G3): the chase's attempt number
+    # and the CTDB repair are facts the parsed log does not hold.
+    chase_attempts = chase_attempts_by_track(retried_tracks)
+    repairs = repaired_tracks_by_number(ctdb_result)
     for track in rip_log.tracks:
         lines.extend(
             _track_block(
                 track,
                 verified_reread=track.number in chased,
                 ctdb_track=ctdb_rows.get(track.number),
+                record=track_record_among(
+                    track,
+                    chased=chased,
+                    chase_attempts=chase_attempts,
+                    repairs=repairs,
+                    ctdb_rows=ctdb_rows,
+                    ripper_version=rip_log.log_creator,
+                ),
             )
         )
 
@@ -633,27 +672,6 @@ def _render(
 # A single constant so no row invents its own phrasing, and so a reader can grep
 # the log for everything we couldn't fill.
 _UNREPORTED = "(not reported by the ripper)"
-
-#: The per-track verdict for a track paranoia SKIPPED on (gave up verifying a read
-#: and kept what it had) that AccurateRip did not confirm. Track 18 of the
-#: 2026-10-04 rig run had 2,586 skips, no whole-track AccurateRip match, and this
-#: log said "Copy OK" over it. The words are ours, proposed in our round 30 lap 8
-#: S20 and accepted by the fork in their lap 9 S26
-#: (cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md), because this log is what
-#: they diff against and neither side rewords it alone (round 7 lap 11, H4).
-#: Their reason for preferring it to the track's own "ripped with errors", which
-#: `.20` prints for such a track: that says a specific error happened, and on a
-#: skip none was reported; what happened is that the reads could not be verified.
-UNVERIFIED_SKIPS_VERDICT: str = (
-    "Copy NOT confirmed — the ripper could not verify every read and AccurateRip "
-    "did not confirm the audio"
-)
-
-#: The per-track verdict for a track AccurateRip contradicts
-#: (`verdict.track_accuraterip_contradiction`): EAC's own line for a copy it does
-#: not call OK, with no "OK" in it (plan of record, 2026-10-26, row 8). The
-#: `Proof:` row above it says why, in our words.
-CONTRADICTED_VERDICT: str = "Copy finished"
 
 #: EAC's own disc-level sentence for a rip with errors (string 1224, which OPS's
 #: checker marks as bad, `src/Logchecker.php:896`), agreed for this log in round
@@ -1835,12 +1853,17 @@ def _track_block(
     *,
     verified_reread: bool = False,
     ctdb_track: object | None = None,
+    record: TrackRecord | None = None,
 ) -> list[str]:
     """The per-track section, matching EAC's shape (only real fields rendered).
 
     ``verified_reread`` is True when the track's file is a verified-read chase
     read (``secure_rerip["verified_rereads"]``), which its ``Proof:`` row names.
     ``ctdb_track`` is CTDB's per-track result once CTDB has answered, else None.
+    ``record`` is :func:`platterpus.track_record.track_record`'s answer, for the
+    ``Record:`` row and the status line; None (an old caller) renders neither the
+    row nor a repair, and still never prints ``Copy OK`` over reads the track's
+    own fields show disagreeing.
     """
     # EAC writes "Track" + one space + the number right-aligned to width 2, so a
     # single-digit track reads "Track  1" and a double-digit one "Track 14". A
@@ -1921,8 +1944,11 @@ def _track_block(
     # which this printed) states a database lookup that was never made for a track
     # the database cannot hold. Close to EAC, never forged (KDD-24): the row is left
     # out and the block's own status line, below, says what the track is.
+    repaired = record is not None and record.repaired
     if not is_data_track(track):
-        out.append(f"     {_accuraterip_line(track)}")
+        out.append(
+            f"     {accuraterip_row(_accuraterip_line(track), repaired=repaired)}"
+        )
     # A row of our own, beside EAC's AccurateRip row it explains (plan of record,
     # 2026-10-26, rows 8 and 9): which proof this copy has, from `track_proof`,
     # the one wording the report carries too. EAC's one proof is a Test and Copy
@@ -1933,11 +1959,18 @@ def _track_block(
     # R51), so this row and the report's `proof` end the same. Not for a data
     # track, for the AccurateRip row's reason above: its status line says what
     # it is.
+    proof = track_proof(track, verified_reread=verified_reread, ctdb_track=ctdb_track)
     if not is_data_track(track):
-        proof = track_proof(
-            track, verified_reread=verified_reread, ctdb_track=ctdb_track
-        )
         out.append(f"     Proof: {proof.line}")
+        # A row of our own (G3, the owner-approved plan of 2026-11-11): HOW the
+        # copy was verified, which the Proof row above does not say: first read,
+        # re-read with n of m agreeing, kept at the -Z limit for AccurateRip,
+        # chase attempt k, repaired from CTDB, or not verified. EAC has no row for
+        # it, because its one path is Test & Copy; ours differ by track. A
+        # repaired track's rows above still describe the READ (its Copy CRC and
+        # AccurateRip rows are the ripper's), and this row says what replaced it.
+        if record is not None:
+            out.append(f"     Record: {record.line}")
     # `.29` (round 38 lap 1 S7): a filter changed the audio after its checksums,
     # so the rows above describe the read, not the file. Only when printed: our
     # rips send no filter, and this line never appears unless the ripper's did.
@@ -1952,6 +1985,14 @@ def _track_block(
             unverified_skips=track_has_unverified_skips(track),
             contradicted=contradiction is not None,
             stopped_by_time_limit=_stopped_by_time_limit(track),
+            repaired=repaired,
+            reads_disagree=(
+                record.reads_disagree
+                if record is not None
+                else reads_disagree(track, chased=verified_reread)
+            ),
+            accuraterip_verified=proof.kind
+            in (PROOF_ACCURATERIP, PROOF_VERIFIED_REREAD),
         )
         out.append(f"     {verdict}")
     out.append("")
@@ -2175,102 +2216,6 @@ def _accuraterip_line(track: TrackResult) -> str:
             crc = f"  [{ar.local_crc}]" if ar.local_crc else ""
             return f"Cannot be verified as accurate{crc}  (AR v{ar.version})"
     return "Track not present in AccurateRip database"
-
-
-def _status_line(
-    status: str,
-    *,
-    reproducible: bool | None = None,
-    unverified_skips: bool = False,
-    contradicted: bool = False,
-    stopped_by_time_limit: bool = False,
-) -> str:
-    """Render the track status the way EAC does — but never `Copy OK` for a track
-    whose re-reads disagreed.
-
-    **The defect this closes, measured on hardware 2026-09-03.** The
-    EAC-compatible log for the acceptance run's secure re-read printed, for
-    tracks 3, 4 and 5:
-
-        Copy CRC 418F6CF8  (re-reads did NOT agree — this read is not confirmed
-                            reproducible)
-        Copy OK
-
-    Two lines apart, in the same track block: an honest parenthetical and a
-    verdict that contradicts it. `Copy OK` is EAC's *clean* verdict, and it is
-    the string a logchecker greps for and a human scans for. The disc-level
-    `Read stability` line already named those tracks — so the app knew, said so
-    twice elsewhere, and still stamped the per-track verdict clean.
-
-    `CLAUDE.md`'s EAC-parity rule is the one that decides this: *an
-    EAC-compatible log must stay as close to the EAC original as possible
-    **without forging it***, with equal-or-stronger rigour labelled as ours
-    (KDD-24). Printing `Copy OK` over a read we have just declared
-    unreproducible is the forging half.
-
-    So a non-reproducible track gets a verdict in our own words rather than
-    EAC's. It deliberately does **not** contain the substring `Copy OK`: a
-    parenthetical qualifier appended to that string would still read as clean to
-    every mechanical consumer, which is the *"every word accurate, the sentence
-    wrong"* shape this project keeps paying for.
-
-    ``reproducible`` is tri-state and only ``False`` changes anything. ``None``
-    means the rip recorded no convergence data — a backend that does not report
-    it, or a rip with no secure re-read — and inventing a doubt there would be
-    the mirror defect.
-
-    ``unverified_skips`` is ``verdict.track_has_unverified_skips``: paranoia
-    skipped on the track and AccurateRip did not confirm it. It renders
-    :data:`UNVERIFIED_SKIPS_VERDICT`, whatever the track's own status says. A
-    skipped track AccurateRip DID confirm keeps ``Copy OK``: an exact match proves
-    the audio however it was read.
-
-    **Precedence, when a track both was skipped on and hit the repeat limit: the
-    skip verdict takes this line.** Both facts stay in the block that way. The
-    re-read shortfall is already on the ``Copy CRC`` line above, in words that say
-    how many reads agreed, and the ``Read stability`` line names the track; the
-    skip is said nowhere else in this document. The other order would print
-    "re-reads did not converge" twice and drop the skip. Both verdicts begin
-    ``Copy NOT confirmed``, so a reader scanning for that phrase finds the track
-    either way.
-
-    ``contradicted`` is ``verdict.track_accuraterip_contradiction(track) is not
-    None``: AccurateRip matched frame 450 only, or nothing. Such a track gets
-    EAC's own ``Copy finished`` (:data:`CONTRADICTED_VERDICT`), the line EAC
-    prints for a copy it does not call OK, never ``Copy OK`` (plan of record,
-    2026-10-26, row 8). The ``Proof:`` row above it names the contradiction in our
-    words. The two verdicts above take precedence, because each already reads
-    not clean and names its own cause.
-
-    ``stopped_by_time_limit`` (the fork's proposed ``--reread-time-limit``, round
-    36 lap 10 S11) words a non-reproducible track's verdict by the limit that
-    stopped it: OUR time limit, never the disc. It changes nothing unless
-    ``reproducible`` is ``False``.
-    """
-    if unverified_skips:
-        return UNVERIFIED_SKIPS_VERDICT
-    if reproducible is False and stopped_by_time_limit:
-        return (
-            "Copy NOT confirmed — re-reads stopped at our time limit before they "
-            "converged, so this track is not verified reproducible (see Read "
-            "stability above)"
-        )
-    if reproducible is False:
-        # "did not converge", not "did not agree": on the round-28 Full run's
-        # track 5 two reads DID agree, and the Copy CRC line above says how many.
-        # Converging is the -Z verdict itself, so the sentence is true of every
-        # track that reaches this branch (TASKS.md, *Found while integrating*, 1).
-        return (
-            "Copy NOT confirmed — re-reads did not converge, so this track is not "
-            "verified reproducible (see Read stability above)"
-        )
-    if contradicted:
-        return CONTRADICTED_VERDICT
-    # EAC writes "Copy OK"; our backends use phrases like "ripped successfully".
-    normalized = status.strip().lower()
-    if normalized in ("copy ok", "ripped successfully"):
-        return "Copy OK"
-    return status.strip()
 
 
 def _accurate_stream_row(info: RippingInfo) -> str:
