@@ -783,7 +783,8 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      lookup of the disc made after the commit (`state`: `found`,
 #      `not_in_database`, `failed` or `not_made`; `url`; `responses_read`;
 #      `complete`; `trailing_bytes`, counted, never dropped; `reason`), null when
-#      none was attempted (`ctdb/repair_accuraterip.py`).
+#      none was attempted (`ctdb/repair_accuraterip.py`). Also v45 (round 39,
+#      `.31`): `rip.secure_rereads.state` gains `all_converged_or_matched_accuraterip`.
 REPORT_SCHEMA_VERSION: int = 45
 
 

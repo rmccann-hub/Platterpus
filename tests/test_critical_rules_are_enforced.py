@@ -2356,7 +2356,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3881 -> 3930** (2026-11-11, round 39's G3, the record): per track `record` (schema 45) built beside `proof` from the same rip-wide facts, the v45 history note, and the schema bump.
     # **3930 -> 3947** (2026-11-11, round 39 G1): the chase's fields in schema 45's history note beside `REPORT_SCHEMA_VERSION`, the file's own rule; no code here changed.
     # **3947 -> 3987** (2026-11-11, round 39's G2, TASKS R138): `ctdb.repair`'s AccurateRip answers per track and its `accuraterip_lookup`, with their two serializers beside `_ctdb_repair` (dict literals here, so `tests/test_report_types_completeness.py` can read them) and the schema-45 note. The lookup and the answers are `adapters/accuraterip_db.py`, `accuraterip_db_answer.py` and `ctdb/repair_accuraterip.py`.
-    "rip_report.py": 3987,
+    "rip_report.py": 3988,  # 3987 -> 3988 (2026-11-11): the schema note names `.31`'s new footer state, beside the v45 notes
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

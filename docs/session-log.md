@@ -11,6 +11,12 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-06 to 2026-11-11 — round 38 closes on `.30`; 0.7.122 names `.31` for round 39's test burn
+
+- **Built.** The one-script drive test (`docs/rig-scripts/drivetest.sh`, phases, probe, records, uploads that keep no audio), run by the owner on 2026-11-09 and the Full run on 0.7.121 with `.30` on 2026-11-10 (592 pass, 2 fail on track 5's read, which the automatic CTDB repair fixed). The per-track record (G3, `c1d2dcb1`), the verified-read chase (G1, `4cba7e11`..`512e052a`), AccurateRip's own database read for a repaired track (G2, `b2ad84ec`), `.31` read and sent `--reread-until-accuraterip 2` (`d94e1388`..`d970b4c6`), every chase read's record kept for the bundle, and the Full run's section R, five default whole-disc rips. Round 38 closed on our lap 17 and the fork's lap 18 (`5190dc1e`); round 39 lap 2 written and held.
+- **Decided.** The owner's word of 2026-11-11 released 0.7.122 with the fork's latest release under test; `.30` is the default, `.31` under review. The reference release is picked by its MusicBrainz id, after the owner reported the picker's order differs.
+- **Learned.** (1) A parse limit the project's own acceptance script outgrows cuts off its last section silently; the restore sweep caught it, not the limit (`MAX_LINES` 2000 -> 4000). (2) Opening a file for write before reading it truncated CHANGELOG once; read first. (3) A `cd` into an agent's worktree moves the session's working directory; use absolute paths. (4) `head -3` of `cyanrip --version` read a cold container's start-up lines, not the banner; read all of it.
+
 ## 2026-11-05 (day) — 0.7.121 names `.30`; the drive test moves to it
 
 - **Built.** The readers for everything `.30` adds (`other_reads.py`, `record_reads.py`, `record_drive_declared.py`, `record_vendor_settings.py`; PR #458 and this release), the vendor read in the two drive-test scripts, `.30` (`5cc1c6b`) under review, and 0.7.121 (the automatic CTDB repair, the `.30` readers, scripted rips' logs in bundles, the installer's seven-character short hash). Our lap 11 relayed the owner's yes to the vendor read; the fork's lap 12 published `.30` and moved round 38's pin to it on both owners' word.
@@ -11087,4 +11093,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.121.*
+*Last updated for Platterpus v0.7.122.*

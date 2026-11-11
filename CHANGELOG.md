@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.122] — 2026-11-11
+The first release that installs the fork's `.30` (`5cc1c6b`) by default, after round 38 closed on both sides, and the release that names `.31` (`e531a33`) as the build under review, for round 39's test burn. Every track now says how it was verified, in the EAC-layout log and the report, and a track repaired from CTDB says so, with AccurateRip's own database checked for the repaired audio. A well-known track that would not verify is read again, up to 16 times within a time budget, until AccurateRip agrees. It reads everything `.31` adds and sends `.31` its new option, so a re-read AccurateRip confirms is kept even over reads that agree on something else. Every rip's diagnostics record, the verified-read chase's included, goes into the bundle. The Full acceptance run gains section R, five default whole-disc rips in a row, and picks the reference release by its MusicBrainz id. Slow disc reads are waited out, not killed at 120 s, and an abandoned read no longer keeps the drive.
+
 ### Added
 
 - **The securing pass sends `.31`'s `--reread-until-accuraterip 2`** (round 39, gate G1; TASKS R146): on `.31`, a `-Z` re-read of a track AccurateRip holds at confidence 2 or more no longer ends on reads that agree on audio AccurateRip does not match; it reads on until a read AccurateRip matches, or the repeat or time limit. Track 3 of the reference disc converged on the wrong `3D8FCF0C` this way. Sent on the securing pass only, through the argv chokepoint with the option's range (1 to INT32_MAX) and its refusal without `-Z` checked, and only to a build whose contract lists it (`.31` today); `.30` and earlier get nothing, so the default ripper is unaffected. The rip plan names it.
@@ -19877,7 +19880,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.121...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...HEAD
+[0.7.122]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.121...v0.7.122
 [0.7.121]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.120...v0.7.121
 [0.7.120]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.119...v0.7.120
 [0.7.119]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.118...v0.7.119
@@ -19969,4 +19973,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.121.*
+*Last updated for Platterpus v0.7.122.*
