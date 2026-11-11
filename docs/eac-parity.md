@@ -570,14 +570,19 @@ read's, and the `Record:` row says `Copy CRC E0036697 before, C96464AB after`. T
 ripper's own log is never touched (KDD-24, KDD-47), and `ctdb.repair.untouched` now
 says so in those words.
 
-**AccurateRip after a repair is stated per version, and "not determined".** For the
-owner's 2026-11-10 run the row reads `AccurateRip v1 134C0B9D: not determined; v2
-BCF4E815: not determined (Platterpus has no AccurateRip lookup of its own, and the
-rip's AccurateRip answer describes the read)`. Those are the values AccurateRip has
-verified for track 5 in earlier rips (v2 at confidence 200), and a reader can see
-that; the app cannot, in this rip: cyanrip prints AccurateRip's value only for a read
-that matched it, and a repaired track is one whose read did not. Saying "matched"
-would rest on our memory of other rips, not on this rip's record.
+**AccurateRip after a repair is stated per version, against the database the repair
+asked.** cyanrip prints AccurateRip's value only for a read that matched it, and a
+repaired track is one whose read did not, so until 2026-11-11 the row could only say
+`not determined`. Since TASKS R138 (round 39's gate G2) the repair worker fetches the
+disc's dBAR file once after the commit (`adapters/accuraterip_db.py`) and compares
+the repaired file's own v1 and v2 with it, so for the owner's 2026-11-10 run the row
+reads `AccurateRip v1 134C0B9D matched (confidence 129); v2 BCF4E815 matched
+(confidence 200)`. Each version is tri-state: `matched (confidence N)`, `not in the
+AccurateRip database`, or `not determined` with the reason (no lookup recorded, a
+failed lookup, a reply cut short). It is never worded `Accurately ripped`: that is
+EAC's phrase for a read, and the file is no longer the read. A rip whose record
+carries no lookup keeps the old wording, `not determined (no AccurateRip lookup of the
+repaired audio was recorded, …)`, rather than a "matched" resting on another rip.
 
 **The fork's `.31` -Z rule is a named seam, not a line.** Its AccurateRip-guided
 convergence is announced and unreleased, so its log text is unknown and nothing reads

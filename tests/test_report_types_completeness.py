@@ -49,6 +49,9 @@ _BLOCKS: dict[str, str] = {
     "CtdbRepairBlock": "cuetools_offset",
     "CtdbRepairTrackBlock": "original_kept_as",
     "CtdbRepairWordBlock": "disc_word",
+    # Joined 2026-11-11 with the blocks themselves (v45, TASKS R138, G2).
+    "AccurateRipDatabaseAnswerBlock": "answer",
+    "AccurateRipLookupBlock": "responses_read",
 }
 
 

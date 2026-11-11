@@ -505,6 +505,34 @@ def drive_frees(
 
 
 @pytest.fixture(autouse=True)
+def accuraterip_requests(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record, never send, every AccurateRip request a client without a fetcher makes.
+
+    TASKS R138: the CTDB repair worker asks AccurateRip about repaired audio, and
+    the window builds the real `AccurateRipHttpImpl` for it, which looks its
+    default fetcher up at call time for exactly this. Autouse for the reason
+    `hard_exit_calls` is: tests must not reach the internet, and an opt-in guard
+    protects only the tests whose authors knew. The stand-in differs from the real
+    fetcher in one way, pinned here: it raises ``OSError`` at once, so a lookup it
+    meets ends FAILED ("not determined"), the answer a machine with no network
+    gets; and the retry backoffs are zero (as many attempts, no waiting), so a
+    test that meets it does not sleep 4.5 s. Returns the URLs asked for.
+    """
+    from platterpus.adapters import accuraterip_db
+
+    asked: list[str] = []
+
+    def _offline(url: str) -> bytes:
+        asked.append(url)
+        raise OSError("tests must not reach the internet (tests/conftest.py)")
+
+    monkeypatch.setattr(accuraterip_db, "_default_fetcher", _offline)
+    zeros = tuple(0.0 for _ in accuraterip_db.RETRY_BACKOFFS_S)
+    monkeypatch.setattr(accuraterip_db, "RETRY_BACKOFFS_S", zeros)
+    return asked
+
+
+@pytest.fixture(autouse=True)
 def _no_test_leaves_the_crash_dialog_armed() -> Generator[None, None, None]:
     """No test may leave the PRODUCT's fatal-error excepthook installed.
 

@@ -21,7 +21,9 @@ EAC-layout log nor the report's track row said so; the repair lived only in
   recognised by build tag once its log text is published, and never guessed;
 * **chase attempt k** — our verified-read chase (TASKS R7) kept its ``k``-th read;
 * **repaired from CTDB** — with the entry id, the Copy CRC before and after, a
-  fresh CTDB check, and AccurateRip v1 and v2 each stated (not determined: see
+  fresh CTDB check, and AccurateRip v1 and v2 each stated against the database
+  the repair asked (matched at a confidence, not in the database, or not
+  determined with why; TASKS R138, G2:
   :func:`platterpus.ctdb.repair_wording.accuraterip_after_repair`), from
   :func:`platterpus.track_record_sources.repaired_tracks_by_number`;
 * **not verified** — with the read path and the reason.
@@ -131,7 +133,10 @@ def _repaired_line(facts: RepairFacts, path: str) -> str:
     else:
         fresh = "a fresh CTDB check of the repaired files did not run"
     ar = accuraterip_after_repair(
-        facts.accuraterip_v1_after, facts.accuraterip_v2_after
+        facts.accuraterip_v1_after,
+        facts.accuraterip_v2_after,
+        facts.accuraterip_v1_database,
+        facts.accuraterip_v2_database,
     )
     return (
         f"repaired from CTDB entry {facts.entry_id} "

@@ -20,6 +20,8 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 
+from platterpus.accuraterip_db_answer import ArDbAnswer, ArLookupSummary
+
 
 @dataclass(frozen=True)
 class SampleFix:
@@ -100,7 +102,11 @@ class RepairedTrack:
     CRC" for the track); ``ctdb_crc_*`` the track's CTDB CRC at the entry's
     offset (``before`` only when the verify measured it); ``accuraterip_*`` our
     own AccurateRip v1/v2 of the file (``platterpus.accuraterip_crc``), the one
-    witness independent of CTDB.
+    witness independent of CTDB. ``accuraterip_*_database`` is what AccurateRip's
+    database says about the ``_after`` checksums (TASKS R138: matched at a
+    confidence, not in the database, or not determined with why), filled by the
+    repair worker after the commit; None when no one asked
+    (``platterpus.accuraterip_db_answer``).
     """
 
     track: int
@@ -116,6 +122,8 @@ class RepairedTrack:
     accuraterip_v2_before: int | None = None
     accuraterip_v1_after: int | None = None
     accuraterip_v2_after: int | None = None
+    accuraterip_v1_database: ArDbAnswer | None = None
+    accuraterip_v2_database: ArDbAnswer | None = None
 
 
 @dataclass(frozen=True)
@@ -126,7 +134,8 @@ class RepairRecord:
     is filled only when REPAIRED. ``disc_crc_*`` are the whole-disc CTDB CRC at
     the entry's offset. ``untouched`` names what the repair deliberately did not
     change (the ripper's logs, derived copies), so nobody reads a stale file as
-    repaired.
+    repaired. ``accuraterip_lookup`` is the disc's AccurateRip lookup made after
+    a REPAIRED commit (TASKS R138), in brief; None when none was attempted.
     """
 
     status: RepairStatus
@@ -141,6 +150,7 @@ class RepairRecord:
     tracks: tuple[RepairedTrack, ...] = ()
     encoder_argv: tuple[str, ...] = ()
     untouched: tuple[str, ...] = ()
+    accuraterip_lookup: ArLookupSummary | None = None
 
     @property
     def cuetools_offset(self) -> int | None:

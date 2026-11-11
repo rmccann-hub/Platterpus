@@ -88,8 +88,10 @@ class RecordVerbsMixin:
         """Every track's record is truthful, in the EAC-layout log and the report (G3).
 
         FAIL on ``Accurately ripped`` for a track a CTDB repair rewrote, on any
-        ``OK`` over reads that disagree, or on a track with no record; BLOCKED
-        when the report predates per-track records. Waits for the record to
+        ``OK`` over reads that disagree, on a track with no record, or on a
+        repaired track AccurateRip v2 does not hold (G2, TASKS R138); BLOCKED
+        when the report predates per-track records or a repaired track's
+        AccurateRip v2 is not determined. Waits for the record to
         settle, so a CTDB repair still running is waited for, and graded once it
         has rewritten the log. Severity ARCHIVAL, declared in
         :mod:`platterpus.uiscript.track_record_grading`.

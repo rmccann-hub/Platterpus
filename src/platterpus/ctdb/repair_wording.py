@@ -18,13 +18,17 @@ log view:
 Status is never colour alone: every sentence starts with its marker (``✓``,
 ``⚠``, ``ⓘ``), and the level travels beside the text for the label's colour.
 
-**AccurateRip after a repair is "not determined", and said so, per version.**
-Platterpus has no AccurateRip lookup of its own (cyanrip does it during the rip,
-and its log prints only our checksums, never the database's for a track that did
-not match), so the repaired track's AccurateRip v1 and v2 checksums are stated
-for a reader to compare, each with "not determined", and never called verified
-(:func:`accuraterip_after_repair`, which the EAC-layout log's ``Record:`` row and
-the report's per-track ``record`` share). Pure and Qt-free; never raises.
+**AccurateRip after a repair is stated per version, tri-state** (TASKS R138,
+round 39's gate G2). cyanrip asks AccurateRip during the rip and its log prints
+the database's value only for a read that matched, so since 2026-11-11 the repair
+worker asks the database itself, once, after the commit
+(``ctdb/repair_accuraterip.py``). Each repaired track's v1 and v2 then read
+"matched (confidence N)", "not in the AccurateRip database", or "not determined"
+with the reason; a record made without a lookup keeps "not determined" and says
+why (:func:`accuraterip_after_repair`, which the EAC-layout log's ``Record:`` row,
+the report's per-track ``record`` and the results pane share). A match is never
+worded "Accurately ripped": that is EAC's phrase for a READ, and the file is no
+longer the read. Pure and Qt-free; never raises.
 """
 
 from __future__ import annotations
@@ -32,6 +36,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+from platterpus.accuraterip_db_answer import (
+    AR_MATCHED,
+    AR_NOT_DETERMINED,
+    AR_NOT_IN_DATABASE,
+)
 from platterpus.ctdb.repair_types import RepairStatus
 
 #: The levels ``ui/status_colours.status_style`` colours. Named here, not
@@ -103,33 +112,58 @@ def _hex(value: object) -> str | None:
     return None
 
 
-#: Why AccurateRip's answer about repaired audio is "not determined", said once.
+#: Why AccurateRip's answer about repaired audio is "not determined" when the
+#: record carries no lookup (one made before TASKS R138, or a caller that gave
+#: the repair no AccurateRip client), said once.
 ACCURATERIP_AFTER_REPAIR_WHY: Final[str] = (
-    "Platterpus has no AccurateRip lookup of its own, and the rip's AccurateRip "
-    "answer describes the read"
+    "no AccurateRip lookup of the repaired audio was recorded, and the rip's "
+    "AccurateRip answer describes the read"
 )
 
 
-def accuraterip_after_repair(v1: object, v2: object) -> str:
-    """``AccurateRip v1 134C0B9D: not determined; v2 BCF4E815: not determined (…)``.
+def _version_part(version: str, value: object, answer: object) -> tuple[str, str]:
+    """``("v2 BCF4E815 matched (confidence 200)", "")``: the words and any reason.
 
-    **Whether each version matched, stated per version, and the answer is "not
-    determined"** (G3, 2026-11-11). Our own checksums of the repaired file are
-    known (``accuraterip_crc.py``); AccurateRip's entries for the track are not,
-    because cyanrip looks AccurateRip up during the rip and prints the database's
-    value only for a read that MATCHED it, and a track the repair rewrote is one
-    whose read did not (``ctdb/repair_plan.py`` refuses an AccurateRip-verified
-    track). So neither "matched" nor "did not match" can be said, and the
-    tri-state's third value is printed rather than either guess. Taking ints
-    (``RepairedTrack``) or hex strings (the report's ``ctdb.repair.tracks``).
+    ``answer`` is an ``accuraterip_db_answer.ArDbAnswer`` or None (no lookup).
+    """
+    crc = _hex(value) or (value.upper() if isinstance(value, str) and value else None)
+    if crc is None:
+        return f"{version}: no checksum", ""
+    state = getattr(answer, "answer", None)
+    confidence = getattr(answer, "confidence", None)
+    reason = str(getattr(answer, "reason", "") or "")
+    if state == AR_MATCHED and isinstance(confidence, int):
+        return f"{version} {crc} matched (confidence {confidence:,})", ""
+    if state == AR_NOT_IN_DATABASE:
+        return f"{version} {crc}: not in the AccurateRip database", reason
+    if state == AR_NOT_DETERMINED:
+        return f"{version} {crc}: not determined", reason or "no reason recorded"
+    return f"{version} {crc}: not determined", ACCURATERIP_AFTER_REPAIR_WHY
+
+
+def accuraterip_after_repair(
+    v1: object, v2: object, v1_db: object = None, v2_db: object = None
+) -> str:
+    """``AccurateRip v1 134C0B9D matched (confidence 129); v2 BCF4E815 matched …``.
+
+    **Each version stated, tri-state** (G3 and G2, 2026-11-11). ``v1``/``v2`` are
+    our own checksums of the repaired file (``accuraterip_crc.py``), as ints
+    (``RepairedTrack``) or hex strings (the report's ``ctdb.repair.tracks``);
+    ``v1_db``/``v2_db`` the database's answer for each
+    (``RepairedTrack.accuraterip_*_database``), None when no lookup was made, in
+    which case the version reads "not determined" with
+    :data:`ACCURATERIP_AFTER_REPAIR_WHY`: neither "matched" nor "did not match"
+    can be said without the database. Reasons are given once, after the versions.
     """
     parts: list[str] = []
-    for version, value in (("v1", v1), ("v2", v2)):
-        crc = _hex(value) or (value.upper() if isinstance(value, str) else None)
-        parts.append(
-            f"{version} {crc}: not determined" if crc else f"{version}: no checksum"
-        )
-    return f"AccurateRip {'; '.join(parts)} ({ACCURATERIP_AFTER_REPAIR_WHY})"
+    reasons: list[str] = []
+    for version, value, answer in (("v1", v1, v1_db), ("v2", v2, v2_db)):
+        text, reason = _version_part(version, value, answer)
+        parts.append(text)
+        if reason and reason not in reasons:
+            reasons.append(reason)
+    why = f" ({'; '.join(reasons)})" if reasons else ""
+    return f"AccurateRip {'; '.join(parts)}{why}"
 
 
 def _after_sentence(after: object | None) -> tuple[str, bool]:
@@ -160,6 +194,8 @@ def _accuraterip_sentence(tracks: tuple[object, ...]) -> str:
         + accuraterip_after_repair(
             getattr(row, "accuraterip_v1_after", None),
             getattr(row, "accuraterip_v2_after", None),
+            getattr(row, "accuraterip_v1_database", None),
+            getattr(row, "accuraterip_v2_database", None),
         )
         + "."
         for row in tracks

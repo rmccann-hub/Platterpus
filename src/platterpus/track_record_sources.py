@@ -47,6 +47,10 @@ class RepairFacts:
     crc_after: str | None
     accuraterip_v1_after: object
     accuraterip_v2_after: object
+    # AccurateRip's database about each (TASKS R138): an `ArDbAnswer`, or None
+    # when the repair recorded no lookup.
+    accuraterip_v1_database: object
+    accuraterip_v2_database: object
     after_agrees: bool | None
     after_confidence: int | None
 
@@ -92,6 +96,8 @@ def repaired_tracks_by_number(ctdb_result: object) -> dict[int, RepairFacts]:
             crc_after=upper_hex(getattr(row, "pcm_crc32_after", None)),
             accuraterip_v1_after=getattr(row, "accuraterip_v1_after", None),
             accuraterip_v2_after=getattr(row, "accuraterip_v2_after", None),
+            accuraterip_v1_database=getattr(row, "accuraterip_v1_database", None),
+            accuraterip_v2_database=getattr(row, "accuraterip_v2_database", None),
             after_agrees=agrees,
             after_confidence=after_confidence,
         )

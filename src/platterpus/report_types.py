@@ -585,6 +585,28 @@ class CtdbRepairTrackBlock(TypedDict):
     accuraterip_v2_before: str | None
     accuraterip_v1_after: str | None
     accuraterip_v2_after: str | None
+    # v45 (TASKS R138): AccurateRip's database about the two `_after` checksums.
+    accuraterip_v1_database: AccurateRipDatabaseAnswerBlock | None
+    accuraterip_v2_database: AccurateRipDatabaseAnswerBlock | None
+
+
+class AccurateRipDatabaseAnswerBlock(TypedDict):
+    """One version's database answer (v45, R138; ``accuraterip_db_answer``)."""
+
+    answer: str | None  # matched / not_in_database / not_determined
+    confidence: int | None
+    reason: str | None
+
+
+class AccurateRipLookupBlock(TypedDict):
+    """``ctdb.repair.accuraterip_lookup`` (v45, R138): the disc's one lookup."""
+
+    state: str | None  # found / not_in_database / failed / not_made
+    url: str | None
+    responses_read: int | None
+    complete: bool | None
+    trailing_bytes: int | None
+    reason: str | None
 
 
 class CtdbRepairBlock(TypedDict):
@@ -604,6 +626,7 @@ class CtdbRepairBlock(TypedDict):
     tracks: list[CtdbRepairTrackBlock]
     encoder_argv: list[str] | None
     untouched: list[str]
+    accuraterip_lookup: AccurateRipLookupBlock | None  # v45, TASKS R138
 
 
 class CtdbTrackBlock(TypedDict):

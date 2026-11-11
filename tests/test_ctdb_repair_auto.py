@@ -44,6 +44,7 @@ import pytest
 from conftest import stop_window_threads
 from test_ctdb_repair import _Disc, _errors, _FakeRewriter
 
+from platterpus.adapters.accuraterip_db import AccurateRipHttpImpl
 from platterpus.adapters.flac_rewrite import CANCELLED as TOOL_CANCELLED
 from platterpus.adapters.flac_rewrite import FlacRewriter, run_bytes
 from platterpus.config import Config
@@ -536,9 +537,11 @@ def test_the_window_repairs_records_the_read_and_reruns_the_checks(
     tmp_path: Path, repair_window: Any, qapp: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     disc = _Disc(tmp_path, 17, _errors())
+    given: list[object] = []
 
     class _Worker(CtdbRepairWorker):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            given.append(kwargs.get("accuraterip"))
             super().__init__(
                 *args, repair=_test_repair, reverify=_reverify_with(disc), **kwargs
             )
@@ -574,6 +577,10 @@ def test_the_window_repairs_records_the_read_and_reruns_the_checks(
     assert window._rip_progress._ctdb_repair_label.text().startswith("✓")
     assert disc.paths[0].read_bytes() == disc.clean_track(1)
     assert Path(f"{disc.paths[0]}.before-ctdb-repair").exists()
+    # G2 (TASKS R138): the window hands the worker the real AccurateRip client
+    # (the suite's guard keeps it off the network); without one, nothing is asked.
+    assert len(given) == 1 and isinstance(given[0], AccurateRipHttpImpl)
+    assert result.repair.accuraterip_lookup is not None
 
 
 def test_a_landed_repair_names_itself_in_the_eac_layout_log_before_the_report(

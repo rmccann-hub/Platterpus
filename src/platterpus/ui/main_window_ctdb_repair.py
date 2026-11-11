@@ -54,6 +54,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import QThread
 
 from platterpus import diagnostics, rip_files
+from platterpus.adapters.accuraterip_db import AccurateRipHttpImpl
 from platterpus.adapters.transcode import TranscodeResult, transcode_files
 from platterpus.ctdb.repair_run import differs_from_strongest
 from platterpus.ctdb.repair_types import RepairStatus, failed, refused
@@ -245,6 +246,7 @@ class CtdbRepairMixin(MainWindowShared):
             result,
             context.rip_dir,
             client=self._ctdb_client,
+            accuraterip=AccurateRipHttpImpl(),  # G2, TASKS R138: on the worker
             rip_log=context.rip_log,
             disc_tracks_hint=context.disc_tracks_hint,
             wait_for=readers,

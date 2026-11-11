@@ -1067,7 +1067,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # worker it owns, what the user is told, the re-runs after it, the close), and
     # the FLAC rewrite adapter, which gained the killable runner its worker uses.
     # **418 -> 436** (2026-11-11, round 39's G3, the record): a REPAIRED outcome renders the EAC-layout log once more before the report write, with why (log, not trailer) at the call.
-    "ui/main_window_ctdb_repair.py": 436,
+    # **436 -> 438** (2026-11-11, round 39's G2, TASKS R138): the worker is handed the AccurateRip client, and its import; the lookup runs on the worker (`ctdb/repair_accuraterip.py`).
+    "ui/main_window_ctdb_repair.py": 438,
     "adapters/flac_rewrite.py": 329,
     # 383 (2026-10-26, TASKS R88, the owner's interim): born over 300. **Kept as one module deliberately**: one job,
     # predicting every name a rip needs and refusing one over 255 bytes. Most of
@@ -2192,7 +2193,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1237 -> 1277** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `DistinctReadEntry`, the row's four `distinct_reads` keys, `TrackBlock.other_reads` and `DiscBlock.drive_declared`.
     # **1277 -> 1292** (2026-11-11, round 39's G3, the record): `TrackRecordBlock` and `TrackBlock.record` (schema 45), beside the track block it types.
     # **1292 -> 1328** (2026-11-11, round 39 G1): schema 45's chase fields on `VerifiedReadChaseBlock` and `ChaseAttemptBlock`, each commented where its shape is declared; the rules are `chase_budget.py`.
-    "report_types.py": 1328,
+    # **1328 -> 1351** (2026-11-11, round 39's G2, TASKS R138): `AccurateRipDatabaseAnswerBlock`, `AccurateRipLookupBlock` and their keys on the repair's blocks, beside the blocks they extend.
+    "report_types.py": 1351,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2347,7 +2349,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3856 -> 3881** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): schema 44's note for the three `.30` readings and the per-track `other_reads` key; the blocks are built in `other_reads.py`, `record_reads.py` and `record_drive_declared.py`.
     # **3881 -> 3930** (2026-11-11, round 39's G3, the record): per track `record` (schema 45) built beside `proof` from the same rip-wide facts, the v45 history note, and the schema bump.
     # **3930 -> 3947** (2026-11-11, round 39 G1): the chase's fields in schema 45's history note beside `REPORT_SCHEMA_VERSION`, the file's own rule; no code here changed.
-    "rip_report.py": 3947,
+    # **3947 -> 3987** (2026-11-11, round 39's G2, TASKS R138): `ctdb.repair`'s AccurateRip answers per track and its `accuraterip_lookup`, with their two serializers beside `_ctdb_repair` (dict literals here, so `tests/test_report_types_completeness.py` can read them) and the schema-45 note. The lookup and the answers are `adapters/accuraterip_db.py`, `accuraterip_db_answer.py` and `ctdb/repair_accuraterip.py`.
+    "rip_report.py": 3987,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -3138,7 +3141,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1090 -> 1098** (2026-11-03, review C4): the `expect-derived-files` declaration, beside `expect-read-offset`.
     # **1137 -> 1162** (2026-11-04, TASKS R123): the `compare-conditions` and `cyanrip-timeout` declarations, and `record-accuracy`'s optional folder. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **1162 -> 1170** (2026-11-11, round 39's G3): the `expect-track-records` declaration, beside `expect-read-offset`.
-    "uiscript/verbs.py": 1170,
+    # **1170 -> 1172** (2026-11-11, round 39's G2, TASKS R138): `expect-track-records` names the AccurateRip v2 check of repaired tracks it now makes; the grading is `uiscript/repair_accuraterip_grading.py`.
+    "uiscript/verbs.py": 1172,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

@@ -424,8 +424,30 @@ def _album(
     return report, tmp_path
 
 
+def _repaired_and_asked() -> CtdbVerifyResult:
+    """:func:`_repaired_result` once AccurateRip was asked (G2, TASKS R138).
+
+    The grader also grades G2, which a repair nobody asked AccurateRip about can
+    only block (``tests/test_repair_accuraterip.py``); the G3 cases here give it
+    the reference disc's synthesised answer, in which v2 matches.
+    """
+    from test_accuraterip_db import DISC, TRACKS, reference_dbar
+
+    from platterpus.adapters.accuraterip_db import AccurateRipHttpImpl
+    from platterpus.ctdb.repair_accuraterip import with_accuraterip
+
+    result = _repaired_result()
+    lookup = AccurateRipHttpImpl(fetcher=lambda _u: reference_dbar()).lookup(
+        DISC, TRACKS
+    )
+    assert result.repair is not None
+    return replace(result, repair=with_accuraterip(result.repair, lookup))
+
+
 def test_the_grader_passes_the_owners_repaired_album(tmp_path: Path) -> None:
-    report, folder = _album(tmp_path, _log(_verified(4), _track5()), _repaired_result())
+    report, folder = _album(
+        tmp_path, _log(_verified(4), _track5()), _repaired_and_asked()
+    )
     grade = grade_track_records(report, folder)
     assert grade.passed and not grade.blocked, grade.detail
     assert (
@@ -477,7 +499,8 @@ def test_the_grader_reads_the_report_alone_when_there_is_no_eac_log(
 ) -> None:
     report = json.loads(
         json.dumps(
-            build_report(_log(_track5()), ctdb_result=_repaired_result()), default=str
+            build_report(_log(_track5()), ctdb_result=_repaired_and_asked()),
+            default=str,
         )
     )
     grade = grade_track_records(report, tmp_path)

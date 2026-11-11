@@ -306,7 +306,7 @@ Details for `cyanrip`:
 
 | Service | Endpoints | When | Used in |
 |---|---|---|---|
-| `AccurateRip` | `http://www.accuraterip.com/accuraterip/DriveOffsets.bin`, `https://www.accuraterip.com/driveoffsets.htm` | maintenance (the offset snapshot); a link in the drive setup dialog | scripts/update_drive_offsets.py, src/platterpus/ui/drive_setup_dialog.py |
+| `AccurateRip` | `http://www.accuraterip.com/accuraterip/`, `http://www.accuraterip.com/accuraterip/DriveOffsets.bin`, `https://www.accuraterip.com/driveoffsets.htm` | runtime (one dBAR lookup after a CTDB repair); maintenance (the offset snapshot); a link in the drive setup dialog | scripts/update_drive_offsets.py, src/platterpus/adapters/accuraterip_db.py, src/platterpus/ui/drive_setup_dialog.py |
 | `Cover Art Archive` | `https://coverartarchive.org/`, `https://coverartarchive.org/release/` | runtime (cover art after a rip; a reachability check in --doctor) | src/platterpus/adapters/cover_art.py, src/platterpus/preflight.py |
 | `CUETools Database (CTDB)` | `http://db.cuetools.net/lookup2.php` | runtime (optional verify after a rip) | src/platterpus/adapters/ctdb_client.py |
 | `cyanrip fork release manifest` | `https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json` | runtime (ripper update offers) | src/platterpus/deps/ripper_manifest.py |

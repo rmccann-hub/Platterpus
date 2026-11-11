@@ -11,7 +11,10 @@ plan of 2026-11-11). Two wordings must never appear on a track:
   Copy CRCs differ, and a reader or a logchecker reads the ``OK``.
 
 And every audio track must carry a record of how it was verified (the EAC-layout
-log's ``Record:`` row, the report's per-track ``record``).
+log's ``Record:`` row, the report's per-track ``record``). **And gate G2** (TASKS
+R138): every track a CTDB repair rewrote must be verified by AccurateRip v2,
+graded by :mod:`platterpus.uiscript.repair_accuraterip_grading` from
+``ctdb.repair``; not determined there is BLOCKED, never a pass.
 
 **The subject comes from the facts, not from the label it grades.** Which tracks
 were repaired is read from ``ctdb.repair`` (status ``repaired``, its ``tracks``);
@@ -41,6 +44,7 @@ from typing import Any, Final
 
 from platterpus.track_record import RECORD_KINDS, RECORD_REPAIRED
 from platterpus.uiscript.artifact_grading import Grade
+from platterpus.uiscript.repair_accuraterip_grading import grade_repaired_v2
 
 #: The EAC-layout log's name ends with this (``ui/main_window_rip._write_eac_log``).
 EAC_LOG_SUFFIX: Final[str] = " (EAC-compatible).log"
@@ -217,9 +221,11 @@ def grade_track_records(report: Mapping[str, Any], folder: Path) -> Grade:
     """PASS when no track carries a banned wording and every track has a record.
 
     FAIL on any ``Accurately ripped`` for a repaired track, any ``OK`` over reads
-    that disagree, or a missing record, in the EAC-layout log or the report.
-    BLOCKED when the report predates per-track records (schema 45), or holds no
-    track to examine: a check satisfied by finding nothing is decoration.
+    that disagree, or a missing record, in the EAC-layout log or the report, or
+    a repaired track AccurateRip v2 does not hold (G2). BLOCKED when the report
+    predates per-track records (schema 45), holds no track to examine (a check
+    satisfied by finding nothing is decoration), or a repaired track's
+    AccurateRip v2 is not determined.
     """
     tracks = [t for t in (report.get("tracks") or ()) if isinstance(t, Mapping)]
     if not tracks:
@@ -263,14 +269,19 @@ def grade_track_records(report: Mapping[str, Any], folder: Path) -> Grade:
             problems.append(f"{path.name} has no track block to read")
         problems += _grade_eac_log(blocks, repaired, disagree, data_tracks)
         where = f"the report and {path.name} ({len(blocks)} track blocks)"
+    # G2 (TASKS R138): each repaired track's AccurateRip v2, from `ctdb.repair`.
+    v2 = grade_repaired_v2(report)
+    problems += v2.problems
     subjects = (
         f"repaired from CTDB: {sorted(repaired) or 'none'}; reads disagreed: "
         f"{sorted(disagree) or 'none'}"
     )
     if problems:
         return Grade(False, "; ".join(problems) + f" ({subjects})")
-    return Grade(
-        True,
+    held = (
         f"{read} track records read in {where}; no Accurately ripped on a repaired "
-        f"track and no OK over reads that disagree ({subjects})",
+        f"track and no OK over reads that disagree ({subjects}); {v2.summary}"
     )
+    if v2.undetermined:  # not determined is never a pass
+        return Grade(False, held, blocked=True)
+    return Grade(True, held)

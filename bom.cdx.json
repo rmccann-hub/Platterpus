@@ -3049,13 +3049,24 @@
         "name": "Illustrate"
       },
       "name": "AccurateRip",
-      "description": "Source of the bundled drive-offset table. The per-track AccurateRip results in a rip come from cyanrip's log; Platterpus does not query the AccurateRip database itself.",
+      "description": "Source of the bundled drive-offset table, and the database a CTDB repair asks about the repaired audio (one dBAR file per disc, TASKS R138). The per-track AccurateRip results of the rip itself come from cyanrip's log.",
       "endpoints": [
+        "http://www.accuraterip.com/accuraterip/",
         "http://www.accuraterip.com/accuraterip/DriveOffsets.bin",
         "https://www.accuraterip.com/driveoffsets.htm"
       ],
       "authenticated": false,
       "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "disc AccurateRip ID and track count"
+        },
+        {
+          "flow": "inbound",
+          "classification": "per-track CRCs and confidences"
+        }
+      ],
       "properties": [
         {
           "name": "platterpus:category",
@@ -3063,11 +3074,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "scripts/update_drive_offsets.py, src/platterpus/ui/drive_setup_dialog.py"
+          "value": "scripts/update_drive_offsets.py, src/platterpus/adapters/accuraterip_db.py, src/platterpus/ui/drive_setup_dialog.py"
         },
         {
           "name": "platterpus:when",
-          "value": "maintenance (the offset snapshot); a link in the drive setup dialog"
+          "value": "runtime (one dBAR lookup after a CTDB repair); maintenance (the offset snapshot); a link in the drive setup dialog"
         }
       ]
     },

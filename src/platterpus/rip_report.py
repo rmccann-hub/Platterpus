@@ -774,6 +774,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      its time (`chase_budget.py`). The widening: `outcome: no_read_verified`
 #      used to mean every attempt ran; it now means no attempt was verified, and
 #      `stopped_reason` says whether the count or the time budget ended it.
+#      Also v45, still unreleased, additions only (TASKS R138, round 39's gate G2):
+#      each `ctdb.repair.tracks[]` gains `accuraterip_v1_database` and
+#      `accuraterip_v2_database`, what AccurateRip's database says of the row's
+#      `accuraterip_v*_after` (`answer`: `matched`, `not_in_database` or
+#      `not_determined`; `confidence` when matched; `reason` otherwise), null when
+#      no lookup was recorded; and `ctdb.repair.accuraterip_lookup`, the one
+#      lookup of the disc made after the commit (`state`: `found`,
+#      `not_in_database`, `failed` or `not_made`; `url`; `responses_read`;
+#      `complete`; `trailing_bytes`, counted, never dropped; `reason`), null when
+#      none was attempted (`ctdb/repair_accuraterip.py`).
 REPORT_SCHEMA_VERSION: int = 45
 
 
@@ -2896,11 +2906,41 @@ def _ctdb_repair(record: object | None) -> dict[str, object] | None:
                 "accuraterip_v2_before": _crc(t, "accuraterip_v2_before"),
                 "accuraterip_v1_after": _crc(t, "accuraterip_v1_after"),
                 "accuraterip_v2_after": _crc(t, "accuraterip_v2_after"),
+                # v45 (TASKS R138, G2): AccurateRip's database about the two above.
+                "accuraterip_v1_database": _ar_answer(t, "accuraterip_v1_database"),
+                "accuraterip_v2_database": _ar_answer(t, "accuraterip_v2_database"),
             }
             for t in (getattr(record, "tracks", ()) or ())
         ],
         "encoder_argv": list(getattr(record, "encoder_argv", ()) or ()) or None,
         "untouched": list(getattr(record, "untouched", ()) or ()),
+        "accuraterip_lookup": _ar_lookup(getattr(record, "accuraterip_lookup", None)),
+    }
+
+
+def _ar_answer(row: object, name: str) -> dict[str, object] | None:
+    """``ctdb.repair.tracks[].accuraterip_v*_database`` (v45, TASKS R138), or None."""
+    answer = getattr(row, name, None)
+    if answer is None:
+        return None
+    return {
+        "answer": getattr(answer, "answer", None),
+        "confidence": getattr(answer, "confidence", None),
+        "reason": getattr(answer, "reason", "") or None,
+    }
+
+
+def _ar_lookup(summary: object | None) -> dict[str, object] | None:
+    """``ctdb.repair.accuraterip_lookup`` (v45, TASKS R138), or None."""
+    if summary is None:
+        return None
+    return {
+        "state": getattr(summary, "state", None),
+        "url": getattr(summary, "url", "") or None,
+        "responses_read": getattr(summary, "responses", None),
+        "complete": getattr(summary, "complete", None),
+        "trailing_bytes": getattr(summary, "trailing_bytes", None),
+        "reason": getattr(summary, "reason", "") or None,
     }
 
 

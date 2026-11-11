@@ -760,6 +760,38 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
   `stride` are present on the wire and not read: they serve parity repair and
   localisation, not built (TASKS R43, KDD-14).
 
+## AccurateRip database — one disc's dBAR file (`adapters/accuraterip_db.py`)
+
+Asked once, after a CTDB repair commits, about the repaired audio (TASKS R138,
+round 39's gate G2, 2026-11-11). The rip's own AccurateRip answer still comes
+from cyanrip's log; this is the database's answer for a track whose read did not
+match, which the log does not print.
+
+- **Request:** plain-HTTP GET (as the drive-offset snapshot uses; trust comes
+  from comparing checksums) of
+  `http://www.accuraterip.com/accuraterip/<a>/<b>/<c>/dBAR-<NNN>-<id1>-<id2>-<cddb>.bin`,
+  with our `platterpus/<version>` User-Agent, a 15 s timeout per try and three
+  tries for transient failures (timeouts, 5xx). `<a>/<b>/<c>` are id1's
+  **lowest**, second-lowest and third-lowest hex digits (id1 `001d420f` gives
+  `f/0/2`; another order is a 404 HTML page, checked by hand 2026-11-11). `NNN`
+  is the album's audio track count, three digits; ids are 8 lower-case hex digits.
+- **Validated before the request:** the AccurateRip ID is cyanrip's
+  `AccurateRip ID:` value, exactly `%08x-%08x-%08x` (`parse_disc_id`; none, and no
+  request is made), and the track count must be 1 to 99 (`dbar_url` raises,
+  `lookup` returns `failed`).
+- **Reply we parse** (`parsers/accuraterip_dbar.py`): a sequence of responses,
+  each a 13-byte header (track count byte; id1, id2, CDDB id as little-endian
+  uint32) then 9 bytes per track (confidence byte; CRC uint32 LE; frame-450 CRC
+  uint32 LE). The reference disc's file is 1,807 bytes: 13 responses of 14
+  tracks. A response does not say whether its CRCs are v1 or v2, so both of ours
+  are compared against every response's entry for the track.
+- **Accepted only as dBAR about the disc asked:** at most 1 MiB; every response
+  must name the same id1, id2, CDDB id and track count, or the lookup is
+  `failed` ("names disc …"). A page (HTML 404) is `failed`; an HTTP 404 status is
+  `not_in_database`. A reply cut short keeps the whole responses it held, counts
+  the bytes after them, and a checksum not found in it is `not determined`, never
+  "not in the database".
+
 ## Version probes — the "is it installed?" contract (`deps/checks.py`)
 
 Separate from the working invocations above: the *presence/version* probe each

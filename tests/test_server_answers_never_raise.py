@@ -13,10 +13,14 @@ this file, and what already held it:
   the wrong shape (a list where an object belongs, a number where a title
   belongs) raised `AttributeError` / `TypeError` out of the adapter, and a title
   that was not a string was handed on as one.
-* **AccurateRip**: we never ask it. cyanrip does, and its answer reaches us only
-  as cyanrip's log, whose parser has its never-raises properties
+* **AccurateRip**: cyanrip asks it during the rip, and that answer reaches us as
+  cyanrip's log, whose parser has its never-raises properties
   (`tests/test_parsers_property.py`, `tests/test_parsers_structure_fuzz.py`,
-  `tests/test_never_raises_contract.py`).
+  `tests/test_never_raises_contract.py`). **Since 2026-11-11 (TASKS R138) we ask
+  it too**, once, after a CTDB repair (`adapters/accuraterip_db.py`): the binary
+  dBAR reply is capped, checked to name the disc asked about, and parsed by
+  `parsers/accuraterip_dbar.py`; its never-raises properties (any bytes, any
+  track count) are in `tests/test_accuraterip_db.py`, beside the adapter's.
 * **CTDB** (`adapters/ctdb_client.py`): size cap and bad XML were held by
   examples (`tests/test_ctdb_client.py`); parity URLs are host-checked
   (`adapters/ctdb_parity.parity_url`). No property; added here, with the

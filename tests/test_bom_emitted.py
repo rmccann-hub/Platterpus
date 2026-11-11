@@ -435,12 +435,14 @@ def test_every_tool_the_code_looks_up_is_in_the_map(committed: dict) -> None:
 
 def test_every_service_url_constant_is_an_endpoint(committed: dict) -> None:
     """The URL constants in src, read here, must each be covered by an endpoint."""
-    from platterpus.adapters import cover_art, ctdb_client
+    from platterpus.adapters import accuraterip_db, cover_art, ctdb_client
     from platterpus.deps import fork_source, ripper_manifest
     from platterpus.update_check import RELEASES_API_URL
 
     constants = [
         cover_art.COVER_URL_TEMPLATE.split("{", 1)[0],
+        f"{accuraterip_db.ACCURATERIP_SCHEME}://{accuraterip_db.ACCURATERIP_HOST}"
+        f"{accuraterip_db.DBAR_PATH}",
         f"{ctdb_client.CTDB_SCHEME}://{ctdb_client.CTDB_HOST}{ctdb_client.LOOKUP_PATH}",
         RELEASES_API_URL,
         ripper_manifest.MANIFEST_URL,
