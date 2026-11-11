@@ -44,6 +44,7 @@ import pytest
 from conftest import stop_window_threads
 from test_ctdb_repair import _Disc, _errors, _FakeRewriter
 
+from platterpus.adapters.accuraterip_db import AccurateRipHttpImpl
 from platterpus.adapters.flac_rewrite import CANCELLED as TOOL_CANCELLED
 from platterpus.adapters.flac_rewrite import FlacRewriter, run_bytes
 from platterpus.config import Config
@@ -419,7 +420,13 @@ def test_a_repair_says_what_and_how_it_was_proved(tmp_path: Path, qapp: object) 
     assert level == "ok" and text.startswith("✓ Repaired from CTDB: track 1 (")
     assert "1,416 submissions" in text and "entry 32115" in text
     assert "Proved before anything was replaced" in text
-    assert "AccurateRip: not determined" in text  # never "verified"
+    # Per version, and never "verified" (G3, 2026-11-11): the database's entry
+    # for a track the repair rewrote is not known, so each version says so.
+    assert "Track 1: AccurateRip v1 " in text and "; v2 " in text
+    assert (
+        text.count(": not determined") >= 2
+        and "verified" not in text.split("Track 1: AccurateRip", 1)[1].split(".", 1)[0]
+    )
     assert ".before-ctdb-repair" in text and "logs still record the read" in text
 
 
@@ -530,9 +537,11 @@ def test_the_window_repairs_records_the_read_and_reruns_the_checks(
     tmp_path: Path, repair_window: Any, qapp: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     disc = _Disc(tmp_path, 17, _errors())
+    given: list[object] = []
 
     class _Worker(CtdbRepairWorker):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            given.append(kwargs.get("accuraterip"))
             super().__init__(
                 *args, repair=_test_repair, reverify=_reverify_with(disc), **kwargs
             )
@@ -568,6 +577,76 @@ def test_the_window_repairs_records_the_read_and_reruns_the_checks(
     assert window._rip_progress._ctdb_repair_label.text().startswith("✓")
     assert disc.paths[0].read_bytes() == disc.clean_track(1)
     assert Path(f"{disc.paths[0]}.before-ctdb-repair").exists()
+    # G2 (TASKS R138): the window hands the worker the real AccurateRip client
+    # (the suite's guard keeps it off the network); without one, nothing is asked.
+    assert len(given) == 1 and isinstance(given[0], AccurateRipHttpImpl)
+    assert result.repair.accuraterip_lookup is not None
+
+
+def test_a_landed_repair_names_itself_in_the_eac_layout_log_before_the_report(
+    tmp_path: Path, repair_window: Any, qapp: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """G3 (2026-11-11): the EAC-layout log is rendered again when the repair lands.
+
+    The log was written at the rip's end and when CTDB answered, both before the
+    repair, so the repaired track's block described only the read. Once the repair
+    lands, the track's ``Record:`` row says it was repaired, the read's own rows
+    stay, and this happens BEFORE the report write, which embeds the log's text.
+    """
+    from platterpus.parsers.rip_log import RipLog, TrackResult
+    from platterpus.ui.post_rip_record import EacLogRender
+
+    disc = _Disc(tmp_path, 19, _errors())
+
+    class _Worker(CtdbRepairWorker):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(
+                *args, repair=_test_repair, reverify=_reverify_with(disc), **kwargs
+            )
+
+    monkeypatch.setattr(repair_mixin, "CtdbRepairWorker", _Worker)
+    window = repair_window()
+    record = window._open_post_rip_record()
+    generation = window._rip_generation
+    monkeypatch.setattr(window, "_start_checksums", lambda *a, **k: None)
+    monkeypatch.setattr(window, "_start_flac_verify", lambda *a, **k: None)
+    read = RipLog(
+        log_creator="cyanrip 0.9.4-rc3+platterpus.30",
+        tracks=tuple(
+            TrackResult(number=n, copy_crc="ABCDEF01", status="ripped successfully")
+            for n in (1, 2, 3)
+        ),
+    )
+    render = EacLogRender(read, "0.7.121", "", {}, "success", 3, None, None)
+    folder = disc.paths[0].parent
+    record.log_file = folder / "rip.log"
+    eac_log = folder / "rip (EAC-compatible).log"
+    eac_log.write_text(render.render()[0], encoding="utf-8")
+    record.eac_log = render
+    seen_at_report: list[str] = []
+    original = window._record_post_rip_result
+
+    def _recording(gen: int, attribute: str, value: object) -> None:
+        if attribute == "ctdb" and getattr(value, "repair", None) is not None:
+            seen_at_report.append(eac_log.read_text(encoding="utf-8"))
+        original(gen, attribute, value)
+
+    monkeypatch.setattr(window, "_record_post_rip_result", _recording)
+    window._note_ctdb_repair_context(_context(disc))
+    window._arm_ctdb_repair(generation, disc.result)
+    window._on_ctdb_verified(generation, disc.result)
+    _pump_until(qapp, lambda: not window._ctdb_repair_busy)
+    assert record.ctdb.repair.status is RepairStatus.REPAIRED
+    text = eac_log.read_text(encoding="utf-8")
+    assert "Record: repaired from CTDB entry 32115" in text
+    assert "Copy CRC ABCDEF01" in text, "the read's own rows stay"
+    assert (
+        "accurately ripped"
+        not in text.split("Track  1", 1)[1].split("Track  2")[0].lower()
+    )
+    assert seen_at_report and "Record: repaired from CTDB" in seen_at_report[0], (
+        "the report must embed the log that names the repair"
+    )
 
 
 def test_a_window_closing_mid_repair_records_the_read(

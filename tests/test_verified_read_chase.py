@@ -126,6 +126,18 @@ def test_values_with_no_track_line_after_them_are_not_attributed() -> None:
 # --- The decision -------------------------------------------------------------
 
 
+def _core(decision: ChaseDecision | None) -> tuple[object, ...] | None:
+    """A decision's verdict without its budget, which `test_chase_budget.py` tests."""
+    if decision is None:
+        return None
+    return (
+        decision.run,
+        decision.attempt_limit,
+        decision.distinct_reads_seen,
+        decision.outcome,
+    )
+
+
 def _plan(**overrides: object) -> ChaseDecision | None:
     args: dict[str, object] = {
         "disc_in_accuraterip": True,
@@ -142,7 +154,7 @@ def _plan(**overrides: object) -> ChaseDecision | None:
 def test_the_2026_10_12_track_5_is_chased() -> None:
     """Two values among the reads, the kept one unverified, the disc in the DB."""
     decision = _plan()
-    assert decision == ChaseDecision(True, 5, 2)
+    assert _core(decision) == (True, 5, 2, "")
 
 
 def test_a_disc_accuraterip_does_not_hold_is_never_chased() -> None:
@@ -156,13 +168,13 @@ def test_a_verified_kept_read_is_never_chased() -> None:
 
 def test_a_drive_that_returned_one_value_every_time_is_not_chased() -> None:
     decision = _plan(loop_values=("E0036697", "E0036697", "E0036697"))
-    assert decision == ChaseDecision(False, 5, 1, CHASE_SKIPPED_READS_AGREED)
+    assert _core(decision) == (False, 5, 1, CHASE_SKIPPED_READS_AGREED)
 
 
 def test_reads_that_cannot_be_compared_are_not_determined_never_agreed() -> None:
     """Tri-state: no value to compare is not evidence the reads agreed."""
     decision = _plan(loop_values=(), first_pass=None)
-    assert decision == ChaseDecision(False, 5, None, CHASE_SKIPPED_NOT_DETERMINED)
+    assert _core(decision) == (False, 5, None, CHASE_SKIPPED_NOT_DETERMINED)
 
 
 def test_two_block_crcs_that_differ_count_as_two_values() -> None:
@@ -176,7 +188,7 @@ def test_two_block_crcs_that_differ_count_as_two_values() -> None:
 
 def test_two_equal_block_crcs_with_no_loop_values_are_one_value() -> None:
     decision = _plan(loop_values=())
-    assert decision == ChaseDecision(False, 5, 1, CHASE_SKIPPED_READS_AGREED)
+    assert _core(decision) == (False, 5, 1, CHASE_SKIPPED_READS_AGREED)
 
 
 @pytest.mark.parametrize(
@@ -364,6 +376,161 @@ def test_a_read_that_cannot_start_stops_the_chase() -> None:
     assert run.block["attempts"] == []
 
 
+# --- Round 39: the time budget, the high limit, the record of each attempt -------
+
+
+class _Clock:
+    """A monotonic clock each scripted read advances by ``per_read`` seconds."""
+
+    def __init__(self, per_read: float) -> None:
+        self.now = 1000.0
+        self.per_read = per_read
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _timed(reads: _Reads, clock: _Clock):  # type: ignore[no-untyped-def]  # wraps a read_once
+    def read_once(number: int, folder: Path) -> SingleRead | None:
+        clock.now += clock.per_read
+        return reads(number, folder)
+
+    return read_once
+
+
+def _budgeted(limit: int, seconds: float | None) -> ChaseDecision:
+    from platterpus.chase_budget import LIMIT_FROM_HIGH_CONFIDENCE, ChaseBudget
+
+    return ChaseDecision(
+        True,
+        limit,
+        2,
+        budget=ChaseBudget(
+            attempt_limit=limit,
+            limit_reason=LIMIT_FROM_HIGH_CONFIDENCE,
+            accuraterip_top_confidence=200,
+            track_seconds=50.0,
+            album_read_seconds=None,
+            time_budget_seconds=seconds,
+            cache_defeat="whole_track_read",
+        ),
+    )
+
+
+def test_the_chase_stops_starting_reads_once_its_time_budget_is_spent() -> None:
+    """Rule 2, checked between reads: 100 s a read against 250 s runs three reads
+    (100, 200, then 300 s, the last past the budget, as the fork's limit allows)
+    and starts no fourth, though the count allowed sixteen."""
+    from platterpus.chase_record import STOPPED_TIME_BUDGET
+
+    clock = _Clock(per_read=100.0)
+    reads = _Reads([("4065BECC", None, 0)] * 16)
+    run = run_chase(
+        5,
+        _budgeted(16, 250.0),
+        kept=UNVERIFIED,
+        read_once=_timed(reads, clock),
+        parse_log=_parse,
+        swap_in=lambda track, folder: True,
+        cancelled=lambda: False,
+        clock=clock,
+    )
+    assert len(reads.calls) == 3
+    assert run.block["outcome"] == CHASE_NONE_VERIFIED
+    assert run.block["stopped_reason"] == STOPPED_TIME_BUDGET
+    assert [a["seconds"] for a in run.block["attempts"]] == [100.0] * 3
+    assert [a["chase_elapsed_seconds"] for a in run.block["attempts"]] == [
+        100.0,
+        200.0,
+        300.0,
+    ]
+    assert run.block["elapsed_seconds"] == 300.0
+    assert run.block["time_budget_seconds"] == 250.0
+    assert "time budget of 250.0 s" in chase_sentence(5, run.block)
+
+
+def test_the_first_read_always_runs_however_small_the_budget() -> None:
+    clock = _Clock(per_read=100.0)
+    reads = _Reads([("4065BECC", None, 0)] * 16)
+    run = run_chase(
+        5,
+        _budgeted(16, 1.0),
+        kept=UNVERIFIED,
+        read_once=_timed(reads, clock),
+        parse_log=_parse,
+        swap_in=lambda track, folder: True,
+        cancelled=lambda: False,
+        clock=clock,
+    )
+    assert len(reads.calls) == 1
+    assert run.block["stopped_reason"] == "time_budget"
+
+
+def test_within_its_budget_a_high_confidence_track_gets_sixteen_reads() -> None:
+    """Rule 1: with time to spare the count ends it, at 16, not at the old 5."""
+    from platterpus.chase_record import STOPPED_ATTEMPT_LIMIT
+
+    clock = _Clock(per_read=10.0)
+    reads = _Reads([("4065BECC", None, 0)] * 16)
+    run = run_chase(
+        5,
+        _budgeted(16, 10_000.0),
+        kept=UNVERIFIED,
+        read_once=_timed(reads, clock),
+        parse_log=_parse,
+        swap_in=lambda track, folder: True,
+        cancelled=lambda: False,
+        clock=clock,
+    )
+    assert len(reads.calls) == 16
+    assert run.block["stopped_reason"] == STOPPED_ATTEMPT_LIMIT
+    assert [a["attempt"] for a in run.block["attempts"]] == list(range(1, 17))
+
+
+def test_a_kept_read_ends_the_chase_with_no_stopped_reason_and_the_budget_shown() -> (
+    None
+):
+    clock = _Clock(per_read=60.0)
+    reads = _Reads([("4065BECC", None, 0), ("C96464AB", 200, 0)])
+    run = run_chase(
+        5,
+        _budgeted(16, 1500.0),
+        kept=UNVERIFIED,
+        read_once=_timed(reads, clock),
+        parse_log=_parse,
+        swap_in=lambda track, folder: True,
+        cancelled=lambda: False,
+        clock=clock,
+    )
+    block = run.block
+    assert block["kept_attempt"] == 2 and block["stopped_reason"] is None
+    assert block["after"] == "securing_pass"
+    assert block["attempt_limit_reason"] == "high_confidence"
+    assert block["accuraterip_top_confidence"] == 200
+    assert block["cache_defeat"] == "whole_track_read"
+    assert block["track_seconds"] == 50.0
+
+
+def test_plan_chase_hands_the_high_limit_to_a_track_with_lsns_and_a_top_entry() -> None:
+    """Through `plan_chase`, the call the worker makes: track 5's shape, with the
+    LSNs and `Elapsed:` a fork log states and the database's 200."""
+    from dataclasses import replace
+
+    lookup = "disc found in database (max confidence: 200)"
+    album = replace(
+        UNVERIFIED,
+        start_sector=1000,
+        end_sector=1000 + 75 * 200 - 1,
+        extraction_elapsed_seconds=70.0,
+        accuraterip_lookup=lookup,
+    )
+    decision = _plan(kept=album, first_pass=album)
+    assert decision is not None and decision.run
+    assert decision.attempt_limit == 16
+    assert decision.budget is not None
+    assert decision.budget.time_budget_seconds == 1000.0  # 5 x 200 s > 2 x 70 s
+
+
 # --- The record ----------------------------------------------------------------
 
 
@@ -489,3 +656,20 @@ def test_the_clause_reaches_the_track_and_the_report() -> None:
         "accuraterip_confidence": 200,
         "last_read_crc": "4065BECC",
     }
+
+
+def test_a_second_chase_in_one_rip_appends_to_the_kept_chase_log(
+    tmp_path: Path,
+) -> None:
+    """Archival Exact can chase twice in one rip (after its securing pass, then
+    after its album pass); the second write must keep the first's sections."""
+    from platterpus.workers.chase_passes import keep_chase_logs
+
+    album_log = tmp_path / "Album.log"
+    first = keep_chase_logs(str(album_log), ["first section\n"])
+    second = keep_chase_logs(str(album_log), ["second section\n"], append=True)
+    assert first == second and second is not None
+    assert second.read_text(encoding="utf-8") == "first section\nsecond section\n"
+    # A rip's first write still starts the file afresh.
+    keep_chase_logs(str(album_log), ["fresh\n"])
+    assert second.read_text(encoding="utf-8") == "fresh\n"

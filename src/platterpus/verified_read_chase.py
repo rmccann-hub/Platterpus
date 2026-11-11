@@ -53,9 +53,15 @@ not a measure of how exact the match is, and a chance 32-bit match is about one 
 four billion. The confidence of every attempt is recorded, so a reader can apply
 a stricter bar to the record.
 
-**The bound: the user's ``-r``, at most** :data:`CHASE_ATTEMPTS_CEILING`. cyanrip
-describes ``-r`` as the limit "per frame, and per whole-track re-read", so it is
-already the user's answer to how many whole-track reads of one track they accept.
+**The bound** (round 39, :mod:`platterpus.chase_budget`, rules 1 to 3). For a
+track AccurateRip knows weakly or not at all it is the user's ``-r``, at most
+:data:`CHASE_ATTEMPTS_CEILING`: cyanrip describes ``-r`` as the limit "per frame,
+and per whole-track re-read", the user's answer to how many whole-track reads of
+one track they accept. For a track AccurateRip's top entry holds at confidence 10
+or more, the limit is 16, and TIME bounds the chase: the larger of 5 x the track's
+length and 2 x its album-pass read time, checked between reads. A read that one
+in three reads gets right needs more than five tries to be reached on five rips in
+a row; ``chase_budget.py`` has the arithmetic and the measurements behind it.
 
 Pure: no Qt, no I/O, never raises. The attempts themselves are run by
 :mod:`platterpus.workers.verified_read_run`.
@@ -69,25 +75,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+# `CHASE_ATTEMPTS_CEILING` (5) moved to `chase_budget` in round 39, beside the
+# limits that now sit over it; re-exported here, its home before, by name.
+from platterpus.chase_budget import CHASE_ATTEMPTS_CEILING as CHASE_ATTEMPTS_CEILING
+from platterpus.chase_budget import ChaseBudget, plan_budget
+from platterpus.chase_record import track_crc
 from platterpus.parsers.cyanrip_log import (
     finished_track,
     secure_rerip_read_checksum,
 )
 from platterpus.parsers.rip_log import track_accuraterip_verified
-from platterpus.report_types import (
-    ChaseAttemptBlock,
-    RetriedTrackBlock,
-    VerifiedReadChaseBlock,
-)
+from platterpus.report_types import RetriedTrackBlock, VerifiedReadChaseBlock
 
 log = logging.getLogger(__name__)
 
-#: The most single reads one track gets, whatever ``-r`` says.
-CHASE_ATTEMPTS_CEILING: Final[int] = 5
-
 #: ``verified_read_chase.outcome``: a read AccurateRip verifies was kept.
 CHASE_KEPT_VERIFIED: Final[str] = "kept_verified_read"
-#: Every attempt ran and none was verified; the album keeps what it had.
+#: No attempt was verified; the album keeps what it had. ``stopped_reason`` says
+#: whether the attempt limit or (from schema 45) the time budget ended it.
 CHASE_NONE_VERIFIED: Final[str] = "no_read_verified"
 #: Cancelled, or a read failed to start; the album keeps what it had.
 CHASE_STOPPED: Final[str] = "stopped"
@@ -113,12 +118,18 @@ _MAX_READS_PER_TRACK: Final[int] = 64
 
 @dataclass(frozen=True)
 class ChaseDecision:
-    """Whether to chase one track. ``run`` False with an ``outcome`` is a skip."""
+    """Whether to chase one track. ``run`` False with an ``outcome`` is a skip.
+
+    ``budget`` is how far the chase may go (`chase_budget.plan_budget`); its
+    ``attempt_limit`` is the one copied into ``attempt_limit`` here, so the two
+    cannot disagree. A decision built without one has no time budget.
+    """
 
     run: bool
     attempt_limit: int
     distinct_reads_seen: int | None
     outcome: str = ""
+    budget: ChaseBudget | None = None
 
 
 def securing_pass_read_checksums(log_text: str) -> dict[int, tuple[str, ...]]:
@@ -150,13 +161,6 @@ def securing_pass_read_checksums(log_text: str) -> dict[int, tuple[str, ...]]:
     return found
 
 
-def _crc(track: object | None) -> str:
-    """A parsed track's EAC CRC32 (its block's), uppercase, or ``""``."""
-    if track is None:
-        return ""
-    return str(getattr(track, "copy_crc", "") or "").strip().upper()
-
-
 def plan_chase(
     *,
     disc_in_accuraterip: bool,
@@ -165,13 +169,18 @@ def plan_chase(
     securing: object | None,
     loop_values: tuple[str, ...],
     max_retries: int,
+    album_pass: object | None = None,
 ) -> ChaseDecision | None:
     """Whether to chase one track; ``None`` when the chase does not apply.
 
     ``kept`` is the parsed record of the read the album now keeps (the securing
     pass's when it was swapped in, else the album pass's); ``first_pass`` and
-    ``securing`` are the album pass's and the securing pass's records for the
-    track; ``loop_values`` is :func:`securing_pass_read_checksums`'s entry.
+    ``securing`` are the two records whose block CRCs are compared, and
+    ``loop_values`` the ``-Z`` loop's printed values (see
+    :func:`securing_pass_read_checksums`). ``album_pass`` is the album pass's
+    record for the budget's read time, ``first_pass`` when not given: on the
+    archival path ``first_pass`` is withheld from the CRC comparison (it is the
+    same read as ``securing`` there) while its read time still counts.
     ``None`` means not applicable (no read can be verified, or the kept one
     already is); a decision with ``run`` False is a skip worth recording. Never
     raises.
@@ -181,10 +190,15 @@ def plan_chase(
             return None
         if track_accuraterip_verified(kept):
             return None
-        limit = max(1, min(int(max_retries), CHASE_ATTEMPTS_CEILING))
+        budget = plan_budget(
+            kept=kept,
+            album_pass=album_pass if album_pass is not None else first_pass,
+            max_retries=max_retries,
+        )
+        limit = budget.attempt_limit
         # Two kinds of evidence, never mixed: loop values only with each other,
         # block CRCs only with each other (both are EAC CRC32 on every build).
-        first, second = _crc(first_pass), _crc(securing)
+        first, second = track_crc(first_pass), track_crc(securing)
         distinct = len(set(loop_values)) if loop_values else None
         # The loop prints no value for its LAST read, so five reads showed four
         # (plan of record, Appendix I §2, defect 5). The limit-hit line can still
@@ -202,45 +216,17 @@ def plan_chase(
             elif distinct is None:
                 distinct = 1  # two reads, one value
         if distinct is None:
-            return ChaseDecision(False, limit, None, CHASE_SKIPPED_NOT_DETERMINED)
+            return ChaseDecision(
+                False, limit, None, CHASE_SKIPPED_NOT_DETERMINED, budget
+            )
         if distinct < 2:
-            return ChaseDecision(False, limit, distinct, CHASE_SKIPPED_READS_AGREED)
-        return ChaseDecision(True, limit, distinct)
+            return ChaseDecision(
+                False, limit, distinct, CHASE_SKIPPED_READS_AGREED, budget
+            )
+        return ChaseDecision(True, limit, distinct, budget=budget)
     except Exception:  # noqa: BLE001 — a plan that cannot be made changes nothing
         log.exception("plan_chase failed; not chasing this track")
         return None
-
-
-def attempt_block(
-    attempt: int, track: object | None, exit_code: int | None, *, kept: bool
-) -> ChaseAttemptBlock:
-    """One attempt's record, from the read's own parsed track. Never raises."""
-
-    def confidence(name: str) -> int | None:
-        value = getattr(getattr(track, name, None), "confidence", None)
-        return value if isinstance(value, int) and not isinstance(value, bool) else None
-
-    return {
-        "attempt": attempt,
-        "eac_crc": _crc(track) or None,
-        "accuraterip_verified": bool(track is not None)
-        and track_accuraterip_verified(track),
-        "accuraterip_v1_confidence": confidence("accuraterip_v1"),
-        "accuraterip_v2_confidence": confidence("accuraterip_v2"),
-        "exit_code": exit_code,
-        "kept": kept,
-    }
-
-
-def skipped_block(decision: ChaseDecision) -> VerifiedReadChaseBlock:
-    """The record of a chase that was considered and not attempted."""
-    return {
-        "outcome": decision.outcome,
-        "attempt_limit": decision.attempt_limit,
-        "distinct_reads_seen": decision.distinct_reads_seen,
-        "attempts": [],
-        "kept_attempt": None,
-    }
 
 
 def kept_read(entry: RetriedTrackBlock) -> str:
@@ -261,16 +247,16 @@ def kept_read(entry: RetriedTrackBlock) -> str:
 def copy_chase_block(
     block: VerifiedReadChaseBlock | None,
 ) -> VerifiedReadChaseBlock | None:
-    """A copy of a chase block for the report, so it never aliases the worker's."""
+    """A copy of a chase block for the report, so it never aliases the worker's.
+
+    Every key the block has is copied, schema 45's optional ones included, and
+    a record from before them keeps exactly its own keys (`TypedDict.copy`).
+    """
     if not isinstance(block, dict):
         return None
-    return {
-        "outcome": block["outcome"],
-        "attempt_limit": block["attempt_limit"],
-        "distinct_reads_seen": block["distinct_reads_seen"],
-        "attempts": [ChaseAttemptBlock(**attempt) for attempt in block["attempts"]],
-        "kept_attempt": block["kept_attempt"],
-    }
+    copied = block.copy()
+    copied["attempts"] = [attempt.copy() for attempt in block["attempts"]]
+    return copied
 
 
 def chase_log_path_for(log_path: str | Path) -> Path:

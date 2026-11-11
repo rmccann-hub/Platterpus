@@ -30,7 +30,10 @@ from platterpus.uiscript.verbs import VERBS, Verb
 #: Longest script we will parse, in lines. A pasted script is human-written; a
 #: hundred thousand lines is a paste accident or a stress attempt, and either way
 #: the honest response is to say so rather than to spend a minute parsing it.
-MAX_LINES: int = 2000
+#: 4000 since 2026-11-11, was 2000: the committed Full run passed 2000 when
+#: round 39's five-rip section R was added (about 2,070 lines), and a limit the
+#: project's own acceptance test cannot fit under guards nothing.
+MAX_LINES: int = 4000
 
 #: Longest single line. Same reasoning; also bounds the tokeniser's work.
 MAX_LINE_CHARS: int = 4000

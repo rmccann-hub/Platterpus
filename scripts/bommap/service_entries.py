@@ -14,7 +14,7 @@ def _service_entries() -> list[Entry]:
     import musicbrainzngs.musicbrainz as mb_library
 
     from platterpus import help_content
-    from platterpus.adapters import cover_art, ctdb_client
+    from platterpus.adapters import accuraterip_db, cover_art, ctdb_client
     from platterpus.deps import fork_source, host_setup, registry, ripper_manifest
     from platterpus.update_attestation import OIDC_ISSUER, PREDICATE_TYPE
     from platterpus.update_check import RELEASES_API_URL, RELEASES_PAGE_URL
@@ -54,6 +54,11 @@ def _service_entries() -> list[Entry]:
         why="AccurateRip drive-offset link",
     )
     snapshot_source = _data_entries()[0].external_refs[0][1]
+    # The dBAR directory the repair's AccurateRip lookup reads (TASKS R138).
+    dbar_base = (
+        f"{accuraterip_db.ACCURATERIP_SCHEME}://{accuraterip_db.ACCURATERIP_HOST}"
+        f"{accuraterip_db.DBAR_PATH}"
+    )
 
     def service(
         key: str,
@@ -131,13 +136,18 @@ def _service_entries() -> list[Entry]:
             "accuraterip",
             "AccurateRip",
             "Illustrate",
-            sorted({snapshot_source, offsets_page}),
-            "maintenance (the offset snapshot); a link in the drive setup dialog",
+            sorted({snapshot_source, offsets_page, dbar_base}),
+            "runtime (one dBAR lookup after a CTDB repair); maintenance (the offset snapshot); a link in the drive setup dialog",
             [
                 "scripts/update_drive_offsets.py",
+                "src/platterpus/adapters/accuraterip_db.py",
                 "src/platterpus/ui/drive_setup_dialog.py",
             ],
-            "Source of the bundled drive-offset table. The per-track AccurateRip results in a rip come from cyanrip's log; Platterpus does not query the AccurateRip database itself.",
+            "Source of the bundled drive-offset table, and the database a CTDB repair asks about the repaired audio (one dBAR file per disc, TASKS R138). The per-track AccurateRip results of the rip itself come from cyanrip's log.",
+            data=(
+                ("outbound", "disc AccurateRip ID and track count"),
+                ("inbound", "per-track CRCs and confidences"),
+            ),
             required_by=("data:accuraterip-drive-offsets",),
         ),
         service(

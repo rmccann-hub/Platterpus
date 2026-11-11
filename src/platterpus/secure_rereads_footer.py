@@ -30,6 +30,13 @@ spaces or ``and``, and a trailing ``, list truncated`` (the shape the fork's
 whole one. Anything else is kept verbatim, bounded and screened, as
 ``unrecognised``, with no count invented.
 
+**`.31` prints neither form after a track AccurateRip ended** (their round 39
+lap 1 S6, fifth point, ``cyanrip@e531a33:src/cyanrip_log.c:339``): such a track
+did not converge and did not fail. So it is never counted among the tracks the
+second arm should name (:func:`_blocks_not_converged`), and the third form
+their S7 asks about for a later build, ``every track converged or matched
+AccurateRip``, is read now, before any build prints it (round 20's order).
+
 **Tri-state.** No line is ``None`` on the log (an older build, or a rip without
 ``-Z``), never "every track converged". Pure, Qt-free, never raises; imports
 nothing from the parser, so the parser can take the dataclass from here.
@@ -44,6 +51,7 @@ from typing import Final, TypedDict
 
 from platterpus import diagnostics, inbound_text
 from platterpus.data_tracks import is_data_track
+from platterpus.reread_ar_overrule import ended_on_accuraterip
 from platterpus.safe_int import int_or_none
 
 #: The line, column 0, as the lap spells it. The value is everything after the
@@ -54,6 +62,9 @@ LINE: Final[re.Pattern[str]] = re.compile(
 
 #: The converged arm, word for word.
 _ALL_CONVERGED: Final[str] = "every track converged"
+#: The third form the fork's round 39 lap 1 S7 proposes for a build after `.31`,
+#: word for word: every track asked converged or ended on an AccurateRip match.
+_ALL_CONVERGED_OR_MATCHED: Final[str] = "every track converged or matched AccurateRip"
 
 #: The other arm. ``tracks?`` or the literal ``track(s)``, both places; the list
 #: is digits and separators only, bounded, and may end ``, list truncated``.
@@ -68,10 +79,11 @@ _SEPARATOR: Final[re.Pattern[str]] = re.compile(r"\s{0,4}(?:,|\band\b)\s{0,4}|\s
 
 #: The states of the line, and of the report's block.
 ALL_CONVERGED: Final[str] = "all_converged"
+ALL_CONVERGED_OR_MATCHED: Final[str] = "all_converged_or_matched_accuraterip"
 SOME_DID_NOT_CONVERGE: Final[str] = "some_did_not_converge"
 UNRECOGNISED: Final[str] = "unrecognised"
 STATES: Final[frozenset[str]] = frozenset(
-    {ALL_CONVERGED, SOME_DID_NOT_CONVERGE, UNRECOGNISED}
+    {ALL_CONVERGED, ALL_CONVERGED_OR_MATCHED, SOME_DID_NOT_CONVERGE, UNRECOGNISED}
 )
 
 #: ``issues`` code: the footer names different tracks from the track blocks.
@@ -125,6 +137,8 @@ def read_value(value: object) -> SecureRereads:
     kept = _kept(text)
     if text == _ALL_CONVERGED:
         return SecureRereads(ALL_CONVERGED, kept, count=0)
+    if text == _ALL_CONVERGED_OR_MATCHED:
+        return SecureRereads(ALL_CONVERGED_OR_MATCHED, kept, count=0)
     match = _SOME.fullmatch(text) if len(text) <= 400 else None
     if match is None:
         return SecureRereads(UNRECOGNISED, kept)
@@ -164,7 +178,13 @@ def _blocks_not_converged(tracks: Sequence[object]) -> set[int] | None:
     for track in tracks:
         number = getattr(track, "number", None)
         converged = getattr(track, "secure_rerip_converged", None)
-        if not isinstance(number, int) or is_data_track(track):
+        # A track `.31` ended on an AccurateRip match did not converge, and the
+        # footer does not count it as failing either (their S6, fifth point).
+        if (
+            not isinstance(number, int)
+            or is_data_track(track)
+            or ended_on_accuraterip(track)
+        ):
             continue
         if converged is None:
             return None

@@ -558,7 +558,10 @@ expect override_read_offset on
 log --- E. disc: scan and identify ---
 run-size quick
 rescan
-pick-release 1 120
+# The BMG club release, by MBID: the owner's choice for this disc (2026-11-05:
+# "make sure you are choosing the correct album"); row 1 is the 2003 GB release,
+# and MusicBrainz's row order is not stable. The read does not depend on it.
+pick-release d14a7546-815b-43c6-8af6-35cff6cee1d0 600
 expect-dialog none
 expect-tracks 2+
 # AND THE GATE THAT COUNTING COULD NOT BE. `expect-tracks` is satisfied by
@@ -781,6 +784,9 @@ expect-rip-argv with --prefer-disc-isrc
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+# Round 39's G3 (2026-11-11): every track's record says how it was verified,
+# and none says Accurately ripped over a repair or OK over disagreeing reads.
+expect-track-records
 expect-read-offset
 expect-tags
 expect-cover-art
@@ -1381,6 +1387,9 @@ expect-verification
 expect-album-audit
 expect-accuraterip
 expect-ctdb whole
+# Round 39's G3 (2026-11-11): every track's record says how it was verified,
+# and none says Accurately ripped over a repair or OK over disagreeing reads.
+expect-track-records
 expect-read-offset
 expect-tags
 expect-cover-art
@@ -1848,6 +1857,96 @@ set secure_rerip_matches 2
 expect secure_rerip_matches 2
 set secure_rerip_dynamic on
 expect secure_rerip_dynamic on
+
+# --- R. ROUND 39: FIVE DEFAULT WHOLE-DISC RIPS IN A ROW (G1, G2, G3) ------
+# Round 39's goal (agreed in round 38, our lap 17 S7 and the fork's lap 16
+# S12): on the reference disc and the BDR-209D, five default whole-disc rips in
+# a row, each ending with all 14 tracks AccurateRip-verified and every track's
+# record saying how. G1: track 3 = 59D352DD from a drive read, no repair (parity:
+# EAC read it right in one session of three). G2: track 5 = C96464AB from the
+# drive or the labelled CTDB repair, AccurateRip v2 verifying it (the win: EAC
+# never has). G3: every track says how it was verified, and nothing says OK over
+# reads that disagree. Graded only on these five rips, because that is what a
+# user gets: the shipped settings, re-asserted below, with nothing canceled.
+#
+# Each rip gets its own album name so the five do not stop at the overwrite
+# prompt (section H tests that prompt); the name changes the folder and the
+# tags, never the read. `expect-track-records` grades G3 on every rip, and G2
+# where the record carries AccurateRip's answer for a repaired track (TASKS
+# R138). G1 is each record's line for track 3: a read verified by AccurateRip,
+# first read, re-read, chase attempt k, or, on `.31` (round 39's build under
+# review, which these five run on: section P6 ends on `(pin)`), `re-read: matched
+# AccurateRip at confidence C after N reads, overruling an agreement on X`, its
+# --reread-until-accuraterip ending the securing pass's reads; both sides read it
+# from the bundle, which carries every rip's --diagnostics record for G4.
+# `expect-ctdb whole` is not repeated here: it grades the read of track 5, which
+# sections F and N already grade, and five more of the same failure would hide
+# the repair's result rather than show it.
+
+log --- R. round 39: five default whole-disc rips in a row ---
+run-size full
+set rip_goal fast_verified
+set max_retries 5
+set force_overread off
+set ctdb_verify_after_rip on
+set ctdb_repair_after_rip on
+set verify_flac_after_rip on
+# The one setting off its shipped default: the EAC-layout log, so
+# `expect-track-records` grades its track blocks too (it says so when the log
+# is absent, and grades less). Section Q puts it back.
+set write_eac_log_after_rip on
+set output_format flac
+expect output_format flac
+
+select-tracks all
+album round 39 burn rip 1 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot burnrip1
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album round 39 burn rip 2 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot burnrip2
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album round 39 burn rip 3 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot burnrip3
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album round 39 burn rip 4 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot burnrip4
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album round 39 burn rip 5 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot burnrip5
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
 
 # --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
 # Every section above reads ONE rip. This one reads every cyanrip log the run

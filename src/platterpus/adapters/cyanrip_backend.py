@@ -41,6 +41,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from platterpus.adapters.reread_time_limit_args import reread_time_limit_args
+from platterpus.adapters.reread_until_accuraterip_args import (
+    reread_until_accuraterip_args,
+)
 from platterpus.adapters.rip_backend import (
     ProbeCancelled,
     ProbeSlot,
@@ -194,6 +198,8 @@ class CyanripImpl(RipBackend):
         only_tracks: tuple[int, ...] = (),
         disc_track_total: int | None = None,
         prefer_disc_isrc: bool = False,
+        reread_time_limit_s: int | None = None,
+        reread_until_accuraterip: int | None = None,
         # The build tag of the ripper we are about to run, when known. Empty means
         # "unknown", and an unknown build gets NO capability-gated flags — see
         # `consumer_tag_for_build`. Defaulting to empty is what makes the safe
@@ -335,15 +341,20 @@ class CyanripImpl(RipBackend):
         # build's contract lists it; withheld for an unknown build.
         if prefer_disc_isrc:
             argv += prefer_disc_isrc_args_for_build(ripper_build_tag)
-        # `--prefer-accuraterip-match` (`.27`, round 36 lap 7 S3): at the `-Z`
-        # repeat limit, keep the read AccurateRip matches at the highest
-        # confidence, where one does, over the read most reads agreed on. Sent on
-        # EVERY rip whose build lists it, with no setting: it changes nothing
-        # until a track reaches the limit, and then it only prefers a read
-        # AccurateRip vouches for. Under the same gate as `--consumer`, so a build
-        # without it never sees it; for those builds the verified-read chase
-        # (`verified_read_chase.py`) is still how such a read is kept.
+        # `--prefer-accuraterip-match` (`.27`): at the `-Z` repeat limit, keep the
+        # read AccurateRip matches, on every rip whose build lists it (no setting;
+        # it changes nothing before the limit). `--reread-time-limit` (`.28`, round
+        # 39): the securing pass's time budget; its range, `-Z` rule and gate are
+        # `reread_time_limit_args.py`. The verified-read chase covers the rest.
         argv += prefer_accuraterip_match_args_for_build(ripper_build_tag)
+        argv += reread_time_limit_args(
+            ripper_build_tag, reread_time_limit_s, secure_rerip_matches
+        )
+        # `.31`'s rule (round 39): the securing pass reads on past an agreement
+        # AccurateRip rejects; range, `-Z` rule and gate in its own module.
+        argv += reread_until_accuraterip_args(
+            ripper_build_tag, reread_until_accuraterip, secure_rerip_matches
+        )
         # Checked once: `-c` and the %N/%M template tokens below read the same
         # position, so a folder name cannot disagree with the disc tags.
         position = _disc_position(metadata)
@@ -493,6 +504,8 @@ class CyanripImpl(RipBackend):
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
         prefer_disc_isrc: bool = False,
+        reread_time_limit_s: int | None = None,
+        reread_until_accuraterip: int | None = None,
     ) -> RipHandle:
         # disc_template is unused: cyanrip puts the log/cue in the -D folder
         # already (derived from track_template, which carries the same
@@ -517,24 +530,22 @@ class CyanripImpl(RipBackend):
             only_tracks=only_tracks,
             disc_track_total=disc_track_total,
             prefer_disc_isrc=prefer_disc_isrc,
+            reread_time_limit_s=reread_time_limit_s,
+            reread_until_accuraterip=reread_until_accuraterip,
             # WITHOUT THIS, `--consumer` IS NEVER SENT — ON ANY BUILD.
             #
             # `_build_rip_argv` gates the flag on `consumer_tag_for_build(ripper_build_tag)`
-            # and defaults the parameter to `""` so an unknown build gets no
-            # capability-gated flags. The parameter's own comment says defaulting to empty
-            # "is what makes the safe behaviour the default rather than something a caller
-            # must remember" — and then **no caller remembered**, so the safe default became
-            # the only behaviour and the feature was dead from the argv's point of view.
+            # and defaults that tag to `""`, so an unknown build gets no gated flags, the
+            # safe default "rather than something a caller must remember", and then **no
+            # caller remembered**: the feature was dead from the argv's point of view.
             # `consumer_tag_for_build`, `accepts_consumer_flag`, the build allowlist and
             # `assert_consumer_tag_is_sane` were all built and tested around a value nothing
             # supplied. Every rip in the project's history logged `Consumer: not identified
             # (no --consumer given)`; the 2026-08-04 rig artifact is where that became
             # visible, because the fork prints the field.
             #
-            # `_observed_build_tag()` already existed for `verify_log` and is best-effort by
-            # design (an unreadable banner yields `""`, which withholds the flag — the same
-            # fail-safe direction as before, now reached by measurement rather than by
-            # omission). This runs on the rip worker's thread, never the GUI thread.
+            # `_observed_build_tag()` is best-effort: an unreadable banner yields `""`,
+            # which withholds it. It runs on the worker's thread, never the GUI's.
             ripper_build_tag=build_tag,
         )
         # cyanrip writes under the current directory (its -D/-F schemes are

@@ -584,6 +584,8 @@ class RipBackend(ABC):
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
         prefer_disc_isrc: bool = False,
+        reread_time_limit_s: int | None = None,
+        reread_until_accuraterip: int | None = None,
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
@@ -603,8 +605,15 @@ class RipBackend(ABC):
         the drive pick its maximum. The adaptive ladder feeds slower values here
         on a re-rip (see :mod:`platterpus.read_speed_ladder`). `only_tracks`, when
         non-empty, rips ONLY those (1-based) track numbers (cyanrip's `-l`) — used
-        by the per-track auto-fix re-rip; empty rips the whole disc. The returned
-        handle streams the backend's stdout and supports cancel.
+        by the per-track auto-fix re-rip; empty rips the whole disc.
+        `reread_time_limit_s`, when set, bounds each track's `-Z` re-reads by time
+        (cyanrip's `--reread-time-limit`, round 39); it needs `secure_rerip_matches`
+        > 0, and a backend or build that cannot honour it sends nothing, so the
+        count alone bounds the pass. `reread_until_accuraterip`, when set, is the
+        AccurateRip confidence past whose disagreement a `-Z` agreement does not
+        end a track (cyanrip's `--reread-until-accuraterip`, `.31`), under the same
+        `-Z` rule and build gate. The returned handle streams the backend's
+        stdout and supports cancel.
         """
 
     @abstractmethod

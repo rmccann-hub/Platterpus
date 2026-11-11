@@ -31,17 +31,22 @@ from __future__ import annotations
 import logging
 import shutil
 import tempfile
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from platterpus.accuraterip_standing import (
-    AR_STANDING_IN_DATABASE,
-    accuraterip_standing,
+from platterpus.chase_record import (
+    CHASE_AFTER_SECURING_PASS,
+    STOPPED_ATTEMPT_LIMIT,
+    STOPPED_CANCELLED,
+    STOPPED_READ_DID_NOT_START,
+    STOPPED_TIME_BUDGET,
+    attempt_block,
+    chase_block,
 )
 from platterpus.report_types import (
     ChaseAttemptBlock,
-    RetriedTrackBlock,
     VerifiedReadChaseBlock,
 )
 from platterpus.verdict import REREAD_KEPT_FOR_ACCURATERIP, reread_supersedes
@@ -50,12 +55,7 @@ from platterpus.verified_read_chase import (
     CHASE_NONE_VERIFIED,
     CHASE_STOPPED,
     ChaseDecision,
-    attempt_block,
-    chase_log_path_for,
     chase_log_section,
-    plan_chase,
-    securing_pass_read_checksums,
-    skipped_block,
 )
 
 log = logging.getLogger(__name__)
@@ -121,6 +121,8 @@ def run_chase(
     parse_log: Callable[[str], object | None],
     swap_in: Callable[[object, Path], bool],
     cancelled: Callable[[], bool],
+    after: str = CHASE_AFTER_SECURING_PASS,
+    clock: Callable[[], float] = time.monotonic,
 ) -> ChaseRun:
     """Read ``number`` alone, up to ``decision.attempt_limit`` times. Never raises.
 
@@ -128,22 +130,38 @@ def run_chase(
     the chase would not run). ``read_once(number, folder)`` runs one read into
     ``folder`` and returns None when it could not start. Each attempt's folder is
     deleted afterwards, kept read or not: a kept read has been copied out.
+
+    **Bounded by time as well as count** (`chase_budget.py` rule 2, TASKS R49):
+    before every read after the first, the chase's elapsed time is compared with
+    the decision's budget, and once it has reached it no further read starts. A
+    read in progress is never stopped, so the first read always runs, as the
+    fork's ``--reread-time-limit`` does between ``-Z`` reads. ``clock`` is a
+    monotonic clock, injected so the rule is tested without waiting.
     """
     attempts: list[ChaseAttemptBlock] = []
     sections: list[str] = []
     outcome = CHASE_NONE_VERIFIED
+    stopped: str | None = STOPPED_ATTEMPT_LIMIT
     kept_track: object | None = None
     kept_attempt: int | None = None
+    budget = decision.budget.time_budget_seconds if decision.budget else None
+    started = clock()
     try:
         for attempt in range(1, decision.attempt_limit + 1):
             if cancelled():
-                outcome = CHASE_STOPPED
+                outcome, stopped = CHASE_STOPPED, STOPPED_CANCELLED
+                break
+            if attempt > 1 and budget is not None and clock() - started >= budget:
+                # Rule 2: the budget is spent. "No read verified", with the
+                # reason beside it, not "stopped": nothing went wrong.
+                stopped = STOPPED_TIME_BUDGET
                 break
             folder = Path(tempfile.mkdtemp(prefix="platterpus-verified-read-"))
+            asked = clock()
             try:
                 run = read_once(number, folder)
                 if run is None:  # it could not start; the worker said why
-                    outcome = CHASE_STOPPED
+                    outcome, stopped = CHASE_STOPPED, STOPPED_READ_DID_NOT_START
                     break
                 sections.append(
                     chase_log_section(
@@ -162,29 +180,43 @@ def run_chase(
                     and reread_supersedes(kept, track) == REREAD_KEPT_FOR_ACCURATERIP
                     and swap_in(track, folder)
                 )
-                attempts.append(attempt_block(attempt, track, run.exit_code, kept=keep))
+                now = clock()
+                attempts.append(
+                    attempt_block(
+                        attempt,
+                        track,
+                        run.exit_code,
+                        kept=keep,
+                        seconds=now - asked,
+                        chase_elapsed=now - started,
+                    )
+                )
                 if keep:
                     outcome, kept_track, kept_attempt = (
                         CHASE_KEPT_VERIFIED,
                         track,
                         attempt,
                     )
+                    stopped = None
                     break
                 if cancelled():
-                    outcome = CHASE_STOPPED
+                    outcome, stopped = CHASE_STOPPED, STOPPED_CANCELLED
                     break
             finally:
                 shutil.rmtree(folder, ignore_errors=True)
     except Exception:  # noqa: BLE001 — a chase must never crash the rip
         log.exception("verified-read chase of track %s failed; album unchanged", number)
-        outcome = CHASE_STOPPED if kept_track is None else outcome
-    block: VerifiedReadChaseBlock = {
-        "outcome": outcome,
-        "attempt_limit": decision.attempt_limit,
-        "distinct_reads_seen": decision.distinct_reads_seen,
-        "attempts": attempts,
-        "kept_attempt": kept_attempt,
-    }
+        if kept_track is None:
+            outcome, stopped = CHASE_STOPPED, STOPPED_READ_DID_NOT_START
+    block = chase_block(
+        decision,
+        outcome=outcome,
+        attempts=attempts,
+        kept_attempt=kept_attempt,
+        after=after,
+        elapsed=clock() - started,
+        stopped_reason=stopped,
+    )
     return ChaseRun(block=block, kept_track=kept_track, sections=sections)
 
 
@@ -203,94 +235,9 @@ def chase_sentence(number: int, block: VerifiedReadChaseBlock) -> str:
         CHASE_NONE_VERIFIED: f"none of {tried} single read(s) matched AccurateRip",
         CHASE_STOPPED: f"stopped after {tried} single read(s)",
     }.get(outcome, f"not re-read singly ({outcome})")
+    if block.get("stopped_reason") == STOPPED_TIME_BUDGET:
+        said += (
+            f", within its time budget of {block.get('time_budget_seconds')} s "
+            f"(up to {limit} reads)"
+        )
     return f"[verified read] track {number}: {said}; the album keeps the read it had."
-
-
-def chase_tracks(
-    entries: list[RetriedTrackBlock],
-    *,
-    rerip_log: object,
-    rerip_log_text: str,
-    first_pass_tracks: dict[int, object],
-    shipped: dict[int, object],
-    max_retries: int,
-    read_once: Callable[[int, Path], SingleRead | None],
-    parse_log: Callable[[str], object | None],
-    swap_in: Callable[[object, Path], bool],
-    cancelled: Callable[[], bool],
-    say: Callable[[str], None],
-    status: Callable[[str], None],
-) -> tuple[dict[int, object], list[str]]:
-    """Chase each track the securing pass just recorded. Never raises.
-
-    ``entries`` are the securing pass's ``retried_tracks`` records; each one the
-    chase applied to gets a ``verified_read_chase`` block, and a kept read sets
-    ``replaced`` and ``replaced_because``. ``shipped`` is the worker's records of
-    reads already swapped in, so the read the album keeps now is known. Returns
-    the kept reads' parsed records by track, and every attempt's log section.
-    """
-    kept_reads: dict[int, object] = {}
-    sections: list[str] = []
-    try:
-        # The securing pass's own lookup: the newest answer for this disc.
-        in_db = accuraterip_standing(rerip_log) == AR_STANDING_IN_DATABASE
-        loop = securing_pass_read_checksums(rerip_log_text)
-        securing = {
-            getattr(t, "number", None): t
-            for t in getattr(rerip_log, "tracks", ()) or ()
-        }
-        for entry in entries:
-            if cancelled():
-                break
-            number = entry["track"]
-            kept = shipped.get(number) if entry["replaced"] else None
-            kept = kept if kept is not None else first_pass_tracks.get(number)
-            decision = plan_chase(
-                disc_in_accuraterip=in_db,
-                kept=kept,
-                first_pass=first_pass_tracks.get(number),
-                securing=securing.get(number),
-                loop_values=loop.get(number, ()),
-                max_retries=max_retries,
-            )
-            if decision is None:
-                continue
-            if not decision.run:
-                entry["verified_read_chase"] = skipped_block(decision)
-                continue
-            status(
-                f"Reading track {number} again, singly, for a read AccurateRip "
-                "verifies…"
-            )
-            run = run_chase(
-                number,
-                decision,
-                kept=kept,
-                read_once=read_once,
-                parse_log=parse_log,
-                swap_in=swap_in,
-                cancelled=cancelled,
-            )
-            entry["verified_read_chase"] = run.block
-            sections.extend(run.sections)
-            say(chase_sentence(number, run.block))
-            if run.kept_track is not None:
-                entry["replaced"] = True
-                entry["replaced_because"] = REREAD_KEPT_FOR_ACCURATERIP
-                kept_reads[number] = run.kept_track
-    except Exception:  # noqa: BLE001 — the chase must never crash the rip
-        log.exception("verified-read chase failed; album unchanged from here")
-    return kept_reads, sections
-
-
-def keep_chase_logs(album_log_path: str, sections: list[str]) -> Path | None:
-    """Write every attempt's log beside the album's; the path, or None. Never raises."""
-    if not sections or not album_log_path:
-        return None
-    target = chase_log_path_for(album_log_path)
-    try:
-        target.write_text("".join(sections), encoding="utf-8")
-    except OSError:
-        log.exception("could not keep the verified-read chase's logs")
-        return None
-    return target

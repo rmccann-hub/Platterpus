@@ -150,31 +150,31 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
-| `cyanrip` | `0.9.4-rc3+platterpus.28` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
-| `cyanrip (build under review)` | `0.9.4-rc3+platterpus.30` | optional | The build handshake round 38 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
+| `cyanrip` | `0.9.4-rc3+platterpus.30` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
+| `cyanrip (build under review)` | `0.9.4-rc3+platterpus.31` | optional | The build handshake round 39 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
 | `cyanrip (upstream)` | `>=0.9.0` | optional | Stock cyanrip. The wizard installs it first from the COPR so a failed fork build still leaves a working ripper; the fork is then exported over it. Also the project the fork tracks. | src/platterpus/deps/host_setup.py (the cyanrip step) | src/platterpus/deps/registry.py (min_version) |
 
 Details for `cyanrip`:
 
-- `pin`: 3f288fb
-- `build-tag`: platterpus-fork-g3f288fb
-- `banner`: cyanrip 0.9.4-rc3+platterpus.28 (platterpus-fork-g3f288fb)
+- `pin`: 5cc1c6b
+- `build-tag`: platterpus-fork-g5cc1c6b
+- `banner`: cyanrip 0.9.4-rc3+platterpus.30 (platterpus-fork-g5cc1c6b)
 - `branch`: platterpus-fork
-- `release-seq`: 39
-- `approved-by-round`: 37
-- `approved-for-platterpus`: 0.7.117
+- `release-seq`: 41
+- `approved-by-round`: 38
+- `approved-for-platterpus`: 0.7.121
 - `checked-minimum`: 0.9.0
 - `installed-at`: /usr/local/bin/cyanrip inside the ripping container
 - `host-export`: ~/.local/bin/cyanrip
 - `exported-from`: /usr/bin/cyanrip, /usr/local/bin/cyanrip (the last export wins)
-- `pin-under-review`: 5cc1c6b (0.9.4-rc3+platterpus.30, round 38, published: yes)
+- `pin-under-review`: e531a33 (0.9.4-rc3+platterpus.31, round 39, published: yes)
 - `test-pin`: 3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)
 - `handshake`: bidirectional release handshake: docs/cyanrip-handshake.md
 
 Details for `cyanrip (build under review)`:
 
-- `pin`: 5cc1c6b
-- `round`: 38
+- `pin`: e531a33
+- `round`: 39
 - `published`: yes
 
 ### The ripping container (2)
@@ -313,7 +313,7 @@ Details for `cyanrip (build under review)`:
 
 | Service | Endpoints | When | Used in |
 |---|---|---|---|
-| `AccurateRip` | `http://www.accuraterip.com/accuraterip/DriveOffsets.bin`, `https://www.accuraterip.com/driveoffsets.htm` | maintenance (the offset snapshot); a link in the drive setup dialog | scripts/update_drive_offsets.py, src/platterpus/ui/drive_setup_dialog.py |
+| `AccurateRip` | `http://www.accuraterip.com/accuraterip/`, `http://www.accuraterip.com/accuraterip/DriveOffsets.bin`, `https://www.accuraterip.com/driveoffsets.htm` | runtime (one dBAR lookup after a CTDB repair); maintenance (the offset snapshot); a link in the drive setup dialog | scripts/update_drive_offsets.py, src/platterpus/adapters/accuraterip_db.py, src/platterpus/ui/drive_setup_dialog.py |
 | `Cover Art Archive` | `https://coverartarchive.org/`, `https://coverartarchive.org/release/` | runtime (cover art after a rip; a reachability check in --doctor) | src/platterpus/adapters/cover_art.py, src/platterpus/preflight.py |
 | `CUETools Database (CTDB)` | `http://db.cuetools.net/lookup2.php` | runtime (optional verify after a rip) | src/platterpus/adapters/ctdb_client.py |
 | `cyanrip fork release manifest` | `https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json` | runtime (ripper update offers) | src/platterpus/deps/ripper_manifest.py |
@@ -452,4 +452,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.7.121.*
+*Last updated for Platterpus v0.7.122.*

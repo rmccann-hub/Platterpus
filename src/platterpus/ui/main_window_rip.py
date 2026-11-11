@@ -450,6 +450,7 @@ def _merge_shipped_track(
             secure_rerip_agreement=None,
             secure_rerip_kept_read=None,
             secure_rerip_limit_stop=None,
+            secure_rerip_ar_overrule=None,
         )
     verdict = verdicts.get(track.number)
     if verdict is not None:
@@ -478,6 +479,11 @@ def _merge_shipped_track(
             # would describe reads that are no longer the file's.
             secure_rerip_limit_stop=(
                 shipped.secure_rerip_limit_stop if shipped is not None else None
+            ),
+            # And `.31`'s overruled agreement (their round 39 lap 1 S4): the
+            # shipped read's, so the record says AccurateRip ended THESE reads.
+            secure_rerip_ar_overrule=(
+                shipped.secure_rerip_ar_overrule if shipped is not None else None
             ),
         )
     return track
@@ -3536,8 +3542,11 @@ class RipMixin(MainWindowShared):
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
         # The EAC-layout log first, so the report write below embeds the copy
-        # whose Proof: rows name CTDB (TASKS R51). Always the READ's verdict: a
-        # repair that may follow never rewrites this log (KDD-24).
+        # whose Proof: rows name CTDB (TASKS R51). The READ's verdict: a repair
+        # that follows renders it once more when it lands, keeping every row of
+        # the read and adding the repair in its tracks' Record: rows (G3,
+        # `CtdbRepairMixin._land_ctdb_repair`); the ripper's own log is never
+        # touched (KDD-24).
         self._rewrite_eac_log_with_ctdb(generation, result)
         # The automatic CTDB repair (TASKS R133) decides here. When it starts, it
         # records this verdict itself once it lands, with the repair beside it, so
@@ -3560,6 +3569,13 @@ class RipMixin(MainWindowShared):
         folder, which follows a library move. Only over a log the first write
         made, never into a folder a newer rip has claimed, and only when the
         text changed: a disc AccurateRip holds renders the same either way.
+
+        Called twice when CTDB repairs the album: when CTDB answers, and when the
+        repair lands with ``result.repair`` set (G3, 2026-11-11), so each repaired
+        track's ``Record:`` row and status line say it was repaired. Every row of
+        the read stays as it was (the same ``RipLog``, rendered the same way):
+        what the log is the record of does not change, and the file on disk is
+        no longer left described only by a read it does not hold.
 
         On the GUI thread, like the first write: one render and one small file.
         Never raises; a companion log is a courtesy, never load-bearing.
@@ -4314,6 +4330,9 @@ class RipMixin(MainWindowShared):
                 # Where the ripper's counted errors were, so the health line is
                 # about the reads kept (TASKS R59), as the report's is.
                 replaced_reads=self._replaced_reads_of(rip_log),
+                # Which chase attempt each verified-read chase kept, for the
+                # Record: rows (G3), as the report's `read_speed` says.
+                retried_tracks=list(getattr(self, "_last_retried_tracks", None) or []),
             )
             text, defused = render.render()
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")

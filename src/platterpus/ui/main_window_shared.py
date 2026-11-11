@@ -482,6 +482,11 @@ class MainWindowShared(_SeamBase):
         def _start_flac_verify(
             self, rip_dir: Path, wait_for: threading.Thread | None
         ) -> None: ...
+        # Also RipMixin: renders the EAC-layout log again; the repair calls it
+        # when it lands, so a repaired track's Record: row names it (G3).
+        def _rewrite_eac_log_with_ctdb(
+            self, generation: int, result: object
+        ) -> None: ...
 
         # Defined in CtdbRepairMixin (main_window_ctdb_repair.py); RipMixin calls
         # them from the finish handler and the CTDB check's landing:

@@ -271,6 +271,12 @@ _PARSER_MODULES: tuple[str, ...] = (
     # block of every cyanrip log an acceptance run wrote, and a raise there would
     # lose that step's answer to a traceback. Rostered with the parser.
     "uiscript/pregap_grading.py",
+    # Added 2026-11-11 with them (TASKS R138, round 39's G2): AccurateRip's dBAR
+    # reply is a server's bytes, read by the parser, and the adapter reads the
+    # disc ID out of cyanrip's log. Both documented never-raises; rostered with
+    # the modules, not after them. Their properties: tests/test_accuraterip_db.py.
+    "parsers/accuraterip_dbar.py",
+    "adapters/accuraterip_db.py",
 )
 
 # Exceptions that make an `int()` call safe to leave bare inside a `try`.

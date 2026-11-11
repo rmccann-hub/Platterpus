@@ -56,6 +56,8 @@ UNUSED_BY_ANY_RIG_SCRIPT: dict[str, tuple[str, str]] = {
 
 #: How many entries the list above may hold. Lower it when an entry goes; raising
 #: it is a decision, made with the reason in the new entry and the commit message.
+#: 3 -> 4 -> 3 on 2026-11-11: `expect-track-records` waited here until its
+#: fullacceptance.txt step landed (TASKS R139).
 _ALLOWLIST_CEILING: int = 3
 
 

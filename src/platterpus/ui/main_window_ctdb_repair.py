@@ -21,7 +21,9 @@ CtdbRepairWorker` and, when it lands, records it and says what happened.
 3. The worker waits for the other readers, repairs (every proof, or nothing is
    replaced), and verifies the repaired files again.
 4. It lands here: the read's verdict is recorded with ``repair`` and
-   ``after_repair`` beside it, and the user is told. After a REPAIRED outcome the
+   ``after_repair`` beside it, and the user is told. A REPAIRED outcome first
+   renders the EAC-layout log once more, the read's rows unchanged and each
+   repaired track's ``Record:`` row naming the repair (G3). After a REPAIRED outcome the
    derived copies are made again from the repaired FLAC (the same transcode,
    whole album, so an MP3's album ReplayGain stays an album figure), and the
    derived verify, the checksums and the FLAC integrity check run again on what
@@ -52,6 +54,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import QThread
 
 from platterpus import diagnostics, rip_files
+from platterpus.adapters.accuraterip_db import AccurateRipHttpImpl
 from platterpus.adapters.transcode import TranscodeResult, transcode_files
 from platterpus.ctdb.repair_run import differs_from_strongest
 from platterpus.ctdb.repair_types import RepairStatus, failed, refused
@@ -243,6 +246,7 @@ class CtdbRepairMixin(MainWindowShared):
             result,
             context.rip_dir,
             client=self._ctdb_client,
+            accuraterip=AccurateRipHttpImpl(),  # G2, TASKS R138: on the worker
             rip_log=context.rip_log,
             disc_tracks_hint=context.disc_tracks_hint,
             wait_for=readers,
@@ -287,6 +291,22 @@ class CtdbRepairMixin(MainWindowShared):
         if record is not None:
             record.pending.discard("ctdb")
         self._diagnose_ctdb_repair(result)
+        # THE RECORD (G3, the owner-approved plan of 2026-11-11). The EAC-layout
+        # log was written at the rip's end and again when CTDB answered, both
+        # before this repair, so a repaired track's block said only what the read
+        # was. Rendered once more now, BEFORE the report write below so the
+        # report embeds this copy: every row of the read stays (its Copy CRC and
+        # AccurateRip rows are the ripper's), and the track's Record: row and
+        # status line say it was repaired, toward which entry, with the CRC
+        # before and after and AccurateRip v1 and v2 each stated. Why rewrite
+        # our log rather than add a trailer file: the log is our rendering, and
+        # already re-rendered when CTDB answers (TASKS R51); a separate file is
+        # one a reader of the log never opens, so the log would go on describing
+        # a file that is no longer on disk. The ripper's own log is never
+        # touched (KDD-24). Only a REPAIRED outcome changes a file, so only it
+        # changes the log; and on close too, since this is one small write.
+        if result.repair is not None and result.repair.status is RepairStatus.REPAIRED:
+            self._rewrite_eac_log_with_ctdb(generation, result)
         self._record_post_rip_result(generation, "ctdb", result)
         if not closing:
             self._tell_ctdb_repair(generation, result)

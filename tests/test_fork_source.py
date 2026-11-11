@@ -1541,9 +1541,14 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # `f93d5dfb5a761a2f…`, 1,318 bytes at `3f288fb`. It builds test harnesses for
     # their CI and changes nothing a rip runs, so production still passes nothing.
     #
+    # **SEVENTEENTH TIME, ON THE ROLL TO `5cc1c6b` (round 38 close, 2026-11-11), AND
+    # THE ANSWER DID NOT CHANGE.** `git diff 3f288fb 5cc1c6b -- meson_options.txt`
+    # in the fork's tree is empty: sha256 `f93d5dfb5a761a2f…`, 1,318 bytes, two
+    # options (`declare_released`, `fuzz`), so the reasons above carry over.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "3f288fb", (
+    assert fork_source.PRODUCTION_TARGET.pin == "5cc1c6b", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "
@@ -1981,7 +1986,11 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
     # release): `git diff --shortstat 3952c03 5cc1c6b -- src meson.build` in a
     # clone of the fork is 40 files, 8205 insertions, 1039 deletions. Different
     # programs, so False.
-    DECLARED_FOR: tuple[str, str, bool] = ("5cc1c6b", "3952c03", False)
+    # Re-derived 2026-11-11 when round 39 named `.31` (`e531a33`, their lap 1):
+    # `git diff --shortstat 3952c03 e531a33 -- src meson.build` in a clone of the
+    # fork is 41 files, 8402 insertions, 1048 deletions. Different programs, so
+    # False.
+    DECLARED_FOR: tuple[str, str, bool] = ("e531a33", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (

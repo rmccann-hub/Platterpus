@@ -95,9 +95,16 @@ class EacLogRender:
     #: Who cancelled a cancelled rip, worded (TASKS R62); "" otherwise. Kept so a
     #: render when CTDB answers says it as the first write did.
     cancelled_by: str = ""
+    #: The worker's ``retried_tracks`` at finish, for which chase attempt each
+    #: verified-read chase kept, in the ``Record:`` rows (G3, 2026-11-11).
+    retried_tracks: list[RetriedTrackBlock] | None = None
 
     def render(self, ctdb_result: object | None = None) -> tuple[str, list[str]]:
-        """The log text and its defused lines, naming CTDB per track if it answered."""
+        """The log text and its defused lines, naming CTDB per track if it answered.
+
+        ``ctdb_result`` carries the CTDB repair once it has landed, so a render
+        after the repair names it in each repaired track's ``Record:`` row (G3).
+        """
         from platterpus.eac_log_export import render_eac_style_log_and_defused
 
         return render_eac_style_log_and_defused(
@@ -111,6 +118,7 @@ class EacLogRender:
             replaced_reads=self.replaced_reads,
             cancelled_by=self.cancelled_by,
             ctdb_result=ctdb_result,
+            retried_tracks=self.retried_tracks,
         )
 
 

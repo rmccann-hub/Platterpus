@@ -32,7 +32,9 @@ What it does, in order (:meth:`CtdbRepairWorker.run`):
    refusing outright when that answer cannot be lined up with the files.
 3. **Verifies again** after a REPAIRED outcome: a fresh lookup and decode of the
    repaired files (``ctdb_worker.verify_rip_dir``), kept as ``after_repair``
-   BESIDE the read's verdict, never in its place (KDD-24).
+   BESIDE the read's verdict, never in its place (KDD-24); and asks AccurateRip,
+   once, whether it holds each repaired track's v1 and v2 (TASKS R138,
+   ``ctdb/repair_accuraterip.py``), recorded on the repair record.
 
 Never raises; always emits :attr:`CtdbRepairWorker.done` then ``finished``. The
 outcome is also kept on the worker (:attr:`CtdbRepairWorker.outcome`), so a
@@ -54,10 +56,12 @@ from typing import Final
 from PySide6.QtCore import QObject, Signal, Slot
 
 from platterpus import rip_files
+from platterpus.adapters.accuraterip_db import AccurateRipDbClient
 from platterpus.adapters.ctdb_client import CTDBClient
 from platterpus.adapters.flac_rewrite import FlacRewriter, killable_runner
 from platterpus.ctdb import decode
 from platterpus.ctdb.repair import PcmDecoder
+from platterpus.ctdb.repair_accuraterip import lookup_for_repair, with_accuraterip
 from platterpus.ctdb.repair_run import accuraterip_answers, repair_verified_rip
 from platterpus.ctdb.repair_types import RepairRecord, RepairStatus, failed, refused
 from platterpus.ctdb.repair_wording import CANCELLED
@@ -135,6 +139,7 @@ class CtdbRepairWorker(QObject):
         rip_dir: Path,
         *,
         client: CTDBClient,
+        accuraterip: AccurateRipDbClient | None = None,
         rip_log: object | None = None,
         disc_tracks_hint: int | None = None,
         wait_for: Sequence[threading.Thread] = (),
@@ -147,6 +152,8 @@ class CtdbRepairWorker(QObject):
         self._result: CtdbVerifyResult = result
         self._rip_dir: Path = Path(rip_dir)
         self._client: CTDBClient = client
+        # None: no AccurateRip lookup, and the record says so (never a guess).
+        self._accuraterip: AccurateRipDbClient | None = accuraterip
         self._rip_log: object | None = rip_log
         self._disc_tracks_hint: int | None = disc_tracks_hint
         self._wait_for: tuple[threading.Thread, ...] = tuple(wait_for)
@@ -190,7 +197,8 @@ class CtdbRepairWorker(QObject):
         ``QThread.quit()`` cannot reach, so the kill is what makes this real
         (``CLAUDE.md`` rule 9). The waits in step 1 poll the same job's flag every
         :data:`_POLL_S`. What it cannot interrupt: the fresh verify's CTDB
-        lookup, an HTTP GET bounded by the client's own timeout.
+        lookup and the AccurateRip lookup, each an HTTP GET bounded by its
+        client's own timeout.
         """
         self._job.cancel()
 
@@ -276,11 +284,17 @@ class CtdbRepairWorker(QObject):
                 dataclasses.replace(repaired, repair=failed(CANCELLED)),
                 cancelled=True,
             )
-        if not is_repaired or self._job.cancelled:
+        if record is None or not is_repaired or self._job.cancelled:
             return CtdbRepairOutcome(repaired, cancelled=self._job.cancelled)
         log.info("CTDB repair committed; verifying the repaired files against CTDB")
         after = self._reverify(self._rip_dir, self._decoder, self._probe)
+        # G2 (TASKS R138): one AccurateRip lookup, the witness CTDB is not.
+        found = lookup_for_repair(
+            self._accuraterip, self._rip_log, len(flac_paths), self._job.cancelled
+        )
         return CtdbRepairOutcome(
-            dataclasses.replace(repaired, after_repair=after),
+            dataclasses.replace(
+                repaired, repair=with_accuraterip(record, found), after_repair=after
+            ),
             cancelled=self._job.cancelled,
         )

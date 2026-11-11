@@ -86,6 +86,7 @@ text is taken verbatim as one value.
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
 | `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial |
 | `expect-read-offset` | 0 | ready | expect-read-offset — the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes) |
+| `expect-track-records` | 0 | ready | expect-track-records — every track of the last rip says how it was verified, in the report and the EAC-layout log; fails on Accurately ripped for a track repaired from CTDB, or any OK over reads that disagree; and each repaired track must be verified by AccurateRip v2 (not determined is blocked) |
 | `expect-derived-files` | 1–2 | ready | expect-derived-files <mp3|wavpack|wav> [quality] — open each derived file: its master's length, its tags and cover (MP3, WavPack), and the encoder and MP3 -q:a that ran, from the report; MP3 names the quality the script set |
 | `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table held when the rip started, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
@@ -145,7 +146,7 @@ paste accident cannot strand an unattended run.
 
 | limit | value |
 |---|---|
-| `max_script_lines` | 2000 |
+| `max_script_lines` | 4000 |
 | `max_line_characters` | 4000 |
 | `max_wait_seconds` | 600.0 |
 | `max_wait_for_rip_seconds` | 21600 |
@@ -384,7 +385,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.7.121",
+  "platterpus_version": "0.7.122",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -704,6 +705,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-read-offset \u2014 the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes)"
+    },
+    {
+      "name": "expect-track-records",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-track-records \u2014 every track of the last rip says how it was verified, in the report and the EAC-layout log; fails on Accurately ripped for a track repaired from CTDB, or any OK over reads that disagree; and each repaired track must be verified by AccurateRip v2 (not determined is blocked)"
     },
     {
       "name": "expect-derived-files",
@@ -1060,7 +1069,7 @@ found nothing wrong*.
     "-v"
   ],
   "limits": {
-    "max_script_lines": 2000,
+    "max_script_lines": 4000,
     "max_line_characters": 4000,
     "max_wait_seconds": 600.0,
     "max_wait_for_rip_seconds": 21600,
@@ -1248,4 +1257,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.7.121.*
+*Last updated for Platterpus v0.7.122.*

@@ -202,6 +202,11 @@ _FORK_ONLY_RULES: frozenset[str] = frozenset(
         # `round-38-lap-12-provider-contract-g0c276fc.md` lists it (P2 line 376).
         # Fork-only: the reads it lists are the fork's own (round 38 work).
         "track_other_read",
+        # The fork's `.31` early end, a read AccurateRip matches after an overruled
+        # agreement (round 39 lap 1 S4), `cyanrip@e531a33:src/cyanrip_main.c:2140`,
+        # their P2 at `round-39-lap-01-provider-contract-g6eacb8b.md:504`.
+        # Fork-only: `--reread-until-accuraterip` is theirs.
+        "secure_rerip_accuraterip_matched",
     }
 )
 
@@ -325,6 +330,11 @@ def _maximal_argv(backend: CyanripImpl, build_tag: str) -> list[str]:
         # avoid. Derived from `fork_source`, never typed, so it moves with the pin.
         ripper_build_tag=build_tag,
         prefer_disc_isrc=True,
+        # The securing pass's time limit (round 39), sent to a build that lists
+        # it; any value in range shows the flag.
+        reread_time_limit_s=600,
+        # `.31`'s rule on the securing pass (round 39), to a build that lists it.
+        reread_until_accuraterip=2,
     )
 
 

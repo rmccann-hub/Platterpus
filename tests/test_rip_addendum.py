@@ -706,3 +706,33 @@ def test_the_one_frame_row_is_labelled_frame_450_not_as_an_offset() -> None:
             assert line.split(":", 1)[1].startswith(" "), (
                 f"no space after {label!r}: {line!r}"
             )
+
+
+# --- Round 39: two swaps in one rip share one sidecar ---------------------------
+
+
+def test_a_second_swap_in_one_rip_keeps_the_first_swaps_rows() -> None:
+    """Archival Exact can swap twice in one rip: its securing pass (instability)
+    and then its album-pass chase (AccurateRip). The sidecar is rewritten whole,
+    so the second write must carry the first's rows, and a track swapped twice
+    keeps only its newer row, the file on disk."""
+    first = [ra.SupersededTrack(number=4, crc="AAAAAAAA")]
+    second = [
+        ra.SupersededTrack(number=3, crc="59D352DD"),
+        ra.SupersededTrack(number=4, crc="BBBBBBBB"),
+    ]
+    rows, trigger = ra.merged_rows(first, "instability", second, "accuraterip")
+    assert [(r.number, r.crc) for r in rows] == [(3, "59D352DD"), (4, "BBBBBBBB")]
+    assert trigger == ra.TRIGGER_MIXED
+    text = ra.render_addendum(trigger, rows)
+    assert "did not read consistently, or did not match AccurateRip" in text
+    assert "CRC 59D352DD" in text and "CRC AAAAAAAA" not in text
+
+
+def test_the_first_swap_of_a_rip_keeps_its_own_trigger() -> None:
+    rows, trigger = ra.merged_rows([], None, [ra.SupersededTrack(3)], "accuraterip")
+    assert trigger == "accuraterip" and [r.number for r in rows] == [3]
+    _rows, same = ra.merged_rows(
+        rows, "accuraterip", [ra.SupersededTrack(5)], "accuraterip"
+    )
+    assert same == "accuraterip"

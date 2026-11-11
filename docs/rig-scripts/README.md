@@ -201,7 +201,7 @@ answers.
 2026-11-05, asking for *"a couple things instead of 15 steps where i am copy and
 pasting"*): `bash drivetest.sh` for phases 1 and 2, `bash drivetest.sh perfect` after
 Windows sets PureRead to Perfect, `bash drivetest.sh restored` after it is put back,
-`bash drivetest.sh probe` (round 39's G4, with Platterpus closed: one disc read timed, two reads 2.4 s apart, and the C2 probe at the five places the wrong samples sit, ported from the fork's runner), `bash drivetest.sh status` to see what is done. Raw reads keep only the bytes asked for (the sub-channel, the C2 pointers); each frame's audio is dropped before anything is uploaded (Critical rule #8). It keeps everything in `~/platterpus-rig/drivetest38/` (and itself at `~/platterpus-rig/drivetest.sh`), the one folder the app keeps rig evidence in, and moves anything the earlier pastes left loose in the home folder into it, deleting nothing. It stops once (the disc wipe), resumes
+`bash drivetest.sh probe` (round 39's G4, with Platterpus closed: one disc read timed, two reads 2.4 s apart, and the C2 probe at the five places the wrong samples sit, ported from the fork's runner), `bash drivetest.sh records` (every ripper `--diagnostics` record in the rips folder since 2026-11-09, in one upload, with no drive access: the fork's round 39 lap 1 S10; every other upload now carries the records written since its test began too), `bash drivetest.sh status` to see what is done. Raw reads keep only the bytes asked for (the sub-channel, the C2 pointers); each frame's audio is dropped before anything is uploaded (Critical rule #8). It keeps everything in `~/platterpus-rig/drivetest38/` (and itself at `~/platterpus-rig/drivetest.sh`), the one folder the app keeps rig evidence in, and moves anything the earlier pastes left loose in the home folder into it, deleting nothing. It stops once (the disc wipe), resumes
 from where it stopped, keeps the machine awake, retries a run only when it stopped
 before its first rip, packs logs and never audio (the same `AUDIO_EXTS` list as
 `platterpuscollect.sh`, and it lists the upload to prove it), and names one file to
@@ -501,4 +501,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.7.121.*
+*Last updated for Platterpus v0.7.122.*

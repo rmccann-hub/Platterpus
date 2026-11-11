@@ -1408,7 +1408,11 @@ def test_schema_version_is_27() -> None:
     # shipped in 0.7.120. v44, still unreleased, also took the fork's `.30`
     # readings: per track `other_reads`, per `disc.error_positions` row the `/13`
     # `distinct_reads`, and `disc.drive_declared` (`tests/test_round38_dot30_reads.py`).
-    assert REPORT_SCHEMA_VERSION == 44
+    # v45 added per track `record`, how each copy was verified (round 39's G3;
+    # `tests/test_track_record.py`). v44 had shipped in 0.7.121.
+    # v45, still unreleased, also took the verified-read chase's budget and
+    # per-attempt times (round 39 G1; `tests/test_chase_budget.py`).
+    assert REPORT_SCHEMA_VERSION == 45
 
 
 def _issue_codes(report: dict) -> set[str]:

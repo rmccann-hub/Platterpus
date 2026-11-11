@@ -558,6 +558,16 @@ _VERB_LIST: tuple[Verb, ...] = (
         "and the -s we sent is what the log applied (not determined never passes)",
     ),
     Verb(
+        "expect-track-records",
+        0,
+        0,
+        "expect-track-records — every track of the last rip says how it was "
+        "verified, in the report and the EAC-layout log; fails on Accurately ripped "
+        "for a track repaired from CTDB, or any OK over reads that disagree; and "
+        "each repaired track must be verified by AccurateRip v2 (not determined "
+        "is blocked)",
+    ),
+    Verb(
         "expect-derived-files",
         1,
         2,

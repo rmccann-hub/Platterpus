@@ -182,6 +182,8 @@ class _FakeBackend(RipBackend):
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
         prefer_disc_isrc: bool = False,
+        reread_time_limit_s: int | None = None,
+        reread_until_accuraterip: int | None = None,
     ) -> RipHandle:
         self.rip_calls.append(
             {
@@ -198,6 +200,8 @@ class _FakeBackend(RipBackend):
                 "read_speed": read_speed,
                 "only_tracks": tuple(only_tracks),
                 "prefer_disc_isrc": prefer_disc_isrc,
+                "reread_time_limit_s": reread_time_limit_s,
+                "reread_until_accuraterip": reread_until_accuraterip,
             }
         )
         if self._raise_on_rip:
@@ -1344,6 +1348,10 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert backend.rip_calls[1]["read_speed"] == 0  # never -S
     # The re-rip uses the user's configured -Z (their number is the ceiling).
     assert backend.rip_calls[1]["secure_rerip_matches"] == 2
+    # `.31`'s rule is asked for on the securing pass, and on it alone (round 39):
+    # the album pass reads as it always did. The backend's gate decides the build.
+    assert backend.rip_calls[1]["reread_until_accuraterip"] == 2
+    assert backend.rip_calls[0]["reread_until_accuraterip"] is None
     # Track 3 was fixed → no longer unstable, recorded as replaced.
     assert worker.unstable_tracks == []
     assert worker.retried_tracks == [
@@ -1421,6 +1429,48 @@ def test_the_album_passs_record_stays_put_and_the_securing_passs_is_kept_beside_
     assert not list(album.glob("cyanrip-diagnostics-*.json")), (
         "a diagnostics record is in the album folder"
     )
+
+
+def test_a_chase_reads_record_leaves_its_temp_folder_for_the_rips_root(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The fork's round 39 lap 1 S10: every rip's record in the bundle. A chase
+    read (TASKS R7) runs in a temporary folder the chase deletes, so its record,
+    the one with the wrong or right read's `block_crcs` G4 compares, went with
+    it. `_read_once_for_chase` now copies it into the rips root, named for the
+    track, and names it for the rip's bundle."""
+    handle = _ArgvHandle(lines=["ripping"], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    folder = tmp_path / "chase-attempt"
+    folder.mkdir()
+
+    def rip_side_effect(call: dict) -> None:
+        # Like cyanrip: a relative name, written in the directory the read ran in.
+        handle.argv = (
+            "cyanrip",
+            "-l",
+            "3",
+            "--diagnostics",
+            "cyanrip-diagnostics-X.json",
+        )
+        (call["output_dir"] / "cyanrip-diagnostics-X.json").write_text('{"read": 1}\n')
+
+    backend.rip_side_effect = rip_side_effect
+    worker = RipWorker(backend, _params(tmp_path / "rips"))
+    (tmp_path / "rips").mkdir()
+    worker._read_once_for_chase(3, folder)
+
+    kept = tmp_path / "rips" / "cyanrip-diagnostics-X-chase-t03.json"
+    assert kept.read_text() == '{"read": 1}\n'
+    assert kept in worker.diagnostics_records
+    # A second read of the same track never overwrites the first's record.
+    worker._read_once_for_chase(3, folder)
+    assert (tmp_path / "rips" / "cyanrip-diagnostics-X-chase-t03-2.json").is_file()
+    # A read whose argv named no record keeps nothing and says nothing is lost.
+    backend.rip_side_effect = lambda call: setattr(handle, "argv", ("cyanrip",))
+    before = list(worker.diagnostics_records)
+    worker._read_once_for_chase(3, folder)
+    assert list(worker.diagnostics_records) == before
 
 
 def test_a_securing_pass_that_wrote_no_record_is_named_missing_with_why(

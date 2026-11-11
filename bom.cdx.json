@@ -15,7 +15,7 @@
           "type": "application",
           "group": "platterpus",
           "name": "scripts/emit_bom.py",
-          "version": "0.7.121"
+          "version": "0.7.122"
         }
       ]
     },
@@ -23,14 +23,14 @@
       "type": "application",
       "bom-ref": "platterpus",
       "name": "platterpus",
-      "version": "0.7.121",
+      "version": "0.7.122",
       "description": "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
       "licenses": [
         {
           "expression": "GPL-3.0-only"
         }
       ],
-      "purl": "pkg:pypi/platterpus@0.7.121",
+      "purl": "pkg:pypi/platterpus@0.7.122",
       "externalReferences": [
         {
           "type": "vcs",
@@ -473,11 +473,11 @@
       "bom-ref": "ripper:cyanrip-fork",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip",
-      "version": "0.9.4-rc3+platterpus.28",
+      "version": "0.9.4-rc3+platterpus.30",
       "isExternal": true,
       "description": "The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host.",
       "scope": "required",
-      "purl": "pkg:github/rmccann-hub/cyanrip@3f288fb",
+      "purl": "pkg:github/rmccann-hub/cyanrip@5cc1c6b",
       "pedigree": {
         "ancestors": [
           {
@@ -541,15 +541,15 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "3f288fb"
+          "value": "5cc1c6b"
         },
         {
           "name": "platterpus:build-tag",
-          "value": "platterpus-fork-g3f288fb"
+          "value": "platterpus-fork-g5cc1c6b"
         },
         {
           "name": "platterpus:banner",
-          "value": "cyanrip 0.9.4-rc3+platterpus.28 (platterpus-fork-g3f288fb)"
+          "value": "cyanrip 0.9.4-rc3+platterpus.30 (platterpus-fork-g5cc1c6b)"
         },
         {
           "name": "platterpus:branch",
@@ -557,15 +557,15 @@
         },
         {
           "name": "platterpus:release-seq",
-          "value": "39"
+          "value": "41"
         },
         {
           "name": "platterpus:approved-by-round",
-          "value": "37"
+          "value": "38"
         },
         {
           "name": "platterpus:approved-for-platterpus",
-          "value": "0.7.117"
+          "value": "0.7.121"
         },
         {
           "name": "platterpus:checked-minimum",
@@ -585,7 +585,7 @@
         },
         {
           "name": "platterpus:pin-under-review",
-          "value": "5cc1c6b (0.9.4-rc3+platterpus.30, round 38, published: yes)"
+          "value": "e531a33 (0.9.4-rc3+platterpus.31, round 39, published: yes)"
         },
         {
           "name": "platterpus:test-pin",
@@ -602,11 +602,11 @@
       "bom-ref": "ripper:cyanrip-fork-under-review",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip (build under review)",
-      "version": "0.9.4-rc3+platterpus.30",
+      "version": "0.9.4-rc3+platterpus.31",
       "isExternal": true,
-      "description": "The build handshake round 38 is reviewing; installable on request, never the default.",
+      "description": "The build handshake round 39 is reviewing; installable on request, never the default.",
       "scope": "optional",
-      "purl": "pkg:github/rmccann-hub/cyanrip@5cc1c6b",
+      "purl": "pkg:github/rmccann-hub/cyanrip@e531a33",
       "pedigree": {
         "ancestors": [
           {
@@ -639,11 +639,11 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "5cc1c6b"
+          "value": "e531a33"
         },
         {
           "name": "platterpus:round",
-          "value": "38"
+          "value": "39"
         },
         {
           "name": "platterpus:published",
@@ -3103,13 +3103,24 @@
         "name": "Illustrate"
       },
       "name": "AccurateRip",
-      "description": "Source of the bundled drive-offset table. The per-track AccurateRip results in a rip come from cyanrip's log; Platterpus does not query the AccurateRip database itself.",
+      "description": "Source of the bundled drive-offset table, and the database a CTDB repair asks about the repaired audio (one dBAR file per disc, TASKS R138). The per-track AccurateRip results of the rip itself come from cyanrip's log.",
       "endpoints": [
+        "http://www.accuraterip.com/accuraterip/",
         "http://www.accuraterip.com/accuraterip/DriveOffsets.bin",
         "https://www.accuraterip.com/driveoffsets.htm"
       ],
       "authenticated": false,
       "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "disc AccurateRip ID and track count"
+        },
+        {
+          "flow": "inbound",
+          "classification": "per-track CRCs and confidences"
+        }
+      ],
       "properties": [
         {
           "name": "platterpus:category",
@@ -3117,11 +3128,11 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "scripts/update_drive_offsets.py, src/platterpus/ui/drive_setup_dialog.py"
+          "value": "scripts/update_drive_offsets.py, src/platterpus/adapters/accuraterip_db.py, src/platterpus/ui/drive_setup_dialog.py"
         },
         {
           "name": "platterpus:when",
-          "value": "maintenance (the offset snapshot); a link in the drive setup dialog"
+          "value": "runtime (one dBAR lookup after a CTDB repair); maintenance (the offset snapshot); a link in the drive setup dialog"
         }
       ]
     },

@@ -391,7 +391,7 @@ def test_the_report_carries_the_repair(tmp_path: Path) -> None:
         decoder=lambda p: Path(p).read_bytes(),
         rewriter=_FakeRewriter(),
     )
-    assert REPORT_SCHEMA_VERSION == 44
+    assert REPORT_SCHEMA_VERSION == 45
     block = _ctdb(repaired)
     assert block is not None
     repair = block["repair"]

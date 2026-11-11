@@ -585,6 +585,28 @@ class CtdbRepairTrackBlock(TypedDict):
     accuraterip_v2_before: str | None
     accuraterip_v1_after: str | None
     accuraterip_v2_after: str | None
+    # v45 (TASKS R138): AccurateRip's database about the two `_after` checksums.
+    accuraterip_v1_database: AccurateRipDatabaseAnswerBlock | None
+    accuraterip_v2_database: AccurateRipDatabaseAnswerBlock | None
+
+
+class AccurateRipDatabaseAnswerBlock(TypedDict):
+    """One version's database answer (v45, R138; ``accuraterip_db_answer``)."""
+
+    answer: str | None  # matched / not_in_database / not_determined
+    confidence: int | None
+    reason: str | None
+
+
+class AccurateRipLookupBlock(TypedDict):
+    """``ctdb.repair.accuraterip_lookup`` (v45, R138): the disc's one lookup."""
+
+    state: str | None  # found / not_in_database / failed / not_made
+    url: str | None
+    responses_read: int | None
+    complete: bool | None
+    trailing_bytes: int | None
+    reason: str | None
 
 
 class CtdbRepairBlock(TypedDict):
@@ -604,6 +626,7 @@ class CtdbRepairBlock(TypedDict):
     tracks: list[CtdbRepairTrackBlock]
     encoder_argv: list[str] | None
     untouched: list[str]
+    accuraterip_lookup: AccurateRipLookupBlock | None  # v45, TASKS R138
 
 
 class CtdbTrackBlock(TypedDict):
@@ -746,6 +769,19 @@ class TrackProofBlock(TypedDict):
     line: str
 
 
+class TrackRecordBlock(TypedDict):
+    #: v45 (G3, 2026-11-11): how the copy was verified (`track_record.RECORD_KINDS`:
+    #: "first_read", "reread", "kept_at_limit_for_accuraterip",
+    #: "accuraterip_guided_convergence", "chase_attempt", "repaired_from_ctdb",
+    #: "not_verified") and the line the EAC-layout log's `Record:` row prints.
+    kind: str
+    line: str
+    #: Tri-state: whether the track's reads gave more than one value.
+    reads_disagree: bool | None
+    #: True when a CTDB repair rewrote the track's file after the read.
+    repaired: bool
+
+
 class TrackBlock(TypedDict):
     number: int | None
     filename: str | None
@@ -840,6 +876,8 @@ class TrackBlock(TypedDict):
     accuraterip_contradiction: str | None
     #: v40: which proof this copy has (`track_proof.track_proof`), CTDB included.
     proof: TrackProofBlock
+    #: v45: how this copy was verified (`track_record.track_record`).
+    record: TrackRecordBlock
     accuraterip: TrackAccurateRipBlock
 
 
@@ -865,6 +903,16 @@ class ChaseAttemptBlock(TypedDict):
     # The read's exit status; None when it was never reaped.
     exit_code: int | None
     kept: bool
+    # Schema 45 (round 39, G1): what another surface needs to print "chase
+    # attempt k" with its time. `seconds`: this attempt's wall-clock time, from
+    # the moment the read was asked for to the moment its result was judged
+    # (container start included); `chase_elapsed_seconds`: the chase's total
+    # when this attempt ended, the figure the time budget is checked against;
+    # `read_seconds`: the read's own `Elapsed:` from its log, None where the
+    # build prints none. Each None when not measured, never 0.
+    seconds: NotRequired[float | None]
+    chase_elapsed_seconds: NotRequired[float | None]
+    read_seconds: NotRequired[float | None]
 
 
 class VerifiedReadChaseBlock(TypedDict):
@@ -879,6 +927,32 @@ class VerifiedReadChaseBlock(TypedDict):
     distinct_reads_seen: int | None
     attempts: list[ChaseAttemptBlock]
     kept_attempt: int | None
+    # Schema 45 (round 39, G1; `chase_budget.py` rules 1 to 3). Every producer
+    # since writes all of them; a record from before has none.
+    # `verified_read_chase.CHASE_AFTER_*`: the pass whose kept read the chase
+    # tried to better, `securing_pass` or `album_pass` (Archival Exact).
+    after: NotRequired[str]
+    # `chase_budget.LIMIT_FROM_*`: `repeat_limit` (the user's -r, at most 5) or
+    # `high_confidence` (16, for a top entry at confidence 10 or more).
+    attempt_limit_reason: NotRequired[str]
+    # AccurateRip's top-entry confidence for the track (`max confidence:`).
+    accuraterip_top_confidence: NotRequired[int | None]
+    # Rule 2's inputs and result, in seconds: the track's length, the album
+    # pass's read time, and the budget, max(5 x length, 2 x read time). The
+    # budget is None when the length is not stated (the count alone bounds).
+    track_seconds: NotRequired[float | None]
+    album_read_seconds: NotRequired[float | None]
+    time_budget_seconds: NotRequired[float | None]
+    # The chase's whole wall-clock time; None for a skipped chase.
+    elapsed_seconds: NotRequired[float | None]
+    # `verified_read_chase.STOPPED_*`: what ended a chase that kept nothing
+    # (`attempt_limit`, `time_budget`, `cancelled`, `read_did_not_start`); None
+    # when a read was kept, and for a skipped chase.
+    stopped_reason: NotRequired[str | None]
+    # `chase_budget.CACHE_*`: whether each read flushes the drive's cache left
+    # by the read before it (`whole_track_read`), cannot be assured to
+    # (`not_assured`, a track under 567 sectors), or the length is not stated.
+    cache_defeat: NotRequired[str]
 
 
 class RetriedTrackBlock(TypedDict):

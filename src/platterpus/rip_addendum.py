@@ -203,6 +203,32 @@ def _row(label: str, value: str) -> str:
     return f"      {label:<24}{value or 'n/a'}"
 
 
+#: The trigger :func:`merged_rows` gives when one rip swapped tracks for both
+#: reasons: Archival Exact's securing pass re-reads tracks whose reads disagreed,
+#: and its album-pass chase (round 39) tracks AccurateRip did not verify.
+TRIGGER_MIXED: Final[str] = "mixed"
+
+
+def merged_rows(
+    earlier: list[SupersededTrack],
+    earlier_trigger: str | None,
+    rows: list[SupersededTrack],
+    trigger: str,
+) -> tuple[list[SupersededTrack], str]:
+    """This rip's earlier swap rows joined with new ones, and the trigger for both.
+
+    The sidecar is rewritten whole on each write, so a second swap in one rip
+    must carry the first one's rows or erase them. A track swapped twice keeps
+    its newer row (the file on disk is the newer read). Two different triggers
+    give :data:`TRIGGER_MIXED`. Pure.
+    """
+    newer = {row.number for row in rows}
+    joined = [row for row in earlier if row.number not in newer] + list(rows)
+    if not earlier or earlier_trigger in (None, trigger):
+        return joined, trigger
+    return joined, TRIGGER_MIXED
+
+
 def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
     """The sidecar's full text. Pure — no I/O — so it is testable as text.
 
@@ -218,6 +244,11 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         return ""
     if trigger == "accuraterip":
         why = "did not match AccurateRip on the first pass"
+    elif trigger == TRIGGER_MIXED:
+        why = (
+            "did not read consistently, or did not match AccurateRip, on the first "
+            "pass (the report's retried_tracks says which, per track),"
+        )
     elif not trigger:
         why = "were flagged on the first pass (the report did not record why)"
     else:

@@ -46,6 +46,9 @@ from platterpus import (
     ripper_exit_class,
 )
 from platterpus.accuraterip_standing import unvouched_sentence
+from platterpus.adapters.reread_until_accuraterip_args import (
+    SECURING_PASS_ACCURATERIP_CONFIDENCE,
+)
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -54,6 +57,8 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
+from platterpus.chase_record import CHASE_AFTER_ALBUM_PASS, CHASE_AFTER_SECURING_PASS
+from platterpus.chase_record_keep import keep_chase_record
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.isrc_provenance import IsrcReading, read_isrcs
 from platterpus.ladder_trigger import judge_step_down
@@ -71,6 +76,7 @@ from platterpus.redraw_run import LoggedRun, RedrawRun
 from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, SecureReripBlock
 from platterpus.rip_addendum import (
     SupersededTrack,
+    merged_rows,
     read_log_with_addendum,
     securing_pass_log_path_for,
     write_addendum,
@@ -96,6 +102,7 @@ from platterpus.securing_pass import (
     plan_securing_pass,
     why_no_securing_pass,
 )
+from platterpus.securing_time_limit import securing_pass_time_limit
 from platterpus.unfinished_refix import (
     NOT_REPLACED_COPY_FAILED,
     salvage_decision,
@@ -107,11 +114,12 @@ from platterpus.verdict import (
     reread_supersedes,
     track_accuraterip_contradiction,
 )
-from platterpus.workers.verified_read_run import (
-    SingleRead,
+from platterpus.workers.chase_passes import (
+    album_pass_entries,
     chase_tracks,
     keep_chase_logs,
 )
+from platterpus.workers.verified_read_run import SingleRead
 
 log = logging.getLogger(__name__)
 
@@ -917,6 +925,12 @@ class RipWorker(QObject):
         self._chase_exit_code: int | None = None
         # The tracks whose file is a chase read (`secure_rerip_report`).
         self._verified_rereads: list[int] = []
+        # Archival Exact can chase twice in one rip (round 39): whether this rip
+        # already wrote a chase log, and the swap rows and trigger its sidecar
+        # addendum holds, so a second write adds rather than erases.
+        self._chase_log_written: bool = False
+        self._addendum_rows: list[SupersededTrack] = []
+        self._addendum_trigger: str | None = None
         # The build tag of the ALBUM pass's ripper, as its banner read at spawn
         # (`RipHandle.build_tag`). What its exit code means depends on it: from fork
         # release 36 a 64 is a refused argument and a 74 the disc or drive, before
@@ -2033,6 +2047,13 @@ class RipWorker(QObject):
             parsed_log,
             log_path_str,
         )
+        # Archival Exact's album pass read every track with -Z, so no securing
+        # pass looks at a track whose reads CONVERGED on a value AccurateRip
+        # rejects (the 2026-10-21 track 3, `3D8FCF0C` kept after the verified
+        # `59D352DD` was read first). The chase runs there too (TASKS R7's open
+        # item, round 39), behind the same gate as the securing pass.
+        if self._secure_rerip_mode == "uniform" and not refusal:
+            self._chase_after_album_pass(parsed_log, log_path_str)
 
         # Ask the RIPPER whether the log it wrote still matches its own checksum.
         # Deliberately the LAST thing before finishing: every step that could touch
@@ -2220,6 +2241,7 @@ class RipWorker(QObject):
         only_tracks: tuple[int, ...] = (),
         pass_kind: str = _PASS_ALBUM,
         verified_reread: bool = False,
+        reread_time_limit_s: int | None = None,
     ) -> tuple[bool, str] | None:
         """Run ONE rip pass at the given speed/``-Z``; stream its output.
 
@@ -2251,6 +2273,10 @@ class RipWorker(QObject):
         verified-read chase (TASKS R7), not the securing pass: it is shown like
         the securing pass, but its exit status and ``-j`` record are not that
         pass's, so it writes neither of the securing pass's fields.
+
+        ``reread_time_limit_s`` is the securing pass's time budget (round 39,
+        `securing_time_limit.securing_pass_time_limit`), handed to the backend, which
+        range-checks it and sends it only to a build that lists the option.
         """
         self._reset_pass_progress(kind=pass_kind, tracks=tuple(only_tracks))
         # An error the securing pass hits says so: the window keeps the last error
@@ -2282,6 +2308,14 @@ class RipWorker(QObject):
                 disc_track_total=self._params.disc_track_total,
                 read_speed=read_speed,
                 only_tracks=only_tracks,
+                reread_time_limit_s=reread_time_limit_s,
+                # `.31`'s rule on the securing pass only, which reads with -Z
+                # (`reread_until_accuraterip_args.py` says why there and why 2).
+                reread_until_accuraterip=(
+                    SECURING_PASS_ACCURATERIP_CONFIDENCE
+                    if securing and secure_rerip_matches > 0
+                    else None
+                ),
             )
             # Snapshot the command line as soon as we have a handle, BEFORE the
             # read loop — so a rip that dies in its first second still carries
@@ -3162,11 +3196,22 @@ class RipWorker(QObject):
             # Never send -S: the speed lever is unreliable / aborts on some drives,
             # and -Z at max speed is the mechanism that actually helps here.
             self._current_read_speed = 0
+            # Round 39 (TASKS R49): each track's -Z reads bounded by time as well
+            # as by -r, through the fork's --reread-time-limit where the build
+            # lists it. None (a track with no stated length) keeps the count alone.
+            time_limit = securing_pass_time_limit(tracks, first_pass_tracks or {})
+            if time_limit is not None:
+                self.log_line.emit(
+                    f"[auto-fix] each track's re-reads stop starting after "
+                    f"{time_limit} s (5x its length or 2x its first read, the "
+                    "larger), where the ripper build takes a time limit"
+                )
             outcome = self._rip_once(
                 read_speed=0,
                 secure_rerip_matches=rerip_z,
                 output_dir=tmp_root,
                 only_tracks=tuple(tracks),
+                reread_time_limit_s=time_limit,
                 # THE DECLARATION. This is the one call site that runs after the
                 # album is already on disk, and saying so here is what stops the
                 # album progress model — bar, label and ETA — from being applied
@@ -3349,8 +3394,12 @@ class RipWorker(QObject):
         first_pass_tracks: dict[int, object],
         swapped: list[SupersededTrack],
         album_log_path: str,
+        after: str = CHASE_AFTER_SECURING_PASS,
     ) -> list[int]:
         """Run the verified-read chase over the securing pass's tracks (TASKS R7).
+
+        ``after`` is :data:`CHASE_AFTER_ALBUM_PASS` when ``rerip_log`` is
+        Archival Exact's album pass itself (``_chase_after_album_pass``).
 
         The loop is ``verified_read_run.chase_tracks``; this applies what it kept:
         a kept read replaces the track's row in ``swapped`` (the addendum
@@ -3371,6 +3420,7 @@ class RipWorker(QObject):
             cancelled=lambda: self._cancelled,
             say=self.log_line.emit,
             status=self.status.emit,
+            after=after,
         )
         for number, track in kept.items():
             self._swapped_track_records[number] = track
@@ -3381,13 +3431,55 @@ class RipWorker(QObject):
                 )
             )
             self._verified_rereads.append(number)
-        target = keep_chase_logs(album_log_path, sections)
+        target = keep_chase_logs(
+            album_log_path, sections, append=self._chase_log_written
+        )
         if target is not None:
+            self._chase_log_written = True
             self.log_line.emit(
                 f"[verified read] each single read's own ripper log is kept as "
                 f"{target.name}"
             )
         return list(kept)
+
+    def _chase_after_album_pass(self, album_log: object, album_log_path: str) -> None:
+        """The chase after Archival Exact's ``-Z`` album pass (round 39). Never raises.
+
+        Over each track AccurateRip did not verify that no securing pass has
+        recorded (`verified_read_run.album_pass_entries`), with the album pass
+        as both the read kept and the reads compared. The same loop, rules and
+        records as after a securing pass; a track it applied to joins
+        ``retried_tracks`` with its chase block, ``after: album_pass``.
+        """
+        if self._cancelled:
+            return
+        try:
+            handled = {entry["track"] for entry in self._retried_tracks}
+            entries = album_pass_entries(album_log, handled)
+            if not entries:
+                return
+            crcs, records = first_pass_records(album_log)
+            swapped: list[SupersededTrack] = []
+            kept = self._chase_verified_reads(
+                entries,
+                album_log,
+                album_log_path,
+                crcs,
+                records,
+                swapped,
+                album_log_path,
+                after=CHASE_AFTER_ALBUM_PASS,
+            )
+            self._retried_tracks.extend(
+                entry for entry in entries if entry.get("verified_read_chase")
+            )
+            self._last_unstable_tracks = [
+                n for n in self._last_unstable_tracks if n not in kept
+            ]
+            if kept:
+                self._append_swap_addendum(album_log_path, TRIGGER_ACCURATERIP, swapped)
+        except Exception:  # noqa: BLE001 — the chase must never crash the rip
+            log.exception("the album pass's verified-read chase failed")
 
     def _read_once_for_chase(self, number: int, folder: Path) -> SingleRead | None:
         """One single read of ``number`` into ``folder``, for the chase (TASKS R7).
@@ -3406,6 +3498,15 @@ class RipWorker(QObject):
         )
         if outcome is None:
             return None
+        # Its `-j` record leaves the temporary folder before the chase deletes it,
+        # for the bundle (the fork's round 39 lap 1 S10; `chase_record_keep.py`).
+        kept = keep_chase_record(
+            diagnostics_record.record_path_from_argv(self._ripper_argv, folder),
+            Path(self._params.output_dir),
+            number,
+        )
+        if kept is not None and kept not in self._diagnostics_records:
+            self._diagnostics_records.append(kept)
         success, log_path = outcome
         return SingleRead(success, log_path, self._chase_exit_code, self._ripper_argv)
 
@@ -3636,7 +3737,14 @@ class RipWorker(QObject):
         # Still never appended to the ripper's own log: it ends with cyanrip's
         # `Log FUN512:` checksum and `--verify-log` rejects trailing content by
         # design (round 7 lap 10).
-        written = write_addendum(album_log_path, trigger, swapped)
+        # One sidecar per rip, rewritten whole: a second swap in the same rip
+        # (Archival Exact's album-pass chase after its securing pass, round 39)
+        # carries the first one's rows, `rip_addendum.merged_rows`.
+        rows, trigger = merged_rows(
+            self._addendum_rows, self._addendum_trigger, swapped, trigger
+        )
+        self._addendum_rows, self._addendum_trigger = rows, trigger
+        written = write_addendum(album_log_path, trigger, rows)
         if written is not None:
             self.log_line.emit(
                 f"[auto-fix] wrote the supersede record to {written.name} — the "

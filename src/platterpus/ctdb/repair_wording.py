@@ -18,11 +18,17 @@ log view:
 Status is never colour alone: every sentence starts with its marker (``✓``,
 ``⚠``, ``ⓘ``), and the level travels beside the text for the label's colour.
 
-**AccurateRip after a repair is "not determined", and said so.** Platterpus has
-no AccurateRip lookup of its own (cyanrip does it during the rip, and its log
-prints only our checksums, never the database's for a track that did not
-match), so the repaired track's AccurateRip checksums are stated for a reader to
-compare and never called verified. Pure and Qt-free; never raises.
+**AccurateRip after a repair is stated per version, tri-state** (TASKS R138,
+round 39's gate G2). cyanrip asks AccurateRip during the rip and its log prints
+the database's value only for a read that matched, so since 2026-11-11 the repair
+worker asks the database itself, once, after the commit
+(``ctdb/repair_accuraterip.py``). Each repaired track's v1 and v2 then read
+"matched (confidence N)", "not in the AccurateRip database", or "not determined"
+with the reason; a record made without a lookup keeps "not determined" and says
+why (:func:`accuraterip_after_repair`, which the EAC-layout log's ``Record:`` row,
+the report's per-track ``record`` and the results pane share). A match is never
+worded "Accurately ripped": that is EAC's phrase for a READ, and the file is no
+longer the read. Pure and Qt-free; never raises.
 """
 
 from __future__ import annotations
@@ -30,6 +36,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+from platterpus.accuraterip_db_answer import (
+    AR_MATCHED,
+    AR_NOT_DETERMINED,
+    AR_NOT_IN_DATABASE,
+)
 from platterpus.ctdb.repair_types import RepairStatus
 
 #: The levels ``ui/status_colours.status_style`` colours. Named here, not
@@ -79,13 +90,88 @@ def _plural(count: int, word: str) -> str:
     return f"{count:,} {word}{'' if count == 1 else 's'}"
 
 
+def after_repair_agrees(after: object | None) -> bool | None:
+    """Does the fresh CTDB check of the repaired files agree? Tri-state.
+
+    ``None`` when no fresh check ran; ``True`` for a match no stronger entry
+    outvotes; ``False`` otherwise. The one predicate the results pane's sentence
+    and each repaired track's record (``track_record.py``) read, so the two cannot
+    describe one check two ways.
+    """
+    if after is None:
+        return None
+    verdict = getattr(getattr(after, "verdict", None), "value", None)
+    outvoted = bool(getattr(after, "outvoted", False))
+    return verdict == "match" and not outvoted
+
+
+def _hex(value: object) -> str | None:
+    """``BCF4E815`` for an int checksum, else None (a bool is not a checksum)."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return f"{value:08X}"
+    return None
+
+
+#: Why AccurateRip's answer about repaired audio is "not determined" when the
+#: record carries no lookup (one made before TASKS R138, or a caller that gave
+#: the repair no AccurateRip client), said once.
+ACCURATERIP_AFTER_REPAIR_WHY: Final[str] = (
+    "no AccurateRip lookup of the repaired audio was recorded, and the rip's "
+    "AccurateRip answer describes the read"
+)
+
+
+def _version_part(version: str, value: object, answer: object) -> tuple[str, str]:
+    """``("v2 BCF4E815 matched (confidence 200)", "")``: the words and any reason.
+
+    ``answer`` is an ``accuraterip_db_answer.ArDbAnswer`` or None (no lookup).
+    """
+    crc = _hex(value) or (value.upper() if isinstance(value, str) and value else None)
+    if crc is None:
+        return f"{version}: no checksum", ""
+    state = getattr(answer, "answer", None)
+    confidence = getattr(answer, "confidence", None)
+    reason = str(getattr(answer, "reason", "") or "")
+    if state == AR_MATCHED and isinstance(confidence, int):
+        return f"{version} {crc} matched (confidence {confidence:,})", ""
+    if state == AR_NOT_IN_DATABASE:
+        return f"{version} {crc}: not in the AccurateRip database", reason
+    if state == AR_NOT_DETERMINED:
+        return f"{version} {crc}: not determined", reason or "no reason recorded"
+    return f"{version} {crc}: not determined", ACCURATERIP_AFTER_REPAIR_WHY
+
+
+def accuraterip_after_repair(
+    v1: object, v2: object, v1_db: object = None, v2_db: object = None
+) -> str:
+    """``AccurateRip v1 134C0B9D matched (confidence 129); v2 BCF4E815 matched …``.
+
+    **Each version stated, tri-state** (G3 and G2, 2026-11-11). ``v1``/``v2`` are
+    our own checksums of the repaired file (``accuraterip_crc.py``), as ints
+    (``RepairedTrack``) or hex strings (the report's ``ctdb.repair.tracks``);
+    ``v1_db``/``v2_db`` the database's answer for each
+    (``RepairedTrack.accuraterip_*_database``), None when no lookup was made, in
+    which case the version reads "not determined" with
+    :data:`ACCURATERIP_AFTER_REPAIR_WHY`: neither "matched" nor "did not match"
+    can be said without the database. Reasons are given once, after the versions.
+    """
+    parts: list[str] = []
+    reasons: list[str] = []
+    for version, value, answer in (("v1", v1, v1_db), ("v2", v2, v2_db)):
+        text, reason = _version_part(version, value, answer)
+        parts.append(text)
+        if reason and reason not in reasons:
+            reasons.append(reason)
+    why = f" ({'; '.join(reasons)})" if reasons else ""
+    return f"AccurateRip {'; '.join(parts)}{why}"
+
+
 def _after_sentence(after: object | None) -> tuple[str, bool]:
     """What the fresh CTDB check of the repaired files said; True when it agrees."""
     if after is None:
         return ("A fresh CTDB check of the repaired files did not run.", False)
     verdict = getattr(getattr(after, "verdict", None), "value", None)
-    outvoted = bool(getattr(after, "outvoted", False))
-    if verdict == "match" and not outvoted:
+    if after_repair_agrees(after):
         confidence = int(getattr(after, "confidence", 0) or 0)
         return (
             "A fresh CTDB check of the repaired files agrees: they match "
@@ -97,23 +183,26 @@ def _after_sentence(after: object | None) -> tuple[str, bool]:
 
 
 def _accuraterip_sentence(tracks: tuple[object, ...]) -> str:
-    """AccurateRip about the repaired tracks: our checksums, never 'verified'."""
-    parts: list[str] = []
-    for row in tracks:
-        v1 = getattr(row, "accuraterip_v1_after", None)
-        v2 = getattr(row, "accuraterip_v2_after", None)
-        if isinstance(v1, int) and isinstance(v2, int):
-            parts.append(f"track {getattr(row, 'track', '?')} v1 {v1:08X}, v2 {v2:08X}")
-    sums = (
-        f" Its AccurateRip checksums after the repair are {'; '.join(parts)}, "
-        "for comparing with AccurateRip or another ripper's log."
-        if parts
-        else ""
-    )
-    return (
-        "AccurateRip: not determined for the repaired audio (its answer during the "
-        "rip describes the read, and Platterpus has no AccurateRip lookup of its "
-        f"own).{sums}"
+    """AccurateRip about the repaired tracks, per track and per version.
+
+    Through :func:`accuraterip_after_repair`, the words each repaired track's
+    ``Record:`` row in the EAC-layout log and the report's ``record`` use too, so
+    the results pane cannot say one thing about a version and the log another.
+    """
+    parts = [
+        f"Track {getattr(row, 'track', '?')}: "
+        + accuraterip_after_repair(
+            getattr(row, "accuraterip_v1_after", None),
+            getattr(row, "accuraterip_v2_after", None),
+            getattr(row, "accuraterip_v1_database", None),
+            getattr(row, "accuraterip_v2_database", None),
+        )
+        + "."
+        for row in tracks
+    ]
+    return " ".join(parts) or (
+        f"AccurateRip: not determined for the repaired audio "
+        f"({ACCURATERIP_AFTER_REPAIR_WHY})."
     )
 
 
@@ -144,7 +233,9 @@ def repaired_text(result: object) -> tuple[str, str]:
         "audio plus exactly those corrections, and the whole disc's CTDB checksum "
         f"now equals that entry's. {after} {_accuraterip_sentence(tracks)} The "
         f"original file is kept beside it as {kept or 'its .before-ctdb-repair copy'}"
-        ", and the rip's logs still record the read as it was."
+        ". The rip's logs still record the read as it was: the ripper's own log "
+        "is never changed, and the EAC-layout log keeps the read's rows and names "
+        "this repair beside them in each repaired track's Record row."
     )
     return (LEVEL_OK if agrees else LEVEL_WARN), text
 

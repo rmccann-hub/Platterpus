@@ -148,7 +148,7 @@ def _ctdb_clause(row: object | None) -> str:
     return ""
 
 
-def _accuraterip_matches(track: object) -> str:
+def accuraterip_matches(track: object) -> str:
     """``v1 at confidence 128 and v2 at confidence 200``: the exact matches, v1 first."""
     found = [
         f"v{getattr(ar, 'version', '?')} at confidence {getattr(ar, 'confidence', '?')}"
@@ -208,7 +208,7 @@ def track_proof(
                 PROOF_NONE,
                 contradiction_sentence(track, contradiction) + _ctdb_clause(ctdb_track),
             )
-        matches = _accuraterip_matches(track)
+        matches = accuraterip_matches(track)
         if matches and verified_reread:
             return TrackProof(
                 PROOF_VERIFIED_REREAD,
