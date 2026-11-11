@@ -109,6 +109,15 @@ def staged_name(rel: str) -> str | None:
         r"ripperdiagnostics/cyanrip-diagnostics-(\w{1,40}?)(-securingpass)?\.json", rel
     ):
         return f"jrecord{m[1].lower()}{'securingpass' if m[2] else ''}.json"
+    # A verified-read chase read's own record (0.7.122, `chase_record_keep.py`):
+    # `-chase-t05`, and `-chase-t05-2` when that name was taken.
+    if m := re.fullmatch(
+        r"ripperdiagnostics/cyanrip-diagnostics-(\w{1,40}?)-chase-t(\d{2})(?:-(\d+))?"
+        r"\.json",
+        rel,
+    ):
+        again = f"n{m[3]}" if m[3] else ""
+        return f"jrecord{m[1].lower()}chaset{m[2]}{again}.json"
     parts = rel.split("/")
     if len(parts) == 2 and parts[0] == "album":
         # A rip that never finished leaves its files loose under `album/`, with
@@ -126,6 +135,10 @@ def staged_name(rel: str) -> str | None:
 def album_key(folder: str) -> str | None:
     if folder.startswith("full acceptance"):
         return "overwrite" if folder.endswith("_2_") else "wholedisc"
+    # Round 39's burn (section R, 0.7.122): five default whole-disc rips, each its
+    # own album folder, `round 39 burn rip 1` to `5`.
+    if m := re.match(r"round \d+ burn rip (\d+)(?: |$)", folder):
+        return f"burnrip{m[1]}"
     for start, key in ALBUMS:
         if folder.startswith(start):
             return key

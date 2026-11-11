@@ -31,7 +31,9 @@ EAC re-rip filed (G5).
 1. **Platterpus 0.7.122 and `.31`.** Tools → Setup & Updates… → Check for updates, take
    0.7.122; then Tools → Setup & Updates… → Choose a build…, and pick the one labelled as
    the build under test, `.31`. Close Platterpus.
-2. **The records the fork asked for (no disc, no drive): `bash
+2. **The records the fork asked for (no disc, no drive), only if the rips of 2026-11-09 and
+   2026-11-10 are still on the rig (the owner removed them on 2026-11-11, so skip this step
+   unless you have them back): `bash
    ~/platterpus-rig/drivetest.sh records`.** It packs every ripper `--diagnostics` record in
    the rips folder since 2026-11-09 (JSON, never audio) and names one file; upload it to
    both sessions. It gives the fork track 3's per-second comparison before the burn (their
