@@ -146,7 +146,7 @@ paste accident cannot strand an unattended run.
 
 | limit | value |
 |---|---|
-| `max_script_lines` | 2000 |
+| `max_script_lines` | 4000 |
 | `max_line_characters` | 4000 |
 | `max_wait_seconds` | 600.0 |
 | `max_wait_for_rip_seconds` | 21600 |
@@ -1069,7 +1069,7 @@ found nothing wrong*.
     "-v"
   ],
   "limits": {
-    "max_script_lines": 2000,
+    "max_script_lines": 4000,
     "max_line_characters": 4000,
     "max_wait_seconds": 600.0,
     "max_wait_for_rip_seconds": 21600,
