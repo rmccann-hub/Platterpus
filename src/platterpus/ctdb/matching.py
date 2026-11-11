@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Compare what :mod:`platterpus.ctdb.sweep` measured with what CTDB holds.
 
-Two questions, answered the way CUETools answers them (LGPL,
+Two questions, answered the way CUETools answers them (GPL-2.0-or-later,
 ``CUETools.CTDB/CUEToolsDB.cs``, ``GenerateLog`` and ``GetConfidence``), so a
 per-track line of ours and a line of EAC's CTDB plugin mean the same thing:
 

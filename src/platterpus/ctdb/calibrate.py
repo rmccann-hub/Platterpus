@@ -2,7 +2,7 @@
 """Pin the CTDB audio-CRC algorithm against a real, in-database disc (KDD-16).
 
 The algorithm itself now lives in :mod:`platterpus.ctdb.crc` (reconstructed from
-the CueTools LGPL source): ``CTDBCRC(offset)`` is a standard zlib CRC-32 over the
+the CueTools GPL-2.0-or-later source): ``CTDBCRC(offset)`` is a standard zlib CRC-32 over the
 whole-disc PCM with a fixed front trim and a length-dependent back trim, and an
 ``offset`` slides that window across the ±5879-frame guard band. The one thing
 only a real disc can settle is *which* offset (ideally 0, if the rip's read

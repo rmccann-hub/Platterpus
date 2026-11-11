@@ -70,7 +70,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-_INFO_TIMEOUT_S: float = 120.0
+_INFO_TIMEOUT_S: float = 300.0  # was 120 s (2026-11-06; see CHANGELOG)
 
 #: The filename-sanitation mode we pin with `-T` on every rip. cyanrip offers
 #: `simple`, `os_simple`, `unicode` and `os_unicode`. Public so the naming preview

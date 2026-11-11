@@ -457,7 +457,8 @@ def test_expect_ctdb_grades_the_read_not_the_repair(
     grade = record_grading.grade_ctdb({"ctdb": block}, "whole")
     assert not grade.passed and not grade.blocked
     assert "outvotes" in grade.detail
-    assert "repair was repaired" in grade.detail
+    assert "CTDB repair repaired the files; CTDB after it: match." in grade.detail
+    assert "repair was repaired" not in grade.detail  # the 2026-11-10 wording
     assert "This step grades the read, not the repair." in grade.detail
     # And a passing read keeps passing, with no note when there was no repair.
     (tmp_path / "clean").mkdir()

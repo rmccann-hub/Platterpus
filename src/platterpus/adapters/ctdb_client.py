@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Adapter for the CUETools Database (CTDB) lookup service.
 
-Clean-room per PLANNING.md KDD-16: implemented from the LGPL `cuetools.net`
+Clean-room per PLANNING.md KDD-16: implemented from the GPL-2.0-or-later `cuetools.net`
 reference and the protocol spec in `docs/archive/upstream-modification-investigation.md`
 — never from the GPL-2.0-only `python-cuetoolsdb`. As an unmaintained/external
 service this lives behind a thin adapter (Critical Rule #1) so the transport or
@@ -9,7 +9,7 @@ provider can be swapped without touching the verify logic.
 
 ⚠️ HARDWARE-VALIDATION GATE (KDD-16): the endpoint, query parameters, and
 response element/attribute names are reconstructed from the spec and confirmed
-present in the LGPL `CUEToolsDB.cs`, but the exact wire behaviour (does our
+present in the GPL-2.0-or-later `CUEToolsDB.cs`, but the exact wire behaviour (does our
 `toc=` string produce a hit? are these the live attribute names?) must be
 verified against the real server with a known disc — see `docs/test-plan.md`.
 The XML parsing is unit-tested against fixtures for *what we expect*.

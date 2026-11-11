@@ -2,7 +2,7 @@
 """Decode one column's syndromes into where it differs and by how much (TASKS R43).
 
 **Clean-room (KDD-16).** CUETools' decoder (``CUETools.Parity/RsDecode.cs``) is
-LGPL and was not copied or paraphrased. This module is written from the textbook
+GPL-2.0-or-later and was not copied or paraphrased. This module is written from the textbook
 mathematics of Reed-Solomon decoding, the three standard steps every reference
 describes (e.g. Blahut, *Algebraic Codes for Data Transmission*, ch. 7; Lin &
 Costello, ch. 7), with the conventions CTDB's published format fixes:

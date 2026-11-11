@@ -25,6 +25,9 @@
 #                                the speed test again (Run E).
 #   bash drivetest.sh restored   after Windows has put everything back: reads the
 #                                drive once more and says whether it matches.
+#   bash drivetest.sh probe      round 39's G4, with Platterpus closed: one disc
+#                                read timed, two reads 2.4 s apart, and the C2
+#                                probe at the five places the wrong samples sit.
 #   bash drivetest.sh status     what is done and what is next.
 #
 # WHEN SOMETHING FAILS, IT DECIDES WHETHER GOING ON STILL MEANS SOMETHING:
@@ -192,12 +195,12 @@ fetch_scripts() {
 }
 
 install_tools() {
-  if inbox sh -c 'command -v sg_raw && command -v sg_turs && command -v cdrdao' >/dev/null 2>&1; then
-    echo "sg3_utils and cdrdao are already in the container."
+  if inbox sh -c 'command -v sg_raw && command -v sg_turs && command -v cdrdao && command -v strace' >/dev/null 2>&1; then
+    echo "sg3_utils, cdrdao and strace are already in the container."
     return 0
   fi
   say "Installing the read-only tools in the container (it may ask for your password)"
-  inbox sudo dnf install -y sg3_utils cdrdao
+  inbox sudo dnf install -y sg3_utils cdrdao strace
 }
 
 # Wait until no cyanrip is running and the drive says the disc is ready (TEST
@@ -390,6 +393,11 @@ track9_reads() {
       { echo "q$n"; inbox bash -c "time sg_raw -R -o q$n.bin -r 37888 $DEVICE be 00 00 02 38 98 00 00 10 10 02 00"; } >> times.txt 2>&1
     done
     ls -l ./*.bin >> times.txt
+    # Keep the sub-channel only: 96 raw bytes a frame (raw reads), 16 formatted
+    # (Q reads); the 2352 bytes of audio before them are dropped (rule #8).
+    local f
+    for f in raw*.bin; do [ -f "$f" ] && strip_audio "$f" 2448 96 >> times.txt; done
+    for f in q*.bin; do [ -f "$f" ] && strip_audio "$f" 2368 16 >> times.txt; done
     local rc=0
     inbox cdrdao read-toc --device "$DEVICE" "$DM/track9/cdrdao.toc" > cdrdao-output.txt 2>&1 || rc=$?
     if [ "$rc" != 0 ]; then
@@ -419,6 +427,14 @@ make_upload() {
     [ -e "$DM/$piece" ] && cp -r "$DM/$piece" "$stage/"
   done
   cp "$LOG" "$stage/"
+  # The kernel's own messages about the drive since the test began (resets,
+  # aborted commands, medium errors), which no program's log carries; and a
+  # manifest of the upload, so the reader can check nothing was lost in transit.
+  # Both from the fork's runner (their tools/rig-drivetest.sh), folded into this
+  # one on our round 38 lap 15 S5.
+  journalctl -k --no-pager -o short-iso --since "@$(stat -c %Y "$since")" 2>/dev/null \
+    | grep -i -E "sr[0-9]|cdrom|scsi|ata[0-9]" > "$stage/kernel.txt" \
+    || echo "(no kernel messages about the drive since the test began, or journalctl unreadable)" > "$stage/kernel.txt"
   [ -f "$DM/errors.txt" ] && cp "$DM/errors.txt" "$stage/"
   [ -f "$DM/preflight.txt" ] && cp "$DM/preflight.txt" "$stage/"
   # The app's own log, and every script run's transcript and report since the
@@ -429,6 +445,9 @@ make_upload() {
   find "$DM" -maxdepth 1 -name 'leftover-*.tar.gz' -exec cp -t "$stage/" {} +
   [ -f "$DM/notes.txt" ] && cp "$DM/notes.txt" "$stage/"
   find "$BUNDLES" -maxdepth 1 -name '*.tar.gz' -newer "$since" -exec cp -t "$stage/bundles/" {} + 2>/dev/null || true
+  # Listed into a file outside the folder, then moved in, so the manifest never
+  # lists itself half-written.
+  ( cd "$stage" && find . -type f -exec sha256sum {} + | sort -k2 > "$DM/.manifest.tmp" ) && mv "$DM/.manifest.tmp" "$stage/MANIFEST.txt"
   local out="$DM/$base.tar.gz"
   tar czf "$out" -C "$DM" "$base"
   # Prove no audio got in, by listing what is actually in the archive. Listed
@@ -604,6 +623,149 @@ quiet() {
   echo "  bash $SELF restored"
 }
 
+# Round 39's gate G4, the physics, once per session (the owner's plan of
+# 2026-11-11; ported from the fork's tools/rig-drivetest.sh, its do_check and
+# do_c2, so one runner carries both, our round 38 lap 15 S5). Run with
+# Platterpus CLOSED and the reference disc in. Read-only throughout.
+#   1. One disc read alone, timed.
+#   2. Two disc reads 2.4 s apart, timed: whether two reads at once stall
+#      without the app (round 38's Run A stopped on two overlapping reads).
+#   3. The C2 probe: READ CD asking for C2 error pointers (byte 9 = 12h, 2646
+#      bytes a frame) at a control (LBA 5000) and where the wrong samples sit:
+#      track 3 at LBA 46422, 46446 and 46911 (04:04-04:11 into it) and track 5 at
+#      83416 (02:24.59), three reads each after a cache flush, then once more at
+#      track 5 with the block error bits (14h). It says whether the drive flags
+#      the samples it gets wrong, which decides how round 39 re-reads.
+PROBE_SECS="${DRIVETEST_PROBE_SECS:-300}"
+probe() {
+  UPLOAD_NAME=probe; UPLOAD_SINCE="$STATE/probe.started"; UPLOAD_PIECES=(probe)
+  date -u > "$STATE/probe.started"
+  install_tools
+  pgrep -f "platterpus-x86_64.AppImage" >/dev/null 2>&1 && stop "Platterpus is open. Close it, then run this again: the probe needs the drive to itself."
+  wait_disc
+  local c="$DM/probe" t0 rc secs
+  mkdir -p "$c"
+  say "Probe 1 of 3: one disc read alone"
+  t0=$(date +%s); rc=0
+  timeout -k 5 "$PROBE_SECS" "$HOME/.local/bin/cyanrip" -I -N -d "$DEVICE" > "$c/solo.txt" 2>&1 || rc=$?
+  secs=$(( $(date +%s) - t0 ))
+  echo "one read alone: exit $rc after ${secs}s" | tee "$c/summary.txt"
+  [ "$rc" = 0 ] || { echo "command: cyanrip -I -N -d $DEVICE; exit $rc; output in probe/solo.txt"; tail -20 "$c/solo.txt"; } | note_error "probe: the single disc read failed (going on)"
+  wait_disc
+  say "Probe 2 of 3: two disc reads, 2.4 s apart"
+  ( t=$(date +%s); r=0; timeout -k 5 "$PROBE_SECS" "$HOME/.local/bin/cyanrip" -I -N -d "$DEVICE" > "$c/pairA.txt" 2>&1 || r=$?
+    echo "$r $(( $(date +%s) - t ))" > "$c/pairA.rc" ) &
+  local pa=$! rb=0 tb sb ra sa
+  sleep 2.4
+  tb=$(date +%s)
+  timeout -k 5 "$PROBE_SECS" "$HOME/.local/bin/cyanrip" -I -N -d "$DEVICE" > "$c/pairB.txt" 2>&1 || rb=$?
+  sb=$(( $(date +%s) - tb ))
+  wait "$pa" || true
+  read -r ra sa < "$c/pairA.rc"
+  echo "two reads 2.4 s apart: A exit $ra after ${sa}s; B exit $rb after ${sb}s (124 or 137 = killed at ${PROBE_SECS}s)" | tee -a "$c/summary.txt"
+  if [ "$ra" != 0 ] || [ "$rb" != 0 ]; then
+    { echo "A exit $ra after ${sa}s, B exit $rb after ${sb}s"; echo "--- A's last lines"; tail -15 "$c/pairA.txt"; echo "--- B's last lines"; tail -15 "$c/pairB.txt"; } \
+      | note_error "probe: two reads at once did not both finish (kept; going on)"
+  fi
+  # A pair that stalled (killed at the limit: 124 or 137) runs again under
+  # strace, so the record shows the system call each read was in when it
+  # stopped (the fork's lap 16 S9, as their runner does it).
+  case "$ra $rb" in
+    *124*|*137*)
+      say "Probe 2b: a read stalled; the pair again under strace"
+      pgrep -f "cyanrip -I -N -d $DEVICE" >/dev/null 2>&1 && pkill -KILL -f "cyanrip -I -N -d $DEVICE"
+      wait_disc
+      ( timeout -k 5 "$PROBE_SECS" distrobox enter ripping -- strace -f -tt -v -s 32 -e trace=openat,ioctl,read,close \
+          -o "$c/pairA.strace" /usr/local/bin/cyanrip -I -N -d "$DEVICE" > "$c/pairA-strace.txt" 2>&1 || true ) &
+      local ps=$!
+      sleep 2.4
+      timeout -k 5 "$PROBE_SECS" distrobox enter ripping -- strace -f -tt -v -s 32 -e trace=openat,ioctl,read,close \
+          -o "$c/pairB.strace" /usr/local/bin/cyanrip -I -N -d "$DEVICE" > "$c/pairB-strace.txt" 2>&1 || true
+      wait "$ps" || true
+      for f in "$c"/pair?.strace; do
+        [ -f "$f" ] && echo "$(basename "$f"): last call: $(grep -v 'resumed\|exited\|killed' "$f" | tail -1 | cut -c1-200)" | tee -a "$c/summary.txt"
+      done ;;
+  esac
+  # A read this probe started and that is still running would hold the drive
+  # for the C2 reads; it is ours, so it is stopped (only `-I -N` reads on this
+  # device, the ones the probe itself ran).
+  sleep 2
+  if pgrep -f "cyanrip -I -N -d $DEVICE" >/dev/null 2>&1; then
+    pkill -KILL -f "cyanrip -I -N -d $DEVICE" || true
+    echo "a probe read was still running after both ended; stopped it" | tee -a "$c/summary.txt"
+  fi
+  wait_disc
+  say "Probe 3 of 3: the C2 probe"
+  local t lba n out
+  for t in control:5000 t3a:46422 t3b:46446 t3c:46911 t5:83416; do
+    lba="${t#*:}"; t="${t%%:*}"
+    for n in 1 2 3; do
+      c2_flush
+      out="$c/$t-c2-$n.bin"
+      if ! c2_read "$out" "$lba" 12 2646 > "$out.txt" 2>&1; then
+        { echo "READ CD with byte 9 = 12h at LBA $lba, read $n"; cat "$out.txt"; } | note_error "probe: the drive refused C2 pointers at $t (kept; going on)"
+        if [ "$t" = control ]; then echo "the drive refused C2 pointers at the control; the rest is skipped" | tee -a "$c/summary.txt"; break 2; fi
+      fi
+    done
+  done
+  c2_flush
+  c2_read "$c/t5-c2b-1.bin" 83416 14 2648 > "$c/t5-c2b-1.bin.txt" 2>&1 \
+    || { echo "READ CD with byte 9 = 14h at LBA 83416"; cat "$c/t5-c2b-1.bin.txt"; } | note_error "probe: the drive refused the block error bits (kept; going on)"
+  python3 -I - "$c" >> "$c/summary.txt" 2>&1 <<'PY' || echo "(could not summarise the C2 reads; they are kept)" >> "$c/summary.txt"
+import pathlib, sys
+d = pathlib.Path(sys.argv[1])
+for f in sorted(d.glob("*-c2-*.bin")):
+    data = f.read_bytes()
+    if len(data) != 26 * 2646:
+        print(f"{f.name}: {len(data)} bytes, not 26 frames of 2646")
+        continue
+    flagged = []
+    for i in range(26):
+        bits = sum(bin(b).count("1") for b in data[i * 2646 + 2352:(i + 1) * 2646])
+        if bits:
+            flagged.append(f"frame {i} ({bits} bit{'s' if bits != 1 else ''})")
+    print(f"{f.name}: " + (", ".join(flagged) if flagged else "no C2 bit set in 26 frames"))
+PY
+  local f
+  for f in "$c"/*-c2-*.bin; do [ -f "$f" ] && strip_audio "$f" 2646 294 >> "$c/summary.txt"; done
+  [ -f "$c/t5-c2b-1.bin" ] && strip_audio "$c/t5-c2b-1.bin" 2648 296 >> "$c/summary.txt"
+  cat "$c/summary.txt"
+  done_mark probe
+  make_upload probe "$STATE/probe.started" "${UPLOAD_PIECES[@]}"
+}
+
+# READ CD (BEh), 26 frames from LBA $2, byte 9 = $3, $4 bytes a frame.
+c2_read() {
+  # shellcheck disable=SC2046  # the LBA's four bytes are four arguments
+  inbox sg_raw -R -o "$1" -r $((26 * $4)) "$DEVICE" be 00 \
+    $(printf '%02x %02x %02x %02x' $(( ($2 >> 24) & 255 )) $(( ($2 >> 16) & 255 )) $(( ($2 >> 8) & 255 )) $(( $2 & 255 ))) \
+    00 00 1a "$3" 00 00
+}
+
+# Read 312 sectors at the start of the disc, more than the drive's 128 to 255
+# sector cache, so the next read comes from the disc.
+c2_flush() {
+  inbox sh -c "for l in 0 26 52 78 104 130 156 182 208 234 260 286; do sg_raw -R -r 61152 $DEVICE be 00 \$(printf '%02x %02x %02x %02x' 0 0 \$((l>>8)) \$((l&255))) 00 00 1a 10 00 00 >/dev/null 2>&1; done"
+}
+
+# KEEP NO AUDIO FROM A RAW READ (Critical rule #8). READ CD returns each
+# frame's 2352 bytes of audio beside what we asked for (the C2 pointers, or
+# the sub-channel); a fraction of a second of a commercial album is still the
+# album, and these files go to both sessions and their evidence branches. This
+# rewrites FILE keeping only each frame's last TAIL bytes (FRAME bytes a frame),
+# as FILE.noaudio, and deletes FILE. $1 FILE, $2 FRAME, $3 TAIL.
+strip_audio() {
+  python3 -I - "$1" "$2" "$3" <<'PY'
+import pathlib, sys
+src = pathlib.Path(sys.argv[1]); frame = int(sys.argv[2]); tail = int(sys.argv[3])
+data = src.read_bytes()
+kept = b"".join(data[i + frame - tail:i + frame] for i in range(0, len(data) - frame + 1, frame))
+pathlib.Path(str(src) + ".noaudio").write_bytes(kept)
+print(f"{src.name}: {len(data)} bytes read, {len(data) // frame} frame(s); kept {len(kept)} bytes, audio dropped")
+PY
+  rm -f "$1"
+}
+
 restored() {
   say "Checking PureRead went back (read-only)"
   UPLOAD_NAME=restored; UPLOAD_SINCE="$STATE/test.started"; UPLOAD_PIECES=(dumps)
@@ -621,7 +783,7 @@ restored() {
 
 status() {
   local s
-  for s in readings runA wipe runB runC track9 perfectreadings runD quietreadings runE; do
+  for s in readings runA wipe runB runC track9 perfectreadings runD quietreadings runE probe; do
     if is_done "$s"; then echo "done   $s ($(cat "$STATE/$s.done"))"; else echo "to do  $s"; fi
   done
 }
@@ -638,7 +800,8 @@ case "${1:-}" in
   "")       phase12 ;;
   perfect)  phase3 ;;
   quiet)    quiet ;;
+  probe)    probe ;;
   restored) restored ;;
   status)   status ;;
-  *) echo "usage: bash $SELF [perfect|quiet|restored|status]"; exit 2 ;;
+  *) echo "usage: bash $SELF [perfect|quiet|restored|probe|status]"; exit 2 ;;
 esac

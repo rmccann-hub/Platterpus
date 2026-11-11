@@ -82,8 +82,9 @@ def _ctdb_repair_note(block: Mapping[str, Any]) -> str:
     after_verdict = after.get("verdict") if isinstance(after, dict) else None
     detail = f": {reason}" if reason else ""
     then = f"; CTDB after it: {after_verdict}" if after_verdict else ""
+    what = {"repaired": "repaired the files"}.get(status, f"ended as {status}")
     return (
-        f" ⓘ After the read, the app's CTDB repair was {status}{detail}{then}. "
+        f" ⓘ After the read, the app's CTDB repair {what}{detail}{then}. "
         "This step grades the read, not the repair."
     )
 

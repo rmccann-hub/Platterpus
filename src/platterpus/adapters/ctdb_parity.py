@@ -2,7 +2,7 @@
 """Fetch a CTDB entry's parity record: the data that locates where a rip differs.
 
 Clean-room per PLANNING.md KDD-16: written from the published format, read in the
-LGPL ``cuetools.net`` source (``CUETools.CTDB/CUEToolsDB.cs`` ``FetchDB`` and
+GPL-2.0-or-later ``cuetools.net`` source (``CUETools.CTDB/CUEToolsDB.cs`` ``FetchDB`` and
 ``CUETools.Parity/Parity2Syndrome.cs`` ``Bytes2Syndrome``), and checked against the
 live server on 2026-10-26 (below). No code was copied.
 

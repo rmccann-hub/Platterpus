@@ -2,7 +2,7 @@
 """The CTDB audio CRC.
 
 ✅ HARDWARE-VALIDATION GATE PASSED (PLANNING.md KDD-16) ✅
-The *algorithm* below is reconstructed bit-for-bit from the LGPL
+The *algorithm* below is reconstructed bit-for-bit from the GPL-2.0-or-later
 `CUETools.AccurateRip` / `CUETools.Codecs` source (see
 `docs/ctdb-crc-algorithm.md`) AND confirmed end-to-end on real hardware: a
 `platterpus --ctdb-calibrate` run on a known in-database disc reproduced a

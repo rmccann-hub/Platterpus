@@ -1,7 +1,7 @@
 # The CTDB audio CRC (KDD-16)
 
 Reference for the CUETools Database (CTDB) per-disc audio CRC as Platterpus
-computes it. Reconstructed clean-room from the **LGPL** `CUETools.AccurateRip` /
+computes it. Reconstructed clean-room from the **GPL-2.0-or-later** `CUETools.AccurateRip` /
 `CUETools.Codecs` source (github.com/gchudov/cuetools.net) — the algorithm is a
 *fact*, reimplemented here, not ported from the GPL `python-cuetoolsdb`.
 
@@ -67,7 +67,7 @@ CueTools C# source):
 ### The per-track CRC (`trackcrcs`)
 
 Each entry also carries one CRC per track. CUETools computes it as
-`AccurateRipVerify.CTDBCRC(iTrack, oi, stride/2, laststride/2)` (LGPL,
+`AccurateRipVerify.CTDBCRC(iTrack, oi, stride/2, laststride/2)` (GPL-2.0-or-later,
 `CUETools.AccurateRip/AccurateRip.cs`, called from `CDRepairEncode.TrackCRC`
 in `CDRepair.cs`): the same zlib CRC-32 over the track's PCM, where **track 1
 starts `stride/2` frames in and the last track stops `laststride/2` frames
@@ -120,4 +120,4 @@ command on any in-CTDB disc and expect a `✅ MATCH` at `offset=+0`.
 
 ---
 
-*Last updated for Platterpus v0.7.113.*
+*Last updated for Platterpus v0.7.121.*

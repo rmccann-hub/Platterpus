@@ -13,7 +13,7 @@ only in which window:
   front guard band and the LAST track also loses the back one.
 
 The track definition is CUETools' ``AccurateRipVerify.CTDBCRC(iTrack, oi,
-prefixSamples, suffixSamples)`` (LGPL, ``CUETools.AccurateRip/AccurateRip.cs``),
+prefixSamples, suffixSamples)`` (GPL-2.0-or-later, ``CUETools.AccurateRip/AccurateRip.cs``),
 which ``CDRepairEncode.TrackCRC(iTrack, oi)`` (``CDRepair.cs``) calls with
 ``prefixSamples = stride/2`` and ``suffixSamples = laststride/2``, the same two
 trims as the whole-disc value. Track 1 starts at ``prefixSamples`` and the last

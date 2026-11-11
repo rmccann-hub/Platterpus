@@ -67,7 +67,7 @@ text is taken verbatim as one value.
 | `expect` | 2+ (rest of line) | ready | expect <config-field> <value> — assert a setting equals a value |
 | `expect-contains` | 2+ (rest of line) | ready | expect-contains <config-field> <text> — assert a setting contains text |
 | `expect-config-saved` | 0–1 | ready | expect-config-saved [seconds] — the settings file on disk holds every running setting, read back without repairing it; with <seconds>, it was also written within that many seconds (up to 600) |
-| `rescan` | 0 | ready | rescan — re-read the disc in the drive, and wait (up to 120 s) until the read has identified it or its own release picker is open |
+| `rescan` | 0 | ready | rescan — re-read the disc in the drive, and wait (up to 660 s) until the read has identified it or its own release picker is open |
 | `pick-release` | 1–2 | ready | pick-release <mbid|prefix|N> [seconds] — answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous). Never answers a picker an older, superseded scan left open |
 | `album` | 1+ (rest of line) | ready | album <title> — set the album title, so repeat rips land in separate folders |
 | `album-artist` | 1+ (rest of line) | ready | album-artist <name> — set the album artist for this rip |
@@ -559,7 +559,7 @@ found nothing wrong*.
       "max_args": 0,
       "takes_paths": false,
       "implemented": true,
-      "help": "rescan \u2014 re-read the disc in the drive, and wait (up to 120 s) until the read has identified it or its own release picker is open"
+      "help": "rescan \u2014 re-read the disc in the drive, and wait (up to 660 s) until the read has identified it or its own release picker is open"
     },
     {
       "name": "pick-release",

@@ -2204,7 +2204,7 @@ withdrawn. Every step below works from a browser. Two facts decide the order:
   the host-exported `~/.local/bin/cyanrip`; it does not enter the container,
   except the one scoped, user-approved force-stop exception.
 - **Licensing:** we are GPL-3.0-only. Before reusing third-party code, check
-  compatibility — e.g. CTDB verify is built **clean-room** from the LGPL
+  compatibility — e.g. CTDB verify is built **clean-room** from the GPL-2.0-or-later
   reference, *not* ported from the GPL-2.0-only `python-cuetoolsdb` (KDD-16).
   Protocols/algorithms are facts (not copyrightable expression); specific code
   is. When in doubt, reimplement from a spec and add an SPDX header.

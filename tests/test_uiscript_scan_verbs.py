@@ -182,3 +182,19 @@ def test_rip_with_no_scan_in_flight_decides_at_once(qapp, process_until) -> None
     win = _scanning_window(rip_controls=controls)
     step = _step_outcome(ScriptRunner(win), qapp, process_until, "rip")
     assert step.outcome is Outcome.FAIL and step.elapsed_s < 0.2, step
+
+
+def test_a_script_scan_wait_outlasts_one_probe_and_its_retry() -> None:
+    """The relation, not either number: a script waiting on a scan must outlast
+    one disc read at the probe limit, the app's retry delay, and the retry.
+
+    At 120 s against a 120 s probe, ``rescan`` failed the owner's Run A
+    (2026-11-05 22:24 UTC) while the app's automatic re-read was still coming.
+    """
+    from platterpus.adapters import cyanrip_backend
+
+    probe = cyanrip_backend._INFO_TIMEOUT_S
+    retry_delay_s = 4.0
+    assert scan_verbs.RESCAN_WAIT_S > probe + retry_delay_s + probe * 0.5
+    assert scan_verbs.RIP_SCAN_WAIT_S >= scan_verbs.RESCAN_WAIT_S
+    assert probe > 120.0, "the 2026-11-06 single read passed 120 s"
