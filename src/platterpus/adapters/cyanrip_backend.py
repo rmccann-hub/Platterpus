@@ -70,15 +70,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-#: How long one ``cyanrip -I`` (or ``--version``) may run before it is killed.
-#: 300 s since 2026-11-11, was 120 s. ``.30``'s disc read does the pregap
-#: searches, the MCN, CD-TEXT and every track's ISRC before it answers, and on
-#: the owner's BDR-209D a single read with nothing beside it passed 120 s inside
-#: track 2's ISRC read (GUI launch, 2026-11-06 17:29:52 UTC; the fork's lap 14 S8
-#: and handoff). A probe still running at the limit is killed and the app's
-#: automatic re-read follows, so the limit trades a slow read's success against
-#: how long a truly stuck one is waited out.
-_INFO_TIMEOUT_S: float = 300.0
+_INFO_TIMEOUT_S: float = 300.0  # was 120 s (2026-11-06; see CHANGELOG)
 
 #: The filename-sanitation mode we pin with `-T` on every rip. cyanrip offers
 #: `simple`, `os_simple`, `unicode` and `os_unicode`. Public so the naming preview

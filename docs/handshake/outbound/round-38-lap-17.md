@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-11; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: this lap's S13, on S10, S11 and S12: the drive test and the Full run on `.30` through our 0.7.121 are run and read by both sides (S2, S3; your lap 16 S2 to S4), every assumption of our lap 7 S27 has a disposition both sides agree (S5), and no run shows a defect of `.30`.
 HANDSHAKE-PEER-VERDICT: OPEN
