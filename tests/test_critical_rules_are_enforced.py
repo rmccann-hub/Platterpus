@@ -1095,7 +1095,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "verified_read_chase.py": 410,
     # Joined 2026-11-11 (round 39 G1): 296 -> 342, the time budget checked
     # between reads and each attempt's times. One job: running the chase's reads.
-    "workers/verified_read_run.py": 342,
+    # 342 -> 395 (same day): `album_pass_entries` and `chase_tracks`' `after`,
+    # the chase after Archival Exact's album pass, and the appended chase log.
+    "workers/verified_read_run.py": 395,
     # 299 -> 331 on 2026-10-06, crossing the heuristic with the maintainer's
     # narrowing of `expect-album-audit`. **Kept as one module deliberately**: it is
     # one pure grader per artifact verb (album audit, AccurateRip, CTDB, settling),
@@ -2231,7 +2233,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **511 -> 532** (2026-10-05): `securing_pass_log_path_for`, the sidecar the securing pass's own ripper log is kept in, beside the addendum's, with why it is `.txt` and never `.log`.
     # **532 -> 536** (2026-10-19): an unrecorded re-read reason renders as not recorded, not as instability (TASKS D2).
     # **536 -> 562** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `SupersededTrack.contradiction`, and a reproduced read AccurateRip contradicts is never called CONFIRMED; the row is `track_proof.contradicted_tracks_sentence`.
-    "rip_addendum.py": 562,
+    # **562 -> 593** (2026-11-11, round 39 G1): `merged_rows` and `TRIGGER_MIXED`, so a rip that swaps twice (Archival Exact's securing pass, then its album-pass chase) keeps both swaps' rows in its one sidecar.
+    "rip_addendum.py": 593,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -3242,7 +3245,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4338 -> 4348** (2026-11-03, review B4): `securing_pass_paranoia_counts`: the kept securing log is parsed where it is copied, on the worker's thread, so the report can carry that run's own counters.
     # **4348 -> 4370** (2026-11-03, review C10): `_space_refusal`, the free-space check before anything spawns, on the worker's thread so a stalled mount cannot freeze the window; the floor itself is `disk_space.py`, and `RipParameters.output_format` carries the derived format to it.
     # **4373 -> 4382** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 3): `_write_refusal`, the output-folder writability check before anything spawns, on the worker's thread beside `_space_refusal` and asked first; the check itself is the new focused module `output_writable.py`.
-    "workers/rip_worker.py": 4382,
+    # **4382 -> 4455** (2026-11-11, round 39 G1, the chase on Archival Exact's album pass, TASKS R7's open item): `_chase_after_album_pass` and its call behind the securing pass's gate, the `after` handed to `_chase_verified_reads`, the chase log appended on a second chase, and the sidecar writer accumulating a rip's swap rows. The entries, the loop and the merge are `verified_read_run.album_pass_entries`, `chase_tracks` and `rip_addendum.merged_rows`; only the worker owns its records and its files.
+    "workers/rip_worker.py": 4455,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
