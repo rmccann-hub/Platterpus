@@ -451,3 +451,21 @@ def test_the_securing_pass_asks_for_its_time_limit_and_a_chase_read_never_does(
     assert backend.rip_calls[0]["reread_time_limit_s"] is None, "album pass"
     assert backend.rip_calls[1]["reread_time_limit_s"] == 1457, "securing pass"
     assert backend.rip_calls[2]["reread_time_limit_s"] is None, "a chase read"
+
+
+def test_archival_exact_reads_without_printed_values_are_not_determined_not_agreed(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Tri-state on the archival path: the album pass is both the kept read and the
+    reads compared, so its block CRC must not be compared with itself. With no
+    printed -Z values and no limit line, nothing shows how many values the drive
+    returned: "not determined", never "the reads agreed"."""
+    from platterpus.verified_read_chase import CHASE_SKIPPED_NOT_DETERMINED
+
+    album = _archival_album((), "3D8FCF0C", "")
+    worker, backend = _run_archival(tmp_path, album, [])
+    assert len(backend.rip_calls) == 1
+    (entry,) = worker.retried_tracks
+    chase = entry.get("verified_read_chase")
+    assert chase is not None and chase["outcome"] == CHASE_SKIPPED_NOT_DETERMINED
+    assert chase["distinct_reads_seen"] is None

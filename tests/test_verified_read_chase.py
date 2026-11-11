@@ -656,3 +656,20 @@ def test_the_clause_reaches_the_track_and_the_report() -> None:
         "accuraterip_confidence": 200,
         "last_read_crc": "4065BECC",
     }
+
+
+def test_a_second_chase_in_one_rip_appends_to_the_kept_chase_log(
+    tmp_path: Path,
+) -> None:
+    """Archival Exact can chase twice in one rip (after its securing pass, then
+    after its album pass); the second write must keep the first's sections."""
+    from platterpus.workers.chase_passes import keep_chase_logs
+
+    album_log = tmp_path / "Album.log"
+    first = keep_chase_logs(str(album_log), ["first section\n"])
+    second = keep_chase_logs(str(album_log), ["second section\n"], append=True)
+    assert first == second and second is not None
+    assert second.read_text(encoding="utf-8") == "first section\nsecond section\n"
+    # A rip's first write still starts the file afresh.
+    keep_chase_logs(str(album_log), ["fresh\n"])
+    assert second.read_text(encoding="utf-8") == "fresh\n"
