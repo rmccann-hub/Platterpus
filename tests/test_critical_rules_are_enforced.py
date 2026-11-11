@@ -1633,7 +1633,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3218 -> 3232** (2026-11-04): the build script pins `core.abbrev 7` so the fork's build tag cannot grow with the clone (the owner's refused `.29` install), and its refusal names a longer short hash.
     # **3232 -> 3280** (2026-11-05, round 38's pin moves to `.30` at its release, the fork's lap 12): `PIN_UNDER_REVIEW` `5cc1c6b`, its release sequence 41, its consumer-flag, `--prefer-disc-isrc` and `--prefer-accuraterip-match` rows, its version and full commit, each with the source it was read from; and `.29` named in the `--verify-log` set, which it reached only as `PIN_UNDER_REVIEW`.
     # **3280 -> 3316** (2026-11-11, round 39): `BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT` and its accessor, each build cited by its own contract's P1 line, beside the other gated options' sets.
-    "deps/fork_source.py": 3316,
+    "deps/fork_source.py": 3339,  # 3316 -> 3339 (2026-11-11): round 38's close, recorded beside FORK_PIN, FORK_EXPECTED_VERSION and the --verify-log set as every roll's was
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1914,7 +1914,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 34 for `.23` with 0.7.106, recorded beside both constants.
     # **804 -> 813** (2026-10-20): round 35's approval record (0.7.110, round 35), recorded beside its constants, as each round's is.
     # **822 -> 830** (2026-10-28): round 36's approval record (0.7.114, round 36), recorded beside its constants, as each round's is.
-    "handshake_approval.py": 838,  # 830 -> 838 (2026-11-03): round 37's approval, recorded beside the two constants it moves, as every round's was; 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    "handshake_approval.py": 848,  # 838 -> 848 (2026-11-11): round 38's approval, recorded beside the two constants it moves, as every round's was; 830 -> 838 (2026-11-03): round 37's approval, recorded beside the two constants it moves, as every round's was; 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
@@ -3091,7 +3091,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **387 -> 401** (2026-10-16, round 35, `overreadprobe`): `LAST_TRACK_PLACEHOLDER` and its expander, beside the offset's.
     # **401 -> 408** (2026-10-19, TASKS R30): `(diagnostics)` goes through the same gate as the rip argv and notes the omission, as `(consumer)` does.
     # **408 -> 434** (2026-11-03, review C7): `DEVICE_PLACEHOLDER`, its expander and `device_problem`, beside the offset's, and the preflight view expanding it.
-    "uiscript/script.py": 434,
+    "uiscript/script.py": 437,  # 434 -> 437 (2026-11-11): MAX_LINES rose to 4000 with its reason beside it, when the Full run passed 2000 lines
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is

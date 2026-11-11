@@ -26,6 +26,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`.30` becomes the default ripper: round 38 is closed** (`FORK_PIN` `5cc1c6b`, cyanrip `0.9.4-rc3+platterpus.30`). The fork's lap 18 says `GO` beside our lap 17's, both gates read the round closed, and the approval record moves to round 38 with 0.7.121, on the drive test of 2026-11-09 and the Full run of 2026-11-10 (592 pass; the 2 failures are track 5's read on this drive, which the automatic CTDB repair fixed). A new install, and **Tools → Setup & Updates**, offer `.30` by default from the next release. `.28` stays recognised: it keeps `--verify-log` and the AccurateRip preference for rigs still running it.
 - **The Full run checks every track's record** (operator-facing; round 39's G3, TASKS R139): `fullacceptance.txt` runs `expect-track-records` after both `expect-ctdb whole` steps, so a repaired track saying Accurately ripped, or OK over disagreeing reads, fails the run.
 - **TASKS rows R138 to R142** (contributor-facing): an AccurateRip witness for repaired audio (round 39 G2), `expect-track-records` in the Full run, the exact re-read count before `.30`, the results-table tooltip, and the owner's confirmation of rewriting the EAC-layout log after a repair.
 - **The runner's probe re-runs a stalled pair of reads under `strace`** (operator-facing): as the fork's runner does (their lap 16 S9), so the record shows the system call each read was in; `strace` joins the read-only tools the runner installs in the container.

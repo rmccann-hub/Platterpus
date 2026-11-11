@@ -61,7 +61,7 @@
       },
       {
         "name": "platterpus:count:ripper",
-        "value": "3"
+        "value": "2"
       },
       {
         "name": "platterpus:count:container",
@@ -473,11 +473,11 @@
       "bom-ref": "ripper:cyanrip-fork",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip",
-      "version": "0.9.4-rc3+platterpus.28",
+      "version": "0.9.4-rc3+platterpus.30",
       "isExternal": true,
       "description": "The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host.",
       "scope": "required",
-      "purl": "pkg:github/rmccann-hub/cyanrip@3f288fb",
+      "purl": "pkg:github/rmccann-hub/cyanrip@5cc1c6b",
       "pedigree": {
         "ancestors": [
           {
@@ -541,15 +541,15 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "3f288fb"
+          "value": "5cc1c6b"
         },
         {
           "name": "platterpus:build-tag",
-          "value": "platterpus-fork-g3f288fb"
+          "value": "platterpus-fork-g5cc1c6b"
         },
         {
           "name": "platterpus:banner",
-          "value": "cyanrip 0.9.4-rc3+platterpus.28 (platterpus-fork-g3f288fb)"
+          "value": "cyanrip 0.9.4-rc3+platterpus.30 (platterpus-fork-g5cc1c6b)"
         },
         {
           "name": "platterpus:branch",
@@ -557,15 +557,15 @@
         },
         {
           "name": "platterpus:release-seq",
-          "value": "39"
+          "value": "41"
         },
         {
           "name": "platterpus:approved-by-round",
-          "value": "37"
+          "value": "38"
         },
         {
           "name": "platterpus:approved-for-platterpus",
-          "value": "0.7.117"
+          "value": "0.7.121"
         },
         {
           "name": "platterpus:checked-minimum",
@@ -594,60 +594,6 @@
         {
           "name": "platterpus:handshake",
           "value": "bidirectional release handshake: docs/cyanrip-handshake.md"
-        }
-      ]
-    },
-    {
-      "type": "application",
-      "bom-ref": "ripper:cyanrip-fork-under-review",
-      "group": "rmccann-hub/platterpus-fork",
-      "name": "cyanrip (build under review)",
-      "version": "0.9.4-rc3+platterpus.30",
-      "isExternal": true,
-      "description": "The build handshake round 38 is reviewing; installable on request, never the default.",
-      "scope": "optional",
-      "purl": "pkg:github/rmccann-hub/cyanrip@5cc1c6b",
-      "pedigree": {
-        "ancestors": [
-          {
-            "type": "application",
-            "group": "cyanreg",
-            "name": "cyanrip",
-            "purl": "pkg:github/cyanreg/cyanrip"
-          }
-        ],
-        "notes": "A fork that tracks this upstream and keeps its version string."
-      },
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "https://github.com/rmccann-hub/cyanrip#platterpus-fork"
-        }
-      ],
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "ripper"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET)"
-        },
-        {
-          "name": "platterpus:pin-enforced-in",
-          "value": "src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW)"
-        },
-        {
-          "name": "platterpus:pin",
-          "value": "5cc1c6b"
-        },
-        {
-          "name": "platterpus:round",
-          "value": "38"
-        },
-        {
-          "name": "platterpus:published",
-          "value": "yes"
         }
       ]
     },
@@ -3632,7 +3578,6 @@
         "pypi:sigstore",
         "pypi:tomli-w",
         "ripper:cyanrip-fork",
-        "ripper:cyanrip-fork-under-review",
         "ripper:cyanrip-upstream",
         "runtime:linux",
         "runtime:python",
@@ -3700,21 +3645,6 @@
         "lib:libmusicbrainz5",
         "lib:libswresample",
         "svc:fork-source"
-      ]
-    },
-    {
-      "ref": "ripper:cyanrip-fork-under-review",
-      "dependsOn": [
-        "container:ripping",
-        "lib:libavcodec",
-        "lib:libavfilter",
-        "lib:libavformat",
-        "lib:libavutil",
-        "lib:libcdio",
-        "lib:libcdio_paranoia",
-        "lib:libcurl",
-        "lib:libmusicbrainz5",
-        "lib:libswresample"
       ]
     },
     {
