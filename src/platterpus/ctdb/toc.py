@@ -3,7 +3,7 @@
 
 Clean-room implementation per PLANNING.md KDD-16: the CTDB protocol and the
 disc-TOC math are *facts* (not copyrightable expression), reimplemented here
-from the LGPL `cuetools.net` reference and the spec in
+from the GPL-2.0-or-later `cuetools.net` reference and the spec in
 `docs/archive/upstream-modification-investigation.md`. We never read or port the
 GPL-2.0-only `python-cuetoolsdb`.
 

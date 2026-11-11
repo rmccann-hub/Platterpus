@@ -7,7 +7,7 @@ dependency registry says numpy is installed, so a dev install without numpy read
 "not determined" instead of failing.
 
 **What a syndrome is here** (clean-room, KDD-16: from the published format, read
-in the LGPL ``CUETools.AccurateRip/AccurateRip.cs`` and ``CDRepair.cs``, no code
+in the GPL-2.0-or-later ``CUETools.AccurateRip/AccurateRip.cs`` and ``CDRepair.cs``, no code
 copied). Lay the disc's little-endian 16-bit samples out as one stream of words,
 left and right interleaved. Skip the first ``stride`` words (11,760, i.e. 5,880
 frames: the same front guard band the CTDB CRC skips, ``crc.ctdb_trims``) and cut

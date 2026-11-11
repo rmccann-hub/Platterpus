@@ -428,7 +428,7 @@ This unblocks wiring CTDB verify into the GUI.
   expressed, or per-track vs. cumulative offsets (`disc_toc_from_files`). Fix
   `ctdb/toc.py` and re-run.
 - **`no_match` (disc found, CRC differs)** → the lookup format is right; the
-  **CRC algorithm needs the bit-exact fix**. Read the **LGPL**
+  **CRC algorithm needs the bit-exact fix**. Read the **GPL-2.0-or-later**
   `CUETools.AccurateRip` (`AccurateRipVerify.CTDBCRC`) + `CUETools.Parity` for
   the polynomial/init/reflection and the ±5879-frame offset sweep (CTDB's
   range, `CDRepair.FindOffset` — wider than AccurateRip's ±2939), then replace

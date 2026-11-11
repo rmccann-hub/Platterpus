@@ -2,7 +2,7 @@
 """Arithmetic in GF(2^16), the field CTDB's parity lives in (TASKS R43).
 
 Clean-room (KDD-16): the field is a published fact, not code. CUETools' parity
-(LGPL, ``CUETools.Parity/Galois.cs``, class ``Galois16``) uses GF(2^16) built from
+(GPL-2.0-or-later, ``CUETools.Parity/Galois.cs``, class ``Galois16``) uses GF(2^16) built from
 the polynomial ``x^16 + x^12 + x^3 + x + 1`` (``0x1100B``) with ``alpha = x`` (the
 value 2) as its generator. Every 16-bit audio sample is one element of the field.
 
