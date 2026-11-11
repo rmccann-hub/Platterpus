@@ -1,0 +1,246 @@
+=== Platterpus diagnostics ===
+
+Approved pair: Platterpus 0.7.121 + cyanrip 0.9.4-rc3+platterpus.30 (platterpus-fork-g5cc1c6b) — verified by handshake round 38. This app is Platterpus 0.7.122, which that round did NOT approve — it verified this ripper build with Platterpus 0.7.121 and never saw this app. The pair is what the record APPROVES, not what is installed — the ripper build that produced a given rip is named in that rip's own log and report.
+Installed ripper: cyanrip 0.9.4-rc3+platterpus.31 (commit e531a33, fork release 42), the Platterpus fork of cyanrip. ⓘ Being tested, not approved yet: handshake round 39 is testing this build now, and the acceptance test needs it. Until a handshake round approves it, every rip records its ripper as unapproved in its rip report. The audio is unaffected: a rip whose own checks pass is still bit-perfect. Keep it until the round closes.
+
+--- Environment ---
+install_channel: appimage
+platform: Linux-7.2.15-ogc1.1.fc45.x86_64-x86_64-with-glibc2.44
+pyside6: 6.11.2
+python: 3.14.9
+
+--- Dependencies ---
+measured 6 hours ago (12:35 UTC)
+cdparanoia: present=True version=10.2 min_version_met=True
+cyanrip: present=True version=0.9.4 build=0.9.4-rc3+platterpus.31 min_version_met=True
+ffmpeg: present=True version=9.0.2 min_version_met=True
+flac: present=True version=1.5.0 min_version_met=True
+metaflac: present=True version=1.5.0 min_version_met=True
+musicbrainzngs: present=True version=0.7.1 min_version_met=True
+numpy: present=True version=2.5.4 min_version_met=True
+picard: present=True version=3.0.4 min_version_met=True
+
+--- Diagnostics ---
+errors: 0  warnings: 8  info: 26
+worst: warning
+scope: process session (not only this rip)
+
+[info] deps.command_cancelled @ 2026-11-11T12:32:22+00:00
+  cyanrip was stopped by Platterpus before it answered; this is not a failure of cyanrip
+  tool: cyanrip
+  exit code: -9
+  argv: ~/.local/bin/cyanrip -I -N -d /dev/sr0
+  where: adapters.rip_backend.run_capture
+  detail:
+    Checking /dev/sr0 for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    
+    Still waiting: the drive open has not returned after 10s
+    the drive open returned after 12s
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T12:59:00+00:00
+  Done; (repeat limit of 5 reads reached; at most 4 reads agreed; agreement on E0036697 overruled by AccurateRip)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T13:20:48+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T13:48:11+00:00
+  Done; (2 out of 2 matches for current checksum B0D122E7)
+  tool: cyanrip
+  track: 1
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T13:51:29+00:00
+  Done; (2 out of 2 matches for current checksum 985AAE32)
+  tool: cyanrip
+  track: 2
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T13:59:37+00:00
+  Done; (2 out of 2 matches for current checksum 3D8FCF0C)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:04:25+00:00
+  Done; (2 out of 2 matches for current checksum 60D796AE)
+  tool: cyanrip
+  track: 4
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:08:10+00:00
+  Done; (2 out of 2 matches for current checksum E0036697)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:11:41+00:00
+  Done; (2 out of 2 matches for current checksum B32769D6)
+  tool: cyanrip
+  track: 6
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:15:14+00:00
+  Done; (2 out of 2 matches for current checksum CCBFF669)
+  tool: cyanrip
+  track: 7
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:18:14+00:00
+  Done; (2 out of 2 matches for current checksum D723C1B0)
+  tool: cyanrip
+  track: 8
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:20:34+00:00
+  Done; (2 out of 2 matches for current checksum 6F6E4A5F)
+  tool: cyanrip
+  track: 9
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:23:41+00:00
+  Done; (2 out of 2 matches for current checksum 3A33519F)
+  tool: cyanrip
+  track: 10
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:27:20+00:00
+  Done; (2 out of 2 matches for current checksum 56BFC63D)
+  tool: cyanrip
+  track: 11
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:30:57+00:00
+  Done; (2 out of 2 matches for current checksum D78CEAEF)
+  tool: cyanrip
+  track: 12
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:34:20+00:00
+  Done; (2 out of 2 matches for current checksum DA6A4DAF)
+  tool: cyanrip
+  track: 13
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T14:37:38+00:00
+  Done; (2 out of 2 matches for current checksum 787BA2D6)
+  tool: cyanrip
+  track: 14
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T14:42:33+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+[warning] deps.command_failed @ 2026-11-11T14:46:24+00:00
+  cyanrip exited 64: Offset is unset! To continue with an offset of 0, run with -s 0!
+  tool: cyanrip
+  exit code: 64
+  argv: ~/.local/bin/cyanrip -N -d /dev/sr0 -l 1
+  where: adapters.rip_backend.run_capture
+  detail:
+    Checking /dev/sr0 for cdrom...
+    		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+    
+    
+    Opening drive...
+    Offset is unset! To continue with an offset of 0, run with -s 0!
+    Paranoia status counts:
+      none
+    
+    Ripping errors: 0
+    Encoder errors: not applicable; no track was encoded
+    Read stalls:    none (no read exceeded 10s)
+    Rip completed:  no (aborted, 0 of 14 tracks)
+    Ripping finished at 2026-11-11T09:46:24-05:00
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T15:46:21+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T15:52:43+00:00
+  Done; (repeat limit of 5 reads reached; at most 4 reads agreed; agreement on E0036697 overruled by AccurateRip; last read 6902BCF0, not kept)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T16:14:14+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T16:36:46+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T16:43:00+00:00
+  Done; (repeat limit of 5 reads reached; at most 5 reads agreed; agreement on E0036697 overruled by AccurateRip)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T16:44:13+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T17:08:24+00:00
+  Done; (read 4 matches AccurateRip at confidence 200; agreement on 3D8FCF0C overruled by AccurateRip; kept 59D352DD, read 1 time)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T17:14:32+00:00
+  Done; (repeat limit of 5 reads reached; at most 5 reads agreed; agreement on E0036697 overruled by AccurateRip)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T17:15:49+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T17:41:36+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T17:47:47+00:00
+  Done; (repeat limit of 5 reads reached; at most 3 reads agreed; agreement on E0036697 overruled by AccurateRip; last read 6902BCF0, not kept)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T18:09:33+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+[info] ripper.secure_rerip_verdict @ 2026-11-11T18:31:57+00:00
+  Done; (2 out of 2 matches for current checksum 59D352DD)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+
+[warning] ripper.secure_rerip_verdict @ 2026-11-11T18:37:56+00:00
+  Done; (repeat limit of 5 reads reached; at most 5 reads agreed; agreement on E0036697 overruled by AccurateRip)
+  tool: cyanrip
+  track: 5
+  where: workers.rip_worker.RipWorker._run_rip
+
+[info] ctdb_repair.repaired @ 2026-11-11T18:39:13+00:00
+  CTDB repair repaired: track(s) 5 rewritten toward entry 32115 (1,425 submissions)
+  where: ui.main_window_ctdb_repair
+
+--- Where the rest lives ---
+app log: ~/.local/share/platterpus/log.txt
+per-rip report: a `.platterpus.json` beside each album's audio — it embeds the ripper's own output and that session's debug log.
