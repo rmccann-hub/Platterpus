@@ -11,6 +11,12 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-11-11 to 2026-11-12 — round 39: the five-rip run read, G1 to G4 met; 0.7.123 answers lap 3
+
+- **Built.** Filed the owner's Full run on 0.7.122 with `.31` (evidence `ac0a5133`, 246 files) and read it: G1 to G3 met in all five repeat rips, G4's per-second comparison from its 83 records. Fixed `expect-track-records` grading the report alone (`4ee8871d`). Answered the fork's lap 3: every `-Z` pass asks `.31` for `--reread-until-accuraterip` (`3e841e40`), the exact agreeing count on `.30`/`.31` (`048356b0`), the `C2 errors:` line read as a declaration (`6739f51d`), the probe reads each wrong second whole (`fa2a8f85`). Released lap 2 and 0.7.123.
+- **Decided.** The owner: "burn" means writing a disc, on both sides (`CLAUDE.md`, `tests/test_burn_means_writing_a_disc.py`). The C2 probe shows the BDR-209D returns C2 pointers and flags track 5's three wrong samples in every read; its capabilities page says it cannot.
+- **Learned.** (1) HR-2 §6b: a lap may cite an evidence file only once its manifest row is on `main`, so the rows and the lap go in two pull requests, and the lap's FROM-COMMIT is where the manifest is read. (2) A runner that hands a grader a file where the grader expects a folder fails silent: the glob finds nothing and the check reads as narrower, never as failing. (3) A borrowed word (burn-in) that means the opposite of the program's job (reading) misleads the owner; say what the drive did.
+
 ## 2026-11-06 to 2026-11-11 — round 38 closes on `.30`; 0.7.122 names `.31` for round 39's test burn
 
 - **Built.** The one-script drive test (`docs/rig-scripts/drivetest.sh`, phases, probe, records, uploads that keep no audio), run by the owner on 2026-11-09 and the Full run on 0.7.121 with `.30` on 2026-11-10 (592 pass, 2 fail on track 5's read, which the automatic CTDB repair fixed). The per-track record (G3, `c1d2dcb1`), the verified-read chase (G1, `4cba7e11`..`512e052a`), AccurateRip's own database read for a repaired track (G2, `b2ad84ec`), `.31` read and sent `--reread-until-accuraterip 2` (`d94e1388`..`d970b4c6`), every chase read's record kept for the bundle, and the Full run's section R, five default whole-disc rips. Round 38 closed on our lap 17 and the fork's lap 18 (`5190dc1e`); round 39 lap 2 written and held.
@@ -11093,4 +11099,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.123.*

@@ -241,11 +241,13 @@ def test_the_compressor_row_does_not_credit_a_binary_that_did_not_run() -> None:
 
 
 def test_c2_capability_is_not_reported_as_c2_use() -> None:
-    """cyanrip's "C2 errors: %s by drive" states what the DRIVE can do.
+    """cyanrip's "C2 errors:" line states what the drive's capabilities page
+    DECLARES, never what the drive can do (the fork's round 39 lap 3 S14).
 
-    "unsupported" proves C2 was not used, so "No" is earned. An affirmative
-    capability says nothing about whether the rip used it, so it must stay
-    unknown rather than become EAC's "Yes".
+    A not-declared page means the ripper did not ask for C2, so "No" is earned.
+    A bare declaration of support says nothing about whether the rip used it, so
+    it must stay unknown rather than become EAC's "Yes". Every wording, the
+    proposed ones included: `tests/test_c2_declaration.py`.
     """
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log as _parse
 

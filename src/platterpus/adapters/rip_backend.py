@@ -762,7 +762,7 @@ class RipBackend(ABC):
         master, 2026-07-21 — it needs an AccurateRip-listed disc in the drive),
         but the earlier integration mis-scraped its output (read a default 0
         and silently overrode the correct list value) and was removed — so the
-        impl inherits this default rather than trusting a probe that burned us.
+        impl inherits this default rather than trusting a probe that misled us.
         """
         raise NotImplementedError
 

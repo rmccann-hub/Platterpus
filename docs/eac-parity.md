@@ -420,7 +420,7 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | Extraction engine | (implicit in EAC binary) | stock: none; the fork: `Encoder: libavformat …, libavcodec … (8.1.2)` | The fork names its FFmpeg libraries; libcdio-paranoia's version is still not printed. We do not render the `Encoder:` line yet (`TASKS.md`). |
 | Read mode | `Read mode : Secure` | `Paranoia level: max` | Our export renders `max` as `Secure`, and `none` as `Burst` (`eac_log_export.py`). cyanrip can run with `-P none`; Platterpus never passes `-P`, so it is always `max`. |
 | Read offset correction | `Read offset correction : 667` | `Offset:         +667 samples` | Equivalent. cyanrip applies the offset itself (no >587 cd-paranoia bug, which the previous backend had), and prints the sign explicitly. |
-| C2 pointers | `Make use of C2 pointers : No` | `C2 errors: <text> by drive` | **Parsed since v0.5.12** (`_C2` → `RippingInfo.c2_pointers`). Note the two lines ask different questions: cyanrip reports what the *drive can do*, EAC's row what the *rip did* — so `unsupported`/`disabled` renders a truthful `No` and an affirmative capability renders as unknown rather than a fabricated `Yes`. Per-sector C2 *counts* remain unexposed — see `docs/cyanrip-fork.md Part A §8`. |
+| C2 pointers | `Make use of C2 pointers : No` | `C2 errors: <text> by drive` | **Parsed since v0.5.12** (`_C2` → `RippingInfo.c2_pointers`). Note the two lines ask different questions: cyanrip reports what the drive's capabilities page *declares* (never what the drive can do: round 39 lap 3 S14), EAC's row what the *rip did*. So a not-declared page or a "not used" line renders a truthful `No` (the ripper did not ask for C2), and a bare declaration of support renders as unknown rather than a fabricated `Yes`. From 2026-11-11 the declaration is also kept as a state, `rip.c2_declared` (`c2_declaration.py`), which reads the fork's two proposed wordings too. Per-sector C2 *counts* remain unexposed — see `docs/cyanrip-fork.md Part A §8`. |
 | Gap detection | `Gap handling : Appended to previous track` | `Gaps:` block | Parsed to `RippingInfo.gap_detection`, and our export renders it into EAC's `Gap handling` row. |
 | Per-track pre-gap | `Pre-gap length  0:00:02.00` | stock: `Pregap LSN: N`; the fork: `Pregap LSN: 0 (duration: 00:02.00)`, `Pregap length: 150 frames`, `Pregap source: …` | `Pregap LSN` is a position, not a length; the length comes from the fork's `Pregap length:`. Parsed to `TrackResult.pregap_sectors` and rendered in the EAC-layout export. |
 | Per-track sector range | (implicit in the TOC table) | `Start LSN:` / `End LSN:` | Parsed to `TrackResult.start_sector`/`end_sector`; they build the EAC-layout TOC table. |
@@ -1042,7 +1042,7 @@ cyanrip's default already merges pregaps into the previous track.
 | No normalization / compression offset | never emitted | **met** |
 | Read offset correction | `-s` applied. Since 2026-10-21 the report (`rip.read_offset_check`) and the results pane assert it against the AccurateRip drive list for the drive the log names, with KDD-31's re-confirmation beside it (`read_offset_check.py`); the EAC-layout log still prints the value only, and its wording is proposed in TASKS P2 #6 | **partial** (report met; EAC-layout log open) |
 | Fill missing offset samples with silence | derived from cyanrip's `Overread mode:` line, which stock and fork both always print (cyanrip@ca3f3ea:src/cyanrip_log.c:889-891); reads `No` under `-O` | **met** |
-| `Make use of C2 pointers` | **`No`, measured** on a drive that reports C2 unsupported; "(not reported)" otherwise (see below) | **met on the rig; open in general** |
+| `Make use of C2 pointers` | **`No`, first-party** where the ripper's line says it did not use C2 (a page that does not declare C2, or "not used"); "(not reported)" otherwise (see below) | **met on the rig; open in general** |
 | `Utilize accurate stream` | no equivalent; from `.26` the row carries the drive's own declaration (`Accurate stream:`, MODE SENSE page 2Ah), worded as not determined and never as EAC's `Yes`, since a declaration is not a use (`eac_log_export._accurate_stream_row`, 2026-10-26) | **open** |
 | Signed EAC log footer | plain SHA-256, self-labelled *not* EAC's | **by design** |
 | Recognised ripper name | never emitted (KDD-11/24/28); our log names EAC only to disclaim it, and OPS refuses it for lacking EAC's first line (§1) | **by design → score 0** |
@@ -1062,10 +1062,20 @@ reads `Make use of C2 pointers : No`. That is first-party evidence from the tool
 the read — the standard the test was defending — so the row is now filled on this drive.
 
 The distinction the parser keeps, and that matters: cyanrip's line reports what the
-**drive can do**, not what the rip did. "unsupported" *proves* C2 was not used; a
-"supported" line would prove only that it was available, and EAC's row asks whether C2
-was *used*. So a C2-capable drive still yields "(not reported)" rather than a guess in
-either direction. The row is met where the hardware settles it, open where it doesn't.
+drive's **capabilities page declares** (MODE SENSE 2Ah), not what the rip did, and not
+what the drive can do. **Corrected 2026-11-11** (the fork's round 39 lap 3 S11 and S14):
+this section said the line reports what the drive *can* do, and the BDR-209D, whose page
+does not declare C2, returns C2 pointers anyway (three bits at LBA 83430, in track 5's
+error, in all four reads of their probe, `cyanrip@74b6f0a`). So `unsupported by drive`
+is the page's silence, and the `No` it earns rests on the ripper not *asking* for C2:
+in the fork's source no read asks for it (`supported by drive, not used`,
+`cyanrip@54d66666:src/drive_caps.c:121`; `c2_error_information = 0`,
+`src/pregap.c:206`). A bare "supported" line proves only that C2 was declared, and
+EAC's row asks whether it was *used*, so it still yields "(not reported)" rather than a
+guess in either direction. The fork proposes rewording both branches as declarations
+(`not declared by drive (capabilities page, not measured)`, `declared supported by
+drive (capabilities page), not used`); our reader takes both now, each to the same state
+and the same row as today's words (`tests/test_c2_declaration.py`).
 
 ---
 
@@ -1407,7 +1417,7 @@ more than double. No disc AccurateRip lacks has yet been ripped this way on hard
 | Secure read | libcdio-paranoia at `PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP` (`cyanrip@891c79e:src/cyanrip_main.c:175`, set at `:358`), `-r 5` retries. After retries paranoia may *skip* (keep an unverified read) and counts it; EAC keeps going too, and marks the position | Equal on results (E2); see *error location* |
 | Test & Copy | `-Z N` keeps reading until N+1 reads agree and keeps the read most reads agreed on; on by default for AccurateRip-failing tracks, and from the next release for every track of a disc AccurateRip cannot vouch for (E3); a Settings tick makes it every track | Better when AccurateRip has the disc; when not, worse in 0.7.110 and earlier, equal from the next release (E3) |
 | Cache defeat | Paranoia tries on every read; the result is measured per drive (KDD-29, measured `Yes` on the BDR-209D) | Equal on the rig; unmeasured elsewhere |
-| C2 pointers | Not used; the log states the drive's capability (`cyanrip@891c79e:src/cyanrip_log.c:927-928`). EAC's baseline also had C2 off | Equal |
+| C2 pointers | Not used; the log states what the drive's capabilities page declares (`cyanrip@891c79e:src/cyanrip_log.c:927-928`), which is not what the drive can do (round 39 lap 3 S14). EAC's baseline also had C2 off | Equal |
 | Accurate stream | No equivalent, and nothing measures it. From `.26` the drive's declaration is read and shown; every `.26` rip on the BDR-209D (2026-10-21 and -22) read `declared supported by drive (capabilities page, not measured)`, 38 of 38 logs by the fork's count (their lap 8, held). From `59f4e331` (2026-10-26) the EAC-layout row carries that declaration, worded as not determined, never as EAC's `Yes` | **Equal on what can be known** (Part F row 16; *Not determined* until 2026-10-26). Whether paranoia's read path depends on it, and so whether a drive that declares it unsupported should be refused, is the fork's to say |
 | Read offset | From AccurateRip's drive list, applied with `-s`, and re-confirmed by every rip that matches AccurateRip (KDD-31). From 2026-10-21 the report checks the applied value against the list's entry for the drive the log names and says `matches`, `differs` (a warning), `drive_not_listed` or `not_determined` (`rip.read_offset_check`); EAC's log prints the number only (`Read offset correction : 667`, `EAC_flac/…log`) | Equal; ahead in that it re-confirms on every rip and names the database entry |
 | Overread into lead-in and lead-out | Opt-in `-O`; it stalled for about 23 minutes on the BDR-209D (Part A scorecard) | Equal (EAC's baseline left it off) |
@@ -1687,9 +1697,11 @@ and Part F's per-run scores stay the dated record.
   the fork's whole filed record (their round 38 lap 8 S5, 533 logs; 326 of this disc
   at +667) track 3 read 59 values in 171 reads, and track 5 six values in 106 reads,
   `C96464AB` in three sessions, which we reproduced from their `evidence` branch.
-- **The drive.** Pioneer BDR-209D, firmware 1.51: no C2 pointers (our records and
-  redumper's drive table, `superg/redumper@fa5d243:drive.ixx:239`, which lists it
-  among "generic (bad) drives" with no C2 field); a cache of about 140 sectors that a
+- **The drive.** Pioneer BDR-209D, firmware 1.51: its capabilities page does not
+  declare C2 pointers, and redumper's drive table
+  (`superg/redumper@fa5d243:drive.ixx:239`) lists it among "generic (bad) drives" with
+  no C2 field; **corrected 2026-11-11:** it returns them anyway, and they flag track 5's
+  error (the fork's round 39 lap 3 S11, `cyanrip@74b6f0a`); a cache of about 140 sectors that a
   backseek flushes (`tests/fixtures/cdparanoia_A_bdr209d.txt`), far smaller than a
   track, so cache cannot explain whole-track disagreement.
 - **The owner's handling** (2026-11-04): the disc usually stays in the drive between
@@ -1710,7 +1722,9 @@ and Part F's per-run scores stay the dated record.
    cannot correct and continues, reporting nothing to the host (and this drive has no
    C2 to report it with); "Master" retries with changed read parameters; "Perfect"
    reports a read error instead (Pioneer's PureRead page; a 2009 interview with its
-   engineers, phileweb.com 200909/04/26). A deterministic interpolation explains why
+   engineers, phileweb.com 200909/04/26). (Corrected 2026-11-11: the drive does
+   report C2 pointers when asked, and flags track 5's error with them; round 39
+   lap 3 S11.) A deterministic interpolation explains why
    EAC and every cyanrip build read `E0036697`, and why re-reading and voting do not
    help. Untested: which mode this drive is in, and whether the setting persists
    across operating systems.
@@ -1860,4 +1874,4 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.123.*

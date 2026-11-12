@@ -135,9 +135,14 @@ def staged_name(rel: str) -> str | None:
 def album_key(folder: str) -> str | None:
     if folder.startswith("full acceptance"):
         return "overwrite" if folder.endswith("_2_") else "wholedisc"
-    # Round 39's burn (section R, 0.7.122): five default whole-disc rips, each its
-    # own album folder, `round 39 burn rip 1` to `5`.
-    if m := re.match(r"round \d+ burn rip (\d+)(?: |$)", folder):
+    # Round 39's five-rip run (section R): five default whole-disc rips, each its
+    # own album folder, `round 39 repeat rip 1` to `5` from 0.7.123. 0.7.122 named
+    # them with a word the owner retired on 2026-11-11 (it means writing a disc,
+    # and these are reads); the bundle filed at `ac0a5133` carries that name, so
+    # it is still read, and still files under the name it was filed with.
+    if m := re.match(r"round \d+ repeat rip (\d+)(?: |$)", folder):
+        return f"repeatrip{m[1]}"
+    if m := re.match(r"round \d+ burn rip (\d+)(?: |$)", folder):  # 0.7.122's name
         return f"burnrip{m[1]}"
     for start, key in ALBUMS:
         if folder.startswith(start):

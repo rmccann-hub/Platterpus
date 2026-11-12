@@ -1348,10 +1348,12 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert backend.rip_calls[1]["read_speed"] == 0  # never -S
     # The re-rip uses the user's configured -Z (their number is the ceiling).
     assert backend.rip_calls[1]["secure_rerip_matches"] == 2
-    # `.31`'s rule is asked for on the securing pass, and on it alone (round 39):
-    # the album pass reads as it always did. The backend's gate decides the build.
+    # `.31`'s rule is asked for on every -Z pass (round 39; the fork's lap 3 S15):
+    # this album pass reads with -Z 2 (uniform mode), so it asks too, as the
+    # securing pass does. The backend's gate decides the build.
     assert backend.rip_calls[1]["reread_until_accuraterip"] == 2
-    assert backend.rip_calls[0]["reread_until_accuraterip"] is None
+    assert backend.rip_calls[0]["secure_rerip_matches"] == 2
+    assert backend.rip_calls[0]["reread_until_accuraterip"] == 2
     # Track 3 was fixed → no longer unstable, recorded as replaced.
     assert worker.unstable_tracks == []
     assert worker.retried_tracks == [

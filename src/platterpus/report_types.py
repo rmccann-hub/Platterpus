@@ -72,6 +72,10 @@ class RipBlock(TypedDict):
     cd_r_detected: bool | None
     speed_changeable: bool | None
     c2_pointers: bool | None
+    #: v46: what the `C2 errors:` line says the capabilities page declares
+    #: (`c2_declaration.C2_DECLARED_STATES`) and the ripper's parenthetical.
+    c2_declared: str
+    c2_declared_reason: str | None
     #: v39: the fork's `.26` `Accurate stream:` and `Recordable:` lines, each a
     #: state (`parsers.rip_log.ACCURATE_STREAM_STATES` / `RECORDABLE_STATES`,
     #: `"not_present"` when the line was not printed) and the ripper's reason.

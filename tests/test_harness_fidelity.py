@@ -300,7 +300,7 @@ def test_the_by_file_location_idiom_is_actually_used() -> None:
 def test_a_hang_dumps_its_stack_instead_of_eating_the_ci_step(pytestconfig) -> None:
     """A test that never returns must say WHERE it stopped.
 
-    On 2026-08-19 all four CI legs stopped after 3312 tests and burned the whole
+    On 2026-08-19 all four CI legs stopped after 3312 tests and used up the whole
     15-minute step, and the log said one thing: *"the action has timed out"*. The
     diagnosis — which thread, which frame — was alive in the stuck process the
     entire time and was discarded, which is the same failure as capturing a

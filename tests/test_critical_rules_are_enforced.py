@@ -2073,7 +2073,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4790 -> 4796** (2026-11-04, TASKS R128 (c)): `_take_rip_completed` reads its optional `(N of M tracks)` with `present_int_or_none`, two calls reflowed onto three lines each, with the comment that says why. The sweep that found it is `tests/test_optional_groups_are_read_as_optional.py`.
     # **4796 -> 4821** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): the `track_other_read` rule in the indented table, the echo boundary's refusal of it, and the per-track accumulator and its flush; the reading is `other_reads.py`.
     # **4821 -> 4866** (2026-11-11, round 39, `.31`): `.31`'s `--reread-until-accuraterip` lines: the verdict predicate reads the AccurateRip-matched early end as not converged (unread, the track had no verdict, which the EAC-layout log fills in as convergence), the row's `overruled` phrase, `secure_rerip_ar_overrule` beside `secure_rerip_limit_stop`, and the buffering of the fact with the verdict it describes; the patterns and the dataclass live in `reread_ar_overrule.py`.
-    "parsers/cyanrip_log.py": 4866,
+    # **4866 -> 4857** (2026-11-12, the fork's round 39 lap 3 S14): the `C2 errors:` reading moved out to `c2_declaration.py`; `_take_c2` now only calls it.
+    "parsers/cyanrip_log.py": 4857,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2109,7 +2110,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1222 -> 1237** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): `RipLog.secure_rereads` and the three per-track fields, `pregap_undecided_frames`, `filtered`, `ripper_cover_art`, with their imports.
     # **1237 -> 1245** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `TrackResult.other_reads` and its count, with what an empty one does not mean.
     # **1245 -> 1251** (2026-11-11, round 39, `.31`): `TrackResult.secure_rerip_ar_overrule`, `.31`'s overruled agreement, beside the four -Z fields it describes the same reads as.
-    "parsers/rip_log.py": 1251,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1251 -> 1258** (2026-11-12, the fork's round 39 lap 3 S14): `RippingInfo.c2_declared` and its reason, what the `C2 errors:` line says the capabilities page declares, beside `c2_pointers` whose comment now says "not used", never "the drive doesn't support it"; the reader is `c2_declaration.py`.
+    "parsers/rip_log.py": 1258,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2200,7 +2202,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1277 -> 1292** (2026-11-11, round 39's G3, the record): `TrackRecordBlock` and `TrackBlock.record` (schema 45), beside the track block it types.
     # **1292 -> 1328** (2026-11-11, round 39 G1): schema 45's chase fields on `VerifiedReadChaseBlock` and `ChaseAttemptBlock`, each commented where its shape is declared; the rules are `chase_budget.py`.
     # **1328 -> 1351** (2026-11-11, round 39's G2, TASKS R138): `AccurateRipDatabaseAnswerBlock`, `AccurateRipLookupBlock` and their keys on the repair's blocks, beside the blocks they extend.
-    "report_types.py": 1351,
+    # **1351 -> 1355** (2026-11-12, the fork's round 39 lap 3 S14): `RipBlock.c2_declared` and `c2_declared_reason` (schema 46), beside `c2_pointers`.
+    "report_types.py": 1355,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2356,7 +2359,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3881 -> 3930** (2026-11-11, round 39's G3, the record): per track `record` (schema 45) built beside `proof` from the same rip-wide facts, the v45 history note, and the schema bump.
     # **3930 -> 3947** (2026-11-11, round 39 G1): the chase's fields in schema 45's history note beside `REPORT_SCHEMA_VERSION`, the file's own rule; no code here changed.
     # **3947 -> 3987** (2026-11-11, round 39's G2, TASKS R138): `ctdb.repair`'s AccurateRip answers per track and its `accuraterip_lookup`, with their two serializers beside `_ctdb_repair` (dict literals here, so `tests/test_report_types_completeness.py` can read them) and the schema-45 note. The lookup and the answers are `adapters/accuraterip_db.py`, `accuraterip_db_answer.py` and `ctdb/repair_accuraterip.py`.
-    "rip_report.py": 3988,  # 3987 -> 3988 (2026-11-11): the schema note names `.31`'s new footer state, beside the v45 notes
+    # **3987 -> 3988** (2026-11-11): the schema note names `.31`'s new footer state, beside the v45 notes
+    # **3988 -> 4000** (2026-11-12, the fork's round 39 lap 3 S14): the schema-46 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, and `rip.c2_declared` with its reason beside `c2_pointers`; the reader is `c2_declaration.py`.
+    "rip_report.py": 4000,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -3251,7 +3256,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4455 -> 4470** (same day, TASKS R49; 4470 once its imports were merged): the securing pass's time limit computed (`securing_time_limit.securing_pass_time_limit`), said in the log, and handed through `_rip_once` to the backend.
     # **4470 -> 4480** (2026-11-11, round 39, `.31`): `_rip_once` asks for `.31`'s rule on the securing pass alone, with `-Z`; why there and why 2 is `reread_until_accuraterip_args.py`.
     # **4480 -> 4490** (2026-11-11, round 39 lap 1 S10): `_read_once_for_chase` keeps each chase read's `-j` record before the chase deletes its folder, and names it for the rip's bundle; the copy is `chase_record_keep.py`'s.
-    "workers/rip_worker.py": 4490,
+    # **4490 -> 4484** (2026-11-12, the fork's round 39 lap 3 S15): down: `_rip_once` asks `confidence_for_pass` for every `-Z` pass in one line, where it computed the securing pass's case in five.
+    "workers/rip_worker.py": 4484,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

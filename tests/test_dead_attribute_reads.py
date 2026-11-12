@@ -78,7 +78,7 @@ def _assigned_names(files: list[Path]) -> set[str]:
             # dispatches to handlers by string (`_on_start`, `_on_rip_cancel`),
             # which is the same dynamic-reference pattern this sweep polices, only
             # correct. A detector whose denominator is too small is not stricter,
-            # it is wrong, and it burns the maintainer's trust on the first run.
+            # it is wrong, and it costs the maintainer's trust on the first run.
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 assigned.add(node.name)
             targets: list[ast.expr] = []

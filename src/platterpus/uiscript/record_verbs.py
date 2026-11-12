@@ -106,7 +106,7 @@ class RecordVerbsMixin:
             folder,
             # `path` is the REPORT FILE; the grader searches a FOLDER for the
             # EAC-layout log. Passing the file made that search find nothing, so
-            # round 39's test burn (2026-11-11) graded the report alone on every rip
+            # round 39's five-rip run (2026-11-11) graded the report alone on every rip
             # while each folder held an EAC-layout log.
             lambda path, report: track_record_grading.grade_track_records(
                 report, path.parent

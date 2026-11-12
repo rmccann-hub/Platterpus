@@ -292,6 +292,9 @@ ships no Linux ripper.
 - **(b) Patch/fork libcdio-paranoia (or cyanrip's read loop) to use C2.** Very high
   effort — C2 logic belongs in the conservative GPL-3.0 paranoia core; low upstream
   appetite. **Pointless on the BDR-209D if it exposes no C2.** Hardware-gated.
+  (2026-11-11: it does. Its capabilities page does not declare C2, but a READ CD
+  asking for C2 pointers returns them, and they flag track 5's error; the fork's
+  round 39 lap 3 S11, `cyanrip@74b6f0a`.)
 - **(c) Swap extraction engine for a C2-using one.** No mature Linux candidate
   exists. Not viable.
 
@@ -930,4 +933,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.123.*

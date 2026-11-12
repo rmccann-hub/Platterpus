@@ -1,14 +1,14 @@
-"""`--reread-until-accuraterip 2` (the fork's `.31`) on the securing pass (round 39, G1).
+"""`--reread-until-accuraterip 2` (the fork's `.31`) on every `-Z` pass (round 39, G1).
 
-The securing pass re-reads, with `-Z`, the tracks AccurateRip did not verify, so
-that is where an agreement on the wrong audio is the question; `.31`'s option lets
-the ripper refuse such an agreement (their round 39 lap 1 S4). These tests hold
+A `-Z` pass ends a track when its reads agree, so it is where an agreement on the
+wrong audio is the question; `.31`'s option lets the ripper refuse such an
+agreement (their round 39 lap 1 S4). These tests hold
 what makes it safe to send: the build gate (cyanrip refuses an option it does not
 know, and a refused rip reads as a missing ripper), the range the option's own
 table states (1 to INT32_MAX, ``cyanrip@e531a33:src/cyanrip_main.c:3345``), and
 the refusal without `-Z`, which cyanrip refuses too (exit 64,
-``cyanrip@e531a33:src/cyanrip_main.c:3553-3556``). The worker asks for it on the
-securing pass alone (``tests/test_rip_worker.py``'s auto-fix test holds that).
+``cyanrip@e531a33:src/cyanrip_main.c:3553-3556``). Which passes the worker asks
+on, every `-Z` pass and no other, is ``tests/test_reread_until_accuraterip_passes.py``.
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ import pytest
 
 from platterpus.adapters.cyanrip_backend import CyanripImpl
 from platterpus.adapters.reread_until_accuraterip_args import (
+    REREAD_ACCURATERIP_CONFIDENCE,
     REREAD_UNTIL_ACCURATERIP_FLAG,
     REREAD_UNTIL_ACCURATERIP_MAX,
-    SECURING_PASS_ACCURATERIP_CONFIDENCE,
     reread_until_accuraterip_args,
 )
 from platterpus.adapters.rip_backend import RipError
@@ -119,7 +119,7 @@ def test_the_option_without_z_is_refused_as_cyanrip_refuses_it() -> None:
 def test_the_range_is_the_options_own_int32_and_we_send_2() -> None:
     assert REREAD_UNTIL_ACCURATERIP_MAX == 2**31 - 1
     # Our round 38 lap 17 S8 told the fork "sent as --reread-until-accuraterip 2".
-    assert SECURING_PASS_ACCURATERIP_CONFIDENCE == 2
+    assert REREAD_ACCURATERIP_CONFIDENCE == 2
 
 
 def test_it_rides_beside_the_time_limit_on_the_securing_pass() -> None:
@@ -156,7 +156,7 @@ def test_the_real_rip_spawns_the_option_it_was_asked_for(
         disc_template="",
         secure_rerip_matches=2,
         only_tracks=(3,),
-        reread_until_accuraterip=SECURING_PASS_ACCURATERIP_CONFIDENCE,
+        reread_until_accuraterip=REREAD_ACCURATERIP_CONFIDENCE,
     )
     list(handle.log_lines())
     handle.wait(timeout=10)

@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 # A NEWER PUSH TO A PULL REQUEST CANCELS ITS OLDER RUN; NOTHING ELSE IS CANCELLED
-# (the 2026-10-27 review, item 2.7). A superseded pull-request run only burns
+# (the 2026-10-27 review, item 2.7). A superseded pull-request run only uses up
 # runner minutes: its result describes a head nobody will merge.
 #
 # A push to `main` must never be cancelled, and must never wait in a shared
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-22.04
     # A JOB-LEVEL bound, not just a step-level one. `Run tests` already carries
     # `timeout-minutes: 15` with the right reasoning written beside it — "fails in
-    # minutes instead of burning the 6-hour default" — but it was applied to the step
+    # minutes instead of using up the 6-hour default" — but it was applied to the step
     # the author was thinking about rather than to the surface the rule belongs on.
     # The step that has actually wedged is `Install headless Qt system libraries`: an
     # apt stall on the runner hung two jobs for 20+ minutes on 2026-08-18, twice, with
@@ -1173,7 +1173,7 @@ jobs:
       # in the pending-installs dialog — fixed at the root (see the 2026-07 entry
       # in docs/testing.md), so the retry-on-abort wrapper that masked it is gone.
       # `timeout-minutes` is a cheap backstop: if a future regression hangs the
-      # suite, the job fails in minutes instead of burning the 6-hour default.
+      # suite, the job fails in minutes instead of using up the 6-hour default.
       # NOTE: no `-q` here. `addopts` in pyproject.toml already passes one, and a
       # second took verbosity to -2, which suppresses pytest's `N passed` summary
       # line. That mattered more than it looks: the summary is the only

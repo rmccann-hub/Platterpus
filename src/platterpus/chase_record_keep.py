@@ -2,7 +2,7 @@
 """Keep each verified-read chase read's ``--diagnostics`` record (round 39 lap 1 S10).
 
 **Why this exists.** The fork's round 39 lap 1 S10 is BLOCKING: *"Put each rip's
-``--diagnostics`` record in the bundle, in the test burn and from now on."* Their
+``--diagnostics`` record in the bundle, in the five-rip run and from now on."* Their
 gate G4 compares the per-second CRCs (``block_crcs``) of a track's wrong reads
 with its right ones, and on the reference disc the reads that differ are track 3's
 and track 5's: exactly the tracks the verified-read chase reads again and again
