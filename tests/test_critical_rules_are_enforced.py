@@ -2928,7 +2928,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1412 -> 1415** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1415 -> 1427** (2026-11-03, the WAV warning): the WAV warning says what a WAV keeps and loses (title, artist, album, track number, year and genre kept; album artist, disc number, the MusicBrainz IDs and cover lost), from `WAV_KEPT_TAGS`, the measured list a test checks against our own transcode's output, built from that value, so it states PlainText.
     # **1427 -> 1450** (2026-11-05, TASKS R133, the automatic CTDB repair): the *Repair from CTDB after a rip* box.
-    "ui/settings_dialog.py": 1450,
+    # **1450 -> 1453** (2026-11-12, the EAC-compatible log on by default): choosing the Archival goal ticks the log, through `goal_presets.turns_on_eac_log`, the predicate `apply_preset` reads, so the dialog and a script's `set rip_goal` cannot disagree. It sets the dialog's own widget in the goal handler beside the others it sets.
+    "ui/settings_dialog.py": 1453,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.

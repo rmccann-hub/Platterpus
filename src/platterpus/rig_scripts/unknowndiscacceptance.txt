@@ -75,7 +75,7 @@ set read_speed 0
 set ctdb_verify_after_rip on
 set ctdb_repair_after_rip on
 set verify_flac_after_rip on
-set write_eac_log_after_rip off
+set write_eac_log_after_rip on
 set output_format flac
 set mp3_vbr_quality 0
 set update_channel stable

@@ -12,7 +12,12 @@ from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
 from platterpus import goal_presets, naming, settings_validation
 from platterpus.config import SCHEMA_VERSION, Config
-from platterpus.goal_presets import GOAL_ARCHIVAL, GOAL_CUSTOM, GOAL_FAST
+from platterpus.goal_presets import (
+    GOAL_ARCHIVAL,
+    GOAL_CUSTOM,
+    GOAL_FAST,
+    GOAL_PORTABLE,
+)
 from platterpus.ui.settings_dialog import SettingsDialog
 
 # --- Construction --------------------------------------------------------
@@ -334,6 +339,50 @@ def test_selecting_goal_applies_the_preset_to_controls(qapp: QApplication) -> No
     out = dialog.to_config()
     assert out.rip_goal == GOAL_ARCHIVAL
     assert out.ctdb_verify_after_rip is True
+
+
+def test_choosing_archival_ticks_the_eac_log_and_unticking_keeps_the_goal(
+    qapp: QApplication,
+) -> None:
+    """Archival turns the EAC-layout log on (2026-11-12); the log is not a field
+    the goal is matched on, so unticking it afterwards leaves the goal alone.
+
+    Starts with the box OFF, which is what every config saved before the default
+    moved carries, so the tick is the goal's doing and not the default's. And the
+    dialog must agree with `apply_preset`, the definition a script's
+    `set rip_goal` uses: two surfaces, one answer.
+    """
+    dialog = SettingsDialog(Config(write_eac_log_after_rip=False))
+    assert dialog._eac_log_check.isChecked() is False
+    dialog._goal_combo.setCurrentIndex(dialog._goal_combo.findData(GOAL_ARCHIVAL))
+    assert dialog._eac_log_check.isChecked() is True
+    out = dialog.to_config()
+    assert out.write_eac_log_after_rip is True
+    assert (
+        out.write_eac_log_after_rip
+        == goal_presets.apply_preset(
+            Config(write_eac_log_after_rip=False), GOAL_ARCHIVAL
+        ).write_eac_log_after_rip
+    )
+
+    dialog._eac_log_check.setChecked(False)
+    assert dialog._goal_combo.currentData() == GOAL_ARCHIVAL
+    assert dialog.to_config().write_eac_log_after_rip is False
+    # And reopening on that config still shows Archival, not Custom.
+    reopened = SettingsDialog(dialog.to_config())
+    assert reopened._goal_combo.currentData() == GOAL_ARCHIVAL
+
+
+def test_choosing_fast_verified_leaves_the_eac_log_as_it_was(
+    qapp: QApplication,
+) -> None:
+    """No goal unticks the log: a user who switched it off keeps it off."""
+    dialog = SettingsDialog(
+        goal_presets.apply_preset(Config(write_eac_log_after_rip=False), GOAL_PORTABLE)
+    )
+    dialog._goal_combo.setCurrentIndex(dialog._goal_combo.findData(GOAL_FAST))
+    assert dialog._goal_combo.currentData() == GOAL_FAST
+    assert dialog._eac_log_check.isChecked() is False
 
 
 def test_editing_a_control_flips_goal_to_custom(qapp: QApplication) -> None:

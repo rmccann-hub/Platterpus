@@ -606,7 +606,7 @@ AccurateRip-guided -Z rule chose this read is not determined*, never a plain re-
 
 ### What Platterpus adds beside the log
 
-Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes **one** companion next to them by default (a second, optional `<Album> (EAC-compatible).log` appears when the Settings toggle `write_eac_log_after_rip` is on — off by default; `eac_log_export.py`). When the auto-fix replaced a track, `<log stem>.platterpus-addendum.txt` sits beside cyanrip's log too, and a securing pass leaves `<Album>.platterpus-securing-pass.txt` (`rip_addendum.py`), and the verified-read chase leaves each of its single reads' logs in `<Album>.platterpus-verified-read.txt` (`verified_read_chase.py`, TASKS R7):
+Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes **one** companion next to them by default (a second, `<Album> (EAC-compatible).log`, appears when the Settings toggle `write_eac_log_after_rip` is on — on by default since 2026-11-12, off before; `eac_log_export.py`). When the auto-fix replaced a track, `<log stem>.platterpus-addendum.txt` sits beside cyanrip's log too, and a securing pass leaves `<Album>.platterpus-securing-pass.txt` (`rip_addendum.py`), and the verified-read chase leaves each of its single reads' logs in `<Album>.platterpus-verified-read.txt` (`verified_read_chase.py`, TASKS R7):
 
 - **`<Album>.platterpus.json`** — the single machine-readable / LLM-oriented rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, the read-speed-ladder history, the verbatim text of the artifacts it read (`artifacts`), the `cyanrip --verify-log` result (`ripper_log_verification`), **and this rip's embedded session log** (`debug.lines`, scoped to this album).
 
@@ -622,7 +622,7 @@ The album folder therefore holds: the audio, the front cover, cyanrip's EAC-styl
 
 1. **The `RippingInfo` block on `RipLog` mirrors EAC's archival header** (drive/offset/etc.), so it can feed the EAC-layout export and the report. *(No "Rip details" panel exists, as of 2026-10-07; the disc-info panel shows drive, offset and cache from the drive profile instead.)*
 2. **The per-track display** renders cyanrip's AR v1 / v2 confidence the same way EAC does, and the results pane now also surfaces the album loudness + partial-accurate count that cyanrip uniquely provides.
-3. **We offer an optional EAC-*layout* companion log (v0.4.16)** — the Settings toggle `write_eac_log_after_rip` (off by default) writes `<Album> (EAC-compatible).log` beside the rip, rendered by `eac_log_export.py`: conspicuously attributed and **never signed** as EAC (signing would forge provenance — KDD-11/KDD-24, `docs/eac-parity.md`). Linux still can't submit to AccurateRip (the brief's confirmed gap).
+3. **We write an EAC-*layout* companion log (v0.4.16; on by default since 2026-11-12, as EAC writes its own log on every rip)** — the Settings toggle `write_eac_log_after_rip` writes `<Album> (EAC-compatible).log` beside the rip, rendered by `eac_log_export.py`: conspicuously attributed and **never signed** as EAC (signing would forge provenance — KDD-11/KDD-24, `docs/eac-parity.md`). Linux still can't submit to AccurateRip (the brief's confirmed gap).
 
 ### How this was verified
 
@@ -772,8 +772,9 @@ of Python and ethically a non-starter.
    and footer saying EAC did not produce it (since 0.6.63 the first line reads
    `Platterpus rip log in EAC's layout, not produced by Exact Audio Copy`), never
    a fabricated EAC checksum; since KDD-28 it ends with our own SHA-256. The GUI wiring shipped in
-   v0.4.16: the opt-in Settings toggle (*EAC-style log*,
-   `write_eac_log_after_rip`, off by default) writes the attributed EAC-layout
+   v0.4.16: the Settings toggle (*EAC-style log*,
+   `write_eac_log_after_rip`, opt-in until 2026-11-12 and on by default since)
+   writes the attributed EAC-layout
    log beside each rip — option 2 is fully implemented.
 3. **If tracker acceptance is genuinely required**, the only legitimate route is
    the *tracker* choosing to accept cyanrip (advocate upstream; OPS

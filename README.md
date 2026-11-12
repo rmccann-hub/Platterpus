@@ -10,7 +10,7 @@
 >
 > **On the Pioneer BDR-209D, leave Overread (`-O`) off.** With it on, cyanrip stopped at the last track's lead-out for about 23 minutes (2026-07-22, reproduced the next day; stock cyanrip 0.9.3, before the fork). Platterpus only passes the flag: the read that stalled is cyanrip's. What is not yet settled is the split between the drive refusing to read past the end of the disc and cyanrip retrying that refused read for so long. It has not yet been tried on the fork's builds: the fork's `.24` reads past the edge once and writes a refused frame as silence, and `--run-script overreadprobe` is the one bounded `-O` read that will test that on this drive, in round 35 ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
-> **What is in it.** **No-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list, **cyanrip as the single ripping backend** (KDD-18; the Platterpus fork is KDD-32/33), **multiple output formats** (FLAC is always the lossless master; WavPack, MP3 and WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a JSON rip report beside the log, **in-app updates**, **cover art** from the Cover Art Archive, **filing finished rips into your library folder**, and an **EAC-compatible companion log** with a per-track EAC CRC32 column. It is validated on real hardware (Bazzite, Pioneer BDR-209D). This is an early release for wider testing: expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **What is in it.** **No-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list, **cyanrip as the single ripping backend** (KDD-18; the Platterpus fork is KDD-32/33), **multiple output formats** (FLAC is always the lossless master; WavPack, MP3 and WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a JSON rip report beside the log, **in-app updates**, **cover art** from the Cover Art Archive, **filing finished rips into your library folder**, and an **EAC-compatible companion log**, written beside every rip by default (as Exact Audio Copy writes its own), with a per-track EAC CRC32 column. It is validated on real hardware (Bazzite, Pioneer BDR-209D). This is an early release for wider testing: expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -32,7 +32,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | Bit-perfect audio, CRC-provable | ✅ | Have it — AccurateRip + CTDB CRCs |
 | AccurateRip verify (v1 + v2) | ✅ | Have it |
 | CTDB audio-CRC verify | ✅ | Have it — CRC hardware-validated (KDD-16) |
-| EAC-style log + per-track EAC CRC32 column + software-version provenance | ✅ | Have it |
+| EAC-style log + per-track EAC CRC32 column + software-version provenance | ✅ | Have it — written beside every rip by default, as EAC writes its own (Settings can turn it off) |
 | MusicBrainz tags · front/back/booklet art · UPC/catalog/label · ReplayGain | ✅ | Have it |
 | AppImage · zero-terminal setup · in-app update · FLAC master + WavPack/MP3/WAV | ✅ | Have it |
 | Gap / `INDEX 00` pre-gap detection | ✅ | Have it, on the Platterpus fork, which carries PR **#115**'s sub-channel pregap reader (`pregap.c`). On the reference disc it finds every pregap EAC finds, to the hundredth of a second (`output_reference/cyanrip_fork_flac/`, 2026-08-04, held by `tests/test_fork_rip_eac_parity.py`), and writes them into the cue as `INDEX 00` (on the 2026-10-07 run, the same nine tracks as EAC's cue). Stock cyanrip 0.9.3 finds none |
@@ -53,7 +53,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | EAC "perfect rip" setting | Platterpus / cyanrip equivalent | Match |
 |---|---|---|
 | **Secure Mode** — re-read sectors until statistical parity | cyanrip paranoia = **max** + `-Z N` consensus re-read (re-reads a track until N+1 reads are identical) | ✅ |
-| **Accurate Stream** drive feature | no equivalent: cyanrip does not report it, and the EAC-compatible log says so (`(not reported by the ripper)`) | ➖ |
+| **Accurate Stream** drive feature | no equivalent setting. On the Platterpus fork the EAC-compatible log shows what the drive *declares*, never a measured use: `(not determined; the drive declares it supported, not measured)` (or `unsupported`). A ripper that prints no declaration, such as stock cyanrip, still reads `(not reported by the ripper)` | ➖ |
 | **Drive caches audio data** → flush cache between re-reads (cache-defeat) | libcdio-paranoia attempts cache-defeat every rip, and *Set up drive → **Analyze cache*** now **measures** the verdict with `cd-paranoia -A` — libcdio's own copy of that same read engine — recording a real Yes/No per drive into the EAC-compatible log (KDD-29). Inconclusive stays honestly "(unknown)", never a faked "Yes" (KDD-25) | ✅ |
 | **C2 error info — leave UNCHECKED** (disable, even if supported) | We don't use C2 → **exactly what the guide prescribes** | ✅ |
 | **Read sample offset correction** | applied via cyanrip `-s`, value from the bundled AccurateRip drive DB (by model, e.g. `+667`) or manual entry. Instead of EAC's one-shot "Key Disc" probe, **every rip that matches the AccurateRip consensus re-confirms the offset on your own drive** and promotes its trust line to *confirmed* (KDD-31) — the same corrected result, continuously re-proven | ✅ |
@@ -388,7 +388,7 @@ Then open a new terminal.
 
 Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, the offset for your drive has to be known so cyanrip can correct for it.
 
-**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Setup & Updates… → Set up drive…**), which gives you two ways to get the value:
+**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered once, at the first launch that finds the ripping setup ready and no offset set (on a fresh machine, the launch after *Set up Platterpus* finishes), or anytime from **Tools → Setup & Updates… → Set up drive…**,, which gives you two ways to get the value:
 
 - **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list (e.g. `+667` for the Pioneer BDR-209D). Click **Save offset**.
 - **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if your model isn't recognised, or if you only have CD-Rs.
@@ -594,10 +594,10 @@ first rip you do not need to change anything:
 - The rip is checked against AccurateRip, and **Verify with CTDB after a rip** is on.
 - A track AccurateRip cannot confirm is read again until two reads agree.
 - **Cover art:** is embedded in every file.
-
-One thing is off by default: **Write an EAC-compatible log beside each rip**. Tick it
-if you want a log in the layout Exact Audio Copy users know. Platterpus always keeps
-cyanrip's own log and its report either way.
+- **Write an EAC-compatible log beside each rip** is on: a log in the layout Exact
+  Audio Copy users know, written beside every rip as EAC writes its own. Platterpus
+  always keeps cyanrip's own log and its report as well; untick this if you do not
+  want the third file.
 
 Your music goes under **Output directory:**, one folder per album.
 
@@ -640,7 +640,7 @@ In the album's folder:
 - a cue sheet, the map of the disc's tracks;
 - cyanrip's log, the record of the rip, which cyanrip can verify was not edited;
 - the report, `.platterpus.json`, with every result in a form a program can read;
-- the EAC-style log, if you turned it on.
+- the EAC-style log, unless you turned it off.
 
 Keep the logs and the report with the music. They are the proof of what was read.
 

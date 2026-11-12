@@ -248,7 +248,9 @@ def test_an_old_config_carrying_the_removed_recompress_setting_loads_quietly(
         f"schema_version = {SCHEMA_VERSION}\n"
         "verify_flac_after_rip = false\n"
         f"recompress_flac_after_rip = {stored}\n"
-        "write_eac_log_after_rip = true\n"
+        # `false`, the NON-default since 2026-11-12: a neighbour written at its
+        # default could not tell "read" from "fell back to the default".
+        "write_eac_log_after_rip = false\n"
         "read_offset = 667\n",
         encoding="utf-8",
     )
@@ -261,7 +263,7 @@ def test_an_old_config_carrying_the_removed_recompress_setting_loads_quietly(
     # The neighbours of the retired key were read — a load that discarded the
     # whole file (the corrupt-config path) would leave all three at default.
     assert cfg.verify_flac_after_rip is False
-    assert cfg.write_eac_log_after_rip is True
+    assert cfg.write_eac_log_after_rip is False
     assert cfg.read_offset == 667
     assert not hasattr(cfg, "recompress_flac_after_rip")
     # No reset notice, and nothing backed up as unreadable.
@@ -843,3 +845,70 @@ def test_a_traversal_template_reset_is_recorded_with_the_old_value(
     resets = config_module.take_load_resets()
     assert [r.field for r in resets] == ["track_template"]
     assert "../../pwned" in resets[0].old_value
+
+
+# --- The EAC-layout log is on by default (2026-11-12) ------------------------
+#
+# EAC writes its log on every rip, and the guide the owner works from treats that
+# log as the proof a reader checks, so a fresh install writes ours too. Only the
+# DEFAULT moved: a config that carries the key keeps what it says. Three cases,
+# because the loader has three paths a value can take: no file at all (written
+# from the defaults), a file without the key (filled from the default), and a
+# file with the key (read as written).
+
+
+def test_a_fresh_install_writes_the_eac_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tomllib
+
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    assert not config_file.exists()
+
+    cfg = config_module.load()
+
+    assert cfg.write_eac_log_after_rip is True
+    # And the file load() created says so, so the next launch reads `true` from
+    # disk rather than depending on the default again.
+    with config_file.open("rb") as f:
+        assert tomllib.load(f)["write_eac_log_after_rip"] is True
+
+
+def test_a_config_without_the_key_writes_the_eac_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    # A real neighbour, read at a non-default value, so a load that discarded the
+    # file and fell back to Config() could not pass this.
+    config_file.write_text(
+        f"schema_version = {SCHEMA_VERSION}\nread_offset = 667\n", encoding="utf-8"
+    )
+
+    cfg = config_module.load()
+
+    assert cfg.read_offset == 667
+    assert cfg.write_eac_log_after_rip is True
+
+
+@pytest.mark.parametrize("schema", [8, SCHEMA_VERSION])
+def test_a_saved_false_eac_log_is_kept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, schema: int
+) -> None:
+    """An explicit `false` stays `false`, whichever schema wrote it.
+
+    Schema 8 is in the list because every config saved before 2026-11-12 carries
+    the key (`save()` writes every field), and a migration step is the one place a
+    saved value gets rewritten (v8→v9 flipped `rerip_offset_variant` that way).
+    This change deliberately did not add one; this fails if one is added without
+    deciding to.
+    """
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        f"schema_version = {schema}\nwrite_eac_log_after_rip = false\n",
+        encoding="utf-8",
+    )
+
+    cfg = config_module.load()
+
+    assert cfg.write_eac_log_after_rip is False
+    assert config_module.take_load_resets() == []
