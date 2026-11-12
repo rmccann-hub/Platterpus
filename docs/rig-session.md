@@ -320,4 +320,4 @@ mode, and the `[plan]` block at the top of each rip's live log names every flag 
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.123.*

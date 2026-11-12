@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.123] — 2026-11-12
+The release that answers the fork's round 39 lap 3, with `.30` still the default ripper and `.31` (`e531a33`) still the build under review. Every pass we send with `-Z` now asks `.31` to keep re-reading past reads that agree on audio AccurateRip does not hold, the whole-disc secure re-read included, where before only the securing pass did. A track whose re-reads all agreed now says exactly how many did, on `.30` and `.31`. Cyanrip's `C2 errors:` header line is read as what the drive's capabilities page declares, in today's wording and the fork's proposed one, never as what the drive can do: this drive does return C2 pointers. The drive test's C2 probe reads each second where the reference disc's reads go wrong whole. The track-record check reads the EAC-layout log as it says it does. And "burn" now means writing a disc and nothing else: the Full run's five back-to-back rips are the *repeat rips*.
+
 ### Changed
 
 - **"Burn" means writing a disc, and only that** (the owner's word of 2026-11-11): round 39's five back-to-back rips were called a "test burn" (from *burn-in*), which says the drive wrote when it read. The Full run's section R names its albums `round 39 repeat rip 1` to `5` (only the folder name changes, never the read), every current doc, script, comment and test says *five-rip run* or plain words, the filing tool still reads 0.7.122's old folder names, and `CLAUDE.md` carries the rule. `tests/test_burn_means_writing_a_disc.py` holds it: every tracked text file but the records, each use either about writing a disc or a quote with its reason, with floors on what it read (revert-probed). Records keep what they said.
@@ -19902,7 +19905,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...HEAD
+[0.7.123]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...v0.7.123
 [0.7.122]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.121...v0.7.122
 [0.7.121]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.120...v0.7.121
 [0.7.120]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.119...v0.7.120
@@ -19995,4 +19999,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.123.*
