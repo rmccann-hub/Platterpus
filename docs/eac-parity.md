@@ -70,11 +70,20 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround34/
 
 ### TL;DR — two very different goals
 
-1. **Bit-identical *audio* (the PCM samples) — every track has been read
-   verified, but never all fourteen in one rip.** This is the real meaning of
+1. **Bit-identical *audio* (the PCM samples) — all fourteen AccurateRip-verified
+   in each of five rips in a row (round 39, 2026-11-11), track 5 by the labeled
+   CTDB repair.** This is the real meaning of
    "archival/EAC-quality": the *samples* equal the AccurateRip consensus, proven by
    the per-track CRC. Matching EAC is the usual proxy, and on this disc it is not
    the same thing, because EAC's own track 5 is not the consensus.
+   **Status (2026-11-12), round 39:** the five-rip run of the fork's `.31` through
+   0.7.122 (filed at evidence commit `ac0a5133`; our round 39 lap 2 S11 to S15) read
+   track 3 as `59D352DD` from the drive in all five rips, and verified track 5 in all
+   five by the automatic CTDB repair to `C96464AB` (AccurateRip v2 `BCF4E815`,
+   confidence 200); the drive itself never returned `C96464AB` in those reads. The
+   owner's EAC re-rip of 2026-11-12 verified 12 of 14, missing both (G.7). The record
+   below is the earlier one, kept as it was measured.
+
    **Status (2026-10-19), measured over every 14-track log of the reference disc on
    record: 26 rips, 2026-08-04 to 2026-10-16** (`output_reference/
    cyanrip_fork_flac/` and the `*eac.log` files under
@@ -160,7 +169,7 @@ the consensus (item 1).
 | TOC (track sectors) | — | — | ✅ identical (all 14) | n/a |
 | Secure / re-read | Secure | paranoia max | ✅ equivalent | n/a |
 | Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (14/14 on the fork, 2026-08-04, and the Gap handling row agrees) | n/a |
-| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 26 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 26, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
+| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 26 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 26, on track 5 once | ✅ all 14 verified in each of five rips (round 39, 2026-11-11; track 5 by CTDB repair); ⚠️ before that, never all 14 in one rip | Tracks 3 and 5 (TL;DR, item 1) |
 | Overread lead-in/out | No | No: the offset needs 2 frames past the edge, and they are filled with silence, not read (`Overread mode: fill with silence in lead-in/lead-out`) | ✅ same | closed: EAC also fills with silence when overread is off; tracks 1 and 14 match EAC and AccurateRip |
 | **Pre-gap markers in cue** (`INDEX 00`) | Yes: 9 in the cue (its log lists 10 pre-gaps, counting track 1's lead-in) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; the 2026-10-07 cue, `docs/handshake/artifactsround31/round31fullwholedisc.cue`) |
 | FLAC **file bytes** | flac.exe `-8` | libavcodec | ❌ differ | **No** (encoder-determined) — and unnecessary |
