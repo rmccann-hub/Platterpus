@@ -10,7 +10,7 @@
 #
 # WHAT IT NEVER DOES. It never writes to the drive (every SCSI command here is a
 # READ: READ BUFFER 3Ch, READ CD BEh, INQUIRY, GET CONFIGURATION, MODE SENSE),
-# never changes firmware, never burns, never runs Overread, and never packs
+# never changes firmware, never writes to a disc, never runs Overread, and never packs
 # audio: the upload holds text and logs only, and it is checked before it is
 # named.
 #
@@ -418,7 +418,7 @@ track9_reads() {
 }
 
 # EVERY RIP'S RIPPER RECORD (the fork's round 39 lap 1 S10, BLOCKING: "put each
-# rip's --diagnostics record in the bundle, in the test burn and from now on").
+# rip's --diagnostics record in the bundle, in the five-rip run and from now on").
 # The app asks every fork rip for one (`cyanrip_backend.diagnostics_args_for_build`)
 # and cyanrip writes it where the rip ran, the rips folder's ROOT, as
 # cyanrip-diagnostics-<UTC>.json; the securing pass's is kept beside its album as
@@ -668,7 +668,7 @@ quiet() {
 #      without the app (round 38's Run A stopped on two overlapping reads).
 #   3. The C2 probe: READ CD asking for C2 error pointers (byte 9 = 12h, 2646
 #      bytes a frame, 26 frames a read) at a control (LBA 5000) and over every
-#      WHOLE second the test burn's records place a wrong read in (their
+#      WHOLE second the five-rip run's records place a wrong read in (their
 #      `block_crcs`, a CRC a second, our round 39 lap 2): track 3's seconds 244,
 #      251 and 252 and track 5's second 144 (C2_SECONDS below). Each second is
 #      read as three 26-frame windows from its first frame (+0, +26, +52: 78

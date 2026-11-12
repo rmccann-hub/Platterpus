@@ -262,7 +262,7 @@ class CyanripImpl(RipBackend):
         # `-Z N`: re-read each track until N+1 reads are identical, for
         # marginal/damaged discs (EAC-parity item 1; see config.py). Only
         # passed when the user enabled it (> 0) — on a clean disc it just
-        # burns time, so the default rip omits it entirely.
+        # costs time, so the default rip omits it entirely.
         # A NEGATIVE IS A CALLER ERROR, NOT "AUTO". `0` means auto and is a
         # documented convention; `-1` meant nothing, emitted no flag, and produced
         # no complaint — so a caller that computed a negative got a silent default

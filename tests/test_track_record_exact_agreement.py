@@ -1,6 +1,6 @@
 """A converged ``-Z`` track's record counts its agreeing reads exactly where the log can.
 
-**The defect (TASKS R140, our round 39 lap 2 S16).** In round 39's test burn
+**The defect (TASKS R140, our round 39 lap 2 S16).** In round 39's five-rip run
 (2026-11-11, 0.7.122 with the fork's ``.31``) track 3's record read ``re-read, at
 least 2 agreeing of 3`` in rips 1, 2 and 5, where the securing pass printed
 ``Done; (2 out of 2 matches for current checksum 59D352DD)`` and no ``Other read:``
@@ -12,7 +12,7 @@ cites it), so on those builds a converged track with none had every read agree:
 ``3 agreeing of 3``. Any other build, and a track whose lines were elided past the
 bound, keeps the floor, which is true and only weaker.
 
-The log text is synthesized in the burn's shape (``round 39 burn rip 1``'s
+The log text is synthesized in the five-rip run's shape (``round 39 repeat rip 1``'s
 securing pass, track 3, lines 75 to 124); no bundle file is committed, and no
 audio is involved (Critical rule 8).
 """
@@ -52,7 +52,7 @@ _CONTRACTS: dict[int, str] = {
 
 
 def _securing_pass(banner: str, other_read: str = "") -> str:
-    """The burn's securing pass for track 3, in its own lines, trimmed to the rows
+    """The five-rip run's securing pass for track 3, in its own lines, trimmed to the rows
     the record reads: three reads, every one ``59D352DD``, verified by AccurateRip."""
     return (
         f"{banner}\n"
@@ -85,11 +85,11 @@ def _track3(text: str) -> TrackResult:
     return track
 
 
-# --- the burn's track 3 ------------------------------------------------------------
+# --- the five-rip run's track 3 ------------------------------------------------------------
 
 
-def test_the_burns_track_3_on_31_reads_three_agreeing_of_three() -> None:
-    """The defect itself: the burn's text, on the build that printed it."""
+def test_the_five_rip_runs_track_3_on_31_reads_three_agreeing_of_three() -> None:
+    """The defect itself: the five-rip run's text, on the build that printed it."""
     text = _securing_pass(_BANNER_31)
     track = _track3(text)
     # The parse is what the record stands on; assert it rather than assume it.
@@ -104,7 +104,7 @@ def test_the_burns_track_3_on_31_reads_three_agreeing_of_three() -> None:
 
 def test_the_eac_layout_logs_record_row_says_it_too() -> None:
     """Through the renderer, which hands the record the log's own banner: the row
-    a reader of the EAC-layout log sees (burn rip 1's line 102 said the floor)."""
+    a reader of the EAC-layout log sees (repeat rip 1's line 102 said the floor)."""
     log = parse_cyanrip_log(_securing_pass(_BANNER_31))
     block = eac_log_blocks(render_eac_style_log(log))[3]
     (row,) = [line.strip() for line in block if "Record:" in line]

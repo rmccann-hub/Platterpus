@@ -3,7 +3,7 @@
 The first C2 probe (2026-11-11, filed by the fork at `cyanrip@74b6f0a`) read five
 26-frame windows chosen as points: they held 20 sectors of track 3's second 244,
 26 of its second 251, none of its second 252, and part of track 5's second 144
-(the fork's round 39 lap 3 S12). The test burn's records place track 3's wrong
+(the fork's round 39 lap 3 S12). The five-rip run's records place track 3's wrong
 reads in whole seconds 244, 251 and 252 and track 5's in second 144, so the probe
 now reads each of those seconds whole: three windows from the second's first frame.
 
@@ -31,7 +31,7 @@ _SCRIPT: Final[Path] = _ROOT / "docs/rig-scripts/drivetest.sh"
 _REFERENCE_LOG: Final[Path] = (
     _ROOT / "output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log"
 )
-#: The seconds the test burn's records place a wrong read in (our round 39 lap 2),
+#: The seconds the five-rip run's records place a wrong read in (our round 39 lap 2),
 #: as (track, second). The probe must cover these; it may cover more.
 _WRONG_SECONDS: Final[frozenset[tuple[int, int]]] = frozenset(
     {(3, 244), (3, 251), (3, 252), (5, 144)}

@@ -575,7 +575,7 @@ def test_expect_track_records_runs_through_the_runner(
 def test_expect_track_records_reads_the_eac_layout_log_in_the_rips_folder(
     qapp: Any, process_until: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The regression of round 39's test burn (2026-11-11): through the real
+    """The regression of round 39's five-rip run (2026-11-11): through the real
     runner, the step graded the report alone and said "no EAC-layout log in the
     folder" on all five rips, while each folder held one. The runner hands the
     grader the REPORT FILE's path and the grader searched it as a folder. Here

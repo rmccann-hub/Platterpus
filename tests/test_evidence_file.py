@@ -278,9 +278,9 @@ def test_the_cache_probes_own_log_has_a_filed_name() -> None:
     assert staged_name("session/run/cacheprobe1364.txt") == "cacheprobe.txt"
 
 
-def test_chase_records_and_burn_rips_have_filed_names() -> None:
+def test_chase_records_and_repeat_rips_have_filed_names() -> None:
     """0.7.122 keeps each verified-read chase read's own ``-j`` record
-    (``chase_record_keep.py``) and adds round 39's five burn rips, each in an
+    (``chase_record_keep.py``) and adds round 39's five repeat rips, each in an
     album folder of its own; the filing tool refused the 2026-11-11 bundle for
     want of names for both. The chase name is built here by the producer, so a
     change to one side fails here rather than at the next filing."""
@@ -304,7 +304,10 @@ def test_chase_records_and_burn_rips_have_filed_names() -> None:
         Path(__file__).resolve().parents[1]
         / "src/platterpus/rig_scripts/fullacceptance.txt"
     ).read_text(encoding="utf-8")
-    assert "album round 39 burn rip 5 (run) (ripper)" in script
+    assert "album round 39 repeat rip 5 (run) (ripper)" in script
+    folder = "album/round 39 repeat rip 5 20261112t000000 platterpus-fork-ge531a33"
+    assert staged_name(f"{folder}/x CD4.platterpus.json") == "repeatrip5report.json"
+    # 0.7.122's folder name, as filed at `ac0a5133`, still files as it was filed.
     folder = "album/round 39 burn rip 5 20261111t123447 platterpus-fork-ge531a33"
     assert staged_name(f"{folder}/x CD4 (EAC-compatible).log") == "burnrip5eac.log"
     assert staged_name(f"{folder}/x CD4.platterpus.json") == "burnrip5report.json"

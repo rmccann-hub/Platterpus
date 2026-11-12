@@ -1,7 +1,7 @@
 """`drivetest.sh` puts every rip's ripper record in its upload (round 39 lap 1 S10).
 
 The fork's lap 1 S10 is BLOCKING: *"Put each rip's `--diagnostics` record in the
-bundle, in the test burn and from now on."* The app's own acceptance bundle has
+bundle, in the five-rip run and from now on."* The app's own acceptance bundle has
 carried the records since 0.6.65 (``test_session.session_diagnostics_records``;
 the 2026-11-10 Full run's bundle listed 26 under ``ripperdiagnostics/``,
 ``cyanrip@60b545ed:docs/rig-2026-11-10-5cc1c6b/MANIFEST.txt:156-181``). The drive
@@ -109,7 +109,7 @@ def test_records_packs_every_record_since_the_date_and_no_audio(tmp_path: Path) 
 
 
 def test_every_upload_carries_the_records_since_its_test_began(tmp_path: Path) -> None:
-    """The ordinary uploads too (the test burn's probe, a stopped run), not only
+    """The ordinary uploads too (the five-rip run's probe, a stopped run), not only
     `records`: one function, `copy_records`, called from `make_upload`."""
     text = _SCRIPT.read_text(encoding="utf-8")
     body = text.split("make_upload() {", 1)[1].split("\n}\n", 1)[0]

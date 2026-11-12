@@ -3,7 +3,7 @@
 **Why this is a sweep and not four edits.** ``ci.yml``'s ``test`` job already
 carried ``timeout-minutes: 15`` — on the *step* that runs pytest, with the reasoning
 written correctly beside it: *"a cheap backstop: if a future regression hangs the
-suite, the job fails in minutes instead of burning the 6-hour default."* The rule was
+suite, the job fails in minutes instead of using up the 6-hour default."* The rule was
 right. Its **subject** was one step, because that is the step whose author was
 thinking about hangs.
 

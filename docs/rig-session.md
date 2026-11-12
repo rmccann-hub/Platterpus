@@ -17,7 +17,7 @@ their audit trail intact.
 
 ---
 
-## What the next session is for: round 39's test burn
+## What the next session is for: round 39's five-rip run
 
 Round 39 reviews the fork's `.31` (`0.9.4-rc3+platterpus.31`, `cyanrip@e531a33`), whose
 `--reread-until-accuraterip` keeps a `-Z` re-read going past reads that agree on audio
@@ -36,7 +36,7 @@ EAC re-rip filed (G5).
    unless you have them back): `bash
    ~/platterpus-rig/drivetest.sh records`.** It packs every ripper `--diagnostics` record in
    the rips folder since 2026-11-09 (JSON, never audio) and names one file; upload it to
-   both sessions. It gives the fork track 3's per-second comparison before the burn (their
+   both sessions. It gives the fork track 3's per-second comparison before the five-rip run (their
    S9, S10). Fetch the script first if it is older than 2026-11-11: `curl -L -o
    ~/platterpus-rig/drivetest.sh
    https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/docs/rig-scripts/drivetest.sh`.
@@ -48,7 +48,7 @@ EAC re-rip filed (G5).
    track 5's 144), three windows each, three reads a window, plus the control: 40
    flushes and reads where the first run made 16, a few minutes more (the summary
    prints the time it took).
-4. **The burn: one Full acceptance run** (Tools → Advanced → Run acceptance test…, Full).
+4. **The five-rip run: one Full acceptance run** (Tools → Advanced → Run acceptance test…, Full).
    Section A checks the installed build is `.31` and the pair is the newest; sections P5
    and P6 time and pair `.30` (the approved build) against `.31`; section R makes the five
    default whole-disc rips. Its bundle carries every rip's record, chase reads' included.
@@ -65,7 +65,7 @@ Round 38 stays open until tracks 3 and 5 of the reference disc have proper answe
 (the owner, 2026-11-05; our round 38 lap 7, S17 to S27). This session gathers them, in
 four phases, in this order. **Every rip run is unattended**: it never stops to ask you
 anything, and you touch the disc only **between** runs. **Nothing here changes the
-drive's firmware, and nothing is burned.** What the drive can do (PureRead, the speed
+drive's firmware, and nothing is written to a disc.** What the drive can do (PureRead, the speed
 it chooses, whether it accepts a set speed) is *not determined* until the drive itself
 answers, which is what phases 1 to 3 ask it.
 

@@ -303,7 +303,7 @@ def test_a_dirty_build_is_indistinguishable_and_that_is_recorded() -> None:
 #
 # Found by the 2026-08-28 lesson-to-gate audit while asking a different
 # question — "which boundary functions have no property test?" — which is the
-# argument for asking it of every boundary rather than the ones that have burned
+# argument for asking it of every boundary rather than the ones that have bitten
 # us. It is also `CLAUDE.md`'s *validate every input and every dependency
 # output*, applied to a field nobody thought of as an input because it is "just
 # a version string".

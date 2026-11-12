@@ -3,7 +3,7 @@
 **Why (the fork's round 39 lap 3 S15).** Commit f7615bf6 sent the option on the
 securing pass alone. The rig sheet's section N, "uniform secure re-read, WHOLE
 DISC", is an Archival Exact rip whose ALBUM pass reads with ``-Z 2``, and the
-test burn's first-pass argv (2026-11-11, ``secure reread``'s report,
+five-rip run's first-pass argv (2026-11-11, ``secure reread``'s report,
 ``ripper_argv_first_pass``) carried ``-r 5 -Z 2 ... --prefer-accuraterip-match``
 and not the option, so that pass kept ``3D8FCF0C`` by agreement (reads 1 and 4)
 before our chase replaced it. An agreement AccurateRip rejects is the same
@@ -75,7 +75,7 @@ def test_a_pass_without_z_asks_for_nothing(z: int) -> None:
 
 
 def test_section_ns_whole_disc_z_pass_now_sends_the_option_to_31() -> None:
-    """The burn's first-pass shape (``-r 5 -Z 2``, whole disc, no ``-l``): the
+    """The five-rip run's first-pass shape (``-r 5 -Z 2``, whole disc, no ``-l``): the
     option rides beside ``-Z``, and no time limit is sent with it."""
     argv = _argv(_TAG_31, 2)
     assert argv[argv.index("-Z") + 1] == "2"

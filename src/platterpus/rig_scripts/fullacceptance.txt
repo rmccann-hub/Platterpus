@@ -1899,50 +1899,50 @@ set output_format flac
 expect output_format flac
 
 select-tracks all
-album round 39 burn rip 1 (run) (ripper)
+album round 39 repeat rip 1 (run) (ripper)
 rip
 wait-for-rip 21600
-snapshot burnrip1
+snapshot repeatrip1
 expect-rip-complete
 expect-verification
 expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 burn rip 2 (run) (ripper)
+album round 39 repeat rip 2 (run) (ripper)
 rip
 wait-for-rip 21600
-snapshot burnrip2
+snapshot repeatrip2
 expect-rip-complete
 expect-verification
 expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 burn rip 3 (run) (ripper)
+album round 39 repeat rip 3 (run) (ripper)
 rip
 wait-for-rip 21600
-snapshot burnrip3
+snapshot repeatrip3
 expect-rip-complete
 expect-verification
 expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 burn rip 4 (run) (ripper)
+album round 39 repeat rip 4 (run) (ripper)
 rip
 wait-for-rip 21600
-snapshot burnrip4
+snapshot repeatrip4
 expect-rip-complete
 expect-verification
 expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 burn rip 5 (run) (ripper)
+album round 39 repeat rip 5 (run) (ripper)
 rip
 wait-for-rip 21600
-snapshot burnrip5
+snapshot repeatrip5
 expect-rip-complete
 expect-verification
 expect-accuraterip
