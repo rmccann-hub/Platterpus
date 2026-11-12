@@ -1412,7 +1412,10 @@ def test_schema_version_is_27() -> None:
     # `tests/test_track_record.py`). v44 had shipped in 0.7.121.
     # v45, still unreleased, also took the verified-read chase's budget and
     # per-attempt times (round 39 G1; `tests/test_chase_budget.py`).
-    assert REPORT_SCHEMA_VERSION == 45
+    # v46 added `rip.c2_declared` and its reason, what the capabilities page
+    # declares about C2 (the fork's round 39 lap 3 S14; `tests/test_c2_declaration.py`).
+    # v45 had shipped in 0.7.122.
+    assert REPORT_SCHEMA_VERSION == 46
 
 
 def _issue_codes(report: dict) -> set[str]:

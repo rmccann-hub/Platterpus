@@ -118,6 +118,12 @@ _FRAGMENTS = st.sampled_from(
         "Album artist:   The Police",
         "C2 errors:      unsupported by drive",
         "C2 errors:      supported by drive",  # capability, NOT use
+        "C2 errors:      supported by drive, not used",
+        "C2 errors:      unknown (capabilities query failed)",
+        # The fork's PROPOSED wordings (round 39 lap 3 S14; not built).
+        "C2 errors:      not declared by drive (capabilities page, not measured)",
+        "C2 errors:      declared supported by drive (capabilities page), not used",
+        "C2 errors:      unknown (" + "(" * 300,  # unbalanced, over the bound
         "C2 errors:      ",
         "Paranoia level: max",
         "Paranoia level: none",

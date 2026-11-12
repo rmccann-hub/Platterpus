@@ -192,10 +192,17 @@ class RippingInfo:
     # The disc's artist and title, for EAC's "Artist / Album" header line.
     album: str = ""
     album_artist: str = ""
-    # cyanrip's "C2 errors:" line → EAC's "Make use of C2 pointers". True only
-    # when C2 is actually in use; False when the drive doesn't support it (the
-    # BDR-209D reports "unsupported by drive"); None when unreported.
+    # cyanrip's "C2 errors:" line, two facts in two slots (`c2_declaration.py`).
+    # `c2_pointers` → EAC's "Make use of C2 pointers": False = the rip did not use
+    # C2 (a not-declared page, or the line says "not used"), None = not stated;
+    # never True. `c2_declared` is what the drive's capabilities page DECLARES
+    # (`declared_supported` / `not_declared` / `unknown` / `unrecognised` /
+    # `not_present`), never what the drive can do: the BDR-209D's page is silent
+    # and it returns C2 anyway (the fork's round 39 lap 3 S11). The reason is the
+    # ripper's parenthetical, or an unrecognised line's value, bounded.
     c2_pointers: bool | None = None
+    c2_declared: str = DRIVE_FACT_NOT_PRESENT
+    c2_declared_reason: str = ""
     # cyanrip's "Paranoia level:" → EAC's "Read mode" (Secure vs Burst). Kept as
     # the raw level text so the renderer decides the wording, not the parser.
     paranoia_level: str = ""

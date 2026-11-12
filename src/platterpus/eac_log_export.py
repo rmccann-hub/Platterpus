@@ -559,10 +559,10 @@ def _render(
     # **Never asserted "No" on a survey's word**, though a logchecker weighs this row
     # heavily and a survey says libcdio-paranoia never uses C2 pointers: a secondary
     # source is not enough for an archival log (tried and reverted 2026-07-29). What
-    # prints "No" is first-party: cyanrip's own `C2 errors: unsupported by drive`,
-    # parsed to `c2_pointers = False` (the BDR-209D, 2026-07-30; eac-parity.md Part
-    # D, *The C2 row*); with no such line the row stays not-reported. The silent-
-    # blocks and null-samples rows below rest on direct evidence too (cyanrip writes
+    # prints "No" is first-party: the ripper did not ask for C2 (`c2_used`, from a
+    # not-declared or "not used" `C2 errors:` line; eac-parity.md Part D, *The C2
+    # row*). "No" means not USED, never "the drive cannot" (round 39 lap 3 S14).
+    # The silent-blocks and null-samples rows rest on direct evidence too (cyanrip writes
     # what it reads; its CRCs matched a real EAC log, 14 of 14 tracks on the fork).
     lines.append(
         "Make use of C2 pointers : "
