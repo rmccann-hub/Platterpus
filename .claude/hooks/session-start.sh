@@ -47,6 +47,20 @@ exclude_evidence() {
 }
 exclude_evidence || true
 
+# The first question in every session (the owner, 2026-11-12): who released the
+# last lap, and who holds the next. Answered from both sides' published laps,
+# never from memory (`scripts/lap_turn.py`), printed to stdout so the session
+# starts with it. Fetches are bounded inside the script; it never fails a session.
+report_turn() {
+  local script="$repo/scripts/lap_turn.py" peer=()
+  [ -f "$script" ] || return 0
+  [ -d "${PLATTERPUS_FORK_CLONE:-/home/user/cyanrip}/.git" ] \
+    && peer=(--peer "${PLATTERPUS_FORK_CLONE:-/home/user/cyanrip}")
+  echo "Handshake turn (scripts/lap_turn.py):"
+  python3 "$script" --fetch "${peer[@]}" 2>&1 || true
+}
+report_turn || true
+
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
