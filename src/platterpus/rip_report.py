@@ -785,7 +785,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `complete`; `trailing_bytes`, counted, never dropped; `reason`), null when
 #      none was attempted (`ctdb/repair_accuraterip.py`). Also v45 (round 39,
 #      `.31`): `rip.secure_rereads.state` gains `all_converged_or_matched_accuraterip`.
-REPORT_SCHEMA_VERSION: int = 45
+# v46: `rip.c2_declared` and `rip.c2_declared_reason` (the fork's round 39 lap 3
+#      S14). v45 shipped in 0.7.122, so this is a new number. Additions only. What
+#      the `C2 errors:` line says the drive's capabilities page DECLARES:
+#      `declared_supported`, `not_declared` (the page's silence, never "the drive
+#      cannot": the BDR-209D returns C2 pointers its page does not declare, their
+#      S11), `unknown` (the query failed), `unrecognised` (the value kept) or
+#      `not_present`; read from today's wordings and from both proposed ones,
+#      which no build prints yet (`c2_declaration.py`). `c2_pointers` is unchanged.
+REPORT_SCHEMA_VERSION: int = 46
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -2308,6 +2316,10 @@ def _rip_block(
         # change exists to fill: None = capability only / nothing stated, False =
         # explicitly not used, which is EAC's "No".
         "c2_pointers": getattr(info, "c2_pointers", None),
+        # v46: what the same line says the capabilities page declares, as a state,
+        # `"not_present"` included (another ripper's log has told us nothing).
+        "c2_declared": getattr(info, "c2_declared", DRIVE_FACT_NOT_PRESENT),
+        "c2_declared_reason": getattr(info, "c2_declared_reason", "") or None,
         # v39: the fork's `.26` drive-header lines, as a STATE each, never a
         # boolean. Copied as the parser left them, `"not_present"` included: a
         # build that printed no line has told us nothing about the drive, and

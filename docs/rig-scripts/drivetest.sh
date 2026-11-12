@@ -27,7 +27,8 @@
 #                                drive once more and says whether it matches.
 #   bash drivetest.sh probe      round 39's G4, with Platterpus closed: one disc
 #                                read timed, two reads 2.4 s apart, and the C2
-#                                probe at the five places the wrong samples sit.
+#                                probe over the four whole seconds the wrong
+#                                samples sit in, plus a control.
 #   bash drivetest.sh records    every ripper record (`--diagnostics`, the JSON
 #                                cyanrip writes beside each rip, never audio)
 #                                in the rips folder since 2026-11-09, in one
@@ -666,12 +667,26 @@ quiet() {
 #   2. Two disc reads 2.4 s apart, timed: whether two reads at once stall
 #      without the app (round 38's Run A stopped on two overlapping reads).
 #   3. The C2 probe: READ CD asking for C2 error pointers (byte 9 = 12h, 2646
-#      bytes a frame) at a control (LBA 5000) and where the wrong samples sit:
-#      track 3 at LBA 46422, 46446 and 46911 (04:04-04:11 into it) and track 5 at
-#      83416 (02:24.59), three reads each after a cache flush, then once more at
-#      track 5 with the block error bits (14h). It says whether the drive flags
-#      the samples it gets wrong, which decides how round 39 re-reads.
+#      bytes a frame, 26 frames a read) at a control (LBA 5000) and over every
+#      WHOLE second the test burn's records place a wrong read in (their
+#      `block_crcs`, a CRC a second, our round 39 lap 2): track 3's seconds 244,
+#      251 and 252 and track 5's second 144 (C2_SECONDS below). Each second is
+#      read as three 26-frame windows from its first frame (+0, +26, +52: 78
+#      frames, the second's 75 and 3 more), because the read offset (+667
+#      samples, 1.13 frames) puts a file's second that far into the disc: its
+#      last sample is on the disc's frame +76. Every window is read three times,
+#      each after a cache flush, then track 5 once more with the block error bits
+#      (14h) at 83416, where the first probe (2026-11-11) read them. It says
+#      whether the drive flags the samples it gets wrong, which decides how round
+#      39 re-reads. The first probe's windows held only parts of seconds 244 and
+#      251 and none of 252 (the fork's round 39 lap 3 S12). 40 flushes and reads
+#      in all (16 before); the summary records how long they took.
 PROBE_SECS="${DRIVETEST_PROBE_SECS:-300}"
+# LABEL:TRACK_START:SECOND for each second the probe covers. The track starts
+# are the reference disc's TOC (`Start LSN: 28067` for track 3 and `72570` for
+# track 5 in every cyanrip log of it); second s of a track starts on the disc's
+# frame TRACK_START + 75 s.
+C2_SECONDS="t3s244:28067:244 t3s251:28067:251 t3s252:28067:252 t5s144:72570:144"
 probe() {
   UPLOAD_NAME=probe; UPLOAD_SINCE="$STATE/probe.started"; UPLOAD_PIECES=(probe)
   date -u > "$STATE/probe.started"
@@ -731,12 +746,14 @@ probe() {
   fi
   wait_disc
   say "Probe 3 of 3: the C2 probe"
-  local t lba n out
-  for t in control:5000 t3a:46422 t3b:46446 t3c:46911 t5:83416; do
-    lba="${t#*:}"; t="${t%%:*}"
+  local t lba n out w
+  t0=$(date +%s)
+  for w in $(c2_windows); do
+    lba="${w#*:}"; t="${w%%:*}"
     for n in 1 2 3; do
       c2_flush
-      out="$c/$t-c2-$n.bin"
+      # LABEL-LBA-c2-N.bin: the summary reads the window's LBA from the name.
+      out="$c/$t-$lba-c2-$n.bin"
       if ! c2_read "$out" "$lba" 12 2646 > "$out.txt" 2>&1; then
         { echo "READ CD with byte 9 = 12h at LBA $lba, read $n"; cat "$out.txt"; } | note_error "probe: the drive refused C2 pointers at $t (kept; going on)"
         if [ "$t" = control ]; then echo "the drive refused C2 pointers at the control; the rest is skipped" | tee -a "$c/summary.txt"; break 2; fi
@@ -746,27 +763,70 @@ probe() {
   c2_flush
   c2_read "$c/t5-c2b-1.bin" 83416 14 2648 > "$c/t5-c2b-1.bin.txt" 2>&1 \
     || { echo "READ CD with byte 9 = 14h at LBA 83416"; cat "$c/t5-c2b-1.bin.txt"; } | note_error "probe: the drive refused the block error bits (kept; going on)"
-  python3 -I - "$c" >> "$c/summary.txt" 2>&1 <<'PY' || echo "(could not summarise the C2 reads; they are kept)" >> "$c/summary.txt"
-import pathlib, sys
-d = pathlib.Path(sys.argv[1])
-for f in sorted(d.glob("*-c2-*.bin")):
-    data = f.read_bytes()
-    if len(data) != 26 * 2646:
-        print(f"{f.name}: {len(data)} bytes, not 26 frames of 2646")
-        continue
-    flagged = []
-    for i in range(26):
-        bits = sum(bin(b).count("1") for b in data[i * 2646 + 2352:(i + 1) * 2646])
-        if bits:
-            flagged.append(f"frame {i} ({bits} bit{'s' if bits != 1 else ''})")
-    print(f"{f.name}: " + (", ".join(flagged) if flagged else "no C2 bit set in 26 frames"))
-PY
+  echo "C2 probe: $(find "$c" -maxdepth 1 -name '*-c2*-*.bin' | wc -l) reads, each after a cache flush, in $(( $(date +%s) - t0 ))s" >> "$c/summary.txt"
+  c2_summary "$c" >> "$c/summary.txt" 2>&1 || echo "(could not summarise the C2 reads; they are kept)" >> "$c/summary.txt"
+  # Each read's audio is dropped before anything is uploaded (Critical rule #8);
+  # one line a file goes to audio-dropped.txt, and the summary says how many.
   local f
-  for f in "$c"/*-c2-*.bin; do [ -f "$f" ] && strip_audio "$f" 2646 294 >> "$c/summary.txt"; done
-  [ -f "$c/t5-c2b-1.bin" ] && strip_audio "$c/t5-c2b-1.bin" 2648 296 >> "$c/summary.txt"
+  : > "$c/audio-dropped.txt"
+  for f in "$c"/*-c2-*.bin; do [ -f "$f" ] && strip_audio "$f" 2646 294 >> "$c/audio-dropped.txt"; done
+  [ -f "$c/t5-c2b-1.bin" ] && strip_audio "$c/t5-c2b-1.bin" 2648 296 >> "$c/audio-dropped.txt"
+  echo "audio dropped from $(grep -c 'audio dropped' "$c/audio-dropped.txt") read(s) before upload; one line each in probe/audio-dropped.txt" >> "$c/summary.txt"
   cat "$c/summary.txt"
   done_mark probe
   make_upload probe "$STATE/probe.started" "${UPLOAD_PIECES[@]}"
+}
+
+# Every window the C2 probe reads, LABEL:LBA, one a line: the control, then
+# three 26-frame windows from the first frame of each second in C2_SECONDS
+# (tests/test_drivetest_c2_probe.py checks they cover each second whole).
+c2_windows() {
+  local spec label start sec w
+  echo "control:5000"
+  for spec in $C2_SECONDS; do
+    label="${spec%%:*}"; start="${spec#*:}"; sec="${start#*:}"; start="${start%%:*}"
+    for w in 0 26 52; do echo "$label:$(( start + 75 * sec + w ))"; done
+  done
+}
+
+# The C2 reads in folder $1, one line a window: its three reads side by side,
+# each flagged frame named by its disc LBA, so a bit reads as a place on the
+# disc without arithmetic. Files are LABEL-LBA-c2-N.bin (LABEL `t3s244` = track
+# 3, second 244). Says what it could not read rather than stopping.
+c2_summary() {
+  python3 -I - "$1" <<'PY'
+import collections, pathlib, re, sys
+d = pathlib.Path(sys.argv[1])
+FRAME, AUDIO, COUNT = 2646, 2352, 26
+windows = collections.defaultdict(dict)
+for f in d.glob("*-c2-*.bin"):
+    m = re.fullmatch(r"(?P<label>[a-z0-9]+)-(?P<lba>[0-9]+)-c2-(?P<n>[0-9]+)\.bin", f.name)
+    if m is None:
+        print(f"{f.name}: not a probe read's name; left out of this summary")
+        continue
+    windows[(m["label"], int(m["lba"]))][int(m["n"])] = f
+def what(label):
+    m = re.fullmatch(r"t([0-9]+)s([0-9]+)", label)
+    return f"track {m[1]} second {m[2]}" if m else label
+for (label, lba), reads in sorted(windows.items(), key=lambda kv: kv[0][1]):
+    parts = []
+    for n in sorted(reads):
+        data = reads[n].read_bytes()
+        if len(data) != COUNT * FRAME:
+            parts.append(f"read {n}: {len(data)} bytes, not {COUNT} frames of {FRAME}")
+            continue
+        flagged = []
+        for i in range(COUNT):
+            bits = sum(bin(b).count("1") for b in data[i * FRAME + AUDIO:(i + 1) * FRAME])
+            if bits:
+                flagged.append(f"LBA {lba + i} ({bits} bit{'s' if bits != 1 else ''})")
+        parts.append(f"read {n}: " + (", ".join(flagged) if flagged else "none"))
+    head = f"{what(label)}, LBA {lba} to {lba + COUNT - 1}: C2 bits "
+    if parts and all(p.endswith(": none") for p in parts):
+        print(head + f"none in {len(parts)} read(s)")
+    else:
+        print(head + "; ".join(parts))
+PY
 }
 
 # READ CD (BEh), 26 frames from LBA $2, byte 9 = $3, $4 bytes a frame.

@@ -72,6 +72,7 @@ from dataclasses import dataclass, field, replace
 from typing import Final
 
 from platterpus import (
+    c2_declaration,
     diagnostics,
     kept_read,
     pregap_search,
@@ -219,9 +220,9 @@ _OVERREAD_MODE = re.compile(
 # the same two facts as separate start-report rows.
 _ALBUM = re.compile(r"^Album:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
 _ALBUM_ARTIST = re.compile(r"^Album artist:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
-# "C2 errors:      unsupported by drive" (BDR-209D) / "... enabled" etc. EAC's
-# "Make use of C2 pointers" row. Only an explicit positive counts as Yes — an
-# unsupported or unrecognised value is No/unknown, never an invented Yes.
+# "C2 errors:      unsupported by drive" (BDR-209D) and the other wordings in
+# `c2_declaration.py`: what the drive's capabilities page DECLARES, read as a
+# state, and EAC's "Make use of C2 pointers" (never an invented Yes).
 _C2 = re.compile(r"^C2 errors:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # FORK-ONLY, from `.26`: two drive facts printed directly below `C2 errors:`
 # (round 36 lap 1 S4 and S5), at `cyanrip@cef0f629:src/cyanrip_log.c:967` and
@@ -1956,6 +1957,10 @@ class _Disc:
     album: str = ""
     album_artist: str = ""
     c2_pointers: bool | None = None
+    # What the `C2 errors:` line says the capabilities page declares
+    # (`c2_declaration.py`), as a state and the ripper's parenthetical.
+    c2_declared: str = c2_declaration.C2_NOT_PRESENT
+    c2_declared_reason: str = ""
     # `.26`'s two drive-header facts, as a state and the ripper's reason. See
     # `accurate_stream_state` / `recordable_state` and the constants in rip_log.
     accurate_stream: str = DRIVE_FACT_NOT_PRESENT
@@ -2356,39 +2361,23 @@ def _take_album_artist(disc: _Disc, match: re.Match[str]) -> bool:
 
 
 def _take_c2(disc: _Disc, match: re.Match[str]) -> bool:
-    """C2 error pointers — a DRIVE CAPABILITY line, never a claim about the rip.
+    """C2 error pointers: a DECLARATION by the drive's capabilities page, never a
+    claim about the rip, and never a fact about what the drive can do.
 
-    cyanrip's format string is "C2 errors:      %s by drive". So "unsupported"
-    proves C2 was not used (the drive cannot), while "supported" says only that it
-    was available — EAC's row asks whether C2 was *used*, which cyanrip never
-    states. Claiming Yes from a capability line would be exactly the invented rip
-    fact the export forbids, so an affirmative capability leaves the answer
-    unknown rather than becoming a Yes. That distinction is the whole reason the
-    row is honest, and `tests/test_eac_layout_parity.py` pins it.
-
-    **FORK-ONLY addition (§2.5).** The upstream ask is one printf: say whether C2
-    was *used*, not only whether the drive supports it — "supported by drive, not
-    used". That wording answers EAC's actual question, so it maps to a truthful
-    ``False``. The bare "supported by drive" mapping is deliberately UNCHANGED
-    (still ``None``).
-
-    Note there is no affirmative branch, on purpose. libcdio-paranoia never
-    consumes C2 pointers, so a "used" line would contradict the engine, and
-    "not used" contains the substring "used" — a positive check would have to be
-    ordered after every negative one and would earn us nothing but a way to
-    fabricate EAC's "Yes".
+    Two slots, two questions (`c2_declaration.py` holds every wording):
+    ``c2_declared`` is what the page says, as a state with the ripper's
+    parenthetical, and ``c2_pointers`` is EAC's question, whether the rip USED C2
+    (``False`` = not used, ``None`` = not stated, never ``True``). The fork's
+    round 39 lap 3 S14 is why the first is not "unsupported": the BDR-209D's page
+    does not declare C2, and the drive returns C2 pointers anyway (their S11).
+    ``tests/test_eac_layout_parity.py`` and ``tests/test_c2_declaration.py`` pin
+    both.
     """
-    text = match.group("text").casefold()
-    if "unsupported" in text or "not supported" in text:
-        disc.c2_pointers = False
-    elif "disabled" in text or "off" in text:
-        disc.c2_pointers = False
-    elif "not used" in text or "unused" in text or "never used" in text:
-        # A statement about the RIP, not the drive: C2 was available and the
-        # reader did not use it, which is exactly EAC's "No".
-        disc.c2_pointers = False
-    else:
-        disc.c2_pointers = None
+    text = match.group("text")
+    disc.c2_declared, disc.c2_declared_reason = c2_declaration.c2_declaration_state(
+        text
+    )
+    disc.c2_pointers = c2_declaration.c2_used(text)
     return True
 
 
@@ -4809,6 +4798,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
             album=disc.album,
             album_artist=disc.album_artist,
             c2_pointers=disc.c2_pointers,
+            c2_declared=disc.c2_declared,
+            c2_declared_reason=disc.c2_declared_reason,
             paranoia_level=disc.paranoia_level,
             overread_mode=disc.overread_mode,
             gap_detection=disc.gap_detection,

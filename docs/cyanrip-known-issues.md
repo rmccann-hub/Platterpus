@@ -152,7 +152,7 @@ Nothing here is wrong in the artifact under review today: at the current FFmpeg 
 
 ### What it is
 
-The line reports what the drive supports, not what the rip did. EAC's archival field asks whether C2 was *used*. `unsupported by drive` proves it was not used (the drive cannot), so that case is answerable; `supported by drive` says only that it was available, and no other line in the log answers the question. There is no wording that makes an affirmative honest.
+The line reports what the drive's capabilities page declares, not what the rip did, and not what the drive can do (corrected 2026-11-11: the BDR-209D's page does not declare C2 and the drive returns C2 pointers anyway, the fork's round 39 lap 3 S11 and S14; `c2_declaration.py`). EAC's archival field asks whether C2 was *used*. `unsupported by drive` shows it was not used (the ripper did not ask for C2 on the page's word; it never asks, `cyanrip@54d66666:src/drive_caps.c:121`), so that case is answerable; `supported by drive` says only that it was available, and no other line in the log answers the question. There is no wording that makes an affirmative honest.
 
 ### Evidence
 
@@ -985,4 +985,4 @@ The one thing worth asking of you, and it is §4 and §5 rather than a new item:
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.122.*
