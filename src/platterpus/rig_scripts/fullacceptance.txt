@@ -250,7 +250,7 @@ set ctdb_verify_after_rip on
 # way and names the repair as information, so this changes no step's grade.
 set ctdb_repair_after_rip on
 set verify_flac_after_rip on
-set write_eac_log_after_rip off
+set write_eac_log_after_rip on
 set output_format flac
 set mp3_vbr_quality 0
 set update_channel stable
@@ -1891,9 +1891,9 @@ set force_overread off
 set ctdb_verify_after_rip on
 set ctdb_repair_after_rip on
 set verify_flac_after_rip on
-# The one setting off its shipped default: the EAC-layout log, so
-# `expect-track-records` grades its track blocks too (it says so when the log
-# is absent, and grades less). Section Q puts it back.
+# The EAC-layout log, so `expect-track-records` grades its track blocks too
+# (it says so when the log is absent, and grades less). The shipped default
+# since 2026-11-12; set anyway, so this section does not depend on it.
 set write_eac_log_after_rip on
 set output_format flac
 expect output_format flac
@@ -2026,7 +2026,7 @@ expect secure_rerip_dynamic on
 set output_format flac
 expect output_format flac
 set mp3_vbr_quality 0
-set write_eac_log_after_rip off
+set write_eac_log_after_rip on
 # The two section B changed and this section used to walk past. Section B now
 # puts `max_retries` back itself, so F and N rip on the shipped ceiling; the
 # pair below stays as the guard that the run still ENDS there.

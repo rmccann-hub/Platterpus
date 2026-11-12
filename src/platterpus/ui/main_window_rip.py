@@ -2221,7 +2221,7 @@ class RipMixin(MainWindowShared):
                 # the library); only meaningful on a successful, identified rip.
                 if success:
                     self._start_rip_comparison(log_file)
-                # Optional EAC-layout companion log beside the JSON report.
+                # EAC-layout companion log beside the JSON report (on by default).
                 self._write_eac_log(rip_log, log_file)
                 # Surface the adaptive read-speed ladder's outcome in the results
                 # pane when it actually did something — so a user who wasn't
@@ -4275,7 +4275,7 @@ class RipMixin(MainWindowShared):
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
         """Write an EAC-layout companion log beside ``log_file`` (best-effort).
 
-        Gated by ``write_eac_log_after_rip`` (off by default). The rendering is
+        Gated by ``write_eac_log_after_rip`` (on by default). The rendering is
         the honest, clearly-attributed EAC-*layout* text (never a signed/forged
         EAC log — KDD-11/13); it goes next to cyanrip's own ``.log`` as
         ``<name> (EAC-compatible).log`` so the two are never confused. A small

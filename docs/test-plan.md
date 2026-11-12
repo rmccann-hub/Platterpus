@@ -745,11 +745,11 @@ any TOC error verbatim `__________`.
 ## Test 14 — [ ] EAC-compatible companion log + goal presets (added 2026-07-21)
 
 **Goal:** exercise the two newer GUI-visible features that have no manual test
-row: the opt-in EAC-layout companion log (v0.4.16) and the Settings goal
+row: the EAC-layout companion log (v0.4.16; on by default since 2026-11-12) and the Settings goal
 presets (0.4.0).
 
 **Steps**
-1. Settings → enable **EAC-style log** → rip → confirm
+1. Settings → confirm **EAC-style log** is ticked on a fresh config (the default) → rip → confirm
    `<Album> (EAC-compatible).log` appears beside the rip, renders EAC's layout,
    is **plainly attributed to Platterpus and carries no checksum signature**,
    and `scripts/eac_parity.py` reads it interchangeably with cyanrip's own log
@@ -757,7 +757,9 @@ presets (0.4.0).
    its first line (`docs/eac-parity.md`, P1).
 2. Settings → **Goal → Archival Exact / Fast Verified / Portable** — confirm
    each preset snaps the format/verification controls as documented, and that
-   editing any snapped control flips the goal to *Custom*.
+   editing any snapped control flips the goal to *Custom*. With **EAC-style log**
+   unticked, choosing *Archival Exact* ticks it; unticking it again leaves the
+   goal on Archival Exact (the log is not a field the goal is matched on).
 
 **Record:** companion log present + attributed? `____`; parity script reads it?
 `____`; presets snap/flip correctly? `____`.

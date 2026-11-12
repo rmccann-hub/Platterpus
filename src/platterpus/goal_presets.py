@@ -148,16 +148,49 @@ GOAL_LABELS: list[tuple[str, str]] = [
 ]
 
 
+# The goals that switch the EAC-layout log ON when they are chosen.
+#
+# NOT a `GoalPreset` field, on purpose. A preset field is also a field
+# `detect_goal` matches on, and the rip report records `rip_goal` from that match
+# (`rip_report._derived_rip_goal`). The log's default moved to ON on 2026-11-12,
+# but every config saved before then carries an explicit `false` that is kept
+# (see `config.Config.write_eac_log_after_rip`). Had the log been a matched field,
+# every such Archival user would have been reported as `custom`, with a
+# `rip_goal_stored` warning on each rip, about a setting that changes nothing
+# about how the disc is read. So choosing Archival ticks the log, and unticking
+# it afterwards does not make the rip any less archival: the log is an output
+# written about the rip, not a way of reading the disc.
+#
+# Why Archival: an archive keeps the proof, and the guide the owner works from
+# treats the log as that proof. The other goals leave the box as the user set it
+# (it is on for a new install either way).
+_GOALS_THAT_TURN_ON_EAC_LOG: frozenset[str] = frozenset({GOAL_ARCHIVAL})
+
+
+def turns_on_eac_log(goal: str) -> bool:
+    """True when choosing ``goal`` switches the EAC-layout log on.
+
+    The one answer both `apply_preset` and the Settings dialog's goal handler
+    read, so the two surfaces cannot disagree about what a goal does to it.
+    """
+    return goal in _GOALS_THAT_TURN_ON_EAC_LOG
+
+
 def apply_preset(config: Config, goal: str) -> Config:
     """Return a copy of ``config`` with ``goal``'s preset fields applied.
 
     Unknown/``custom`` goals return the config unchanged (nothing to apply).
+    A goal for which :func:`turns_on_eac_log` is true also switches the
+    EAC-layout log on; no goal switches it off.
     """
     preset = PRESETS.get(goal)
     if preset is None:
         return config
     return replace(
         config,
+        write_eac_log_after_rip=(
+            True if turns_on_eac_log(goal) else config.write_eac_log_after_rip
+        ),
         rip_goal=goal,
         output_format=preset.output_format,
         ctdb_verify_after_rip=preset.ctdb_verify_after_rip,

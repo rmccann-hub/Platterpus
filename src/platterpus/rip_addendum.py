@@ -369,8 +369,8 @@ def addendum_text(log_path: str | Path) -> str:
         # `Log FUN512:` checksum and `--verify-log` rejects trailing content by
         # design — we appended there once and every auto-fixed rip shipped a log
         # the ripper itself called modified (round 7 lap 10). Our EAC-style log is
-        # ours to write, but `write_eac_log_after_rip` defaults to False, so most
-        # folders have no such file and the supersede would simply vanish.
+        # ours to write, but `write_eac_log_after_rip` was off by default until
+        # 2026-11-12, so most folders had no such file and the supersede vanished.
         #
         # The `.platterpus.json` is always written, is ours, and ALREADY holds this
         # record structurally (`read_speed.retried_tracks` plus the per-track

@@ -14,6 +14,7 @@ from platterpus.goal_presets import (
     GoalPreset,
     apply_preset,
     detect_goal,
+    turns_on_eac_log,
 )
 
 
@@ -61,6 +62,35 @@ def test_every_pair_of_goals_differs_in_a_field_the_rip_reads() -> None:
         # And each preset round-trips to itself, not to an earlier twin.
         assert detect_goal(apply_preset(Config(), key_a)) == key_a
         assert detect_goal(apply_preset(Config(), key_b)) == key_b
+
+
+def test_archival_turns_the_eac_log_on_and_no_goal_turns_it_off() -> None:
+    """Archival switches the EAC-layout log on (2026-11-12); the others leave it.
+
+    Starts from `False`, the value every config saved before the default moved
+    carries, so the assertion is about the goal and not about the default.
+    """
+    off = Config(write_eac_log_after_rip=False)
+    assert turns_on_eac_log(GOAL_ARCHIVAL) is True
+    assert apply_preset(off, GOAL_ARCHIVAL).write_eac_log_after_rip is True
+    for goal in (GOAL_FAST, GOAL_PORTABLE):
+        assert turns_on_eac_log(goal) is False
+        assert apply_preset(off, goal).write_eac_log_after_rip is False
+        assert apply_preset(Config(), goal).write_eac_log_after_rip is True
+
+
+def test_the_eac_log_does_not_decide_which_goal_a_config_is() -> None:
+    """The log is an output written about the rip, not a way of reading the disc.
+
+    Were it matched by `detect_goal`, every Archival user whose saved config
+    carries the old default (`false`) would be reported as `custom`, with a
+    `rip_goal_stored` warning on every rip (`rip_report._stale_rip_goal`).
+    """
+    for goal in (GOAL_FAST, GOAL_ARCHIVAL, GOAL_PORTABLE):
+        applied = apply_preset(Config(), goal)
+        assert detect_goal(replace(applied, write_eac_log_after_rip=False)) == goal
+        assert detect_goal(replace(applied, write_eac_log_after_rip=True)) == goal
+    assert "write_eac_log_after_rip" not in {f.name for f in fields(GoalPreset)}
 
 
 def test_the_retired_recompress_field_is_not_a_preset_field() -> None:

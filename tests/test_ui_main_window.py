@@ -11521,8 +11521,9 @@ def test_picard_is_launched_only_when_the_user_asked_and_files_exist(
 def test_the_eac_companion_log_is_only_written_when_asked_for(
     teardown_threads, tmp_path: Path
 ) -> None:
-    """Off by default, and clearly named so it can never be confused with a real
-    (signed) EAC log — KDD-11/13."""
+    """Written only when the setting is on (the default since 2026-11-12), and
+    clearly named so it can never be confused with a real (signed) EAC log —
+    KDD-11/13."""
     album = tmp_path / "Artist" / "Album"
     album.mkdir(parents=True)
     log_file = album / "Album.log"
