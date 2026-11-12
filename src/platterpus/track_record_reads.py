@@ -53,18 +53,28 @@ def _plural(count: int, word: str) -> str:
     return f"{count:,} {word}{'' if count == 1 else 's'}"
 
 
-def _converged_agreement(track: object, reads: int | None) -> str:
+def _converged_agreement(
+    track: object, reads: int | None, every_other_read_printed: bool
+) -> str:
     """``3 agreeing of 3``, ``at least 2 agreeing of 4``, for reads that converged.
 
     Exact when ``.30``'s ``Other read:`` lines account for every read not kept
-    (the kept value's count is the rest), or when only two reads were made;
-    otherwise the floor convergence proves, two.
+    (the kept value's count is the rest); when the build prints a line for every
+    such read (``every_other_read_printed``,
+    :func:`platterpus.track_record_sources.prints_every_other_read`) and printed
+    none, so every read agreed (TASKS R140: round 39's track 3, ``Done; (2 out of
+    2 matches ...)``, three reads, which this said as ``at least 2 agreeing of
+    3``); or when only two reads were made. Otherwise the floor convergence
+    proves, two.
     """
     if not isinstance(reads, int) or reads < 2:
         return "converged (the read count is not stated)"
     others = tuple(getattr(track, "other_reads", ()) or ())
+    elided = getattr(track, "other_reads_not_kept", 0)
+    if every_other_read_printed and not others and not elided:
+        return f"{reads} agreeing of {reads}"
     counts = [int_or_none_strict(getattr(o, "count", None)) for o in others]
-    if others and not getattr(track, "other_reads_not_kept", 0) and None not in counts:
+    if others and not elided and None not in counts:
         agreeing = reads - sum(c for c in counts if c is not None)
         if 2 <= agreeing <= reads:
             return f"{agreeing} agreeing of {reads}"
@@ -87,8 +97,12 @@ def _limit_agreement(track: object, reads: int | None) -> str:
     return f"{bound} {agreed} agreeing{of}"
 
 
-def read_path(track: object) -> str:
-    """How the kept read was made, without the database: ``first read`` or a re-read."""
+def read_path(track: object, *, every_other_read_printed: bool = False) -> str:
+    """How the kept read was made, without the database: ``first read`` or a re-read.
+
+    ``every_other_read_printed`` says the build prints an ``Other read:`` line
+    for every ``-Z`` read not kept; False, the default, keeps the floor wording.
+    """
     test_crc = str(getattr(track, "test_crc", "") or "").upper()
     copy_crc = str(getattr(track, "copy_crc", "") or "").upper()
     if test_crc:
@@ -98,7 +112,9 @@ def read_path(track: object) -> str:
     reads = int_or_none_strict(getattr(track, "rip_count", None))
     converged = getattr(track, "secure_rerip_converged", None)
     if converged is True:
-        return f"re-read, {_converged_agreement(track, reads)}"
+        return (
+            f"re-read, {_converged_agreement(track, reads, every_other_read_printed)}"
+        )
     if converged is False:
         return f"re-read, {_limit_agreement(track, reads)}"
     if reads is not None and reads >= 2:
