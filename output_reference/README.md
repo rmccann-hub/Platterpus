@@ -61,7 +61,7 @@ WavPack/MP3/WAV *output formats* now ship (KDD-22), but their per-backend parity
 
 | | FLAC (priority 1) | WAV (priority 2) | MP3 (priority 3) |
 |---|---|---|---|
-| **EAC** (baseline) | `EAC_flac/` ✅ committed | `EAC_wav/` 🟡 13/14; **WavPack not plain WAV** (see below) | `EAC_mp3/` 🟡 imperfect (12/14; see its README) |
+| **EAC** (baseline) | `EAC_flac/` ✅ committed | `EAC_wav/` 🟡 13/14, and the 2026-11-12 re-rip 12/14; **WavPack not plain WAV** (see below) | `EAC_mp3/` 🟡 imperfect (12/14; see its README) |
 | **previous backend** *(removed 2026-06-30, KDD-18 — historical row; no proof will be added)* | — | — | — |
 | **cyanrip** | `cyanrip_flac/` 🟡 12/14 (T3+T5; stock 0.9.3) | `cyanrip_wav/` ⬜ | `cyanrip_mp3/` 🟡 13/14 (T5 only) |
 | **cyanrip, Platterpus fork** | `cyanrip_fork_flac/` ✅ 14/14 (its own README) | — | — |
@@ -127,6 +127,38 @@ useful.
 Track 4 came back **clean** here having errored in the MP3 session, which is what
 establishes the trouble as transient disc surface rather than systematic. Cue nit:
 this session's cue dropped track 10's ISRC.
+
+#### `EAC_wav/eac_wav_police_classics_20261112.log` — the round 39 re-rip, 12/14 🟡
+
+The owner's EAC re-rip of 2026-11-12, round 39's gate G5 (`docs/cyanrip-handshake.md`):
+EAC V1.8, the same disc, drive and offset (+667), secure mode with Test & Copy,
+C2 not used, and the same `wavpack.exe -h -m` encoder as the June run. No `.cue`
+was saved with it.
+
+| Track | Test CRC | Copy CRC | Baseline | AccurateRip v2 | CTDB |
+|---|---|---|---|---|---|
+| 3 | `80035387` | `2AC1F945` | `59D352DD` | cannot be verified (`36776BF1`, database `96DF8C22`) | 1426 of 1528 differ in 2 samples at 04:04.68 |
+| 4 | `1D0079A1` | `60D796AE` | `60D796AE` | accurately ripped | accurately ripped |
+| 5 | `E0036697` | `6902BCF0` | `E0036697` | cannot be verified (`268CCD94`, database `BCF4E815`) | 1426 of 1528 differ in 6 samples at 02:24.59 and 02:24.72 |
+
+The other eleven tracks match the baseline and AccurateRip at confidence 200. EAC
+still printed **"No errors occurred"**: its summary counts read errors, not
+verification. Track 4's Test and Copy passes disagreed and the Copy pass was the
+right one. On this drive, the five-rip run of the fork's `.31` read track 3 right in
+all five rips and verified track 5 in every rip, so this re-rip is where Platterpus
+did better than EAC (`docs/eac-parity.md` G.7).
+
+**What was changed from the file EAC wrote, and only this.** The owner chose to hide
+their Windows user folder: every `Filename` line's `C:\Users\<their name>\Music\`
+reads `C:\Users\<name>\Music\` here, 28 lines (14 tracks, and the file holds
+the whole log twice, as EAC appended it a second time; the two copies are identical).
+Every CRC, verdict and setting is as EAC wrote it. **EAC's own log checksum no longer
+verifies** on this copy, because the checksum covers the text that was changed. The
+file EAC wrote, which the owner keeps, is 33,554 bytes with sha256
+`a83dd4f43932b5a09c570daa209ea38117f3bbcba92b00b23a1c05fd5c0d38ab`; this copy is
+33,498 bytes with sha256
+`76e58eb0e8eae28396d4e343cdf1aed4e5a1b9d75eabbe801b1793c175b884c3`. It stays UTF-16
+LE with its BOM and CRLF, like the June logs.
 
 ### `cyanrip_flac/` — 12/14 🟡
 
@@ -224,4 +256,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.123.*

@@ -2218,7 +2218,7 @@ class _TrackAcc:
     # `.27`'s `Kept read began:` (see TrackResult): "" with state "" = no line.
     kept_read_began: str = ""
     kept_read_began_state: str = ""
-    # `.30`'s `Other read:` lines (`other_reads`): each `-Z` read not kept.
+    # `.30`'s `Other read:` lines (`other_reads`): each `-Z` value not kept, with its count.
     other_reads: _other.OtherReadsAcc = field(default_factory=_other.OtherReadsAcc)
     appended_silence_frames: int | None = None
     # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`

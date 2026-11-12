@@ -800,7 +800,7 @@ class TrackBlock(TypedDict):
     secure_rerip_kept_read: KeptReadBlock | None
     #: Schema 41: which limit stopped a re-read that did not converge.
     secure_rerip_limit_stop: LimitStopBlock | None
-    #: v44: `.30`'s `Other read:` lines, each -Z read not kept (`other_reads`);
+    #: v44: `.30`'s `Other read:` lines, one per -Z value not kept (`other_reads`);
     #: None when none was printed, which is never "no other read".
     other_reads: OtherReadsBlock | None
     #: v42 (TASKS R114): the album pass's own facts for a track a securing read

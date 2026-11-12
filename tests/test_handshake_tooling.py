@@ -1993,6 +1993,12 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # 8bd556f6… and states our cells in its S7, the file staying byte-identical.
     # Round 39, 2026-11-11: the fork's lap 3 (S5) wrote two of our cells into the
     # file (9fcf4b4b…); our lap 4 declares it, which retired that entry.
+    # Round 39, 2026-11-12: the fork's lap 5 (S6) wrote our lap 4's two cells into
+    # the file at `cyanrip@d884f005` (3c0972c5…, which their lap 5 declares), and
+    # our copy is byte-identical. Our lap 6 declares it and retires this entry.
+    ("round-39-lap-04.md", "seam-commands"): (
+        "3c0972c5b36cffb2b0df31f1e4908775c9711746ce008003157409fcddb30543"
+    ),
 }
 
 
