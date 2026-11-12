@@ -41,7 +41,13 @@ EAC re-rip filed (G5).
    ~/platterpus-rig/drivetest.sh
    https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/docs/rig-scripts/drivetest.sh`.
 3. **G4, with Platterpus closed and the reference disc in: `bash
-   ~/platterpus-rig/drivetest.sh probe`**, and upload the one file it names.
+   ~/platterpus-rig/drivetest.sh probe`**, and upload the one file it names. Ran once on
+   2026-11-11 (filed by the fork at `cyanrip@74b6f0a`). Fetch the script again (the
+   `curl` line in step 2) before running it a second time: since 2026-11-12 its C2 probe
+   reads the four whole seconds the wrong samples sit in (track 3's 244, 251 and 252,
+   track 5's 144), three windows each, three reads a window, plus the control: 40
+   flushes and reads where the first run made 16, a few minutes more (the summary
+   prints the time it took).
 4. **The burn: one Full acceptance run** (Tools → Advanced → Run acceptance test…, Full).
    Section A checks the installed build is `.31` and the pair is the newest; sections P5
    and P6 time and pair `.30` (the approved build) against `.31`; section R makes the five
