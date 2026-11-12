@@ -1070,7 +1070,7 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: `552afad4d7bed301` recomputed by their method at both) is filed as
 #: `round-39-lap-01-provider-contract-g6eacb8b.md`; P1 keeps every option `.30`'s
 #: does at the same line up to `--reread-time-limit` (62), adds
-#: `--reread-until-accuraterip` (63), which we send on the securing pass
+#: `--reread-until-accuraterip` (63), which we send on every `-Z` pass
 #: (`adapters/reread_until_accuraterip_args.py`), and moves
 #: `--read-vendor-settings` (64), `--keep-every-read` (65) and `-Y` (114) down one.
 #: **`FORK_PIN` stays `5cc1c6b` until round 39 closes.**
@@ -1988,8 +1988,8 @@ def accepts_reread_time_limit(build_tag: str) -> bool:
 #: ``round-39-lap-01-provider-contract-g6eacb8b.md``; ``.30``'s contract does not
 #: list it. The range is a whole number from 1 to INT32_MAX (``GEN_OPT_ONE`` at
 #: ``cyanrip@e531a33:src/cyanrip_main.c:3345``), refused without ``-Z`` (exit 64,
-#: ``cyanrip@e531a33:src/cyanrip_main.c:3553-3556``). Sent on the securing pass
-#: only (``adapters/reread_until_accuraterip_args.py``). Enumerated, never
+#: ``cyanrip@e531a33:src/cyanrip_main.c:3553-3556``). Sent on every ``-Z`` pass,
+#: never without (``adapters/reread_until_accuraterip_args.py``). Enumerated, never
 #: inferred from a version, for ``--consumer``'s reason.
 BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP: Final[frozenset[str]] = frozenset(
     {

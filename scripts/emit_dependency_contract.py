@@ -333,7 +333,7 @@ def _maximal_argv(backend: CyanripImpl, build_tag: str) -> list[str]:
         # The securing pass's time limit (round 39), sent to a build that lists
         # it; any value in range shows the flag.
         reread_time_limit_s=600,
-        # `.31`'s rule on the securing pass (round 39), to a build that lists it.
+        # `.31`'s rule on every -Z pass (round 39), to a build that lists it.
         reread_until_accuraterip=2,
     )
 

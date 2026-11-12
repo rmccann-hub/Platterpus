@@ -61,6 +61,7 @@ from platterpus.track_record_sources import (
     ar_guided_convergence,
     ar_overrule_words,
     int_or_none_strict,
+    prints_every_other_read,
     upper_hex,
 )
 
@@ -184,7 +185,9 @@ def track_record(
                 disagree,
                 False,
             )
-        path = read_path(track)
+        path = read_path(
+            track, every_other_read_printed=prints_every_other_read(ripper_version)
+        )
         if repair is not None:
             return TrackRecord(
                 RECORD_REPAIRED, _repaired_line(repair, path), disagree, True

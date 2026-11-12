@@ -12,8 +12,9 @@ one track's reads each stay a focused module.
 **Composes with the ripper's own reads.** The chase runs only for a track whose
 kept read AccurateRip did not verify, so it is always the FALLBACK after the
 ripper's reads: today after ``-Z`` (and ``--prefer-accuraterip-match`` on
-``.27`` on), and after ``.31``'s ``--reread-until-accuraterip CONF`` once a
-release carries it (their round 38 lap 16 S13), whose reads would already have
+``.27`` on), and after ``.31``'s ``--reread-until-accuraterip CONF``, which
+every ``-Z`` pass sends to a build that lists it (their round 38 lap 16 S13;
+their round 39 lap 3 S15 for the album pass), whose reads would already have
 kept a verified read where the drive gave one. A track that option left
 verified is not chased; one it could not verify is, under the same budget.
 

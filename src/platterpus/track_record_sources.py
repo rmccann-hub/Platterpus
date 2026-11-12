@@ -34,6 +34,25 @@ AR_GUIDED_CONVERGENCE_BUILDS: Final[frozenset[int]] = frozenset({31})
 #: plain re-read, which it might not be.
 AR_GUIDED_FIRST_BUILD: Final[int] = 31
 
+#: **Fork builds whose log prints an ``Other read:`` line for EVERY ``-Z`` read
+#: that was not kept** (:mod:`platterpus.other_reads`), so a converged track that
+#: prints none had all its reads agree, and the record's count is exact (TASKS
+#: R140, our round 39 lap 2 S16). Read in their source, not assumed: each distinct
+#: checksum of a ``-Z`` track is filed as its own spool, a repeat adding a count
+#: (``cyanrip@e531a33:src/cyanrip_main.c:2034-2079``; ``cyanrip@5cc1c6b`` the same
+#: at ``:2011``), every spool is copied onto the track when the track is decided
+#: (``crip_keep_reads``, ``cyanrip@e531a33:src/cyanrip_main.c:1442-1460``, called
+#: at ``:2480``; ``cyanrip@5cc1c6b:src/cyanrip_main.c:1422``, ``:2351``), and the
+#: log prints one line per read not kept (``cyanrip@e531a33:src/cyanrip_log.c:
+#: 874-896``, ``cyanrip@5cc1c6b:src/cyanrip_log.c:869-891``). The one gap in
+#: that chain is ``crip_keep_reads``'s allocation failing, which prints no lines
+#: at all; a converged ``-Z`` track has at most ``-r`` spools, so it is an
+#: out-of-memory case only. ``.30`` (``5cc1c6b``) and ``.31`` (``e531a33``),
+#: whose meson.build line 21 names each. Enumerated, never ``>= 30``: a later
+#: build joins when its own source is read, and until then its record keeps the
+#: floor, which is true and only weaker.
+OTHER_READS_COMPLETE_BUILDS: Final[frozenset[int]] = frozenset({30, 31})
+
 # "cyanrip 0.9.4-rc3+platterpus.31": the fork's own build number. Bounded.
 _FORK_BUILD: Final[re.Pattern[str]] = re.compile(r"\+platterpus\.(?P<n>\d{1,4})\b")
 
@@ -134,6 +153,17 @@ def fork_build_number(ripper_version: str) -> int | None:
     """``31`` from ``cyanrip 0.9.4-rc3+platterpus.31``; None when it names none."""
     match = _FORK_BUILD.search(ripper_version or "")
     return int(match.group("n")) if match else None
+
+
+def prints_every_other_read(ripper_version: str) -> bool:
+    """Does this build print an ``Other read:`` line for every ``-Z`` read not kept?
+
+    True only for :data:`OTHER_READS_COMPLETE_BUILDS`. False for stock cyanrip,
+    an older fork build, a later one not yet read, or no version at all: those
+    keep the floor wording, the safe direction for a record that claims what the
+    log proves. Never raises.
+    """
+    return fork_build_number(ripper_version) in OTHER_READS_COMPLETE_BUILDS
 
 
 def ar_guided_convergence(track: object, ripper_version: str) -> bool | None:
