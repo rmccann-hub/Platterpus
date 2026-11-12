@@ -14,6 +14,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A version-probe cancel test no longer races its own stand-in** (contributor-facing): `test_a_cancelled_version_probe_does_not_go_on_to_the_next_flag` cancelled as soon as the child existed, sometimes before the stand-in wrote its spawn line, and then failed reading a file that was never made (CI py3.14, 2026-11-12). It now waits for the first spawn to be recorded before cancelling.
+- **Every session starts by answering who released the last handshake lap, and who holds the next** (the owner's word of 2026-11-12): `scripts/lap_turn.py` reads the newest released lap on our `main` and the fork's `platterpus-fork`, and that lap's `HANDSHAKE-NEXT-LAP`, and names any newer lap written but held; the session-start hook prints it, bounded and never failing a session, and `CLAUDE.md` makes it the first question. Ten tests, one reading this repository's own laps with floors.
 - **Our status block records 0.7.123 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.123 at `f338642`, published 2026-11-12T00:42:37Z.
 - **Our round 39 lap 4 is released, OPEN on G5's EAC re-rip** (contributor-facing; on the owner's word of 2026-11-11, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it answers the fork's lap 3 (S14's C2 wording read, S15's option on every `-Z` pass, both in 0.7.123), corrects our lap 2's citation hash, gives our two remaining `seam-commands.md` cells, reads the C2 probe, and carries the owner's rule that "burn" means writing a disc, for both sides. TASKS R148: our lap checker passed that citation without its hash.
 
