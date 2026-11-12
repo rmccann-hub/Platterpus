@@ -572,6 +572,14 @@ def test_a_cancelled_version_probe_does_not_go_on_to_the_next_flag(
     while not rip_backend.RIPPER_VERSION_PROBE.is_running():
         assert time.monotonic() < deadline, "the version probe never started"
         time.sleep(0.01)
+    # Wait for the child to have RUN, not only to exist: cancelling between the
+    # spawn and the stand-in's first line killed the shell before it wrote
+    # `spawns.txt`, and the read below then failed with FileNotFoundError (CI
+    # py3.14, 2026-11-12, on a pull request that did not touch this code). The
+    # count is what the test is about, so it needs the first spawn recorded.
+    while not spawns.exists():
+        assert time.monotonic() < deadline, "the stand-in never wrote its spawn"
+        time.sleep(0.01)
     rip_backend.cancel_ripper_version_probe()
     thread.join(15)
 
