@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our round 39 lap 4 is released, OPEN on G5's EAC re-rip** (contributor-facing; on the owner's word of 2026-11-11, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it answers the fork's lap 3 (S14's C2 wording read, S15's option on every `-Z` pass, both in 0.7.123), corrects our lap 2's citation hash, gives our two remaining `seam-commands.md` cells, reads the C2 probe, and carries the owner's rule that "burn" means writing a disc, for both sides. TASKS R148: our lap checker passed that citation without its hash.
+
 ## [0.7.123] — 2026-11-12
 The release that answers the fork's round 39 lap 3, with `.30` still the default ripper and `.31` (`e531a33`) still the build under review. Every pass we send with `-Z` now asks `.31` to keep re-reading past reads that agree on audio AccurateRip does not hold, the whole-disc secure re-read included, where before only the securing pass did. A track whose re-reads all agreed now says exactly how many did, on `.30` and `.31`. Cyanrip's `C2 errors:` header line is read as what the drive's capabilities page declares, in today's wording and the fork's proposed one, never as what the drive can do: this drive does return C2 pointers. The drive test's C2 probe reads each second where the reference disc's reads go wrong whole. The track-record check reads the EAC-layout log as it says it does. And "burn" now means writing a disc and nothing else: the Full run's five back-to-back rips are the *repeat rips*.
 
