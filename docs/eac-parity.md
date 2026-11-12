@@ -1872,6 +1872,32 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
   has a marginal spot that this drive, in its current mode, interpolates the same way
   every time. The same disc read right once.
 
+### G.7 The EAC re-rip of 2026-11-12, and the five-rip run beside it (round 39)
+
+**Measured.** The owner re-ripped the reference disc with EAC V1.8 on the same drive
+and offset on 2026-11-12 (round 39's gate G5; filed as
+`output_reference/EAC_wav/eac_wav_police_classics_20261112.log`, described in
+`output_reference/README.md`). EAC verified 12 of 14 tracks. **Track 3** came out
+`2AC1F945` (Test `80035387`), not `59D352DD`, and AccurateRip could not verify it;
+CTDB places the difference at second 244, one of the three seconds (244, 251 and 252)
+where our block comparison found our own wrong reads of track 3 differing. **Track 5** came out `6902BCF0` (Test `E0036697`), not verified;
+AccurateRip's database holds `BCF4E815`, the AccurateRip v2 CRC of the `C96464AB`
+our repair produces. EAC's summary still read "No errors occurred".
+
+**Across EAC's four sessions on this rig**, track 3 was right once (the June 11
+baseline) and wrong three times (June 25 twice, November 12), and track 5 was never
+verified. **Across the five-rip run of `.31` on 2026-11-11**, track 3 was right from
+a drive read in all five rips and track 5 was verified by AccurateRip v2 in all five,
+read or repaired from CTDB.
+
+**What it changes in G.4.** G.4 called track 3 a parity gap because EAC's secure read
+verified it on this drive. On today's count that is one session in four, and ours is
+five rips in five, so on this rig track 3 is **a win as well as track 5**, as the
+standing direction defines them. It is one rig, one disc and one EAC session against
+one run of five, so the claim is for this drive and this disc; items 2 to 4 of G.4
+stay open for what they can still teach about why the drive returns two values.
+
+
 ---
 
 *Last updated for Platterpus v0.7.123.*
