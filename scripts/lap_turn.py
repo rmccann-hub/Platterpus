@@ -76,9 +76,19 @@ class Turn:
     held: tuple[Lap, ...]  # laps written but not yet released, either side
 
 
+#: Every ``HANDSHAKE-<NAME>: value`` line, at column 0: a literal the regex sweep
+#: can time (`tests/test_regex_bounded_time.py`), rather than one built per name.
+_HEADER: Final[re.Pattern[str]] = re.compile(
+    r"^HANDSHAKE-(?P<name>[A-Z][A-Z-]{0,40}):[ \t]*(?P<value>[^\n]*)$", re.MULTILINE
+)
+
+
 def _header(text: str, name: str) -> str:
-    match = re.search(rf"^HANDSHAKE-{name}:[ \t]*(.*)$", text, re.MULTILINE)
-    return match.group(1).strip() if match else ""
+    """The first ``HANDSHAKE-<name>`` header's value, or "" when there is none."""
+    for match in _HEADER.finditer(text):
+        if match.group("name") == name:
+            return match.group("value").strip()
+    return ""
 
 
 def parse_lap(name: str, text: str, where: str) -> Lap | None:
@@ -169,6 +179,7 @@ def _git(repo: Path, *args: str, timeout: int | None = None) -> str | None:
             ["git", "-C", str(repo), *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=timeout,
             check=False,
         )
