@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our status block records 0.7.123 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.123 at `f338642`, published 2026-11-12T00:42:37Z.
 - **Our round 39 lap 4 is released, OPEN on G5's EAC re-rip** (contributor-facing; on the owner's word of 2026-11-11, pinned by hash in `tests/test_sent_laps_are_immutable.py`): it answers the fork's lap 3 (S14's C2 wording read, S15's option on every `-Z` pass, both in 0.7.123), corrects our lap 2's citation hash, gives our two remaining `seam-commands.md` cells, reads the C2 probe, and carries the owner's rule that "burn" means writing a disc, for both sides. TASKS R148: our lap checker passed that citation without its hash.
 
 ## [0.7.123] — 2026-11-12
