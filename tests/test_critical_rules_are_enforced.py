@@ -3251,7 +3251,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4455 -> 4470** (same day, TASKS R49; 4470 once its imports were merged): the securing pass's time limit computed (`securing_time_limit.securing_pass_time_limit`), said in the log, and handed through `_rip_once` to the backend.
     # **4470 -> 4480** (2026-11-11, round 39, `.31`): `_rip_once` asks for `.31`'s rule on the securing pass alone, with `-Z`; why there and why 2 is `reread_until_accuraterip_args.py`.
     # **4480 -> 4490** (2026-11-11, round 39 lap 1 S10): `_read_once_for_chase` keeps each chase read's `-j` record before the chase deletes its folder, and names it for the rip's bundle; the copy is `chase_record_keep.py`'s.
-    "workers/rip_worker.py": 4490,
+    # **4490 -> 4484** (2026-11-12, the fork's round 39 lap 3 S15): down: `_rip_once` asks `confidence_for_pass` for every `-Z` pass in one line, where it computed the securing pass's case in five.
+    "workers/rip_worker.py": 4484,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

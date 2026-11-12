@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Every `-Z` pass now asks `.31` for `--reread-until-accuraterip 2`, not the securing pass alone** (the fork's round 39 lap 3 S15): an Archival Exact rip's whole-disc album pass, the rig sheet's section N, sent `-r 5 -Z 2` without it, so on 2026-11-11 it kept track 3's `3D8FCF0C` by agreement (reads 1 and 4) until our chase replaced it. One decision, `reread_until_accuraterip_args.confidence_for_pass`, used at the worker's one spawn site, asks on every pass that reads with `-Z` and on none without it; the build gate and the `-Z` refusal at the argv chokepoint are unchanged, so `.30` still gets `-Z` alone and a chase read (`-r 5 -l N`, no `-Z`) is unchanged. `--reread-time-limit` stays on the securing pass: its value is the larger of 5x a track's length and 2x its album-pass read time, which an album pass has not measured yet. The consumer contract regenerates unchanged (it lists the flag, not the passes).
 - **The fork's round 39 lap 3 is filed, and the shared `seam-commands.md` takes our two cells** (contributor-facing): lap 3 (OPEN on G5's EAC re-rip; GO pre-committed once it is filed) byte for byte from `platterpus-fork` at `54d66666`; its digest `76df5c9d7f5f93d0` reproduces; `seam-commands.md` copied from theirs (sha256 `9fcf4b4b…`), carrying the `--reread-until-accuraterip` and `--prefer-accuraterip-match` cells our lap 2 S7 gave.
 
 ### Fixed

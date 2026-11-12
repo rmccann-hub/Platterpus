@@ -208,9 +208,9 @@ def describe_rip_plan(
         f"{PLAN_PREFIX}   Keep the read AccurateRip matches at the re-read limit "
         f"({backend.PREFER_ACCURATERIP_MATCH_FLAG}): ON, where the build supports "
         "it. The securing pass stops a track's re-reads after the larger of 5x "
-        f"its length and 2x its first read ({REREAD_TIME_LIMIT_FLAG}) and reads on "
-        f"past an agreement AccurateRip rejects ({_until.REREAD_UNTIL_ACCURATERIP_FLAG} "
-        f"{_until.SECURING_PASS_ACCURATERIP_CONFIDENCE}), where the build takes each."
+        f"its length and 2x its first read ({REREAD_TIME_LIMIT_FLAG}); every -Z pass "
+        f"reads past an agreement AccurateRip rejects ({_until.REREAD_UNTIL_ACCURATERIP_FLAG}"
+        f" {_until.REREAD_ACCURATERIP_CONFIDENCE}), where the build takes each."
     )
     lines.append(
         f"{PLAN_PREFIX}   Who drove the rip (--consumer {backend.consumer_tag()}): "
