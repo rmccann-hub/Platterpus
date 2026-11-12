@@ -479,9 +479,9 @@ class TrackResult:
     pregap_undecided_frames: tuple[int, int] | None = None
     filtered: TrackFilter | None = None
     ripper_cover_art: RipperCoverArt | None = None
-    # `.30`'s `Other read:` lines (`other_reads`): each `-Z` read of this track
-    # that was not kept, in the order first read, with where it differs from the
-    # kept one. Empty is NO LINE: an older build, a track read without `-Z`, or
+    # `.30`'s `Other read:` lines (`other_reads`): each value this track's `-Z`
+    # reads gave that was not kept, with how many reads gave it, in the order
+    # first read, with where it differs from the kept one. Empty is NO LINE: an older build, a track read without `-Z`, or
     # reads that all agreed, never "no other read". `other_reads_not_kept` counts
     # lines past the bound, from the middle.
     other_reads: tuple[OtherRead, ...] = ()

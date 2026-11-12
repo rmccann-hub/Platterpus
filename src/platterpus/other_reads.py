@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""The fork's ``Other read:`` line: each ``-Z`` read of a track that was not kept.
+"""The fork's ``Other read:`` line: each value a track's ``-Z`` reads gave that was not kept.
 
 **Why this exists.** Under ``-Z`` cyanrip reads a track until its reads agree or a
 limit stops it, and keeps one read. Until ``.30`` the log named only the kept
@@ -14,7 +14,9 @@ the P2 row ``cyanrip@40dc64d7:PROVIDER-CONTRACT.md:375``)::
 
     "  Other read:      %08X, read %i time%s, %s%s%s\\n"
 
-One line per read not kept, in the order first read, in the track block after
+One line per VALUE not kept, with how many reads gave it (``read %i time%s``;
+the fork's round 39 lap 5 S7, ``cyanrip@e531a33:src/cyanrip_log.c:874-897``),
+in the order first read, in the track block after
 ``Secure re-read:`` and before ``Accurip:``, so before ``Metadata:`` and inside
 our echo boundary (``parsers/cyanrip_log._TRACK_ECHO_HEADER``). None is printed
 when no read was kept or the track had one distinct read. The parts:

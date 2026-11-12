@@ -6,8 +6,9 @@ least 2 agreeing of 3`` in rips 1, 2 and 5, where the securing pass printed
 ``Done; (2 out of 2 matches for current checksum 59D352DD)`` and no ``Other read:``
 line, so all three reads agreed. True, and weaker than the log.
 
-**The rule.** ``.30`` and ``.31`` print an ``Other read:`` line for every ``-Z``
-read not kept (read in their source; ``track_record_sources.OTHER_READS_COMPLETE_BUILDS``
+**The rule.** ``.30`` and ``.31`` print an ``Other read:`` line for every value
+their ``-Z`` reads gave that was not kept, with how many reads gave it (read in
+their source, and stated by the fork's round 39 lap 5 S7; ``track_record_sources.OTHER_READS_COMPLETE_BUILDS``
 cites it), so on those builds a converged track with none had every read agree:
 ``3 agreeing of 3``. Any other build, and a track whose lines were elided past the
 bound, keeps the floor, which is true and only weaker.
@@ -153,6 +154,17 @@ def test_a_printed_other_read_still_counts_from_its_lines() -> None:
     track = replace(track, other_reads=(other,))
     line = track_record(track, ripper_version=_BANNER_31).line
     assert line.startswith("re-read, 3 agreeing of 4;"), line
+
+
+def test_one_line_for_a_value_read_twice_counts_both_reads() -> None:
+    """The line is one per VALUE, not one per read (the fork's round 39 lap 5 S7,
+    ``cyanrip@e531a33:src/cyanrip_log.c:874-897``): ``read 2 times`` is two reads
+    not kept, so five reads with one such line are three agreeing, not four."""
+    track = _track3(_securing_pass(_BANNER_31).replace("after 3 rips", "after 5 rips"))
+    other = OtherRead(state="read", text="", crc="3D8FCF0C", count=2, where="not_known")
+    track = replace(track, other_reads=(other,))
+    line = track_record(track, ripper_version=_BANNER_31).line
+    assert line.startswith("re-read, 3 agreeing of 5;"), line
 
 
 # --- the gate, checked against the artifacts ----------------------------------------
