@@ -49,6 +49,10 @@ from .refs import (
 #: `sha256 <value>` straight after an artifact reference (HR-2 §6a's one line).
 _QUOTED_SHA256: Final[re.Pattern[str]] = re.compile(r"\Asha256\s+(\S+)")
 _SHA256_HEX: Final[re.Pattern[str]] = re.compile(r"\A[0-9a-f]{64}\Z")
+_NO_HASH: Final[str] = (
+    "a file on the evidence branch is cited with its SHA-256, "
+    "as 'sha256 <64 hex>' after the path (HR-2 §6a)"
+)
 
 DATE_RE: Final[re.Pattern[str]] = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 VERDICTS: Final[frozenset[str]] = frozenset({"GO", "HOLD", "OPEN"})
@@ -215,8 +219,11 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
         quoted = _QUOTED_SHA256.match(fld.value.strip()[len(token) :].strip())
         if quoted is not None and resolved.outcome in ("ok", "offrecord"):
             ctx.report(fld.line, "LSL.4", _quoted_hash(ctx, ref, quoted.group(1)))
-        if resolved.outcome == "ok" and ctx.trees.evidence_bytes(ref) is not None:
-            ctx.report(fld.line, "LSL.4", _evidence_form(ref, quoted is not None))
+        # HR-2 §6a: an evidence-branch file is cited with its hash (TASKS R148;
+        # its full commit is refs.Trees._evidence's check); default-branch: none.
+        unhashed = quoted is None and resolved.outcome == "ok"
+        if unhashed and ctx.trees.evidence_bytes(ref):
+            ctx.refuse(fld.line, "LSL.4", f"{token}: {_NO_HASH}")
     if not stmt.values("evidence"):
         return
     if stmt.kind == "FACT" and stmt.grade == "measured":
@@ -228,30 +235,6 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
             )
     if stmt.kind == "FACT" and stmt.grade == "read" and not artifacts:
         ctx.refuse(stmt.line, "LSL.2", f"{stmt.tag}: read needs an artifact reference")
-
-
-def _evidence_form(ref: ArtifactRef, hashed: bool) -> Resolution:
-    """HR-2 §6a's form for a file on the `evidence` branch: the file's SHA-256
-    (TASKS R148; the full commit is held by `refs.Trees._evidence`).
-
-    **Why.** Our round 39 lap 2 S6 cited `cyanrip@60b545ed:docs/rig-2026-11-10-
-    5cc1c6b/MANIFEST.txt:44`, a file on the fork's evidence branch, with a short
-    commit and no hash. The citation resolved through the manifest, so ours
-    passed it; the fork's checker refused it (their round 39 lap 3 S1). A file
-    that only the `evidence` branch reaches is cited by content, so a reader can
-    fetch it by hash into a scratch repository and check it; the hash is the
-    claim, and a short commit is one a growing repository can make ambiguous.
-    Only a citation that resolved AS evidence is held to this: a commit on the
-    side's ref of record keeps the old rules (§6d).
-    """
-    label = f"{ref.side}@{ref.sha}:{ref.path}"
-    if not hashed:
-        return Resolution(
-            "refused",
-            f"{label}: a file on the evidence branch is cited with its SHA-256, "
-            "as 'sha256 <64 hex>' after the path (HR-2 §6a)",
-        )
-    return Resolution("ok")
 
 
 def _quoted_hash(ctx: Context, ref: ArtifactRef, quoted: str) -> Resolution:
