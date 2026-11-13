@@ -305,7 +305,17 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: repair rewrote to `C96464AB`, AccurateRip v2 confidence 200), filed on the
 #: fork's evidence branch at `198ee58` and `60b545e` and read by both sides (our
 #: lap 17 S2 and S3). Neither side names a defect of `.30`.
-FORK_PIN: Final[str] = "5cc1c6b"
+#: **Rolled to `e531a33` (`+platterpus.31`, upstream rc3) on round 39's close
+#: (2026-11-13)**: our lap 6 `GO` against their lap 7 `GO`
+#: (`docs/handshake/inbound/round-39-lap-07.md`, sha256 `587c50da…`, 17,684 bytes,
+#: on `platterpus-fork` at `cyanrip@2a49776a`, released on their owner's word
+#: *"Release on their GO"*); both gates read the round CLOSED. `e531a33` is round
+#: 39's pin from its release on 2026-11-11. Its evidence is the five-rip run of
+#: 2026-11-11 on 0.7.122 (filed on our evidence branch at `ac0a5133` and on the
+#: fork's at `f6b9188`), the C2 probe (`74b6f0a`) and the owner's EAC re-rip of
+#: 2026-11-12 (`output_reference/EAC_wav/`, `07cd1d94`), read by both sides
+#: against G1 to G5. Neither side names a defect of `.31` that makes the pin unsafe.
+FORK_PIN: Final[str] = "e531a33"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -717,7 +727,10 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: **Rolled to `0.9.4-rc3+platterpus.30` on 2026-11-11, with `FORK_PIN`**, read off
 #: round 38 lap 18's `HANDSHAKE-RIPPER-VERSION` and cross-checked against
 #: `meson.build:21` at `5cc1c6b`, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.30"
+#: **Rolled to `0.9.4-rc3+platterpus.31` on 2026-11-13, with `FORK_PIN`**, read off
+#: round 39 lap 7's `HANDSHAKE-RIPPER-VERSION` and cross-checked against
+#: `meson.build:21` at `e531a33`, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.31"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -1073,7 +1086,9 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: `--reread-until-accuraterip` (63), which we send on every `-Z` pass
 #: (`adapters/reread_until_accuraterip_args.py`), and moves
 #: `--read-vendor-settings` (64), `--keep-every-read` (65) and `-Y` (114) down one.
-#: **`FORK_PIN` stays `5cc1c6b` until round 39 closes.**
+#: **`FORK_PIN` stays `5cc1c6b` until round 39 closes.** **Round 39 closed on
+#: 2026-11-13** and `FORK_PIN` rolled to `e531a33`, so the two pins coincide until
+#: round 40 names the fork's next build.
 PIN_UNDER_REVIEW: Final[str] = "e531a33"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
@@ -2035,7 +2050,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 # full commit fails the suite rather than silently weakening the build check.
 
 #: :data:`FORK_PIN` in full.
-FORK_PIN_FULL: Final[str] = "5cc1c6b3f6c8ea34d74a2f7672bdc5e6830ecbf0"
+FORK_PIN_FULL: Final[str] = "e531a33b1f4c7268a99b782136d6ceeae0da7946"
 #: :data:`PIN_UNDER_REVIEW` in full.
 PIN_UNDER_REVIEW_FULL: Final[str] = "e531a33b1f4c7268a99b782136d6ceeae0da7946"
 #: :data:`FORK_TEST_PIN` in full.
@@ -2453,18 +2468,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 38 approved, GO on both sides: the round's pin from its "
-        "release, held fixed by rule R4 for the rest of the round "
-        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 41, read from their "
+        "the build round 39 approved, GO on both sides: the round's pin from its "
+        "release, held fixed by rule R4 for the whole round "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 42, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). Over +platterpus.28 it "
-        "logs the checksum of every read of a re-read track (Other read:), can "
-        "read a drive's documented vendor settings and keep every read on request, "
-        "neither of which a Platterpus rip asks for. Round 38's evidence on it is a "
-        "drive test and the Full run on a drive, installed through Platterpus "
-        "0.7.121: 592 steps passed and 2 failed, both the CTDB check of one track "
-        "this drive cannot read right, which the automatic CTDB repair then fixed. "
-        "See docs/handshake/inbound/round-38-lap-18.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.30 it "
+        "can keep re-reading a track whose reads agree on a value AccurateRip "
+        "does not hold, until a read AccurateRip matches, which Platterpus asks "
+        "for on every pass that re-reads. Round 39's evidence on it is five whole-"
+        "disc rips in a row on a drive, installed through Platterpus 0.7.122, each "
+        "ending with all 14 tracks AccurateRip-verified, read beside a C2 probe "
+        "and an EAC re-rip of the same disc. "
+        "See docs/handshake/inbound/round-39-lap-07.md"
     ),
 )
 

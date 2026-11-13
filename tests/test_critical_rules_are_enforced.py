@@ -1643,7 +1643,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3280 -> 3316** (2026-11-11, round 39): `BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT` and its accessor, each build cited by its own contract's P1 line, beside the other gated options' sets.
     # **3316 -> 3339** (2026-11-11): round 38's close, recorded beside FORK_PIN, FORK_EXPECTED_VERSION and the --verify-log set as every roll's was.
     # **3339 -> 3419** (2026-11-11, round 39 names `.31`, the fork's lap 1): `PIN_UNDER_REVIEW` `e531a33` and its round, its release sequence 42, its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match` and `--reread-time-limit` rows, `.30` named in the `--verify-log` set, and `BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP` with its accessor beside the other gated options' sets, each with the source it was read from.
-    "deps/fork_source.py": 3419,
+    "deps/fork_source.py": 3434,  # +15 2026-11-13: round 39 closes; FORK_PIN rolls to e531a33 with its record
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1927,7 +1927,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 34 for `.23` with 0.7.106, recorded beside both constants.
     # **804 -> 813** (2026-10-20): round 35's approval record (0.7.110, round 35), recorded beside its constants, as each round's is.
     # **822 -> 830** (2026-10-28): round 36's approval record (0.7.114, round 36), recorded beside its constants, as each round's is.
-    "handshake_approval.py": 848,  # 838 -> 848 (2026-11-11): round 38's approval, recorded beside the two constants it moves, as every round's was; 830 -> 838 (2026-11-03): round 37's approval, recorded beside the two constants it moves, as every round's was; 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    "handshake_approval.py": 857,  # +9 2026-11-13: the approval record moves to round 39, 0.7.123, with its record  # 838 -> 848 (2026-11-11): round 38's approval, recorded beside the two constants it moves, as every round's was; 830 -> 838 (2026-11-03): round 37's approval, recorded beside the two constants it moves, as every round's was; 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
