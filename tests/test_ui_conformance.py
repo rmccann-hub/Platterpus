@@ -1631,7 +1631,9 @@ def test_the_matrix_installs_the_filter_app_main_installs() -> None:
 
 def test_every_centered_dialog_in_the_source_is_measured() -> None:
     """Completeness, derived from the source rather than trusted."""
-    pattern = re.compile(r"^class (\w+)\(CenteredDialog\):", re.MULTILINE)
+    # A dialog may take a mixin before its base (`DriveSetupDialog` takes
+    # `AutoCacheCheckMixin` since 2026-11-12), so the base may come last.
+    pattern = re.compile(r"^class (\w+)\((?:\w+, )*CenteredDialog\):", re.MULTILINE)
     found = {
         match.group(1)
         for path in (SRC / "platterpus").rglob("*.py")

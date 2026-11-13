@@ -1062,6 +1062,11 @@ _MODULE_LINE_THRESHOLD: Final[int] = 300
 #: this was written. A file may shrink or leave; it may not grow, and no new file
 #: may join.
 _OVERSIZE_MODULES: Final[dict[str, int]] = {
+    # 2026-11-13: the drive profiles' load and save, one job. Two changes of
+    # 2026-11-12/13 each added a field it reads and writes (the cache verdict's
+    # firmware, `cache_defeat_release`; the one-time hand-over of the old global
+    # read offset), and together they took it from under 300 to 301.
+    "drive_profile_store.py": 301,
     # Joined 2026-11-05 (TASKS R133, the automatic CTDB repair). One job each, so
     # recorded rather than split: the repair's window half (when it starts, the
     # worker it owns, what the user is told, the re-runs after it, the close), and
@@ -2650,7 +2655,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **853 -> 881** (2026-11-12, TASKS R53, the cache check once per drive): the wizard's entry hands it the drive's verdict state, the disc and whether the drive is busy, and holds it while open; the ledger writer stamps the firmware beside a verdict. The window half of the feature is its own mixin, `main_window_cache_check.py`.
     # **853 -> 982** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `_selected_drive_offset`, the window's one answer to which offset the next rip on the selected drive applies, and `_move_global_offset_once`; `_set_read_offset_override` saves into the selected drive's profile and refuses with no drive selected. The pure rule and the move itself went to `offset_config.py` (`offset_for_drive`, `plan_global_offset_move`, `move_global_offset`); what is here is the window's wiring to them and its reasons.
     # Both changes merged 2026-11-13: measured 1009 lines after the merge.
-    "ui/main_window_drive.py": 1009,
+    "ui/main_window_drive.py": 1013,  # +4 2026-11-13: the first-run offer says what setup does (R150)
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.

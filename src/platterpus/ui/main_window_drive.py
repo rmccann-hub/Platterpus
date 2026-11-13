@@ -181,8 +181,12 @@ class DriveMixin(MainWindowShared):
             "Set up your drive",
             "Your drive's read offset isn't configured yet — it's needed for "
             "a bit-perfect rip. Set it up now?\n\n"
-            "You can auto-detect it (insert a popular commercial CD) or enter "
-            "it by hand. You can also do this later from Tools → Setup & Updates… → Set up drive….",
+            # cyanrip has no offset finder wired in (TASKS R150), so this says
+            # what setup does: the AccurateRip list value, or one typed by hand.
+            "If AccurateRip's drive list has your drive, its offset is filled "
+            "in for you; otherwise you enter it by hand. With an audio CD in "
+            "the drive, setup also checks the drive's audio cache by itself. "
+            "You can also do this later from Tools → Setup & Updates… → Set up drive….",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )

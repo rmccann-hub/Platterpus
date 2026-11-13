@@ -3895,6 +3895,30 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
     assert launched == [True]
 
 
+def test_maybe_offer_promises_only_what_setup_does(
+    teardown_threads, monkeypatch
+) -> None:
+    """The first-run offer said "you can auto-detect it (insert a popular
+    commercial CD)", but cyanrip's offset finder is not wired in (TASKS R150):
+    setup fills the offset from AccurateRip's drive list or takes one typed by
+    hand. Found by the 2026-11-12 audit against the owner's EAC guide."""
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: False
+    )
+    window = teardown_threads(config=Config(drive_setup_prompted=False))
+    asked: list[str] = []
+
+    def question(_parent: object, _title: str, text: str, *a: object) -> object:
+        asked.append(text)
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(message_boxes, "question", question)
+    window._maybe_offer_drive_setup()
+    assert len(asked) == 1
+    assert "auto-detect" not in asked[0] and "popular commercial CD" not in asked[0]
+    assert "AccurateRip's drive list" in asked[0] and "by hand" in asked[0]
+
+
 def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
 
     monkeypatch.setattr(
