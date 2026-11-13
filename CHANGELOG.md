@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.124] — 2026-11-13
+The first release that installs the fork's `.31` (`e531a33`) by default, after round 39 closed on both sides' `GO`: in five whole-disc rips in a row of the reference disc, every rip ended with all fourteen tracks AccurateRip-verified, where the owner's EAC re-rip of the same disc on the same drive verified twelve. It also tests the drive once, up front, the way EAC's setup asks you to remember to: each drive keeps its own read offset, the audio-cache check runs by itself once per drive, and the EAC-compatible log is written by default for a new install.
+
 ### Changed
 
 - **Round 39 closes, and the ripper Platterpus installs by default moves to the fork's `.31`** (`e531a33`, `0.9.4-rc3+platterpus.31`): both sides declared `GO` (our lap 6, their lap 7) on the five-rip run of 2026-11-11, in which every rip ended with all 14 tracks of the reference disc AccurateRip-verified, read beside a C2 probe and the owner's EAC re-rip. `.31` keeps re-reading a track whose reads agree on a value AccurateRip does not hold, until a read it matches. The approval record names round 39 and 0.7.123; the handshake README's round table now says round 38 and 39 closed.
@@ -33,6 +36,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The bundled dnspython moves from 2.9.0 to 2.9.2, for CVE-2026-128089** (security): the dependency audit on this release found the advisory; every hashed lock was regenerated with resolution as of 2026-11-04, the earliest date that takes the fix, which also moves PySide6 to 6.11.3 within its pinned minor and a few tool packages (`DEPENDENCIES.md` → *Retirement review log*).
 - **Each drive now rips at its own read offset** (EAC parity; the owner's rule of 2026-11-12, *test the drive once, up front, save it per drive*). The read offset used to be one value for the whole program, so a second drive that is not in the AccurateRip drive list ripped at the first drive's offset with no warning, and every sample of that rip was shifted. Now the offset a rip uses is the one saved for the drive you selected. A drive with nothing saved gets its AccurateRip-list value, saved for that drive; a drive the list does not carry stops at Start and offers *Set up drive…*, and it is never given another drive's offset. If you used an earlier version, your offset stays with the drive you set it up on (or, if no drive's record holds it, with the drive selected when this version first starts), so nothing changes for a one-drive setup. The *Read offset disagreement* question at Start, and its respect for an offset you typed or one AccurateRip confirmed, now work drive by drive. Settings, Setup & Updates, `--doctor` and the rip report all show the selected drive's offset; a script's `set read_offset` saves it for the selected drive. Start also refuses a rip whose device is not the selected drive. Proven in the suite with two simulated drives (`tests/test_per_drive_read_offset.py`, revert-probed); a real two-drive rig has not run it yet.
 
 ## [0.7.123] — 2026-11-12
@@ -19928,7 +19932,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...HEAD
+[0.7.124]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...v0.7.124
 [0.7.123]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...v0.7.123
 [0.7.122]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.121...v0.7.122
 [0.7.121]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.120...v0.7.121
@@ -20022,4 +20027,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.123.*
+*Last updated for Platterpus v0.7.124.*

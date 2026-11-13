@@ -1251,4 +1251,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.7.123.*
+*Last updated for Platterpus v0.7.124.*

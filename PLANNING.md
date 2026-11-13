@@ -2500,4 +2500,4 @@ rule KDD-16 set remains the practice.
 
 ---
 
-*Last updated for Platterpus v0.7.123.*
+*Last updated for Platterpus v0.7.124.*
