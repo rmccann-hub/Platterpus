@@ -42,7 +42,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 if TYPE_CHECKING:  # the type only; the module is imported where it is used
     from platterpus.rip_estimate import ReadRate
 
-from platterpus import drive_media, exit_work
+from platterpus import cache_check_plan, drive_media, exit_work
 from platterpus.disc_probe_retry import (
     AUTO_RETRY_DELAY_MS,
     READ_NOW,
@@ -107,6 +107,17 @@ class DriveMixin(MainWindowShared):
                     drive_label,
                     known_offset,
                 )
+        # The automatic cache check (TASKS R53): whether this drive still needs
+        # its verdict, whether an audio CD has been read, and whether anything
+        # else is reading the drive right now. The dialog decides with
+        # `cache_check_plan.decide_auto_check`; a descriptor-less selection says
+        # nothing (None), so nothing starts by itself.
+        cache_verdict: str | None = None
+        if drive is not None:
+            cache_verdict = cache_check_plan.verdict_state(
+                self._drive_profiles.get(self._fingerprint_for(drive)[0]),
+                getattr(drive, "release", ""),
+            )
         dialog = DriveSetupDialog(
             self._backend,
             device,
@@ -115,6 +126,9 @@ class DriveMixin(MainWindowShared):
             known_offset=known_offset,
             drive_label=drive_label,
             offset_applied=self._config.override_read_offset,
+            cache_verdict=cache_verdict,
+            audio_disc_present=self._current_num_tracks > 0,
+            drive_busy=self._drive_is_busy_for_setup(),
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
         # The Apply tick-box moved here from Settings (2026-09-24): the offset
@@ -124,7 +138,11 @@ class DriveMixin(MainWindowShared):
         # high confidence). Provenance only — the offset itself is saved to
         # Platterpus config by the manual-save path.
         dialog.detection_recorded.connect(self._on_detection_recorded)
-        dialog.exec()
+        self._drive_setup_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._drive_setup_dialog = None
 
     def _should_offer_drive_setup(self) -> bool:
         """True when we should auto-offer calibration on first run.
@@ -190,6 +208,9 @@ class DriveMixin(MainWindowShared):
         if isinstance(offset, int):
             # Save it as the offset every rip will use (cyanrip's -s).
             self._set_read_offset_override(offset)
+        if isinstance(cache, bool):
+            # The note "the check has not run" is no longer true.
+            self._show_cache_check_note(None)
         self._record_drive_fact(
             drive,
             offset_value=offset if isinstance(offset, int) else None,
@@ -415,9 +436,15 @@ class DriveMixin(MainWindowShared):
 
         new_cache = existing.cache_defeat if existing else None
         new_cache_source = existing.cache_defeat_source if existing else None
+        new_cache_release = existing.cache_defeat_release if existing else ""
         if cache_defeat is not None:
             new_cache = cache_defeat
             new_cache_source = source
+            # The firmware it was measured under, kept beside the verdict: a
+            # firmware update later is the one thing that re-runs the automatic
+            # check (`cache_check_plan.verdict_state`), and `release` below is
+            # overwritten on every sighting so it cannot tell us.
+            new_cache_release = getattr(drive, "release", "") or ""
 
         # Built FROM the existing profile, so a field this writer does not set
         # survives it. It used to build a fresh DriveProfile, and `read_rate`
@@ -438,6 +465,7 @@ class DriveMixin(MainWindowShared):
                 offset=new_offset,
                 cache_defeat=new_cache,
                 cache_defeat_source=new_cache_source,
+                cache_defeat_release=new_cache_release,
                 last_seen_device=getattr(drive, "device", ""),
                 last_seen_at=now,
             )
@@ -847,7 +875,7 @@ def _format_cache_defeat(profile: DriveProfile | None) -> str:
     than implying a verdict. Pure; safe to call with no profile.
     """
     if profile is None or profile.cache_defeat is None:
-        return "not measured yet — Set up drive → Analyze cache"
+        return "not measured yet — runs in Set up drive with an audio CD in"
     if profile.cache_defeat:
         return "Yes — cache defeated on re-read (measured, cd-paranoia)"
     return "No — drive returns cached audio on re-read (measured, cd-paranoia)"

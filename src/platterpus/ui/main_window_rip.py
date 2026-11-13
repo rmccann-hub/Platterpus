@@ -718,6 +718,9 @@ class RipMixin(MainWindowShared):
 
         self._rip_progress.clear()
         self._rip_progress.set_status("Starting rip…")
+        # A drive with no audio-cache verdict rips anyway; the user is told,
+        # without a box and without a probe (TASKS R53, `cache_check_plan`).
+        self._note_cache_check_at_rip_start()
         # Cleared here, set in _on_rip_cancel — so the finish handler can
         # say "cancelled" instead of "failed".
         self._rip_cancelled = False

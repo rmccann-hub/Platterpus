@@ -252,6 +252,12 @@ class DriveProfile:
     # learned cache fact; DISPLAY only (nothing reads it to decide how a rip runs)
     cache_defeat: bool | None = None
     cache_defeat_source: OffsetSource | None = None
+    # The firmware revision the drive reported when `cache_defeat` was measured.
+    # Its own field because `release` above is rewritten on every sighting, so it
+    # can never show that the firmware changed SINCE the measurement — which is
+    # the one case where a saved verdict is re-measured (`cache_check_plan`).
+    # "" for a verdict recorded before this field existed.
+    cache_defeat_release: str = ""
     # e.g. "/dev/sr0" — advisory display only, NEVER part of the key
     last_seen_device: str = ""
     last_seen_at: str = ""  # ISO-8601 UTC
