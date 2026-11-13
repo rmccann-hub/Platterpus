@@ -23,9 +23,11 @@ from conftest import stop_window_threads
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 from test_ui_drive_setup_dialog import _StubBackend
-from test_ui_main_window import _make_window
+from test_ui_main_window import _make_window, _pin_pioneer
 
 from platterpus.config import Config
+from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
+from platterpus.offset_config import offset_for_drive
 from platterpus.ui.dialogs.script_console import STARTER_SCRIPT, ScriptConsoleDialog
 from platterpus.ui.dialogs.setup_center import SetupCenterDialog
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
@@ -53,6 +55,7 @@ def _center(
     config: Config,
     save: Any,
     actions: dict[str, Any] | None = None,
+    drive_offset: Any = None,
 ) -> SetupCenterDialog:
     return SetupCenterDialog(
         None,
@@ -64,6 +67,7 @@ def _center(
         actions=actions or {},
         config=config,
         save_setting=save,
+        drive_offset=drive_offset,
     )
 
 
@@ -239,13 +243,28 @@ def test_a_refused_channel_click_puts_the_box_back(qapp: QApplication) -> None:
 
 
 def test_refresh_shows_the_config_and_saves_nothing(qapp: QApplication) -> None:
+    """The channels come from the config; the read offset from the SELECTED
+    drive (per drive since 2026-11-12), asked again on every refresh."""
     calls: list[object] = []
-    center = _center(Config(), lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    shown = {"value": 6}
+    center = _center(
+        Config(),
+        lambda f, v: calls.append((f, v)) or SettingWrite(True),
+        drive_offset=lambda: offset_for_drive(
+            OffsetRecord(shown["value"], OffsetSource.MANUAL, Confidence.MEDIUM),
+            apply_offsets=True,
+        ),
+    )
     center.refresh_settings(
-        Config(update_channel=CHANNEL_BETA, read_offset=6, override_read_offset=True)
+        Config(update_channel=CHANNEL_BETA, read_offset=999, override_read_offset=True)
     )
     assert center._app_beta_check.isChecked() is True
-    assert "+6 samples, applied to every rip" in center._offset_label.text()
+    text = center._offset_label.text()
+    assert "+6 samples, applied to every rip on this drive" in text
+    assert "+999" not in text, "the global config value was shown as the drive's"
+    shown["value"] = 691  # another drive selected
+    center.refresh_settings(Config(override_read_offset=True))
+    assert "+691 samples" in center._offset_label.text()
     assert calls == [], "re-rendering looked like a click"
 
 
@@ -519,6 +538,8 @@ def test_a_failed_config_write_in_a_first_run_offer_is_logged_not_raised(
     with caplog.at_level(logging.WARNING):
         window._maybe_offer_host_setup()
         window._maybe_offer_drive_setup()
+        # An offset is saved for a drive (2026-11-12), so one is selected.
+        _pin_pioneer(window, monkeypatch)
         assert window._set_read_offset_override(6) is True
     said = [
         r.getMessage() for r in caplog.records if "not saved to disk" in r.getMessage()

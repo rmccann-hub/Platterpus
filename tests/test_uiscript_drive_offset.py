@@ -5,6 +5,10 @@ and wrong on every other drive. A second machine would have ripped the whole run
 at the wrong offset with every AccurateRip check failing for our reason. The verb
 keeps the offset this machine is already set to, or takes the AccurateRip drive
 list's, and fails naming the fix if neither is known.
+
+Since 2026-11-12 the offset is the SELECTED DRIVE's (its profile), so the stand-in
+below keeps one saved offset per drive model and answers `_selected_drive_offset`
+through the app's own rule (`offset_config.offset_for_drive`), as the window does.
 """
 
 from __future__ import annotations
@@ -12,6 +16,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from platterpus.config import Config
+from platterpus.drive_profiles import (
+    Confidence,
+    OffsetRecord,
+    OffsetSource,
+)
+from platterpus.offset_config import DriveOffset, offset_for_drive
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord
 from platterpus.uiscript.runner import ScriptRunner
 from platterpus.uiscript.script import (
@@ -47,15 +57,36 @@ class _OffsetList:
 class _Window:
     """What the verbs read: the config, the drive picker, the list, the writer."""
 
-    _config: Config = field(default_factory=Config)
+    _config: Config = field(default_factory=lambda: Config(override_read_offset=True))
     _drive_picker: _Picker = field(default_factory=lambda: _Picker(_Drive()))
     _offset_db: _OffsetList = field(default_factory=lambda: _OffsetList(667))
+    #: One saved offset per drive model: the profiles, as far as these verbs see.
+    saved: dict[str, int] = field(default_factory=dict)
     written: list[int] = field(default_factory=list)
 
-    def _set_read_offset_override(self, value: int) -> bool:
-        # The app's own writer validates and saves; this stand-in records the call
-        # and applies it the same way, so the verbs are seen going through it.
+    def _selected_drive_offset(self) -> DriveOffset:
+        drive = self._drive_picker.current_drive()
+        if drive is None:
+            return offset_for_drive(None, apply_offsets=True, drive_selected=False)
+        value = self.saved.get(drive.model)
+        record = (
+            OffsetRecord(value, OffsetSource.MANUAL, Confidence.MEDIUM)
+            if value is not None
+            else None
+        )
+        return offset_for_drive(record, apply_offsets=self._config.override_read_offset)
+
+    def _set_read_offset_override(
+        self, value: int, source: OffsetSource = OffsetSource.MANUAL
+    ) -> bool:
+        # The app's own writer validates and saves for the selected drive; this
+        # stand-in records the call and applies it the same way, so the verbs are
+        # seen going through it.
+        drive = self._drive_picker.current_drive()
+        if drive is None:
+            return False
         self.written.append(value)
+        self.saved[drive.model] = value
         self._config.read_offset = value
         self._config.override_read_offset = True
         return True
@@ -77,20 +108,27 @@ def test_a_machine_with_no_offset_takes_the_accuraterip_lists() -> None:
     assert "AccurateRip drive list" in steps[0].detail
 
 
-def test_an_offset_this_machine_is_already_set_to_is_kept() -> None:
-    """A drive the list does not carry: the machine's own offset is the only one."""
-    window = _Window(
-        _config=Config(read_offset=102, override_read_offset=True),
-        _offset_db=_OffsetList(None),
-    )
+def test_an_offset_this_drive_already_has_is_kept() -> None:
+    """A drive the list does not carry: the drive's own offset is the only one,
+    and it is kept as it is — not re-saved, which would stamp a new provenance."""
+    window = _Window(saved={_Drive().model: 102}, _offset_db=_OffsetList(None))
+    steps = _run("set-drive-offset\nexpect-drive-offset", window)
+    assert [s.outcome for s in steps] == [Outcome.PASS, Outcome.PASS]
+    assert "+102" in steps[0].detail and "saved for this drive" in steps[0].detail
+    assert window.written == []
+
+
+def test_the_global_config_value_is_not_this_drives_offset() -> None:
+    """Regression (2026-11-12): the config's `read_offset` is not a drive's. A
+    drive with nothing saved takes the list's value, not the global 102."""
+    window = _Window(_config=Config(read_offset=102, override_read_offset=True))
     steps = _run("set-drive-offset", window)
     assert steps[0].outcome is Outcome.PASS
-    assert window._config.read_offset == 102
-    assert "already set to" in steps[0].detail
+    assert window.written == [667]
 
 
 def test_a_disagreement_with_the_list_is_named_not_hidden() -> None:
-    window = _Window(_config=Config(read_offset=102, override_read_offset=True))
+    window = _Window(saved={_Drive().model: 102})
     detail = _run("set-drive-offset", window)[0].detail
     assert "+102" in detail and "+667" in detail
 

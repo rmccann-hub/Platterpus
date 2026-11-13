@@ -94,7 +94,12 @@ class OffsetVerbsMixin:
         through the window's single-setting writer (the validator runs), presses
         Start, waits for the refusal, declines the wizard with ``No``, and passes
         only once the refusal has closed with no rip started. The override is
-        put back on every path.
+        put back on every path, by the same writer: it is only the master switch,
+        and the drive's own saved offset (its profile, one per drive since
+        2026-11-12) is never touched, so flipping the switch back restores
+        exactly what was there. (It used to re-save the global value through the
+        offset writer, which now would stamp that value onto THIS drive as a
+        hand entry.)
         """
         # Read here: the runner imports this mixin, so a top-level import would
         # be circular. `answer-dialog`'s own helpers, so dialogs are found alike.
@@ -104,13 +109,7 @@ class OffsetVerbsMixin:
         config = getattr(window, "_config", None)
         controls = getattr(window, "_rip_controls", None)
         save = getattr(window, "_save_user_setting", None)
-        put_back = getattr(window, "_set_read_offset_override", None)
-        if (
-            config is None
-            or controls is None
-            or not callable(save)
-            or not callable(put_back)
-        ):
+        if config is None or controls is None or not callable(save):
             self._record(step, Outcome.ERROR, "no application window to test it on")
             return
         label, listed = drive_in_offset_list(window)
@@ -136,7 +135,6 @@ class OffsetVerbsMixin:
             return
 
         was_on = bool(getattr(config, "override_read_offset", False))
-        value = int(getattr(config, "read_offset", 0))
         written = save("override_read_offset", False)
         if not bool(getattr(written, "applied", False)):
             self._record(
@@ -163,11 +161,14 @@ class OffsetVerbsMixin:
                 return restored[0]
             try:
                 if was_on:
-                    ok = bool(put_back(value))
+                    ok = bool(
+                        getattr(save("override_read_offset", True), "applied", False)
+                    )
                     text = (
-                        f"the override was put back on at {value:+d}"
+                        "the override was put back on (the drive's saved offset "
+                        "was never changed)"
                         if ok
-                        else f"the override could NOT be put back on at {value:+d}"
+                        else "the override could NOT be put back on"
                     )
                 else:
                     text = "the override was left off, as it was before this step"

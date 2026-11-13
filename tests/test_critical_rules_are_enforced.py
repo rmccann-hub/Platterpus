@@ -1706,7 +1706,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "drive_control.py": 842,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
-    "drive_profiles.py": 452,
+    # **452 -> 464** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the new `GLOBAL_CONFIG` offset source (the one global offset of older versions, handed once to its drive) with its confidence and label, and the module docstring now says the selected drive's record IS the offset a rip applies.
+    "drive_profiles.py": 464,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
     # tri-state `_status_line` honesty fix: an EAC-format log must not print
     # "Copy OK" under a track whose own re-reads disagreed. The renderer is the
@@ -2121,7 +2122,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # this module back.
     # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
     # **957 -> 961** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the wrapper-answer snippet a user is shown keeps head and tail, counted.
-    "preflight.py": 961,
+    # **961 -> 1000** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `--doctor`'s read-offset check lists every saved drive's offset through `offset_config.offset_for_drive` instead of echoing one global value.
+    "preflight.py": 1000,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     # **370 -> 373** (2026-09-28, the Full run's track 3): the retried-track copy carries `replaced_because`.
     # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
@@ -2361,7 +2363,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3947 -> 3987** (2026-11-11, round 39's G2, TASKS R138): `ctdb.repair`'s AccurateRip answers per track and its `accuraterip_lookup`, with their two serializers beside `_ctdb_repair` (dict literals here, so `tests/test_report_types_completeness.py` can read them) and the schema-45 note. The lookup and the answers are `adapters/accuraterip_db.py`, `accuraterip_db_answer.py` and `ctdb/repair_accuraterip.py`.
     # **3987 -> 3988** (2026-11-11): the schema note names `.31`'s new footer state, beside the v45 notes
     # **3988 -> 4000** (2026-11-12, the fork's round 39 lap 3 S14): the schema-46 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, and `rip.c2_declared` with its reason beside `c2_pointers`; the reader is `c2_declaration.py`.
-    "rip_report.py": 4000,
+    # **4000 -> 4026** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `build_settings` takes the rip's DRIVE's configured offset (`read_offset_configured`), since `Config.read_offset` no longer decides a rip's offset.
+    "rip_report.py": 4026,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2493,7 +2496,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # "Checking dependencies…" while a check the user asked for runs, from BOTH of its
     # conditions (a rip ending must not re-arm it mid-check), and `refresh_dependencies` is
     # finally called, through `show_dependency_check_finished`.
-    "ui/dialogs/setup_center.py": 492,
+    # **492 -> 506** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-offset line reads the selected drive's offset through a reader the window passes, since each drive keeps its own.
+    "ui/dialogs/setup_center.py": 506,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -2637,7 +2641,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **760 -> 768** (2026-11-03, TASKS R63): `_learn_read_rate` logs how many tracks it left out of the drive's speed for paranoia skips; the rule is `rip_estimate.struggled`.
     # **768 -> 784** (2026-11-03, review B9): `_drive_being_freed`: the media poll and a retry's check never open the drive while a force-stop thread runs, so a device-wide `fuser -k` cannot signal this app.
     # **784 -> 853** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): when freeing a cancelled probe's drive is safe (`_drive_free_refusal`: not under a rip, a pending rescue, a ui-script ripper call or a stop already running) and the two callers, beside the drive logic they belong to.
-    "ui/main_window_drive.py": 853,
+    # **853 -> 982** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `_selected_drive_offset`, the window's one answer to which offset the next rip on the selected drive applies, and `_move_global_offset_once`; `_set_read_offset_override` saves into the selected drive's profile and refuses with no drive selected. The pure rule and the move itself went to `offset_config.py` (`offset_for_drive`, `plan_global_offset_move`, `move_global_offset`); what is here is the window's wiring to them and its reasons.
+    "ui/main_window_drive.py": 982,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2703,7 +2708,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1875 -> 1910** (2026-11-03, TASKS R106): the settings restore logs each field with the run's value and the user's, the bundle's facts carry the same list and the Overread state, and when Overread comes back on both closing dialogs and the log say so. The pure halves (`RestoredSetting`, `restored_settings`, `overread_restored`, the note) are in `user_settings.py`; what stays here is the restore itself and the two dialogs it feeds.
     # **1910 -> 1930** (2026-11-03, TASKS R96): the first-run offers wait for the main window through `hold_until_free`, the unattended check asked again where they open; the offers themselves moved into `_make_first_run_offers` beside the gate that schedules them.
     # **1930 -> 1935** (2026-11-03, review B8): the closing message names the `ripbundles` folder (each rip's own bundle, for its Send button) and says the one file carries the same.
-    "ui/main_window_provision.py": 1935,
+    # **1935 -> 1936** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Setup & Updates is handed `_selected_drive_offset` as its offset reader.
+    "ui/main_window_provision.py": 1936,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2815,7 +2821,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5352 -> 5358** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `disc.drive_declared`, read off the worker's reading beside `error_positions`.
     # **5358 -> 5371** (2026-11-11, round 39's G3, the record): the EAC-layout log's render keeps the worker's `retried_tracks` for the chase attempt number, and the two comments on when the log is re-rendered now say the repair does it too.
     # **5371 -> 5377** (2026-11-11, round 39, `.31`): `_merge_shipped_track` carries `.31`'s overruled agreement with the shipped read, as it carries the limit and the kept read; the merge rule lives here.
-    "ui/main_window_rip.py": 5377,
+    # **5377 -> 5388** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Start refuses a rip whose device is not the selected drive (one drive's offset paired with the other's audio), and the report's configured offset is the rip's drive's.
+    "ui/main_window_rip.py": 5388,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2848,7 +2855,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **488 -> 490** (2026-11-03, TASKS R96): the seam declares `run_dependency_check_async`'s `launch` marker, which the formatter wraps onto three lines.
     # **490 -> 541** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's slots and the cross-mixin stubs it and RipMixin call.
     # **541 -> 546** (2026-11-11, round 39's G3, the record): the type-only stub for `_rewrite_eac_log_with_ctdb`, which the repair mixin now calls.
-    "ui/main_window_shared.py": 546,
+    # **546 -> 550** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the seam stubs for `_selected_drive_offset` and the writer's new `source` parameter.
+    "ui/main_window_shared.py": 550,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2928,7 +2936,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1412 -> 1415** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1415 -> 1427** (2026-11-03, the WAV warning): the WAV warning says what a WAV keeps and loses (title, artist, album, track number, year and genre kept; album artist, disc number, the MusicBrainz IDs and cover lost), from `WAV_KEPT_TAGS`, the measured list a test checks against our own transcode's output, built from that value, so it states PlainText.
     # **1427 -> 1450** (2026-11-05, TASKS R133, the automatic CTDB repair): the *Repair from CTDB after a rip* box.
-    "ui/settings_dialog.py": 1450,
+    # **1450 -> 1465** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-only offset line shows the selected drive's offset, passed in by the window.
+    "ui/settings_dialog.py": 1465,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
@@ -3096,7 +3105,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4915 -> 4956** (2026-11-04, TASKS R123): the `cyanrip-timeout` verb and the per-run bound it sets, carried on each `_CyanripJob` so the unreapable-child check waits the same bound. It changes how the `cyanrip` verb, which lives here, kills its child, so it lives beside it.
     # **4956 -> 4981** (2026-11-04): the run's bundle carries each scripted rip's folder (`uiscript/scripted_rip_dirs.py`), so the owner's upload holds every rip's full log; the decisions live in that module, the runner only records and hands them over.
     # **4981 -> 5038** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): every path that kills the `cyanrip` verb's child (stop, timeout, unreapable) also frees its drive (`_free_the_jobs_drive`, `_argv_device`), and `cyanrip_in_flight` lets the window stand aside while one runs.
-    "uiscript/runner.py": 5038,
+    # **5038 -> 5068** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `set-drive-offset` / `expect-drive-offset` ask the window's `_selected_drive_offset`, and `set read_offset` goes to the offset writer, so it saves for the selected drive instead of changing a value no rip reads.
+    "uiscript/runner.py": 5068,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).

@@ -344,6 +344,17 @@ Worker mechanics, all demonstrated in `workers/`:
   checks in Setup & Updates, the startup script in the script console,
   everything that shapes the rip itself in Settings. A window that only needs
   to SHOW a setting homed elsewhere shows it read-only and names the home.
+  **The read offset's value belongs to a DRIVE, not to the program**
+  (2026-11-13, the owner's rule of 2026-11-12: *test the drive once, up front,
+  save it per drive*): it is saved in the selected drive's profile
+  (`drive_profile_store.py`), and one pure function,
+  `offset_config.offset_for_drive`, decides what a rip on that drive applies.
+  The window asks it through `DriveMixin._selected_drive_offset`, and the Start
+  gate, cyanrip's `-s`, Settings, Setup & Updates, `--doctor`, the report and
+  the script verbs all delegate there. `Config.override_read_offset` stays the
+  master switch; `Config.read_offset` is no longer read to decide a rip, except
+  once, by `offset_config.plan_global_offset_move`, to hand an existing user's
+  value to the drive it was set up on.
   Two write paths, both in `ui/main_window_settings.py`: Settings' OK/Apply
   (only what the user changed, `apply_user_edits`), and
   `_save_user_setting(field, value)` for a control that saves as it changes,
@@ -2278,4 +2289,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.123.*

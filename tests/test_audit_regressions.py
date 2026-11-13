@@ -385,9 +385,26 @@ def test_an_absurd_read_offset_is_refused_at_the_single_write_path() -> None:
     ``-?\\d+``). None went through the validator, so a bad offset persisted,
     reached ``cyanrip -s``, and was then silently reset to 0 by the next
     startup — leaving the FOLLOWING session ripping at the wrong offset."""
+    from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
+    from platterpus.offset_config import offset_for_drive
     from platterpus.ui.main_window_drive import DriveMixin
 
     saved: list[Config] = []
+    # The selected drive's saved record (one per drive since 2026-11-12): the
+    # writer records the value there through the ledger's writer, then reads
+    # back what the drive holds, so the stand-in keeps one record.
+    held: dict[str, int] = {}
+
+    def record(
+        _drive: object,
+        *,
+        offset_value: int | None = None,
+        source: OffsetSource | None = None,
+        cache_defeat: bool | None = None,
+    ) -> None:
+        if offset_value is not None:
+            held["value"] = offset_value
+
     window = SimpleNamespace(
         _config=Config(),
         _rip_controls=SimpleNamespace(set_config=lambda _cfg: None),
@@ -396,6 +413,15 @@ def test_an_absurd_read_offset_is_refused_at_the_single_write_path() -> None:
         # An accepted offset refreshes whatever window SHOWS it (Setup & Updates,
         # since 2026-09-24); the real window has this, so the stand-in must too.
         _refresh_setting_views=lambda: None,
+        _refresh_drive_profile_display=lambda: None,
+        _drive_picker=SimpleNamespace(current_drive=lambda: object()),
+        _record_drive_fact=record,
+        _selected_drive_offset=lambda: offset_for_drive(
+            OffsetRecord(held["value"], OffsetSource.MANUAL, Confidence.MEDIUM)
+            if "value" in held
+            else None,
+            apply_offsets=True,
+        ),
     )
     # Every config write goes through `_save_config_or_report` (TASKS R107); the
     # stand-in's writes the window's config to `saved`, as the real one does.
@@ -408,6 +434,7 @@ def test_an_absurd_read_offset_is_refused_at_the_single_write_path() -> None:
     assert DriveMixin._set_read_offset_override(window, OFFSET_MIN - 1) is False
     assert DriveMixin._set_read_offset_override(window, "6") is False  # type: ignore[arg-type]
     assert window._config.read_offset == 667  # the good value survived
+    assert held == {"value": 667}  # and only it reached the drive's record
     assert len(saved) == 1  # only the accepted write persisted
 
 

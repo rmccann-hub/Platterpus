@@ -141,16 +141,34 @@ def test_the_read_offset_is_shown_read_only_and_names_its_home(
     wrote the stale copy over the one the wizard had saved. Now it is text: a
     label, so no click or scroll in this window can change it.
     """
-    applied = SettingsDialog(Config(read_offset=667, override_read_offset=True))
+    from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
+    from platterpus.offset_config import offset_for_drive
+
+    # The SELECTED drive's offset (one per drive since 2026-11-12), which the
+    # window passes in; the config's own value (999 here) is not a drive's.
+    record = OffsetRecord(667, OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    applied = SettingsDialog(
+        Config(read_offset=999, override_read_offset=True),
+        drive_offset=offset_for_drive(record, apply_offsets=True),
+    )
     text = applied._offset_status_label.text()
-    assert "+667 samples, applied to every rip" in text
+    assert "+667 samples, applied to every rip on this drive" in text
+    assert "+999" not in text
     assert "Tools → Setup & Updates… → Set up drive…" in text
     assert isinstance(applied._offset_status_label, QLabel)
     assert applied._offset_status_label.textFormat() == Qt.TextFormat.PlainText
 
-    off = SettingsDialog(Config(read_offset=667, override_read_offset=False))
+    off = SettingsDialog(
+        Config(read_offset=667, override_read_offset=False),
+        drive_offset=offset_for_drive(record, apply_offsets=False),
+    )
     assert "not applied" in off._offset_status_label.text()
     assert "+667" not in off._offset_status_label.text()
+
+    # No drive selected: the dialog says so, and never shows the config's value.
+    none = SettingsDialog(Config(read_offset=667, override_read_offset=True))
+    assert "no drive selected" in none._offset_status_label.text()
+    assert "+667" not in none._offset_status_label.text()
 
 
 # --- to_config -----------------------------------------------------------

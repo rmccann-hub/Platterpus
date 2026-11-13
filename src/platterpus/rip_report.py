@@ -1484,7 +1484,23 @@ def _stale_rip_goal(config: object) -> dict[str, str]:
     return {"rip_goal_stored": stored}
 
 
-def build_settings(config: object, *, read_offset_effective: int | None = None) -> dict:
+class _FromConfig:
+    """The `build_settings` default that means "read the offset from config".
+
+    A class rather than None, because None is a real answer there: the drive
+    had no offset.
+    """
+
+
+_FROM_CONFIG: Final[_FromConfig] = _FromConfig()
+
+
+def build_settings(
+    config: object,
+    *,
+    read_offset_effective: int | None = None,
+    read_offset_configured: int | None | _FromConfig = _FROM_CONFIG,
+) -> dict:
     """Build the ``settings`` block: what the GUI *asked the ripper for*.
 
     The rip log only ever shows what the drive *did*; this records the user's
@@ -1494,9 +1510,19 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
     of a partial/duck-typed object; ``read_offset_effective`` is the value
     actually handed to cyanrip for this rip (``-s``), passed by the caller from
     the rip params. Never raises.
+
+    ``read_offset_configured`` is the offset saved for the DRIVE the rip used
+    (``offset_config.offset_for_drive``, one per drive since 2026-11-12), passed
+    by the window. Left out, ``configured`` falls back to ``config.read_offset``,
+    which is only the value most recently saved for any drive — right for a
+    caller with no drive, and the reason the window always passes it.
     """
     fmt = getattr(config, "output_format", None)
-    configured_offset = getattr(config, "read_offset", None)
+    configured_offset = (
+        getattr(config, "read_offset", None)
+        if isinstance(read_offset_configured, _FromConfig)
+        else read_offset_configured
+    )
     applied = bool(getattr(config, "override_read_offset", False))
     if read_offset_effective is None:
         read_offset_effective = (configured_offset or 0) if applied else 0

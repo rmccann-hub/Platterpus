@@ -7899,7 +7899,7 @@ The queue as set 2026-06-09 and worked down through 2026-07 — 11 of its 15 ite
     - [ ] Gap 3 — Timestamp-localized anomalies + one-click playback (hardware-gated)
     - [x] Gap 4 — Accessibility (names pass 0.4.4; keyboard-reachability sweep + focus-safe live announcements DONE 2026-07-21; a live screen-reader session on the rig is the one hardware-gated confirmation still owed — queued in live item 3)
     - [x] Gap 5 — Outcome-oriented wording (shipped 2026-06-29)
-    - [x] Gap 6 — Drive profiles keyed by stable fingerprint (record/display/guard ledger shipped 2026-06-29; per-drive offset *application* deferred as hardware-gated — KDD-23)
+    - [x] Gap 6 — Drive profiles keyed by stable fingerprint (record/display/guard ledger shipped 2026-06-29; per-drive offset *application* shipped 2026-11-13, each drive's own record deciding its `-s`, KDD-23 as amended; proven in the suite with two simulated drives, and still to be seen on a real two-drive rig)
 
 *Parked / later (unchanged ranking):* multi-disc queue, multi-drive, udev auto-detect (P1 backlog; ReplayGain and library auto-move have since shipped: cyanrip writes the ReplayGain tags and `library_move.py` files finished rips, Settings → *Move finished rips to*); EAC-style signed log checksum (LOW — and now documented as provenance forgery, not merely hard); single-file disc image + INDEX 00 pre-gaps (maintainer/HW-gated, see the investigation doc); upstream whipper bug-fix PRs (opportunistic). *(WavPack/MP3/WAV encoders SHIPPED 2026-06-26 — see the encoder-outputs item below.)*
 

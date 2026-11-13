@@ -99,7 +99,16 @@ class SettingsDialog(CenteredDialog):
     #: the dialog stays a view and there is one save path, not two.
     apply_requested = Signal()
 
-    def __init__(self, config: Config, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        parent: QWidget | None = None,
+        *,
+        drive_offset: offset_config.DriveOffset | None = None,
+    ) -> None:
+        """`drive_offset` is what the next rip on the selected drive applies
+        (the window's `_selected_drive_offset`); the read offset is per drive, so
+        the config alone cannot say it. None means no drive is selected."""
         super().__init__(parent)
         self._config: Config = config
         # What the widgets were loaded from, as an independent copy. `config` is
@@ -268,7 +277,12 @@ class SettingsDialog(CenteredDialog):
         # stale offset over one the wizard had just saved (`apply_user_edits`).
         # Read-only text, so there is nothing here a scroll or a click can change.
         applied = offset_config.describe_applied_offset(
-            config.read_offset, config.override_read_offset
+            drive_offset
+            or offset_config.offset_for_drive(
+                None,
+                apply_offsets=config.override_read_offset,
+                drive_selected=False,
+            )
         )
         self._offset_status_label: QLabel = QLabel(
             f"{applied}\nSet it in {WINDOW_PATHS[DRIVE_SETUP]}", self
@@ -277,10 +291,11 @@ class SettingsDialog(CenteredDialog):
         self._offset_status_label.setWordWrap(True)
         self._offset_status_label.setAccessibleName("Read offset")
         self._offset_status_label.setToolTip(
-            "Your drive's read offset, in samples (cyanrip's -s). It is a "
-            "property of the DRIVE, not of the disc, so it is set once, in the "
-            "drive wizard, where it can be looked up from the AccurateRip drive "
-            "list. Shown here because every rip depends on it."
+            "The selected drive's read offset, in samples (cyanrip's -s). It is "
+            "a property of the DRIVE, not of the disc, so it is set once per "
+            "drive, in the drive wizard, where it can be looked up from the "
+            "AccurateRip drive list. Each drive keeps its own. Shown here because "
+            "every rip depends on it."
         )
         form.addRow("Read offset:", self._offset_status_label)
 

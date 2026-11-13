@@ -10,18 +10,20 @@ identity**, with **provenance and confidence** on each learned fact, so the
 user can *see* where an offset came from and how much to trust it, and so the
 software can *warn* when state looks stale or ambiguous.
 
-What this module is — and is NOT (the load-bearing boundary, KDD-23)
---------------------------------------------------------------------
-This is a **record / display / guard ledger**. It remembers, per stable drive
-identity, what offset was learned, from where, with what confidence, and when —
-and it surfaces drift/collision warnings. It does **NOT** decide which offset a
-rip actually uses: the GUI's single global offset (``Config.read_offset`` /
-``Config.override_read_offset``, passed to cyanrip as ``-s``) is the only
-authority. Making this ledger authoritative would mean forcing ``-s`` from a
-possibly-stale cache — i.e. re-creating the very silent-wrong-offset bug the
-feature exists to prevent. Per-drive
-offset *application* is a separate, hardware-gated change (it needs a real
-two-drive rig to prove the right offset reaches the right drive).
+What this module is (the load-bearing boundary, KDD-23 as amended 2026-11-12)
+-----------------------------------------------------------------------------
+It remembers, per stable drive identity, what offset was learned, from where,
+with what confidence, and when — and it surfaces drift/collision warnings.
+**Since 2026-11-12 the selected drive's record IS the offset a rip applies**
+(the owner's rule: *"test the drive once, up front, save it per drive"*). The
+decision itself is made in one place, :func:`platterpus.offset_config.offset_for_drive`;
+this module only holds the facts it decides from. Until then a single global
+``Config.read_offset`` was the authority and this ledger only recorded, so a
+second drive the AccurateRip list did not carry ripped silently at the first
+drive's offset. What keeps a stale record from being applied blindly is the same
+machinery as before: a Start compares the record with the AccurateRip list and
+offers the list value unless the record is deliberate (MANUAL or CONFIRMED), and
+the guard below warns on firmware drift and identical-drive collisions.
 
 Everything here is pure and **never raises** (parser-grade, per CLAUDE.md): a
 malformed input degrades to a best-effort value, never an exception, so a
@@ -75,6 +77,13 @@ class OffsetSource(StrEnum):
     ACCURATERIP_CONFIRMED = "accuraterip_confirmed"
     # the user typed it (the --offset override path)
     MANUAL = "manual"
+    # the single offset older versions applied to every drive
+    # (``Config.read_offset``), handed once to the drive it was set up on when
+    # offsets moved into the per-drive profiles (2026-11-12,
+    # ``offset_config.plan_global_offset_move``). Not deliberate: a Start still
+    # offers the AccurateRip list value when the two disagree, as it did for the
+    # global value.
+    GLOBAL_CONFIG = "global_config"
     # the value two INDEPENDENT sources agree on — the only path to HIGH
     # confidence (see reconcile_offset). Not a raw source a caller records; it's
     # the *derived* provenance produced when e.g. the AccurateRip-list value and
@@ -132,6 +141,8 @@ _SOURCE_CONFIDENCE: dict[OffsetSource, Confidence] = {
     OffsetSource.OFFSET_FIND: Confidence.MEDIUM,
     OffsetSource.LEGACY_CONFIG: Confidence.MEDIUM,
     OffsetSource.MANUAL: Confidence.MEDIUM,
+    # GLOBAL_CONFIG — the value every rip used, never verified per drive → MEDIUM.
+    OffsetSource.GLOBAL_CONFIG: Confidence.MEDIUM,
     OffsetSource.ACCURATERIP_LIST: Confidence.MEDIUM,
     # A single AccurateRip-matching rip is MEDIUM on its own; it earns HIGH only
     # by AGREEING with an independent source (the list) via reconcile_offset —
@@ -159,6 +170,7 @@ _SOURCE_LABEL: dict[OffsetSource, str] = {
     OffsetSource.ACCURATERIP_LIST: "from the AccurateRip list",
     OffsetSource.ACCURATERIP_CONFIRMED: "confirmed by an AccurateRip-matching rip",
     OffsetSource.MANUAL: "entered by hand",
+    OffsetSource.GLOBAL_CONFIG: "carried over from the one offset older versions used",
     OffsetSource.CONFIRMED: "confirmed — two independent sources agree",
     OffsetSource.UNKNOWN: "from an unknown source",
 }
@@ -336,9 +348,9 @@ def find_fingerprint_collisions(fingerprints: list[str]) -> set[str]:
 # --- Mismatch guard ---------------------------------------------------------
 #
 # Three checks, all WARN/INFO, never BLOCK. Blocking a rip over a record-layer
-# heuristic would be worse than the disease — and the offset a rip actually
-# uses is unchanged by this module anyway. The point is to make a situation that
-# is silent today *visible* so the user can act.
+# heuristic would be worse than the disease. The point is to make a situation
+# that would otherwise be silent *visible* so the user can act. (What the rip
+# applies is decided by `offset_config.offset_for_drive`, from this record.)
 
 WARNING_COLLISION = "collision"
 WARNING_FIRMWARE_CHANGED = "firmware_changed"
