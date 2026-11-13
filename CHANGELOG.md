@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our status block records 0.7.124 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.124 at `d238480`, published 2026-11-13T23:11:05Z.
+
 ## [0.7.124] — 2026-11-13
 The first release that installs the fork's `.31` (`e531a33`) by default, after round 39 closed on both sides' `GO`: in five whole-disc rips in a row of the reference disc, every rip ended with all fourteen tracks AccurateRip-verified, where the owner's EAC re-rip of the same disc on the same drive verified twelve. It also tests the drive once, up front, the way EAC's setup asks you to remember to: each drive keeps its own read offset, the audio-cache check runs by itself once per drive, and the EAC-compatible log is written by default for a new install.
 
