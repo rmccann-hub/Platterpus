@@ -54,10 +54,10 @@ first rip you do not need to change anything:
 - The rip is checked against AccurateRip, and **Verify with CTDB after a rip** is on.
 - A track AccurateRip cannot confirm is read again until two reads agree.
 - **Cover art:** is embedded in every file.
-
-One thing is off by default: **Write an EAC-compatible log beside each rip**. Tick it
-if you want a log in the layout Exact Audio Copy users know. Platterpus always keeps
-cyanrip's own log and its report either way.
+- **Write an EAC-compatible log beside each rip** is on: a log in the layout Exact
+  Audio Copy users know, written beside every rip as EAC writes its own. Platterpus
+  always keeps cyanrip's own log and its report as well; untick this if you do not
+  want the third file.
 
 Your music goes under **Output directory:**, one folder per album.
 
@@ -100,7 +100,7 @@ In the album's folder:
 - a cue sheet, the map of the disc's tracks;
 - cyanrip's log, the record of the rip, which cyanrip can verify was not edited;
 - the report, `.platterpus.json`, with every result in a form a program can read;
-- the EAC-style log, if you turned it on.
+- the EAC-style log, unless you turned it off.
 
 Keep the logs and the report with the music. They are the proof of what was read.
 
@@ -116,4 +116,4 @@ Two results deserve a second look:
 Clean the disc and rip it again. **Help → User Guide…** explains every result in
 full, and how to compare the new rip with the last one.
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.123.*

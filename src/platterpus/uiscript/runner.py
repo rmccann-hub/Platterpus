@@ -1134,62 +1134,81 @@ class ScriptRunner(
     def _do_set_drive_offset(self, step: Step) -> None:
         """Set the read offset for the drive in this machine, and say where it came from.
 
-        The order is the machine's own first. **An offset this machine is already
-        set to** (the override on) is kept: the user or the drive wizard put it
+        The order is the drive's own first. **The offset saved for the selected
+        drive** (with offsets applied) is kept: the user or the drive wizard put it
         there, and on a drive the AccurateRip list does not carry it is the only
         value there is. **Else the AccurateRip drive list's**, the same lookup the
         app applies on a first rip. **Else FAIL**, naming the fix: a run with no
         known offset rips every track at the wrong one, and every accuracy check
-        after it would fail for our reason. Written through the app's own offset
-        writer (`_set_read_offset_override`), which validates the range and saves.
+        after it would fail for our reason. Read through the window's one answer
+        for the selected drive (`_selected_drive_offset`) and written through the
+        app's own offset writer (`_set_read_offset_override`), which validates the
+        range and saves it for that drive — never another drive's value.
         """
+        from platterpus.drive_profiles import OffsetSource
+
         window = self._window
-        config = getattr(window, "_config", None)
         setter = getattr(window, "_set_read_offset_override", None)
-        if config is None or not callable(setter):
+        reader = getattr(window, "_selected_drive_offset", None)
+        if not callable(setter) or not callable(reader):
             self._record(step, Outcome.ERROR, "no application window to set it on")
             return
         label, listed = drive_in_offset_list(window)
-        if getattr(config, "override_read_offset", False):
-            value = int(config.read_offset)
-            source = "the offset this machine is already set to"
-            if listed is not None and listed != value:
+        own = getattr(reader(), "value", None)
+        if isinstance(own, int):
+            # Kept as it is, and NOT re-saved: writing the same value under
+            # another source would read to the ledger as an independent second
+            # source agreeing, and promote it to CONFIRMED on no evidence.
+            source = "the offset saved for this drive"
+            if listed is not None and listed != own:
                 source += f" (the AccurateRip list says {listed:+d} for {label})"
-        elif listed is not None:
+            self._drive_offset = own
+            self._record(step, Outcome.PASS, f"read offset {own:+d}, from {source}")
+            return
+        if listed is not None:
             value, source = listed, f"the AccurateRip drive list, for {label}"
         else:
             self._record(
                 step,
                 Outcome.FAIL,
                 f"the read offset for this drive is not known: {label or 'no drive is selected'} "
-                "is not in the AccurateRip drive list, and this machine has no "
-                "offset set. Set the drive up once with Tools → Setup & Updates… → "
+                "is not in the AccurateRip drive list, and this drive has no "
+                "offset saved. Set the drive up once with Tools → Setup & Updates… → "
                 "Set up drive…, then run again.",
             )
             return
-        if not setter(value):
+        if not setter(value, OffsetSource.ACCURATERIP_LIST):
             self._record(step, Outcome.FAIL, f"the app refused read offset {value:+d}")
             return
         self._drive_offset = value
         self._record(step, Outcome.PASS, f"read offset {value:+d}, from {source}")
 
     def _do_expect_drive_offset(self, step: Step) -> None:
-        """The read offset is still the one `set-drive-offset` set, override on."""
-        config = getattr(self._window, "_config", None)
+        """The selected drive still rips at the offset `set-drive-offset` set.
+
+        Asked of the window's one answer for the selected drive
+        (`_selected_drive_offset`), the value a Start hands cyanrip, so it fails
+        if the drive was changed, its record replaced, or offsets switched off.
+        """
         if self._drive_offset is None:
             self._record(
                 step, Outcome.FAIL, "no set-drive-offset has run, so nothing to compare"
             )
             return
-        actual = getattr(config, "read_offset", None)
-        override = bool(getattr(config, "override_read_offset", False))
-        if actual == self._drive_offset and override:
-            self._record(step, Outcome.PASS, f"read offset {actual:+d}, override on")
+        reader = getattr(self._window, "_selected_drive_offset", None)
+        if not callable(reader):
+            self._record(step, Outcome.ERROR, "no application window to ask")
+            return
+        decision = reader()
+        actual = getattr(decision, "value", None)
+        if actual == self._drive_offset:
+            self._record(step, Outcome.PASS, f"read offset {actual:+d}, applied")
             return
         self._record(
             step,
             Outcome.FAIL,
-            f"read offset is {actual!r} with the override {'on' if override else 'off'}; "
+            f"the selected drive's read offset is {actual!r} "
+            f"({getattr(decision, 'reason', '?')}); "
             f"set-drive-offset set {self._drive_offset:+d}",
         )
 
@@ -3906,6 +3925,17 @@ class ScriptRunner(
             # carries — a script must not be able to write a value the dialog
             # would have rejected.
             self._record(step, Outcome.FAIL, f"{field} rejected: {rejection}")
+            return
+        # `read_offset` BELONGS TO A DRIVE (2026-11-12). The config field alone
+        # reaches no rip, so on the real window the value goes to the offset
+        # writer, which saves it for the SELECTED drive as a hand entry and
+        # switches offsets on, exactly as Save offset in the drive wizard does.
+        setter = getattr(self._window, "_set_read_offset_override", None)
+        if field == "read_offset" and callable(setter) and isinstance(coerced, int):
+            if setter(coerced):
+                self._record(step, Outcome.PASS, f"{field} = {coerced!r}, this drive's")
+            else:
+                self._record(step, Outcome.FAIL, f"{field} {coerced:+d} was refused")
             return
 
         # `setattr` rather than a direct assignment, and NOT a `# type: ignore`.

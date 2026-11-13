@@ -23,6 +23,16 @@ this wizard had just saved. Settings now shows the offset read-only and names
 this window; `ui/setting_homes.py` records the placement and
 `tests/test_setting_homes.py` refuses a second editor anywhere else.
 
+**The cache check runs by itself, once per drive** (TASKS R53, the owner's rule
+of 2026-11-12: drive properties are tested once, up front, and saved per drive).
+When the window opens for a drive whose profile holds no cache verdict and an
+audio CD is in the drive, the same worker the *Analyze cache* button starts is
+started on show, on the same thread and with the same cancel path; *Skip check*
+stops it (killing ``cd-paranoia``). With no disc in, the window says the check
+starts when one is inserted, and the main window tells it when a disc has been
+read (`notify_disc_ready`). Whether to start is decided by the pure
+`cache_check_plan.decide_auto_check`, never inline here.
+
 The dialog owns the worker thread; `_on_finished` is a plain slot so tests can
 exercise the result rendering without a live event loop.
 """
@@ -33,6 +43,7 @@ import html
 import logging
 
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialogButtonBox,
@@ -46,10 +57,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus import cache_check_plan
 from platterpus.adapters.rip_backend import RipBackend
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.drive_setup_auto_check import AutoCacheCheckMixin
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.workers import start_worker_thread
 from platterpus.workers.drive_setup_worker import (
@@ -75,7 +88,7 @@ _DIALOG_MIN_WIDTH_PX: int = 460
 _DIALOG_MAX_MIN_HEIGHT_PX: int = 620
 
 
-class DriveSetupDialog(CenteredDialog):
+class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
     """Modal-ish dialog that calibrates one drive via the backend's commands."""
 
     # Emitted when the user saves a manually-entered offset (the fallback for
@@ -108,6 +121,9 @@ class DriveSetupDialog(CenteredDialog):
         known_offset: int | None = None,
         drive_label: str = "",
         offset_applied: bool = True,
+        cache_verdict: str | None = None,
+        audio_disc_present: bool = False,
+        drive_busy: bool = False,
     ) -> None:
         """`known_offset`, when provided, is the AccurateRip read offset
         looked up by drive model (the primary, disc-free path). We prefill
@@ -115,6 +131,12 @@ class DriveSetupDialog(CenteredDialog):
         one click — no disc or ripper probe required. `drive_label` is the
         human drive name shown in that callout. `offset_applied` is the config's
         ``override_read_offset``: whether rips pass the offset to cyanrip at all.
+
+        The last three feed the automatic cache check (`cache_check_plan`):
+        ``cache_verdict`` is this drive's `verdict_state` (``None``, the default,
+        means the caller did not say, and nothing starts by itself);
+        ``audio_disc_present`` is whether an audio CD has been read in the drive;
+        ``drive_busy`` is whether something else is reading it right now.
         """
         super().__init__(parent)
         self._backend: RipBackend = backend
@@ -135,6 +157,7 @@ class DriveSetupDialog(CenteredDialog):
         # Set true once the dialog is closing, so a late worker result
         # doesn't poke widgets that are being torn down.
         self._closing: bool = False
+        self._init_auto_check(cache_verdict, audio_disc_present, drive_busy)
 
         self.setWindowTitle("Set up drive")
         # Open at a readable size (the default was cramped — labels and the
@@ -169,10 +192,11 @@ class DriveSetupDialog(CenteredDialog):
                 "applies it to cyanrip on every rip; it comes from the AccurateRip "
                 "drive list (pre-filled below when your drive is recognised) or "
                 "you can enter it by hand.\n\n"
-                "You can also measure this drive's audio-cache behaviour, which "
-                "confirms re-reads reach the disc (not a stale cache). Insert any "
-                "audio CD and click Analyze cache — the measured Yes/No is saved "
-                "and recorded in the drive's EAC-compatible log."
+                "This window also measures the drive's audio-cache behaviour, which "
+                "confirms re-reads reach the disc (not a stale cache). It runs by "
+                "itself once per drive when an audio CD is in the drive, and the "
+                "measured Yes/No is saved and recorded in the EAC-compatible log. "
+                "Analyze cache runs it again."
             )
         else:
             # cyanrip can't measure the offset from a disc, so we don't pretend
@@ -237,14 +261,25 @@ class DriveSetupDialog(CenteredDialog):
         # a button that would only ever report "can't do it" — honest UI (the
         # offset comes from the AccurateRip list / manual entry below instead).
         self._detect_button: QPushButton | None = None
+        self._skip_button: QPushButton | None = None
         self._progress: QProgressBar | None = None
         if self._can_detect or self._can_analyze:
             # "Detect" when there's a real offset finder (offset + cache);
-            # "Analyze cache" when only the cache probe runs (cyanrip).
-            label = "&Detect" if self._can_detect else "Analy&ze cache"
+            # "Analyze cache" when only the cache probe runs (cyanrip), and
+            # "Re-analyze" once this drive already has a saved verdict, so the
+            # button says that pressing it measures again.
+            if self._can_detect:
+                label = "&Detect"
+            elif cache_verdict == cache_check_plan.MEASURED:
+                label = "Re-analy&ze cache"
+            else:
+                label = "Analy&ze cache"
+            action_row = QHBoxLayout()
             self._detect_button = QPushButton(label, self)
             self._detect_button.clicked.connect(self._on_detect_clicked)
-            root.addWidget(self._detect_button)
+            action_row.addWidget(self._detect_button, 1)
+            self._skip_button = self._build_skip_button(action_row)
+            root.addLayout(action_row)
 
             # Indeterminate (busy) bar — min==max==0 animates with no percentage,
             # honest here since the detection command reports no progress.
@@ -252,6 +287,8 @@ class DriveSetupDialog(CenteredDialog):
             self._progress.setRange(0, 0)
             self._progress.setVisible(False)
             root.addWidget(self._progress)
+
+        self._auto_note_label = self._build_auto_note(root)
 
         self._status_label: QLabel = QLabel("", self)
         # PlainText: the detection worker's status and outcome lines land here,
@@ -363,6 +400,14 @@ class DriveSetupDialog(CenteredDialog):
         # sweep sees a fully-built widget tree.
         self._wheel_guard: WheelGuard = protect_value_widgets(self)
 
+        self._root_layout: QVBoxLayout = root
+        # Say now what the automatic check will do, so a window opened with no
+        # disc explains itself before anything is pressed. Starting it waits for
+        # the first show (`showEvent`): constructing the window must not read a
+        # disc.
+        initial = self._auto_check_decision()
+        if initial.action != cache_check_plan.START:
+            self._set_auto_note(initial.message, refit=False)
         self._apply_content_derived_minimum_size(root)
 
     def _apply_content_derived_minimum_size(self, root: QVBoxLayout) -> None:
@@ -409,19 +454,38 @@ class DriveSetupDialog(CenteredDialog):
             min(hint.height(), _DIALOG_MAX_MIN_HEIGHT_PX),
         )
 
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt API
+        """On the first show, start the automatic cache check if it is due."""
+        super().showEvent(event)
+        if not self._shown_once:
+            self._shown_once = True
+            self._maybe_auto_start()
+
     # --- Detection flow -----------------------------------------------------
 
     def _on_detect_clicked(self) -> None:
-        """Kick off calibration on a worker thread."""
-        # Only reachable when the backend can detect (the button doesn't exist
-        # otherwise), but guard defensively.
+        """Kick off calibration on a worker thread (the button's slot)."""
+        self._start_calibration()
+
+    def _start_calibration(self) -> None:
+        """Start the worker: the button's run and the automatic one alike."""
+        # Only reachable when the backend can detect or analyze (the button
+        # doesn't exist otherwise), but guard defensively.
         if self._detect_button is None or self._thread is not None:
             return
         self._detect_button.setEnabled(False)
-        # Lock the manual-offset controls while detection runs: editing or
-        # saving an offset mid-detection would race the value the ripper is
-        # about to report. They're re-enabled in `_on_finished`.
-        self._set_manual_controls_enabled(False)
+        self._skip_requested = False
+        if self._skip_button is not None:
+            self._skip_button.setEnabled(True)
+            self._skip_button.setVisible(True)
+        # Lock the manual-offset controls while an OFFSET FINDER runs: editing
+        # or saving an offset mid-detection would race the value the ripper is
+        # about to report. A cache-only run reports no offset, so it leaves them
+        # alone: the automatic check can take minutes, and the user who opened
+        # this window to save an offset must still be able to. They're
+        # re-enabled in `_on_finished`.
+        if self._can_detect:
+            self._set_manual_controls_enabled(False)
         self._results_label.clear()
         if self._progress is not None:
             self._progress.setVisible(True)
@@ -442,16 +506,37 @@ class DriveSetupDialog(CenteredDialog):
             return
         if self._progress is not None:
             self._progress.setVisible(False)
-        outcome = "Done." if result.ok else "Finished with issues."
+        if self._skip_button is not None:
+            self._skip_button.setVisible(False)
+        # The automatic-check line described the run that just ended.
+        self._set_auto_note("")
+        skipped = self._skip_requested and result.can_defeat_cache is None
+        self._skip_requested = False
+        if skipped:
+            # The user stopped it: say so, not "Finished with issues" over the
+            # killed probe's own "could not be determined".
+            outcome = "Check stopped."
+            summary = (
+                "ⓘ The audio-cache check was stopped before it finished, so "
+                "nothing was saved. It runs by itself the next time this window "
+                "opens with an audio CD in the drive, or press Analyze cache to "
+                "run it now."
+            )
+        else:
+            outcome = "Done." if result.ok else "Finished with issues."
+            summary = _format_result(result)
         self._status_label.setText(outcome)
-        self._results_label.setPlainText(_format_result(result))
+        self._results_label.setPlainText(summary)
         # Detection ran for up to a minute with focus elsewhere — announce the
         # outcome + summary focus-safely (gap #4).
-        announce(self._status_label, f"Drive setup: {outcome} {_format_result(result)}")
+        announce(self._status_label, f"Drive setup: {outcome} {summary}")
+        if result.can_defeat_cache is not None:
+            # A verdict now exists for this drive; nothing more is due.
+            self._cache_verdict = cache_check_plan.MEASURED
         if self._detect_button is not None:
             self._detect_button.setEnabled(True)
             self._detect_button.setText(
-                "Re-detect" if self._can_detect else "Re-analyze cache"
+                "Re-detect" if self._can_detect else "Re-analy&ze cache"
             )
         self._set_manual_controls_enabled(True)
         self._worker = None

@@ -256,8 +256,9 @@ def grade_track_records(report: Mapping[str, Any], folder: Path) -> Grade:
     }
     problems, read = _grade_report(report, repaired, disagree)
     path = _eac_log_path(folder)
-    # Said, not silent: with `write_eac_log_after_rip` off (the default) there is
-    # no EAC-layout log to read, and the step grades the report's records alone.
+    # Said, not silent: with `write_eac_log_after_rip` off (the default until
+    # 2026-11-12, and still a user's choice) there is no EAC-layout log to read,
+    # and the step grades the report's records alone.
     where = "the report (no EAC-layout log in the folder, so the report alone)"
     if path is not None:
         try:

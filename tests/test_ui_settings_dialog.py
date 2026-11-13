@@ -12,7 +12,12 @@ from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
 from platterpus import goal_presets, naming, settings_validation
 from platterpus.config import SCHEMA_VERSION, Config
-from platterpus.goal_presets import GOAL_ARCHIVAL, GOAL_CUSTOM, GOAL_FAST
+from platterpus.goal_presets import (
+    GOAL_ARCHIVAL,
+    GOAL_CUSTOM,
+    GOAL_FAST,
+    GOAL_PORTABLE,
+)
 from platterpus.ui.settings_dialog import SettingsDialog
 
 # --- Construction --------------------------------------------------------
@@ -141,16 +146,34 @@ def test_the_read_offset_is_shown_read_only_and_names_its_home(
     wrote the stale copy over the one the wizard had saved. Now it is text: a
     label, so no click or scroll in this window can change it.
     """
-    applied = SettingsDialog(Config(read_offset=667, override_read_offset=True))
+    from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
+    from platterpus.offset_config import offset_for_drive
+
+    # The SELECTED drive's offset (one per drive since 2026-11-12), which the
+    # window passes in; the config's own value (999 here) is not a drive's.
+    record = OffsetRecord(667, OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    applied = SettingsDialog(
+        Config(read_offset=999, override_read_offset=True),
+        drive_offset=offset_for_drive(record, apply_offsets=True),
+    )
     text = applied._offset_status_label.text()
-    assert "+667 samples, applied to every rip" in text
+    assert "+667 samples, applied to every rip on this drive" in text
+    assert "+999" not in text
     assert "Tools → Setup & Updates… → Set up drive…" in text
     assert isinstance(applied._offset_status_label, QLabel)
     assert applied._offset_status_label.textFormat() == Qt.TextFormat.PlainText
 
-    off = SettingsDialog(Config(read_offset=667, override_read_offset=False))
+    off = SettingsDialog(
+        Config(read_offset=667, override_read_offset=False),
+        drive_offset=offset_for_drive(record, apply_offsets=False),
+    )
     assert "not applied" in off._offset_status_label.text()
     assert "+667" not in off._offset_status_label.text()
+
+    # No drive selected: the dialog says so, and never shows the config's value.
+    none = SettingsDialog(Config(read_offset=667, override_read_offset=True))
+    assert "no drive selected" in none._offset_status_label.text()
+    assert "+667" not in none._offset_status_label.text()
 
 
 # --- to_config -----------------------------------------------------------
@@ -334,6 +357,50 @@ def test_selecting_goal_applies_the_preset_to_controls(qapp: QApplication) -> No
     out = dialog.to_config()
     assert out.rip_goal == GOAL_ARCHIVAL
     assert out.ctdb_verify_after_rip is True
+
+
+def test_choosing_archival_ticks_the_eac_log_and_unticking_keeps_the_goal(
+    qapp: QApplication,
+) -> None:
+    """Archival turns the EAC-layout log on (2026-11-12); the log is not a field
+    the goal is matched on, so unticking it afterwards leaves the goal alone.
+
+    Starts with the box OFF, which is what every config saved before the default
+    moved carries, so the tick is the goal's doing and not the default's. And the
+    dialog must agree with `apply_preset`, the definition a script's
+    `set rip_goal` uses: two surfaces, one answer.
+    """
+    dialog = SettingsDialog(Config(write_eac_log_after_rip=False))
+    assert dialog._eac_log_check.isChecked() is False
+    dialog._goal_combo.setCurrentIndex(dialog._goal_combo.findData(GOAL_ARCHIVAL))
+    assert dialog._eac_log_check.isChecked() is True
+    out = dialog.to_config()
+    assert out.write_eac_log_after_rip is True
+    assert (
+        out.write_eac_log_after_rip
+        == goal_presets.apply_preset(
+            Config(write_eac_log_after_rip=False), GOAL_ARCHIVAL
+        ).write_eac_log_after_rip
+    )
+
+    dialog._eac_log_check.setChecked(False)
+    assert dialog._goal_combo.currentData() == GOAL_ARCHIVAL
+    assert dialog.to_config().write_eac_log_after_rip is False
+    # And reopening on that config still shows Archival, not Custom.
+    reopened = SettingsDialog(dialog.to_config())
+    assert reopened._goal_combo.currentData() == GOAL_ARCHIVAL
+
+
+def test_choosing_fast_verified_leaves_the_eac_log_as_it_was(
+    qapp: QApplication,
+) -> None:
+    """No goal unticks the log: a user who switched it off keeps it off."""
+    dialog = SettingsDialog(
+        goal_presets.apply_preset(Config(write_eac_log_after_rip=False), GOAL_PORTABLE)
+    )
+    dialog._goal_combo.setCurrentIndex(dialog._goal_combo.findData(GOAL_FAST))
+    assert dialog._goal_combo.currentData() == GOAL_FAST
+    assert dialog._eac_log_check.isChecked() is False
 
 
 def test_editing_a_control_flips_goal_to_custom(qapp: QApplication) -> None:

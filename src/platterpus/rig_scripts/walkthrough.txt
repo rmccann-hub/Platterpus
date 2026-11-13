@@ -35,8 +35,9 @@ log =============================================================
 log Getting-started walkthrough: the guide's pictures (KDD-42)
 log =============================================================
 
-# The guide tells the reader to tick the EAC-compatible log (step 4), so the rip
-# this script photographs must have one for step 8 to show it.
+# The guide shows the EAC-compatible log ticked (step 4; on by default since
+# 2026-11-12), so the rip this script photographs must have one for step 8 to
+# show it. Set anyway, so the picture does not depend on the operator's settings.
 set write_eac_log_after_rip true
 
 # --- Step 3: Set up drive -----------------------------------------------------

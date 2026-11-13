@@ -175,7 +175,7 @@ log --- F. restoring ---
 set rip_goal fast_verified
 expect rip_goal fast_verified
 expect secure_rerip_dynamic on
-set write_eac_log_after_rip off
+set write_eac_log_after_rip on
 set debug_logging off
 expect force_overread off
 expect-drive-offset

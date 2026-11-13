@@ -344,6 +344,17 @@ Worker mechanics, all demonstrated in `workers/`:
   checks in Setup & Updates, the startup script in the script console,
   everything that shapes the rip itself in Settings. A window that only needs
   to SHOW a setting homed elsewhere shows it read-only and names the home.
+  **The read offset's value belongs to a DRIVE, not to the program**
+  (2026-11-13, the owner's rule of 2026-11-12: *test the drive once, up front,
+  save it per drive*): it is saved in the selected drive's profile
+  (`drive_profile_store.py`), and one pure function,
+  `offset_config.offset_for_drive`, decides what a rip on that drive applies.
+  The window asks it through `DriveMixin._selected_drive_offset`, and the Start
+  gate, cyanrip's `-s`, Settings, Setup & Updates, `--doctor`, the report and
+  the script verbs all delegate there. `Config.override_read_offset` stays the
+  master switch; `Config.read_offset` is no longer read to decide a rip, except
+  once, by `offset_config.plan_global_offset_move`, to hand an existing user's
+  value to the drive it was set up on.
   Two write paths, both in `ui/main_window_settings.py`: Settings' OK/Apply
   (only what the user changed, `apply_user_edits`), and
   `_save_user_setting(field, value)` for a control that saves as it changes,
@@ -523,6 +534,7 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis; reading the disc without a click (media poll, bounded retry of a failed read — policy in `disc_probe_retry.py`) | `main_window_drive.py` (`DriveMixin`) |
+| The automatic cache check's window half: wake an open Set up drive when a disc is read, and the dismissible rip-start note on a drive with no verdict (decisions in `cache_check_plan.py`; TASKS R53) | `main_window_cache_check.py` (`CacheCheckMixin`) |
 | A disc that leaves the drive and comes back: park its chosen release and edits, re-read a flicker to check the disc ID, restore the same disc without a lookup (the removal bound is `drive_media.REMOVAL_CONFIRM_S`) | `main_window_disc_return.py` (`DiscReturnMixin`) |
 | The release picker: hold it until the main window is in use (`hold_for_user.py`), open it, act on the answer, close one a newer scan supersedes | `main_window_picker.py` (`ReleasePickerMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
@@ -530,10 +542,10 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | The automatic CTDB repair after a rip: when it starts, the worker it owns, what the user is told, the re-runs after it (TASKS R133) | `main_window_ctdb_repair.py` (`CtdbRepairMixin`) |
 | Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |
 
-`MainWindow(QMainWindow, RipMixin, CtdbRepairMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DiscReturnMixin, ReleasePickerMixin, DependencyMixin, SettingsMixin)`
+`MainWindow(QMainWindow, RipMixin, CtdbRepairMixin, UpdateMixin, ProvisioningMixin, DriveMixin, CacheCheckMixin, DiscReturnMixin, ReleasePickerMixin, DependencyMixin, SettingsMixin)`
 — a 1707-line god-object reduced to an assembler plus focused modules: the
 mixins in the table above and the pure helpers (`SettingsMixin` was the sixth
-mixin, 2026-09-24; `CtdbRepairMixin` joined on 2026-11-05). (The split first landed it at ~460 lines; it has since grown as
+mixin, 2026-09-24; `CtdbRepairMixin` joined on 2026-11-05, `CacheCheckMixin` on 2026-11-12). (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
 
@@ -2278,4 +2290,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.123.*

@@ -309,15 +309,15 @@ and the startup test script in the script console.
 - **Verify FLAC files after a rip** — decode each FLAC back and check it against its
   stored checksum (on by default). There is no compression setting: cyanrip
   already writes every FLAC at maximum compression.
-- **Write an EAC-compatible log** — in addition to cyanrip's own `.log`, write a
-  second log beside each rip in the format Exact Audio Copy uses, for tools and
-  people that expect that layout. It records the same rip, just formatted like an
-  EAC log — and it says plainly, at the top and bottom, that it is *not* a genuine
-  EAC log (we never pretend to be EAC). Its last line is a Platterpus integrity
-  checksum: a SHA-256 of the whole log above it, at least as strong as EAC's own
-  log checksum but openly verifiable — you can confirm the log hasn't been altered
-  with any SHA-256 tool, no special software needed (`head -n -1` on the file,
-  piped to `sha256sum`, reproduces the value).
+- **Write an EAC-compatible log** — on by default, as Exact Audio Copy writes its
+  log on every rip (*Archival Exact* ticks it): beside cyanrip's own `.log`, a
+  second log in the format Exact Audio Copy uses. It records the same rip, and says
+  plainly, at the top and bottom, that it is *not* a genuine EAC log (we never
+  pretend to be EAC). Its last line is a Platterpus integrity checksum: a SHA-256
+  of the whole log above it, at least as strong as EAC's own log checksum but
+  openly verifiable — you can confirm the log hasn't been altered with any SHA-256
+  tool, no special software needed (`head -n -1` on the file, piped to
+  `sha256sum`, reproduces the value).
 - **Read offset** — shown here, not changed here: what the next rip does with
   your drive's read offset, for example *+667 samples, applied to every rip*. It
   is a property of the drive rather than of the rip, so it is set in **Tools →
@@ -452,8 +452,11 @@ two independent sources agree"). If two identical drives are connected, or the
 recorded offset disagrees with the offset that will be applied, a warning
 appears there so a wrong offset can't pass unnoticed.
 
-The wizard can also **Analyze cache**: with an audio CD in the drive, it measures
-whether your drive returns *cached* audio on a re-read. Defeating that cache is
+The wizard also measures your drive's **audio cache**, by itself, once per
+drive: the first time it opens with an audio CD in the drive (or as soon as you
+insert one while it is open), it checks whether your drive returns *cached* audio
+on a re-read. It takes a few minutes; **Skip check** stops it, and
+**Re-analyze cache** runs it again later. Defeating that cache is
 what makes a re-read actually reach the disc — the guarantee behind bit-perfect
 verification. The measured Yes/No is saved per drive, shown in the disc panel's
 **Cache defeat** line, and recorded in the EAC-compatible log. If the drive can't

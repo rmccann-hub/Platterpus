@@ -551,6 +551,7 @@ class ProvisioningMixin(MainWindowShared):
             },
             config=self._config,
             save_setting=self._save_user_setting,
+            drive_offset=self._selected_drive_offset,
         )
         self._setup_center = dialog
         # A check already in flight is shown as running, not as the last result.

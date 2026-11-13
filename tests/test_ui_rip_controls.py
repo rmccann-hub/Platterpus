@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from PySide6.QtWidgets import QApplication
 
 from platterpus.config import Config
@@ -250,25 +251,22 @@ def test_parity_gap_config_flows_into_rip_parameters(
     assert p.secure_rerip_matches == 2
 
 
-def test_offset_override_flows_when_enabled(qapp: QApplication) -> None:
-    config = Config(output_dir="/music", read_offset=667, override_read_offset=True)
+@pytest.mark.parametrize("applied", [True, False])
+def test_the_controls_never_carry_the_global_read_offset(
+    qapp: QApplication, applied: bool
+) -> None:
+    """Regression (2026-11-12, per-drive read offsets): the offset belongs to the
+    DRIVE, and the window fills it in at Start from that drive's profile. These
+    controls used to copy the single global ``Config.read_offset`` into the
+    params, which is the value a second drive then ripped at."""
+    config = Config(output_dir="/music", read_offset=667, override_read_offset=applied)
     controls = RipControls(config)
     controls.set_drive("/dev/sr0")
     controls.set_release_id("mbid")
     captured: list[RipParameters] = []
     controls.rip_requested.connect(captured.append)
     controls._start_button.click()
-    assert captured[0].read_offset_override == 667
-
-
-def test_offset_override_none_when_disabled(qapp: QApplication) -> None:
-    config = Config(output_dir="/music", read_offset=667, override_read_offset=False)
-    controls = RipControls(config)
-    controls.set_drive("/dev/sr0")
-    controls.set_release_id("mbid")
-    captured: list[RipParameters] = []
-    controls.rip_requested.connect(captured.append)
-    controls._start_button.click()
+    assert captured, "floor: Start emitted no parameters"
     assert captured[0].read_offset_override is None
 
 

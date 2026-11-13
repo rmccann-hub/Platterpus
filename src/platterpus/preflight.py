@@ -55,6 +55,8 @@ from platterpus.ctdb.toc import DiscToc
 from platterpus.deps.manager import DependencyManager
 from platterpus.deps.version import parse_version
 from platterpus.drive_access import SEVERITY_OK, diagnose_drive_access
+from platterpus.drive_profile_store import DriveProfileStore
+from platterpus.offset_config import describe_applied_offset, offset_for_drive
 from platterpus.paths import LOG_PATH
 from platterpus.ripper_identity import identify_from_banner
 
@@ -166,10 +168,11 @@ def default_context(cfg: Config | None = None) -> PreflightContext:
 
 def check_settings(cfg: Config) -> CheckResult:
     """Echo back the settings that shape a rip, so the user can eyeball them."""
+    # Per drive since 2026-11-12: the values are listed by the read-offset check.
     offset = (
-        f"{cfg.read_offset:+d} (override on)"
+        "per drive (see Read offset below)"
         if cfg.override_read_offset
-        else "auto (per drive)"
+        else "not applied (the Apply tick-box is off)"
     )
     detail = "\n".join(
         [
@@ -599,33 +602,69 @@ def check_drives(backend: RipBackend) -> CheckResult:
     )
 
 
-def check_read_offset(cfg: Config, *, backend_name: str = "cyanrip") -> CheckResult:
-    """Surface the read offset cyanrip will apply.
+def check_read_offset(
+    cfg: Config,
+    *,
+    backend_name: str = "cyanrip",
+    store: DriveProfileStore | None = None,
+) -> CheckResult:
+    """Surface the read offset cyanrip will apply, drive by drive.
 
     The offset is the one setting that silently corrupts a rip if it's wrong.
-    cyanrip needs it every run (``-s``); it reads no config file of its own, so
-    the GUI's stored value (with "Apply" on) is the authority, and the only
-    source consulted. When no offset is configured we warn and point at the
-    drive-setup wizard, its one home. Never raises.
+    cyanrip needs it every run (``-s``); it reads no config file of its own.
+    Since 2026-11-12 each drive keeps its own, in its profile, and the one rule
+    that decides what a rip applies is ``offset_config.offset_for_drive`` — this
+    check asks it for every saved drive rather than restating it. ``store`` is
+    injectable for tests; left out, the saved profiles are loaded (a read that
+    never raises). Never raises.
     """
     del backend_name  # cyanrip is the sole backend; kept for signature parity
-    if cfg.override_read_offset:
+    hint = (
+        "cyanrip needs a read offset to rip bit-perfectly — set it in the "
+        "drive-setup wizard (Tools → Setup & Updates… → Set up drive…), which "
+        "looks it up from the AccurateRip drive list or takes it by hand, once "
+        "for each drive, and keep “Apply this read offset to every rip” ticked."
+    )
+    if not cfg.override_read_offset:
+        # No offset reaches cyanrip on any drive (not bit-perfect).
+        return CheckResult(
+            "Read offset", Status.WARN, "no read offset configured", hint=hint
+        )
+    try:
+        loaded = store if store is not None else DriveProfileStore.load()
+    except Exception as exc:  # noqa: BLE001 — never crash the diagnostic
+        return CheckResult(
+            "Read offset", Status.WARN, "could not read the saved drives", str(exc)
+        )
+    profiles = loaded.all()
+    moved = loaded.global_offset_moved
+    lines: list[str] = []
+    for profile in profiles:
+        if profile.offset is None:
+            continue
+        decision = offset_for_drive(profile.offset, apply_offsets=True)
+        name = f"{profile.vendor} {profile.model}".strip() or profile.fingerprint
+        lines.append(f"  {name}: {describe_applied_offset(decision)}")
+    if not moved:
+        # The single offset of older versions has not been handed to a drive
+        # yet: that happens when the app next starts with a drive selected.
+        lines.append(
+            f"  (older versions' single offset, {cfg.read_offset:+d}, goes to "
+            "the drive selected when Platterpus next starts, unless a drive "
+            "above already holds it)"
+        )
+    if not lines:
         return CheckResult(
             "Read offset",
-            Status.OK,
-            f"{cfg.read_offset:+d} samples (applied as cyanrip's -s)",
+            Status.WARN,
+            "no drive has a read offset saved yet",
+            hint=hint,
         )
-    # No offset configured — cyanrip would rip at offset 0 (not bit-perfect).
     return CheckResult(
         "Read offset",
-        Status.WARN,
-        "no read offset configured",
-        hint=(
-            "cyanrip needs a read offset to rip bit-perfectly — set it in the "
-            "drive-setup wizard (Tools → Setup & Updates… → Set up drive…), which "
-            "looks it up from the AccurateRip drive list or takes it by hand, and "
-            "keep “Apply this read offset to every rip” ticked."
-        ),
+        Status.OK,
+        "per drive (applied as cyanrip's -s)",
+        detail="\n".join(lines),
     )
 
 

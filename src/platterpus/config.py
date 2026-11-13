@@ -397,12 +397,12 @@ class Config:
     # `recompress_flac_after_rip` (a post-rip `flac -8`) lived here until
     # 2026-10-07; see its entry in `RETIRED_CONFIG_KEYS` for why it went.
 
-    # Write an EAC-*layout* text log beside each successful rip (an honest,
-    # clearly-attributed rendering — never a signed/forged EAC log, KDD-11/13).
-    # OFF by default so it doesn't clutter the folder or get confused with
-    # cyanrip's own .log; a user who wants a familiar EAC-style log for a human
-    # diff or an archive can turn it on. See eac_log_export.py.
-    write_eac_log_after_rip: bool = False
+    # Write an EAC-*layout* text log beside each successful rip (honest and clearly
+    # attributed, never a signed/forged EAC log, KDD-11/13). ON by default since
+    # 2026-11-12, as EAC writes its log on every rip. A saved `false` is kept: no
+    # migration flips it, though `save()` writes every field, so every older config
+    # says `false`. See eac_log_export.py and goal_presets.turns_on_eac_log.
+    write_eac_log_after_rip: bool = True
 
     # --- Output format (Settings → Output format) ---
     # Which audio format the rip delivers. "flac" (default, the lossless

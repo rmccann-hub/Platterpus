@@ -452,7 +452,8 @@ def test_the_module_never_imports_qt() -> None:
 # tool's own `Log FUN512:` checksum and `--verify-log` rejects trailing content by
 # design — we appended there once and every auto-fixed rip shipped a log the
 # ripper itself called modified (round 7 lap 10). Our own EAC-style log could take
-# it, but `write_eac_log_after_rip` defaults to False, so most folders have none.
+# it, but `write_eac_log_after_rip` defaulted to False then (on by default since
+# 2026-11-12, and still a user's choice), so most folders had none.
 #
 # The `.platterpus.json` is always written, is ours, and already held this record
 # structurally. So the file was a rendered duplicate — and reading it back from the

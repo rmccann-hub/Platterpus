@@ -26,6 +26,13 @@ from platterpus.drive_access import (
     SEVERITY_PERMISSION,
     DriveAccessDiagnosis,
 )
+from platterpus.drive_profile_store import DriveProfileStore
+from platterpus.drive_profiles import (
+    Confidence,
+    DriveProfile,
+    OffsetRecord,
+    OffsetSource,
+)
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.preflight import CheckResult, Status
 
@@ -492,12 +499,51 @@ def test_routing_drilldown_never_raises_on_bad_host():
 # --- check_read_offset -----------------------------------------------------
 
 
-def test_check_read_offset_applied_when_override_on():
+def _store_with(*offsets: tuple[str, int]) -> DriveProfileStore:
+    store = DriveProfileStore(
+        {
+            f"vm:{model}": DriveProfile(
+                fingerprint=f"vm:{model}",
+                vendor="V",
+                model=model,
+                offset=OffsetRecord(value, OffsetSource.MANUAL, Confidence.MEDIUM),
+            )
+            for model, value in offsets
+        },
+        global_offset_moved=True,
+    )
+    return store
+
+
+def test_check_read_offset_lists_each_drives_own_offset():
+    """Per drive since 2026-11-12: each saved drive with its own offset, and
+    never the config's global value as if it were every drive's."""
     res = preflight.check_read_offset(
-        Config(override_read_offset=True, read_offset=667),
+        Config(override_read_offset=True, read_offset=999),
+        store=_store_with(("A", 667), ("B", 6)),
     )
     assert res.status is Status.OK
-    assert "+667" in res.summary and "-s" in res.summary
+    assert "-s" in res.summary
+    assert "V A: +667 samples" in res.detail and "V B: +6 samples" in res.detail
+    assert "+999" not in res.detail
+
+
+def test_check_read_offset_warns_when_no_drive_has_one_saved():
+    res = preflight.check_read_offset(
+        Config(override_read_offset=True, read_offset=667),
+        store=DriveProfileStore(global_offset_moved=True),
+    )
+    assert res.status is Status.WARN
+    assert "no drive" in res.summary
+
+
+def test_check_read_offset_names_a_global_offset_not_yet_handed_to_a_drive():
+    res = preflight.check_read_offset(
+        Config(override_read_offset=True, read_offset=667),
+        store=DriveProfileStore(),
+    )
+    assert res.status is Status.OK
+    assert "+667" in res.detail and "next starts" in res.detail
 
 
 def test_check_read_offset_warns_when_no_offset_configured():

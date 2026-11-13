@@ -40,7 +40,9 @@ class SettingsMixin(MainWindowShared):
     # --- Tools → Settings… -------------------------------------------------
 
     def _on_open_settings(self) -> None:
-        dialog = SettingsDialog(self._config, self)
+        dialog = SettingsDialog(
+            self._config, self, drive_offset=self._selected_drive_offset()
+        )
         # Apply saves through the same method as OK, then re-baselines the
         # dialog, so Cancel after Apply keeps what was applied.
         dialog.apply_requested.connect(lambda: self._apply_settings_from(dialog))
@@ -92,6 +94,13 @@ class SettingsMixin(MainWindowShared):
             # the one place every single-setting writer's refusal is recorded.
             # Logging it again here would write each refusal twice.
             return SettingWrite(False, problem)
+        if field == "read_offset" and isinstance(value, int):
+            # A read offset belongs to a DRIVE (2026-11-12): written alone, the
+            # config field reaches no rip, so it goes to the one offset writer,
+            # which saves it for the selected drive and says why if it cannot.
+            if self._set_read_offset_override(value):
+                return SettingWrite(True)
+            return SettingWrite(False, f"The read offset {value:+d} was not saved")
         self._config = candidate
         self._rip_controls.set_config(self._config)
         log.info("setting %s = %r (saved from its own control)", field, value)

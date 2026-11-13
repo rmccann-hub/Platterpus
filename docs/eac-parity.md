@@ -70,11 +70,20 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround34/
 
 ### TL;DR — two very different goals
 
-1. **Bit-identical *audio* (the PCM samples) — every track has been read
-   verified, but never all fourteen in one rip.** This is the real meaning of
+1. **Bit-identical *audio* (the PCM samples) — all fourteen AccurateRip-verified
+   in each of five rips in a row (round 39, 2026-11-11), track 5 by the labeled
+   CTDB repair.** This is the real meaning of
    "archival/EAC-quality": the *samples* equal the AccurateRip consensus, proven by
    the per-track CRC. Matching EAC is the usual proxy, and on this disc it is not
    the same thing, because EAC's own track 5 is not the consensus.
+   **Status (2026-11-12), round 39:** the five-rip run of the fork's `.31` through
+   0.7.122 (filed at evidence commit `ac0a5133`; our round 39 lap 2 S11 to S15) read
+   track 3 as `59D352DD` from the drive in all five rips, and verified track 5 in all
+   five by the automatic CTDB repair to `C96464AB` (AccurateRip v2 `BCF4E815`,
+   confidence 200); the drive itself never returned `C96464AB` in those reads. The
+   owner's EAC re-rip of 2026-11-12 verified 12 of 14, missing both (G.7). The record
+   below is the earlier one, kept as it was measured.
+
    **Status (2026-10-19), measured over every 14-track log of the reference disc on
    record: 26 rips, 2026-08-04 to 2026-10-16** (`output_reference/
    cyanrip_fork_flac/` and the `*eac.log` files under
@@ -160,7 +169,7 @@ the consensus (item 1).
 | TOC (track sectors) | — | — | ✅ identical (all 14) | n/a |
 | Secure / re-read | Secure | paranoia max | ✅ equivalent | n/a |
 | Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (14/14 on the fork, 2026-08-04, and the Gap handling row agrees) | n/a |
-| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 26 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 26, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
+| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 26 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 26, on track 5 once | ✅ all 14 verified in each of five rips (round 39, 2026-11-11; track 5 by CTDB repair); ⚠️ before that, never all 14 in one rip | Tracks 3 and 5 (TL;DR, item 1) |
 | Overread lead-in/out | No | No: the offset needs 2 frames past the edge, and they are filled with silence, not read (`Overread mode: fill with silence in lead-in/lead-out`) | ✅ same | closed: EAC also fills with silence when overread is off; tracks 1 and 14 match EAC and AccurateRip |
 | **Pre-gap markers in cue** (`INDEX 00`) | Yes: 9 in the cue (its log lists 10 pre-gaps, counting track 1's lead-in) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; the 2026-10-07 cue, `docs/handshake/artifactsround31/round31fullwholedisc.cue`) |
 | FLAC **file bytes** | flac.exe `-8` | libavcodec | ❌ differ | **No** (encoder-determined) — and unnecessary |
@@ -606,7 +615,7 @@ AccurateRip-guided -Z rule chose this read is not determined*, never a plain re-
 
 ### What Platterpus adds beside the log
 
-Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes **one** companion next to them by default (a second, optional `<Album> (EAC-compatible).log` appears when the Settings toggle `write_eac_log_after_rip` is on — off by default; `eac_log_export.py`). When the auto-fix replaced a track, `<log stem>.platterpus-addendum.txt` sits beside cyanrip's log too, and a securing pass leaves `<Album>.platterpus-securing-pass.txt` (`rip_addendum.py`), and the verified-read chase leaves each of its single reads' logs in `<Album>.platterpus-verified-read.txt` (`verified_read_chase.py`, TASKS R7):
+Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes **one** companion next to them by default (a second, `<Album> (EAC-compatible).log`, appears when the Settings toggle `write_eac_log_after_rip` is on — on by default since 2026-11-12, off before; `eac_log_export.py`). When the auto-fix replaced a track, `<log stem>.platterpus-addendum.txt` sits beside cyanrip's log too, and a securing pass leaves `<Album>.platterpus-securing-pass.txt` (`rip_addendum.py`), and the verified-read chase leaves each of its single reads' logs in `<Album>.platterpus-verified-read.txt` (`verified_read_chase.py`, TASKS R7):
 
 - **`<Album>.platterpus.json`** — the single machine-readable / LLM-oriented rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, the read-speed-ladder history, the verbatim text of the artifacts it read (`artifacts`), the `cyanrip --verify-log` result (`ripper_log_verification`), **and this rip's embedded session log** (`debug.lines`, scoped to this album).
 
@@ -622,7 +631,7 @@ The album folder therefore holds: the audio, the front cover, cyanrip's EAC-styl
 
 1. **The `RippingInfo` block on `RipLog` mirrors EAC's archival header** (drive/offset/etc.), so it can feed the EAC-layout export and the report. *(No "Rip details" panel exists, as of 2026-10-07; the disc-info panel shows drive, offset and cache from the drive profile instead.)*
 2. **The per-track display** renders cyanrip's AR v1 / v2 confidence the same way EAC does, and the results pane now also surfaces the album loudness + partial-accurate count that cyanrip uniquely provides.
-3. **We offer an optional EAC-*layout* companion log (v0.4.16)** — the Settings toggle `write_eac_log_after_rip` (off by default) writes `<Album> (EAC-compatible).log` beside the rip, rendered by `eac_log_export.py`: conspicuously attributed and **never signed** as EAC (signing would forge provenance — KDD-11/KDD-24, `docs/eac-parity.md`). Linux still can't submit to AccurateRip (the brief's confirmed gap).
+3. **We write an EAC-*layout* companion log (v0.4.16; on by default since 2026-11-12, as EAC writes its own log on every rip)** — the Settings toggle `write_eac_log_after_rip` writes `<Album> (EAC-compatible).log` beside the rip, rendered by `eac_log_export.py`: conspicuously attributed and **never signed** as EAC (signing would forge provenance — KDD-11/KDD-24, `docs/eac-parity.md`). Linux still can't submit to AccurateRip (the brief's confirmed gap).
 
 ### How this was verified
 
@@ -772,8 +781,9 @@ of Python and ethically a non-starter.
    and footer saying EAC did not produce it (since 0.6.63 the first line reads
    `Platterpus rip log in EAC's layout, not produced by Exact Audio Copy`), never
    a fabricated EAC checksum; since KDD-28 it ends with our own SHA-256. The GUI wiring shipped in
-   v0.4.16: the opt-in Settings toggle (*EAC-style log*,
-   `write_eac_log_after_rip`, off by default) writes the attributed EAC-layout
+   v0.4.16: the Settings toggle (*EAC-style log*,
+   `write_eac_log_after_rip`, opt-in until 2026-11-12 and on by default since)
+   writes the attributed EAC-layout
    log beside each rip — option 2 is fully implemented.
 3. **If tracker acceptance is genuinely required**, the only legitimate route is
    the *tracker* choosing to accept cyanrip (advocate upstream; OPS
@@ -1599,7 +1609,7 @@ number ("Part F row N").
 | 14 | AccurateRip submission | Yes | None | Behind, may be **not possible** | "Impossible from Linux" had no source and is unverified (KDD-12's correction). Find out whether AccurateRip accepts submissions from programs it has not listed; if not, it is not ours to change | Platterpus (R52) |
 | 15 | Secure reading | Secure mode | libcdio-paranoia, full mode | Equal | — | — |
 | 16 | Accurate stream | Setting, logged | The drive's declaration read and shown, "not measured" (`59f4e331`) | Equal on what can be known | Say whether paranoia's read path depends on it; if so, refuse a drive that declares it unsupported | The fork |
-| 17 | Cache defeat | Setting, logged | Measured when the user runs *Analyze cache* | Behind on the default | Measure once per drive in setup | Platterpus (R53) |
+| 17 | Cache defeat | Setting, logged | Measured once per drive, by itself, when *Set up drive* opens with an audio CD in (built 2026-11-12); before, only when the user ran *Analyze cache* | Equal once measured, in code; the rig has not confirmed it | Confirm on the rig that it starts and that *Skip check* and Close kill it | Platterpus (R53) |
 | 18 | C2 | Off by the guides | Not used; logged where the drive reports | Equal | — | — |
 | 19 | Read offset | Set by the user | From AccurateRip's list, checked every rip | Better | — | — |
 | 20 | Read speed | "Allow speed reduction" | This drive takes no speed setting; the ladder re-reads | Equal on this drive | Test on a drive that takes `-S` | The owner's hardware |

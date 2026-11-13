@@ -309,6 +309,28 @@ def test_a_drives_read_rate_survives_the_store_and_an_old_file_has_none(
 def test_store_missing_file_is_empty(tmp_path: Path) -> None:
     store = DriveProfileStore.load(tmp_path / "nope.json")
     assert store.all() == []
+    assert store.global_offset_moved is False
+
+
+def test_the_global_offset_moved_mark_survives_a_save_and_a_v1_file_lacks_it(
+    tmp_path: Path,
+) -> None:
+    """Schema v2 (2026-11-12): the mark that the single global offset of older
+    versions has been handed to its drive. A v1 file has none, which must read as
+    "not moved yet"; anything but a real JSON true reads the same, because the
+    move is safe to repeat and a wrongly-skipped move is not."""
+    path = tmp_path / "drive_profiles.json"
+    path.write_text('{"schema_version": 1, "profiles": {}}')
+    assert DriveProfileStore.load(path).global_offset_moved is False
+    path.write_text(
+        '{"schema_version": 2, "global_offset_moved": "yes", "profiles": {}}'
+    )
+    assert DriveProfileStore.load(path).global_offset_moved is False
+
+    store = DriveProfileStore.load(path)
+    store.global_offset_moved = True
+    store.save()
+    assert DriveProfileStore.load(path).global_offset_moved is True
 
 
 def test_store_corrupt_json_is_empty_and_leaves_file(tmp_path: Path) -> None:

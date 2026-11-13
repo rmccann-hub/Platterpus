@@ -9,11 +9,12 @@ signal wiring rely on that). ``MainWindow`` inherits this; methods run with
 The read offset is what makes a rip bit-perfect, so this group is load-bearing:
 it resolves the offset from the bundled AccurateRip list by drive model
 (`_auto_apply_known_offset`, the disc-free primary path), runs the wizard for
-the unknown-drive case (`_on_drive_setup` → `DriveSetupDialog`), records a
-hand-entered value as the GUI's `--offset` override (`_set_read_offset_override`
-— the single place that marks "offset configured", KDD-15, so the offset has
-one home: the GUI's own config), and diagnoses the no-drive case (permission
-vs. no device).
+the unknown-drive case (`_on_drive_setup` → `DriveSetupDialog`), saves every
+offset into the SELECTED drive's profile (`_set_read_offset_override` — the
+single write path, KDD-15), answers "which offset does the next rip use?" for
+the selected drive (`_selected_drive_offset`, which delegates to
+`offset_config.offset_for_drive`; since 2026-11-12 each drive keeps its own),
+and diagnoses the no-drive case (permission vs. no device).
 
 It also gets the disc in the drive READ without the user: the media poll
 (`_poll_disc_media`, an insertion or removal) and the bounded automatic retry
@@ -42,7 +43,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 if TYPE_CHECKING:  # the type only; the module is imported where it is used
     from platterpus.rip_estimate import ReadRate
 
-from platterpus import drive_media, exit_work
+from platterpus import cache_check_plan, drive_media, exit_work
 from platterpus.disc_probe_retry import (
     AUTO_RETRY_DELAY_MS,
     READ_NOW,
@@ -69,7 +70,13 @@ from platterpus.drive_profiles import (
     read_drive_identity,
     reconcile_offset,
 )
-from platterpus.offset_config import is_offset_configured
+from platterpus.offset_config import (
+    MOVE_WAIT,
+    DriveOffset,
+    is_offset_configured,
+    move_global_offset,
+    offset_for_drive,
+)
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui import message_boxes
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
@@ -107,14 +114,31 @@ class DriveMixin(MainWindowShared):
                     drive_label,
                     known_offset,
                 )
+        # The automatic cache check (TASKS R53): whether this drive still needs
+        # its verdict, whether an audio CD has been read, and whether anything
+        # else is reading the drive right now. The dialog decides with
+        # `cache_check_plan.decide_auto_check`; a descriptor-less selection says
+        # nothing (None), so nothing starts by itself.
+        cache_verdict: str | None = None
+        if drive is not None:
+            cache_verdict = cache_check_plan.verdict_state(
+                self._drive_profiles.get(self._fingerprint_for(drive)[0]),
+                getattr(drive, "release", ""),
+            )
+        # This drive's own saved offset prefills the form (else 0); another
+        # drive's value must never appear here as if it were this one's.
+        saved = self._selected_drive_offset().record
         dialog = DriveSetupDialog(
             self._backend,
             device,
             self,
-            current_offset=self._config.read_offset,
+            current_offset=saved.value if saved is not None else 0,
             known_offset=known_offset,
             drive_label=drive_label,
             offset_applied=self._config.override_read_offset,
+            cache_verdict=cache_verdict,
+            audio_disc_present=self._current_num_tracks > 0,
+            drive_busy=self._drive_is_busy_for_setup(),
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
         # The Apply tick-box moved here from Settings (2026-09-24): the offset
@@ -124,18 +148,25 @@ class DriveMixin(MainWindowShared):
         # high confidence). Provenance only — the offset itself is saved to
         # Platterpus config by the manual-save path.
         dialog.detection_recorded.connect(self._on_detection_recorded)
-        dialog.exec()
+        self._drive_setup_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._drive_setup_dialog = None
 
     def _should_offer_drive_setup(self) -> bool:
         """True when we should auto-offer calibration on first run.
 
-        Only when (a) we haven't offered before and (b) no read offset is
-        configured (our --offset override is off — see offset_config.py).
-        A bit-perfect rip needs one, so a fresh user is otherwise stuck.
+        Only when (a) we haven't offered before and (b) the selected drive has no
+        read offset that will reach the ripper (`offset_config.offset_for_drive`).
+        A bit-perfect rip needs one, so a fresh user is otherwise stuck. (Every
+        user who ran an earlier version was offered this once already —
+        ``drive_setup_prompted`` — so moving offsets per drive offers nothing new
+        to them.)
         """
         if self._config.drive_setup_prompted:
             return False
-        return not is_offset_configured(self._config.override_read_offset)
+        return not is_offset_configured(self._selected_drive_offset())
 
     def _maybe_offer_drive_setup(self) -> None:
         """Show the one-time, dismissible first-run calibration offer."""
@@ -150,8 +181,12 @@ class DriveMixin(MainWindowShared):
             "Set up your drive",
             "Your drive's read offset isn't configured yet — it's needed for "
             "a bit-perfect rip. Set it up now?\n\n"
-            "You can auto-detect it (insert a popular commercial CD) or enter "
-            "it by hand. You can also do this later from Tools → Setup & Updates… → Set up drive….",
+            # cyanrip has no offset finder wired in (TASKS R150), so this says
+            # what setup does: the AccurateRip list value, or one typed by hand.
+            "If AccurateRip's drive list has your drive, its offset is filled "
+            "in for you; otherwise you enter it by hand. With an audio CD in "
+            "the drive, setup also checks the drive's audio cache by itself. "
+            "You can also do this later from Tools → Setup & Updates… → Set up drive….",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -159,18 +194,13 @@ class DriveMixin(MainWindowShared):
             self._on_drive_setup()
 
     def _on_manual_offset_saved(self, value: int) -> None:
-        """Store a hand-entered read offset as the GUI's --offset override."""
-        self._set_read_offset_override(value)
-        log.info("manual read offset saved: %+d", value)
-        # Record the provenance: a deliberate user entry (MANUAL always wins in
-        # the ledger). This does not change the override behaviour above.
-        drive = self._drive_picker.current_drive()
-        if drive is not None:
-            self._record_drive_fact(
-                drive, offset_value=value, source=OffsetSource.MANUAL
-            )
-        # Refresh the trust line for the selected drive so it reflects the save.
-        self._refresh_drive_profile_display()
+        """Save a hand-entered read offset for the selected drive.
+
+        Recorded as MANUAL — a deliberate user entry, which always wins in the
+        ledger (`reconcile_offset`), so the value typed is the value applied.
+        """
+        if self._set_read_offset_override(value, OffsetSource.MANUAL):
+            log.info("manual read offset saved: %+d", value)
 
     def _on_detection_recorded(self, result: object) -> None:
         """Persist a wizard auto-detect result and record its provenance.
@@ -188,33 +218,41 @@ class DriveMixin(MainWindowShared):
         offset = getattr(result, "offset", None)
         cache = getattr(result, "can_defeat_cache", None)
         if isinstance(offset, int):
-            # Save it as the offset every rip will use (cyanrip's -s).
-            self._set_read_offset_override(offset)
-        self._record_drive_fact(
-            drive,
-            offset_value=offset if isinstance(offset, int) else None,
-            source=OffsetSource.OFFSET_FIND,
-            cache_defeat=cache if isinstance(cache, bool) else None,
-        )
+            # Save it for this drive (cyanrip's -s for its rips).
+            self._set_read_offset_override(offset, OffsetSource.OFFSET_FIND)
+        if isinstance(cache, bool):
+            # The note "the check has not run" is no longer true.
+            self._show_cache_check_note(None)
+            self._record_drive_fact(
+                drive, source=OffsetSource.OFFSET_FIND, cache_defeat=cache
+            )
         self._refresh_drive_profile_display()
 
-    def _set_read_offset_override(self, value: int) -> bool:
-        """Persist `value` as the GUI's `--offset` override and push it into the
-        rip controls. This is the single place that records "the offset is now
-        configured" (KDD-15), so the offset has one home: the GUI's own config.
+    def _set_read_offset_override(
+        self, value: int, source: OffsetSource = OffsetSource.MANUAL
+    ) -> bool:
+        """Save `value` as the SELECTED drive's read offset and switch offsets on.
 
-        Returns True when the value was accepted. It is validated here against
-        the *same* bounds the Settings dialog enforces
-        (:data:`settings_validation.OFFSET_MIN` / ``OFFSET_MAX``) because this
-        method — not Settings — is the write path for all three offset sources:
-        the hand-entered wizard value, the auto-detected one, and the
-        AccurateRip lookup overlaid from the user-editable
-        ``drive_offsets.csv`` (whose parser accepts any ``-?\\d+``, unbounded).
-        None of them went through the validator, so an absurd offset could be
-        persisted, reach ``cyanrip -s``, and then be silently reset to 0 by the
-        next startup's ``_sanitized()`` — leaving the *following* session
-        ripping at the wrong offset with only a log line. Refusing it at the one
-        write path fixes all three (audit finding, 2026-07-28).
+        The single write path for a read offset (KDD-15): the hand-entered
+        wizard value, the auto-detected one, the AccurateRip lookup, an accepted
+        correction, and the script verbs all come here. Since 2026-11-12 the
+        value goes into the selected drive's profile — the record a rip on that
+        drive applies (`offset_config.offset_for_drive`) — through the ledger's
+        writer, with `source` as its provenance. ``Config.read_offset`` is
+        written too, as the value most recently saved for a drive, so an older
+        Platterpus reading this config still finds a sane number; no rip reads it.
+
+        Returns True when the value was accepted. Refused, and said:
+
+        * **out of range** — validated against the *same* bounds the Settings
+          dialog enforces (:data:`settings_validation.OFFSET_MIN` / ``OFFSET_MAX``),
+          because the AccurateRip lookup is overlaid from the user-editable
+          ``drive_offsets.csv`` (whose parser accepts any ``-?\\d+``, unbounded)
+          and an absurd value once persisted, reached ``cyanrip -s``, and was
+          then silently reset to 0 at the next startup (audit, 2026-07-28);
+        * **no drive selected** — an offset belongs to one drive, and saving one
+          for no drive would either reach no rip or, as the single global value
+          once did, every drive's.
         """
         if not isinstance(value, int) or isinstance(value, bool):
             log.error("refusing a non-integer read offset: %r", value)
@@ -228,13 +266,100 @@ class DriveMixin(MainWindowShared):
             )
             self._show_offset_rejected(value)
             return False
-        self._config.read_offset = value
+        drive = self._drive_picker.current_drive()
+        if drive is None:
+            log.error("refusing read offset %+d: no drive is selected", value)
+            message_boxes.warning(
+                self,
+                "Select a drive first",
+                f"The read offset {value:+d} was not saved: a read offset belongs "
+                "to one drive, and no drive is selected. Select the drive, then "
+                "save it again.",
+            )
+            return False
+        self._record_drive_fact(drive, offset_value=value, source=source)
+        # What the drive now holds. The ledger's agreement rule
+        # (`reconcile_offset`) keeps a deliberate or confirmed record over a
+        # disagreeing AUTOMATIC source, so this can differ from `value`; MANUAL
+        # always wins, so a value the user typed is always the one held.
+        held = self._selected_drive_offset().record
+        applied = held.value if held is not None else value
+        if held is not None and applied != value:
+            log.warning(
+                "read offset %+d (%s) not saved over the %+d already recorded "
+                "for this drive (%s); the drive keeps %+d",
+                value,
+                source.value,
+                applied,
+                describe_source(held.source),
+                applied,
+            )
+        # The mirror only ever holds a value Settings would accept: a held record
+        # outside the range (a hand-edited profile) is not copied into config.
+        if OFFSET_MIN <= applied <= OFFSET_MAX:
+            self._config.read_offset = applied
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
-        self._save_config_or_report(f"The read offset {value:+d}", tell_user=True)
-        # Setup & Updates shows the offset beside Set up drive…; keep it true.
+        self._save_config_or_report(f"The read offset {applied:+d}", tell_user=True)
+        # Setup & Updates shows the offset beside Set up drive…; keep it true,
+        # and the drive's trust line with it.
         self._refresh_setting_views()
+        self._refresh_drive_profile_display()
         return True
+
+    def _selected_drive_offset(self) -> DriveOffset:
+        """Which read offset the next rip on the SELECTED drive applies.
+
+        The window's one caller of `offset_config.offset_for_drive`: the Start
+        gate, the argv, the displays and the script verbs all ask here, so none
+        of them can answer from a different key (a global value, another drive).
+        Hands the old global offset to its drive first, once
+        (`_move_global_offset_once`), so the answer for an existing user is the
+        one their rips already had.
+        """
+        drive = self._drive_picker.current_drive()
+        if drive is None:
+            return offset_for_drive(
+                None,
+                apply_offsets=self._config.override_read_offset,
+                drive_selected=False,
+            )
+        fingerprint, _serial, _wwn = self._fingerprint_for(drive)
+        self._move_global_offset_once(fingerprint)
+        profile = self._drive_profiles.get(fingerprint)
+        return offset_for_drive(
+            profile.offset if profile is not None else None,
+            apply_offsets=self._config.override_read_offset,
+        )
+
+    def _move_global_offset_once(self, fingerprint: str) -> None:
+        """Hand the single global offset of older versions to its drive, once.
+
+        `fingerprint` is the selected drive's. Which drive inherits, and why, is
+        decided by `offset_config.plan_global_offset_move` (pure, tested on its
+        own): a drive whose profile already records the global value keeps it as
+        its own and nobody inherits; otherwise the selected drive — the one that
+        has been ripping at it — does. The "done" mark is saved in the same file,
+        in the same write, so a crash cannot leave the move half-made.
+
+        The store is changed by `offset_config.move_global_offset`, not through
+        `_record_drive_fact`, because that writer calls this first; it is the
+        ledger's second writer, the only one that may replace a record without
+        `reconcile_offset`. Saved here, on the GUI thread like every ledger
+        write: one small JSON file.
+        """
+        store = self._drive_profiles
+        if store.global_offset_moved:
+            return
+        plan = move_global_offset(
+            store,
+            fingerprint,
+            override_read_offset=self._config.override_read_offset,
+            read_offset=self._config.read_offset,
+            now_iso=self._now_iso(),
+        )
+        if plan != MOVE_WAIT:
+            store.save()
 
     def _show_offset_rejected(self, value: int) -> None:
         """Tell the user why an offset was refused — never fail silently."""
@@ -249,11 +374,18 @@ class DriveMixin(MainWindowShared):
         )
 
     def _auto_apply_known_offset(self) -> bool:
-        """If the selected drive's offset is known (AccurateRip list), apply it
-        and return True so the rip can proceed — no wizard, asked at most once.
+        """Give the selected drive its AccurateRip-list offset, when it is listed.
 
-        Returns False when there's no selected drive or its offset is unknown,
-        so the caller falls back to the set-up-your-drive prompt.
+        Called by Start when the drive has no offset that will reach the ripper.
+        Records the list value in THIS drive's profile and switches offsets on,
+        then returns True only if the drive now has an offset the rip will
+        apply. Returns False when there's no selected drive or its model is not
+        listed, so the caller stops and offers the drive-setup wizard — never
+        another drive's value.
+
+        If the drive already holds a deliberate value (typed by hand, or
+        confirmed by agreement) the ledger keeps it over the list's, and the
+        message says which value is used and where it came from.
         """
         drive = self._drive_picker.current_drive()
         if drive is None:
@@ -262,29 +394,42 @@ class DriveMixin(MainWindowShared):
         if known is None:
             return False
         label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
-        self._set_read_offset_override(known)
-        self._record_drive_fact(
-            drive, offset_value=known, source=OffsetSource.ACCURATERIP_LIST
+        if not self._set_read_offset_override(known, OffsetSource.ACCURATERIP_LIST):
+            return False
+        decision = self._selected_drive_offset()
+        if decision.value is None:
+            return False
+        log.info(
+            "auto-applied read offset %+d for %s (AccurateRip list: %+d)",
+            decision.value,
+            label,
+            known,
         )
-        log.info("auto-applied known read offset %+d for %s", known, label)
         # Tell the user once where the value came from (and that it's editable).
+        if decision.value == known or decision.record is None:
+            origin = "from the AccurateRip drive list — no setup needed"
+        else:
+            origin = (
+                "the offset saved for this drive "
+                f"({describe_source(decision.record.source)}); the AccurateRip "
+                f"drive list says {known:+d}"
+            )
         message_boxes.information(
             self,
             "Read offset set automatically",
-            f"Using read offset {known:+d} for {label}, from the AccurateRip "
-            "drive list — no setup needed. You can change it any time in "
-            "Settings or Tools → Setup & Updates… → Set up drive….",
+            f"Using read offset {decision.value:+d} for {label}, {origin}. You "
+            "can change it any time in Tools → Setup & Updates… → Set up drive….",
         )
         return True
 
-    # --- Drive-profile ledger (provenance + trust display, KDD-23) ----------
+    # --- Drive-profile ledger (per-drive offsets + trust display, KDD-23) ----
     #
-    # A record/display/guard layer keyed by a stable hardware fingerprint. It
-    # NEVER decides which offset a rip uses — the --offset override above
-    # stays authoritative. It records where each learned offset
-    # came from + how sure we are, and surfaces collision/drift warnings so a
-    # silent wrong-offset rip becomes visible. The single writer is
-    # `_record_drive_fact`; no other code touches the store.
+    # Keyed by a stable hardware fingerprint. Since 2026-11-12 the selected
+    # drive's record IS the offset a rip applies (`_selected_drive_offset`). It
+    # also records where each learned offset came from + how sure we are, and
+    # surfaces collision/drift warnings so a wrong-offset rip becomes visible.
+    # The writer is `_record_drive_fact` (plus the one-time move of the old
+    # global offset, `_move_global_offset_once`, which it calls first).
 
     def _now_iso(self) -> str:
         """Current UTC time as an ISO-8601 string (overridable in tests)."""
@@ -396,10 +541,16 @@ class DriveMixin(MainWindowShared):
         new offset fact via the agreement-based model (`reconcile_offset`): two
         independent sources agreeing promote to CONFIRMED/HIGH, while a
         disagreeing automatic source never clobbers a manual or already-confirmed
-        value. Stamps last-seen and saves atomically. Never changes which offset
-        a rip uses.
+        value. Stamps last-seen and saves atomically. Never touches the config:
+        the record IS the drive's offset (`_selected_drive_offset`), and the
+        config's mirror is written by `_set_read_offset_override` alone.
+
+        The old global offset is handed to its drive first
+        (`_move_global_offset_once`): a record written before the move would be
+        mistaken by it for where the global value came from.
         """
         fingerprint, serial, wwn = self._fingerprint_for(drive)
+        self._move_global_offset_once(fingerprint)
         existing = self._drive_profiles.get(fingerprint)
         now = self._now_iso()
 
@@ -415,9 +566,15 @@ class DriveMixin(MainWindowShared):
 
         new_cache = existing.cache_defeat if existing else None
         new_cache_source = existing.cache_defeat_source if existing else None
+        new_cache_release = existing.cache_defeat_release if existing else ""
         if cache_defeat is not None:
             new_cache = cache_defeat
             new_cache_source = source
+            # The firmware it was measured under, kept beside the verdict: a
+            # firmware update later is the one thing that re-runs the automatic
+            # check (`cache_check_plan.verdict_state`), and `release` below is
+            # overwritten on every sighting so it cannot tell us.
+            new_cache_release = getattr(drive, "release", "") or ""
 
         # Built FROM the existing profile, so a field this writer does not set
         # survives it. It used to build a fresh DriveProfile, and `read_rate`
@@ -438,6 +595,7 @@ class DriveMixin(MainWindowShared):
                 offset=new_offset,
                 cache_defeat=new_cache,
                 cache_defeat_source=new_cache_source,
+                cache_defeat_release=new_cache_release,
                 last_seen_device=getattr(drive, "device", ""),
                 last_seen_at=now,
             )
@@ -681,6 +839,8 @@ class DriveMixin(MainWindowShared):
         # The measured cache-defeat verdict (cd-paranoia -A, recorded per drive —
         # KDD-29). Drive-derived like the offset, so it's refreshed here too.
         self._disc_info_panel.set_drive_cache_defeat(_format_cache_defeat(existing))
+        # Setup & Updates shows THIS drive's offset; a drive change changes it.
+        self._refresh_setting_views()
 
     # --- Slots: drive-access diagnostics -----------------------------------
 
@@ -847,7 +1007,7 @@ def _format_cache_defeat(profile: DriveProfile | None) -> str:
     than implying a verdict. Pure; safe to call with no profile.
     """
     if profile is None or profile.cache_defeat is None:
-        return "not measured yet — Set up drive → Analyze cache"
+        return "not measured yet — runs in Set up drive with an audio CD in"
     if profile.cache_defeat:
         return "Yes — cache defeated on re-read (measured, cd-paranoia)"
     return "No — drive returns cached audio on re-read (measured, cd-paranoia)"
