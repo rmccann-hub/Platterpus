@@ -213,9 +213,12 @@ class RipControls(QWidget):
             # Adaptive read-speed ladder (0.4.6), carried from Settings.
             read_speed_mode=self._config.read_speed_mode,
             read_speed=self._config.read_speed,
-            read_offset_override=(
-                self._config.read_offset if self._config.override_read_offset else None
-            ),
+            # No read offset here: it belongs to the DRIVE (one per drive since
+            # 2026-11-12), which these controls know only by its device node. The
+            # window fills it in at Start from that drive's profile
+            # (`_selected_drive_offset`), so the global config value can never
+            # reach cyanrip's -s by this route.
+            read_offset_override=None,
             output_format=self._config.output_format,
         )
         self.rip_requested.emit(params)

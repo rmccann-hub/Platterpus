@@ -133,9 +133,16 @@ class SetupCenterDialog(CenteredDialog):
         actions: dict[str, Callable[[], object]],
         config: Config,
         save_setting: Callable[[str, object], SettingWrite],
+        drive_offset: Callable[[], offset_config.DriveOffset] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Setup & Updates")
+        # Reads what the next rip on the SELECTED drive applies (the window's
+        # `_selected_drive_offset`). A reader, not a value: the offset is per
+        # drive, so it changes when the drive does, and every refresh asks again.
+        self._drive_offset: Callable[[], offset_config.DriveOffset] | None = (
+            drive_offset
+        )
         # NOT modal — see the module docstring. Its buttons open modal dialogs,
         # and a modal parent would nest every one of them inside this window's
         # event loop.
@@ -396,7 +403,7 @@ class SetupCenterDialog(CenteredDialog):
             self._settings_status.setText("")
 
     def refresh_settings(self, config: Config) -> None:
-        """Show ``config``'s channels and read offset. Changes nothing.
+        """Show ``config``'s channels and the selected drive's read offset.
 
         Called at construction and by the window whenever a setting this window
         displays changes elsewhere (a script's ``set``, a drive-wizard save), so
@@ -410,10 +417,17 @@ class SetupCenterDialog(CenteredDialog):
             box.blockSignals(True)
             box.setChecked(channel == CHANNEL_BETA)
             box.blockSignals(False)
-        applied = offset_config.describe_applied_offset(
-            config.read_offset, config.override_read_offset
+        decision = (
+            self._drive_offset()
+            if self._drive_offset is not None
+            else offset_config.offset_for_drive(
+                None,
+                apply_offsets=config.override_read_offset,
+                drive_selected=False,
+            )
         )
-        marker = _INFO if config.override_read_offset else _WARN
+        applied = offset_config.describe_applied_offset(decision)
+        marker = _INFO if offset_config.is_offset_configured(decision) else _WARN
         self._offset_label.setText(f"{marker} Read offset: {applied}")
 
     def _on_channel_toggled(self, field: str, box: QCheckBox, beta: bool) -> None:

@@ -110,6 +110,7 @@ if TYPE_CHECKING:
     from platterpus.drive_media import MediaWatcher
     from platterpus.drive_profile_store import DriveProfileStore
     from platterpus.drive_profiles import OffsetSource
+    from platterpus.offset_config import DriveOffset
     from platterpus.parsers.rip_log import RereadAgreement, RipLog
     from platterpus.read_speed_ladder import SpeedAttempt
     from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlock
@@ -528,7 +529,10 @@ class MainWindowShared(_SeamBase):
         def _on_offset_applied_changed(self, applied: bool) -> None: ...
 
         # Defined in DriveMixin (main_window_drive.py):
-        def _set_read_offset_override(self, value: int) -> bool: ...
+        def _set_read_offset_override(
+            self, value: int, source: OffsetSource = ...
+        ) -> bool: ...
+        def _selected_drive_offset(self) -> DriveOffset: ...
         def _refresh_drive_profile_display(self) -> None: ...
         def _record_drive_fact(
             self,

@@ -32,6 +32,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from test_uiscript_rip_verbs import _step_outcome, _window
 
 from platterpus.config import Config
+from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
+from platterpus.offset_config import DriveOffset, offset_for_drive
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.ui import message_boxes
 from platterpus.ui.main_window_drive import DriveMixin
@@ -113,8 +115,29 @@ def _offset_window(drive: DriveDescriptor | None, **overrides: Any) -> Any:
         win._config = dataclasses.replace(win._config, **{field: value})
         return SettingWrite(True)
 
-    def set_read_offset_override(value: int) -> bool:
+    # The selected drive's own saved offset (its profile, one per drive since
+    # 2026-11-12): the drive was set up at +667, so the switch is all the verb
+    # turns off, and the real gate reads the drive's offset through the real rule.
+    saved = {"value": 667 if drive is not None else None}
+
+    def selected_drive_offset() -> DriveOffset:
+        value = saved["value"]
+        record = (
+            OffsetRecord(value, OffsetSource.MANUAL, Confidence.MEDIUM)
+            if value is not None
+            else None
+        )
+        return offset_for_drive(
+            record,
+            apply_offsets=win._config.override_read_offset,
+            drive_selected=drive is not None,
+        )
+
+    def set_read_offset_override(
+        value: int, source: OffsetSource = OffsetSource.MANUAL
+    ) -> bool:
         win.writes.append(("override", value))
+        saved["value"] = value
         win._config = dataclasses.replace(
             win._config, read_offset=value, override_read_offset=True
         )
@@ -122,6 +145,8 @@ def _offset_window(drive: DriveDescriptor | None, **overrides: Any) -> Any:
 
     win._save_user_setting = save_user_setting
     win._set_read_offset_override = set_read_offset_override
+    win._selected_drive_offset = selected_drive_offset
+    win.saved = saved
     win._auto_apply_known_offset = lambda: DriveMixin._auto_apply_known_offset(win)
     win._on_drive_setup = lambda: setattr(win, "setup_opened", win.setup_opened + 1)
     win._record_drive_fact = lambda *a, **k: None
@@ -223,10 +248,16 @@ def test_on_an_unlisted_drive_the_real_refusal_is_answered_and_the_override_rest
     assert real_warning == [OFFSET_REFUSAL_TITLE], "the real gate never refused"
     assert win._rip_controls.pressed == 1
     assert win.setup_opened == 0, "the wizard opened in an unattended run"
-    # Off, then back on at the same offset: both halves, in that order.
-    assert win.writes == [("override_read_offset", False), ("override", 667)]
+    # Off, then back on, through the one switch: both halves, in that order.
+    # The drive's own offset is never re-written (2026-11-12): re-saving it
+    # through the offset writer would stamp it as a hand entry on this drive.
+    assert win.writes == [
+        ("override_read_offset", False),
+        ("override_read_offset", True),
+    ]
+    assert win.saved["value"] == 667
     assert win._config.override_read_offset and win._config.read_offset == 667
-    assert "put back on at +667" in step.detail
+    assert "put back on" in step.detail
 
 
 def test_a_rip_that_starts_with_the_override_off_fails_and_is_cancelled(

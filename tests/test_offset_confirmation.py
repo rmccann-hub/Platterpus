@@ -4,7 +4,11 @@ The RipMixin helper `_confirm_offset_from_accuraterip` is exercised against a
 tiny fake `self` (no full MainWindow), the same lightweight pattern as the
 cache-defeat wiring tests. The rule under test: a rip that matched AccurateRip
 records the applied offset as an independent ACCURATERIP_CONFIRMED fact, and
-only then — never for a no-match rip, and never when no offset override applies.
+only then — never for a no-match rip, and never when no offset was applied.
+
+The value recorded is the one THIS rip handed cyanrip (`_last_read_offset_effective`),
+never a setting read back afterwards: since 2026-11-12 each drive has its own
+offset, and the global config value is not what a rip used.
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ def _unmatched_track() -> TrackResult:
     )
 
 
-def _fake_window(*, override: bool, offset: int = 667):
+def _fake_window(*, override: bool, offset: int = 667, config_offset: int = 0):
     recorded: list[dict] = []
     drive = SimpleNamespace(vendor="PIONEER", model="BDR-209D", device="/dev/sr0")
 
@@ -42,7 +46,12 @@ def _fake_window(*, override: bool, offset: int = 667):
         recorded.append({"offset_value": offset_value, "source": source})
 
     window = SimpleNamespace(
-        _config=SimpleNamespace(override_read_offset=override, read_offset=offset),
+        # The config's global value deliberately differs from what the rip
+        # applied, so a confirmation recording the config would be caught.
+        _config=SimpleNamespace(
+            override_read_offset=override, read_offset=config_offset
+        ),
+        _last_read_offset_effective=offset if override else None,
         _drive_picker=SimpleNamespace(current_drive=lambda: drive),
         _record_drive_fact=record,
         _refresh_drive_profile_display=lambda: None,
@@ -70,7 +79,7 @@ def test_no_confirmation_when_nothing_matched() -> None:
 
 
 def test_no_confirmation_without_an_offset_override() -> None:
-    # No explicit offset applied → nothing to attribute to this drive.
+    # No offset handed to cyanrip → nothing to attribute to this drive.
     window = _fake_window(override=False)
     RipMixin._confirm_offset_from_accuraterip(
         window, RipLog(tracks=(_verified_track(),))

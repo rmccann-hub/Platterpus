@@ -47,7 +47,13 @@ from platterpus.config import Config
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_access import DriveAccessDiagnosis
-from platterpus.drive_profiles import OffsetSource, compute_fingerprint
+from platterpus.drive_profiles import (
+    Confidence,
+    DriveProfile,
+    OffsetRecord,
+    OffsetSource,
+    compute_fingerprint,
+)
 from platterpus.error_positions import NOTE
 from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -1082,19 +1088,18 @@ def test_auto_apply_known_offset_for_known_drive(
     (no wizard) — the user's Pioneer resolves to +667."""
     saved: list[Config] = []
     window = teardown_threads(save_cfg=saved.append)
-    monkeypatch.setattr(
-        window._drive_picker,
-        "current_drive",
-        lambda: DriveDescriptor(
-            device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
-        ),
-    )
+    _pin_pioneer(window, monkeypatch)
     monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     assert window._auto_apply_known_offset() is True
     assert window._config.override_read_offset is True
     assert window._config.read_offset == 667
     assert saved and saved[-1].read_offset == 667
+    # Recorded for THIS drive, from the list: the record a rip on it applies.
+    decision = window._selected_drive_offset()
+    assert decision.value == 667
+    assert decision.record is not None
+    assert decision.record.source is OffsetSource.ACCURATERIP_LIST
 
 
 # --- Drive-profile ledger wiring (UX gap #6, KDD-23) ------------------------
@@ -1306,11 +1311,12 @@ def test_detection_recorded_records_offset_find_and_cache(
 def test_record_drive_fact_does_not_mutate_config(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The load-bearing guarantee: the ledger is NOT a second offset authority.
+    """Recording a fact never touches Config.read_offset / override.
 
-    Recording a fact must never touch Config.read_offset / override (the
-    configured offset and the --offset override stay the only authorities —
-    KDD-23).
+    Since 2026-11-12 the drive's record IS its offset, and the config's
+    ``read_offset`` is only a mirror that `_set_read_offset_override` alone
+    writes; the master switch is the user's. A recorder that wrote either would
+    be a second writer of the same fact (KDD-23 as amended).
     """
     saved: list[Config] = []
     window = teardown_threads(save_cfg=saved.append)
@@ -1519,9 +1525,19 @@ def test_rip_self_heals_untrusted_wrong_offset(
     backend, rip_kwargs = _fake_rip_backend()
     window = teardown_threads(backend=backend)
     _pin_pioneer(window, monkeypatch)
+    # The stale record as an older version left it, written straight into the
+    # store: the window's own writer would first hand the global offset over.
+    window._drive_profiles.upsert(
+        DriveProfile(
+            fingerprint=_PIONEER_FP,
+            vendor="PIONEER",
+            model="BD-RW  BDR-209D",
+            offset=OffsetRecord(0, OffsetSource.OFFSET_FIND, Confidence.MEDIUM),
+        )
+    )
     window._config.override_read_offset = True
     window._config.read_offset = 0  # the bogus value the old detection saved
-    window._record_drive_fact(_PIONEER, offset_value=0, source=OffsetSource.OFFSET_FIND)
+    assert window._selected_drive_offset().value == 0  # floor: the bogus value is live
     monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     monkeypatch.setattr(
         "platterpus.ui.message_boxes.warning",
@@ -5887,15 +5903,46 @@ def test_force_stop_button_stops_timer_and_fires(teardown_threads, monkeypatch) 
     assert len(calls) == 1
 
 
-def test_manual_offset_saved_sets_override(teardown_threads) -> None:
+def test_manual_offset_saved_sets_override(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
     saved: list[Config] = []
     window = teardown_threads(config=Config(), save_cfg=saved.append)
+    _pin_pioneer(window, monkeypatch)
 
     window._on_manual_offset_saved(667)
 
+    # The drive's own record is what a rip applies (2026-11-12) …
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.offset is not None
+    assert (profile.offset.value, profile.offset.source) == (667, OffsetSource.MANUAL)
+    assert window._selected_drive_offset().value == 667
+    # … and the config keeps the value most recently saved, switched on.
     assert window._config.read_offset == 667
     assert window._config.override_read_offset is True
     assert saved and saved[-1].read_offset == 667
+
+
+def test_an_offset_is_not_saved_when_no_drive_is_selected(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A read offset belongs to one drive; with none selected it is refused, said,
+    and nothing is written — never stored as a value every drive would get."""
+    saved: list[Config] = []
+    window = teardown_threads(config=Config(), save_cfg=saved.append)
+    monkeypatch.setattr(window._drive_picker, "current_drive", lambda: None)
+    warned: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.message_boxes.warning",
+        lambda _parent, title, *_a, **_k: warned.append(title),
+    )
+
+    assert window._set_read_offset_override(667) is False
+
+    assert warned == ["Select a drive first"]
+    assert window._config.override_read_offset is False
+    assert saved == []
+    assert window._drive_profiles.all() == []
 
 
 # --- Unified dependency dialog (items 2+6: one dialog, wizard once) --------
@@ -11069,6 +11116,10 @@ def test_an_accuraterip_match_confirms_the_applied_read_offset(
         tracks=(TrackResult(number=1, accuraterip_v2=_ar("accurately ripped", 42)),)
     )
 
+    # The offset THIS rip handed cyanrip, set by `_finish_rip` before the
+    # confirmation runs; the config is no longer what a rip used (2026-11-12).
+    window._last_read_offset_effective = 667
+
     window._confirm_offset_from_accuraterip(matched)
 
     assert facts == [(667, OffsetSource.ACCURATERIP_CONFIRMED)]
@@ -14684,6 +14735,7 @@ def test_settings_ok_does_not_revert_an_offset_saved_while_it_was_open(
         config=Config(read_offset=667, override_read_offset=True),
         save_cfg=lambda cfg: saved.append(cfg.read_offset),
     )
+    _pin_pioneer(window, monkeypatch)
 
     def exec_while_the_wizard_saves(self: settings_dialog.SettingsDialog) -> int:
         window._set_read_offset_override(6)

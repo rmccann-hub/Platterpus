@@ -388,14 +388,14 @@ Then open a new terminal.
 
 Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, the offset for your drive has to be known so cyanrip can correct for it.
 
-**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered once, at the first launch that finds the ripping setup ready and no offset set (on a fresh machine, the launch after *Set up Platterpus* finishes), or anytime from **Tools → Setup & Updates… → Set up drive…**,, which gives you two ways to get the value:
+**This is a one-time, in-app step for each drive — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus saves the offset for that drive, in `~/.config/platterpus/drive_profiles.json`, and passes it to cyanrip at rip time via the `-s` flag. Each drive keeps its own: a drive in the AccurateRip list gets its value on its first rip, and a drive the list does not carry asks to be set up rather than borrowing another drive's. You set it through the **drive-setup wizard**, offered once, at the first launch that finds the ripping setup ready and no offset set (on a fresh machine, the launch after *Set up Platterpus* finishes), or anytime from **Tools → Setup & Updates… → Set up drive…**, which gives you two ways to get the value:
 
 - **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list (e.g. `+667` for the Pioneer BDR-209D). Click **Save offset**.
 - **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if your model isn't recognised, or if you only have CD-Rs.
 
 > **Why no "detect from a disc" button?** cyanrip does have an offset finder (`-f`, which needs a disc AccurateRip knows), and on the reference drive it found the listed +667 (the 2026-10-07 run). Platterpus does not offer it yet. The drive-offset list is the reliable, disc-free source, and a rip that then verifies against AccurateRip is what confirms the offset is right for your unit.
 
-> **What about `~/.config/whipper/whipper.conf`?** That file is a leftover from older versions, if it exists at all. Platterpus no longer reads it, and neither does cyanrip — the offset lives only in Platterpus's own config, set in the drive-setup wizard. There's nothing to create or edit there, and the uninstaller removes it if present.
+> **What about `~/.config/whipper/whipper.conf`?** That file is a leftover from older versions, if it exists at all. Platterpus no longer reads it, and neither does cyanrip — the offset lives only in Platterpus's own per-drive record, set in the drive-setup wizard. There's nothing to create or edit there, and the uninstaller removes it if present.
 
 ### Step 6 — Install MusicBrainz Picard *(optional)*
 

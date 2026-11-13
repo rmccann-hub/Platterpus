@@ -568,24 +568,23 @@ class RipMixin(MainWindowShared):
     def _on_rip_requested(self, params: RipParameters) -> None:
         """User clicked Start. Validate, then start the worker thread."""
         # A read offset is mandatory: an accurate offset is what makes the rip
-        # bit-perfect. If our own --offset override has none (the one source a
-        # rip reads — see offset_config.py), stop here and point the user at
-        # the drive-setup wizard rather than letting the rip start and fail.
-        # The wizard pre-fills the offset when the drive model is known;
-        # otherwise it's found from a CD that's in the AccurateRip database.
+        # bit-perfect. It is the SELECTED drive's own (`_selected_drive_offset`,
+        # one per drive since 2026-11-12): a drive with none gets its
+        # AccurateRip-list value, else the user is pointed at the drive-setup
+        # wizard — never another drive's value, which is how a second drive once
+        # ripped silently at the first one's offset.
         if (
-            not is_offset_configured(self._config.override_read_offset)
+            not is_offset_configured(self._selected_drive_offset())
             and not self._auto_apply_known_offset()
         ):
-            # No offset configured AND we don't know this drive's offset →
-            # the only case that still needs the wizard. (A known drive is
-            # auto-applied above, so the user is never blocked for it.)
+            # No offset for THIS drive AND its model is not in the list →
+            # the only case that still needs the wizard.
             answer = message_boxes.warning(
                 self,
                 "Set up your drive first",
-                "No read offset is configured for your drive, so ripping can't "
+                "No read offset is saved for this drive, so ripping can't "
                 "start — an accurate read offset is what makes the rip "
-                "bit-perfect.\n\n"
+                "bit-perfect, and each drive has its own.\n\n"
                 "Your drive is not in AccurateRip's drive list, so its offset is not "
                 "known. Open Tools → Setup & Updates… → Set up drive…, type the "
                 "offset into Read offset (samples), and click Save offset.\n\n"
@@ -597,12 +596,29 @@ class RipMixin(MainWindowShared):
                 self._on_drive_setup()
             return
 
+        drive = self._drive_picker.current_drive()
+        if drive is not None and params.drive and drive.device != params.drive:
+            # The offset is looked up for the selected drive and the rip reads
+            # `params.drive`; they are set together on a drive change, so a
+            # difference means one was missed, and ripping would pair one drive's
+            # offset with the other's audio.
+            log.error(
+                "refusing to rip: the rip is for %s but %s is selected",
+                params.drive,
+                drive.device,
+            )
+            message_boxes.warning(
+                self,
+                "Drive changed",
+                f"The rip was set up for {params.drive}, but {drive.device} is "
+                "selected now, and each drive has its own read offset. Select "
+                "the drive again, then press Start.",
+            )
+            return
         # Self-heal a stale/wrong SAVED offset before it silently ruins the rip.
-        # `is_offset_configured` is True as soon as an override exists — even if
-        # its value is wrong (e.g. a 0 left by the old, since-removed cyanrip
-        # "offset detection"). If the saved offset disagrees with the AccurateRip
-        # drive-list value for the selected drive, surface it and offer the list
-        # value.
+        # If this drive's offset disagrees with the AccurateRip drive-list value
+        # for its model (e.g. a 0 left by the old, since-removed cyanrip "offset
+        # detection"), surface it and offer the list value.
         #
         # BUT respect a *deliberate* per-unit offset: if the stored provenance is
         # MANUAL (the user typed it on purpose) or CONFIRMED (two independent
@@ -610,65 +626,46 @@ class RipMixin(MainWindowShared):
         # re-introduce the very silent-wrong-offset the ledger's own rule
         # (`reconcile_offset`) forbids, e.g. clobbering a measured +691 on one of
         # two same-model drives with the model-list +667. Only an untrusted/
-        # leftover value (a stale OFFSET_FIND, LEGACY_CONFIG, or no provenance)
-        # gets the offer.
-        drive = self._drive_picker.current_drive()
-        if self._config.override_read_offset and drive is not None:
+        # leftover value (a stale OFFSET_FIND, LEGACY_CONFIG, the carried-over
+        # GLOBAL_CONFIG) gets the offer.
+        current = self._selected_drive_offset()
+        if current.value is not None and drive is not None:
             listed = self._offset_db.lookup(drive.vendor, drive.model)
-            if listed is not None and listed != self._config.read_offset:
-                fingerprint, _serial, _wwn = self._fingerprint_for(drive)
-                stored = self._drive_profiles.get(fingerprint)
-                stored_source = (
-                    stored.offset.source
-                    if stored is not None and stored.offset is not None
-                    else None
+            stored_source = current.record.source if current.record else None
+            deliberate = stored_source in (OffsetSource.MANUAL, OffsetSource.CONFIRMED)
+            if listed is not None and listed != current.value and not deliberate:
+                label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
+                answer = message_boxes.warning(
+                    self,
+                    "Read offset disagreement",
+                    f"The saved read offset is {current.value:+d}, "
+                    f"but the AccurateRip drive list says {listed:+d} for "
+                    f"{label or 'this drive'}.\n\n"
+                    "A wrong read offset makes the rip NOT bit-perfect — it "
+                    f"won't match AccurateRip. Use the AccurateRip value "
+                    f"({listed:+d}) instead?\n\n"
+                    "Choose No only if you deliberately measured a different "
+                    "offset for this exact drive.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
                 )
-                deliberate = stored_source in (
-                    OffsetSource.MANUAL,
-                    OffsetSource.CONFIRMED,
-                )
-                if not deliberate:
-                    label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
-                    answer = message_boxes.warning(
-                        self,
-                        "Read offset disagreement",
-                        f"The saved read offset is {self._config.read_offset:+d}, "
-                        f"but the AccurateRip drive list says {listed:+d} for "
-                        f"{label or 'this drive'}.\n\n"
-                        "A wrong read offset makes the rip NOT bit-perfect — it "
-                        f"won't match AccurateRip. Use the AccurateRip value "
-                        f"({listed:+d}) instead?\n\n"
-                        "Choose No only if you deliberately measured a different "
-                        "offset for this exact drive.",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.Yes,
-                    )
-                    if answer == QMessageBox.StandardButton.Yes:
-                        self._set_read_offset_override(listed)
-                        # Record the healed value in the ledger too, so the trust
-                        # line reflects it immediately (otherwise the refresh below
-                        # re-reads the stale record and shows a now-false "the rip
-                        # will use +0" disagreement, telling the user to redo the
-                        # fix they just made). Recorded as MANUAL because accepting
-                        # this prompt IS a deliberate user choice — and MANUAL is
-                        # the one source that always wins `reconcile_offset`, so it
-                        # actually replaces the stale record (an ACCURATERIP_LIST
-                        # write would tie the incumbent's confidence and be kept
-                        # out).
-                        self._record_drive_fact(
-                            drive,
-                            offset_value=listed,
-                            source=OffsetSource.MANUAL,
-                        )
-                        self._refresh_drive_profile_display()
+                if answer == QMessageBox.StandardButton.Yes:
+                    # Recorded as MANUAL because accepting this prompt IS a
+                    # deliberate user choice — and MANUAL is the one source that
+                    # always wins `reconcile_offset`, so it actually replaces the
+                    # stale record (an ACCURATERIP_LIST write would tie the
+                    # incumbent's confidence and be kept out). The writer also
+                    # refreshes the trust line, so it stops showing a now-false
+                    # disagreement.
+                    self._set_read_offset_override(listed, OffsetSource.MANUAL)
 
-        # The offset is configured now — but `params` was built by the rip
-        # controls BEFORE any auto-apply/heal above, so it may still carry
-        # read_offset_override=None (or the pre-heal value). Inject the current
-        # config value here so cyanrip actually gets its `-s` sample offset
-        # (otherwise the rip isn't offset-corrected).
-        if self._config.override_read_offset:
-            params = replace(params, read_offset_override=self._config.read_offset)
+        # `params` was built by the rip controls, which know nothing of drives;
+        # the offset cyanrip gets (`-s`) is THIS drive's, read here, after any
+        # auto-apply or correction above. None only when the gate above was
+        # passed without an offset (a test stub), and then no `-s` is sent.
+        params = replace(
+            params, read_offset_override=self._selected_drive_offset().value
+        )
 
         # The DISC's own track count, from the scanned TOC. The backend needs it
         # to refuse an out-of-range `-t`: cyanrip rejects the whole rip on one
@@ -814,10 +811,14 @@ class RipMixin(MainWindowShared):
         #
         # `read_offset_effective` is deliberately left for the write: it is the
         # value actually handed to cyanrip, a fact about THIS rip that is not known
-        # until the worker builds the argv, so it cannot drift under us.
+        # until the worker builds the argv, so it cannot drift under us. The
+        # CONFIGURED offset is this drive's, as Start resolved it into `params`;
+        # the config's own field is no longer what a rip reads (2026-11-12).
         from platterpus import rip_report as _rr
 
-        self._rip_settings_snapshot = _rr.build_settings(self._config)
+        self._rip_settings_snapshot = _rr.build_settings(
+            self._config, read_offset_configured=params.read_offset_override
+        )
         self._rip_gate_inputs = {
             "ctdb_enabled": self._config.ctdb_verify_after_rip,
             "flac_verify_enabled": self._config.verify_flac_after_rip,
@@ -4033,15 +4034,17 @@ class RipMixin(MainWindowShared):
         matching rip. We record it as an independent ``ACCURATERIP_CONFIRMED``
         fact; when it agrees with the drive-list value already stored,
         ``reconcile_offset`` promotes the offset to CONFIRMED/HIGH. Only records
-        a real match and only when an offset override is actually applied (so the
-        recorded value is the one the rip used). Best-effort, never raises — a
+        a real match and only when an offset was actually handed to cyanrip, and
+        records THAT value — the rip's own `-s`, set by `_finish_rip` before this
+        runs — never a setting read back now. Best-effort, never raises — a
         provenance touch-up must never break the finish handler.
         """
         try:
             from platterpus.drive_profiles import OffsetSource
             from platterpus.parsers.rip_log import track_accuraterip_verified
 
-            if not self._config.override_read_offset:
+            applied = getattr(self, "_last_read_offset_effective", None)
+            if applied is None:
                 return  # no explicit offset applied → nothing to attribute
             tracks = getattr(rip_log, "tracks", ()) or ()
             if not any(track_accuraterip_verified(t) for t in tracks):
@@ -4051,7 +4054,7 @@ class RipMixin(MainWindowShared):
                 return
             self._record_drive_fact(
                 drive,
-                offset_value=self._config.read_offset,
+                offset_value=applied,
                 source=OffsetSource.ACCURATERIP_CONFIRMED,
             )
             self._refresh_drive_profile_display()
@@ -4831,8 +4834,12 @@ class RipMixin(MainWindowShared):
         effective = getattr(self, "_last_read_offset_effective", None)
         snapshot = getattr(self, "_rip_settings_snapshot", None)
         if snapshot is None:
+            # The offset a rip ran under is its drive's, which `effective` is;
+            # with no rip there is none, and the block says what the config holds.
             return rip_report.build_settings(
-                self._config, read_offset_effective=effective
+                self._config,
+                read_offset_effective=effective,
+                **({} if effective is None else {"read_offset_configured": effective}),
             )
         settings = dict(snapshot)
         if effective is not None:
@@ -4892,6 +4899,10 @@ class RipMixin(MainWindowShared):
                     self._config,
                     read_offset_effective=getattr(
                         self, "_last_read_offset_effective", None
+                    ),
+                    # This rip's drive's offset, as Start resolved it.
+                    read_offset_configured=getattr(
+                        params, "read_offset_override", None
                     ),
                 ),
                 disc=getattr(self, "_last_disc", None),

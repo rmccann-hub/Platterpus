@@ -46,7 +46,12 @@ def _default_path() -> Path:
 # Bumped when the on-disk shape changes; _migrate() upgrades older files. A
 # file from a *newer* version is treated as current (with a warning) rather
 # than crashing an older build — same tolerance as config.py.
-SCHEMA_VERSION: int = 1
+#
+# v2 (2026-11-12): the top-level ``global_offset_moved`` flag, set once the
+# single global offset of older versions has been handed to the drive it was
+# set up on (``offset_config.plan_global_offset_move``). A v1 file has no flag,
+# which reads as "not moved yet" — exactly the state such a file is in.
+SCHEMA_VERSION: int = 2
 
 
 # --- (de)serialization helpers (never raise) --------------------------------
@@ -161,8 +166,15 @@ class DriveProfileStore:
         self,
         profiles: dict[str, DriveProfile] | None = None,
         path: Path | None = None,
+        *,
+        global_offset_moved: bool = False,
     ) -> None:
         self._profiles: dict[str, DriveProfile] = dict(profiles or {})
+        # Whether the one global offset older versions applied to every drive
+        # has been handed to a drive (or found to need no hand-over). Kept in
+        # THIS file, beside the record it writes, so the move and its "done"
+        # mark land in one atomic write and can never disagree after a crash.
+        self.global_offset_moved: bool = global_offset_moved
         # Remember where we were loaded from so save() round-trips to the same
         # file without the caller having to thread the path back through.
         self._path: Path = path if path is not None else _default_path()
@@ -215,6 +227,9 @@ class DriveProfileStore:
             return cls(path=path)
 
         raw = _migrate(raw)
+        # Only a real JSON true counts; anything else (absent in a v1 file, or a
+        # corrupt value) means "not moved yet", and the move is idempotent.
+        moved = raw.get("global_offset_moved") is True
 
         profiles: dict[str, DriveProfile] = {}
         raw_profiles = raw.get("profiles")
@@ -225,7 +240,7 @@ class DriveProfileStore:
                     profiles[profile.fingerprint] = profile
                 else:
                     log.warning("dropped unusable drive profile %r", fingerprint)
-        return cls(profiles, path=path)
+        return cls(profiles, path=path, global_offset_moved=moved)
 
     def save(self, path: Path | None = None) -> None:
         """Atomically and durably write the store.
@@ -241,6 +256,7 @@ class DriveProfileStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema_version": SCHEMA_VERSION,
+            "global_offset_moved": self.global_offset_moved,
             "profiles": {
                 fp: _profile_to_dict(profile) for fp, profile in self._profiles.items()
             },
@@ -252,7 +268,8 @@ class DriveProfileStore:
 def _migrate(raw: dict[str, object]) -> dict[str, object]:
     """Upgrade an older on-disk shape to the current one. Returns `raw`.
 
-    A stub today (there is only v1), but the seam exists from day one — schema
+    v1 → v2 needs no rewrite: v2 only adds the optional ``global_offset_moved``
+    flag, whose absence already means the right thing. The seam exists from day one — schema
     migrations are cheap to add now and impossible to retrofit. A file claiming
     a *newer* version is treated as current with a warning, never a crash.
 
