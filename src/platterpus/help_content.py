@@ -452,8 +452,11 @@ two independent sources agree"). If two identical drives are connected, or the
 recorded offset disagrees with the offset that will be applied, a warning
 appears there so a wrong offset can't pass unnoticed.
 
-The wizard can also **Analyze cache**: with an audio CD in the drive, it measures
-whether your drive returns *cached* audio on a re-read. Defeating that cache is
+The wizard also measures your drive's **audio cache**, by itself, once per
+drive: the first time it opens with an audio CD in the drive (or as soon as you
+insert one while it is open), it checks whether your drive returns *cached* audio
+on a re-read. It takes a few minutes; **Skip check** stops it, and
+**Re-analyze cache** runs it again later. Defeating that cache is
 what makes a re-read actually reach the disc — the guarantee behind bit-perfect
 verification. The measured Yes/No is saved per drive, shown in the disc panel's
 **Cache defeat** line, and recorded in the EAC-compatible log. If the drive can't

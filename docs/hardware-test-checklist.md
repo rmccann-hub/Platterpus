@@ -289,6 +289,19 @@ ps aux | grep cd-paranoia | grep -v grep     # expect: nothing
 grep -i "cache probe" ~/.local/share/platterpus/log.txt | tail
 ```
 
+**Since 2026-11-12 the check starts by itself (TASKS R53).** On a drive with no saved
+verdict (a fresh `~/.config/platterpus/drive_profiles.json`, or one whose
+`cache_defeat` is `null`), opening *Set up drive* with an audio CD in starts it with no
+button pressed; the log says `automatic cache check for /dev/sr0: start`.
+
+3. Open *Set up drive* with a CD in, wait ~15 seconds, press **Skip check**. Expected: the
+   status says *Check stopped.*, the window stays usable, and the `ps` line above prints
+   nothing within a few seconds.
+4. Open it again and let the check finish. Close, reopen: expected, nothing starts, and
+   the button reads **Re-analyze cache**.
+5. Open it with the tray empty, then insert a CD. Expected: the line says it starts when a
+   CD is in, and it does start once the disc has been read.
+
 **Result:** ☐ PASS ☐ FAIL — spin-down seconds: ______ · leftover process: ☐ y ☐ n
 
 ### A15 — [ ] Quitting during the startup dependency check should be prompt
@@ -1238,4 +1251,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.7.114.*
+*Last updated for Platterpus v0.7.123.*

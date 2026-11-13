@@ -290,7 +290,8 @@ def test_on_finished_emits_for_cache_only_result(qapp: QApplication) -> None:
 
     assert len(captured) == 1  # recorded even with no offset
     assert captured[0].can_defeat_cache is True
-    assert dialog._detect_button.text() == "Re-analyze cache"
+    # Keeps its Alt-key (Alt+Z) after the relabel, as the button had before.
+    assert dialog._detect_button.text() == "Re-analy&ze cache"
 
 
 def test_no_emit_when_nothing_measured(qapp: QApplication) -> None:

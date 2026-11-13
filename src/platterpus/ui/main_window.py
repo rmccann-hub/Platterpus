@@ -56,6 +56,7 @@ from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlo
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.getting_started_dialog import GettingStartedDialog
+from platterpus.ui.main_window_cache_check import CacheCheckMixin
 from platterpus.ui.main_window_ctdb_repair import CtdbRepairMixin
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_disc_return import DiscReturnMixin, ParkedDisc
@@ -250,6 +251,7 @@ class MainWindow(
     UpdateMixin,
     ProvisioningMixin,
     DriveMixin,
+    CacheCheckMixin,
     DiscReturnMixin,
     ReleasePickerMixin,
     DependencyMixin,
@@ -1490,6 +1492,9 @@ class MainWindow(
         # after the poll read "not ready" made the next poll report a phantom
         # insertion and read the disc again (drive_media.note_disc_present).
         self._media_watcher.note_disc_present()
+        # An open Set up drive waiting for a CD starts its cache check now
+        # (TASKS R53) — the read that delivered this has finished with the drive.
+        self._tell_drive_setup_disc_ready(device, info.num_tracks)
         # The same disc back after a removal or a flicker keeps its release and
         # edits, with no lookup (main_window_disc_return.py).
         if self._restore_parked_disc(info):

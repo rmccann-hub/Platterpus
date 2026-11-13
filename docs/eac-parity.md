@@ -1609,7 +1609,7 @@ number ("Part F row N").
 | 14 | AccurateRip submission | Yes | None | Behind, may be **not possible** | "Impossible from Linux" had no source and is unverified (KDD-12's correction). Find out whether AccurateRip accepts submissions from programs it has not listed; if not, it is not ours to change | Platterpus (R52) |
 | 15 | Secure reading | Secure mode | libcdio-paranoia, full mode | Equal | — | — |
 | 16 | Accurate stream | Setting, logged | The drive's declaration read and shown, "not measured" (`59f4e331`) | Equal on what can be known | Say whether paranoia's read path depends on it; if so, refuse a drive that declares it unsupported | The fork |
-| 17 | Cache defeat | Setting, logged | Measured when the user runs *Analyze cache* | Behind on the default | Measure once per drive in setup | Platterpus (R53) |
+| 17 | Cache defeat | Setting, logged | Measured once per drive, by itself, when *Set up drive* opens with an audio CD in (built 2026-11-12); before, only when the user ran *Analyze cache* | Equal once measured, in code; the rig has not confirmed it | Confirm on the rig that it starts and that *Skip check* and Close kill it | Platterpus (R53) |
 | 18 | C2 | Off by the guides | Not used; logged where the drive reports | Equal | — | — |
 | 19 | Read offset | Set by the user | From AccurateRip's list, checked every rip | Better | — | — |
 | 20 | Read speed | "Allow speed reduction" | This drive takes no speed setting; the ladder re-reads | Equal on this drive | Test on a drive that takes `-S` | The owner's hardware |

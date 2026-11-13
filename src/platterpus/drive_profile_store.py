@@ -93,6 +93,7 @@ def _profile_to_dict(profile: DriveProfile) -> dict[str, object]:
         "offset": _offset_to_dict(profile.offset) if profile.offset else None,
         "cache_defeat": profile.cache_defeat,
         "cache_defeat_source": cache_source.value if cache_source else None,
+        "cache_defeat_release": profile.cache_defeat_release,
         "last_seen_device": profile.last_seen_device,
         "last_seen_at": profile.last_seen_at,
         "read_rate": _rate_to_dict(profile.read_rate),
@@ -145,6 +146,8 @@ def _profile_from_dict(fingerprint: str, raw: object) -> DriveProfile | None:
         cache_defeat_source=(
             OffsetSource(cache_source_raw) if cache_source_raw is not None else None
         ),
+        # Absent from a file written before the field existed: "" (unknown).
+        cache_defeat_release=str(raw.get("cache_defeat_release", "") or ""),
         last_seen_device=str(raw.get("last_seen_device", "")),
         last_seen_at=str(raw.get("last_seen_at", "")),
         read_rate=_rate_from_dict(raw.get("read_rate")),
