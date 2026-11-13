@@ -1546,9 +1546,14 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # in the fork's tree is empty: sha256 `f93d5dfb5a761a2f…`, 1,318 bytes, two
     # options (`declare_released`, `fuzz`), so the reasons above carry over.
     #
+    # **EIGHTEENTH TIME, ON THE ROLL TO `e531a33` (round 39 close, 2026-11-13), AND
+    # THE ANSWER DID NOT CHANGE.** `meson_options.txt` at `e531a33` in the fork's
+    # tree hashes `f93d5dfb5a761a2f…`, 1,318 bytes, the same file as at `5cc1c6b`,
+    # so the reasons above carry over.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "5cc1c6b", (
+    assert fork_source.PRODUCTION_TARGET.pin == "e531a33", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

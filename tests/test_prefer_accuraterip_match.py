@@ -95,16 +95,17 @@ def test_only_27_to_31_are_listed() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH == frozenset(
         {_TAG_27, _TAG_28, _TAG_29, _TAG_30, _TAG_31}
     )
-    # Non-triviality: the production pin IS `.30` from round 38's close
-    # (2026-11-11), and the build under review is `.31` from round 39's lap 1, so
-    # a rig on either sends the flag; `.27` and `.28`, the pins before it, and
-    # `.29`, under review before `.30`, still run on rigs that installed them and
-    # still take the flag.
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_30
+    # Non-triviality: the production pin IS `.31` from round 39's close
+    # (2026-11-13), and it is still the build under review until round 40 names
+    # the next, so a rig on it sends the flag; `.27`, `.28` and `.30`, the pins
+    # before it, and `.29`, under review before `.30`, still run on rigs that
+    # installed them and still take the flag.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_31
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_31
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_27)
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_28)
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_29)
+    assert fork_source.accepts_prefer_accuraterip_match(_TAG_30)
 
 
 def test_no_other_build_is_sent_it() -> None:
