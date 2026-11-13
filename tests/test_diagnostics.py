@@ -23,6 +23,7 @@ import dataclasses
 import logging
 import re
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -33,8 +34,16 @@ from platterpus import diagnostics as d
 
 
 @pytest.fixture(autouse=True)
-def _clean_collector() -> None:
-    """The collector is a process-wide global; a leaked item would cross tests."""
+def _clean_collector() -> Iterator[None]:
+    """The collector is a process-wide global; a leaked item would cross tests.
+
+    Cleared AFTER as well as before (2026-11-13): the cap tests below fill it to
+    `_MAX_ITEMS`, and a full collector left behind made a later test on the same
+    xdist worker that counts on it growing fail (`test_rip_addendum`, `main`'s
+    CI on `8d8073f1`), depending only on which worker the scheduler chose.
+    """
+    d.clear()
+    yield
     d.clear()
 
 

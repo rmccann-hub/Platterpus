@@ -355,3 +355,38 @@ def test_a_quoted_sha256_on_an_ordinary_citation_is_checked_too(tmp_path: Path) 
     wrong = "0" * 64
     refused = _lap_citing(tmp_path, clone, f"{cite} sha256 {wrong}")
     assert any(f"the lap quotes {wrong}" in m for m in refused), refused
+
+
+def test_an_evidence_citation_without_its_sha256_is_refused(tmp_path: Path) -> None:
+    """TASKS R148: our round 39 lap 2 S6 cited a file on the fork's evidence
+    branch with no hash, HR-2 §6a's form, and ours passed it; theirs refused it
+    (their round 39 lap 3 S1)."""
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    cite = f"platterpus@{world['evidence']}:{RUN}"
+    refused = _lap_citing(tmp_path, clone, cite)
+    assert any("cited with its SHA-256" in m for m in refused), refused
+    good = hashlib.sha256(LOG).hexdigest()
+    assert _lap_citing(tmp_path, clone, f"{cite} sha256 {good}") == []
+
+
+def test_an_evidence_citation_by_a_short_commit_is_refused(tmp_path: Path) -> None:
+    """The same lap cited `cyanrip@60b545ed`: an evidence file names its full commit."""
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    full = world["evidence"]
+    assert isinstance(full, str) and len(full) == 40
+    good = hashlib.sha256(LOG).hexdigest()
+    refused = _lap_citing(tmp_path, clone, f"platterpus@{full[:8]}:{RUN} sha256 {good}")
+    assert any("full 40-character commit" in m for m in refused), refused
+
+
+def test_an_ordinary_citation_still_needs_no_hash(tmp_path: Path) -> None:
+    """A file on the default branch keeps the old rules (§6d): no hash needed."""
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    head = _git(clone, "rev-parse", "HEAD")
+    assert _lap_citing(tmp_path, clone, f"platterpus@{head[:8]}:README.md") == []

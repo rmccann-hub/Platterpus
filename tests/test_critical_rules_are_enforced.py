@@ -3463,7 +3463,7 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # citation is an evidence citation and resolves it through the manifest; the
     # fetching itself lives in `laplang/evidence.py`. Resolving a reference is
     # this module's job, and evidence is a second ref of record for it.
-    "scripts/laplang/refs.py": 398,
+    "scripts/laplang/refs.py": 407,  # +9 2026-11-13: an evidence citation by a short commit is refused where evidence resolves (TASKS R148)
     "scripts/laplang/rerun.py": 361,
     # **345 -> 348** (2026-10-12, the history rewrite): a re-run of a command at
     # an old commit ID runs at the commit the map says replaced it.

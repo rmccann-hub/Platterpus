@@ -229,6 +229,9 @@ def test_an_unreadable_sidecar_is_recorded_not_swallowed(
         return real_read(self, *args, **kw)  # type: ignore[arg-type]  # passthrough
 
     monkeypatch.setattr(Path, "read_text", _boom)
+    # From an empty collector: one that another test left full at its cap
+    # cannot grow, and this test would read that as a swallowed failure.
+    diagnostics.clear()
     before = len(diagnostics.default_log().items())
     assert ra.read_log_with_addendum(log) == "cyanrip 0.9.3\n"
     after = diagnostics.default_log().items()
@@ -249,6 +252,7 @@ def test_a_failed_write_is_recorded_and_never_raises(
         raise OSError("disk full")
 
     monkeypatch.setattr(Path, "write_text", _boom)
+    diagnostics.clear()  # from empty, as above: a full collector cannot grow
     before = len(diagnostics.default_log().items())
     assert ra.write_addendum(log, "accuraterip", [_record()]) is None
     after = diagnostics.default_log().items()

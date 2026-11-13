@@ -49,6 +49,10 @@ from .refs import (
 #: `sha256 <value>` straight after an artifact reference (HR-2 §6a's one line).
 _QUOTED_SHA256: Final[re.Pattern[str]] = re.compile(r"\Asha256\s+(\S+)")
 _SHA256_HEX: Final[re.Pattern[str]] = re.compile(r"\A[0-9a-f]{64}\Z")
+_NO_HASH: Final[str] = (
+    "a file on the evidence branch is cited with its SHA-256, "
+    "as 'sha256 <64 hex>' after the path (HR-2 §6a)"
+)
 
 DATE_RE: Final[re.Pattern[str]] = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 VERDICTS: Final[frozenset[str]] = frozenset({"GO", "HOLD", "OPEN"})
@@ -215,6 +219,11 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
         quoted = _QUOTED_SHA256.match(fld.value.strip()[len(token) :].strip())
         if quoted is not None and resolved.outcome in ("ok", "offrecord"):
             ctx.report(fld.line, "LSL.4", _quoted_hash(ctx, ref, quoted.group(1)))
+        # HR-2 §6a: an evidence-branch file is cited with its hash (TASKS R148;
+        # its full commit is refs.Trees._evidence's check); default-branch: none.
+        unhashed = quoted is None and resolved.outcome == "ok"
+        if unhashed and ctx.trees.evidence_bytes(ref):
+            ctx.refuse(fld.line, "LSL.4", f"{token}: {_NO_HASH}")
     if not stmt.values("evidence"):
         return
     if stmt.kind == "FACT" and stmt.grade == "measured":
