@@ -2446,7 +2446,7 @@ def test_a_rerun_reads_cited_evidence_placed_at_its_own_path(tmp_path: Path) -> 
     cited = (
         f"S1 FACT measured: It printed what the lap says.\n"
         f"  evidence: run: {run}\n"
-        f"  evidence: platterpus@{evidence[:12]}:{run_file}\n"
+        f"  evidence: platterpus@{evidence}:{run_file} sha256 {digest}\n"
         f"  at: {head}\n"
         "  holds: platterpus 0.6.61\n  examined: 1 run, closed\n"
     )

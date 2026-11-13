@@ -215,6 +215,8 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
         quoted = _QUOTED_SHA256.match(fld.value.strip()[len(token) :].strip())
         if quoted is not None and resolved.outcome in ("ok", "offrecord"):
             ctx.report(fld.line, "LSL.4", _quoted_hash(ctx, ref, quoted.group(1)))
+        if resolved.outcome == "ok" and ctx.trees.evidence_bytes(ref) is not None:
+            ctx.report(fld.line, "LSL.4", _evidence_form(ref, quoted is not None))
     if not stmt.values("evidence"):
         return
     if stmt.kind == "FACT" and stmt.grade == "measured":
@@ -226,6 +228,30 @@ def _check_evidence(ctx: Context, stmt: Statement) -> None:
             )
     if stmt.kind == "FACT" and stmt.grade == "read" and not artifacts:
         ctx.refuse(stmt.line, "LSL.2", f"{stmt.tag}: read needs an artifact reference")
+
+
+def _evidence_form(ref: ArtifactRef, hashed: bool) -> Resolution:
+    """HR-2 §6a's form for a file on the `evidence` branch: the file's SHA-256
+    (TASKS R148; the full commit is held by `refs.Trees._evidence`).
+
+    **Why.** Our round 39 lap 2 S6 cited `cyanrip@60b545ed:docs/rig-2026-11-10-
+    5cc1c6b/MANIFEST.txt:44`, a file on the fork's evidence branch, with a short
+    commit and no hash. The citation resolved through the manifest, so ours
+    passed it; the fork's checker refused it (their round 39 lap 3 S1). A file
+    that only the `evidence` branch reaches is cited by content, so a reader can
+    fetch it by hash into a scratch repository and check it; the hash is the
+    claim, and a short commit is one a growing repository can make ambiguous.
+    Only a citation that resolved AS evidence is held to this: a commit on the
+    side's ref of record keeps the old rules (§6d).
+    """
+    label = f"{ref.side}@{ref.sha}:{ref.path}"
+    if not hashed:
+        return Resolution(
+            "refused",
+            f"{label}: a file on the evidence branch is cited with its SHA-256, "
+            "as 'sha256 <64 hex>' after the path (HR-2 §6a)",
+        )
+    return Resolution("ok")
 
 
 def _quoted_hash(ctx: Context, ref: ArtifactRef, quoted: str) -> Resolution:

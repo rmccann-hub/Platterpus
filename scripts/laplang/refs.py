@@ -281,6 +281,15 @@ class Trees:
                     "(HR-2 §6b: file the row before the lap that cites it)",
                 )
             return None
+        if len(ref.sha) != 40:
+            # A file only the evidence branch reaches is fetched BY its commit,
+            # which git takes only in full; a short one also grows ambiguous as
+            # a repository grows (HR-2 §6a; TASKS R148, our round 39 lap 2 S6).
+            return Resolution(
+                "refused",
+                f"{label}: a file on the evidence branch is cited by its full "
+                "40-character commit (HR-2 §6a)",
+            )
         answer = check_citation(self._fetcher, root, row, sha, label)
         if answer.outcome == "ok" and answer.data is not None:
             self._evidence_data[(ref.side, ref.sha, ref.path)] = answer.data
