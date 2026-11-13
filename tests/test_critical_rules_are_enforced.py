@@ -3318,6 +3318,12 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # the subcommands share the git and manifest plumbing. 350 since HR-2.1
     # (2026-10-14): the two tree checks, `move` and `unchanged`, went to
     # `scripts/evidence_trees.py` rather than this number going up.
+    # 2026-11-13: one question, whose turn it is, read from both sides' laps and
+    # said two ways (the report and the HANDOFF block's first line, the owner's
+    # word of that day). The git reads and the decision share the Lap and Turn
+    # types; splitting the turn line from the decision it phrases would put one
+    # answer in two files.
+    "scripts/lap_turn.py": 304,
     "scripts/evidence_manifest.py": 351,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
     # 2026-10-14, HR-2 §6-§7: the manifest's parser and the by-hash fetcher a
     # checker reads evidence through. Splitting the fetcher from the parser

@@ -218,12 +218,15 @@ It's read by the claude-code-skills session, which keeps the standard and skills
 **A handoff prompt at the end of every reply.** Whenever you release a lap, push to evidence, merge a pull request the other side needs, or need something from anyone, end your reply to the operator with this block, filled in, and nothing after it. The operator copies it as-is to the other session and to the claude-code-skills session. Keep it to these lines:
 
 ```
+MY TURN TO SEND|MY TURN TO WAIT: round <x> lap <y> goes to <repo branch>, expecting round <a> lap <b> back
 HANDOFF from <platterpus|fork>, <UTC time>
 DONE: <one line: what happened>
 READ: <repo> <branch> <path, PR or evidence commit> at <commit>
 NEXT: <one line: what the reader should do now, or "nothing, for information">
 ASK: <a question for the operator, or none>
 ```
+
+**The first line says whose turn it is, before anything else** (the owner, 2026-11-13: *"round x lap y goes to repo z, expecting round a lap b back. "its my turn to send" or its "my turn to wait" should be clear on first line of handshake text"*). Copy it from the first line `python3 scripts/lap_turn.py --peer <clone of the fork> --fetch` prints (`turn_line`), never type it: it reads both sides' published laps, and a lap of ours written but held is still ours to send. Run it after the lap's release, so it says the turn that is true when the operator reads it. It travels to the fork with the block.
 
 If a reply needs no handoff, end it with: HANDOFF: none
 

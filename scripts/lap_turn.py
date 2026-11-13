@@ -148,12 +148,62 @@ def decide(laps: Iterable[Lap]) -> Turn:
     return Turn(last, holder, int(match.group("lap")), last.next_lap, held)
 
 
+#: Where each side publishes its laps, for the turn line: the repository and
+#: the branch the other side reads (CLAUDE.md rule 12, *Laps travel by git*).
+REPOS: Final[dict[str, str]] = {
+    "platterpus": "rmccann-hub/Platterpus main",
+    "cyanrip-fork": "rmccann-hub/cyanrip platterpus-fork",
+}
+
+
+def turn_line(turn: Turn, me: str = "platterpus") -> str:
+    """The HANDOFF block's first line: whose turn it is, said from ``me``'s side.
+
+    **Why this exists (the owner, 2026-11-13):** *"round x lap y goes to repo z,
+    expecting round a lap b back. 'its my turn to send' or its 'my turn to wait'
+    should be clear on first line of handshake text"*. Computed from the laps'
+    own headers, never typed from memory, so the line cannot say a turn the
+    record does not. A lap of ours written and held is still ours to send: the
+    other side cannot read it until it is released.
+    """
+    them = _other(me)
+    held_mine = [lap for lap in turn.held if lap.author == me]
+    if held_mine:
+        lap = held_mine[-1]
+        return (
+            f"MY TURN TO SEND: round {lap.round} lap {lap.lap} is written and held; "
+            f"it goes to {REPOS[them]} once released, expecting round {lap.round} "
+            f"lap {lap.lap + 1} back."
+        )
+    last = turn.last
+    if last is None or turn.next_holder is None or turn.next_number is None:
+        where = (
+            f"round {last.round} lap {last.lap} by {last.author}"
+            if last is not None
+            else "no released lap"
+        )
+        return f"NEITHER SIDE'S TURN IS NAMED: {where}; its NEXT-LAP says {turn.next_text!r}."
+    if turn.next_holder == me:
+        return (
+            f"MY TURN TO SEND: round {last.round} lap {turn.next_number} goes to "
+            f"{REPOS[them]}, expecting round {last.round} lap {turn.next_number + 1} back."
+        )
+    return (
+        f"MY TURN TO WAIT: round {last.round} lap {last.lap} went to {REPOS[them]}, "
+        f"expecting round {last.round} lap {turn.next_number} back."
+        if last.author == me
+        else f"MY TURN TO WAIT: expecting round {last.round} lap {turn.next_number} "
+        f"from {REPOS[them]}."
+    )
+
+
 def render(turn: Turn, fetched: str) -> str:
-    """The answer in two lines, then anything held."""
+    """The turn line, the answer in two lines, then anything held."""
     if turn.last is None:
         return "No released lap found on either side's published ref. " + fetched
     last = turn.last
     lines = [
+        turn_line(turn),
         f"Last released: round {last.round} lap {last.lap}, by {last.author}"
         f" ({last.where}).",
     ]
