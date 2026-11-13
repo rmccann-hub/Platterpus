@@ -6,7 +6,7 @@
 # inputs: extra:publish build-system
 # target: universal, Python >= 3.12
 # uv: 0.13.5
-# exclude-newer: 2026-10-26T00:00:00Z
+# exclude-newer: 2026-11-04T00:00:00Z
 #
 build==1.6.1 \
     --hash=sha256:51cc11666391ab6f092070437ac747002ff46f3e4113a3622177ee6b488bfc53 \
