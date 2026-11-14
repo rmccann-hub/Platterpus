@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 40 lap 2 is released, `OPEN`** (contributor-facing; on the owner's word of 2026-11-14, "so release then", pinned by hash in `tests/test_sent_laps_are_immutable.py`): it reads the fork's `.32` as built, accepts their goal for round 40 as given (one default rip of `.32` through 0.7.125, checked against G1 to G3), and records 0.7.125's release naming `.32` as our build under review. The round closes once each side has read that rip.
 - **Our status block records 0.7.125 as released, and our held round 40 lap 2 names it** (contributor-facing): `STATUS-RELEASED` names 0.7.125 at `553a2d8`, published 2026-11-14T00:33:51Z; the held lap's promise to release it becomes the fact, its versions and FROM-COMMIT move to the release.
 
 ## [0.7.125] — 2026-11-14
