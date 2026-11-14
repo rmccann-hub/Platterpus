@@ -121,6 +121,48 @@ def test_each_c2_wording_is_read(
     )
 
 
+#: `.32`'s four values, as built: `crip_c2_text` at
+#: `cyanrip@edb73dd:src/drive_caps.c:117-125` (the failed query decides first,
+#: then a disc image, then the page's answer), with the state, reason and
+#: `c2_used` answer each must read as. The fork's round 40 lap 1 S4 states these
+#: four results of our reader; this holds them on our side.
+_DOT32_VALUES: list[tuple[str, str, str, bool | None]] = [
+    (
+        "unknown (capabilities query failed)",
+        "unknown",
+        "capabilities query failed",
+        None,
+    ),
+    ("unknown (image)", "unknown", "image", None),
+    (_PROPOSED_DECLARED, "declared_supported", "capabilities page", False),
+    (_PROPOSED_NOT_DECLARED, "not_declared", "capabilities page, not measured", False),
+]
+_ROUND40_LAP1 = Path(__file__).parents[1] / "docs/handshake/inbound/round-40-lap-01.md"
+
+
+def test_dot32s_four_values_are_the_ones_its_lap_names() -> None:
+    """Each value is in their round 40 lap 1 S4 as filed, so the cases below are
+    their text, not our memory of it (floor: all four found)."""
+    lap = _ROUND40_LAP1.read_text(encoding="utf-8")
+    s4 = next(line for line in lap.splitlines() if line.startswith("S4 FACT"))
+    found = [value for value, *_ in _DOT32_VALUES if f"`{value}`" in s4]
+    assert len(found) == 4, found
+
+
+@pytest.mark.parametrize(("value", "state", "reason", "used"), _DOT32_VALUES)
+def test_each_dot32_value_is_read_through_the_parser(
+    value: str, state: str, reason: str, used: bool | None
+) -> None:
+    assert c2_declaration_state(value) == (state, reason)
+    assert c2_used(value) is used
+    info = parse_cyanrip_log(_with_c2(value)).ripping_info
+    assert (info.c2_declared, info.c2_declared_reason, info.c2_pointers) == (
+        state,
+        reason,
+        used,
+    )
+
+
 @pytest.mark.parametrize(
     ("old", "new"),
     [

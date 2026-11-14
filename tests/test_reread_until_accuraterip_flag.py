@@ -29,6 +29,7 @@ from platterpus.deps import fork_source
 
 _TAG_30 = "platterpus-fork-g5cc1c6b"
 _TAG_31 = "platterpus-fork-ge531a33"
+_TAG_32 = "platterpus-fork-gedb73dd"
 _ARTIFACTS = Path(__file__).resolve().parent.parent / "docs/handshake/inbound/artifacts"
 
 
@@ -47,24 +48,29 @@ def _argv(tag: str, **options: object) -> list[str]:
 # --- the gate --------------------------------------------------------------------
 
 
-def test_only_31_is_listed_on_its_own_contracts_p1() -> None:
+def test_only_31_and_32_are_listed_each_on_its_own_contracts_p1() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP == frozenset(
-        {_TAG_31}
+        {_TAG_31, _TAG_32}
     )
     row = f"| none | `{REREAD_UNTIL_ACCURATERIP_FLAG}` |"
-    assert row in (
-        _ARTIFACTS / "round-39-lap-01-provider-contract-g6eacb8b.md"
-    ).read_text(encoding="utf-8")
-    # `.30`'s contract does not list it, which is why `.30`, FORK_PIN, is not in
-    # the set: the option would refuse every rip on the default ripper.
+    for name in (
+        "round-39-lap-01-provider-contract-g6eacb8b.md",  # .31
+        "round-40-lap-01-provider-contract-gbfe2766.md",  # .32
+    ):
+        assert row in (_ARTIFACTS / name).read_text(encoding="utf-8"), name
+    # `.30`'s contract does not list it, which is why `.30`, FORK_PIN until round
+    # 39 closed, is not in the set: the option would refuse every rip on it.
     assert row not in (
         _ARTIFACTS / "round-38-lap-12-provider-contract-g0c276fc.md"
     ).read_text(encoding="utf-8")
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_31
+    # `.31` is FORK_PIN from round 39's close and `.32` the build under review
+    # from round 40's lap 1: both default and reviewed rigs send the option.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_31
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_32
 
 
 @pytest.mark.parametrize(
-    "tag", [_TAG_31, _TAG_31 + "-dirty", "PLATTERPUS-FORK-GE531A33"]
+    "tag", [_TAG_31, _TAG_32, _TAG_31 + "-dirty", "PLATTERPUS-FORK-GE531A33"]
 )
 def test_the_listed_build_is_sent_the_confidence_right_after_the_flag(tag: str) -> None:
     argv = _argv(tag, secure_rerip_matches=2, reread_until_accuraterip=2)

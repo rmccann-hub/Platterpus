@@ -33,6 +33,7 @@ _TAG_28 = "platterpus-fork-g3f288fb"
 _TAG_29 = "platterpus-fork-g8d2ca72"
 _TAG_30 = "platterpus-fork-g5cc1c6b"
 _TAG_31 = "platterpus-fork-ge531a33"
+_TAG_32 = "platterpus-fork-gedb73dd"
 
 
 def _argv(tag: str, **options: object) -> list[str]:
@@ -50,9 +51,9 @@ def _argv(tag: str, **options: object) -> list[str]:
 # --- the gate --------------------------------------------------------------------
 
 
-def test_only_28_to_31_are_listed_each_on_its_own_contracts_p1() -> None:
+def test_only_28_to_32_are_listed_each_on_its_own_contracts_p1() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT == frozenset(
-        {_TAG_28, _TAG_29, _TAG_30, _TAG_31}
+        {_TAG_28, _TAG_29, _TAG_30, _TAG_31, _TAG_32}
     )
     root = Path(__file__).resolve().parent.parent / "docs/handshake/inbound/artifacts"
     row = f"| none | `{REREAD_TIME_LIMIT_FLAG}` |"
@@ -61,6 +62,7 @@ def test_only_28_to_31_are_listed_each_on_its_own_contracts_p1() -> None:
         "round-38-lap-05-provider-contract-g2a06e064.md",  # .29
         "round-38-lap-12-provider-contract-g0c276fc.md",  # .30
         "round-39-lap-01-provider-contract-g6eacb8b.md",  # .31
+        "round-40-lap-01-provider-contract-gbfe2766.md",  # .32
     ):
         assert row in (root / name).read_text(encoding="utf-8"), name
     # `.27`'s contract does not list it, which is why `.27` is not in the set.
@@ -70,7 +72,7 @@ def test_only_28_to_31_are_listed_each_on_its_own_contracts_p1() -> None:
 
 
 @pytest.mark.parametrize(
-    "tag", [_TAG_28, _TAG_29, _TAG_30, _TAG_31, _TAG_30 + "-dirty"]
+    "tag", [_TAG_28, _TAG_29, _TAG_30, _TAG_31, _TAG_32, _TAG_30 + "-dirty"]
 )
 def test_a_listed_build_is_sent_the_seconds_right_after_the_flag(tag: str) -> None:
     argv = _argv(tag, secure_rerip_matches=2, reread_time_limit_s=1457)
