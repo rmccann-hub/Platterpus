@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — held until our operator releases it
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-14; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S12, on S9: your lap 1 S10 is accepted as given, and its rip has not run.
 HANDSHAKE-PEER-VERDICT: OPEN
