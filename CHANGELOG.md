@@ -12,6 +12,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.125] — 2026-11-14
+The release that names the fork's `.32` (`edb73dd`) as the build under review for round 40, so the owner can install it from the app and rip the reference disc with it. `.31` stays the default ripper until round 40 closes. `.32` changes only what the C2 line says (it now says the drive's capabilities page does not declare C2, where it said the drive could not do it), adds a third wording to the re-read footer and names more of the drive calls its watchdog waits on; this release already reads all of it, and a test now holds every C2 wording.
+
 ### Changed
 
 - **Our round 40 lap 2 is written, `OPEN`, and held for the owner's word** (contributor-facing): it reads the fork's `.32` as built in their tree, confirms in our code that we already read every line `.32` changes (and pins the C2 disc-image wording with a test), names `.32` our build under review, and accepts the round's goal, one default whole-disc rip of `.32` through 0.7.125.
@@ -19938,7 +19941,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...HEAD
+[0.7.125]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...v0.7.125
 [0.7.124]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...v0.7.124
 [0.7.123]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...v0.7.123
 [0.7.122]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.121...v0.7.122
@@ -20033,4 +20037,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.124.*
+*Last updated for Platterpus v0.7.125.*
