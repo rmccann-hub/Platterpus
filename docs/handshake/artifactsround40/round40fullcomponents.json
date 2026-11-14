@@ -1,0 +1,67 @@
+{
+  "app": "0.7.125",
+  "build": "553a2d8",
+  "python": "3.14.9",
+  "qt": "6.11.3",
+  "pyside6": "6.11.3",
+  "platform": "Linux-7.3.3-ogc1.1.fc45.x86_64-x86_64-with-glibc2.44",
+  "dependencies": {
+    "cyanrip": {
+      "present": true,
+      "version": "0.9.4",
+      "version_text": "0.9.4-rc3+platterpus.32",
+      "location": "~/.local/bin/cyanrip",
+      "min_version_met": true
+    },
+    "metaflac": {
+      "present": true,
+      "version": "1.5.0",
+      "version_text": null,
+      "location": "~/.local/bin/metaflac",
+      "min_version_met": true
+    },
+    "picard": {
+      "present": true,
+      "version": "3.0.4",
+      "version_text": null,
+      "location": "flatpak: org.musicbrainz.Picard",
+      "min_version_met": true
+    },
+    "musicbrainzngs": {
+      "present": true,
+      "version": "0.7.1",
+      "version_text": null,
+      "location": "python: musicbrainzngs",
+      "min_version_met": true
+    },
+    "flac": {
+      "present": true,
+      "version": "1.5.0",
+      "version_text": null,
+      "location": "~/.local/bin/flac",
+      "min_version_met": true
+    },
+    "ffmpeg": {
+      "present": true,
+      "version": "9.0.2",
+      "version_text": null,
+      "location": "/usr/bin/ffmpeg",
+      "min_version_met": true
+    },
+    "cdparanoia": {
+      "present": true,
+      "version": "10.2",
+      "version_text": null,
+      "location": "~/.local/bin/cd-paranoia",
+      "min_version_met": true
+    },
+    "numpy": {
+      "present": true,
+      "version": "2.5.4",
+      "version_text": null,
+      "location": "python: numpy",
+      "min_version_met": true
+    }
+  },
+  "dependencies_measured_at": "2026-11-14T02:12:20+00:00"
+}
