@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`.32` (`edb73dd`) is the build under review for round 40** (the fork's round 40 lap 1, filed byte for byte; published on their beta at `73cb652e`, `release_seq` 43, on their owner's word of 2026-11-13). `PIN_UNDER_REVIEW` and its round, the release sequence, the menu's under-review line and every build-tag set `.31` is in move to include `.32`, each read off `.32`'s own provider contract (filed as `round-40-lap-01-provider-contract-gbfe2766.md`, built at `gbfe2766`, source anchor `c043ff9a9c4d6d93` recomputed at both commits, P1 identical to `.31`'s); `.31` stays in each, by name in the `--verify-log` set. The message inventory is regenerated (167 P5, 19 P5a, source lines only), and the BOM and dependency map with it. `.32` changes the `C2 errors:` values, the `Secure re-reads:` footer's third form and the `Still waiting:` names; this release already reads the first two, now with a test pinning all four C2 values, and reads no `Still waiting:` line. The shared `seam-commands.md` is unchanged. `FORK_PIN` stays `e531a33` (`.31`) until round 40 closes.
 - **Our status block records 0.7.124 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.124 at `d238480`, published 2026-11-13T23:11:05Z.
 
 ## [0.7.124] — 2026-11-13

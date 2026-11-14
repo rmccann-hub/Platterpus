@@ -1643,7 +1643,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3280 -> 3316** (2026-11-11, round 39): `BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT` and its accessor, each build cited by its own contract's P1 line, beside the other gated options' sets.
     # **3316 -> 3339** (2026-11-11): round 38's close, recorded beside FORK_PIN, FORK_EXPECTED_VERSION and the --verify-log set as every roll's was.
     # **3339 -> 3419** (2026-11-11, round 39 names `.31`, the fork's lap 1): `PIN_UNDER_REVIEW` `e531a33` and its round, its release sequence 42, its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match` and `--reread-time-limit` rows, `.30` named in the `--verify-log` set, and `BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP` with its accessor beside the other gated options' sets, each with the source it was read from.
-    "deps/fork_source.py": 3434,  # +15 2026-11-13: round 39 closes; FORK_PIN rolls to e531a33 with its record
+    # **3419 -> 3434** (2026-11-13): round 39 closes; FORK_PIN rolls to e531a33 with its record.
+    # **3434 -> 3484** (2026-11-13, round 40 names `.32`, the fork's lap 1): `PIN_UNDER_REVIEW` `edb73dd` and its round, its release sequence 43, its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit` and `--reread-until-accuraterip` rows, and `.31` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 3484,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

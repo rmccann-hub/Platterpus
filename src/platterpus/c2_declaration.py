@@ -12,12 +12,15 @@ measurement. The wordings, each from the source that prints it:
 * the fork today: ``supported by drive, not used`` / ``unsupported by drive``, and
   ``unknown (capabilities query failed)`` when the query itself failed
   (``cyanrip@54d66666:src/drive_caps.c:117-122``);
-* the fork's PROPOSAL for a later build (their round 39 lap 3 S14,
-  ``docs/handshake/inbound/round-39-lap-03.md``; NOT BUILT, read here before any
-  build prints it): ``not declared by drive (capabilities page, not measured)``
-  and ``declared supported by drive (capabilities page), not used``, worded as the
-  ``Accurate stream:`` line words its own declaration, the failed-query form
-  unchanged.
+* the fork's PROPOSAL (their round 39 lap 3 S14,
+  ``docs/handshake/inbound/round-39-lap-03.md``; read here before any build
+  printed it), **built in ``.32``** (``cyanrip@edb73dd:src/drive_caps.c:117-125``,
+  their round 40 lap 1 S4): ``not declared by drive (capabilities page, not
+  measured)`` and ``declared supported by drive (capabilities page), not used``,
+  worded as the ``Accurate stream:`` line words its own declaration, the
+  failed-query form unchanged and deciding first, and ``unknown (image)`` for a
+  disc image, which has no capabilities page (read by the ``unknown`` pattern
+  below, reason ``image``).
 
 **Why the proposal exists, and why this module reads the old words the new way.**
 The fork's C2 probe of 2026-11-11 found that the Pioneer BDR-209D, whose page
@@ -101,12 +104,12 @@ _FIXED_WORDINGS: Final[dict[str, tuple[str, str]]] = {
     "unsupported by drive": (C2_NOT_DECLARED, ""),
     # the fork today (`drive_caps.c:121`)
     "supported by drive, not used": (C2_DECLARED_SUPPORTED, ""),
-    # PROPOSED, round 39 lap 3 S14 (not built)
+    # round 39 lap 3 S14, built in `.32` (`cyanrip@edb73dd:src/drive_caps.c:124`)
     "not declared by drive (capabilities page, not measured)": (
         C2_NOT_DECLARED,
         "capabilities page, not measured",
     ),
-    # PROPOSED, round 39 lap 3 S14 (not built)
+    # round 39 lap 3 S14, built in `.32` (`cyanrip@edb73dd:src/drive_caps.c:123`)
     "declared supported by drive (capabilities page), not used": (
         C2_DECLARED_SUPPORTED,
         "capabilities page",
