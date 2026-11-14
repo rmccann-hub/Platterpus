@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our status block records 0.7.125 as released, and our held round 40 lap 2 names it** (contributor-facing): `STATUS-RELEASED` names 0.7.125 at `553a2d8`, published 2026-11-14T00:33:51Z; the held lap's promise to release it becomes the fact, its versions and FROM-COMMIT move to the release.
+
 ## [0.7.125] — 2026-11-14
 The release that names the fork's `.32` (`edb73dd`) as the build under review for round 40, so the owner can install it from the app and rip the reference disc with it. `.31` stays the default ripper until round 40 closes. `.32` changes only what the C2 line says (it now says the drive's capabilities page does not declare C2, where it said the drive could not do it), adds a third wording to the re-read footer and names more of the drive calls its watchdog waits on; this release already reads all of it, and a test now holds every C2 wording.
 
