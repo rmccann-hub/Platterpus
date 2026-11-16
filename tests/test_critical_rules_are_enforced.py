@@ -2091,7 +2091,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4796 -> 4821** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): the `track_other_read` rule in the indented table, the echo boundary's refusal of it, and the per-track accumulator and its flush; the reading is `other_reads.py`.
     # **4821 -> 4866** (2026-11-11, round 39, `.31`): `.31`'s `--reread-until-accuraterip` lines: the verdict predicate reads the AccurateRip-matched early end as not converged (unread, the track had no verdict, which the EAC-layout log fills in as convergence), the row's `overruled` phrase, `secure_rerip_ar_overrule` beside `secure_rerip_limit_stop`, and the buffering of the fact with the verdict it describes; the patterns and the dataclass live in `reread_ar_overrule.py`.
     # **4866 -> 4857** (2026-11-12, the fork's round 39 lap 3 S14): the `C2 errors:` reading moved out to `c2_declaration.py`; `_take_c2` now only calls it.
-    "parsers/cyanrip_log.py": 4857,
+    # **4857 -> 4864** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `_RIP_ERRORS` gains the `parts` group for the wording that names every part of the count, the comment saying why it cannot take `including`'s line, `_Disc.ripping_error_parts`, its hand-over, and the warning that names a part we do not know; `_ripping_error_skips` and every reading moved out to `ripping_error_parts.py`.
+    "parsers/cyanrip_log.py": 4864,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2129,7 +2130,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1245 -> 1251** (2026-11-11, round 39, `.31`): `TrackResult.secure_rerip_ar_overrule`, `.31`'s overruled agreement, beside the four -Z fields it describes the same reads as.
     # **1251 -> 1258** (2026-11-12, the fork's round 39 lap 3 S14): `RippingInfo.c2_declared` and its reason, what the `C2 errors:` line says the capabilities page declares, beside `c2_pointers` whose comment now says "not used", never "the drive doesn't support it"; the reader is `c2_declaration.py`.
     # **1258 -> 1270** (2026-11-16, TASKS R156, the fork's round 40 lap 3 S14): `TrackResult.kept_read_pass`, which pass's read the file holds, beside `first_pass_reread`, the other fact the merge writes, with what each value means.
-    "parsers/rip_log.py": 1270,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1270 -> 1275** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `RipLog.ripping_error_parts`, every part of the `Ripping errors:` count named, with its import and what None and `unknown` mean.
+    "parsers/rip_log.py": 1275,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the

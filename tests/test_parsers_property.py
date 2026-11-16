@@ -173,6 +173,14 @@ _FRAGMENTS = st.sampled_from(
         "Ripping errors: 3 (including many paranoia skips)",  # bad int
         "Ripping errors: 3 (including " + "9" * 30 + " paranoia skips)",  # > uint64
         "Ripping errors: 3 (including",  # cut off mid-suffix
+        # The round 41 lap 1 S16 wording, every part named (TASKS R174), and near
+        # misses of it: the `parts` group is a new never-raises surface.
+        "Ripping errors: 57 (28 frame reads failed, 28 paranoia skips, "
+        "1 track not finished)",
+        "Ripping errors: 9 (2 frame reads failed, 7 sectors with bad Q)",
+        "Ripping errors: 3 (3 frame reads failed, and more)",
+        "Ripping errors: 3 (" + "9" * 30 + " paranoia skips)",  # > uint64
+        "Ripping errors: 3 (1 frame read failed,",  # cut off mid-list
         "Encoder errors: 1 track failed (3); 17 tracks encoded",
         # The album loudness/peak rows cyanrip OWNS (their P2, fork round 8+).
         # Both the well-formed shape and the ways a reworded or corrupted line
@@ -523,6 +531,66 @@ def test_the_ripping_errors_skip_suffix_never_raises(
     drive = parsed.drive_read_errors
     if drive is not None:
         assert isinstance(drive, int)
+        assert 0 <= drive <= (parsed.ripping_errors or 0)
+
+
+_PART_LABELS: list[str] = [
+    "frame reads failed",
+    "frame read failed",
+    "sectors failing EDC",
+    "sector failing EDC",
+    "paranoia skips",
+    "paranoia skip",
+    "tracks not finished",
+    "track not finished",
+    "disc lookups failed",
+    "disc lookup failed",
+]
+
+
+@_SETTINGS
+@given(
+    n=st.text(alphabet="0123456789", min_size=1, max_size=30),
+    parts=st.lists(
+        st.tuples(
+            st.text(alphabet="0123456789", max_size=30),
+            st.one_of(st.sampled_from(_PART_LABELS), st.text(max_size=40)),
+        ),
+        max_size=20,
+    ),
+    separator=st.sampled_from([", ", ",", " , ", "; "]),
+    tail=st.text(max_size=80),
+)
+def test_the_ripping_errors_named_parts_never_raise(
+    n: str, parts: list[tuple[str, str]], separator: str, tail: str
+) -> None:
+    """The round 41 lap 1 S16 wording, every part named, with any parts at all.
+
+    Added with its parse (TASKS R174). Stronger than "never raises": every part
+    is None or a count within the plausibility bound, every unknown part is
+    counted whether kept or not, and the drive's part stays between 0 and N,
+    because the read-speed ladder steps the disc down on it.
+    """
+    from platterpus.ripping_error_parts import (
+        MAX_PLAUSIBLE_COUNT,
+        MAX_UNKNOWN_KEPT,
+        PART_FIELDS,
+    )
+
+    body = separator.join(f"{count} {label}" for count, label in parts)
+    line = f"Ripping errors: {n} ({body}){tail}"
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.4\n{line}\n")
+    named = parsed.ripping_error_parts
+    if parsed.ripping_errors is not None:
+        assert named is not None
+    if named is not None:
+        for name in PART_FIELDS:
+            value = getattr(named, name)
+            assert value is None or 0 <= value <= MAX_PLAUSIBLE_COUNT
+        assert len(named.unknown) <= MAX_UNKNOWN_KEPT
+        assert named.unknown_total == len(named.unknown) + named.unknown_elided
+    drive = parsed.drive_read_errors
+    if drive is not None:
         assert 0 <= drive <= (parsed.ripping_errors or 0)
 
 

@@ -78,6 +78,7 @@ from platterpus import (
     pregap_search,
     reread_limit,
     ripper_error_lines,
+    ripping_error_parts,
     secure_rereads_footer,
 )
 from platterpus import other_reads as _other
@@ -1131,9 +1132,17 @@ _PARTIAL_TOTAL = re.compile(
 # DRIVE failed, and a skip is paranoia giving up on verifying a stretch, which our
 # rule handles per track (`read_speed_ladder._instability_explains_arm`). Without
 # M, `.20`'s count carries the skips into the ladder (their S12).
+#
+# `parts` (TASKS R174) is the wording the fork's round 41 lap 1 S16 proposes for
+# a build after `.33`, every part of N named: `Ripping errors: 57 (28 frame reads
+# failed, 28 paranoia skips, 1 track not finished)`. It starts with a digit, so it
+# can never take `including`'s line, and it is bounded at 399 characters with no
+# parentheses inside. `ripping_error_parts` reads it; both wordings are read until
+# the fork stops printing the old one, which it does only after we read both.
 _RIP_ERRORS = re.compile(
     r"^Ripping errors:\s+(?P<count>\d+)"
-    r"(?:\s{1,4}\(including\s{1,4}(?P<skips>\d{1,20})\s{1,4}paranoia\s{1,4}skips?\))?"
+    r"(?:\s{1,4}\((?:including\s{1,4}(?P<skips>\d{1,20})\s{1,4}paranoia\s{1,4}skips?"
+    r"|(?P<parts>\d[^()]{0,398}))\))?"
 )
 # "Encoder errors: none; 3 tracks encoded" — NEW in +platterpus.14, their §0.3,
 # printed directly below `Ripping errors:` at the same value column.
@@ -2048,6 +2057,8 @@ class _Disc:
     # line was absent or its number unreadable. See `RipLog.drive_read_errors`.
     ripping_errors: int | None = None
     ripping_errors_paranoia_skips: int | None = None
+    # Every part of N the line names (round 41 lap 1 S16), or None with no line.
+    ripping_error_parts: ripping_error_parts.RippingErrorParts | None = None
     encoder_failed_tracks: int | None = None
     # `.27`'s `not written whole:` paths, below `Encoder errors:` (bounded).
     not_written_whole: PathSample = field(default_factory=PathSample)
@@ -2943,7 +2954,7 @@ def interruption_point(where: object) -> InterruptionPoint | None:
 #: rather than as a number. Kept far above any real value so it can only refuse
 #: garbage; the structure fuzz test found the unbounded `\d+` storing a 20-digit
 #: value once the count became a stored field (2026-10-05).
-_MAX_PLAUSIBLE_ERROR_COUNT: Final[int] = 10**9
+_MAX_PLAUSIBLE_ERROR_COUNT: Final[int] = ripping_error_parts.MAX_PLAUSIBLE_COUNT
 
 
 def _plausible_count(value: int | None) -> int | None:
@@ -2963,10 +2974,20 @@ def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
             diagnostics.bounded_chars(match.group("count"), head=20, tail=20),
         )
     disc.ripping_errors = parsed
-    skips = _ripping_error_skips(match)
+    # Both wordings, and a part we do not know, are read there (TASKS R174); the
+    # skips field is fed from whichever wording the line used, as before.
+    parts = ripping_error_parts.from_match(match)
+    disc.ripping_error_parts = parts
     disc.ripping_errors_paranoia_skips = (
-        None if parsed is None else _plausible_count(skips)
+        None if parsed is None else parts.paranoia_skips
     )
+    if parts.unknown_total:
+        log.warning(
+            "cyanrip's Ripping errors line has %d part(s) we do not recognise, "
+            "kept: %s",
+            parts.unknown_total,
+            ripping_error_parts.unknown_summary(parts),
+        )
     if parsed is None:
         # An implausible count is not "no errors": say what the ripper printed.
         disc.health_status = f"{match.group('count')[:40]} ripping errors"
@@ -2985,21 +3006,6 @@ def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
         else f"{count} ripping error{'' if count == 1 else 's'}"
     )
     return True
-
-
-def _ripping_error_skips(match: re.Match[str]) -> int | None:
-    """How many of the `Ripping errors:` count are paranoia's skips.
-
-    The suffix's number when it is there; 0 when the line ends at the count, which
-    is every build before `.20` and `.20` on a rip that skipped nowhere; and None
-    when something else follows the count, because a suffix we cannot read is not
-    evidence that there were no skips. Never raises.
-    """
-    raw = match.group("skips")
-    if raw is not None:
-        return int_or_none(raw, field="cyanrip paranoia skips in Ripping errors")
-    rest = match.string[match.end() :].strip()
-    return 0 if not rest else None
 
 
 def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
@@ -4819,6 +4825,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         health_status=disc.health_status,
         ripping_errors=disc.ripping_errors,
         ripping_errors_paranoia_skips=disc.ripping_errors_paranoia_skips,
+        ripping_error_parts=disc.ripping_error_parts,
         encoder_failed_tracks=disc.encoder_failed_tracks,
         partially_accurate_summary=partially_accurate_summary,
         partially_accurate_reported=disc.partially_accurate_reported,

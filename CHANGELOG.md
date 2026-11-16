@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The parser reads the `Ripping errors:` wording that names every part of the count, before any build prints it** (contributor-facing; TASKS R174, the fork's round 41 lap 1 S16): `Ripping errors: 57 (28 frame reads failed, 28 paranoia skips, 1 track not finished)` is read into `RipLog.ripping_error_parts`, each part singular or plural and in any order, beside `.20`'s `(including N paranoia skips)`, which reads as before; the paranoia-skip count the read-speed ladder subtracts comes from either wording, and a part we do not recognise is kept, counted and logged rather than dropped, with every absent part then not determined rather than 0. The generated consumer contract carries the widened pattern.
 - **Our status block records 0.7.126 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.126 at `3e2f194`, published 2026-11-16T16:04:40Z, the first release installing `.32` by default.
 
 ## [0.7.126] — 2026-11-16
