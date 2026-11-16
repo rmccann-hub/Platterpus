@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`CLAUDE.md`'s full text is kept in the homes its pointers name** (contributor-facing; TASKS R32): before the trim below, every passage it removes was put word for word under a named heading in an existing document, so nothing is summarised away (Critical rule #7). No new file.
 - **Our status block records 0.7.126 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.126 at `3e2f194`, published 2026-11-16T16:04:40Z, the first release installing `.32` by default.
 
 ## [0.7.126] — 2026-11-16
