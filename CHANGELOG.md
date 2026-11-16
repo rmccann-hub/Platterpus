@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The 2026-11-14 Full run on 0.7.125 with `.32` is filed** (contributor-facing): round 40's run, 650 pass and 2 fail, on `evidence` at `7faf1b9f` with its 239 manifest rows, and a `partial` row in the field-evidence ledger. Both failures are the CTDB check on track 5's read of the reference disc, in sections F and N, which the app's CTDB repair then fixed; section R's five default whole-disc rips passed every step, all fourteen tracks AccurateRip-verified in each (track 5 by the labelled repair). Every log `.32` wrote says C2 is not declared by the drive, and every report records it so.
 - **Our round 40 lap 2 is released, `OPEN`** (contributor-facing; on the owner's word of 2026-11-14, "so release then", pinned by hash in `tests/test_sent_laps_are_immutable.py`): it reads the fork's `.32` as built, accepts their goal for round 40 as given (one default rip of `.32` through 0.7.125, checked against G1 to G3), and records 0.7.125's release naming `.32` as our build under review. The round closes once each side has read that rip.
 - **Our status block records 0.7.125 as released, and our held round 40 lap 2 names it** (contributor-facing): `STATUS-RELEASED` names 0.7.125 at `553a2d8`, published 2026-11-14T00:33:51Z; the held lap's promise to release it becomes the fact, its versions and FROM-COMMIT move to the release.
 
