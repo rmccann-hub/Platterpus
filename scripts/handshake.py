@@ -4164,7 +4164,7 @@ _CLOSE_BY_ROUND_RE: Final[re.Pattern[str]] = re.compile(
 def close_by_lines_to_print(close_by: list[str], status_lines: list[str]) -> list[str]:
     """The close-by lines worth printing: those of rounds that are not CLOSED.
 
-    TASKS row 1723. `--status` printed a countdown or a "has PASSED" line for every
+    TASKS row *handshake.py --status prints close-by countdowns for CLOSED rounds* (docs/archive/tasks-closed-to-2026-11-16.md). `--status` printed a countdown or a "has PASSED" line for every
     round since 8, and all but one of those rounds were finished: ten lines of
     deadline on rounds nobody can act on, above the one that mattered. The fix is
     HERE, where the two outputs are printed side by side, and not inside

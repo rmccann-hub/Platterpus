@@ -2,7 +2,8 @@
 
 **One session, six steps, ordered so the cheapest evidence comes first.** This is a front
 page for a specific pair, not a replacement for
-[`hardware-test-checklist.md`](../hardware-test-checklist.md) — where a step has a fuller
+the former `hardware-test-checklist.md` (since 2026-11-16 [`test-plan.md`](../test-plan.md) →
+*Hardware test checklist*) — where a step has a fuller
 write-up there, this sheet names the section instead of restating it.
 
 ```
@@ -453,4 +454,4 @@ Round 7 still OPEN, both HOLD. Nothing here approves a pin.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.7.125.*

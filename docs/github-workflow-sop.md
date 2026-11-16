@@ -202,14 +202,21 @@ edit-vs-delete). Git halts and flags the files.
   `git commit`. Panic-abort with `git merge --abort`.
 - **Prevention:** merge `main` into your feature branch **frequently** so
   divergences stay small.
+- **A clean merge is not a correct merge when one side MOVED text** (this repo,
+  2026-11-16). One branch moved a thousand lines of `TASKS.md` to an archive file;
+  two others had edited some of those lines in place. Git merged all three with no
+  conflict and put the edited lines back, so the move half-undid itself. After
+  merging any branch that moves text, compare the moved file's length (and, for a
+  byte-for-byte move, its content) with the mover's own version, and when they
+  differ, take the mover's file whole and re-apply the other branches' edits to it.
 
 ---
 
 *Filed 2026-07-07 at the maintainer's request as the contributor/upstream-PR
 reference. See `docs/cyanrip-fork.md` Part A §10 for the per-gap options
-and `docs/cyanrip-upstream.md` for which upstream repos we'd PR to and in
+and its Part D for which upstream repos we'd PR to and in
 what order.*
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.125.*

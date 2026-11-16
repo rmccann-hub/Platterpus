@@ -289,7 +289,8 @@ SCRIPT_SETTINGS_BOX: Final[Path] = (
 #: history yet.
 _USER_FACING_DOCS: Final[tuple[str, ...]] = (
     "README.md",
-    "docs/hardware-test-checklist.md",
+    # Carries the Hardware test checklist, the former
+    # `hardware-test-checklist.md`, folded in on 2026-11-16.
     "docs/test-plan.md",
     "docs/rig-session.md",
     # The rig-scripts guide tells an operator which menu item to press, so it is

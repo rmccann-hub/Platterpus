@@ -133,7 +133,7 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround34/
    > **Outcome (2026-07, added after later hardware runs):** the v0.4.13
    > re-rip reached **13/14** — Track 3 converged partial→exact on a re-read,
    > confirming P2(c)'s transient-near-miss prediction (see the v0.4.13
-   > session-log entry, and `output_reference/README.md` § `cyanrip_mp3/`, an
+   > session-log entry, in `docs/archive/session-log-to-2026-10-15.md`, and `output_reference/README.md` § `cyanrip_mp3/`, an
    > earlier rip of 2026-06-27 with the same track-3 result); Track 5 remains the
    > disc's own defect *(corrected 2026-10-07: it is not; see item 1 above)*. A still-later re-rip
    > regressed Track 3 again, refining the story to *read-instability on that
@@ -329,7 +329,7 @@ count — so "did this rip match EAC?" is one command. **✅ Done** (the outcome
   Part C §2 below (repair deferred; its CRC-validation gate cleared 2026-07-07).
   What did ship for this gap: the per-track auto-fix re-read, and `--compare` /
   `--assemble-best-of` (CHANGELOG 0.4.24). **✅ The
-  manual workflow is written: [`manual-ctdb-repair.md`](manual-ctdb-repair.md)
+  manual workflow is written: [`ctdb-crc-algorithm.md` → Part 2](ctdb-crc-algorithm.md#part-2--manual-ctdb-repair--the-power-user-escape-hatch-cuetools--ctdb-cli)
   (2026-07-21).**
 - (c) First, simply **re-rip track 3** to see if the near-miss was transient.
   **✅ Done:** transient on some reads and not on others (the outcome note above).
@@ -356,7 +356,7 @@ count — so "did this rip match EAC?" is one command. **✅ Done** (the outcome
   drive), or
   generating the cue ourselves from a subchannel read we don't currently do.
   *(Superseded 2026-07-07: the researched answer lives in
-  [docs/cyanrip-upstream.md](cyanrip-upstream.md) — support cyanrip
+  [docs/cyanrip-fork.md](cyanrip-fork.md) Parts C and D — support cyanrip
   **PR #115**, with a Platterpus-side `cdrdao read-toc` as the documented
   fallback; the previous backend's route no longer exists — KDD-18.)*
 - (c) **Decision gate:** is `INDEX 00` worth it given the audio is already
@@ -856,7 +856,7 @@ samples** and bring the track back to the consensus. We already do CTDB
 - **Document the manual CUETools/ctdb-cli repair workflow** as the authoritative
   fix for a stubborn "partially accurate (450)" track (a power-user escape
   hatch), pointing at the tools above. **✅ Written 2026-07-21:
-  [`manual-ctdb-repair.md`](manual-ctdb-repair.md)** (assembled strictly from
+  [`ctdb-crc-algorithm.md` → Part 2](ctdb-crc-algorithm.md#part-2--manual-ctdb-repair--the-power-user-escape-hatch-cuetools--ctdb-cli)** (assembled strictly from
   this doc + the investigation record; unexecuted steps marked unverified).
 - **Gate an in-app repair** behind: (a) ~~the CTDB CRC hardware-validation~~
   **cleared 2026-07-07 (KDD-16)**, (b) ~~explicit maintainer appetite for the
@@ -899,7 +899,7 @@ samples** and bring the track back to the consensus. We already do CTDB
   (KDD-14: optional `ctdb-cli`, when a user needs it), and validation of the
   repair path itself remains.
   `-Z N` shipped; the manual workflow is documented
-  ([`manual-ctdb-repair.md`](manual-ctdb-repair.md), 2026-07-21); gate the
+  ([`ctdb-crc-algorithm.md` → Part 2](ctdb-crc-algorithm.md#part-2--manual-ctdb-repair--the-power-user-escape-hatch-cuetools--ctdb-cli), 2026-07-21); gate the
   integration behind maintainer sign-off + validation.
 
 ---
@@ -1050,7 +1050,7 @@ cyanrip's default already merges pregaps into the previous track.
 | No ID3 on FLAC | Vorbis comments only | **met** |
 | Individual tracks (not a range rip) | cyanrip is always per-track | **met** |
 | No normalization / compression offset | never emitted | **met** |
-| Read offset correction | `-s` applied. Since 2026-10-21 the report (`rip.read_offset_check`) and the results pane assert it against the AccurateRip drive list for the drive the log names, with KDD-31's re-confirmation beside it (`read_offset_check.py`); the EAC-layout log still prints the value only, and its wording is proposed in TASKS P2 #6 | **partial** (report met; EAC-layout log open) |
+| Read offset correction | `-s` applied. Since 2026-10-21 the report (`rip.read_offset_check`) and the results pane assert it against the AccurateRip drive list for the drive the log names, with KDD-31's re-confirmation beside it (`read_offset_check.py`); the EAC-layout log still prints the value only, and its wording is proposed in TASKS P2 #6 (`docs/archive/tasks-closed-to-2026-11-16.md`) | **partial** (report met; EAC-layout log open) |
 | Fill missing offset samples with silence | derived from cyanrip's `Overread mode:` line, which stock and fork both always print (cyanrip@ca3f3ea:src/cyanrip_log.c:889-891); reads `No` under `-O` | **met** |
 | `Make use of C2 pointers` | **`No`, first-party** where the ripper's line says it did not use C2 (a page that does not declare C2, or "not used"); "(not reported)" otherwise (see below) | **met on the rig; open in general** |
 | `Utilize accurate stream` | no equivalent; from `.26` the row carries the drive's own declaration (`Accurate stream:`, MODE SENSE page 2Ah), worded as not determined and never as EAC's `Yes`, since a declaration is not a use (`eac_log_export._accurate_stream_row`, 2026-10-26) | **open** |
@@ -1388,7 +1388,7 @@ it would at least flag the read as unstable when the two reads differ. That is w
 did for track 3 in two of its sessions. (When the misread is systematic, as on track 5,
 Test & Copy cannot catch it either.)
 
-This was the maintainer's own *First-rip proof* (TASKS.md, P0, 2026-07-30), unstarted
+This was the maintainer's own *First-rip proof* (TASKS.md's P0 section, 2026-07-30, now in `docs/archive/tasks-closed-to-2026-11-16.md`), unstarted
 when the audit was written, waiting on one decision: whether doubling rip time for
 unknown discs is acceptable. **The audit recommended yes:** run `-Z` on every track when
 the disc is not in AccurateRip, and give the result its own named verdict. Otherwise a
@@ -1697,7 +1697,7 @@ and Part F's per-run scores stay the dated record.
   04:11:32"*. Both are within CTDB's correctable range (npar 16 corrects up to 8 bad
   words per column of a 10-sector stride; about one second of burst).
 - **The results cluster by session, with no trend over time.** Every filed run of the
-  reference disc, 2026-10-20 to 11-04 (the chart is in TASKS, row *"Tracks 3 and 5 of
+  reference disc, 2026-10-20 to 11-04 (the chart is in the TASKS archive, `docs/archive/tasks-closed-to-2026-11-16.md`, row *"Tracks 3 and 5 of
   the reference disc have each converged on two different values"*): track 3 ripped
   alone was right in 1 of 8 on 10-26, 8 of 8 on 11-03 and 0 of 8 on 11-04; whole-disc
   rips with the app's secure re-rip got it right in 6 of 7 sessions. Track 3's wrong
@@ -1910,4 +1910,4 @@ stay open for what they can still teach about why the drive returns two values.
 
 ---
 
-*Last updated for Platterpus v0.7.124.*
+*Last updated for Platterpus v0.7.125.*

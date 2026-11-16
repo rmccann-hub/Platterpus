@@ -549,7 +549,7 @@ def test_every_committed_lap_still_counts_as_one() -> None:
 
 
 # ---------------------------------------------------------------------------
-# `--check`: a declared digest, read back and recomputed (TASKS row 2778).
+# `--check`: a declared digest, read back and recomputed (TASKS row C1, docs/archive/tasks-closed-to-2026-11-16.md).
 #
 # Until this existed, every digest agreement this project reported was a person
 # comparing printed output with a value read out of a file by eye, for the one

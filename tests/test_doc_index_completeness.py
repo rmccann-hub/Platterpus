@@ -590,6 +590,35 @@ def test_the_index_routes_to_the_subdirectory_indexes() -> None:
 #: slid past it.
 _SECTION_ID = re.compile(r"^#{2,4}\s+§?(\d+\.[0-9a-z]+)\b", re.MULTILINE)
 
+#: A lettered part heading, ``## Part C — …``. A document assembled from several
+#: originals (``docs/cyanrip-fork.md``: Parts A to E, each an original file whole)
+#: keeps each original's own section numbers, and is cited as ``Part C §2.1``,
+#: never as a bare ``§2.1``. That document states the convention in its own *Where
+#: this came from*: the parts are lettered precisely so a section id reads one way.
+_PART_HEADING = re.compile(r"^## Part (?P<letter>[A-Z]) — ")
+
+
+def _section_ids(text: str) -> list[str]:
+    """Every cited section id in ``text``, scoped by its lettered part if any.
+
+    Outside any ``## Part X —`` heading an id is itself (``5.ag``); inside one it is
+    ``Part X §id``, because that is the only spelling a citation of it uses. So
+    ``§3.1`` in Part B and ``§3.1`` in Part C are two sections, while two ``§3.1``
+    headings inside one part are still the collision this sweep exists to catch.
+    """
+    ids: list[str] = []
+    part: str | None = None
+    for line in text.splitlines():
+        heading = _PART_HEADING.match(line)
+        if heading:
+            part = heading.group("letter")
+            continue
+        found = _SECTION_ID.match(line)
+        if found:
+            ident = found.group(1)
+            ids.append(f"Part {part} §{ident}" if part else ident)
+    return ids
+
 
 @pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_no_doc_reuses_a_section_id() -> None:
@@ -612,7 +641,7 @@ def test_no_doc_reuses_a_section_id() -> None:
     offenders: list[str] = []
     examined = 0
     for path in sorted(_DOCS.rglob("*.md")) + [_CLAUDE_MD]:
-        ids = _SECTION_ID.findall(path.read_text(encoding="utf-8"))
+        ids = _section_ids(path.read_text(encoding="utf-8"))
         if not ids:
             continue
         examined += 1
@@ -621,8 +650,9 @@ def test_no_doc_reuses_a_section_id() -> None:
             seen[ident] = seen.get(ident, 0) + 1
         for ident, count in sorted(seen.items()):
             if count > 1:
+                shown = ident if ident.startswith("Part ") else f"§{ident}"
                 offenders.append(
-                    f"{path.relative_to(_REPO_ROOT)}: §{ident} appears {count} times"
+                    f"{path.relative_to(_REPO_ROOT)}: {shown} appears {count} times"
                 )
 
     # Floor: if no document was found to carry numbered sections, this check examined
@@ -635,6 +665,32 @@ def test_no_doc_reuses_a_section_id() -> None:
         "duplicate section ids — every cross-reference to these is ambiguous:\n  "
         + "\n  ".join(offenders)
     )
+
+
+def test_section_ids_are_scoped_by_lettered_part() -> None:
+    """The part scoping separates parts and nothing else.
+
+    Added 2026-11-16, when ``docs/cyanrip-fork.md`` took in the former
+    ``cyanrip-upstream.md`` and the soft-fork runbook's ``§3.1`` (Part B) met the
+    ask list's ``§3.1`` (Part C). Each is cited as ``Part B §3.1`` / ``Part C §3.1``,
+    so they are two sections; the sweep was taught that rather than having either
+    heading renumbered under the citations that already name it.
+
+    Both directions, so the scoping cannot become an exemption: one id in two parts
+    is two ids, the same id twice inside one part is still a collision, and a
+    document without parts is read exactly as before.
+    """
+    two_parts = "## Part B — x\n### 3.1 one\n## Part C — y\n#### 3.1 two\n"
+    assert _section_ids(two_parts) == ["Part B §3.1", "Part C §3.1"]
+    one_part = "## Part C — y\n#### 3.1 one\n#### §3.1 two\n"
+    assert _section_ids(one_part).count("Part C §3.1") == 2
+    no_parts = "### §5.ag — one\nbody\n### 5.ag — two\n"
+    assert _section_ids(no_parts) == ["5.ag", "5.ag"]
+    # The document that prompted the scoping must still carry a cross-part repeat,
+    # or this whole branch has stopped being exercised by the real tree.
+    merged = _section_ids((_DOCS / "cyanrip-fork.md").read_text(encoding="utf-8"))
+    bare = [ident.split(" §", 1)[1] for ident in merged if ident.startswith("Part ")]
+    assert any(bare.count(ident) > 1 for ident in bare), merged
 
 
 def test_the_duplicate_id_check_would_catch_the_shipped_collision() -> None:
@@ -728,7 +784,8 @@ _LINE_CITATION = re.compile(r"(?P<doc>[a-z0-9-]+\.md):(?P<lines>\d[\d,\s-]*)")
 def test_no_prose_cites_a_generated_document_by_line_number() -> None:
     """**Measured drift, not a style preference.**
 
-    `docs/cyanrip-known-issues.md` carried three citations into
+    The former `cyanrip-known-issues.md` (now `docs/cyanrip-fork.md` Part E)
+    carried three citations into
     `docs/cyanrip-consumer-contract.md` by line number, and on 2026-08-21 **all
     three were already wrong** — checked against the file as committed at
     `faa2a39`, before that day's change touched it:
@@ -884,7 +941,7 @@ def test_every_handshake_citation_in_prose_resolves_in_THIS_tree() -> None:
     **Scope, stated rather than implied.** Only *resolution* is asserted, not
     content: a test that also pinned the text at each line would fail on a reflow
     and teach nothing. And an unqualified basename is accepted if it resolves in
-    **any** of the three role directories — `cyanrip-known-issues.md` cites laps
+    **any** of the three role directories — `cyanrip-fork.md` Part E cites laps
     by bare basename throughout, which is unambiguous to a reader, and demanding
     a prefix there would be a doc rewrite for no gain. So the claim being checked
     is exactly *"this pointer lands somewhere in the record"* — which is the claim
@@ -988,11 +1045,10 @@ _DOCUMENTS_20260925: frozenset[str] = frozenset(
         "docs/OWNERSHIP.md", "docs/README.md", "docs/TEST-VERIFICATION-CHECKLIST.md",
         "docs/architecture.md", "docs/ctdb-crc-algorithm.md",
         "docs/cyanrip-consumer-contract.md", "docs/cyanrip-fork.md",
-        "docs/cyanrip-handshake.md", "docs/cyanrip-known-issues.md",
-        "docs/cyanrip-upstream.md", "docs/dependency-contracts.md",
+        "docs/cyanrip-handshake.md", "docs/dependency-contracts.md",
         "docs/eac-parity.md", "docs/github-workflow-sop.md",
-        "docs/handshake-protocol.md", "docs/hardware-test-checklist.md",
-        "docs/manual-ctdb-repair.md", "docs/platterpus-research-brief-v2.1.md",
+        "docs/handshake-protocol.md",
+        "docs/platterpus-research-brief-v2.1.md",
         "docs/platterpus-session-start.md", "docs/rig-session.md",
         "docs/script-language.md", "docs/seam-commands.md", "docs/seam-rules.md",
         "docs/session-log.md", "docs/test-plan.md", "docs/testing.md",
@@ -1013,8 +1069,11 @@ def _top_level_documents() -> set[str]:
 
 def test_a_NEW_document_names_the_homes_it_rejected() -> None:
     present = _top_level_documents()
-    # FLOOR: 33 measured. A glob that stopped matching must not pass.
-    assert len(present) >= 30, sorted(present)
+    # FLOOR: 33 measured; 29 from 2026-11-16, when the owner's consolidation
+    # folded four documents into others (the hardware checklist, the manual CTDB
+    # repair how-to, the upstream ask list and the known-issues record). The floor
+    # is there so a glob that stopped matching cannot pass, not to stop a merge.
+    assert len(present) >= 25, sorted(present)
     unexplained = sorted(present - _DOCUMENTS_20260925 - set(_NEW_DOCUMENTS))
     assert not unexplained, (
         f"new document(s) {unexplained}. Critical rule #7: a new file is the last "

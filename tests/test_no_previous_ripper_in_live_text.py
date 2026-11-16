@@ -88,14 +88,15 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
         2,
         "citation: the upstream file and lines a capability audit read",
     ),
-    "docs/cyanrip-fork.md": (4, "citation URLs (upstream repository, plugin issue)"),
+    "docs/cyanrip-fork.md": (
+        7,
+        "citation URLs (upstream repository, plugin issue); and, in Part D (the"
+        " former cyanrip-upstream.md, 3), third-party function names and header"
+        " quoted verbatim",
+    ),
     "docs/eac-parity.md": (
         5,
         "third-party logchecker file names, a verbatim code quote, a citation URL",
-    ),
-    "docs/cyanrip-upstream.md": (
-        3,
-        "third-party function names and header quoted verbatim",
     ),
     # --- Real artifacts, kept verbatim --------------------------------------
     "tests/fixtures/rip_log_legacy_format.log": (
@@ -149,7 +150,8 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
         125,
         "the KDD decision log, plus exact leftover paths in the module map",
     ),
-    "TASKS.md": (142, "completed rows and dated history; live rows were swept"),
+    # 142 until 2026-11-16, when the closed sections moved to docs/archive/.
+    "TASKS.md": (5, "completed rows and dated history; live rows were swept"),
     "DEPENDENCIES.md": (
         31,
         "struck-through rows, the HISTORICAL section and the dated review log",
