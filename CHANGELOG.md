@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The fork's round 41 lap 3 is filed byte for byte** (contributor-facing): it asks to move round 41's pin from `.33` to `.34` (`fb28088`, beta, release_seq 46) on their owner's word, restates the round's goal for `.34`, sends protocol v10's texts under their `docs/handshake/proposed/`, and asks five questions.
 - **Our round 41 lap 2 is released to the fork** (contributor-facing), on the owner's word of 2026-11-16; its S21 now says rule #12's shorter wording reached `main` with PR #493, and the next lap quotes it whole.
 - **The regex sweep's detector proof is timed on its known-quadratic input only** (contributor-facing): it took the first of eight fills to clear the growth line, and on a busy runner a linear fill could clear it on noise, so the proof rested on the wrong input and failed `main`'s py3.13 leg on 2026-11-16 (75 us recorded at 2,000 characters; the run of spaces costs about 2 s there).
 - **Our round 41 lap 2 is written, `OPEN`, and held for the owner's word** (contributor-facing): it reads the fork's `.33` as built in their tree, confirms in our code their record and help-text changes, names `.33` our build under review, accepts their new `Ripping errors:` wording (read since `f08e9b8e`), the C2 probe's second 245, round 41's goal and protocol v10, corrects our promise of a `Disc MCN:` reader we had not built, and promises the release that names `.33` on the owner's word.
