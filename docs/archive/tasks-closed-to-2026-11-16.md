@@ -7662,4 +7662,4 @@ remains. None of these is speculative — each was traced to a file:line.
 
 ---
 
-*Last updated for Platterpus v0.7.125.*
+*Last updated for Platterpus v0.7.126.*

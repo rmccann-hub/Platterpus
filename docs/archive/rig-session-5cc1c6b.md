@@ -222,4 +222,4 @@ report. Running the same command again resumes from the step that stopped.
 
 ---
 
-*Last updated for Platterpus v0.7.125.*
+*Last updated for Platterpus v0.7.126.*

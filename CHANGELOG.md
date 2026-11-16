@@ -15,6 +15,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 ### Changed
 
 - **CI's `astral-sh/setup-uv` moves from v10.3.2 to v10.3.3** (contributor-facing; Dependabot's #450, carried on a session branch with the regenerated `bom.cdx.json` and `DEPENDENCIES.md` map): the `lock-check` job and `dependencies.yml`'s two uv steps, pinned to the tag's full commit SHA `68559e99`, read from the tag with `git ls-remote` on 2026-11-16. The uv they install stays 0.13.5, so no lock changes.
+
+## [0.7.126] — 2026-11-16
+
+The first release that installs the fork's `.32` (`edb73dd`) by default, approved by round 40 on 2026-11-16 with both sides' `GO`. It carries the two record fixes the fork asked about in that round (a re-read track's start time and a repair's wording now name the read the file holds), the over-read probe running on `.31` and `.32`, a narrower over-long-name refusal that leaves room for the files written beside a track, our lap checker refusing a lap that gives the next round away, the damaged-disc grading and KDD-47's amendment on the owner's word, and the documents consolidated.
+
+### Changed
+
 - **A title long enough to break the files Platterpus writes beside a track is now refused before Start** (user-facing; TASKS R88): the name-length check let a name of up to 255 bytes through, but Platterpus then writes files beside it with longer names (the securing pass's temporary copy of a re-read track, the transcode temporary, the EAC-compatible log, the JSON report, the addendum, the securing-pass and verified-read logs), so a track name of 235 to 255 bytes, or a rip log name of 231 to 255, failed after the rip with *file name too long*. Each kind of name is now held to 255 bytes less the longest ending we add to it: 234 for a track's file and 230 for the rip log, so the message reads *"Track 7’s file name would be 280 bytes; the limit is 234 — shorten its title."* Every such ending now lives in one module, `sibling_names.py`, from which the writers build their names and the check derives its margin (`tests/test_sibling_names.py` creates the files for real at the limit and one byte over).
 - **`CLAUDE.md` follows the owner's decisions of 2026-11-16** (contributor-facing): Critical rule #11 says the workflow installs a hashed lock derived from `pyproject.toml` (R92), and the companion paragraph no longer names the two documents the consolidation folded away. TASKS records the rest: the Actions setting for relock pull requests is on (R93; the 2026-11-09 run failed on exactly that), the controlled track 3 test is dropped (R123), the AccurateRip inquiry deferred (R52), and protocol v10 proposed inside round 41 (R157).
 - **The over-read probe runs on the ripper you have** (operator-facing; TASKS R24): `overreadprobe.txt` stopped at its first step unless the installed cyanrip was the fork's `.24`, so it could not run on `.31` or `.32`. It now asks the new script verb `expect-ripper-bounds-overread`, which passes every build whose source bounds `-O` (`.24` to `.32`, each read from the fork's source and listed in `fork_source.BUILD_TAGS_BOUNDING_OVERREAD`), still refuses `.23` and earlier, whose `-O` hung the BDR-209D for about 23 minutes, and stops as not determined on a build it cannot place. Its offset check asks the selected drive's own offset (`expect-drive-offset 667`, which now takes an optional value) instead of the global `read_offset`, which no longer decides a rip's offset; its header says what it is for without naming a round, and its two output folders are `overreadleadout` and `overreadleadin`.
@@ -19966,7 +19973,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...HEAD
+[0.7.126]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...v0.7.126
 [0.7.125]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...v0.7.125
 [0.7.124]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...v0.7.124
 [0.7.123]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...v0.7.123
@@ -20062,4 +20070,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.125.*
+*Last updated for Platterpus v0.7.126.*
