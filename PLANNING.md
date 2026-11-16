@@ -2494,6 +2494,25 @@ the original is kept; a false refusal costs only a rip left as it was, with a
 sentence saying so. The same rule binds the rebuild from several reads (R134):
 automatic, accepted only on AccurateRip v1 and v2, and told when it is not.
 
+**Amended 2026-11-16 — "never edit the EAC-compatible log" protects the record of
+the read, not the file's bytes** (the owner's answer "3. a" to that day's decision
+list, choosing option A: keep the rewrite; TASKS R142). Since `c1d2dcb1` (round 39's
+G3) a repair that lands renders the EAC-layout log once more
+(`ui/main_window_ctdb_repair._land_ctdb_repair`): every row of the read is kept as
+it was, from the same parsed log (the read's `Copy CRC`, its AccurateRip row), and
+each repaired track gains a `Record:` row naming the repair (`Copy CRC E0036697
+before, C96464AB after`) and a status line that says the read was then repaired.
+The decision above said *never edit the EAC-compatible log*; read literally, that
+forbids the rewrite, and the alternative it leaves is a log that goes on describing
+a read that is no longer the file on disk, the *looks complete* artifact. The owner
+chose the reading that the sentence protects the record of the read: no row of the
+read is changed, removed or re-derived from the repaired audio, and what the repair
+did is added beside it. Still binding: the ripper's own log is never touched
+(KDD-24), and `ctdb.repair.untouched` says so (`ctdb/repair.py`, `UNTOUCHED`).
+Option B, reverting the rewrite and writing the repair to a separate trailer, was
+not taken. The full treatment: `docs/eac-parity.md` Part B, *The repair rewrites
+our log, never the ripper's*.
+
 **Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
 LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room
 rule KDD-16 set remains the practice.

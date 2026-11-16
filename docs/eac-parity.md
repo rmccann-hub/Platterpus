@@ -577,7 +577,12 @@ artifact. Every row of the read stays as it was (the same `RipLog`, rendered the
 way): the `Copy CRC` is still the read's `E0036697`, the AccurateRip row still the
 read's, and the `Record:` row says `Copy CRC E0036697 before, C96464AB after`. The
 ripper's own log is never touched (KDD-24, KDD-47), and `ctdb.repair.untouched` now
-says so in those words.
+says so in those words. **The owner confirmed this reading on 2026-11-16** ("3. a",
+option A: keep the rewrite; TASKS R142, `PLANNING.md` KDD-47 amended): KDD-47's
+*never edit the EAC-compatible log* protects the record of the read, not the file's
+bytes, so the rewrite stays, and what it may not do is change, drop or re-derive a
+row of the read. Option B, reverting to the log as first written and putting the
+repair in a trailer, was declined for the reason above.
 
 **AccurateRip after a repair is stated per version, against the database the repair
 asked.** cyanrip prints AccurateRip's value only for a read that matched it, and a
@@ -1808,7 +1813,9 @@ first only because it is nearly done (the localiser exists) and it also fixes tr
    prove it before replacing anything: the new file re-decodes to exactly the original
    with the plan applied, the whole-disc CTDB CRC and the entry's track CRC match, and
    AccurateRip v1 and v2 are recomputed. The original is kept beside it; the repair is
-   recorded in the report; the EAC-compatible log is never edited (KDD-24). Strongest
+   recorded in the report; the EAC-compatible log is never edited (KDD-24; read on
+   2026-11-16, KDD-47 amended, as the read's rows never edited, with the repair
+   named beside them: Part B). Strongest
    entry only, never a minority, never against AccurateRip. Decision: KDD-47.
    **Status (2026-11-05):** the core was built on 2026-11-04, and it now runs **on its
    own after every rip whose CTDB check differs from the strongest entry**, with no
