@@ -15,6 +15,12 @@ PERFORMANCE yet (their S8).
 Both readers that recognise a record by its schema are held: ``ripper_ending`` (the
 ending) and ``isrc_provenance`` (the tracks and ``drive_declared``, read through
 ``record_drive_declared``).
+
+**`.34` (2026-11-16).** Their round 41 lap 3 moves the round to `.34` (S9) and says
+no record field changes (BREAKING). Its golden record, as published with `.34`
+(``tests/fixtures/cyanrip_fork_diagnostics14_golden_dot34.json``, from
+``cyanrip@d7385d18:docs/golden-reference.diagnostics.json``), is read through the
+same two readers below.
 """
 
 from __future__ import annotations
@@ -31,6 +37,10 @@ from platterpus.ripper_ending import RECORD_SCHEMA_PREFIX, STATE_READ, parse_end
 
 _GOLDEN_14: Final[Path] = (
     Path(__file__).parent / "fixtures" / "cyanrip_fork_diagnostics14_golden.json"
+)
+#: `.34`'s golden record, byte for byte from the commit that published `.34`.
+_GOLDEN_14_DOT34: Final[Path] = (
+    Path(__file__).parent / "fixtures" / "cyanrip_fork_diagnostics14_golden_dot34.json"
 )
 
 #: `tests/diagrecord.c:591-595`: one whole descriptor of two declared.
@@ -107,3 +117,27 @@ def test_a_14_record_with_a_drive_reads_through_the_whole_reader() -> None:
     assert reading.state == STATE_READ
     assert reading.drive_declared.state == declared.READ
     assert reading.drive_declared.inquiry is not None
+
+
+def test_dot34s_published_record_reads_as_dot33s_did() -> None:
+    """`.34` changes no record field (their lap 3's BREAKING): the same schema, and
+    the same reading through both readers as `.33`'s record above."""
+    text = _GOLDEN_14_DOT34.read_text(encoding="utf-8")
+    data = json.loads(text)
+    # Non-triviality: this is `.34`'s record, built from `fb28088`'s source (`vcs`
+    # `3069c11`, the build that made `.34`'s provider contract), not `.33`'s.
+    assert data["cyanrip"]["version"] == "0.9.4-rc3+platterpus.34"
+    assert data["cyanrip"]["vcs"] == "3069c11"
+    assert data["schema"] == "cyanrip-diagnostics/14"
+    assert data["schema"].startswith(RECORD_SCHEMA_PREFIX)
+
+    ending = parse_ending(text)
+    assert ending.state == STATE_READ
+    assert (ending.exit_code, ending.interrupted) == (0, False)
+    reading = parse_isrcs(text)
+    assert reading.state == STATE_READ
+    assert [t.number for t in reading.tracks] == [1, 2, 3]
+    assert data["drive_declared"] is None
+    assert reading.drive_declared.state == declared.NOT_STATED
+    # The same keys at the top level as `.33`'s record: no field added or dropped.
+    assert set(data) == set(_golden())
