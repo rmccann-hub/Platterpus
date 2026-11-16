@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.126] — 2026-11-16
+
+The first release that installs the fork's `.32` (`edb73dd`) by default, approved by round 40 on 2026-11-16 with both sides' `GO`. It carries the two record fixes the fork asked about in that round (a re-read track's start time and a repair's wording now name the read the file holds), the over-read probe running on `.31` and `.32`, a narrower over-long-name refusal that leaves room for the files written beside a track, our lap checker refusing a lap that gives the next round away, the damaged-disc grading and KDD-47's amendment on the owner's word, and the documents consolidated.
+
 ### Changed
 
 - **A title long enough to break the files Platterpus writes beside a track is now refused before Start** (user-facing; TASKS R88): the name-length check let a name of up to 255 bytes through, but Platterpus then writes files beside it with longer names (the securing pass's temporary copy of a re-read track, the transcode temporary, the EAC-compatible log, the JSON report, the addendum, the securing-pass and verified-read logs), so a track name of 235 to 255 bytes, or a rip log name of 231 to 255, failed after the rip with *file name too long*. Each kind of name is now held to 255 bytes less the longest ending we add to it: 234 for a track's file and 230 for the rip log, so the message reads *"Track 7’s file name would be 280 bytes; the limit is 234 — shorten its title."* Every such ending now lives in one module, `sibling_names.py`, from which the writers build their names and the check derives its margin (`tests/test_sibling_names.py` creates the files for real at the limit and one byte over).
@@ -19965,7 +19969,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...HEAD
+[0.7.126]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...v0.7.126
 [0.7.125]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...v0.7.125
 [0.7.124]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...v0.7.124
 [0.7.123]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.122...v0.7.123
@@ -20061,4 +20066,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.125.*
+*Last updated for Platterpus v0.7.126.*

@@ -46,4 +46,4 @@ G5, the EAC re-rip on Windows, is the owner's, and is filed beside the 11 and 25
 
 ---
 
-*Last updated for Platterpus v0.7.125.*
+*Last updated for Platterpus v0.7.126.*
