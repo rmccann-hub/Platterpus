@@ -73,6 +73,7 @@ from platterpus.uiscript.report import (
     StepRecord,
     render,
 )
+from platterpus.uiscript.ripper_build_verbs import RipperBuildVerbsMixin
 from platterpus.uiscript.scan_verbs import ScanVerbsMixin, superseded_picker
 from platterpus.uiscript.script import (
     DEVICE_PLACEHOLDER,
@@ -89,6 +90,9 @@ from platterpus.uiscript.script import (
 )
 from platterpus.uiscript.script_values import (
     coerce_setting as _coerce_setting,
+)
+from platterpus.uiscript.script_values import (
+    parse_offset as _offset_argument,
 )
 from platterpus.uiscript.script_values import (
     parse_track_spec as _parse_track_spec,
@@ -404,6 +408,7 @@ class ScriptRunner(
     WalkthroughVerbsMixin,
     BurstVerbsMixin,
     InstallVerbsMixin,
+    RipperBuildVerbsMixin,
     TimingVerbsMixin,
     AccuracyVerbsMixin,
     ScanVerbsMixin,
@@ -1189,6 +1194,7 @@ class ScriptRunner(
         Asked of the window's one answer for the selected drive
         (`_selected_drive_offset`), the value a Start hands cyanrip, so it fails
         if the drive was changed, its record replaced, or offsets switched off.
+        With an argument it also fails unless that offset is the argument.
         """
         if self._drive_offset is None:
             self._record(
@@ -1201,7 +1207,15 @@ class ScriptRunner(
             return
         decision = reader()
         actual = getattr(decision, "value", None)
-        if actual == self._drive_offset:
+        # `expect-drive-offset 667`: a script written for ONE drive (the
+        # over-read probe needs +667 to reach past the lead-out) names the number
+        # and asks the drive's own answer, never `Config.read_offset`, which no
+        # longer decides a rip's offset (`offset_config.py`, 0.7.124).
+        wanted = _offset_argument(step.args[0]) if step.args else self._drive_offset
+        if wanted is None:
+            self._record(step, Outcome.ERROR, f"{step.args[0]!r} is not an offset")
+            return
+        if actual == self._drive_offset == wanted:
             self._record(step, Outcome.PASS, f"read offset {actual:+d}, applied")
             return
         self._record(
@@ -1209,7 +1223,8 @@ class ScriptRunner(
             Outcome.FAIL,
             f"the selected drive's read offset is {actual!r} "
             f"({getattr(decision, 'reason', '?')}); "
-            f"set-drive-offset set {self._drive_offset:+d}",
+            f"set-drive-offset set {self._drive_offset:+d}"
+            + (f"; this step wants {wanted:+d}" if step.args else ""),
         )
 
     def set_run_size(self, size: str) -> None:

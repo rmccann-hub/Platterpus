@@ -2082,6 +2082,87 @@ def accepts_reread_until_accuraterip(build_tag: str) -> bool:
     return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP}
 
 
+#: Builds whose ``-O`` (over-read into the lead-in and lead-out) is BOUNDED: each
+#: frame outside the disc is read once, through the cdda layer and not through
+#: paranoia, a refused one is written as silence, and the track says so in a
+#: ``Beyond disc: N of M frames refused (written as silence)`` line. Before
+#: ``.24``, ``-O`` read those frames through paranoia to its retry limit, which
+#: hung the rig's BDR-209D for about 23 minutes on 2026-07-22, so this set is
+#: what lets ``overreadprobe.txt`` send ``-O`` at all (TASKS R24).
+#:
+#: **Read from each build's source, not from a lap** (Critical rule #12, *derive
+#: the number*). Each entry has the three pieces: the one-frame read
+#: (``crip_read_frame_beyond_disc``), the branch that sends every frame outside
+#: the disc to it under ``-O``, and the log line, in ``src/cyanrip_main.c`` and
+#: ``src/cyanrip_log.c``:
+#:
+#: * ``.24`` ``93afa15``: ``:648``, ``:683``, ``cyanrip_log.c:481``;
+#: * ``.25`` ``5f1d036``: ``:662``, ``:697``, ``cyanrip_log.c:481``;
+#: * ``.26`` ``ca0f097``: ``:717``, ``:752``, ``cyanrip_log.c:491``;
+#: * ``.27`` ``5aeefc4``: ``:725``, ``:760``, ``cyanrip_log.c:533``;
+#: * ``.28`` ``3f288fb``: ``:780``, ``:815``, ``cyanrip_log.c:544``;
+#: * ``.29`` ``8d2ca72``: ``:783``, ``:818``, ``cyanrip_log.c:613``;
+#: * ``.30`` ``5cc1c6b``: ``:848``, ``:883``, ``cyanrip_log.c:613``;
+#: * ``.31`` ``e531a33``: ``:866``, ``:901``, ``cyanrip_log.c:613``;
+#: * ``.32`` ``edb73dd``: ``:885``, ``:920``, ``cyanrip_log.c:627``.
+#:
+#: The one change since ``.24`` is where the lead-out begins: from ``.29`` the
+#: branch's upper bound is ``ctx->audio_end_lsn``, not ``ctx->end_lsn``
+#: (``cyanrip@6fa6fe57``, "Bound an Enhanced CD's offset read by the audio
+#: session's end"). The two are the same frame on a one-session disc
+#: (``cyanrip@edb73dd:src/cyanrip_main.c:590``); only an Enhanced CD moves it, to
+#: session 1's end (``:685``). The read itself (``:894``, one ``cdio_cddap_read``
+#: of one frame) and the line's wording are unchanged. ``.23`` (``891c79e``) has
+#: no such function; :func:`bounds_overread` says ``False`` for it and for every
+#: earlier numbered release. Enumerated, never inferred from a version: a later
+#: build joins when its own source has been read.
+BUILD_TAGS_BOUNDING_OVERREAD: Final[frozenset[str]] = frozenset(
+    {
+        "platterpus-fork-g93afa15",
+        "platterpus-fork-g5f1d036",
+        "platterpus-fork-gca0f097",
+        "platterpus-fork-g5aeefc4",
+        "platterpus-fork-g3f288fb",
+        "platterpus-fork-g8d2ca72",
+        "platterpus-fork-g5cc1c6b",
+        "platterpus-fork-ge531a33",
+        "platterpus-fork-gedb73dd",
+    }
+)
+
+#: The release sequence of ``.24`` (``93afa15``), the first build that bounds
+#: ``-O``. A numbered release before it is KNOWN not to.
+FIRST_RELEASE_BOUNDING_OVERREAD: Final[int] = 35
+
+
+def bounds_overread(build_tag: str) -> bool | None:
+    """Whether ``build_tag``'s build bounds ``-O``. **Tri-state.**
+
+    ``True`` for a build in :data:`BUILD_TAGS_BOUNDING_OVERREAD`, tolerant of a
+    ``-dirty`` suffix as the other per-build sets are. ``False`` for a numbered
+    fork release older than ``.24``, which is known to read outside the disc
+    through paranoia (``.23``, ``891c79e``, and before). ``None`` for everything
+    else — stock cyanrip, a fork commit outside the release list, a later release
+    whose source has not been read yet, no tag at all: not determined, which is
+    not a pass either, and a caller deciding whether to send ``-O`` must refuse
+    it. Never raises.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    if not tag:
+        return None
+    if tag in {t.casefold() for t in BUILD_TAGS_BOUNDING_OVERREAD}:
+        return True
+    prefix = f"{FORK_BRANCH}-g".casefold()
+    if not tag.startswith(prefix):
+        return None
+    seq = release_seq_for_commit(tag[len(prefix) :])
+    if seq is not None and seq < FIRST_RELEASE_BOUNDING_OVERREAD:
+        return False
+    return None
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- The full commits behind the short pins ---------------------------------

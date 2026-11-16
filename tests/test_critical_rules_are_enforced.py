@@ -1646,7 +1646,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3419 -> 3434** (2026-11-13): round 39 closes; FORK_PIN rolls to e531a33 with its record.
     # **3434 -> 3484** (2026-11-13, round 40 names `.32`, the fork's lap 1): `PIN_UNDER_REVIEW` `edb73dd` and its round, its release sequence 43, its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit` and `--reread-until-accuraterip` rows, and `.31` named in the `--verify-log` set, each with the source it was read from.
     # **3484 -> 3494** (2026-11-16): round 40 closes; FORK_PIN rolls to edb73dd with its record.
-    "deps/fork_source.py": 3494,
+    # **3494 -> 3575** (2026-11-16, TASKS R24): `BUILD_TAGS_BOUNDING_OVERREAD`, `FIRST_RELEASE_BOUNDING_OVERREAD` and the tri-state `bounds_overread`, beside the other per-build sets, each of the nine builds cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`), so `overreadprobe.txt` asks one fact instead of typing `.24`'s tag.
+    "deps/fork_source.py": 3575,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -3128,7 +3129,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4956 -> 4981** (2026-11-04): the run's bundle carries each scripted rip's folder (`uiscript/scripted_rip_dirs.py`), so the owner's upload holds every rip's full log; the decisions live in that module, the runner only records and hands them over.
     # **4981 -> 5038** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): every path that kills the `cyanrip` verb's child (stop, timeout, unreapable) also frees its drive (`_free_the_jobs_drive`, `_argv_device`), and `cyanrip_in_flight` lets the window stand aside while one runs.
     # **5038 -> 5068** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `set-drive-offset` / `expect-drive-offset` ask the window's `_selected_drive_offset`, and `set read_offset` goes to the offset writer, so it saves for the selected drive instead of changing a value no rip reads.
-    "uiscript/runner.py": 5068,
+    # **5068 -> 5083** (2026-11-16, TASKS R24): the import and base class of `RipperBuildVerbsMixin` (its handler, `expect-ripper-bounds-overread`, lives in `ripper_build_verbs.py`, not here), and `expect-drive-offset <offset>`, which asserts the selected drive's own offset is a named number, beside the handler it extends; the parser is `script_values.parse_offset`.
+    "uiscript/runner.py": 5083,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3188,7 +3190,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1137 -> 1162** (2026-11-04, TASKS R123): the `compare-conditions` and `cyanrip-timeout` declarations, and `record-accuracy`'s optional folder. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **1162 -> 1170** (2026-11-11, round 39's G3): the `expect-track-records` declaration, beside `expect-read-offset`.
     # **1170 -> 1172** (2026-11-11, round 39's G2, TASKS R138): `expect-track-records` names the AccurateRip v2 check of repaired tracks it now makes; the grading is `uiscript/repair_accuraterip_grading.py`.
-    "uiscript/verbs.py": 1172,
+    # **1172 -> 1191** (2026-11-16, TASKS R24): the `expect-ripper-bounds-overread` declaration, beside `expect-ripper-under-review`, and `expect-drive-offset`'s optional offset. The table is the vocabulary's security boundary, so a verb is an entry here.
+    "uiscript/verbs.py": 1191,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

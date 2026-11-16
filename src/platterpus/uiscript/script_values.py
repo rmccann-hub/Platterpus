@@ -1,8 +1,9 @@
-"""Two pure readers of a script's argument values, shared by the runner and the
+"""Pure readers of a script's argument values, shared by the runner and the
 run estimate.
 
 ``coerce_setting`` turns a ``set`` line's text into the type the config field
-holds; ``parse_track_spec`` turns ``select-tracks 1,3,5-7`` into track numbers.
+holds; ``parse_track_spec`` turns ``select-tracks 1,3,5-7`` into track numbers;
+``parse_offset`` reads the read offset ``expect-drive-offset`` asserts.
 They lived in ``runner.py`` until 2026-10-06, when the acceptance run's overall
 estimate (``uiscript/run_estimate.py``) had to read a script's settings and
 selections BEFORE it runs: a second reading of the same text would be a second
@@ -82,3 +83,20 @@ def parse_track_spec(spec: str) -> tuple[list[int], str]:
     if not numbers:
         return [], f"{spec!r} named no tracks"
     return sorted(numbers), ""
+
+
+def parse_offset(raw: str) -> int | None:
+    """``"667"`` or ``"+667"`` → ``667``, or ``None`` for anything that is not one.
+
+    The value ``expect-drive-offset <offset>`` asserts. A whole number inside the
+    range Settings accepts for a read offset (``settings_validation.OFFSET_MIN`` to
+    ``OFFSET_MAX``), so a typo is refused as not an offset rather than compared
+    and reported as the drive being wrong. Never raises.
+    """
+    from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
+
+    try:
+        value = int((raw or "").strip())
+    except ValueError:
+        return None
+    return value if OFFSET_MIN <= value <= OFFSET_MAX else None
