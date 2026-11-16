@@ -207,9 +207,9 @@ edit-vs-delete). Git halts and flags the files.
 
 *Filed 2026-07-07 at the maintainer's request as the contributor/upstream-PR
 reference. See `docs/cyanrip-fork.md` Part A §10 for the per-gap options
-and `docs/cyanrip-upstream.md` for which upstream repos we'd PR to and in
+and its Part D for which upstream repos we'd PR to and in
 what order.*
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.125.*

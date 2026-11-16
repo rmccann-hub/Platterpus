@@ -356,7 +356,7 @@ count — so "did this rip match EAC?" is one command. **✅ Done** (the outcome
   drive), or
   generating the cue ourselves from a subchannel read we don't currently do.
   *(Superseded 2026-07-07: the researched answer lives in
-  [docs/cyanrip-upstream.md](cyanrip-upstream.md) — support cyanrip
+  [docs/cyanrip-fork.md](cyanrip-fork.md) Parts C and D — support cyanrip
   **PR #115**, with a Platterpus-side `cdrdao read-toc` as the documented
   fallback; the previous backend's route no longer exists — KDD-18.)*
 - (c) **Decision gate:** is `INDEX 00` worth it given the audio is already
@@ -1910,4 +1910,4 @@ stay open for what they can still teach about why the drive returns two values.
 
 ---
 
-*Last updated for Platterpus v0.7.124.*
+*Last updated for Platterpus v0.7.125.*

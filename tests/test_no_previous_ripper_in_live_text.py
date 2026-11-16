@@ -88,14 +88,15 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
         2,
         "citation: the upstream file and lines a capability audit read",
     ),
-    "docs/cyanrip-fork.md": (4, "citation URLs (upstream repository, plugin issue)"),
+    "docs/cyanrip-fork.md": (
+        7,
+        "citation URLs (upstream repository, plugin issue); and, in Part D (the"
+        " former cyanrip-upstream.md, 3), third-party function names and header"
+        " quoted verbatim",
+    ),
     "docs/eac-parity.md": (
         5,
         "third-party logchecker file names, a verbatim code quote, a citation URL",
-    ),
-    "docs/cyanrip-upstream.md": (
-        3,
-        "third-party function names and header quoted verbatim",
     ),
     # --- Real artifacts, kept verbatim --------------------------------------
     "tests/fixtures/rip_log_legacy_format.log": (

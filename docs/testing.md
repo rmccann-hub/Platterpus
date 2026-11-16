@@ -3300,7 +3300,7 @@ that kept that status line out of its pattern.
 growing.** The maintainer called both repos *"much too formal"* and chose to stop
 hand-copying the ripper pin, its build tag, the approving round and the approved app
 version into prose. README, `DEPENDENCIES.md`'s cyanrip row, the hardware checklist,
-`docs/test-plan.md`, `docs/cyanrip-known-issues.md`, `docs/rig-session.md`'s header
+`docs/test-plan.md`, the former `cyanrip-known-issues.md` (now `docs/cyanrip-fork.md` Part E), `docs/rig-session.md`'s header
 and the standing status's *As of* table now point at Help → About,
 `deps/fork_source.py`, `handshake_approval.py` and the generated map in
 `DEPENDENCIES.md`. With nothing left to check, the gates that only kept those copies

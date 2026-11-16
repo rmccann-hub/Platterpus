@@ -268,7 +268,7 @@ prints them**; stock **cyanrip 0.9.3 is only the COPR fallback** left when the f
 build fails, and on it every field below stays `None` and every surface behaves
 exactly as it did (for a log it wrote; a rip on it today is refused at argument
 parsing, see `--diagnostics` in the flag table). Full specification and evidence
-per row: [`cyanrip-upstream.md`](cyanrip-upstream.md).
+per row: [`cyanrip-fork.md`](cyanrip-fork.md) Part C.
 
 | Fork-only line (indented, per-track) | → field | EAC row it fills | Ask |
 |---|---|---|---|
