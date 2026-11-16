@@ -524,7 +524,9 @@ def test_no_instruction_a_user_follows_names_a_retired_row_label() -> None:
     surfaces: dict[str, str] = {
         "README.md": (REPO / "README.md").read_text(encoding="utf-8"),
         "docs/test-plan.md": (REPO / "docs/test-plan.md").read_text(encoding="utf-8"),
-        "docs/manual-ctdb-repair.md": (REPO / "docs/manual-ctdb-repair.md").read_text(
+        # The manual CTDB repair runbook, merged into the CRC reference as its
+        # Part 2 on 2026-11-16; the whole file is read, which covers it.
+        "docs/ctdb-crc-algorithm.md": (REPO / "docs/ctdb-crc-algorithm.md").read_text(
             encoding="utf-8"
         ),
         "help_content.USER_GUIDE": USER_GUIDE,

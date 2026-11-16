@@ -992,7 +992,7 @@ _DOCUMENTS_20260925: frozenset[str] = frozenset(
         "docs/cyanrip-upstream.md", "docs/dependency-contracts.md",
         "docs/eac-parity.md", "docs/github-workflow-sop.md",
         "docs/handshake-protocol.md", "docs/hardware-test-checklist.md",
-        "docs/manual-ctdb-repair.md", "docs/platterpus-research-brief-v2.1.md",
+        "docs/platterpus-research-brief-v2.1.md",
         "docs/platterpus-session-start.md", "docs/rig-session.md",
         "docs/script-language.md", "docs/seam-commands.md", "docs/seam-rules.md",
         "docs/session-log.md", "docs/test-plan.md", "docs/testing.md",

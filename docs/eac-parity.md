@@ -329,7 +329,7 @@ count — so "did this rip match EAC?" is one command. **✅ Done** (the outcome
   Part C §2 below (repair deferred; its CRC-validation gate cleared 2026-07-07).
   What did ship for this gap: the per-track auto-fix re-read, and `--compare` /
   `--assemble-best-of` (CHANGELOG 0.4.24). **✅ The
-  manual workflow is written: [`manual-ctdb-repair.md`](manual-ctdb-repair.md)
+  manual workflow is written: [`ctdb-crc-algorithm.md` → Part 2](ctdb-crc-algorithm.md#part-2--manual-ctdb-repair--the-power-user-escape-hatch-cuetools--ctdb-cli)
   (2026-07-21).**
 - (c) First, simply **re-rip track 3** to see if the near-miss was transient.
   **✅ Done:** transient on some reads and not on others (the outcome note above).
@@ -856,7 +856,7 @@ samples** and bring the track back to the consensus. We already do CTDB
 - **Document the manual CUETools/ctdb-cli repair workflow** as the authoritative
   fix for a stubborn "partially accurate (450)" track (a power-user escape
   hatch), pointing at the tools above. **✅ Written 2026-07-21:
-  [`manual-ctdb-repair.md`](manual-ctdb-repair.md)** (assembled strictly from
+  [`ctdb-crc-algorithm.md` → Part 2](ctdb-crc-algorithm.md#part-2--manual-ctdb-repair--the-power-user-escape-hatch-cuetools--ctdb-cli)** (assembled strictly from
   this doc + the investigation record; unexecuted steps marked unverified).
 - **Gate an in-app repair** behind: (a) ~~the CTDB CRC hardware-validation~~
   **cleared 2026-07-07 (KDD-16)**, (b) ~~explicit maintainer appetite for the
@@ -899,7 +899,7 @@ samples** and bring the track back to the consensus. We already do CTDB
   (KDD-14: optional `ctdb-cli`, when a user needs it), and validation of the
   repair path itself remains.
   `-Z N` shipped; the manual workflow is documented
-  ([`manual-ctdb-repair.md`](manual-ctdb-repair.md), 2026-07-21); gate the
+  ([`ctdb-crc-algorithm.md` → Part 2](ctdb-crc-algorithm.md#part-2--manual-ctdb-repair--the-power-user-escape-hatch-cuetools--ctdb-cli), 2026-07-21); gate the
   integration behind maintainer sign-off + validation.
 
 ---
@@ -1910,4 +1910,4 @@ stay open for what they can still teach about why the drive returns two values.
 
 ---
 
-*Last updated for Platterpus v0.7.124.*
+*Last updated for Platterpus v0.7.125.*
