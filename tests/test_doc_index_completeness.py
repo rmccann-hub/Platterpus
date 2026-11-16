@@ -1069,8 +1069,11 @@ def _top_level_documents() -> set[str]:
 
 def test_a_NEW_document_names_the_homes_it_rejected() -> None:
     present = _top_level_documents()
-    # FLOOR: 33 measured. A glob that stopped matching must not pass.
-    assert len(present) >= 30, sorted(present)
+    # FLOOR: 33 measured; 29 from 2026-11-16, when the owner's consolidation
+    # folded four documents into others (the hardware checklist, the manual CTDB
+    # repair how-to, the upstream ask list and the known-issues record). The floor
+    # is there so a glob that stopped matching cannot pass, not to stop a merge.
+    assert len(present) >= 25, sorted(present)
     unexplained = sorted(present - _DOCUMENTS_20260925 - set(_NEW_DOCUMENTS))
     assert not unexplained, (
         f"new document(s) {unexplained}. Critical rule #7: a new file is the last "
