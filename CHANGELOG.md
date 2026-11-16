@@ -15,6 +15,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 ### Changed
 
 - **`CLAUDE.md`'s full text is kept in the homes its pointers name** (contributor-facing; TASKS R32): before the trim below, every passage it removes was put word for word under a named heading in an existing document, so nothing is summarised away (Critical rule #7). No new file.
+- **`CLAUDE.md` is trimmed to what a session needs on every task** (contributor-facing; TASKS R32, on the owner's word of 2026-11-16, *"7. a"*): from 676 lines and 99,225 bytes to 311 lines and 42,126 bytes. Each rule keeps its operative sentence and a pointer; everything else moved word for word, under named headings, to existing homes: the code conventions and Critical rules #4, #7, #9 and #10 to `docs/architecture.md` §3.14, *Project operations* to §6.5, the release-hold record to §6.3, rule #12 and *Reporting to the operator* to `docs/cyanrip-handshake.md` §7.7o and §7.7n, the longer *How to stop shipping the next one* to `docs/testing.md` §5.bw, the deviation policy and *Working with the maintainer* to `PLANNING.md` §9, *Commit & PR hygiene* to `docs/github-workflow-sop.md` §0, and the companion list to `docs/README.md`. `tests/test_claude_md_size.py` holds the file at that size, a ratchet that may shrink and never grow.
 - **Our status block records 0.7.126 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.126 at `3e2f194`, published 2026-11-16T16:04:40Z, the first release installing `.32` by default.
 
 ## [0.7.126] — 2026-11-16
