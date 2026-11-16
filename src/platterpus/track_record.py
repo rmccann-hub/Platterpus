@@ -43,7 +43,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
-from platterpus.ctdb.repair_wording import accuraterip_after_repair
 from platterpus.data_tracks import is_data_track
 from platterpus.report_types import TrackRecordBlock
 from platterpus.track_proof import (
@@ -56,6 +55,7 @@ from platterpus.track_proof import (
     track_proof,
 )
 from platterpus.track_record_reads import read_path, reads_disagree
+from platterpus.track_record_repair import repair_source, repaired_line
 from platterpus.track_record_sources import (
     RepairFacts,
     ar_guided_convergence,
@@ -112,42 +112,6 @@ def _plural(count: int, word: str) -> str:
     return f"{count:,} {word}{'' if count == 1 else 's'}"
 
 
-def _repaired_line(facts: RepairFacts, path: str) -> str:
-    """``repaired from CTDB entry 32115 (…) after the read (…): Copy CRC …; …``."""
-    samples = (
-        f", {_plural(facts.samples_corrected, 'sample')} corrected"
-        if facts.samples_corrected is not None
-        else ""
-    )
-    crcs = (
-        f"Copy CRC {facts.crc_before} before, {facts.crc_after} after"
-        if facts.crc_before and facts.crc_after
-        else "Copy CRC after the repair not recorded"
-    )
-    if facts.after_agrees is True:
-        weight = (
-            f" ({_plural(facts.after_confidence, 'submission')})"
-            if facts.after_confidence
-            else ""
-        )
-        fresh = f"a fresh CTDB check of the repaired files agrees{weight}"
-    elif facts.after_agrees is False:
-        fresh = "a fresh CTDB check of the repaired files does not agree"
-    else:
-        fresh = "a fresh CTDB check of the repaired files did not run"
-    ar = accuraterip_after_repair(
-        facts.accuraterip_v1_after,
-        facts.accuraterip_v2_after,
-        facts.accuraterip_v1_database,
-        facts.accuraterip_v2_database,
-    )
-    return (
-        f"repaired from CTDB entry {facts.entry_id} "
-        f"(confidence {facts.confidence:,}) after the read ({path}): "
-        f"{crcs}{samples}; {fresh}; {ar}"
-    )
-
-
 def _verification(kind: str, proof_line: str, track: object) -> str:
     """The database's part of the line, from the proof ``track_proof`` found."""
     if kind in (PROOF_ACCURATERIP, PROOF_VERIFIED_REREAD):
@@ -185,12 +149,19 @@ def track_record(
                 disagree,
                 False,
             )
-        path = read_path(
-            track, every_other_read_printed=prints_every_other_read(ripper_version)
-        )
+        every_other = prints_every_other_read(ripper_version)
+        path = read_path(track, every_other_read_printed=every_other)
         if repair is not None:
+            source = repair_source(
+                track,
+                repair,
+                path=path,
+                chased=chased,
+                chase_attempt=chase_attempt,
+                every_other_read_printed=every_other,
+            )
             return TrackRecord(
-                RECORD_REPAIRED, _repaired_line(repair, path), disagree, True
+                RECORD_REPAIRED, repaired_line(repair, source), disagree, True
             )
         proof = track_proof(track, verified_reread=chased, ctdb_track=ctdb_track)
         verified = _verification(proof.kind, proof.line, track)

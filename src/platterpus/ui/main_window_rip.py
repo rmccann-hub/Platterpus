@@ -124,7 +124,12 @@ from platterpus.ui.unknown_album import (
     launch_picard_for,
 )
 from platterpus.verdict import expected_track_total, recount_accuraterip_summary
-from platterpus.verified_read_chase import KEPT_VERIFIED_REREAD, kept_read
+from platterpus.verified_read_chase import (
+    KEPT_FIRST_READ,
+    KEPT_SECURING_PASS,
+    KEPT_VERIFIED_REREAD,
+    kept_read,
+)
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
 from platterpus.workers.derived_verify_worker import (
@@ -384,6 +389,18 @@ def _merge_shipped_track(
     # replaces them (TASKS R114; `first_pass_reread.py` says why).
     if shipped is not None or track.number in verdicts:
         track = replace(track, first_pass_reread=first_pass_snapshot(track))
+    # Which pass's read the file now holds (TASKS R156), said once, here, where
+    # the decision is made: a shipped record means a later read replaced the
+    # file; a verdict without one means a later pass re-read the track and the
+    # album pass's read stayed, under that later pass's verdict (below). A
+    # CTDB repair's record names the read it started from by this.
+    if shipped is not None:
+        track = replace(
+            track,
+            kept_read_pass=KEPT_VERIFIED_REREAD if single_read else KEPT_SECURING_PASS,
+        )
+    elif track.number in verdicts:
+        track = replace(track, kept_read_pass=KEPT_FIRST_READ)
     if shipped is not None:
         track = replace(
             track,
@@ -441,6 +458,16 @@ def _merge_shipped_track(
             extraction_elapsed_seconds=shipped.extraction_elapsed_seconds,
             paranoia_counts=dict(shipped.paranoia_counts),
             paranoia_scope=shipped.paranoia_scope,
+            # WHEN the shipped read began (the fork's `Kept read began:`), from
+            # the shipped read's own log, for the reason the four above are its
+            # own (TASKS R155, the fork's round 40 lap 3 S13): the album pass's
+            # instant describes the read that was thrown away. Rip 1 of the
+            # 2026-11-14 run gave track 3 the album read's 05:02:54Z beside the
+            # securing pass's 59D352DD, a read begun at 05:21:02Z. A
+            # shipped log with no line gives "", which the report states as
+            # `not_present`: unknown, never another read's time.
+            kept_read_began=shipped.kept_read_began,
+            kept_read_began_state=shipped.kept_read_began_state,
         )
     if single_read and shipped is not None:
         return replace(

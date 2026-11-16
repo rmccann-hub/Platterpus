@@ -392,6 +392,18 @@ class TrackResult:
     # by the merge when a securing re-read replaced them (TASKS R114); None when
     # nothing replaced them. Two facts, two slots: see `first_pass_reread.py`.
     first_pass_reread: FirstPassReread | None = None
+    # WHICH pass's read the track's files carry, when a later pass re-read the
+    # track (TASKS R156). Written only by the merge
+    # (`ui/main_window_rip._merge_shipped_track`), never by a parser, in the
+    # spelling of `verified_read_chase.KEPT_*`: `first_read` (a later pass ran
+    # and its read was NOT kept, so the file still holds the album pass's read
+    # while the `secure_rerip_*` fields above describe the later pass's reads),
+    # `securing_pass` or `verified_reread` (a later read replaced the file, and
+    # the fields above describe it). "" when no later pass touched the track:
+    # then the whole record is the album pass's own, as the log printed it.
+    # Needed because "the reads the record describes" and "the read the file
+    # holds" are two facts that only coincide when the later read was kept.
+    kept_read_pass: str = ""
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without

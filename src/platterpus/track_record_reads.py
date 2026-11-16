@@ -12,7 +12,9 @@ Pure; no Qt, no I/O; reads with ``getattr``; never raises.
 
 from __future__ import annotations
 
-from platterpus.first_pass_reread import did_not_converge
+from dataclasses import dataclass
+
+from platterpus.first_pass_reread import FirstPassReread, did_not_converge
 from platterpus.track_record_sources import int_or_none_strict
 
 
@@ -120,3 +122,53 @@ def read_path(track: object, *, every_other_read_printed: bool = False) -> str:
     if reads is not None and reads >= 2:
         return f"re-read, {_plural(reads, 'read')} (agreement not stated)"
     return "first read"
+
+
+@dataclass(frozen=True)
+class _AlbumPassRead:
+    """The album pass's read of a track, in the attribute names :func:`read_path`
+    reads, for a track whose ``secure_rerip_*`` fields a later pass's verdict
+    has overwritten (see :func:`album_pass_read_path`)."""
+
+    test_crc: object
+    copy_crc: object
+    rip_count: object
+    secure_rerip_converged: object
+    secure_rerip_agreement: object
+    other_reads: object
+    other_reads_not_kept: object
+
+
+def album_pass_read_path(
+    track: object, *, every_other_read_printed: bool = False
+) -> str:
+    """:func:`read_path` of the ALBUM PASS's read, after a later pass re-read the
+    track and its read was not kept (TASKS R156). Never raises.
+
+    **Why it is needed.** When the securing pass re-reads a track and its read is
+    not kept, the merge (``ui/main_window_rip._merge_shipped_track``) still puts
+    that pass's verdict and agreement on the track, because they are measured
+    facts about the drive. The file, though, holds the album pass's read. So
+    :func:`read_path` of the merged track describes reads the file never held:
+    rip 1 of the 2026-11-14 run said ``re-read, at most 5 agreeing`` of a track
+    whose file was the album pass's single read, ``6902BCF0``.
+
+    **Where the album pass's facts are.** The track's Test and Copy CRCs, read
+    count and ``Other read:`` lines are untouched when no later read shipped, so
+    they are the album pass's own. Its ``-Z`` verdict and agreement were moved
+    to ``first_pass_reread`` by the merge before the later verdict replaced them;
+    no snapshot there means the album pass stated neither (``first_pass_reread.
+    snapshot`` returns None only then), so neither is used.
+    """
+    first = getattr(track, "first_pass_reread", None)
+    album = first if isinstance(first, FirstPassReread) else None
+    view = _AlbumPassRead(
+        test_crc=getattr(track, "test_crc", None),
+        copy_crc=getattr(track, "copy_crc", None),
+        rip_count=album.rip_count if album is not None else None,
+        secure_rerip_converged=album.converged if album is not None else None,
+        secure_rerip_agreement=album.agreement if album is not None else None,
+        other_reads=getattr(track, "other_reads", ()),
+        other_reads_not_kept=getattr(track, "other_reads_not_kept", 0),
+    )
+    return read_path(view, every_other_read_printed=every_other_read_printed)

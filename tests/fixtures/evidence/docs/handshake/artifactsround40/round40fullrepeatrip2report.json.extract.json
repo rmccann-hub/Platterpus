@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 5285,
+  "source_bytes": 1622790,
+  "source_path": "docs/handshake/artifactsround40/round40fullrepeatrip2report.json",
+  "source_sha256": "6481ca909aa21dfa96e87c089b35c6ac449a1a3ad153a0499ee7afbef7a3f1be"
+}
