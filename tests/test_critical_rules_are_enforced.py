@@ -2123,7 +2123,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1237 -> 1245** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): `TrackResult.other_reads` and its count, with what an empty one does not mean.
     # **1245 -> 1251** (2026-11-11, round 39, `.31`): `TrackResult.secure_rerip_ar_overrule`, `.31`'s overruled agreement, beside the four -Z fields it describes the same reads as.
     # **1251 -> 1258** (2026-11-12, the fork's round 39 lap 3 S14): `RippingInfo.c2_declared` and its reason, what the `C2 errors:` line says the capabilities page declares, beside `c2_pointers` whose comment now says "not used", never "the drive doesn't support it"; the reader is `c2_declaration.py`.
-    "parsers/rip_log.py": 1258,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1258 -> 1270** (2026-11-16, TASKS R156, the fork's round 40 lap 3 S14): `TrackResult.kept_read_pass`, which pass's read the file holds, beside `first_pass_reread`, the other fact the merge writes, with what each value means.
+    "parsers/rip_log.py": 1270,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2840,7 +2841,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5377 -> 5380** (2026-11-12, TASKS R53, the cache check once per drive): the rip start shows the cache note (`CacheCheckMixin`) where the rip begins.
     # **5377 -> 5388** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Start refuses a rip whose device is not the selected drive (one drive's offset paired with the other's audio), and the report's configured offset is the rip's drive's.
     # Both changes merged 2026-11-13: measured 5391 lines after the merge.
-    "ui/main_window_rip.py": 5391,
+    # **5391 -> 5418** (2026-11-16, TASKS R155 and R156, the fork's round 40 lap 3 S13 and S14): `_merge_shipped_track` takes the kept read's `Kept read began:` from the shipped read's own log and records which pass's read the file holds (`kept_read_pass`), with why; the merge rule lives here, and the repair's wording that reads it is its own module (`track_record_repair.py`).
+    "ui/main_window_rip.py": 5418,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
