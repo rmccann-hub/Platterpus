@@ -389,7 +389,9 @@ round-6: ... we-verified=yes (GO)   they-verified=yes (GO)    -> CLOSED
 round-7: ... we-verified=yes (HOLD) they-verified=yes (HOLD)  -> OPEN
 ```
 
-**No release and no pin switch happens while any round is OPEN.** See
+**No pin switch happens while any round is OPEN.** A release no longer waits on one
+(protocol v8 §6b, E1 and E9, from 2026-10-11): it prints every open round and goes
+ahead, and `FORK_PIN` moves only when a round closes. See
 `../cyanrip-handshake.md` §7.5 for why the gate reads the verdict at all (it used to
 read presence, and reported a HOLD as closed) and **§8 for the shared wire format** —
 the column-0 header block both projects now emit, after both built a release gate in

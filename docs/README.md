@@ -21,7 +21,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Manual & release testing (acceptance run + gated cases + tester matrices) | `docs/test-plan.md` |
 | Every hardware test still outstanding, as a fillable run sheet | `docs/hardware-test-checklist.md` |
 | The current rig session — what to WATCH on screen, plus one script | `docs/rig-session.md` |
-| What ships in the next release, and what is gated on hardware | `TASKS.md` → its top section, *every open row, ranked*, whose R rows carry the open round (today **round 35**; `scripts/handshake.py --status` is the authority) |
+| What ships in the next release, and what is gated on hardware | `TASKS.md` → its top section, *every open row, ranked*, whose R rows carry the open round, if any (`scripts/handshake.py --status` is the authority, and none is open from round 40's close on 2026-11-16) |
 | How a failure becomes something a person can act on (error reporting) | `docs/architecture.md` §3.7 + §3.7a; the recipe is §4 *Add a failure path* |
 | AppImage build/test procedure, and the release-signing ritual | `docs/architecture.md` §6.1 / §6.2 |
 | Withdrawing a bad release: GitHub, PyPI, `install.sh`, the ripper pin | `docs/architecture.md` §6.4 |
@@ -121,4 +121,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.7.122.*
+*Last updated for Platterpus v0.7.125.*

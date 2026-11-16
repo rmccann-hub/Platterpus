@@ -17,7 +17,19 @@ their audit trail intact.
 
 ---
 
-## What the next session is for: round 39's five-rip run
+## What the next session is for
+
+**No run is asked for.** No handshake round is open: round 40 closed on both sides'
+`GO` on 2026-11-16, approving the fork's `.32` (`0.9.4-rc3+platterpus.32`,
+`cyanrip@edb73dd`) with Platterpus 0.7.125 on the owner's Full run of 2026-11-14
+(evidence `7faf1b9f`, `docs/testing.md` §5B), and round 41 has not opened. When a round
+next asks for a run, its laps under [`docs/handshake/`](handshake/) say what it must
+show, and *A Full run, in general* below says how to make one.
+
+## Round 39's five-rip run (run 2026-11-11; round 39 closed 2026-11-13)
+
+*Kept as it was run: round 39 closed on both laps' `GO` (2026-11-13), so nothing below
+is the next session.*
 
 Round 39 reviews the fork's `.31` (`0.9.4-rc3+platterpus.31`, `cyanrip@e531a33`), whose
 `--reread-until-accuraterip` keeps a `-Z` re-read going past reads that agree on audio
@@ -56,7 +68,7 @@ EAC re-rip filed (G5).
 
 G5, the EAC re-rip on Windows, is the owner's, and is filed beside the 11 and 25 June logs.
 
-## Round 38's drive test (run 2026-11-09 and 2026-11-10; superseded by the section above)
+## Round 38's drive test (run 2026-11-09 and 2026-11-10; superseded by round 39's run above)
 
 *Kept until round 39 closes, then moved to `docs/archive/` with its graduation row: round
 38 closed on both laps' `GO` (2026-11-11), so nothing below is the next session.*
@@ -320,4 +332,4 @@ mode, and the `[plan]` block at the top of each rip's live log names every flag 
 
 ---
 
-*Last updated for Platterpus v0.7.123.*
+*Last updated for Platterpus v0.7.125.*
