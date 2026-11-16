@@ -188,14 +188,14 @@ every verb it uses:
 Unattended, like every rig run. The findings it serves: `docs/eac-parity.md`
 Part G.2.
 
-## Round 38's drive test: the order, and what to send
+## Round 38's drive test, and `drivetest.sh`
 
-**The procedure is [`docs/rig-session.md`](../rig-session.md), the one rig sheet**,
-rewritten in place as round 38 agrees changes (our lap 7, S17 to S19, proposes it to
-the fork). It runs `drivemode.txt` and `drivespeed.txt` above, in four phases on
-Bazzite and Windows 11, and says for each step what it measures and what is not yet
-verified. Nothing about what the owner's drive can do is settled until the drive
-answers.
+**Round 38's procedure, run 2026-11-09 and 2026-11-10, is kept as it was run in
+[`docs/archive/rig-session-5cc1c6b.md`](../archive/rig-session-5cc1c6b.md)**; the
+current sheet is [`docs/rig-session.md`](../rig-session.md), the one rig sheet,
+rewritten in place when a round asks for a run. Round 38's test ran `drivemode.txt`
+and `drivespeed.txt` above, in four phases on Bazzite and Windows 11, and its sheet
+says for each step what it measured and what it could not verify.
 
 **`drivetest.sh`, in this folder, runs every terminal step of it** (the owner,
 2026-11-05, asking for *"a couple things instead of 15 steps where i am copy and
@@ -501,4 +501,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.7.123.*
+*Last updated for Platterpus v0.7.125.*
