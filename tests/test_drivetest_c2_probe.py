@@ -6,6 +6,8 @@ The first C2 probe (2026-11-11, filed by the fork at `cyanrip@74b6f0a`) read fiv
 (the fork's round 39 lap 3 S12). The five-rip run's records place track 3's wrong
 reads in whole seconds 244, 251 and 252 and track 5's in second 144, so the probe
 now reads each of those seconds whole: three windows from the second's first frame.
+Round 40's rip placed track 3's misreads in seconds 244, 245, 251 and 252, so
+second 245 joined them (the fork's round 41 lap 1 S19, TASKS R175).
 
 These run the script's OWN functions (`c2_windows`, `c2_summary`), cut out of it
 by name, and check them against the reference disc's committed log, not against
@@ -32,10 +34,15 @@ _REFERENCE_LOG: Final[Path] = (
     _ROOT / "output_reference/cyanrip_fork_flac/cyanrip_fork_police_classics.log"
 )
 #: The seconds the five-rip run's records place a wrong read in (our round 39 lap 2),
-#: as (track, second). The probe must cover these; it may cover more.
+#: as (track, second), and track 3's second 245, where round 40's rip placed one
+#: too (the fork's round 41 lap 1 S19). The probe must cover these; it may cover
+#: more.
 _WRONG_SECONDS: Final[frozenset[tuple[int, int]]] = frozenset(
-    {(3, 244), (3, 251), (3, 252), (5, 144)}
+    {(3, 244), (3, 245), (3, 251), (3, 252), (5, 144)}
 )
+#: Reads the probe makes: three a window (the control, and three windows a second
+#: for each of the five seconds), and the one block-error read.
+_PROBE_READS: Final[int] = 3 * (1 + 3 * len(_WRONG_SECONDS)) + 1
 #: Where the fork's probe found C2 bits: LBA 83430, in track 5 (their lap 3 S11).
 _C2_BITS_LBA: Final[int] = 83430
 _FRAME_SAMPLES: Final[int] = 588
@@ -156,3 +163,16 @@ def test_the_summary_names_each_flagged_frame_by_its_disc_lba(tmp_path: Path) ->
     # Windows in disc order, so the summary reads along the disc.
     lbas = [int(m[1]) for line in out if (m := re.search(r"LBA (\d+) to", line))]
     assert lbas == sorted(lbas) and len(lbas) == 3
+
+
+def test_the_read_count_the_script_states_is_the_count_it_makes() -> None:
+    """The comment above `C2_SECONDS` says how many reads the probe makes, and
+    the README repeats it; both must be the count `c2_windows` produces (three
+    reads a window) plus the block-error read, so a second added to the list
+    cannot leave the stated count behind (S19 added second 245: 40 -> 49)."""
+    reads = 3 * len(_windows()) + 1
+    assert reads == _PROBE_READS == 49
+    script = _SCRIPT.read_text(encoding="utf-8")
+    readme = (_SCRIPT.parent / "README.md").read_text(encoding="utf-8")
+    assert f"{reads} flushes and reads" in script
+    assert f"how long the {reads} reads took" in readme
