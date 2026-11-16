@@ -105,6 +105,7 @@ from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.rip_pass_exit import PassExits, securing_fact
 from platterpus.ripper_ending import status_suffix
+from platterpus.sibling_names import eac_log_name
 from platterpus.ui import message_boxes
 from platterpus.ui.main_window_ctdb_repair import CtdbRepairContext
 from platterpus.ui.main_window_helpers import (
@@ -3590,9 +3591,7 @@ class RipMixin(MainWindowShared):
             return
         if self._folder_reclaimed_by_a_newer_rip(record):
             return
-        target = record.log_file.with_name(
-            f"{record.log_file.stem} (EAC-compatible).log"
-        )
+        target = record.log_file.with_name(eac_log_name(record.log_file.name))
         try:
             text, _defused = render.render(ctdb_result=result)
             if not target.is_file() or target.read_text(encoding="utf-8") == text:
@@ -4341,7 +4340,7 @@ class RipMixin(MainWindowShared):
                 retried_tracks=list(getattr(self, "_last_retried_tracks", None) or []),
             )
             text, defused = render.render()
-            target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
+            target = log_file.with_name(eac_log_name(log_file.name))
             target.write_text(text, encoding="utf-8")
             # Kept on the album's record, so CTDB's answer can be written into
             # each track's Proof: row when it lands (TASKS R51).
@@ -4686,9 +4685,7 @@ class RipMixin(MainWindowShared):
             # write is debounced), so it does not warrant a worker thread.
             artifacts=report_artifacts.build_artifacts(
                 rip_log=record.log_file,
-                eac_log=record.log_file.with_name(
-                    f"{record.log_file.stem} (EAC-compatible).log"
-                ),
+                eac_log=record.log_file.with_name(eac_log_name(record.log_file.name)),
                 cue=record.log_file.with_suffix(".cue"),
                 # The auto-fix addendum, derived through the one helper that owns the
                 # naming convention rather than re-spelling the suffix here. This is

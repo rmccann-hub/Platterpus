@@ -1080,7 +1080,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # its length is the citation for each thing cyanrip adds that the renderer
     # does not hold (extension, track padding, the log and cue names), which the
     # code conventions ask to be written beside the code.
-    "adapters/cyanrip_name_lengths.py": 383,
+    # **383 -> 425** (2026-11-16, TASKS R88): each kind of name is held to 255 bytes less the longest ending we add to it (`sibling_names`), so `_measure` takes a limit per extension and `OverlongName` carries it; the endings themselves live in `sibling_names`, not here.
+    "adapters/cyanrip_name_lengths.py": 425,
     # 316 (2026-10-26, peer review 2.8): crossed 300 by `_our_release_page`, which
     # takes a release-page URL from the answer only when it is one of ours. One
     # job still: read the releases answer into what the update offer shows.
@@ -1303,9 +1304,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **305 -> 324** (2026-10-21, a derived MP3's ReplayGain is measured on the MP3): the encode drops the FLAC's loudness tags and `transcode_files` hands every written MP3 to `mp3_replaygain.apply`, with whether the set is the whole album; `TranscodeResult.replaygain` records the outcome. The measuring and retagging live in `mp3_replaygain`; only the hand-off is here.
     # **324 -> 333** (2026-11-03, review C4 of the 0.7.117 Full run): `TranscodeResult.encoder_argv`, the argv the first file that encoded ran with, so the MP3 quality that reached ffmpeg is on the record. Where the argv is built and run, so it lives here.
     # **333 -> 337** (2026-11-03, the WAV warning): the WAV docstring and argv comment say what ffmpeg copies into the RIFF INFO chunk, where they said nothing is copied.
-    "adapters/transcode.py": 337,
+    # **337 -> 338** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
+    "adapters/transcode.py": 338,
     # **new at 345** (2026-10-21): `adapters/mp3_replaygain.py` does one job, the ReplayGain of a derived MP3: drop the FLAC's figures, measure the MP3 with ebur128, write the figures in cyanrip's format. Over the heuristic by its docstring, which records why each choice was made (cyanrip's formulae, the 0.1 dB resolution, why no R128 tags, why a failure leaves a file untagged).
-    "adapters/mp3_replaygain.py": 345,
+    # **345 -> 346** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
+    "adapters/mp3_replaygain.py": 346,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
     # directory moved out of `$HOME` and under the one deletable parent, and the
     # growth is the paragraph saying why plus the import of the shared helper.
@@ -2248,7 +2251,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **532 -> 536** (2026-10-19): an unrecorded re-read reason renders as not recorded, not as instability (TASKS D2).
     # **536 -> 562** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `SupersededTrack.contradiction`, and a reproduced read AccurateRip contradicts is never called CONFIRMED; the row is `track_proof.contradicted_tracks_sentence`.
     # **562 -> 593** (2026-11-11, round 39 G1): `merged_rows` and `TRIGGER_MIXED`, so a rip that swaps twice (Archival Exact's securing pass, then its album-pass chase) keeps both swaps' rows in its one sidecar.
-    "rip_addendum.py": 593,
+    # **593 -> 595** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: its two suffixes are re-exported from there, with the reason.
+    "rip_addendum.py": 595,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -2376,7 +2380,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3987 -> 3988** (2026-11-11): the schema note names `.31`'s new footer state, beside the v45 notes
     # **3988 -> 4000** (2026-11-12, the fork's round 39 lap 3 S14): the schema-46 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, and `rip.c2_declared` with its reason beside `c2_pointers`; the reader is `c2_declaration.py`.
     # **4000 -> 4026** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `build_settings` takes the rip's DRIVE's configured offset (`read_offset_configured`), since `Config.read_offset` no longer decides a rip's offset.
-    "rip_report.py": 4026,
+    # **4026 -> 4027** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
+    "rip_report.py": 4027,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2841,7 +2846,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5377 -> 5380** (2026-11-12, TASKS R53, the cache check once per drive): the rip start shows the cache note (`CacheCheckMixin`) where the rip begins.
     # **5377 -> 5388** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Start refuses a rip whose device is not the selected drive (one drive's offset paired with the other's audio), and the report's configured offset is the rip's drive's.
     # Both changes merged 2026-11-13: measured 5391 lines after the merge.
-    "ui/main_window_rip.py": 5391,
+    # **5391 -> 5388** (2026-11-16, TASKS R88): the three spellings of the EAC-compatible log name became `sibling_names.eac_log_name`.
+    "ui/main_window_rip.py": 5388,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3292,7 +3298,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4470 -> 4480** (2026-11-11, round 39, `.31`): `_rip_once` asks for `.31`'s rule on the securing pass alone, with `-Z`; why there and why 2 is `reread_until_accuraterip_args.py`.
     # **4480 -> 4490** (2026-11-11, round 39 lap 1 S10): `_read_once_for_chase` keeps each chase read's `-j` record before the chase deletes its folder, and names it for the rip's bundle; the copy is `chase_record_keep.py`'s.
     # **4490 -> 4484** (2026-11-12, the fork's round 39 lap 3 S15): down: `_rip_once` asks `confidence_for_pass` for every `-Z` pass in one line, where it computed the securing pass's case in five.
-    "workers/rip_worker.py": 4484,
+    # **4484 -> 4485** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
+    "workers/rip_worker.py": 4485,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

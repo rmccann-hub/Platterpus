@@ -379,6 +379,7 @@ Platterpus/
         ├── diagnostics_scope.py         # a report's diagnostics scoped to its rip; the session's earlier ones counted once (R117)
         ├── log_buffer.py                # in-memory session-log capture for the per-album JSON report
         ├── atomic_write.py              # durable atomic file writes (temp → fsync → replace → fsync-dir)
+        ├── sibling_names.py             # every file name built from one cyanrip named, and the name-length check's margin (R88)
         ├── build_info.py                # build/runtime facts for the JSON report's environment block
         ├── cli_compare.py               # terminal glue for --compare / --assemble-best-of (logic in rip_compare)
         ├── rip_compare.py               # compare two rips of the same disc (re-rip regression detection)
@@ -734,6 +735,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`drive_profiles.py`** — per-drive profiles keyed by a stable hardware fingerprint (WWN → serial → vendor/model), with provenance + confidence per learned fact; since 2026-11-13 the selected drive's record IS the offset a rip applies, decided by `offset_config.offset_for_drive` (KDD-23, amended).
 - **`cache_check_plan.py`** — pure: whether a drive's saved cache verdict still applies (`verdict_state`; a firmware change since the measurement, kept in `cache_defeat_release`, re-opens it), whether Set up drive starts the check by itself, waits for a disc, or waits for the drive (`decide_auto_check`), and the note a rip shows on a drive with no verdict (`rip_start_note`). TASKS R53, the owner's rule of 2026-11-12 that drive properties are tested once, up front.
 - **`drive_profile_store.py`** — the only writer of `~/.config/platterpus/drive_profiles.json`: a never-raising, atomic JSON store for the drive-profile ledger, mirroring `config.py`'s load/save discipline.
+- **`sibling_names.py`** — every file name Platterpus builds by adding an ending to a name cyanrip chose (the refix and transcode temporaries, the EAC-compatible log, the JSON report, the addendum, the securing-pass and verified-read logs), as constants and helpers every writer calls, and the margins derived from them that `adapters/cyanrip_name_lengths.py` subtracts from 255 so no sibling can fail with `ENAMETOOLONG` (TASKS R88). Pure.
 - **`atomic_write.py`** — durable atomic file writes (temp → fsync → replace → fsync-dir), the one shared implementation behind every small state file (`config.py`, `drive_profile_store.py`, `rip_report.py`) so "crash-safe" also means "power-loss-safe".
 - **`build_info.py`** — build + runtime environment facts (build fingerprint, platform) for the JSON report's `environment` block; tiny and Qt-free so `rip_report` can import it without PySide6.
 - **`rip_compare.py`** — compares two `.platterpus.json` reports of the same disc ("you've ripped this before"): which tracks are byte-identical, which differ, and which rip is the better master. Pure; powers the post-rip banner and the CLI. The prior-report scan covers the output root plus any extra roots (the auto-move library folder).

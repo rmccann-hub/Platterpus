@@ -77,6 +77,7 @@ from typing import Final
 
 # `CHASE_ATTEMPTS_CEILING` (5) moved to `chase_budget` in round 39, beside the
 # limits that now sit over it; re-exported here, its home before, by name.
+from platterpus import sibling_names
 from platterpus.chase_budget import CHASE_ATTEMPTS_CEILING as CHASE_ATTEMPTS_CEILING
 from platterpus.chase_budget import ChaseBudget, plan_budget
 from platterpus.chase_record import track_crc
@@ -109,7 +110,8 @@ KEPT_VERIFIED_REREAD: Final[str] = "verified_reread"
 #: Each chase read's own ripper log, kept beside the album's. ``.txt``, never
 #: ``.log``, for the reason the securing pass's log is (`rip_addendum.
 #: SECURING_PASS_LOG_SUFFIX`): the album's log is found by its suffix.
-CHASE_LOG_SUFFIX: Final[str] = ".platterpus-verified-read.txt"
+#: Defined in `sibling_names`, so the name-length check leaves room for it (R88).
+CHASE_LOG_SUFFIX: Final[str] = sibling_names.CHASE_LOG_SUFFIX
 
 #: The most read values kept per track; a ``-Z`` loop is bounded by ``-r``, so
 #: this is never reached on a real log, and only stops a malformed one growing.
@@ -262,7 +264,7 @@ def copy_chase_block(
 def chase_log_path_for(log_path: str | Path) -> Path:
     """``…/Album.log`` → ``…/Album.platterpus-verified-read.txt``."""
     path = Path(log_path)
-    return path.with_name(path.stem + CHASE_LOG_SUFFIX)
+    return path.with_name(sibling_names.chase_log_name(path.name))
 
 
 def chase_log_section(

@@ -28,10 +28,12 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
+from platterpus import sibling_names
 from platterpus.atomic_write import fsync_directory
 
 #: The suffix the original keeps, beside the repaired file.
-BACKUP_SUFFIX: str = ".before-ctdb-repair"
+#: Defined in `sibling_names`, so the name-length check leaves room for it (R88).
+BACKUP_SUFFIX: str = sibling_names.CTDB_BACKUP_SUFFIX
 
 
 class CommitRefused(Exception):
@@ -46,12 +48,12 @@ class CommitRefused(Exception):
 
 def candidate_path(path: Path) -> Path:
     """The hidden temporary the new file is written to, beside the original."""
-    return path.with_name(f".{path.name}.ctdb-repair.flac")
+    return path.with_name(sibling_names.ctdb_candidate_name(path.name))
 
 
 def backup_path(path: Path) -> Path:
     """Where the original is kept once a repair replaces it."""
-    return path.with_name(path.name + BACKUP_SUFFIX)
+    return path.with_name(sibling_names.ctdb_backup_name(path.name))
 
 
 def _copy_kept(path: Path, backup: Path) -> None:
