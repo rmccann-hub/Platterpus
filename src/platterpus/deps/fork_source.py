@@ -315,7 +315,16 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: fork's at `f6b9188`), the C2 probe (`74b6f0a`) and the owner's EAC re-rip of
 #: 2026-11-12 (`output_reference/EAC_wav/`, `07cd1d94`), read by both sides
 #: against G1 to G5. Neither side names a defect of `.31` that makes the pin unsafe.
-FORK_PIN: Final[str] = "e531a33"
+#: **Rolled to `edb73dd` (`+platterpus.32`, upstream rc3) on round 40's close
+#: (2026-11-16)**: our lap 4 `GO` (released on our owner's word *"release lap 4
+#: when ready"*) against their lap 3 `GO` (`docs/handshake/inbound/round-40-lap-03.md`,
+#: sha256 `249b33dd…`, 19,489 bytes, on `platterpus-fork` at `cyanrip@b1cdec95`,
+#: released on their owner's word *"Release GO on merge"*); both gates read the
+#: round CLOSED. `edb73dd` is round 40's pin from its release on 2026-11-13. Its
+#: evidence is the owner's Full run of 2026-11-14 on 0.7.125 (filed on our evidence
+#: branch at `7faf1b9f` and on the fork's at `589db536`), read by both sides against
+#: G1 to G3. Neither side names a defect of `.32` that makes the pin unsafe.
+FORK_PIN: Final[str] = "edb73dd"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -738,7 +747,9 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: **Rolled to `0.9.4-rc3+platterpus.31` on 2026-11-13, with `FORK_PIN`**, read off
 #: round 39 lap 7's `HANDSHAKE-RIPPER-VERSION` and cross-checked against
 #: `meson.build:21` at `e531a33`, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.31"
+#: **Rolled to `0.9.4-rc3+platterpus.32` on 2026-11-16, with `FORK_PIN`**, read off
+#: `meson.build:21` at `edb73dd`, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.32"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -2096,7 +2107,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 # full commit fails the suite rather than silently weakening the build check.
 
 #: :data:`FORK_PIN` in full.
-FORK_PIN_FULL: Final[str] = "e531a33b1f4c7268a99b782136d6ceeae0da7946"
+FORK_PIN_FULL: Final[str] = "edb73ddc1a5a86dedb08795ba94aa8fce0de0904"
 #: :data:`PIN_UNDER_REVIEW` in full.
 PIN_UNDER_REVIEW_FULL: Final[str] = "edb73ddc1a5a86dedb08795ba94aa8fce0de0904"
 #: :data:`FORK_TEST_PIN` in full.
@@ -2514,18 +2525,17 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 39 approved, GO on both sides: the round's pin from its "
+        "the build round 40 approved, GO on both sides: the round's pin from its "
         "release, held fixed by rule R4 for the whole round "
-        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 42, read from their "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 43, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). Over +platterpus.30 it "
-        "can keep re-reading a track whose reads agree on a value AccurateRip "
-        "does not hold, until a read AccurateRip matches, which Platterpus asks "
-        "for on every pass that re-reads. Round 39's evidence on it is five whole-"
-        "disc rips in a row on a drive, installed through Platterpus 0.7.122, each "
-        "ending with all 14 tracks AccurateRip-verified, read beside a C2 probe "
-        "and an EAC re-rip of the same disc. "
-        "See docs/handshake/inbound/round-39-lap-07.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.31 it "
+        "says truthfully whether the drive declares C2 error pointers, and names "
+        "more of the drive calls it waits on; what a rip delivers is unchanged. "
+        "Round 40's evidence on it is the Full acceptance run on a drive, "
+        "installed through Platterpus 0.7.125, with five whole-disc rips in a row "
+        "each ending with all 14 tracks AccurateRip-verified. "
+        "See docs/handshake/inbound/round-40-lap-03.md"
     ),
 )
 

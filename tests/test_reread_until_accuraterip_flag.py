@@ -63,9 +63,10 @@ def test_only_31_and_32_are_listed_each_on_its_own_contracts_p1() -> None:
     assert row not in (
         _ARTIFACTS / "round-38-lap-12-provider-contract-g0c276fc.md"
     ).read_text(encoding="utf-8")
-    # `.31` is FORK_PIN from round 39's close and `.32` the build under review
-    # from round 40's lap 1: both default and reviewed rigs send the option.
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_31
+    # `.32` is FORK_PIN from round 40's close (2026-11-16) and still the build
+    # under review until round 41 names the next; `.31`, the pin before it, still
+    # runs on rigs that installed it: both send the option.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_32
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_32
 
 
