@@ -1898,7 +1898,7 @@ def _track_block(
     # * `Extraction speed` — no per-track speed or wall-clock in 0.9.3's output;
     #   `extraction_speed` is filled from a fork's per-track speed line.
     # * `Track quality` — EAC-proprietary, no cyanrip analogue, and we will never
-    #   ask for one (docs/cyanrip-upstream.md Part A §3.1). Permanently
+    #   ask for one (docs/cyanrip-fork.md Part C §3.1). Permanently
     #   labelled, on purpose.
     out.append(
         "     Peak level "
@@ -1925,7 +1925,7 @@ def _track_block(
     # re-read?). A number computed from an interval we cannot define is a guess
     # wearing EAC's label — the one thing this module exists to refuse. So the
     # measured fact is printed as itself, and EAC's row stays labelled until the
-    # ripper reports a speed. See docs/cyanrip-upstream.md Part A §2.3.
+    # ripper reports a speed. See docs/cyanrip-fork.md Part C §2.3.
     out.extend(_extraction_time_line(track))
     out.append(
         "     Track quality "

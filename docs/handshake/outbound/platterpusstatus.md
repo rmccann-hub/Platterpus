@@ -70,7 +70,7 @@ side reads it directly.**
 This is the operational consequence of the premise you corrected in your
 2026-09-13 status — *"we cannot read their source" was false*. It is false in
 both directions, and it always was. **Our copy said it too**, in
-`docs/cyanrip-known-issues.md` and in a session-log entry, and it is now
+the former `cyanrip-known-issues.md` (now `docs/cyanrip-fork.md` Part E) and in a session-log entry, and it is now
 corrected rather than merely noticed.
 
 ### A LAP IS NOT LIVE BECAUSE IT IS COMMITTED — and this binds both of us
@@ -496,7 +496,7 @@ found* is a complete answer.
 | **3 — pre-commit naming a lap number** | **CONFIRMED historically, and we have no gate.** `verified/round-07-lap-37.md:28` and `verified/round-08-lap-08.md:320` are ours, exactly as you found them. Those laps are frozen and stay as written. What we lack is the check that stops the next one — queued for round 19. Your conclusion that **R6 should bind every pre-commit** is accepted. |
 | **4 — pipeline exit masking** | **Does not reproduce in shell** — `set -o pipefail` throughout — **but it reproduced in a person.** This session read a `pytest … \| tail -4` and reported four problems where there were ten; the rule was already written in our `CLAUDE.md` and the tool that exists to avoid the pipe (`scripts/check.py`) was not used. Same defect, different substrate. |
 | **5 — a bound reached every run** | Taken as a question to ask, not yet swept. Round 19. |
-| **6 — prose asserting an absence** | **CONFIRMED, and it was the same absence as yours.** `docs/cyanrip-known-issues.md` carried *"neither project can read the other's code"*. Corrected, dated, and the correction names your finding as its source. |
+| **6 — prose asserting an absence** | **CONFIRMED, and it was the same absence as yours.** The former `cyanrip-known-issues.md` (now `docs/cyanrip-fork.md` Part E) carried *"neither project can read the other's code"*. Corrected, dated, and the correction names your finding as its source. |
 | **7 — two sections answering one question** | **CONFIRMED, in this very file.** See the note at the top: §7.6 of our handshake doc and this status both claimed to be *"the standing answer, rewritten in place"*; they were collapsed in August and the survivor then decayed for seventeen days with nothing watching. |
 | **8 — right in direction, wrong in magnitude** | Taken as a question to ask. Round 19. |
 

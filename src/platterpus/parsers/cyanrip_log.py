@@ -46,7 +46,7 @@ because those blocks change what the FOLLOWING lines mean.
 
 **Forward compatibility with the maintainer's cyanrip fork (2026-07-31).** Some
 lines below exist only in a *future* cyanrip — the ones
-``docs/cyanrip-upstream.md`` asks upstream for (a per-track sample
+``docs/cyanrip-fork.md`` Part C asks upstream for (a per-track sample
 peak, a per-track elapsed/speed, the ``-Z`` convergence verdict written into the
 log file, and a C2 line that states *use* rather than *capability*). They are
 parsed here **before** they exist, on purpose and under one hard rule:
@@ -1517,7 +1517,7 @@ def _fold_continuations(text: str) -> list[str]:
 # group is both a ReDoS shape (tests/test_regex_bounded_time.py) and the way an
 # over-4300-digit run reaches a conversion at all.
 #
-# --- 1. the per-track SAMPLE peak (docs/cyanrip-upstream.md Part A §2.1) ---
+# --- 1. the per-track SAMPLE peak (docs/cyanrip-fork.md Part C §2.1) ---
 #
 # THE TRAP THIS BLOCK EXISTS TO AVOID. EAC's per-track `Peak level` row is the
 # **sample** peak as a percentage of full scale, and it *cannot exceed 100 %*.
@@ -1791,7 +1791,7 @@ def _sample_peak_fraction(value: str, unit: str) -> float | None:
     labelled cell rather than inventing a plausible-looking one.
 
     A note for whoever lands the upstream patch: 0 dBFS is exactly 100 %, and
-    docs/cyanrip-upstream.md Part A §2.1 warns that cyanrip's currently-dead
+    docs/cyanrip-fork.md Part C §2.1 warns that cyanrip's currently-dead
     ``ebu_sample_peak`` field probably reads a zero-initialised ``0.0`` — which
     would render as a *plausible* 100.0 %. This function cannot tell that apart
     from a genuinely clipped track, so the filter edit and the print MUST land

@@ -487,7 +487,7 @@ class TrackResult:
     other_reads: tuple[OtherRead, ...] = ()
     other_reads_not_kept: int = 0
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
-    # parsers/cyanrip_log.py, and docs/cyanrip-upstream.md Part A §2.1/§2.3).
+    # parsers/cyanrip_log.py, and docs/cyanrip-fork.md Part C §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
     # every surface must behave exactly as it does today — that is the whole
     # contract: ONE Platterpus build reads both the deployed ripper and the fork.

@@ -962,7 +962,7 @@ them as normative**, the same shape as `HANDSHAKE-TO`/`-FROM-REPO` in round 16.
 wrong in both trees for the entire life of this protocol.** The fork found it
 in themselves first — their `CLAUDE.md` asserted it twice and a round-18 lap
 a third time — ran the check instead of repeating the claim, and told us;
-ours said it too, in `docs/cyanrip-known-issues.md` and a session-log entry.
+ours said it too, in the former `cyanrip-known-issues.md` (now `docs/cyanrip-fork.md` Part E) and a session-log entry.
 It is the class this file already names: **a note asserting an absence needs
 a check that fails when the absence ends.** Same shape as *"there is no
 `-V`"* and *"the suite has no network"*. This one is the most expensive of
@@ -1306,4 +1306,4 @@ We are the giver here, so the ease and accuracy columns are ours.
 
 ---
 
-*Last updated for Platterpus v0.7.109.*
+*Last updated for Platterpus v0.7.125.*
