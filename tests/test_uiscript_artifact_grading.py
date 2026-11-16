@@ -13,6 +13,7 @@ from __future__ import annotations
 import copy
 import json
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -336,6 +337,215 @@ def test_the_warning_is_a_failure_once_no_round_is_reviewing_the_build(
 def test_the_expectation_never_raises_on_a_malformed_report() -> None:
     for bad in (None, {}, {"rip": None}, {"rip": {"ripper_build": 7}}, {"rip": []}):
         assert expected_warnings.expected_open_round_warning(bad) == ""  # type: ignore[arg-type]  # malformed on purpose
+
+
+# --- a ripping-error tally placed on replaced reads (TASKS R59 (a), 2026-11-16) --
+
+#: Run C of the four 0.7.112 Full runs (2026-10-22, bundle 20261022t114515z), disc
+#: 3 of *Roots Music*, through its slim fixtures. The secure re-read counted 2
+#: ripping errors, both skips in the first read of track 16, which chase read 5
+#: replaced at AccurateRip v1 confidence 11 and v2 24: the case the narrowing is
+#: for. The whole-disc rip counted 1, in track 16's first read, which no read
+#: replaced: a ripping error on a read the album KEEPS, which must still fail.
+_RUN_C = "docs/handshake/artifactsround36/round36full1022a{}report.json"
+
+
+def _run_c(name: str) -> dict[str, Any]:
+    loaded = json.loads(evidence(_RUN_C.format(name)).read_text("utf-8"))
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+def _completion_only_fails(detail: str) -> bool:
+    """The grade failed on the completion check's tally warning and nothing else."""
+    opening = f"completion warned: {rip_audit.RIPPING_ERRORS_WARNING}"
+    return detail.startswith(opening) and ";" not in detail
+
+
+def test_run_c_secure_reread_fails_without_the_report_and_passes_with_it(
+    tmp_path: Path,
+) -> None:
+    """THE REGRESSION: the tally alone failed run C's secure re-read, whose files
+    hold none of the reads that erred. With the report the grader can place them."""
+    report = _run_c("securereread")
+    # Floor: the fixture is the case, or this would pass on a clean report.
+    assert report["health_status"] == "2 ripping errors"
+    assert report["schema_version"] == 39
+    path = _album(tmp_path, report)
+    without = g.grade_album_audit(path)
+    assert not without.passed
+    assert _completion_only_fails(without.detail), without.detail
+    graded = g.grade_album_audit(path, (), report)
+    assert graded.passed, graded.detail
+    placed = "first read of track(s) 16, replaced by a read AccurateRip verified"
+    assert placed in graded.detail
+    # Schema 39 carries the superseded read's counters (R61): never called clean.
+    assert "vouched for by AccurateRip alone" in graded.detail
+    assert "show no read error" not in graded.detail
+    # Asking only the completion check gives the same answer.
+    assert g.grade_album_audit(path, ["completion"], report).passed
+
+
+def test_the_product_audit_still_warns_on_run_c(tmp_path: Path) -> None:
+    """Only the acceptance grader expects the warning; the user is still told."""
+    album = rip_audit.audit_album(_album(tmp_path, _run_c("securereread")))
+    assert [(f.level, f.text) for f in album.by_check["completion"]] == [
+        ("warn", rip_audit.ripping_errors_warning("2 ripping errors"))
+    ]
+
+
+def test_a_ripping_error_on_a_kept_read_still_fails(tmp_path: Path) -> None:
+    """Run C's whole-disc rip: the one skip is in the read the album keeps."""
+    report = _run_c("wholedisc")
+    assert report["health_status"] == "1 ripping errors"  # floor: the case is here
+    assert expected_warnings.expected_ripping_error_warning(report) is None
+    grade = g.grade_album_audit(_album(tmp_path, report), (), report)
+    assert not grade.passed
+    assert _completion_only_fails(grade.detail), grade.detail
+
+
+def _retried(report: dict[str, Any]) -> dict[str, Any]:
+    entry = report["read_speed"]["retried_tracks"][0]
+    assert isinstance(entry, dict) and entry["track"] == 16
+    return entry
+
+
+def _track(report: dict[str, Any], number: int) -> dict[str, Any]:
+    row = next(t for t in report["tracks"] if t.get("number") == number)
+    assert isinstance(row, dict)
+    return row
+
+
+def _not_replaced(report: dict[str, Any]) -> None:
+    _retried(report)["replaced_because"] = None
+
+
+def _not_verified(report: dict[str, Any]) -> None:
+    _track(report, 16)["accuraterip_verified"] = False
+
+
+def _kept_read_skipped(report: dict[str, Any]) -> None:
+    # From schema 40 the counters are the read kept's own (R61's fix): SKIP 1.
+    report["schema_version"] = 40
+
+
+def _kept_read_printed_none(report: dict[str, Any]) -> None:
+    report["schema_version"] = 40
+    _track(report, 16)["paranoia_counts"] = {}
+
+
+def _no_schema(report: dict[str, Any]) -> None:
+    del report["schema_version"]
+
+
+def _contradicted(report: dict[str, Any]) -> None:
+    _track(report, 3)["accuraterip_contradiction"] = "contradicted"
+
+
+def _tally_disagrees(report: dict[str, Any]) -> None:
+    report["health_status"] = "3 ripping errors"
+
+
+def _ripper_sentence_differs(report: dict[str, Any]) -> None:
+    # The placement closes over the ripper's own sentence (schema 42's field),
+    # but the warning names another one: the label is not the subject.
+    report["ripper_health_status"] = report["health_status"]
+    report["health_status"] = "There were errors"
+
+
+def _an_error_elsewhere(report: dict[str, Any]) -> None:
+    # The same two errors, one moved to track 2, whose first read is kept.
+    rows = report["disc"]["error_positions"]["tracks"]
+    row16 = next(r for r in rows if r.get("number") == 16)
+    row2 = next(r for r in rows if r.get("number") == 2)
+    assert row16["skips"] == 2 and row2["skips"] == 0
+    row16["skips"], row2["skips"] = 1, 1
+
+
+@pytest.mark.parametrize(
+    ("break_it", "why"),
+    [
+        (_not_replaced, "the first read was not replaced on AccurateRip's word"),
+        (_not_verified, "the replacing read's row is not AccurateRip-verified"),
+        (_kept_read_skipped, "the read kept printed a skip (schema 40)"),
+        (_kept_read_printed_none, "the read kept printed no counters"),
+        (_no_schema, "the report states no schema"),
+        (_contradicted, "a track carries an AccurateRip contradiction"),
+        (_tally_disagrees, "the tally does not close over the positions"),
+        (_ripper_sentence_differs, "the warning names another sentence"),
+        (_an_error_elsewhere, "one counted error is in a kept read"),
+    ],
+)
+def test_the_tally_warning_is_a_failure_unless_every_condition_holds(
+    tmp_path: Path, break_it: Callable[[dict[str, Any]], None], why: str
+) -> None:
+    """Each condition, broken alone on the real report, leaves the warning a
+    failure: a placement that does not close is never excused."""
+    report = _run_c("securereread")
+    assert expected_warnings.expected_ripping_error_warning(report) is not None
+    break_it(report)
+    assert expected_warnings.expected_ripping_error_warning(report) is None, why
+    grade = g.grade_album_audit(_album(tmp_path, report), (), report)
+    assert not grade.passed, why
+
+
+@pytest.mark.parametrize(
+    ("value", "why"),
+    [
+        (15, "a count that disagrees: a second warning"),
+        (None, "a count that is absent: a note"),
+    ],
+)
+def test_the_tally_must_be_the_completion_checks_only_finding(
+    tmp_path: Path, value: object, why: str
+) -> None:
+    report = _run_c("securereread")
+    report["rip"]["rip_completed_tracks"] = value
+    # The placement still holds; the grader refuses on the extra finding.
+    assert expected_warnings.expected_ripping_error_warning(report) is not None
+    grade = g.grade_album_audit(_album(tmp_path, report), (), report)
+    assert not grade.passed, why
+    assert grade.detail.startswith("completion"), grade.detail
+
+
+def test_another_checks_warning_still_fails(tmp_path: Path) -> None:
+    """The excuse is the completion check's alone: the files missing still fail."""
+    report = _run_c("securereread")
+    grade = g.grade_album_audit(_album(tmp_path, report, with_audio=False), (), report)
+    assert not grade.passed
+    assert "audio_files" in grade.detail
+    assert "completion" not in grade.detail  # excused, so not among the problems
+
+
+def test_a_clean_read_kept_needs_no_excuse_from_schema_40(tmp_path: Path) -> None:
+    """From R61's fix the counters are the read kept's own: chase read 5 printed
+    no skip (``tests/test_auto_fix_convergence.py::_run_c_track_16``), and then the
+    product's own audit places the tally and reaches ok, so nothing is excused."""
+    report = _run_c("securereread")
+    report["schema_version"] = 40
+    _track(report, 16)["paranoia_counts"] = {"READ": 180, "VERIFY": 40}
+    found = expected_warnings.expected_ripping_error_warning(report)
+    assert found is not None and "show no read error" in found.reason
+    grade = g.grade_album_audit(_album(tmp_path, report), (), report)
+    assert grade.passed, grade.detail
+    assert "none warned" in grade.detail
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        {},
+        {"health_status": 7},
+        {"health_status": "2 ripping errors", "tracks": "x"},
+        {"health_status": "2 ripping errors", "tracks": [], "disc": []},
+        {"health_status": "2 ripping errors", "tracks": [None], "read_speed": 3},
+    ],
+)
+def test_the_tally_expectation_never_raises_on_a_malformed_report(
+    bad: dict[str, Any] | None,
+) -> None:
+    assert expected_warnings.expected_ripping_error_warning(bad) is None
 
 
 # --- expect-accuraterip ---------------------------------------------------------
