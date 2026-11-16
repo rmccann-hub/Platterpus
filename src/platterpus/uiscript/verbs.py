@@ -530,9 +530,12 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-album-audit [check…] — re-run the rip's own self-audit against the "
         "files on disk: every check (or only those named) must run, raise no "
         "warning and reach ok — among them cyanrip's -Y verdict on its own log, "
-        "the cue sheet, the EAC log's checksum and CRCs, and the audio files. One "
-        "warning is expected rather than failed: the build under review saying it "
-        "is an unreleased build, when the report shows it is that build",
+        "the cue sheet, the EAC log's checksum and CRCs, and the audio files. Two "
+        "warnings are expected rather than failed: the build under review saying it "
+        "is an unreleased build, when the report shows it is that build; and a "
+        "ripping-error tally that is the completion check's only finding and that "
+        "the record places entirely on first reads replaced by a read AccurateRip "
+        "verified",
     ),
     Verb(
         "expect-accuraterip",
@@ -775,9 +778,10 @@ _VERB_LIST: tuple[Verb, ...] = (
     Verb(
         "expect-drive-offset",
         0,
-        0,
-        "expect-drive-offset — assert the read offset is still the one "
-        "set-drive-offset set, with the override on",
+        1,
+        "expect-drive-offset [<offset>] — assert the selected drive's read offset "
+        "is still the one set-drive-offset set, with the override on; with "
+        "<offset>, also that it is that number (a script written for one drive)",
     ),
     # The offset-override-OFF path (C4, KDD-41): a drive the AccurateRip list
     # does not carry must be refused at Start. On a listed drive the app would
@@ -828,6 +832,24 @@ _VERB_LIST: tuple[Verb, ...] = (
         "the handshake record names: the build under review while a round is "
         "open, and the approved production pin between rounds (run a "
         "`cyanrip --version` first)",
+    ),
+    Verb(
+        # `expect-ripper-bounds-overread` — the one precondition of
+        # `overreadprobe.txt`, which sends `-O`. Builds before the fork's `.24`
+        # read outside the disc through paranoia and hung the rig's drive for
+        # about 23 minutes, so the script must stop before the read unless the
+        # installed build is one whose source bounds it. Which builds those are
+        # is `fork_source.BUILD_TAGS_BOUNDING_OVERREAD`, each read from its own
+        # source; the script used to name `.24`'s tag, a second copy of that fact
+        # that stopped the probe on every later build (TASKS R24, 2026-11-16).
+        # No arguments, for `expect-ripper-under-review`'s reason.
+        "expect-ripper-bounds-overread",
+        0,
+        0,
+        "expect-ripper-bounds-overread — assert the installed cyanrip bounds -O "
+        "(reads each frame outside the disc once and says so in a `Beyond disc:` "
+        "line): fails on a build known not to, and is not determined (an error) "
+        "on one Platterpus cannot place (run a `cyanrip --version` first)",
     ),
     Verb(
         # `probe-ripper-wrapper` — the fork's round-15 §2 three commands, as a

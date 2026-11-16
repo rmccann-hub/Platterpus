@@ -289,6 +289,7 @@ Platterpus/
         │   ├── control_verbs.py        # runner mixin: expect-config-saved, expect-no-rip, wait-for-status (what a press of Settings OK, Cancel or Replace did)
         │   ├── record_verbs.py         # runner mixin: expect-read-offset, from the report's own check (review C3, 2026-11-03)
         │   ├── record_verbs.py         # runner mixin: expect-read-offset (C3) and expect-derived-files (C4), review of 2026-11-03
+        │   ├── ripper_build_verbs.py   # runner mixin: expect-ripper-bounds-overread, the installed build bounds -O (TASKS R24)
         │   ├── derived_grading.py      # pure grader of the MP3/WavPack/WAV files: length, tags, cover, encoder argv (no Qt)
         │   ├── record_grading.py       # pure graders of verdicts the report computed: CTDB (outvoted fails), failed gates, read offset (no Qt)
         │   ├── track_record_grading.py # expect-track-records: no Accurately ripped on a repaired track, no OK over reads that disagree (no Qt)
@@ -308,6 +309,7 @@ Platterpus/
         ├── track_proof.py               # which proof each track's copy has, in the one line the log and report print
         ├── track_record.py              # how each track's copy was verified (first read, re-read, chase, CTDB repair, ...), one line for log and report
         ├── track_record_reads.py        # a track's read path (n of m agreeing) and whether its reads disagreed (tri-state)
+        ├── track_record_repair.py       # a CTDB repair's record line, and which read it names as the one repaired
         ├── track_record_sources.py      # the record's outside facts: the CTDB repair, the chase's attempt, the .31 seam
         ├── one_frame_match.py           # what cyanrip's `Accurip 450` match is (ONE frame), in the words every surface uses
         ├── data_tracks.py               # which tracks are DATA (Enhanced CD), and the audio-only total every tally uses
@@ -378,6 +380,7 @@ Platterpus/
         ├── diagnostics_scope.py         # a report's diagnostics scoped to its rip; the session's earlier ones counted once (R117)
         ├── log_buffer.py                # in-memory session-log capture for the per-album JSON report
         ├── atomic_write.py              # durable atomic file writes (temp → fsync → replace → fsync-dir)
+        ├── sibling_names.py             # every file name built from one cyanrip named, and the name-length check's margin (R88)
         ├── build_info.py                # build/runtime facts for the JSON report's environment block
         ├── cli_compare.py               # terminal glue for --compare / --assemble-best-of (logic in rip_compare)
         ├── rip_compare.py               # compare two rips of the same disc (re-rip regression detection)
@@ -642,6 +645,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`uiscript/control_verbs.py`** — a **mixin** for the controls a person presses (review C9): `expect-config-saved [seconds]` (the settings file, read with tomllib and never repaired, holds every running setting, written that recently), `expect-no-rip`, and `wait-for-status <seconds> <text>` (the status line under the Overall bar, failing if the rip it watched ends first).
 - **`uiscript/accuracy_grading.py`** — their pure half: `accuracy_from_log` takes each track's state from `verdict.track_accuraterip_state` (no second rule for "verified"), `compare_accuracy` refuses a log naming no build, differing tracks, one build only, and a rip AccurateRip gave no answer about, keeping every tally in the refusal's detail. Never raises.
 - **`uiscript/record_verbs.py`** — a **mixin** for verbs that grade a verdict the report already computed, or the derived files (review of the owner's 2026-11-03 Full run): `expect-read-offset` (C3) and `expect-derived-files <mp3|wavpack|wav> [quality]` (C4), through `ArtifactVerbsMixin._grade_when_settled`, the wait every artifact verb shares.
+- **`uiscript/ripper_build_verbs.py`** — a **mixin** for verbs that ask what the INSTALLED ripper build can do: `expect-ripper-bounds-overread`, which passes only a build in `fork_source.BUILD_TAGS_BOUNDING_OVERREAD` (each read from the fork's source), fails a numbered release before `.24`, and is not determined (an error) for a build it cannot place, so `overreadprobe.txt` stops before sending `-O` to anything unbounded. Added 2026-11-16 (TASKS R24), replacing the script's typed `.24` tag.
 - **`uiscript/track_record_grading.py`** (2026-11-11, round 39's G3) — `expect-track-records`' pure half: the subject (which tracks a CTDB repair rewrote, from `ctdb.repair`; which tracks' reads disagreed, from each track's own fields and the chase) is read from the facts, the record's own flags only added to it; then every EAC-layout track block and every report `record` is graded: FAIL on `Accurately ripped` for a repaired track, on any `OK` over reads that disagree, or on a missing record; BLOCKED for a report before schema 45. Severity ARCHIVAL.
 - **`uiscript/repair_accuraterip_grading.py`** (2026-11-11, round 39's G2, TASKS R138) — `expect-track-records`' G2 half: for each track a `repaired` `ctdb.repair` names (the subject, never the record's line), its `accuraterip_v2_database`: matched at a confidence passes; absent from a database AccurateRip read whole for the disc FAILS; anything not determined (no lookup recorded, a failed or cut-short lookup, a disc AccurateRip does not have) BLOCKS, never passes. No repaired track: nothing for G2, said so. Severity ARCHIVAL.
 - **`uiscript/record_grading.py`** — their pure half, and `expect-ctdb`'s and `expect-verification`'s: `grade_ctdb` fails a match the report marks outvoted or untrustworthy (A3), `verification_refusal` fails any gate reading "ran — failed" (C1), `grade_read_offset` reads `rip.read_offset_check` and the `-s` sent (C3). Not determined is BLOCKED, never a pass.
@@ -661,6 +665,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
 - **`track_record.py`** (2026-11-11, round 39's G3, "the record") — how each track's copy was verified, one of seven kinds: first read; re-read, n agreeing of m; kept at the -Z limit for AccurateRip's match (the fork's `--prefer-accuraterip-match`); the fork's `.31` AccurateRip-guided rule (a seam, never written until that build's log is read); chase attempt k (TASKS R7); repaired from CTDB, with the entry, the Copy CRC before and after, a fresh CTDB check and AccurateRip v1 and v2 each stated; or not verified, with the path and the reason. Reads `track_proof` for the database's part. The EAC-layout log's `Record:` row and the report's `tracks[].record` (schema 45) print its line.
 - **`track_record_reads.py`** — the two answers about a track's reads the record and the log's status line share: `read_path` (first read, or a re-read with n of m agreeing, exact where `.30`'s `Other read:` lines account for every read, or where a build that prints a line for every read not kept printed none (TASKS R140), else the bound the log proves) and `reads_disagree` (tri-state: a Test CRC unlike the Copy CRC, a re-read that did not converge or was kept at the limit, `Other read:` lines, a first pass that did not converge, a chase).
+- **`track_record_repair.py`** — a CTDB repair's record line (`repaired_line`) and the read its parenthetical names (`repair_source`): the read the file held when the repair started, from the merge's `TrackResult.kept_read_pass`, so the album pass's read is named by its own facts (`track_record_reads.album_pass_read_path`) when a securing pass's read was not kept, a chase read by its attempt, and "not determined" when the record's Copy CRC is not the repair's starting CRC (TASKS R156, the fork's round 40 lap 3 S14).
 - **`track_record_sources.py`** — the facts the record reads from other records, each defensively: `repaired_tracks_by_number` (a `repaired` `ctdb.repair` only), `chase_attempts_by_track` (the retried tracks' `kept_attempt`), and the `.31` seam (`AR_GUIDED_CONVERGENCE_BUILDS`, empty until the fork publishes the rule's log text; a `.31`-or-later re-read this release cannot read is "not determined"), and `OTHER_READS_COMPLETE_BUILDS` (`.30`, `.31`: builds whose log prints an `Other read:` line for every `-Z` read not kept, read in their source, so a converged track with none had every read agree; enumerated, a later build keeps the floor until read).
 - **`track_proof.py`** — which proof a track's copy has (the owner's EAC-parity plan of record, 2026-10-26, rows 8 and 9): AccurateRip v1/v2 at a confidence, a single re-read AccurateRip verifies (the verified-read chase), CTDB per track, reads that agreed with no database behind them, or `none` with the reason, including the words for a track `verdict.track_accuraterip_contradiction` names. It reads the verdict's predicates and computes nothing of its own about AccurateRip; the EAC-layout log's `Proof:` row, the report's `tracks[].proof` and the results table's Status tooltip all print its lines.
 - **`verdict.py`** — the single, pure, Qt-free AccurateRip "is this rip trustworthy?" whole-disc verdict, so every surface (results-pane banner, JSON report) shares one definition; builds on `parsers/rip_log.track_accuraterip_verified` (confidence ≥ 1).
@@ -732,6 +737,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`drive_profiles.py`** — per-drive profiles keyed by a stable hardware fingerprint (WWN → serial → vendor/model), with provenance + confidence per learned fact; since 2026-11-13 the selected drive's record IS the offset a rip applies, decided by `offset_config.offset_for_drive` (KDD-23, amended).
 - **`cache_check_plan.py`** — pure: whether a drive's saved cache verdict still applies (`verdict_state`; a firmware change since the measurement, kept in `cache_defeat_release`, re-opens it), whether Set up drive starts the check by itself, waits for a disc, or waits for the drive (`decide_auto_check`), and the note a rip shows on a drive with no verdict (`rip_start_note`). TASKS R53, the owner's rule of 2026-11-12 that drive properties are tested once, up front.
 - **`drive_profile_store.py`** — the only writer of `~/.config/platterpus/drive_profiles.json`: a never-raising, atomic JSON store for the drive-profile ledger, mirroring `config.py`'s load/save discipline.
+- **`sibling_names.py`** — every file name Platterpus builds by adding an ending to a name cyanrip chose (the refix and transcode temporaries, the EAC-compatible log, the JSON report, the addendum, the securing-pass and verified-read logs), as constants and helpers every writer calls, and the margins derived from them that `adapters/cyanrip_name_lengths.py` subtracts from 255 so no sibling can fail with `ENAMETOOLONG` (TASKS R88). Pure.
 - **`atomic_write.py`** — durable atomic file writes (temp → fsync → replace → fsync-dir), the one shared implementation behind every small state file (`config.py`, `drive_profile_store.py`, `rip_report.py`) so "crash-safe" also means "power-loss-safe".
 - **`build_info.py`** — build + runtime environment facts (build fingerprint, platform) for the JSON report's `environment` block; tiny and Qt-free so `rip_report` can import it without PySide6.
 - **`rip_compare.py`** — compares two `.platterpus.json` reports of the same disc ("you've ripped this before"): which tracks are byte-identical, which differ, and which rip is the better master. Pure; powers the post-rip banner and the CLI. The prior-report scan covers the output root plus any extra roots (the auto-move library folder).
@@ -2493,6 +2499,25 @@ result reproduces the entry's CRC32s, a false match being about 2^-32 per CRC, a
 the original is kept; a false refusal costs only a rip left as it was, with a
 sentence saying so. The same rule binds the rebuild from several reads (R134):
 automatic, accepted only on AccurateRip v1 and v2, and told when it is not.
+
+**Amended 2026-11-16 — "never edit the EAC-compatible log" protects the record of
+the read, not the file's bytes** (the owner's answer "3. a" to that day's decision
+list, choosing option A: keep the rewrite; TASKS R142). Since `c1d2dcb1` (round 39's
+G3) a repair that lands renders the EAC-layout log once more
+(`ui/main_window_ctdb_repair._land_ctdb_repair`): every row of the read is kept as
+it was, from the same parsed log (the read's `Copy CRC`, its AccurateRip row), and
+each repaired track gains a `Record:` row naming the repair (`Copy CRC E0036697
+before, C96464AB after`) and a status line that says the read was then repaired.
+The decision above said *never edit the EAC-compatible log*; read literally, that
+forbids the rewrite, and the alternative it leaves is a log that goes on describing
+a read that is no longer the file on disk, the *looks complete* artifact. The owner
+chose the reading that the sentence protects the record of the read: no row of the
+read is changed, removed or re-derived from the repaired audio, and what the repair
+did is added beside it. Still binding: the ripper's own log is never touched
+(KDD-24), and `ctdb.repair.untouched` says so (`ctdb/repair.py`, `UNTOUCHED`).
+Option B, reverting the rewrite and writing the repair to a separate trailer, was
+not taken. The full treatment: `docs/eac-parity.md` Part B, *The repair rewrites
+our log, never the ripper's*.
 
 **Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
 LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room

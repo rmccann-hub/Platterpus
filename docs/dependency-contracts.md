@@ -136,9 +136,16 @@ album-folder level, the `<album>.log`/`.cue` cyanrip writes beside the tracks pe
 sends, through `naming.render_scheme`, and counts bytes as cyanrip writes them
 (`naming.name_bytes_on_disk`: each substituted character and each `"` is a
 3-byte glyph). The track table shows the first over-long name before Start
-(*"Track 7’s file name would be 280 bytes; the limit is 255 — shorten its
+(*"Track 7’s file name would be 280 bytes; the limit is 234 — shorten its
 title."*, the rest counted), and `_build_rip_argv` raises `RipError` on the same
-finding for any other route. This shortens the TAG along with the name; the fork
+finding for any other route. **The limit is 255 less the longest ending we add**
+(2026-11-16): Platterpus writes files beside cyanrip's, named by adding an ending
+to its name (the securing pass's `….flac.platterpus-refix.tmp`, the
+` (EAC-compatible).log`, the `.platterpus.json` report, the securing-pass and
+verified-read logs), and a name that fit at 255 broke those (`ENAMETOOLONG`). Every
+such ending is defined in `sibling_names.py` and every writer builds its name
+there, so the check's margin is derived, not typed: 234 bytes for a track's FLAC
+and 230 for the rip log today; a folder keeps 255. This shortens the TAG along with the name; the fork
 shortening only the file name is the long-term fix, to be asked for in a lap.
 
 **`.` and `..` are *ours* to reject, not cyanrip's to map** (audit, 2026-07-31).

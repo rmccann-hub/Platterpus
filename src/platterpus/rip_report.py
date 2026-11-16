@@ -28,6 +28,7 @@ from platterpus import (
     build_info,
     diagnostics,
     secure_rereads_footer,
+    sibling_names,
     written_whole,
 )
 from platterpus import other_reads as other_reads_line
@@ -132,7 +133,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
     except OSError:
         # Don't leave a stray temp behind on a failed write.
         try:
-            target.with_name(target.name + ".tmp").unlink()
+            target.with_name(sibling_names.atomic_temp_name(target.name)).unlink()
         except OSError:
             pass
         raise
@@ -3864,7 +3865,7 @@ def report_to_json(report: dict) -> str:
 
 def report_path_for(log_file: Path) -> Path:
     """The JSON report path that sits beside a rip log (`X.log` → `X.platterpus.json`)."""
-    return log_file.parent / f"{log_file.stem}.platterpus.json"
+    return log_file.parent / sibling_names.report_name(log_file.name)
 
 
 # NOTE: there is deliberately NO separate ``.platterpus.log`` sidecar. The

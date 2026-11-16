@@ -152,8 +152,9 @@ def derived_verification_refusal(report: Mapping[str, Any] | None) -> str | None
 
 # --- expect-album-audit -------------------------------------------------------
 
-#: The handshake check's name in :data:`platterpus.rip_audit.CHECKS`.
+#: The handshake and completion checks' names in :data:`platterpus.rip_audit.CHECKS`.
 _HANDSHAKE_CHECK: Final[str] = "handshake_note"
+_COMPLETION_CHECK: Final[str] = "completion"
 
 
 def grade_album_audit(
@@ -174,7 +175,11 @@ def grade_album_audit(
     open-round warning on the build under review, when ``report`` shows it is
     that build (:func:`~platterpus.uiscript.expected_warnings.expected_open_round_warning`). It then counts as the
     check's verified answer, since the binary's statement and our verdict were
-    compared and agree, and the passing sentence names it.
+    compared and agree, and the passing sentence names it. **And one more**
+    (TASKS R59 (a), the owner's word of 2026-11-16): the completion check's
+    ripping-error warning, when it is that check's ONLY finding and the record
+    places every counted error on a read the album replaced with one AccurateRip
+    verified (:func:`~platterpus.uiscript.expected_warnings.expected_ripping_error_warning`).
 
     Measured first: every check reached ``ok`` on each finished round-29 rip
     (``docs/handshake/artifactsround29/*report.json``), a floor already met.
@@ -195,6 +200,7 @@ def grade_album_audit(
         texts = "; ".join(f.text for f in album.findings) or "no finding at all"
         return Grade(False, f"the audit could not run on {path.name}: {texts}")
     expected = expected_warnings.expected_open_round_warning(report)
+    placed = expected_warnings.expected_ripping_error_warning(report)
     excused: list[str] = []
     problems: list[str] = []
     for name in wanted:
@@ -212,6 +218,17 @@ def grade_album_audit(
                 warned = [w for w in warned if w not in open_round]
                 excused.append(f"{name}'s open-round warning {expected}")
                 verified = True
+        # The whole check must be that one warning, word for word: a second
+        # finding (a count that disagrees, a tally that is absent) still fails.
+        if (
+            name == _COMPLETION_CHECK
+            and placed is not None
+            and len(findings) == 1
+            and warned == [placed.text]
+        ):
+            warned = []
+            excused.append(f"{name}'s ripping-error warning {placed.reason}")
+            verified = True
         if warned:
             problems.append(f"{name} warned: {' / '.join(warned)}")
         elif not verified:

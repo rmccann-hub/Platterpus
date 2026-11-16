@@ -14,6 +14,21 @@ byte count.** The long-term fix is the fork shortening the FILE NAME only, so th
 tag stays whole; that will be asked for in a handshake lap. Until then a person
 shortens the title in the track table, which shortens the tag with it.
 
+**The limit is 255 bytes LESS the longest ending we add (closed 2026-11-16).**
+After cyanrip writes a name, Platterpus writes files of its own beside it named
+by adding an ending: a track's FLAC gets a temporary ``…flac.platterpus-refix.tmp``
+when a re-read is swapped in, the rip log gets ``… (EAC-compatible).log``, the
+JSON report and others. A name that fits at 255 bytes can therefore break the
+rip afterwards (a 250-byte track name's refix temporary is 271 bytes, measured
+``ENAMETOOLONG``). So each kind of name is held to 255 minus the most its
+siblings add, read from :mod:`platterpus.sibling_names`, where every one of those
+endings is defined and from which every writer builds its name:
+``MASTER_EXTRA_BYTES`` for a track's FLAC, ``DERIVED_EXTRA_BYTES`` for a derived
+file, ``LOG_EXTRA_BYTES`` for the log and cue. A folder has no sibling named from
+it and keeps 255. This also keeps cyanrip's own shortening (``.28`` on, which
+cuts a name to exactly 255 bytes) from ever running on a rip we started, so a
+name we predict is the name it writes.
+
 **How it predicts the names: it does not restate cyanrip's rules.** Every name is
 rendered by the one renderer the overwrite guard already uses
 (:func:`platterpus.naming.render_scheme`), from the very ``-D``/``-F`` schemes the
@@ -50,7 +65,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from platterpus import naming, tag_hygiene
+from platterpus import naming, sibling_names, tag_hygiene
 from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
 
@@ -85,6 +100,13 @@ _ALBUM_FIELD_PHRASES: Final[dict[str, str]] = {
     "date": "the year",
 }
 
+#: The most bytes a name of each kind may have: 255, less the longest ending we
+#: add to it (module docstring). Derived from `sibling_names`, never typed.
+_FOLDER_LIMIT: Final[int] = naming.NAME_MAX_BYTES
+_LOG_LIMIT: Final[int] = naming.NAME_MAX_BYTES - sibling_names.LOG_EXTRA_BYTES
+_MASTER_LIMIT: Final[int] = naming.NAME_MAX_BYTES - sibling_names.MASTER_EXTRA_BYTES
+_DERIVED_LIMIT: Final[int] = naming.NAME_MAX_BYTES - sibling_names.DERIVED_EXTRA_BYTES
+
 #: What the message says when no editable value made the name long, i.e. the
 #: template's own literal text did.
 _TEMPLATE_PHRASE: Final[str] = "the file naming scheme in Settings"
@@ -100,6 +122,8 @@ class OverlongName:
     the values the person can shorten, in the order they appear in the name.
     ``name`` is the predicted name, kept for the log; the user-facing message
     deliberately leaves it out, because it is too long to read in a dialog.
+    ``limit`` is the most bytes this name may have: 255, less the longest ending
+    Platterpus adds to it for a file of its own beside it.
     """
 
     kind: str
@@ -107,6 +131,7 @@ class OverlongName:
     fields: tuple[str, ...]
     byte_count: int
     name: str
+    limit: int = naming.NAME_MAX_BYTES
 
     def message(self) -> str:
         """The sentence a person reads: what, how long, the limit, what to fix."""
@@ -119,7 +144,7 @@ class OverlongName:
         fix = " or ".join(self.fields) if self.fields else _TEMPLATE_PHRASE
         return (
             f"{what} would be {self.byte_count} bytes; the limit is "
-            f"{naming.NAME_MAX_BYTES} — shorten {fix}."
+            f"{self.limit} — shorten {fix}."
         )
 
 
@@ -188,27 +213,37 @@ def _measure(
     track: int | None,
     scheme: str,
     tags: dict[str, str],
-    extensions: Sequence[str],
+    extensions: Sequence[tuple[str, int]],
     phrases: dict[str, str],
+    limit: int = _FOLDER_LIMIT,
 ) -> OverlongName | None:
     """Render one component of ``scheme`` and report it when it does not fit.
 
-    With ``extensions``, the name is measured once per extension and the longest
-    reported, because each one is a separate file cyanrip or the transcoder
-    creates and every one of them has to fit.
+    ``extensions`` pairs each extension with that file's own limit: with any,
+    the name is measured once per extension, because each one is a separate file
+    cyanrip or the transcoder creates and every one of them has to fit, and the
+    one furthest over its limit is reported. With none, the bare name is
+    measured against ``limit`` (a folder).
     """
     rendered = naming.render_scheme(scheme, tags)
-    names = [f"{rendered}.{ext}" for ext in extensions] if extensions else [rendered]
-    longest = max(names, key=naming.name_bytes_on_disk)
-    size = naming.name_bytes_on_disk(longest)
-    if size <= naming.NAME_MAX_BYTES:
+    candidates = (
+        [(f"{rendered}.{ext}", ext_limit) for ext, ext_limit in extensions]
+        if extensions
+        else [(rendered, limit)]
+    )
+    name, name_limit = max(
+        candidates, key=lambda pair: naming.name_bytes_on_disk(pair[0]) - pair[1]
+    )
+    size = naming.name_bytes_on_disk(name)
+    if size <= name_limit:
         return None
     return OverlongName(
         kind=kind,
         track=track,
         fields=_phrases(scheme, tags, phrases),
         byte_count=size,
-        name=longest,
+        name=name,
+        limit=name_limit,
     )
 
 
@@ -261,7 +296,10 @@ def overlong_names(
     only_tracks: Sequence[int] = (),
     derived_extension: str = "",
 ) -> tuple[OverlongName, ...]:
-    """Every folder or file name this rip would need that is over 255 bytes.
+    """Every folder or file name this rip would need that is over its limit.
+
+    The limit is 255 bytes for a folder, and 255 less the longest ending we add
+    for a file (the module docstring).
 
     ``track_template``, ``metadata`` and ``disc_track_total`` are what the argv
     builder is handed, and the names are rendered from exactly what it sends.
@@ -298,7 +336,7 @@ def overlong_names(
         None,
         _log_scheme(position),
         album_tags,
-        _SIDE_FILE_EXTENSIONS,
+        tuple((ext, _LOG_LIMIT) for ext in _SIDE_FILE_EXTENSIONS),
         _ALBUM_FIELD_PHRASES,
     )
     if overlong is not None:
@@ -306,10 +344,12 @@ def overlong_names(
 
     # Each track's file, created only AFTER that track has been read: the case
     # that wasted the read time, and the one the owner's interim exists for.
-    extensions = (
-        (_MASTER_EXTENSION, derived_extension)
+    # The FLAC master and a derived file each have their own limit, because we
+    # add different endings to each (`sibling_names`).
+    extensions: tuple[tuple[str, int], ...] = (
+        ((_MASTER_EXTENSION, _MASTER_LIMIT), (derived_extension, _DERIVED_LIMIT))
         if derived_extension
-        else (_MASTER_EXTENSION,)
+        else ((_MASTER_EXTENSION, _MASTER_LIMIT),)
     )
     track_scheme = file_scheme or _default_track_scheme(position)
     numbers = [t.number for t in meta.tracks if isinstance(t.number, int)]
@@ -368,9 +408,11 @@ def assert_names_fit(
     """The argv chokepoint's half: raise :class:`RipError` when a name will not fit.
 
     Checks the FLAC only: the argv builder does not know the derived format, and
-    no derived extension is longer than ``flac`` (``tests/test_title_filenames.py``
-    holds that, so a longer one turns a test red rather than this check blind).
-    The track table's check, which does know it, measures both.
+    a derived name is never the binding one, since every derived extension plus
+    the most we add to a derived file is no longer than ``flac`` plus the most we
+    add to the FLAC (``tests/test_title_filenames.py`` holds that, so a change
+    that broke it turns a test red rather than this check blind). The track
+    table's check, which does know the format, measures both.
     """
     found = overlong_names(
         track_template,

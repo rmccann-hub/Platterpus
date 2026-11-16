@@ -82,7 +82,7 @@ text is taken verbatim as one value.
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
 | `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master, and that the report's derived-file verification ran. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
 | `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing, and a check that ran and failed, or a derived one that did not run, FAILs |
-| `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
+| `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. Two warnings are expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build; and a ripping-error tally that is the completion check's only finding and that the record places entirely on first reads replaced by a read AccurateRip verified |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
 | `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: compared for a whole disc (a match CTDB outvotes fails), declined if partial |
 | `expect-read-offset` | 0 | ready | expect-read-offset — the read offset the rip applied is right: the AccurateRip drive list agrees, or AccurateRip confirmed it on this disc, and the -s we sent is what the log applied (not determined never passes) |
@@ -105,9 +105,10 @@ text is taken verbatim as one value.
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `keep` | 1 | ready | keep <config-field> — leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting) |
 | `set-drive-offset` | 0 | ready | set-drive-offset — set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known) |
-| `expect-drive-offset` | 0 | ready | expect-drive-offset — assert the read offset is still the one set-drive-offset set, with the override on |
+| `expect-drive-offset` | 0–1 | ready | expect-drive-offset [<offset>] — assert the selected drive's read offset is still the one set-drive-offset set, with the override on; with <offset>, also that it is that number (a script written for one drive) |
 | `expect-offset-refusal` | 0 | ready | expect-offset-refusal — turn the read-offset override off and press Start: a drive the AccurateRip list does not carry must be refused ('Set up your drive first') with no rip; the wizard is declined and the override put back. On a listed drive the app would apply the list's offset and rip, so the step records unreachable and changes nothing |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
+| `expect-ripper-bounds-overread` | 0 | ready | expect-ripper-bounds-overread — assert the installed cyanrip bounds -O (reads each frame outside the disc once and says so in a `Beyond disc:` line): fails on a build known not to, and is not determined (an error) on one Platterpus cannot place (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
 | `app-log` | 1+ (rest of line) | ready | app-log <text> — record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept |
@@ -680,7 +681,7 @@ found nothing wrong*.
       "max_args": null,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-album-audit [check\u2026] \u2014 re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok \u2014 among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build"
+      "help": "expect-album-audit [check\u2026] \u2014 re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok \u2014 among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. Two warnings are expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build; and a ripping-error tally that is the completion check's only finding and that the record places entirely on first reads replaced by a read AccurateRip verified"
     },
     {
       "name": "expect-accuraterip",
@@ -861,10 +862,10 @@ found nothing wrong*.
     {
       "name": "expect-drive-offset",
       "min_args": 0,
-      "max_args": 0,
+      "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-drive-offset \u2014 assert the read offset is still the one set-drive-offset set, with the override on"
+      "help": "expect-drive-offset [<offset>] \u2014 assert the selected drive's read offset is still the one set-drive-offset set, with the override on; with <offset>, also that it is that number (a script written for one drive)"
     },
     {
       "name": "expect-offset-refusal",
@@ -881,6 +882,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-ripper-under-review \u2014 assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first)"
+    },
+    {
+      "name": "expect-ripper-bounds-overread",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-ripper-bounds-overread \u2014 assert the installed cyanrip bounds -O (reads each frame outside the disc once and says so in a `Beyond disc:` line): fails on a build known not to, and is not determined (an error) on one Platterpus cannot place (run a `cyanrip --version` first)"
     },
     {
       "name": "probe-ripper-wrapper",

@@ -478,7 +478,7 @@ purpose is being trustworthy evidence.
 | flag | what it does | note |
 |---|---|---|
 | `-x` / `--cache-probe` | measures the drive's readback cache; **alone it then rips the whole disc** — measured 2026-08-19, ETA 1h 3m, unreapable when killed. With `-I` it is probe-only and writes no audio: the full run's section P sends `-N --cache-probe -I` | fork-only, from round 7 lap 1 |
-| `-O` | overread into lead-in/lead-out | **confirmed to hang the BDR-209D for ~23 minutes** on builds before `.24`; `.24` bounds it, and only `overreadprobe.txt` sends it, under the verb's fixed 300 s limit |
+| `-O` | overread into lead-in/lead-out | **confirmed to hang the BDR-209D for ~23 minutes** on builds before `.24`; `.24` and every later build bound it (`fork_source.BUILD_TAGS_BOUNDING_OVERREAD`, read from each build's source), and only `overreadprobe.txt` sends it, after `expect-ripper-bounds-overread`, under the verb's fixed 300 s limit |
 | `-x` / `--force-overread` | overread | **the ripper used before cyanrip only** — never cyanrip |
 
 Older revisions of `docs/dependency-contracts.md` said `-x` did not exist in

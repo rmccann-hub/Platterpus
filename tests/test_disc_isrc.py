@@ -311,7 +311,9 @@ def test_the_bounded_o_read_is_the_last_track_only_and_stops_on_the_wrong_rig() 
     """The operator's point 4 (2026-10-16): run by hand, last track only, at
     +667, and impossible without the limit. The limit is the `cyanrip` verb's
     own (no step can pass one); the script stops before the read unless the
-    build is `.24` and the offset +667."""
+    build bounds -O (`.24` and every later build whose source has been read,
+    TASKS R24 2026-11-16; `tests/test_overread_probe_gate.py`) and the selected
+    drive's own offset is +667."""
     from platterpus.uiscript.runner import CYANRIP_VERB_TIMEOUT_S
     from platterpus.uiscript.script import (
         args_as_preflight_sees_them,
@@ -337,13 +339,12 @@ def test_the_bounded_o_read_is_the_last_track_only_and_stops_on_the_wrong_rig() 
     before = steps[: steps.index(reads[0])]
     assert sum(s.verb == "abort-if-failed" for s in before) == 2
     assert any(
-        s.verb == "expect" and tuple(s.args[:2]) == ("read_offset", "667")
-        for s in before
+        s.verb == "expect-drive-offset" and tuple(s.args) == ("667",) for s in before
     )
-    assert any(
-        s.verb == "expect-cyanrip" and "platterpus-fork-g93afa15" in s.args
-        for s in before
-    )
+    assert any(s.verb == "expect-ripper-bounds-overread" for s in before)
+    # No build tag typed into the script: which builds bound -O is one fact, kept
+    # in `fork_source.BUILD_TAGS_BOUNDING_OVERREAD`.
+    assert not any("platterpus-fork-g" in " ".join(s.args) for s in steps)
     assert 60 <= CYANRIP_VERB_TIMEOUT_S <= 600  # "a few minutes"
 
 

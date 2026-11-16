@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Final
 
 from platterpus.adapters.tool_run import ToolRunner, make_runner
+from platterpus.sibling_names import replaygain_temp_name
 
 log = logging.getLogger(__name__)
 
@@ -248,7 +249,7 @@ def _measure(
 
 def _retag(binary: str, path: Path, tags: dict[str, str], run: ToolRunner) -> str:
     """Write ``tags`` into ``path`` atomically; return ``""`` or why it failed."""
-    tmp = path.with_name(path.name + ".replaygain.tmp")
+    tmp = path.with_name(replaygain_temp_name(path.name))
     result = run(retag_argv(binary, path, tmp, tags))
     if not result.ok or not tmp.exists():
         try:
