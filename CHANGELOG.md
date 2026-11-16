@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.127] — 2026-11-17
+
 ### Changed
 
 - **`.34` (`fb28088`) is the build under review for round 41, in place of `.33`** (the fork's round 41 lap 3 S9, accepted on the owner's word of 2026-11-16; published on their beta at `d7385d18`, `release_seq` 46). `PIN_UNDER_REVIEW`, the release sequence, the menu's under-review line and every build-tag set `.33` is in move to include `.34`, the bounded-overread set too, each read off `.34`'s own provider contract or source (filed as `round-41-lap-03-provider-contract-g3069c11.md`, built at `g3069c11`, source anchor `6343712aa598c2d8` recomputed at both commits, P1 byte-identical to `.33`'s); `.33` and `.32` stay in each, `.33` now by name in the `--verify-log` set. The message inventory is regenerated (168 P5, 19 P5a): `.34`'s new refusal of a table of contents whose track starts do not increase, `Invalid TOC: …`, exits 74, and a rip on `.34` that ends that way now reads as a disc-or-drive failure, with cyanrip's own sentence first; without `.34`'s release number recorded it read as not determined. `.34`'s record is still `cyanrip-diagnostics/14` with no field changed, and a test now reads its published record. `FORK_PIN` stays `edb73dd` (`.32`) until round 41 closes.
@@ -19988,7 +19990,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.127...HEAD
+[0.7.127]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...v0.7.127
 [0.7.126]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...v0.7.126
 [0.7.125]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...v0.7.125
 [0.7.124]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.123...v0.7.124
@@ -20085,4 +20088,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.126.*
+*Last updated for Platterpus v0.7.127.*
