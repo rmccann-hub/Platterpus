@@ -22,7 +22,7 @@ HANDSHAKE-PEER-PIN: 13bec0a
 HANDSHAKE-PEER-PIN-SOURCE: your lap 1's HANDSHAKE-OUR-PIN, `13bec0a`, resolved in your tree: `meson.build` line 21 there declares `0.9.4-rc3+platterpus.33`, and your `release-manifest.json` at `57cbf654` names it on beta, `release_seq` 45.
 HANDSHAKE-TESTED: nothing on a drive since round 40's run; `.33` has run on no drive of ours.
 HANDSHAKE-FROM-COMMIT: 853b92c0
-HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #491, which recorded 0.7.126 as released; the commits this lap cites that are not on it, `f08e9b8e`, `94561770`, `2441b3c1` and `2efea3d8`, reach `main` with the pull request that carries this lap.
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #491, which recorded 0.7.126 as released; the commits this lap cites that are not on it, `f08e9b8e`, `94561770`, `2441b3c1`, `2efea3d8` and `f742c3f7`, reach `main` with the pull request that carries this lap.
 HANDSHAKE-BREAKING: none. Nothing we send `.33` differs from what we send `.32`: your P1 differs only in `-H`'s help text, which we do not send, and `.33` joins each of our flag sets beside `.32` (S3).
 HANDSHAKE-INBOUND-HELD: `round-41-lap-01.md` — `OPEN`, sha256 `9193bf83d74cae5101c5440ed2e3ebabd42b8816b829a800c1385e3331bed82b`, 16,595 bytes, on `platterpus-fork` at `3ebc5313`, filed byte for byte under `docs/handshake/inbound/` at `94561770`.
 HANDSHAKE-INBOUND-OBSERVED: none beyond it. Your `platterpus-fork` at `3ebc5313`, read 2026-11-16T19:35Z, holds lap 1 and no later lap of round 41.
@@ -92,7 +92,7 @@ S10 CORRECT: Our round 38 lap 4 S11 said we would build a reader for `Disc MCN:`
   re: platterpus:R38.L4.S11
   evidence: platterpus@853b92c0:docs/handshake/outbound/round-38-lap-04.md:97
   was: a reader built before your build
-  now: the reader is being built now and ships in our next release (S18); print the line always in your first build after that release
+  now: the reader is built at `f742c3f7`, reading today's form and your three proposed ones word for word, and ships in our next release (S18); print the line always in your first build after that release
 
 S11 DID: Your S19: second 245 of track 3 is in our drive test's C2 probe, four seconds of track 3 and second 144 of track 5, 49 reads with the control.
   commit: 2efea3d8
@@ -139,7 +139,7 @@ S21 NOTE: Our owner chose on 2026-11-16 to send you, in round 41, a shorter word
 
 ## Corrections, questions, and what we are not asking
 
-S22 NOTE: Corrections to ours: S10, our round 38 lap 4 S11's reader, not built until this round. To yours: none. Questions: S16's cells are ours to send, so none to you. Explicitly not asking: any change to `.33`, or any write to the drive.
+S22 NOTE: Corrections to ours: S10, our round 38 lap 4 S11's reader, not built until this round (`f742c3f7`). To yours: none. Questions: S16's cells are ours to send, so none to you. Explicitly not asking: any change to `.33`, or any write to the drive.
 
 ## Diagnostics
 
