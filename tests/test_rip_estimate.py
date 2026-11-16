@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import statistics
 from dataclasses import dataclass
+from typing import Final
 
 import pytest
 from evidence_paths import evidence_dir
@@ -24,6 +25,20 @@ from platterpus.rip_estimate import ReadRate
 #: elapsed time and the read-speed block, none of which the extract removes.
 #: `evidence_dir` refuses an empty tree, and each test below keeps its own floor.
 _ARTIFACTS = evidence_dir("docs/handshake")
+
+
+#: Filed rips the model's range does NOT contain, named and asserted outside it,
+#: never silently dropped (TASKS R172). Run C of 2026-10-22 ripped disc 3 of
+#: *Roots Music* on the same BDR-209D; its album pass read at about 0.31 s per
+#: second of audio where the seed (1.05) is the reference disc's, so both rips
+#: finished in well under the model's floor. Their fixtures came in for TASKS R59
+#: (a) on 2026-11-16, which is how this population first met another disc. The
+#: test below fails if one of them ever falls inside the range, so the entry is
+#: removed when the model learns the disc rather than outliving its reason.
+_BELOW_THE_MODEL: Final[dict[str, str]] = {
+    "round36full1022asecurerereadreport.json": "run C, disc 3, uniform -Z 2",
+    "round36full1022awholediscreport.json": "run C, disc 3, dynamic with a re-read",
+}
 
 
 @dataclass(frozen=True)
@@ -126,6 +141,9 @@ def test_every_filed_uniform_rip_falls_inside_the_estimates_range() -> None:
             max_retries=5,
         )
         assert estimate is not None and estimate.seconds_high is not None
+        if rip.name in _BELOW_THE_MODEL:  # named, and held below the floor
+            assert rip.elapsed < estimate.seconds * 0.9, (rip.name, estimate)
+            continue
         # 10% below the minimum: the seed is a median, and a rip a little
         # faster than it is still the model working.
         assert estimate.seconds * 0.9 <= rip.elapsed <= estimate.seconds_high, (
@@ -153,6 +171,9 @@ def test_every_filed_dynamic_rip_with_re_reads_falls_inside_the_model() -> None:
         extra = sum(rip.lengths[n] for n in rip.retried if n in rip.lengths)
         low = estimate.seconds * 0.9 + extra * estimate.reread_low * 0.9
         high = estimate.seconds * 1.1 + extra * estimate.reread_high
+        if rip.name in _BELOW_THE_MODEL:  # named, and held below the floor
+            assert rip.elapsed < low, (rip.name, rip.elapsed, low)
+            continue
         assert low <= rip.elapsed <= high, (rip.name, rip.elapsed, low, high)
 
 
@@ -271,3 +292,10 @@ def test_the_sentences_say_what_the_figure_rests_on() -> None:
     assert "own reading speed over its last 4 rips" in own and "4.0x" in own
     assert "finished no rip" in rip_estimate.describe(None)
     assert "not identified" in rip_estimate.describe(None, known=False)
+
+
+def test_every_rip_named_below_the_model_is_in_the_population() -> None:
+    """A name in `_BELOW_THE_MODEL` that no test meets is an exemption of nothing."""
+    names = {r.name for r in _filed_rips()}
+    missing = sorted(set(_BELOW_THE_MODEL) - names)
+    assert not missing, f"named below the model but not filed: {missing}"

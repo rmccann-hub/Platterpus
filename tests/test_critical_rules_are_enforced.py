@@ -1101,7 +1101,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **330 -> 359** (2026-10-26, run C): `derived_verification_refusal`, the one predicate `expect-derived-output` and `expect-verification` share for a derived verification that did not run, beside `settle_state` which both already share.
     # **359 -> 364** (2026-11-03, TASKS R66): `grade_accuraterip` words each AccurateRip state through `accuracy_grading.STATE_WORDS`, so a frame-450-only match reads "frame 450 only", not `offset-variant`.
     # **364 -> 328** (2026-11-03, review A3/C1 of the 0.7.117 Full run): lowered: `grade_ctdb` moved to `uiscript/record_grading.py`, beside the other graders that read a verdict the report computed; `derived_verification_refusal` refuses a derived gate that ran and FAILED.
-    "uiscript/artifact_grading.py": 328,
+    # **328 -> 345** (2026-11-16, TASKS R59 (a), the owner's word "4. a"): `grade_album_audit` excuses the completion check's ripping-error warning when it is that check's only finding and `expected_warnings.expected_ripping_error_warning` places the tally on replaced reads; the rule lives there, only the excusing is here.
+    "uiscript/artifact_grading.py": 345,
     # **296 -> 310** (2026-11-04, TASKS R123, the track-3 script): crossed the heuristic by a FIXUP_ATOM count on each track record and the log's `Cache probe:` value on each rip record, the two facts the fork's round 37 lap 7 S11 asks every track-3 rip to carry. They belong to the record this module defines; the per-condition comparison is its own module, `condition_grading.py`.
     "uiscript/accuracy_grading.py": 310,
     # 285 -> 336 on 2026-10-19, crossing the heuristic with P1 of the
@@ -2270,7 +2271,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1654 -> 1667** (2026-11-03, TASKS R112): the completion grade withholds its OK when the report records a track AccurateRip contradicts, worded by `track_proof.contradicted_tracks_sentence`.
     # **1667 -> 1684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the completion grade reads the report's per-track contradiction, recognises the `health_status` sentence `rip_health.contradicted_health` writes, and keeps the clean word out of its OK.
     # **1684 -> 1702** (2026-11-04, TASKS R122): `cue_integrity` hands `cue_emphasis.check_flags_pre` every pass's argv and each track's `pre_emphasis`, so a pre-emphasised track kept with `-W` whose cue lacks FLAGS PRE warns. The rule is `cue_emphasis.py`.
-    "rip_audit.py": 1702,
+    # **1702 -> 1710** (2026-11-16, TASKS R59 (a), the owner's word "4. a"): `RIPPING_ERRORS_WARNING` and `ripping_errors_warning`, the completion check's tally warning named once, so the acceptance grader that may expect it compares the whole sentence the audit wrote. The rule for when it is expected is `uiscript/expected_warnings.py`.
+    "rip_audit.py": 1710,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,
@@ -3188,7 +3190,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1137 -> 1162** (2026-11-04, TASKS R123): the `compare-conditions` and `cyanrip-timeout` declarations, and `record-accuracy`'s optional folder. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **1162 -> 1170** (2026-11-11, round 39's G3): the `expect-track-records` declaration, beside `expect-read-offset`.
     # **1170 -> 1172** (2026-11-11, round 39's G2, TASKS R138): `expect-track-records` names the AccurateRip v2 check of repaired tracks it now makes; the grading is `uiscript/repair_accuraterip_grading.py`.
-    "uiscript/verbs.py": 1172,
+    # **1172 -> 1175** (2026-11-16, TASKS R59 (a)): `expect-album-audit`'s help names the second warning it expects, a ripping-error tally placed on replaced reads.
+    "uiscript/verbs.py": 1175,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

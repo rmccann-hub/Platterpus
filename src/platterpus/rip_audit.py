@@ -76,6 +76,18 @@ LEVEL_WARN = "warn"
 #: acceptance grader recognises this one warning (on the build under review
 #: only), and a second spelling there would drift from the one here.
 OPEN_ROUND_WARNING: Final[str] = "the ripper says it is NOT a released build"
+#: How the completion check's ripping-error warning begins, followed by the tally
+#: (TASKS R59 (a)): named once for the same reason, so the grader that may expect it
+#: (``uiscript/expected_warnings.py``) recognises it by these words, not a copy.
+RIPPING_ERRORS_WARNING: Final[str] = "the ripper reports the rip completed with"
+
+
+def ripping_errors_warning(health: str) -> str:
+    """The completion check's whole warning for a tally that is not clean."""
+    return (
+        f"{RIPPING_ERRORS_WARNING} {health} — check the affected tracks before "
+        "treating this as a clean rip"
+    )
 
 
 @dataclass
@@ -456,11 +468,7 @@ def _grade_a_reported_completion(
             "whether it counted any errors is not determined",
         )
     elif not clean:
-        album.add(
-            LEVEL_WARN,
-            f"the ripper reports the rip completed with {health} — check the "
-            "affected tracks before treating this as a clean rip",
-        )
+        album.add(LEVEL_WARN, ripping_errors_warning(health))
     if (
         n_done is not None
         and n_total is not None

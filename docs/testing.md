@@ -3991,6 +3991,34 @@ steps of a timed rip (P5) or the paired rips (P6) with only one build
 a drive that reports its speed unchangeable aborts the rip on `-S`, so it is a
 TASKS row until the language can branch on the drive.
 
+**A re-grade that makes a pass easier: `expect-album-audit` expects a placed
+ripping-error tally (2026-11-16, TASKS R59 (a)).** The owner's word, answering
+"4. a" to that day's decision list: the completion check's ripping-error warning
+(*"the ripper reports the rip completed with 2 ripping errors"*) is expected,
+not failed, when it is that check's **only** finding and the record places
+**every** counted error in the first read of a track the album replaced with a
+read AccurateRip verified. The case is run C of 2026-10-22: disc 3's track 16
+had two paranoia skips in its first read, chase read 5 replaced it at v1
+confidence 11 and v2 24, the files hold none of the reads that erred, and the
+section failed on the tally alone. The placement is the one every surface uses
+(`replaced_read_errors.errors_in_replaced_reads`); the rule is
+`uiscript/expected_warnings.expected_ripping_error_warning`. **Still a failure:**
+any other finding in any check; a count that disagrees or is missing; a ripping
+error on a read the album **keeps** (run C's whole-disc rip, whose one skip is in
+a first read nothing replaced); a replacing read whose own counters show a
+`READERR` or `SKIP`, or none at all, on a report of schema 40 or later; a track
+AccurateRip contradicts. A schema-39 report (0.7.111 and 0.7.112) is the one
+exception to the counters clause, because its replaced track carries the
+superseded read's counters (TASKS R61), and the passing sentence says the read
+kept is vouched for by AccurateRip alone rather than calling it clean. **This
+changes no section's severity**: F, H, J, K1 to K3 and N stay ARCHIVAL, and the
+product's own audit still warns the user. **The direction is the one to be
+suspicious of** (it makes a version easier to reach), which is why it waited for
+the owner's word rather than being decided here; it applies to runs graded after
+it, and no ledger row is re-graded. Held by
+`tests/test_uiscript_artifact_grading.py` on slim extracts of run C's two filed
+reports.
+
 **The unknown-disc run (2026-10-06, ruled in KDD-41 C4 (b)) is a second script,**
 `rig_scripts/unknowndiscacceptance.txt`, because the full run stops at E on a disc
 MusicBrainz does not know, on purpose. It needs such a disc (a CD-R of your own
