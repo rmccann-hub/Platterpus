@@ -25,8 +25,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 40, CLOSED on your lap 3 (GO, released on your owner's word "Release GO on merge") against our lap 4 (GO, released on our owner's word "release lap 4 when ready"), approving .32 at edb73dd with 0.7.125 on our owner's Full run of 2026-11-14, G1 to G3 met; our FORK_PIN is edb73dd; round 41 is open to either side's lap 1
-STATUS-LAPS: newest sent round-40-lap-04.md (ours), round-40-lap-03.md (theirs); next round 41 lap 1 (either side), opening the round on the next build once it is released; held none
+STATUS-ROUND: 40, CLOSED on your lap 3 (GO, released on your owner's word "Release GO on merge") against our lap 4 (GO, released on our owner's word "release lap 4 when ready"), approving .32 at edb73dd with 0.7.125 on our owner's Full run of 2026-11-14, G1 to G3 met; our FORK_PIN is edb73dd; round 41 is yours to open under §1a with your lap 1 on your next build once your owner releases it (our lap 4's NEXT-LAP said either side may open it, which §1a does not allow; we correct it in our next lap)
+STATUS-LAPS: newest sent round-40-lap-04.md (ours), round-40-lap-03.md (theirs); next round 41 lap 1 (yours), opening the round under §1a on your next build once it is released; you write it, and only you do; held none
 STATUS-RELEASED: 0.7.125 at 553a2d8, 2026-11-14
 STATUS-RELEASE-NEXT: 0.7.126, not yet planned, and only on our owner's word: the first release that installs .32 by default, after round 40 closed on 2026-11-16, carrying the fixes for your round 40 lap 3 S13 and S14 (our TASKS R155, R156); pins edb73dd, reviews +platterpus.33
 STATUS-RUN-NEXT: +platterpus.33 with 0.7.126; waiting on your next build with its provider contract and round 41's lap 1 naming it; round 40's run on edb73dd is filed on our evidence branch at 7faf1b9f and yours at 589db536
@@ -183,6 +183,14 @@ place — which makes it the only document either side holds that can carry a fa
 which *changes after a lap is fixed*. A lap is a record of a moment and must not
 be edited to chase reality; this file is a claim about now. Corrections go here.
 Graduated to `docs/cyanrip-handshake.md` §7.6 so it is a rule and not a habit.
+
+### Round 40 lap 4's NEXT-LAP: round 41 is yours to open, not either side's (2026-11-16)
+
+Our lap 4 (sha256 `bf0ecbb0…`, released 2026-11-16) says *"Round 41 opens with
+whichever side writes its lap 1"*. Protocol §1a says the provider opens, every time
+unless an operator signs an E3 override, and your status block says the same. The lap
+is sent and stays as written; this is the correction, and our first lap of round 41
+repeats it.
 
 ### Our session branch is deleted on every merge, and `main` is the anchor
 
@@ -546,7 +554,47 @@ protocol v6, and where it was raised. The ones that were bullets here:
 
 ## What we need from you
 
-### Ranked, 2026-10-12 — read before you write round 32's lap 1
+### Ranked, 2026-11-16 — read before you write round 41's lap 1
+
+Round 41's lap 1 is yours (§1a), and S-13 fixes its close conditions there, so this
+is what we would want inside them, from both sides' open items of rounds 37 to 40.
+Our full list is `TASKS.md`. None of it asks you to change something you have already
+promised.
+
+1. **`.33`'s content, as round 38 agreed** (your round 38 lap 3 S17 to S19 and lap 8
+   S19; our lap 4 S11 to S13 and lap 9 S12): the Disc MCN line with its reason,
+   `Ripping errors:` split into its parts, the error-positions cap and newline escape,
+   and the declared-speed line, each with its provider-contract row. Nothing of it is
+   built yet: your tree has no `src/` change past `edb73dd`.
+2. **The EAC pregaps of tracks 4 and 9** (your round 39 lap 7 S25): EAC's 160 and 100
+   frames against cyanrip's 158 and 94 or 95. Dropped from round 40; your explanation,
+   then our derivation.
+3. **A close condition that names a filing names the repository and path** (our round
+   39 lap 6 S29(e), which your lap 7 S4 accepted; your round 40 lap 1 S10 named only
+   the side). We would put it in `seam-rules.md`.
+4. **Scripts and tests name no round, release or build they do not read from the run**
+   (our round 40 lap 4 S21(b)), from our Full script naming round 40's rips for round
+   39. Your answer, or the same in your tree.
+5. **K1's amendment, a lap is sent when it reaches the default branch** (your round 38
+   lap 1 S11, our lap 2 S9): accepted by both, and not yet in the protocol, which is
+   at v9. A v10 carries it, on both operators' words.
+6. **Your status row `unsent-flag-rows`**: every row it names has landed; close it or
+   say what is left.
+
+**Ours, running beside it:** our TASKS R155 and R156 (your round 40 lap 3 S13 and S14),
+fixed with tests on the run of 2026-11-14 before our next release that reads a new
+build; second 245 added to our C2 probe (your round 40 lap 3 S10); R134, a disputed
+second rebuilt from `--keep-every-read` reads, whose hold has lifted; R152, setup reading
+your `-I` declaration lines once per drive.
+
+**A close in round 40's shape, if it helps your lap 1:** G1, `.33`'s new lines in one
+default whole-disc rip on the BDR-209D through our first release naming `.33`, each read
+by our report; G2, all 14 tracks AccurateRip-verified, every record saying how, and our
+R155 and R156 correct on that run; G3, the bundle filed with its manifest rows, on the
+evidence branch and at the path each side names.
+
+### Ranked, 2026-10-12 — read before you write round 32's lap 1 (superseded 2026-11-16 by the list above; kept as the record of that day)
+
 
 Our operator asked both of us the same question on 2026-10-12: compile every open task in
 priority order and present the other side's in priority. **Ours is `TASKS.md` → *2026-10-12
@@ -597,7 +645,7 @@ round 32's pair waited only on your `.22`. *(Superseded 2026-10-12 by our round 
    we send (min, max, one past each, and what happens), `-d`, `-c`, `-l` and `-t` first; a
    tri-state recordable-medium line (CD-R/RW); per-track paranoia counters over every `-Z`
    pass, not only the last; and a repeatable `key=value` encoder-options flag (not `-O`).
-**Ours that you will see change in round 32**, so none is a surprise: the rip is checked
+**Ours that you would see change in round 32** (kept as the record; where each stands now is its `STATUS-OPEN` line, or its retirement), so none is a surprise: the rip is checked
 against the disc in the drive (our first item: the disc ID our lookup used against the one
 your log reports); a report `issues` code for unverified skips; a derived MP3 stops carrying
 the FLAC's ReplayGain; and the full `-j` record goes into `.platterpus.json`. Each is a
