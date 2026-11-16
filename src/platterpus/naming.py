@@ -276,7 +276,7 @@ DEFAULT_PRESET: NamingPreset = PRESETS[0]
 # dialog needs the same row for its *Goal* combo and used to carry its own copy
 # of the literal, four hundred lines away from this one. Two spellings of one
 # label in one dialog is drift waiting to happen, and it was already logged as
-# a hazard when the labels were renamed (TASKS.md, rig findings 2026-08-05).
+# a hazard when the labels were renamed (docs/archive/tasks-closed-to-2026-11-16.md, rig findings 2026-08-05).
 CUSTOM_LABEL: str = option_labels.CUSTOM_LABEL
 
 

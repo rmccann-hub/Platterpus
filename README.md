@@ -760,7 +760,7 @@ After a rip, the results pane shows an at-a-glance **verification verdict** (gre
 
 Platterpus rips the disc **once at full speed** and checks every track against AccurateRip. A track that matches the database on that first read is already proven bit-perfect, so it's left alone. Only the tracks that *didn't* match (and, by default, a track where AccurateRip matched only one frame) are then **secure-re-ripped** — re-read until enough reads are identical — *Extra matching reads to trust a track* plus one, so three at the default of 2 (cyanrip's `-Z`, on by default; *Max retries* caps how many reads that may take) — and the better read is kept. So a clean disc is a single fast pass (roughly real-time), and the careful, slow work happens only where it's actually needed. If read errors appear, an adaptive read-speed ladder also re-reads the disc more slowly. The FLAC master is always kept and, unless disabled, decode-verified against its stored MD5; any non-FLAC output is derived from that verified master.
 
-See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
+See "EAC bit-perfect parity gaps" in [the TASKS archive](docs/archive/tasks-closed-to-2026-11-16.md) for the history.
 
 ---
 
@@ -1138,7 +1138,7 @@ Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
 - [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-47)
-- [`TASKS.md`](TASKS.md) — active task checklist: dated, ranked lists and handshake-round sections first, then the original P0 (T01-T32, complete), P1.1, P1, P2 and Out of scope.
+- [`TASKS.md`](TASKS.md) — active task checklist, live work only: the ranked open rows and the R-table first, then every section that still holds an open row, P2 and Out of scope. Closed sections (the original P0, T01-T32, the closed rounds and dated runs) are in [`docs/archive/tasks-closed-to-2026-11-16.md`](docs/archive/tasks-closed-to-2026-11-16.md).
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
 Source documents and reference material (in `docs/`):

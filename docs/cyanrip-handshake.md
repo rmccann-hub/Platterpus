@@ -1294,7 +1294,7 @@ We are the giver here, so the ease and accuracy columns are ours.
 | X2 | **The read offset's provenance** | The log could say where its offset came from | the same row as our G3: easy | exact as provenance | proposed (G3) |
 | X3 | **`cd-paranoia -A`'s output in every bundle** | Their cache-probe calibration beside a second instrument | **already given in every acceptance bundle that runs the cache probe**: the step saves the raw output, screened, as `cacheprobeNNNN.txt` (`src/platterpus/uiscript/probe_verbs.py:223-234`). Not in a single rip's report bundle, which never runs it | exact copy of its output; screened, so a control character is shown escaped | available; asked in our lap 10 whether "every bundle" means more |
 | X4 | **The securing pass's own log in the bundle** | Their reading of a second pass from its own signed log | **already given since `32985e07`**: the log is kept beside the album's, and the session bundle collects every cyanrip-written `.log` under the rips folder, judged by content (`src/platterpus/test_session.py:905`) | exact copy; `-Y` verifies it | available |
-| X5 | **Track outcome lines in our captured stdout** | Their lap 9 S29: the line that says a track read with errors | fixed 2026-10-05: the capture no longer drops a line because it moves the progress bar (`TASKS.md`, *Their lap 9 S29*) | exact once kept | landed (ours) |
+| X5 | **Track outcome lines in our captured stdout** | Their lap 9 S29: the line that says a track read with errors | fixed 2026-10-05: the capture no longer drops a line because it moves the progress bar (`docs/archive/tasks-closed-to-2026-11-16.md`, *Their lap 9 S29*) | exact once kept | landed (ours) |
 
 ### What the fork can give us (their round 30 lap 9 S34)
 

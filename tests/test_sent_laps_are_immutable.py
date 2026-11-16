@@ -319,7 +319,7 @@ SENT_LAPS: dict[str, str] = {
     # The nineteenth, round 14 lap 18, RESTORED 2026-09-28 to the bytes we sent (the
     # maintainer's choice): ours had been revised in place at `43a33b47`, and the
     # fork's filed copy is our `2cba3912`. Every removed line is kept verbatim in
-    # `docs/session-log.md` (its 2026-09-28 entry), as round 8 lap 10 was restored.
+    # `docs/archive/session-log-to-2026-10-15.md` (its 2026-09-28 entry), as round 8 lap 10 was restored.
     "outbound/round-14-lap-18.md": "74635eff8f350bb1d43218d6372ea6d513aeaccce6382a6a7b11d842fe67bfe6",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at

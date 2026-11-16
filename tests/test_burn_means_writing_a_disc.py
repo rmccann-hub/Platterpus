@@ -46,10 +46,8 @@ _WRITING: Final[re.Pattern[str]] = re.compile(
 
 #: Quotes kept as written: ``{path: (text on the line, why it is kept)}``.
 _QUOTES: Final[dict[str, tuple[str, str]]] = {
-    "TASKS.md": (
-        "first burn proof",
-        "the owner's own words of 2026-07-30, quoted",
-    ),
+    # TASKS.md's quote of the owner's 2026-07-30 words ("first burn proof") left
+    # with its closed P0 section for docs/archive/ on 2026-11-16, a record.
     "docs/test-plan.md": (
         "first-burn proof",
         "the same words of the owner's, quoted (the Hardware test checklist "

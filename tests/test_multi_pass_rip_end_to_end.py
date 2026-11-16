@@ -2,7 +2,7 @@
 
 **Why this file exists, and why it is one file rather than more unit tests.**
 Two real user-facing bugs shipped in v0.6.3 and both were found by a human reading
-a real rip's artifacts, not by the suite (`docs/session-log.md`, 2026-08-03):
+a real rip's artifacts, not by the suite (`docs/archive/session-log-to-2026-10-15.md`, 2026-08-03):
 
 1. The argv-agreement self-check compared the *last* ripper invocation against the
    `Invoked as:` line the *first* pass writes, and told a clean rip *"the command

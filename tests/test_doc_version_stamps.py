@@ -551,7 +551,7 @@ def test_the_stamp_gate_still_finds_a_stale_doc_through_the_helper(
 #
 # `README.md` and `docs/README.md` each describe `PLANNING.md` as holding
 # "KDD-01 through KDD-NN". That NN has now drifted THREE times (v23-vs-v25 is
-# called out in CLAUDE.md itself; docs/session-log.md records an earlier
+# called out in CLAUDE.md itself; docs/archive/session-log-to-2026-10-15.md records an earlier
 # 19→21 catch; the 2026-07-28 audit found it stuck at 25 against an actual 32).
 # Prose conventions have failed at this repeatedly, so it is a test now.
 

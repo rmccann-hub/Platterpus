@@ -4173,7 +4173,7 @@ def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight()
 
 
 def test_status_prints_close_by_only_for_rounds_that_are_not_closed() -> None:
-    """TASKS row 1723: a countdown on a finished round is noise above the one that
+    """TASKS row *--status prints close-by countdowns for CLOSED rounds* (docs/archive/tasks-closed-to-2026-11-16.md): a countdown on a finished round is noise above the one that
     matters, so `--status` drops it at the PRINT SITE, and counts what it dropped.
 
     Three states are pinned: a CLOSED round's lines go; an OPEN round's stay; and a
