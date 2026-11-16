@@ -3451,7 +3451,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4564 -> 4568** (2026-10-21): K1's refusal narrowed to the same lap number, as the protocol says, with four lines of why.
     # **4568 -> 4583** (2026-10-21, the fork's round 36 lap 5 S15): the close-by report compares every later lap, either side's, with the first declaration.
     # **4583 -> 4586** (2026-10-27, external review item 3.4): `--announce` dates a release in UTC, not the local day (ruff DTZ011).
-    "scripts/handshake.py": 4587,  # +1 2026-10-27: encoding="utf-8" beside text=True (follow-up review item 5)
+    # **4586 -> 4587** (2026-10-27): encoding="utf-8" beside text=True (follow-up review item 5).
+    # **4587 -> 4602** (2026-11-16, TASKS R171): `check_outbound_paths` calls `next_round_opener_problems`, a 13-line bridge that hands every declaration to `scripts/next_round_opener.py`, where the §1a rule and its narrowing live, rather than this number taking the whole check.
+    "scripts/handshake.py": 4602,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.
