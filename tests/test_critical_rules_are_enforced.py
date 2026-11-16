@@ -1651,7 +1651,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3434 -> 3484** (2026-11-13, round 40 names `.32`, the fork's lap 1): `PIN_UNDER_REVIEW` `edb73dd` and its round, its release sequence 43, its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit` and `--reread-until-accuraterip` rows, and `.31` named in the `--verify-log` set, each with the source it was read from.
     # **3484 -> 3494** (2026-11-16): round 40 closes; FORK_PIN rolls to edb73dd with its record.
     # **3494 -> 3575** (2026-11-16, TASKS R24): `BUILD_TAGS_BOUNDING_OVERREAD`, `FIRST_RELEASE_BOUNDING_OVERREAD` and the tri-state `bounds_overread`, beside the other per-build sets, each of the nine builds cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`), so `overreadprobe.txt` asks one fact instead of typing `.24`'s tag.
-    "deps/fork_source.py": 3575,
+    # **3575 -> 3633** (2026-11-16, round 41 names `.33`, the fork's lap 1): `PIN_UNDER_REVIEW` `13bec0a` and its round, its release sequence 45 (and `edb73dd`'s second number, 44, on stable), its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip` and bounded-overread rows, and `.32` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 3633,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1689,7 +1690,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # fork release through `ripper_standing`, and names the round testing it.
     # **810 -> 868** (2026-10-06): `_build_under_review_note`, so an up-to-date answer on one channel names the build an open round reviews on the other, and the in-app route to it.
     # **868 -> 929** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `_dirty_build_offer`, decided before any prefix comparison, so a `-dirty` build is offered the clean build instead of being told it is current; it belongs beside the other offers it pre-empts.
-    "deps/ripper_offer.py": 929,
+    # **929 -> 937** (2026-11-16, round 41): a manifest row for the commit already installed is current, whatever its number (`edb73dd` republished as release 44 on stable while our map says 43), so a rig is never offered its own build again; beside the `newer_than` call it corrects.
+    "deps/ripper_offer.py": 937,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
@@ -2091,7 +2093,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4796 -> 4821** (2026-11-05, the fork's `.30`, round 38 lap 8 S16 and S17, our lap 9 S10): the `track_other_read` rule in the indented table, the echo boundary's refusal of it, and the per-track accumulator and its flush; the reading is `other_reads.py`.
     # **4821 -> 4866** (2026-11-11, round 39, `.31`): `.31`'s `--reread-until-accuraterip` lines: the verdict predicate reads the AccurateRip-matched early end as not converged (unread, the track had no verdict, which the EAC-layout log fills in as convergence), the row's `overruled` phrase, `secure_rerip_ar_overrule` beside `secure_rerip_limit_stop`, and the buffering of the fact with the verdict it describes; the patterns and the dataclass live in `reread_ar_overrule.py`.
     # **4866 -> 4857** (2026-11-12, the fork's round 39 lap 3 S14): the `C2 errors:` reading moved out to `c2_declaration.py`; `_take_c2` now only calls it.
-    "parsers/cyanrip_log.py": 4857,
+    # **4857 -> 4864** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `_RIP_ERRORS` gains the `parts` group for the wording that names every part of the count, the comment saying why it cannot take `including`'s line, `_Disc.ripping_error_parts`, its hand-over, and the warning that names a part we do not know; `_ripping_error_skips` and every reading moved out to `ripping_error_parts.py`.
+    # **4864 -> 4889** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the `disc_mcn` disc rule, held by the ONCE echo guard as `DiscID:` and `CDDB ID:` beside it are, with its handler, its clearer, `_Disc.disc_mcn` and the hand-over; every reading of the value lives in `disc_mcn.py`, shared with the `-I` parser.
+    "parsers/cyanrip_log.py": 4889,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2129,7 +2133,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1245 -> 1251** (2026-11-11, round 39, `.31`): `TrackResult.secure_rerip_ar_overrule`, `.31`'s overruled agreement, beside the four -Z fields it describes the same reads as.
     # **1251 -> 1258** (2026-11-12, the fork's round 39 lap 3 S14): `RippingInfo.c2_declared` and its reason, what the `C2 errors:` line says the capabilities page declares, beside `c2_pointers` whose comment now says "not used", never "the drive doesn't support it"; the reader is `c2_declaration.py`.
     # **1258 -> 1270** (2026-11-16, TASKS R156, the fork's round 40 lap 3 S14): `TrackResult.kept_read_pass`, which pass's read the file holds, beside `first_pass_reread`, the other fact the merge writes, with what each value means.
-    "parsers/rip_log.py": 1270,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1270 -> 1275** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `RipLog.ripping_error_parts`, every part of the `Ripping errors:` count named, with its import and what None and `unknown` mean.
+    # **1275 -> 1281** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipLog.disc_mcn`, the `Disc MCN:` row as a state, with its import and what it is (a pressing's identity, not a TOC fact).
+    "parsers/rip_log.py": 1281,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2222,7 +2228,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1292 -> 1328** (2026-11-11, round 39 G1): schema 45's chase fields on `VerifiedReadChaseBlock` and `ChaseAttemptBlock`, each commented where its shape is declared; the rules are `chase_budget.py`.
     # **1328 -> 1351** (2026-11-11, round 39's G2, TASKS R138): `AccurateRipDatabaseAnswerBlock`, `AccurateRipLookupBlock` and their keys on the repair's blocks, beside the blocks they extend.
     # **1351 -> 1355** (2026-11-12, the fork's round 39 lap 3 S14): `RipBlock.c2_declared` and `c2_declared_reason` (schema 46), beside `c2_pointers`.
-    "report_types.py": 1355,
+    # **1355 -> 1359** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipBlock.disc_mcn` (schema 47), beside the disc IDs; its block type lives in `disc_mcn.py`.
+    "report_types.py": 1359,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2384,7 +2391,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3988 -> 4000** (2026-11-12, the fork's round 39 lap 3 S14): the schema-46 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, and `rip.c2_declared` with its reason beside `c2_pointers`; the reader is `c2_declaration.py`.
     # **4000 -> 4026** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `build_settings` takes the rip's DRIVE's configured offset (`read_offset_configured`), since `Config.read_offset` no longer decides a rip's offset.
     # **4026 -> 4027** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
-    "rip_report.py": 4027,
+    # **4027 -> 4040** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the schema-47 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, its import, and `rip.disc_mcn` beside the disc IDs; the block is built in `disc_mcn.py`.
+    "rip_report.py": 4040,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

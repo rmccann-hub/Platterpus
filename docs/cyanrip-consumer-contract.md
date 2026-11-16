@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (89)
+## 1. Log lines we parse (90)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -68,6 +68,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
+| `disc_mcn` | disc | `^Disc MCN:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `accuraterip_disc_id` | disc | `^AccurateRip ID:\\s+(?P<value>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8})\\s*$` |
 | `accuraterip_disc_status` | disc | `^AccurateRip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
@@ -83,7 +84,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^(?:Tracks ripped partially accurately\|Tracks matched on one frame only):\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `secure_rereads` **(fork-only)** | disc | `^Secure re-reads:\\s+(?P<value>\\S(?:.{0,398}\\S)?)\\s*$` |
-| `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)(?:\\s{1,4}\\(including\\s{1,4}(?P<skips>\\d{1,20})\\s{1,4}paranoia\\s{1,4}skips?\\))?` |
+| `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)(?:\\s{1,4}\\((?:including\\s{1,4}(?P<skips>\\d{1,20})\\s{1,4}paranoia\\s{1,4}skips?\|(?P<parts>\\d[^()]{0,398}))\\))?` |
 | `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `not_written_whole` **(fork-only)** | disc | `^\\s{1,8}not written whole: (?P<path>.+)$` |
 | `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S(?:.*\\S)?)\\s*$` |

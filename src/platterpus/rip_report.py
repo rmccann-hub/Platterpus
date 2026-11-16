@@ -27,6 +27,7 @@ from platterpus import (
     album_loudness,
     build_info,
     diagnostics,
+    disc_mcn,
     secure_rereads_footer,
     sibling_names,
     written_whole,
@@ -794,7 +795,17 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      S11), `unknown` (the query failed), `unrecognised` (the value kept) or
 #      `not_present`; read from today's wordings and from both proposed ones,
 #      which no build prints yet (`c2_declaration.py`). `c2_pointers` is unchanged.
-REPORT_SCHEMA_VERSION: int = 46
+# v47: `rip.disc_mcn` (TASKS R176; the fork's round 38 lap 3 S17, accepted in
+#      our round 38 lap 4 S11). v46 shipped in 0.7.126, so this is a new number.
+#      Additions only. cyanrip's `Disc MCN:` row, the disc's catalogue number
+#      (`disc_mcn.py`): `state` (`read`, 13 ASCII digits in `value`; `all_zero`,
+#      upstream's `0000000000000`, never a catalogue number; `none` or `unknown`,
+#      the ripper's word with its parenthetical in `reason`; `unrecognised`, any
+#      other shape, kept bounded and screened in `value`; `not_present`, no
+#      line), with `value` and `reason` null where empty. Today's builds print
+#      the row only when the disc has an MCN; the fork prints it always, with a
+#      reason, from the first build after a release of ours that reads it.
+REPORT_SCHEMA_VERSION: int = 47
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -2444,6 +2455,8 @@ def _rip_block(
         # legacy-format log / when cyanrip didn't print them.
         "musicbrainz_disc_id": getattr(rip_log, "disc_id", "") or None,
         "cddb_id": getattr(rip_log, "cddb_id", "") or None,
+        # v47: the `Disc MCN:` row as a state (`disc_mcn.py`), always present.
+        "disc_mcn": disc_mcn.report_block(getattr(rip_log, "disc_mcn", None)),
         # The release id the RIPPER resolved and used, off its own header — the
         # witness that its parse of our single colon-delimited `-a` blob put our
         # release id where we meant it to. `outcome.ripper_argv` shows what it
