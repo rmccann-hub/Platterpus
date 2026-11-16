@@ -1551,9 +1551,14 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # tree hashes `f93d5dfb5a761a2f…`, 1,318 bytes, the same file as at `5cc1c6b`,
     # so the reasons above carry over.
     #
+    # **NINETEENTH TIME, ON THE ROLL TO `edb73dd` (round 40 close, 2026-11-16), AND
+    # THE ANSWER DID NOT CHANGE.** `git diff --stat e531a33 edb73dd --
+    # meson_options.txt` in the fork's tree is empty: sha256 `f93d5dfb5a761a2f…`,
+    # 1,318 bytes, so the reasons above carry over.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "e531a33", (
+    assert fork_source.PRODUCTION_TARGET.pin == "edb73dd", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "
