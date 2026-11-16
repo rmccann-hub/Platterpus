@@ -42,12 +42,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Final
 
+from platterpus import sibling_names
 from platterpus.track_record import RECORD_KINDS, RECORD_REPAIRED
 from platterpus.uiscript.artifact_grading import Grade
 from platterpus.uiscript.repair_accuraterip_grading import grade_repaired_v2
 
 #: The EAC-layout log's name ends with this (``ui/main_window_rip._write_eac_log``).
-EAC_LOG_SUFFIX: Final[str] = " (EAC-compatible).log"
+EAC_LOG_SUFFIX: Final[str] = sibling_names.EAC_LOG_SUFFIX
 #: EAC's phrase, matched without case: a lower-case copy vouches just the same.
 _ACCURATE: Final[re.Pattern[str]] = re.compile(r"accurately ripped", re.IGNORECASE)
 #: Any ``OK`` as a word, in the block's status line (``Copy OK``, ``OK``).

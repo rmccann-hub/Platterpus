@@ -34,6 +34,8 @@ import logging
 import os
 from pathlib import Path
 
+from platterpus.sibling_names import atomic_temp_name
+
 log = logging.getLogger(__name__)
 
 
@@ -79,7 +81,8 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
     best-effort contract catch it); the ``.tmp`` may be left behind on failure,
     which the next successful write overwrites.
     """
-    tmp = path.with_name(path.name + ".tmp")
+    # Named in `sibling_names`, so the name-length check leaves room for it.
+    tmp = path.with_name(atomic_temp_name(path.name))
     with open(tmp, "wb") as f:
         f.write(data)
         f.flush()

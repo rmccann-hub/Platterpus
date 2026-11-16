@@ -57,15 +57,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from platterpus import sibling_names
 from platterpus.track_proof import contradicted_tracks_sentence
 
 log: Final[logging.Logger] = logging.getLogger(__name__)
 
-#: Suffix appended to the ripper log's stem. Deliberately long and namespaced:
-#: this file sits in the user's album folder next to their music, and a reader
-#: who has never heard of this program should be able to tell whose it is and
-#: that it is not part of the rip itself.
-ADDENDUM_SUFFIX: Final[str] = ".platterpus-addendum.txt"
+#: The endings appended to the ripper log's stem. Defined in `sibling_names`, the
+#: one place every name built from a cyanrip name lives, so the before-Start
+#: name-length check leaves room for them (TASKS R88); re-exported here because
+#: callers have always imported them from this module.
+ADDENDUM_SUFFIX: Final[str] = sibling_names.ADDENDUM_SUFFIX
 
 #: The block's opening marker. Kept identical to the text the appended version
 #: used, so a parser (ours or a third party's) recognises both layouts.
@@ -175,7 +176,7 @@ def addendum_path_for(log_path: str | Path) -> Path:
     on the *name* only, so a folder containing a dot cannot lose part of its path.
     """
     path = Path(log_path)
-    return path.with_name(path.stem + ADDENDUM_SUFFIX)
+    return path.with_name(sibling_names.addendum_name(path.name))
 
 
 #: The securing pass's own ripper log, kept beside the album's (2026-10-05).
@@ -184,7 +185,8 @@ def addendum_path_for(log_path: str | Path) -> Path:
 #: run's cancelled pass). ``.txt``, never ``.log``: the album's log is found by
 #: its suffix (``RipWorker._find_log_path``), and a second cyanrip ``.log`` in the
 #: folder is a second candidate for THE log, here and in every log checker.
-SECURING_PASS_LOG_SUFFIX: Final[str] = ".platterpus-securing-pass.txt"
+#: Its ending is defined in `sibling_names`, for the reason `ADDENDUM_SUFFIX` is.
+SECURING_PASS_LOG_SUFFIX: Final[str] = sibling_names.SECURING_PASS_LOG_SUFFIX
 
 
 def securing_pass_log_path_for(log_path: str | Path) -> Path:
@@ -194,7 +196,7 @@ def securing_pass_log_path_for(log_path: str | Path) -> Path:
     :func:`addendum_path_for`.
     """
     path = Path(log_path)
-    return path.with_name(path.stem + SECURING_PASS_LOG_SUFFIX)
+    return path.with_name(sibling_names.securing_pass_log_name(path.name))
 
 
 def _row(label: str, value: str) -> str:
@@ -452,7 +454,7 @@ def _addendum_from_report(log_path: str | Path) -> str:
     import json
 
     path = Path(log_path)
-    report_path = path.with_name(path.stem + ".platterpus.json")
+    report_path = path.with_name(sibling_names.report_name(path.name))
     try:
         data = json.loads(report_path.read_text(encoding="utf-8", errors="replace"))
     except (OSError, ValueError):

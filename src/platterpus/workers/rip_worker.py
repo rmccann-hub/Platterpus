@@ -101,6 +101,7 @@ from platterpus.securing_pass import (
     why_no_securing_pass,
 )
 from platterpus.securing_time_limit import securing_pass_time_limit
+from platterpus.sibling_names import refix_temp_name
 from platterpus.unfinished_refix import (
     NOT_REPLACED_COPY_FAILED,
     salvage_decision,
@@ -3842,7 +3843,7 @@ class RipWorker(QObject):
         dst = self._params.output_dir / filename
         if not src.exists():
             return False
-        tmp = dst.with_name(dst.name + ".platterpus-refix.tmp")
+        tmp = dst.with_name(refix_temp_name(dst.name))
         try:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, tmp)

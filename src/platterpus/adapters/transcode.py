@@ -51,6 +51,7 @@ from pathlib import Path
 
 from platterpus.adapters import mp3_replaygain
 from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
+from platterpus.sibling_names import transcode_temp_name
 from platterpus.tool_paths import resolve_tool
 
 log = logging.getLogger(__name__)
@@ -263,7 +264,7 @@ def transcode_files(
     ext = _FORMAT_EXT[fmt]
     for src in paths:
         dest = src.with_suffix(f".{ext}")
-        tmp = dest.with_name(dest.name + ".transcode.tmp")
+        tmp = dest.with_name(transcode_temp_name(dest.name))
         argv = _build_argv(binary, src, tmp, fmt, mp3_vbr_quality)
         run = run_cmd(argv)
         if not run.started:

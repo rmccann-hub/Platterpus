@@ -50,7 +50,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication
 
-from platterpus import naming
+from platterpus import naming, sibling_names
 from platterpus.adapters import transcode
 from platterpus.adapters.cyanrip_backend import (
     CyanripImpl,
@@ -201,8 +201,23 @@ def test_an_overlong_unknown_album_title_is_capped_on_a_codepoint() -> None:
 _TEMPLATE: Final[str] = "%A/%d/%t - %n"
 
 #: On a 12-track disc, track 7's file name is "07 - " + title + ".flac": 10
-#: bytes around the title, so a 245-byte title is exactly 255.
+#: bytes around the title.
 _AROUND_THE_TITLE: Final[int] = len(b"07 - ") + len(b".flac")
+
+#: The most bytes a track's FLAC name may have: 255, less the longest ending
+#: Platterpus adds to it for a file of its own (TASKS R88, `sibling_names`), and
+#: the same for the rip log. Read from the module, never typed; their values today
+#: are pinned once, in `test_the_limits_today`, so a change to an ending shows.
+_TRACK_LIMIT: Final[int] = naming.NAME_MAX_BYTES - sibling_names.MASTER_EXTRA_BYTES
+_LOG_LIMIT: Final[int] = naming.NAME_MAX_BYTES - sibling_names.LOG_EXTRA_BYTES
+#: The longest title that fits on track 7 of a 12-track disc.
+_TITLE_AT_LIMIT: Final[int] = _TRACK_LIMIT - _AROUND_THE_TITLE
+
+
+def test_the_limits_today() -> None:
+    """The refix temporary's 21 bytes bind a track's FLAC, and the securing-pass
+    and verified-read logs' 29 bytes, less `.log`'s 4, bind the rip log."""
+    assert (_TRACK_LIMIT, _LOG_LIMIT) == (234, 230)
 
 
 def _one_track(
@@ -257,7 +272,8 @@ def test_an_overlong_identified_title_IS_refused_before_start() -> None:
     with pytest.raises(RipError) as raised:
         _argv(_one_track(value))
     assert str(raised.value) == (
-        "Track 7’s file name would be 280 bytes; the limit is 255 — shorten its title."
+        f"Track 7’s file name would be 280 bytes; the limit is {_TRACK_LIMIT} — "
+        "shorten its title."
     )
 
 
@@ -267,13 +283,20 @@ def test_an_ordinary_rip_still_builds() -> None:
     assert "-F" in argv and "-D" in argv
 
 
-@pytest.mark.parametrize(("title_bytes", "refused"), [(245, False), (246, True)])
-def test_the_limit_is_255_bytes_exactly(title_bytes: int, refused: bool) -> None:
+@pytest.mark.parametrize(
+    ("title_bytes", "refused"), [(_TITLE_AT_LIMIT, False), (_TITLE_AT_LIMIT + 1, True)]
+)
+def test_the_track_limit_leaves_room_for_our_endings(
+    title_bytes: int, refused: bool
+) -> None:
     found = _names(_one_track("a" * title_bytes))
     assert bool(found) is refused
-    assert title_bytes + _AROUND_THE_TITLE == (256 if refused else 255)
+    over = _TRACK_LIMIT + 1
+    assert title_bytes + _AROUND_THE_TITLE == (over if refused else _TRACK_LIMIT)
     if refused:
-        assert [(item.track, item.byte_count) for item in found] == [(7, 256)]
+        assert [(item.track, item.byte_count, item.limit) for item in found] == [
+            (7, over, _TRACK_LIMIT)
+        ]
 
 
 @pytest.mark.parametrize(
@@ -283,9 +306,10 @@ def test_the_track_number_is_padded_as_cyanrip_pads_it(
     disc_track_total: int, refused: bool
 ) -> None:
     """``{track}`` is "7" on a 9-track disc, "07" on 12, "007" on 100
-    (``cyanrip@eca33dc:src/naming.c:239-250``): 254, 255 and 256 bytes here."""
+    (``cyanrip@eca33dc:src/naming.c:239-250``): one under, at and one over the
+    track limit here."""
     found = overlong_names(
-        _TEMPLATE, _one_track("a" * 245), disc_track_total=disc_track_total
+        _TEMPLATE, _one_track("a" * _TITLE_AT_LIMIT), disc_track_total=disc_track_total
     )
     assert bool(found) is refused
 
@@ -293,10 +317,11 @@ def test_the_track_number_is_padded_as_cyanrip_pads_it(
 @pytest.mark.parametrize(
     ("title", "on_disk", "refused"),
     [
-        ("日" * 81 + "ab", 255, False),  # 243 + 2 bytes: exactly at the limit
-        ("日" * 82, 256, True),  # one 3-byte character over
-        ("a" * 243 + ":", 256, True),  # 244 bytes typed; cyanrip writes `∶`
-        ("a" * 243 + '"', 256, True),  # a quote becomes a 3-byte quote glyph
+        # 222 + 2 bytes: exactly at the limit
+        ("日" * 74 + "ab", _TRACK_LIMIT, False),
+        ("日" * 75, _TRACK_LIMIT + 1, True),  # one 3-byte character over
+        ("a" * 222 + ":", _TRACK_LIMIT + 1, True),  # 223 typed; cyanrip writes `∶`
+        ("a" * 222 + '"', _TRACK_LIMIT + 1, True),  # a 3-byte quote glyph
     ],
 )
 def test_characters_are_counted_in_bytes_as_cyanrip_writes_them(
@@ -310,7 +335,10 @@ def test_characters_are_counted_in_bytes_as_cyanrip_writes_them(
     assert naming.name_bytes_on_disk(rendered + ".flac") == on_disk
 
 
-@pytest.mark.parametrize(("title_bytes", "refused"), [(244, False), (245, True)])
+@pytest.mark.parametrize(
+    ("title_bytes", "refused"),
+    [(_TITLE_AT_LIMIT - 1, False), (_TITLE_AT_LIMIT, True)],
+)
 def test_a_literal_colon_in_the_template_costs_three_bytes(
     title_bytes: int, refused: bool
 ) -> None:
@@ -342,13 +370,15 @@ def test_an_overlong_album_artist_folder_names_the_album_artist() -> None:
 
 def test_an_album_title_that_fits_as_a_folder_can_overflow_as_the_log() -> None:
     """cyanrip writes ``<album>.log`` and ``<album>.cue`` into the album folder
-    (``cyanrip@eca33dc:src/cyanrip_main.c:2355-2356``), so 252 bytes fit as the
-    folder and are 256 as the log."""
-    found = _names(_one_track("Fine", album="d" * 252))
-    assert [(item.kind, item.byte_count) for item in found] == [("log", 256)]
+    (``cyanrip@eca33dc:src/cyanrip_main.c:2355-2356``), and we write longer
+    names from the log's (``sibling_names.log_siblings``), so an album title one
+    byte over the log's limit still fits as the folder."""
+    album = "d" * (_LOG_LIMIT - len(".log") + 1)
+    found = _names(_one_track("Fine", album=album))
+    assert [(item.kind, item.byte_count) for item in found] == [("log", _LOG_LIMIT + 1)]
     assert found[0].message() == (
-        "The rip log’s file name would be 256 bytes; the limit is 255 — "
-        "shorten the album title."
+        f"The rip log’s file name would be {_LOG_LIMIT + 1} bytes; the limit is "
+        f"{_LOG_LIMIT} — shorten the album title."
     )
 
 
@@ -372,17 +402,27 @@ def test_only_the_tracks_being_ripped_are_checked() -> None:
     assert [item.track for item in _names(meta, only_tracks=(7,))] == [7]
 
 
-def test_a_derived_extension_is_measured_and_none_is_longer_than_flac() -> None:
+def test_a_derived_extension_is_measured_and_never_binds_before_flac() -> None:
     """The argv chokepoint measures ``.flac`` only, because it does not know the
-    derived format; that is sound only while no derived extension is longer."""
+    derived format; that is sound only while no derived name, with the most we
+    add to a derived file, is longer than the FLAC's with the most we add to it."""
     for fmt in transcode.SUPPORTED_FORMATS:
         ext = transcode.extension_for(fmt)
-        assert ext is not None and len(ext) <= len("flac"), fmt
-    at_limit = _one_track("a" * 245)
+        assert ext is not None, fmt
+        assert (
+            len(ext) + sibling_names.DERIVED_EXTRA_BYTES
+            <= len("flac") + sibling_names.MASTER_EXTRA_BYTES
+        ), fmt
+    at_limit = _one_track("a" * _TITLE_AT_LIMIT)
     assert _names(at_limit) == ()
     assert _names(at_limit, derived_extension="mp3") == ()
-    (longer,) = _names(at_limit, derived_extension="flacx")
-    assert longer.byte_count == 256 and longer.name.endswith(".flacx")
+    # An extension long enough to bind is measured against the derived limit.
+    room = sibling_names.MASTER_EXTRA_BYTES - sibling_names.DERIVED_EXTRA_BYTES
+    ext = "x" * (len("flac") + room + 1)
+    (longer,) = _names(at_limit, derived_extension=ext)
+    assert longer.name.endswith("." + ext)
+    assert longer.limit == naming.NAME_MAX_BYTES - sibling_names.DERIVED_EXTRA_BYTES
+    assert longer.byte_count == longer.limit + 1
 
 
 def test_an_unknown_disc_keeps_its_own_capped_folder() -> None:
@@ -412,7 +452,8 @@ def test_the_track_table_refuses_an_overlong_title_before_start(
     ok, message = widget.validate(RipNaming(_TEMPLATE, meta, disc_track_total=12))
     assert ok is False
     assert message == (
-        "Track 2’s file name would be 280 bytes; the limit is 255 — shorten its title."
+        f"Track 2’s file name would be 280 bytes; the limit is {_TRACK_LIMIT} — "
+        "shorten its title."
     )
     fine = RipMetadata(album_title="Dark Side", tracks=(TrackTag(2, title="Breathe"),))
     assert widget.validate(RipNaming(_TEMPLATE, fine, disc_track_total=12)) == (
@@ -440,14 +481,14 @@ def test_the_check_never_raises(
         tracks=(TrackTag(1, title=title, artist=artist),),
     )
     found = overlong_names(template, meta)
-    assert all(item.byte_count > naming.NAME_MAX_BYTES for item in found)
+    assert all(item.byte_count > item.limit for item in found)
     assert isinstance(describe(found), str)
 
 
 @given(title=_TEXT)
 def test_the_check_agrees_with_the_renderer(title: str) -> None:
     """Track 7's verdict is exactly: does the renderer's name, measured as cyanrip
-    writes it, exceed 255 bytes. Rendered here from the scheme the argv sends."""
+    writes it, exceed the track limit. Rendered here from the scheme the argv sends."""
     meta = _one_track(title)
     _folder, file_scheme = _path_schemes(_TEMPLATE, meta, (1, 1))
     assert file_scheme is not None
@@ -459,6 +500,6 @@ def test_the_check_agrees_with_the_renderer(title: str) -> None:
         naming.render_scheme(file_scheme, tags) + ".flac"
     )
     flagged = [item for item in _names(meta) if item.track == 7]
-    assert bool(flagged) is (expected > naming.NAME_MAX_BYTES)
+    assert bool(flagged) is (expected > _TRACK_LIMIT)
     if flagged:
         assert flagged[0].byte_count == expected
