@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our status block records 0.7.126 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.126 at `3e2f194`, published 2026-11-16T16:04:40Z, the first release installing `.32` by default.
+
 ## [0.7.126] — 2026-11-16
 
 The first release that installs the fork's `.32` (`edb73dd`) by default, approved by round 40 on 2026-11-16 with both sides' `GO`. It carries the two record fixes the fork asked about in that round (a re-read track's start time and a repair's wording now name the read the file holds), the over-read probe running on `.31` and `.32`, a narrower over-long-name refusal that leaves room for the files written beside a track, our lap checker refusing a lap that gives the next round away, the damaged-disc grading and KDD-47's amendment on the owner's word, and the documents consolidated.
