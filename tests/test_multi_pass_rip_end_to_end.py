@@ -33,7 +33,7 @@ rather than let the fixture imply non-convergence had been exercised.
 
 So, plainly: **nothing here proves we handle a genuine non-convergence.** What
 would is a disc that actually fails to converge for a physical reason, which is
-hardware (`docs/hardware-test-checklist.md` §F). A harness that is safer than the
+hardware (`docs/test-plan.md` → *Hardware test checklist* §F). A harness that is safer than the
 product makes the product's gap invisible — this project's own rule, and it applies
 to the fixture that was written to close a gap.
 

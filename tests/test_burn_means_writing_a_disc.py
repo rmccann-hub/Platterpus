@@ -50,9 +50,10 @@ _QUOTES: Final[dict[str, tuple[str, str]]] = {
         "first burn proof",
         "the owner's own words of 2026-07-30, quoted",
     ),
-    "docs/hardware-test-checklist.md": (
+    "docs/test-plan.md": (
         "first-burn proof",
-        "the same words of the owner's, quoted",
+        "the same words of the owner's, quoted (the Hardware test checklist "
+        "section, folded in from the former `hardware-test-checklist.md`)",
     ),
     "scripts/evidence_names.py": (
         "burn",

@@ -59,8 +59,8 @@ Platterpus/
 │   │                                    #   error reporting (§3.7a), packaging + AppImage testing (§6.1),
 │   │                                    #   release signing (§6.2) — absorbed 3 former standalone docs 2026-08-06
 │   ├── testing.md                       # testing strategy & standards (trophy + hardware gate, Definition of Done)
-│   ├── test-plan.md                     # manual & release testing (acceptance run + gated cases)
-│   ├── hardware-test-checklist.md       # every outstanding hardware test, as a fillable run sheet
+│   ├── test-plan.md                     # manual & release testing (acceptance run + gated cases
+│   │                                    #   + the hardware test checklist, folded in 2026-11-16)
 │   ├── rig-session.md                   # THE current rig session sheet — rewritten when the pair moves
 │   ├── eac-parity.md                    # the single home for EAC parity (4 investigations, KDD-11/KDD-24)
 │   ├── dependency-contracts.md          # exact args/flags we pass each external tool + output shapes parsed
