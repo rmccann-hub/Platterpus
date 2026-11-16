@@ -42,6 +42,9 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from platterpus.deps.ripper_manifest import parse_manifest
+from platterpus.disc_mcn import LINE as DISC_MCN_LINE
+from platterpus.disc_mcn import MCN_STATES, DiscMcn
+from platterpus.disc_mcn import read_value as read_disc_mcn
 from platterpus.kept_read import STATES as KEPT_READ_STATES
 from platterpus.kept_read import instant_state
 from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
@@ -425,6 +428,54 @@ def test_the_reread_time_limit_header_reader_never_raises(value: str) -> None:
     state, seconds, _text = reread_time_limit_state(value)
     assert state in REREAD_TIME_LIMIT_STATES
     assert (seconds is not None and seconds >= 1) == (state == "read")
+
+
+def _assert_disc_mcn_well_formed(mcn: DiscMcn) -> None:
+    """What every `Disc MCN:` reading must hold, whatever it was given."""
+    assert mcn.state in MCN_STATES
+    if mcn.state in ("read", "all_zero"):
+        assert re.fullmatch(r"[0-9]{13}", mcn.value, re.ASCII), mcn
+        assert (mcn.value == "0" * 13) == (mcn.state == "all_zero")
+    if mcn.state in ("none", "unknown"):
+        assert mcn.reason and not mcn.value, mcn
+    if mcn.state == "unrecognised":
+        # Kept, never dropped: a non-empty value, bounded, with no raw control
+        # character left in it (`inbound_text` escapes them).
+        assert mcn.value and len(mcn.value) <= 200, mcn
+        assert not re.search("[\x00-\x08\x0a-\x1f\x7f-\x9f]", mcn.value), mcn
+    if mcn.state == "not_present":
+        assert not mcn.value and not mcn.reason
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.text(alphabet="0123456789", min_size=11, max_size=15),
+        st.builds(
+            "{} ({})".format,
+            st.sampled_from(["none", "unknown", "0123456789012", ""]),
+            st.text(max_size=200),
+        ),
+    )
+)
+def test_the_disc_mcn_reader_never_raises(value: str) -> None:
+    """`Disc MCN:`'s value (TASKS R176; the fork's round 38 lap 3 S17), alone
+    and as a line through both parsers, which must read it alike."""
+    _assert_disc_mcn_well_formed(read_disc_mcn(value))
+    line = f"Disc MCN:       {value}"
+    from_info = parse_cyanrip_info(line).disc_mcn
+    from_log = parse_cyanrip_log(line).disc_mcn
+    _assert_disc_mcn_well_formed(from_info)
+    _assert_disc_mcn_well_formed(from_log)
+    # One line, read alike by both, and never left `not_present` once the pattern
+    # claims it (the floor: a reader that dropped every value would fail here).
+    # A value carrying a line break makes other rows, which the two parsers
+    # need not read alike, so the relation is asserted on single lines.
+    if len(line.splitlines()) == 1 and "\n" not in line:
+        assert from_info == from_log, value
+        if DISC_MCN_LINE.match(line):
+            assert from_log.state != "not_present", value
 
 
 @_SETTINGS

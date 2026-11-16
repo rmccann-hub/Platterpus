@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (89)
+## 1. Log lines we parse (90)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -68,6 +68,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
+| `disc_mcn` | disc | `^Disc MCN:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `accuraterip_disc_id` | disc | `^AccurateRip ID:\\s+(?P<value>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8})\\s*$` |
 | `accuraterip_disc_status` | disc | `^AccurateRip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |

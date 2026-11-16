@@ -74,6 +74,7 @@ from typing import Final
 from platterpus import (
     c2_declaration,
     diagnostics,
+    disc_mcn,
     kept_read,
     pregap_search,
     reread_limit,
@@ -1985,6 +1986,8 @@ class _Disc:
     output_formats: str = ""
     disc_id: str = ""
     cddb_id: str = ""
+    # `Disc MCN:` (`disc_mcn.py`): the code, or the ripper's reason, or not printed.
+    disc_mcn: disc_mcn.DiscMcn = field(default_factory=disc_mcn.DiscMcn)
     # `AccurateRip ID:` verbatim (see `_ACCURATERIP_DISC_ID`). "" = not printed.
     accuraterip_disc_id: str = ""
     # `AccurateRip:` verbatim (see `_ACCURATERIP_DISC_STATUS`). "" = not printed.
@@ -2329,6 +2332,10 @@ def _clear_cddb_id(disc: _Disc) -> None:
     disc.cddb_id = ""
 
 
+def _clear_disc_mcn(disc: _Disc) -> None:
+    disc.disc_mcn = disc_mcn.DiscMcn()
+
+
 def _take_version(disc: _Disc, match: re.Match[str]) -> bool:
     """First banner wins; a later one is not ours (see `_LineHandler`)."""
     if disc.log_creator:
@@ -2556,6 +2563,14 @@ def _take_release_id(disc: _Disc, match: re.Match[str]) -> bool:
 
 def _take_cddb_id(disc: _Disc, match: re.Match[str]) -> bool:
     disc.cddb_id = match.group("value")
+    return True
+
+
+def _take_disc_mcn(disc: _Disc, match: re.Match[str]) -> bool:
+    """`Disc MCN:`, read in its own module (`disc_mcn.py`): a 13-digit code, the
+    ripper's `none`/`unknown` with its reason (the fork's round 38 lap 3 S17), or
+    anything else kept as `unrecognised`. The `-I` parser reads it the same way."""
+    disc.disc_mcn = disc_mcn.read_value(match.group("value"))
     return True
 
 
@@ -3185,6 +3200,15 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     ),
     _LineRule(
         "cddb_id", _CDDB_ID, _take_cddb_id, echo_latch=_ONCE, clear=_clear_cddb_id
+    ),
+    # Printed between `CDDB ID:` and `Album:` (`cyanrip@13bec0a:src/cyanrip_log.c:
+    # 1367`), so held as the rows beside it are: a second copy is not determined.
+    _LineRule(
+        "disc_mcn",
+        disc_mcn.LINE,
+        _take_disc_mcn,
+        echo_latch=_ONCE,
+        clear=_clear_disc_mcn,
     ),
     # `+platterpus.23` / upstream rc3 onward; absent means absent on every older
     # build. Disc-level only: it is a start-report row, never a track's.
@@ -4851,6 +4875,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         log_checksum=disc.log_checksum,
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,
+        disc_mcn=disc.disc_mcn,
         accuraterip_disc_id=disc.accuraterip_disc_id,
         accuraterip_disc_status=disc.accuraterip_disc_status,
         release_id=disc.release_id,

@@ -19,7 +19,16 @@ the line AFTER its label (`src/cyanrip_main.c`):
     MusicBrainz URL:
     https://musicbrainz.org/cdtoc/attach?...
 
-Optional metadata lines (`Release ID:`, `Album:`, …) are printed only when
+`Disc MCN:` (the disc's catalogue number) is read too, by the rip-log parser's
+own reader (`disc_mcn.py`), so `-I` and a rip cannot read one line two ways:
+today cyanrip prints it only when the disc has an MCN, and the fork proposes
+printing it always, with `none (…)` or `unknown (…)` (their round 38 lap 3 S17).
+Its line comes between `CDDB ID:` and `Album:`, where an echoed CD-TEXT value
+with a line break can forge one, so a second copy makes it not determined
+(`not_present`, logged) rather than the last copy winning, as the rip-log
+parser's echo guard does.
+
+Other optional metadata lines (`Release ID:`, `Album:`, …) are printed only when
 known; we deliberately don't parse them — the GUI does its own MusicBrainz
 lookup host-side (Critical Rule #5), so the IDs + track count are all the
 backend needs to report.
@@ -31,8 +40,10 @@ disc-info handling does not depend on which parser produced it.
 
 from __future__ import annotations
 
+import logging
 import re
 
+from platterpus import disc_mcn
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.safe_int import int_or_none
 
@@ -46,6 +57,8 @@ _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)\s*$")
 _MB_URL_LABEL = re.compile(r"^MusicBrainz URL:\s*$")
 _URL = re.compile(r"^(?P<value>https?://\S+)\s*$")
 
+log = logging.getLogger(__name__)
+
 
 def parse_cyanrip_info(stdout: str) -> DiscInfo:
     """Parse `cyanrip -I` stdout into a DiscInfo.
@@ -58,6 +71,8 @@ def parse_cyanrip_info(stdout: str) -> DiscInfo:
     mb_id = ""
     mb_url = ""
     num_tracks = 0
+    mcn = disc_mcn.DiscMcn()
+    mcn_lines = 0
     # True while we're looking for the URL that follows "MusicBrainz URL:".
     expecting_url = False
 
@@ -96,9 +111,26 @@ def parse_cyanrip_info(stdout: str) -> DiscInfo:
             cddb = match.group("value")
             continue
 
+        match = disc_mcn.LINE.match(line)
+        if match:
+            mcn_lines += 1
+            if mcn_lines == 1:
+                mcn = disc_mcn.read_value(match.group("value"))
+            continue
+
+    if mcn_lines > 1:
+        # cyanrip prints the row once; a second copy is an echoed value that
+        # broke a line, and neither copy can be preferred (see the docstring).
+        log.warning(
+            "cyanrip -I printed %d Disc MCN: lines; the MCN is not determined",
+            mcn_lines,
+        )
+        mcn = disc_mcn.DiscMcn()
+
     return DiscInfo(
         cddb_disc_id=cddb,
         musicbrainz_disc_id=mb_id,
         musicbrainz_submit_url=mb_url,
         num_tracks=num_tracks,
+        disc_mcn=mcn,
     )
