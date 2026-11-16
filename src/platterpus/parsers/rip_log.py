@@ -82,6 +82,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Final
 
+from platterpus.disc_mcn import DiscMcn
 from platterpus.first_pass_reread import FirstPassReread, did_not_converge
 from platterpus.other_reads import OtherRead
 from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
@@ -708,6 +709,11 @@ class RipLog:
     # block. Empty for legacy-format logs / when cyanrip didn't print them.
     disc_id: str = ""
     cddb_id: str = ""
+    # The disc's MCN (catalogue number) from cyanrip's `Disc MCN:` row, as a state:
+    # the 13 digits, the ripper's `none`/`unknown` with its reason, a shape kept as
+    # `unrecognised`, or `not_present` (`disc_mcn.py`). Not a TOC fact: a disc
+    # identity the pressing carries, printed by both a rip and `-I`.
+    disc_mcn: DiscMcn = field(default_factory=DiscMcn)
     # The disc's AccurateRip ID, verbatim from cyanrip's `AccurateRip ID:` row:
     # three 8-digit hex words, `id1-id2-cddb`
     # (`cyanrip@aa45b975:src/cyanrip_log.c:1007`, format `%08x-%08x-%08x`). The

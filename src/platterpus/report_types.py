@@ -10,6 +10,7 @@ from typing import NotRequired, TypedDict
 
 from platterpus.cancel_cause import CancelledByBlock
 from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.disc_mcn import DiscMcnBlock
 from platterpus.other_reads import OtherReadsBlock
 from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
@@ -101,6 +102,9 @@ class RipBlock(TypedDict):
     creation_date: str | None
     musicbrainz_disc_id: str | None
     cddb_id: str | None
+    #: v47: cyanrip's `Disc MCN:` row (`disc_mcn.py`): the 13-digit code, the
+    #: ripper's `none`/`unknown` with its reason, or `not_present`.
+    disc_mcn: DiscMcnBlock
     # The release id the ripper resolved and used, off its own header — a
     # different claim from the argv it received. `issues` compares it against
     # `disc.musicbrainz_release_id`.
