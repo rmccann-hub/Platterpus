@@ -89,6 +89,7 @@ from platterpus.pregap_search import PregapSearch
 from platterpus.reread_ar_overrule import AccurateRipOverrule
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
 from platterpus.ripper_track_notes import RipperCoverArt, TrackFilter
+from platterpus.ripping_error_parts import RippingErrorParts
 from platterpus.safe_int import int_or_none
 from platterpus.secure_rereads_footer import SecureRereads
 
@@ -591,6 +592,10 @@ class RipLog:
     #: suffix `.20` prints, 0 for a line with no suffix (no earlier build counted
     #: skips), None for a suffix we do not recognise or no line at all.
     ripping_errors_paranoia_skips: int | None = None
+    #: Every part of N the line names, each tri-state, under either wording
+    #: (`ripping_error_parts`, the fork's round 41 lap 1 S16); None with no line.
+    #: A part we do not recognise is kept in its ``unknown``, never dropped.
+    ripping_error_parts: RippingErrorParts | None = None
     #: The failed-track count of cyanrip's `Encoder errors:` line (`.14`+): 0 for
     #: its `none` and `not applicable` arms, None when absent or unrecognised.
     encoder_failed_tracks: int | None = None
