@@ -2046,10 +2046,11 @@ rig session on the one we have.
 
 **Superseded on this drive, 2026-10-19, by a bounded read.** The fork's `.24` (`93afa15`)
 bounds `-O`: a frame the drive refuses is written as silence and counted per track,
-`Beyond disc: N of M frames refused (written as silence)`. Round 35's
+`Beyond disc: N of M frames refused (written as silence)`, and every later build does the
+same (`fork_source.BUILD_TAGS_BOUNDING_OVERREAD`, each read from its source).
 `overreadprobe.txt` reads the last track with it on the BDR-209D, under the script verb's
-fixed 300-second limit, and stops before reading if the installed ripper is not `.24`
-(`TASKS.md` R24). That script is the route on this drive, and the Settings toggle stays
+fixed 300-second limit, and stops before reading unless the installed ripper is one of
+those builds (`expect-ripper-bounds-overread`; `TASKS.md` R24). That script is the route on this drive, and the Settings toggle stays
 off; the procedure below is for a second drive. If a second optical drive ever comes into the picture, the
 procedure is: Settings → Overread on → rip one track → send the cyanrip `.log` (the line is
 near the top, beside `Overread mode:` / `Underread mode:`) → Overread back off.
