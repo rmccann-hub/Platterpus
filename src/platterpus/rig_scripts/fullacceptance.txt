@@ -366,7 +366,7 @@ abort-if-failed the installed ripper is not the build the handshake record names
 # if neither is known. On the maintainer's Pioneer BDR-209D that is +667, from
 # three independent places: the bundled AccurateRip drive table (whose
 # regeneration script REFUSES to write unless the BDR-209D=+667 sentinel still
-# passes), `docs/hardware-test-checklist.md` (*"confirmed, two independent
+# passes), `docs/test-plan.md` -> Hardware test checklist (*"confirmed, two independent
 # sources agree"*), and a rip verified byte-identical against the EAC baseline on
 # 12 of 14 tracks. Said out loud because the cyanrip fork asked (round 14 lap 3
 # §C6) and could not tell a guard from a mistake by reading it.
