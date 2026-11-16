@@ -1858,7 +1858,11 @@ expect secure_rerip_matches 2
 set secure_rerip_dynamic on
 expect secure_rerip_dynamic on
 
-# --- R. ROUND 39: FIVE DEFAULT WHOLE-DISC RIPS IN A ROW (G1, G2, G3) ------
+# --- R. FIVE DEFAULT WHOLE-DISC RIPS IN A ROW (G1, G2, G3) ---------------
+# The section and its rips carry no round number (2026-11-14): round 40's run
+# filed five rips named `round 39 repeat rip N`, a wrong statement about the run
+# in every record it wrote. The goal below is round 39's, where it began; round
+# 40's (the fork's lap 1 S10) grades the same five rips.
 # Round 39's goal (agreed in round 38, our lap 17 S7 and the fork's lap 16
 # S12): on the reference disc and the BDR-209D, five default whole-disc rips in
 # a row, each ending with all 14 tracks AccurateRip-verified and every track's
@@ -1874,8 +1878,8 @@ expect secure_rerip_dynamic on
 # tags, never the read. `expect-track-records` grades G3 on every rip, and G2
 # where the record carries AccurateRip's answer for a repaired track (TASKS
 # R138). G1 is each record's line for track 3: a read verified by AccurateRip,
-# first read, re-read, chase attempt k, or, on `.31` (round 39's build under
-# review, which these five run on: section P6 ends on `(pin)`), `re-read: matched
+# first read, re-read, chase attempt k, or, from `.31` on (these five run on the
+# round's pin: section P6 ends on `(pin)`), `re-read: matched
 # AccurateRip at confidence C after N reads, overruling an agreement on X`, its
 # --reread-until-accuraterip ending the securing pass's reads; both sides read it
 # from the bundle, which carries every rip's --diagnostics record for G4.
@@ -1883,7 +1887,7 @@ expect secure_rerip_dynamic on
 # sections F and N already grade, and five more of the same failure would hide
 # the repair's result rather than show it.
 
-log --- R. round 39: five default whole-disc rips in a row ---
+log --- R. five default whole-disc rips in a row ---
 run-size full
 set rip_goal fast_verified
 set max_retries 5
@@ -1899,7 +1903,7 @@ set output_format flac
 expect output_format flac
 
 select-tracks all
-album round 39 repeat rip 1 (run) (ripper)
+album repeat rip 1 (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot repeatrip1
@@ -1909,7 +1913,7 @@ expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 repeat rip 2 (run) (ripper)
+album repeat rip 2 (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot repeatrip2
@@ -1919,7 +1923,7 @@ expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 repeat rip 3 (run) (ripper)
+album repeat rip 3 (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot repeatrip3
@@ -1929,7 +1933,7 @@ expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 repeat rip 4 (run) (ripper)
+album repeat rip 4 (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot repeatrip4
@@ -1939,7 +1943,7 @@ expect-accuraterip
 expect-track-records
 
 select-tracks all
-album round 39 repeat rip 5 (run) (ripper)
+album repeat rip 5 (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot repeatrip5

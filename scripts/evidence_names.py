@@ -140,7 +140,9 @@ def album_key(folder: str) -> str | None:
     # them with a word the owner retired on 2026-11-11 (it means writing a disc,
     # and these are reads); the bundle filed at `ac0a5133` carries that name, so
     # it is still read, and still files under the name it was filed with.
-    if m := re.match(r"round \d+ repeat rip (\d+)(?: |$)", folder):
+    # From 2026-11-14 the folder is `repeat rip N`, with no round number; the
+    # 2026-11-14 bundle, filed at `7faf1b9f`, still says `round 39 repeat rip N`.
+    if m := re.match(r"(?:round \d+ )?repeat rip (\d+)(?: |$)", folder):
         return f"repeatrip{m[1]}"
     if m := re.match(r"round \d+ burn rip (\d+)(?: |$)", folder):  # 0.7.122's name
         return f"burnrip{m[1]}"
