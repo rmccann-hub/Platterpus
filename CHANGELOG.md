@@ -14,7 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`.33` (`13bec0a`) is the build under review for round 41** (the fork's round 41 lap 1, filed byte for byte; published on their beta at `57cbf654`, `release_seq` 45, on their owner's word of 2026-11-16). `PIN_UNDER_REVIEW` and its round, the release sequence, the menu's under-review line and every build-tag set `.32` is in move to include `.33`, the bounded-overread set too, each read off `.33`'s own provider contract or source (filed as `round-41-lap-01-provider-contract-g965ca8b.md`, built at `g965ca8b`, source anchor `3a7f0fee355883a7` recomputed at both commits, P1 differing from `.32`'s only in `-H`'s help text); `.32` stays in each, by name in the `--verify-log` set. The message inventory is regenerated (167 P5, 19 P5a, source lines only), and the BOM and dependency map with it. `.33`'s record is `cyanrip-diagnostics/14` with `drive_declared.read_performance`; this release reads it as it reads `/13`, now with a test on their published record. The shared `seam-commands.md` is unchanged. `FORK_PIN` stays `edb73dd` (`.32`) until round 41 closes.
 - **Our status block records 0.7.126 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.126 at `3e2f194`, published 2026-11-16T16:04:40Z, the first release installing `.32` by default.
+
+### Fixed
+
+- **A rig on `.32` is no longer offered `.32` again as a newer build.** The fork republished `edb73dd` on its stable channel as release 44, and our record lists it as release 43, its first number, so the ripper update check told a rig already running it that *"a newer cyanrip build is published on the stable channel"* and offered to install the same build. A channel row for the commit already installed now reads as current, at the row's number.
 
 ## [0.7.126] — 2026-11-16
 

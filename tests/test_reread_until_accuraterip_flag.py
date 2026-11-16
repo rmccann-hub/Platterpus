@@ -30,6 +30,7 @@ from platterpus.deps import fork_source
 _TAG_30 = "platterpus-fork-g5cc1c6b"
 _TAG_31 = "platterpus-fork-ge531a33"
 _TAG_32 = "platterpus-fork-gedb73dd"
+_TAG_33 = "platterpus-fork-g13bec0a"
 _ARTIFACTS = Path(__file__).resolve().parent.parent / "docs/handshake/inbound/artifacts"
 
 
@@ -48,14 +49,15 @@ def _argv(tag: str, **options: object) -> list[str]:
 # --- the gate --------------------------------------------------------------------
 
 
-def test_only_31_and_32_are_listed_each_on_its_own_contracts_p1() -> None:
+def test_only_31_to_33_are_listed_each_on_its_own_contracts_p1() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP == frozenset(
-        {_TAG_31, _TAG_32}
+        {_TAG_31, _TAG_32, _TAG_33}
     )
     row = f"| none | `{REREAD_UNTIL_ACCURATERIP_FLAG}` |"
     for name in (
         "round-39-lap-01-provider-contract-g6eacb8b.md",  # .31
         "round-40-lap-01-provider-contract-gbfe2766.md",  # .32
+        "round-41-lap-01-provider-contract-g965ca8b.md",  # .33
     ):
         assert row in (_ARTIFACTS / name).read_text(encoding="utf-8"), name
     # `.30`'s contract does not list it, which is why `.30`, FORK_PIN until round
@@ -63,15 +65,15 @@ def test_only_31_and_32_are_listed_each_on_its_own_contracts_p1() -> None:
     assert row not in (
         _ARTIFACTS / "round-38-lap-12-provider-contract-g0c276fc.md"
     ).read_text(encoding="utf-8")
-    # `.32` is FORK_PIN from round 40's close (2026-11-16) and still the build
-    # under review until round 41 names the next; `.31`, the pin before it, still
-    # runs on rigs that installed it: both send the option.
+    # `.32` is FORK_PIN from round 40's close (2026-11-16) and `.33` the build
+    # under review from round 41's lap 1; `.31`, the pin before `.32`, still runs
+    # on rigs that installed it: all three send the option.
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_32
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_32
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_33
 
 
 @pytest.mark.parametrize(
-    "tag", [_TAG_31, _TAG_32, _TAG_31 + "-dirty", "PLATTERPUS-FORK-GE531A33"]
+    "tag", [_TAG_31, _TAG_32, _TAG_33, _TAG_31 + "-dirty", "PLATTERPUS-FORK-GE531A33"]
 )
 def test_the_listed_build_is_sent_the_confidence_right_after_the_flag(tag: str) -> None:
     argv = _argv(tag, secure_rerip_matches=2, reread_until_accuraterip=2)

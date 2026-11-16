@@ -1651,7 +1651,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3434 -> 3484** (2026-11-13, round 40 names `.32`, the fork's lap 1): `PIN_UNDER_REVIEW` `edb73dd` and its round, its release sequence 43, its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit` and `--reread-until-accuraterip` rows, and `.31` named in the `--verify-log` set, each with the source it was read from.
     # **3484 -> 3494** (2026-11-16): round 40 closes; FORK_PIN rolls to edb73dd with its record.
     # **3494 -> 3575** (2026-11-16, TASKS R24): `BUILD_TAGS_BOUNDING_OVERREAD`, `FIRST_RELEASE_BOUNDING_OVERREAD` and the tri-state `bounds_overread`, beside the other per-build sets, each of the nine builds cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`), so `overreadprobe.txt` asks one fact instead of typing `.24`'s tag.
-    "deps/fork_source.py": 3575,
+    # **3575 -> 3633** (2026-11-16, round 41 names `.33`, the fork's lap 1): `PIN_UNDER_REVIEW` `13bec0a` and its round, its release sequence 45 (and `edb73dd`'s second number, 44, on stable), its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip` and bounded-overread rows, and `.32` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 3633,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1689,7 +1690,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # fork release through `ripper_standing`, and names the round testing it.
     # **810 -> 868** (2026-10-06): `_build_under_review_note`, so an up-to-date answer on one channel names the build an open round reviews on the other, and the in-app route to it.
     # **868 -> 929** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `_dirty_build_offer`, decided before any prefix comparison, so a `-dirty` build is offered the clean build instead of being told it is current; it belongs beside the other offers it pre-empts.
-    "deps/ripper_offer.py": 929,
+    # **929 -> 937** (2026-11-16, round 41): a manifest row for the commit already installed is current, whatever its number (`edb73dd` republished as release 44 on stable while our map says 43), so a rig is never offered its own build again; beside the `newer_than` call it corrects.
+    "deps/ripper_offer.py": 937,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.

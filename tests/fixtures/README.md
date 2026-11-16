@@ -92,6 +92,19 @@ so `drive_declared` stays null and no vendor query is sent (their
 can show both read the same. `tests/test_round38_dot30_vendor_settings.py` reads it.
 Do not edit it.
 
+## cyanrip_fork_diagnostics14_golden.json (added 2026-11-16)
+
+**The fork's golden-reference `-j` record for `.33`** (`cyanrip-diagnostics/14`),
+byte for byte from `cyanrip@57cbf654:docs/golden-reference.diagnostics.json`, the
+commit that published `.33` (sha256
+`4531e68e7aaec972ceaf2a6bc0f0e0d589f3c3b58a737e16396a64515f397d2f`, 15,558 bytes;
+`vcs` `965ca8b`, the build that made `.33`'s provider contract). `/14` adds
+`drive_declared.read_performance` (their round 41 lap 1 S4), and an image is no
+drive, so `drive_declared` is null here as in the `/13` copies above.
+`tests/test_round41_dot33_record.py` reads it through both of our readers that
+recognise a record by its schema prefix. Its `invocation` line is the fork's build
+path, not anyone's home folder. Do not edit it.
+
 ## ctdb_lookup_police_classics.xml (added 2026-10-21)
 
 **The live CTDB answer for the reference disc**, byte for byte: the body of
@@ -127,7 +140,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.7.121.*
+*Last updated for Platterpus v0.7.126.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 
@@ -177,6 +190,18 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 `174a134` (`.19`). It names `.20` as the build round 30's closing run reviews; the
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
+
+## fork_release_manifest_57cbf654.json (added 2026-11-16)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@57cbf654`, the commit that published `.33` (unchanged at their tip
+`3ebc5313`): sha256 `05b24ce8…`, 1,135 bytes, pinned by
+`tests/test_handshake_pin_under_review.py`. Beta names `13bec0a` (`.33`,
+`release_seq` 45, `handshake_round` 41, `round_closed: false`); stable names
+`edb73dd` (`.32`) at `release_seq` **44**, republished there by `cyanrip@f9fdd1a7`
+after first publication as 43: the first manifest in which one commit carries a
+second number, which `tests/test_ripper_manifest.py` reads to hold that a rig on
+`edb73dd` is not offered its own build again. Round 41's subject. Not edited.
 
 ## fork_release_manifest_a3f7043.json (added 2026-10-26)
 

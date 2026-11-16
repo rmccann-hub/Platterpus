@@ -673,6 +673,14 @@ def evaluate_offer(
         )
 
     newer = manifest.newer_than(channel, installed_seq)
+    if newer is not None and fork_source.same_commit(newer.commit, installed):
+        # A HIGHER NUMBER FOR THE SAME COMMIT IS NOT A NEWER BUILD. The fork can
+        # republish a build: `edb73dd` (`.32`) is release 43 on beta and release 44
+        # on stable from `cyanrip@f9fdd1a7` (2026-11-16), and our map keeps 43. By
+        # number alone a rig already on `edb73dd` was told "a newer cyanrip build is
+        # published" and offered its own build to install again. The installed build
+        # IS that row, so it is current, at the row's number.
+        return _up_to_date_offer(channel, row, installed, row.release_seq, manifest)
     if newer is None:
         return _up_to_date_offer(channel, row, installed, installed_seq, manifest)
 

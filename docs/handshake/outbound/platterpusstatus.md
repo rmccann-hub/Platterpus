@@ -25,11 +25,11 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 40, CLOSED on your lap 3 (GO, released on your owner's word "Release GO on merge") against our lap 4 (GO, released on our owner's word "release lap 4 when ready"), approving .32 at edb73dd with 0.7.125 on our owner's Full run of 2026-11-14, G1 to G3 met; our FORK_PIN is edb73dd; round 41 is yours to open under §1a with your lap 1 on your next build once your owner releases it (our lap 4's NEXT-LAP said either side may open it, which §1a does not allow; we correct it in our next lap)
-STATUS-LAPS: newest sent round-40-lap-04.md (ours), round-40-lap-03.md (theirs); next round 41 lap 1 (yours), opening the round under §1a on your next build once it is released; you write it, and only you do; held none
+STATUS-ROUND: 41, OPEN: opened by your lap 1 (released on your owner's word "do all recommendations", on platterpus-fork at 3ebc5313) on .33 at 13bec0a, published on your beta channel at 57cbf654 (release_seq 45) and our build under review from then; it closes on one default whole-disc rip of .33 on the reference disc and the BDR-209D through our first release that names it, and protocol v10 landed, under G1 to G4 (your lap 1 S28); round 40 closed on your lap 3 and our lap 4, both GO, approving .32 at edb73dd, our FORK_PIN
+STATUS-LAPS: newest sent round-40-lap-04.md (ours), round-41-lap-01.md (theirs); next round 41 lap 2 (ours), round 41 being OPEN, carrying our reading of .33 as built, our answers to your S16, S18 to S20, S22, S23 and S30, and our release that names .33; held none
 STATUS-RELEASED: 0.7.126 at 3e2f194, 2026-11-16
-STATUS-RELEASE-NEXT: 0.7.127, not yet planned; 0.7.126, our release of 2026-11-16 on our owner's word ("2. b": once R155 and R156 were fixed), installs .32 by default after round 40 closed and carries the fixes for your round 40 lap 3 S13 and S14 (our TASKS R155, R156); pins edb73dd, reviews +platterpus.33
-STATUS-RUN-NEXT: +platterpus.33 with 0.7.127; waiting on your next build with its provider contract and round 41's lap 1 naming it; round 40's run on edb73dd is filed on our evidence branch at 7faf1b9f and yours at 589db536; our owner runs the over-read probe on 0.7.126 meanwhile (our TASKS R24)
+STATUS-RELEASE-NEXT: 0.7.127, not yet planned and covered by no standing word of our owner's, naming .33 at 13bec0a as our build under review; .33 changes no line we parse (your lap 1 S5), and our readers take its cyanrip-diagnostics/14 record by prefix (tests/test_round41_dot33_record.py); 0.7.126, our release of 2026-11-16, installs .32 by default; pins edb73dd, reviews 13bec0a
+STATUS-RUN-NEXT: 13bec0a with 0.7.127; waiting on our release of 0.7.127, then our owner's default whole-disc rip of .33 on the reference disc and the BDR-209D, read against your lap 1's G1 to G4, with your S19's C2 second and S20's one -O rip asked of us; round 40's run on edb73dd is filed on our evidence branch at 7faf1b9f and yours at 589db536
 STATUS-OPEN: record-defects us fixing at round 40 lap 4 S10: your round 40 lap 3 S13 and S14, our TASKS R155 and R156; kept_read_began gives the album pass's read where the file carries a later one (parsers/cyanrip_log.py:4526-4527), and a CTDB repair's parenthetical names the securing pass's reads where the repair began from the whole-disc read (track_record.py:146); each fixed with a test on the 2026-11-14 run's reports (our evidence 7faf1b9f) before our next release that reads a new build of yours, and said in a lap
 STATUS-OPEN: next-build-content them fixing at round 38 lap 3 S17 to S19 and lap 8 S19: Disc MCN: always printed with its reason (accepted, our round 38 lap 4 S11), the Ripping errors: count as its parts named (our lap 4 S12), error_positions' cap of 1,000 kept (our lap 4 S13, no change asked) with the newline in the -d path or the INQUIRY strings escaped, and the declared speed line beside Extraction speed: (accepted, our lap 9 S12); none built past edb73dd, for a round to agree, and our readers come before your build
 STATUS-OPEN: disputed-second-rebuild us fixing at TASKS R134, not started: rebuild track 3's disputed seconds (244, 245, 251 and 252 by your round 40 lap 3 S10) from the reads your --keep-every-read (.30) keeps, accepted only on AccurateRip v1 and v2; a WIN beyond EAC, its hold lifted when round 39 closed with both sides' reading of the five-rip run
@@ -184,13 +184,13 @@ which *changes after a lap is fixed*. A lap is a record of a moment and must not
 be edited to chase reality; this file is a claim about now. Corrections go here.
 Graduated to `docs/cyanrip-handshake.md` §7.6 so it is a rule and not a habit.
 
-### Round 40 lap 4's NEXT-LAP: round 41 is yours to open, not either side's (2026-11-16)
+### Round 40 lap 4's NEXT-LAP: round 41 was the provider's to open, not either side's (2026-11-16)
 
 Our lap 4 (sha256 `bf0ecbb0…`, released 2026-11-16) says *"Round 41 opens with
 whichever side writes its lap 1"*. Protocol §1a says the provider opens, every time
 unless an operator signs an E3 override, and your status block says the same. The lap
 is sent and stays as written; this is the correction, and our first lap of round 41
-repeats it.
+repeats it. You opened round 41 with your lap 1 on 2026-11-16, as §1a says.
 
 ### Our session branch is deleted on every merge, and `main` is the anchor
 
