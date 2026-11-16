@@ -662,7 +662,22 @@ def check_outbound_paths(*paths: Path) -> list[str]:
         if num is not None and num >= PIN_ROLL_TRIGGER_FROM_ROUND:
             problems.extend(pin_policy_problems(text, path.name))
         problems.extend(pre_commit_problems(text, path.name))
+        problems.extend(next_round_opener_problems(text, path.name))
     return problems
+
+
+def next_round_opener_problems(text: str, where: str) -> list[str]:
+    """§1a: a lap of ours may not hand the next round's opening to us or "either"
+    side without the operator's E3 override (TASKS R171; the rule and its narrowing
+    are `next_round_opener.py`'s). Given every declaration, duplicates kept."""
+    _laplang_on_path()
+    from next_round_opener import opener_problems
+
+    declared = [
+        (m.group("key"), m.group("value"))
+        for m in _WIRE_FIELD.finditer(_strip_fences(text))
+    ]
+    return opener_problems(declared, where)
 
 
 def check_verification_paths(*paths: Path) -> list[str]:
