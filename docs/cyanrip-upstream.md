@@ -857,7 +857,7 @@ documents another session may be editing and one is in a `CHANGELOG` entry.
 #### 6.1 EAC lists `Pre-gap length` for **ten** tracks, not fourteen
 
 Wrong in three places: `docs/eac-parity.md` (Part A, pregap
-table and the surrounding prose), `docs/session-log.md` (2026-07-30 entry, *"EAC
+table and the surrounding prose), `docs/archive/session-log-to-2026-10-15.md` (2026-07-30 entry, *"EAC
 lists `Pre-gap length` for fourteen tracks"*), and `CHANGELOG.md`
 `[Unreleased] → Documentation` (*"EAC detecting pregaps on fourteen tracks"*).
 
@@ -1397,4 +1397,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.7.118.*
+*Last updated for Platterpus v0.7.125.*

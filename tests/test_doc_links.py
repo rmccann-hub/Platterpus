@@ -45,6 +45,15 @@ _SKIP_DIRS = frozenset({".git", ".pytest_cache", "node_modules", ".venv", "build
 #: A link target we deliberately do not resolve, with the reason.
 _EXTERNAL_PREFIXES = ("http://", "https://", "//", "mailto:", "tel:")
 
+#: Archived text moved byte for byte from another directory keeps the links it was
+#: written with, so they resolve against the directory it was WRITTEN in, not the
+#: one it now sits in. Every link is still resolved; only the base moves. (2026-11-16:
+#: the closed sections of the root `TASKS.md` moved unchanged to `docs/archive/`,
+#: CLAUDE.md Critical rule #7; the archive's header says so to its reader.)
+_WRITTEN_RELATIVE_TO: dict[str, str] = {
+    "docs/archive/tasks-closed-to-2026-11-16.md": ".",
+}
+
 
 def _markdown_files() -> list[Path]:
     return [
@@ -95,7 +104,11 @@ def test_every_relative_doc_link_resolves() -> None:
             file_part = target.split("#", 1)[0]
             if not file_part:
                 continue
-            resolved = (path.parent / file_part).resolve()
+            written_in = _WRITTEN_RELATIVE_TO.get(
+                path.relative_to(_REPO_ROOT).as_posix()
+            )
+            base = path.parent if written_in is None else _REPO_ROOT / written_in
+            resolved = (base / file_part).resolve()
             if not resolved.exists():
                 broken.append(
                     f"{path.relative_to(_REPO_ROOT)} -> {target} "
