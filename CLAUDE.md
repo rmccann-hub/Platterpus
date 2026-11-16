@@ -1,6 +1,6 @@
 # CLAUDE.md — Platterpus Project Context
 
-This file is loaded by Claude Code on every session in this project. It captures the persistent rules and constraints for the codebase. The **rules** section below the line is locked — do not edit it without explicit user confirmation. The **project operations** section at the bottom grows as the project develops.
+This file is loaded by Claude Code on every session in this project. It keeps **only what a session needs on every task**: each rule's operative sentence and a pointer to where its full text and incident history live (trimmed to that on 2026-11-16, `TASKS.md` R32; `tests/test_claude_md_size.py` holds it there). The **rules** section below the line is locked — do not edit it without explicit user confirmation. The **project operations** section at the bottom grows as the project develops; keep it to commands and the rules that bite, and put the reasons in the document the pointer names.
 
 ---
 
@@ -24,20 +24,19 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
 
 ## Code conventions
 
+Each convention's full text as it stood on 2026-11-16: `docs/architecture.md` §3.14.
+
 - **Comments:** heavy. The maintainer has limited programming experience — comment intent, not mechanics. A reader who can read Python but doesn't deeply know Qt or cyanrip should understand the file.
 - **Type hints:** mandatory on all function signatures, class attributes, and module-level constants.
-- **Modules:** small and focused. Split when a file exceeds ~300 lines. One responsibility per module. The line count is a *heuristic for cohesion*, not a hard cap — don't split a cohesive 350-line file to hit a number, and *do* split a 200-line file that's secretly doing three jobs. A heavily-tested Qt "god-object" (e.g. `MainWindow`) is split via **mixins** the concrete class inherits, so methods stay reachable as `window._x` (which tests and Qt signal wiring depend on) while each concern lives in its own focused file — see `docs/architecture.md`.
+- **Modules:** small and focused, one responsibility each; split when a file exceeds ~300 lines — a *heuristic for cohesion*, not a hard cap. A heavily-tested Qt "god-object" (e.g. `MainWindow`) is split via **mixins** so methods stay reachable as `window._x` (`docs/architecture.md` §3.6).
 - **No clever metaprogramming.** Avoid decorators that mutate behavior unobviously, dynamic class creation, monkey-patching, or "magic" imports.
-- **Never block the GUI thread.** Any operation that can take more than a few milliseconds — `subprocess.run`, network I/O, large-file hashing/copying, `thread.join()`, `kbuildsycoca6` — must NOT run on the Qt main thread; a blocked event loop shows "Not Responding" and ignores every click until it returns. Need the result → a `QObject` worker on a `QThread` (or a daemon thread that reports back via a queued signal). Don't need it → fire-and-forget `subprocess.Popen(..., start_new_session=True)`. This rule was written in blood — it has now bitten **three** times. **The recurring trap is a modal dialog that does the blocking work itself in a button slot** — `exec()` runs a nested event loop, but the slot still blocks the GUI thread. Any dialog that installs/downloads/probes MUST run that work on a worker thread and report back via queued signals; the injected work callable must be **thread-safe** (no Qt, no opening sub-dialogs). When reviewing a change, ask: *if this ran on a stalled network or a cold container, would the window freeze?* — and *does any dialog slot call subprocess/network/`exec` synchronously?* (`docs/architecture.md` §3.2, "Dialogs that do blocking work".)
+- **Never block the GUI thread.** Any operation that can take more than a few milliseconds — `subprocess.run`, network I/O, large-file hashing/copying, `thread.join()`, `kbuildsycoca6` — must NOT run on the Qt main thread. Need the result → a `QObject` worker on a `QThread` (or a daemon thread reporting back via a queued signal); don't → fire-and-forget `subprocess.Popen(..., start_new_session=True)`. **The recurring trap is a modal dialog that does the blocking work itself in a button slot**: such work runs on a worker thread, and the injected callable is thread-safe (no Qt, no sub-dialogs). Ask of every change: *if this ran on a stalled network or a cold container, would the window freeze?* (`docs/architecture.md` §3.2, "Dialogs that do blocking work".)
 - **Error handling:** catch specific exceptions, never bare `except:`. Log with the `logging` module, not `print`.
-- **Validate every input and every dependency output — visibly, and to the log.** (Added 2026-07-01. The full convention, with its history, sits beside institutional rule 11 in `docs/testing.md` §5.) Three obligations:
-  - **Inputs:** every value that enters the program from outside the code — Settings, config-file values, CLI args — is validated for *type, range, character set, and format* at its boundary, by a **pure, testable function** (e.g. `settings_validation.py`), never scattered inline in widget slots. Invalid input gets a **visible, specific error at the point of entry** and is **logged to the log file** (`logging.warning`/`error`). A widget's own constraint (a `QSpinBox` range) is a *convenience*, not the validation.
-  - **Outputs to dependencies:** before invoking an external tool, validate that the arguments we hand it satisfy that tool's documented contract (`docs/dependency-contracts.md` — the single reference for allowable args/syntax/output per dependency) — **range as well as syntax, enforced by code at the argv chokepoint, not merely stated here.** Any value derived from something *other than the disc being ripped* gets a range check before it becomes an argument (a `-t 17=` for a 16-track disc refused a whole rip, `docs/testing.md` §5.m). **Capture and log** a failing dependency's stderr/stdout; its parsers still **never raise**.
-  - **Diagnostic completeness — capture *everything* the dependency told us, and never drop it silently.** For every external tool: its **exit code** (tri-state — `null` for a child never reaped, never written as `0`), the **exact argv** as spawned (read off `Popen.args`), and its **complete output**, stderr merged. Where output must be bounded, keep **head *and* tail** and mark any elision with a count. **A silent truncation reads as completeness.** And surfacing is part of capture: a diagnosis we captured but never showed the user is the same bug from their side (`docs/cyanrip-handshake.md` §7.1).
+- **Validate every input and every dependency output — visibly, and to the log** (full convention: beside institutional rule 11 in `docs/testing.md` §5). **Inputs** (Settings, config values, CLI args) are validated for type, range, character set and format at the boundary by a **pure, testable function** (e.g. `settings_validation.py`), with a visible, specific error and a log line; a widget's own constraint is a convenience, not the validation. **Outputs to dependencies** satisfy the tool's contract (`docs/dependency-contracts.md`) — **range as well as syntax, enforced by code at the argv chokepoint**. **Diagnostic completeness:** capture the exit code (tri-state, `null` for a child never reaped), the exact argv (read off `Popen.args`) and the complete output, stderr merged; bounded output keeps **head *and* tail** with a counted elision mark, and what we capture we **surface** (`docs/cyanrip-handshake.md` §7.1).
 - **Subprocess output parsing:** robust to cyanrip minor-version output changes. Use named-group regexes, not column-index splits. Parsers of external output **never raise** — they return a best-effort dataclass and get a `hypothesis` "never raises" property test.
-- **Say which build produced an artifact.** Where more than one binary can produce output we archive — today the Platterpus fork of cyanrip vs upstream — the artifact must name which, in the rendered log *and* the JSON, and the verdict is **tri-state**: an unrecognised or absent build tag reports "not determined", never the negative. Classification lives in one shared pure module (`ripper_identity.py`) so the log, the report and the UI cannot describe the same binary three different ways. Two logs of one disc from two binaries are not interchangeable evidence, and a version number cannot separate them when the fork tracks upstream versions.
-- **A new testing capability is a SCRIPT VERB. A CLI flag is the exception, and it has to be argued for.** (Maintainer directive, 2026-08-11: *"the entire point of adding the ability to run scripts is for this. you dont need to build special arguements unless absolutely needed."*) **Default: add a verb to `uiscript/verbs.py` + a `_do_<verb>` handler, and regenerate the page** (`docs/script-language.md`). A `--flag` is justified only when a verb genuinely cannot serve: no GUI exists at that point (`--doctor`, `--version`), or an **external caller in another repository** must invoke it (`--rig-check`). When both are warranted, they are **two thin callers of one function** — never two implementations. Enforced by `tests/test_script_surface_is_the_default.py`, whose flag allowlist may shrink, never grow. (`docs/architecture.md` §3.10.)
-- **Accessibility is a code convention, not a polish pass — target WCAG 2.2 AA.** Full audit and the numbers: `docs/ux-design-principles.md` → *Conformance target*; enforcement: `tests/test_accessibility_standards.py`. The three that bite in code review: **(1) status is never colour alone** — every level carries a marker (`✓`/`⚠`/`ⓘ`); **(2) no single-character keyboard shortcuts** — use `QKeySequence.StandardKey` or add a modifier (WCAG 2.1.4); **(3) an explicit size is a size you own** — a 24 px floor, and 44 px for anything that commits. And **a gesture must never change a value**: a scroll over a spin box that edits calibration reaching cyanrip's argv is a data-integrity defect (`ui/scroll_guards.py`).
+- **Say which build produced an artifact** — fork or upstream, in the rendered log *and* the JSON, **tri-state** ("not determined", never the negative), classified only by `ripper_identity.py` (`docs/cyanrip-handshake.md` §7.2).
+- **A new testing capability is a SCRIPT VERB; a CLI flag is the exception, and it has to be argued for.** Add a verb to `uiscript/verbs.py` + a `_do_<verb>` handler and regenerate `docs/script-language.md`; a `--flag` only where no GUI exists or another repository must call it, and then both are thin callers of one function. Enforced by `tests/test_script_surface_is_the_default.py` (`docs/architecture.md` §3.10).
+- **Accessibility is a code convention — target WCAG 2.2 AA** (`docs/ux-design-principles.md` → *Conformance target*; `tests/test_accessibility_standards.py`): **(1)** status is never colour alone (`✓`/`⚠`/`ⓘ`); **(2)** no single-character keyboard shortcuts; **(3)** an explicit size is one you own — 24 px floor, 44 px for anything that commits; and **a gesture must never change a value** (`ui/scroll_guards.py`).
 - **Naming:** snake_case for functions, variables, modules; PascalCase for classes; SCREAMING_SNAKE_CASE for module-level constants.
 
 ## Critical rules
@@ -48,174 +47,128 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
 
 3. **Distrobox routing is sacred.** The GUI calls the host-exported ripper in `~/.local/bin/` (currently `~/.local/bin/cyanrip`). It does not call into the container directly, does not assume a native ripper, does not try to install or update the ripper itself. (The ripper *binary* changed — whipper → cyanrip-only, 2026-06-30, KDD-18 — but the routing pattern is unchanged and remains non-negotiable.) The one scoped, user-approved exception (2026-05-31): force-stopping a runaway drive on rip-cancel may kill the reader process — device-scoped on the host first and, only if the host saw nothing, inside the container — see `drive_control.py` and the drive/reader-control section of `docs/dependency-contracts.md`.
 
-4. **FLAC is the default and the archival master; MP3, WavPack, and WAV are derived outputs.** (Superseded the original "FLAC only for v1" — multi-format shipped 2026-06-26 with the maintainer's explicit sign-off; FLAC stays the lossless master.) Every rip produces FLAC first (lossless, provably bit-perfect); when the user selects another format in Settings the GUI **keeps that FLAC** and derives the chosen format from it via the *single* post-rip transcode adapter (`adapters/transcode.py`). FLAC and WavPack are lossless; MP3 is best-practice VBR (lossy by design — "not for that use"); WAV is raw PCM with only basic tags (title, artist, album, track number, year, genre) and no cover art — the UI warns (amended on the owner's word of 2026-11-03, after a test through our own transcode measured what a WAV keeps). Every encoder routes through the same dependency self-management subsystem — **no bespoke per-encoder install code**. A new format extends the one transcode adapter + the one dep subsystem; it never gets its own install path.
+4. **FLAC is the default and the archival master; MP3, WavPack, and WAV are derived outputs.** Every rip produces FLAC first and **keeps it**; another format is derived from it through the *single* transcode adapter (`adapters/transcode.py`), and every encoder routes through the one dependency subsystem — **no bespoke per-encoder install code**. WAV keeps only basic tags and no cover art, and the UI warns. (Full text and its amendments: `docs/architecture.md` §3.14.)
 
 5. **No bypass of MusicBrainz query path.** Always query MusicBrainz via the `MusicBrainzClient` adapter (currently backed by `python-musicbrainzngs`) to obtain the release first. The ripper's own metadata lookup is always disabled (cyanrip runs with `-N` and is fed the GUI's already-fetched, user-edited tags via `-a`/`-t`), so its interactive prompt never surfaces and the rip needs no in-container network.
 
 6. **Dependency self-management is one subsystem, not scattered checks.** All "is this dependency present and the right version" logic lives in a single module with the three-tier resolution strategy (auto-install → queued install → copyable search string). New dependencies route through it; no ad-hoc availability checks elsewhere in the codebase.
 
-7. **Documentation currency is part of "Done."** A change isn't finished when the tests are green — it's finished when the *record* matches the code. This rule is the always-loaded anchor; it **daisy-chains** to the rest, so the one file guaranteed to be read every session pulls the others in. Four obligations, in order:
-   - **In the same commit as the change:** add the `CHANGELOG.md` `[Unreleased]` bullet (mechanics under *Project operations → Single record of changes*; CI backstops this). Pure historical-record commits (e.g. a session-log catch-up) are exempt and mark themselves with a `[skip changelog]` line of its own in the commit message.
-   - **Before ending a session:** append a `docs/session-log.md` entry (newest-first) — what was built, decided, learned.
-   - **Graduate every durable lesson to its real home** — a Critical rule or Code convention *here*, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — so the rule lives where it's read and the log keeps only the dated entry. A lesson left *only* in the log is not graduated.
-   - **A NEW file is the last resort, and the commit must name the homes it rejected.** (Added 2026-08-06 on the maintainer's instruction: *"make sure you are not making and adding md files just for the sake of it… if you have, amalgomate as much as you can into the fewest files possible without losing info and context, this includes logs too."*) Graduating means **into a home that already exists** — a rule here, a KDD in `PLANNING.md`, a section of `docs/architecture.md` / `docs/testing.md`, a row in `TASKS.md`, a round file under `docs/handshake/`. A **new** document is permitted only when **no existing home fits**, and **the commit message must name the homes that were considered and say why each one failed.** **A second doc that duplicates a home is worse than one long home.** Nothing here licenses **losing** context: amalgamating means moving the content under a named heading in the target and deleting the source, never summarising it away. Retiring a file means retiring **every inbound link** to it in the same commit, and naming the dead file as a **label, not a path** — write ``the former `appimage-testing.md` ``, never that basename with a `docs/` prefix in front of it, because `tests/test_doc_index_completeness.py::test_every_docs_path_named_in_claude_md_resolves` holds every such path written in this file to resolving. The measured case behind the rule (four new top-level docs in 71 minutes) and its full text: `PLANNING.md` KDD-20.
-     - **A recurring activity's sheet is REWRITTEN when it goes stale, never joined by a sibling.** One `docs/rig-session.md`, rewritten in place and naming its pairing in its header; superseded originals go to `docs/archive/` **with a row in its graduation map**. Ask of any new file: *is this a new topic, or the same topic at a new value?*
-     - **This applies to logs and artifacts too, with one carve-out:** an **EAC-compatible log must stay as close to the EAC original as possible without forging it** (`docs/eac-parity.md`, KDD-24). Consolidate *our* documents; leave a compatibility artifact alone.
-     - **This rule travels to the cyanrip fork**, in the same round it changes, and belongs in the handshake file as well.
+7. **Documentation currency is part of "Done."** A change is finished when the *record* matches the code. Four obligations:
+   - **In the same commit as the change:** the `CHANGELOG.md` `[Unreleased]` bullet (CI backstops this). Pure historical-record commits are exempt and carry a `[skip changelog]` line of their own.
+   - **Before ending a session:** append a `docs/session-log.md` entry (newest-first).
+   - **Graduate every durable lesson to its real home** — a rule here, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md`. A lesson left *only* in the log is not graduated.
+   - **A NEW file is the last resort, and the commit must name the homes it rejected.** Amalgamating means moving content under a named heading in the target and deleting the source, never summarising it away; retiring a file retires **every inbound link** in the same commit, and names the dead file as a **label, not a path** (write ``the former `appimage-testing.md` ``). A recurring activity's sheet is rewritten in place, never joined by a sibling; an EAC-compatible log stays as close to EAC as possible without forging it (`docs/eac-parity.md`). The rule travels to the fork. The measured case and full text: `PLANNING.md` KDD-20; the rule as it stood on 2026-11-16: `docs/architecture.md` §3.14.
 
-   The full code-and-docs checklist is the **Definition of Done in `docs/testing.md §6`**, and the
-   **self-audit before claiming completion is `docs/TEST-VERIFICATION-CHECKLIST.md`** (maintainer-supplied,
-   2026-09-05). Run it at **Tier 2** and output its Final Report, whose `DID NOT RUN`, `KNOWN GAPS` and
-   `RISKS` sections may not be empty (why it earned its place: its row in `docs/README.md`). Same bite as
-   the regression-test rule: institutional, non-negotiable.
+   The checklist is the **Definition of Done in `docs/testing.md §6`**; the self-audit before claiming completion is **`docs/TEST-VERIFICATION-CHECKLIST.md`**, run at **Tier 2**, whose Final Report's `DID NOT RUN`, `KNOWN GAPS` and `RISKS` sections may not be empty. Institutional, non-negotiable.
 
 8. **No copyrighted media in the repo — ever, not even temporarily.** This repository is public. Never `git add`/commit a music file or any other copyrighted media — **no `.flac`, `.wav`, `.mp3`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wv`, `.ape`, `.aiff`, `.dsf`, etc.** — and this includes *temporary* files dropped in for testing. Owning the disc does not grant redistribution rights, and a public commit (and git history) is redistribution. **How we test with real audio instead:** work on it **outside the repo** — the session scratchpad or a `/tmp` dir — and delete it when done; the durable proof we commit is the **text** artifact (EAC/whipper/cyanrip **logs** + per-track **CRCs**), never the audio (the CRCs prove bit-perfection without it — see `output_reference/README.md`). `.gitignore` denies audio extensions as a backstop, but the rule is the line of defense, not the backstop. If a test genuinely needs real PCM, use a **short, self-generated or CC0/public-domain** sample, never a commercial track. Same bite as the rules above: institutional, non-negotiable.
 
-9. **Qt / PySide6 threading rules.** Every one of these was paid for with a crash or a freeze; none is theoretical. The incident behind each, in full: `docs/architecture.md` §3.2 (the threading rules as this file used to state them).
-   - **NEVER drop the last Python reference to a running `QThread`.** In PySide6 that invokes `~QThread()`, which Qt treats as fatal (`qFatal` → `SIGABRT`). If a thread cannot be stopped, **abandon** it: keep the reference in a module-level list and leak it deliberately.
-   - **Retaining a reference does NOT make process exit safe.** CPython clears module globals during interpreter shutdown, so the last reference drops there anyway. Any exit path that can run with a live abandoned thread must bypass teardown (`platterpus.hard_exit`), and must flush the log first because `os._exit` does not (the v0.5.8 crash).
+9. **Qt / PySide6 threading rules.** Every one was paid for with a crash or a freeze; the incident behind each is in `docs/architecture.md` §3.2, and the rule as it stood on 2026-11-16 in §3.14.
+   - **NEVER drop the last Python reference to a running `QThread`** (`qFatal` → `SIGABRT`). If a thread cannot be stopped, **abandon** it: keep the reference in a module-level list.
+   - **Retaining a reference does NOT make process exit safe**: an exit path that can run with a live abandoned thread bypasses teardown (`platterpus.hard_exit`) and flushes the log first.
    - **NEVER say "detach".** Qt has no detach operation. Say "abandon", and retain the reference.
-   - **`quit()` only reaches a thread sitting in its event loop.** Every worker that blocks MUST expose a `cancel()` that interrupts the block by killing the child process. **A `cancel()` that only sets a flag the blocked call never checks is a false promise — do not ship one, and do not document one as working.** Use `Popen` (with `start_new_session=True`), not `subprocess.run`, when the caller must be able to kill it. Grep for a call site before believing a `cancel()` works, and check the call site is *reachable*, not merely present.
-   - **Never `wait()` on a child whose output pipe you have stopped draining.** Any early exit from a read loop must bound the wait and escalate to a **group** SIGKILL; bound the post-SIGKILL wait too, and report an unreapable child rather than blocking forever.
-   - **`worker.finished → thread.quit` is a QUEUED connection to the GUI thread.** Once `app.exec()` has returned it is never delivered. Never rely on it as the only stop mechanism.
-   - **Shutdown order is: `cancel()` every worker, THEN `quit()`, THEN wait.**
-   - **Bound the whole shutdown, not each worker.** Share one `ShutdownDeadline`; workers that run out of budget are abandoned, which is safe once exit bypasses teardown. Never hand `QThread.wait()` a negative number: Qt reads it as *wait forever*.
+   - **`quit()` only reaches a thread sitting in its event loop.** Every worker that blocks exposes a `cancel()` that kills its child (`Popen` with `start_new_session=True`). **A flag-only `cancel()` the blocked call never checks is a false promise** — grep for a reachable call site before believing one.
+   - **Never `wait()` on a child whose output pipe you have stopped draining**: bound the wait, escalate to a **group** SIGKILL, bound that wait too, and report an unreapable child.
+   - **`worker.finished → thread.quit` is a QUEUED connection**; after `app.exec()` returns it is never delivered, so it is never the only stop mechanism.
+   - **Shutdown order is: `cancel()` every worker, THEN `quit()`, THEN wait**, and **bound the whole shutdown** with one `ShutdownDeadline`; never hand `QThread.wait()` a negative number.
    - **Only the GUI thread touches widgets.** Workers communicate via signals.
-   - **Every `QThread` slot the window declares must be stopped in `closeEvent`.** `tests/test_harness_fidelity.py` enforces this, and enforces that the *test harness* never cleans up a thread production leaves running.
-   - **That applies to EVERY class that creates a thread, not just the window** — swept, not trusted, by `tests/test_qthread_ownership.py`, which also requires every flag-only `cancel()` to be justified and ratchets the workers that have no `cancel()` at all. Read the live count from `tests/test_qthread_ownership.py::_WORKERS_WITHOUT_CANCEL`, never from prose. Enforce a rule across the codebase, not at the place it was learned (`docs/testing.md` §5.o).
+   - **Every `QThread` slot the window declares is stopped in `closeEvent`** (`tests/test_harness_fidelity.py`), and so is **every** class's thread, swept by `tests/test_qthread_ownership.py` — read the live count from `tests/test_qthread_ownership.py::_WORKERS_WITHOUT_CANCEL`, never from prose (`docs/testing.md` §5.o).
 
-10. **Typing is strict, and the standard is stricter than the checker.** `mypy` is configured `--strict`-equivalent with a shrinking per-module opt-out list in `pyproject.toml`; retire one opt-out per commit, never add one. Beyond what mypy can see: `from __future__ import annotations` in every module; every parameter and return annotated including `-> None`; every class attribute annotated including instance attrs set in `__init__`; `X | None` never `Optional[X]`; no untyped dict as a pseudo-struct (use a `TypedDict` or a dataclass); PySide6 `Signal` payload types named in the class body — `Signal(object)  # list[DriveDescriptor]` — because Qt's queued connections force `object` and the comment is the only remaining type information. **No bare `Any`**, and no bare `# type: ignore`: always `# type: ignore[code]  # reason`. **Do not weaken a type to make a checker pass.**
+10. **Typing is strict, and the standard is stricter than the checker.** `mypy` is `--strict`-equivalent with a shrinking per-module opt-out list in `pyproject.toml`; retire one opt-out per commit, never add one. `from __future__ import annotations` in every module; every parameter and return annotated including `-> None`; every class attribute annotated; `X | None` never `Optional[X]`; no untyped dict as a pseudo-struct; `Signal(object)  # list[DriveDescriptor]` names the payload. **No bare `Any`**, no bare `# type: ignore` (always `# type: ignore[code]  # reason`). **Do not weaken a type to make a checker pass.** (Full text: `docs/architecture.md` §3.14.)
 
 11. **A tool that gates CI must not float.** `ruff` and `mypy` are pinned to the minor they were measured against; bumping one is a deliberate commit that re-runs the gate. Non-gating tools stay loose. **The same reasoning reaches a floating *runtime* dependency:** PySide6 is pinned to the minor — `>=6.11.1,<6.12` in `pyproject.toml`, `PySide6~=6.11.1` in the AppImage recipe (which must use `~=`) — because a patch release silently removed two menu shortcuts, and **anything we ask a dependency for, we check the answer to** (`main_window.standard_shortcut`). **The pin has to bind where the gate runs**: the workflow installs a hashed lock derived from `pyproject.toml`, `tests/test_dependency_locks.py` refuses a lock outside its ranges (wording amended on the owner's word of 2026-11-16, TASKS R92), and `tests/test_gating_tools_are_pinned.py` refuses a literal version in a workflow. When you quote a number out of a tool, **record the tool version beside it**. Full statement and the incidents: `docs/testing.md` §5.r.
 
-12. **The cyanrip seam is bidirectional, and both directions are enforced by tooling — not by memory.** Platterpus and the cyanrip fork are each other's dependency: we consume its log and argv surface, its log format exists to satisfy us. **Permanent, standing behaviour on both sides** (`docs/cyanrip-handshake.md` §7 — each obligation below is the operative sentence, and its full text with the incident record is the §7.7 subsection it names):
-    - **Each side publishes its half of the contract, machine-derived where possible.** Ours is `docs/cyanrip-consumer-contract.md`, *generated* by `scripts/emit_dependency_contract.py` from the parser's enumeration tables and a real call to the argv builder — never hand-written. Theirs is the mirroring **provider** contract (stable vs unstable log lines, the argv contract per flag, the exit-code inventory, the fatal-message inventory). *A description derived from the behaviour cannot describe behaviour we do not have* — which is exactly how we once told the fork a line was stdout-only when it was not.
-    - **The handshake is AFFIRMATIVE, BILATERAL, and checked at the drive** (maintainer directive, 2026-08-04). **(1)** A round closes only when **both** sides declare `GO`; **(2)** every handshake file from either side opens with the **shared wire header** at column 0, specified in **`docs/handshake-protocol.md` — the SAME FILE in both repos, which neither project owns**, whose §8 conformance table is **run, not read** (`tests/test_handshake_conformance.py`) — and a declaration is what a file *states*, never what it *quotes*, because a format's own documentation is the likeliest place to trip its parser; **(3)** **both** versions are named, ours and the ripper's, because a round approves a pin *for a named app version*; **(4)** **every rip verifies its own ripper** against the approved build (`handshake_approval.py`; the report schema number is `rip_report.REPORT_SCHEMA_VERSION` — read it, do not quote it). Tri-state as always: `not_determined` is not a pass, and an unrecognised build tag is never reported as unapproved. (§7.7a.)
-    - **Each round is two files and two verifications.** `scripts/handshake.py --emit N` builds our outbound skeleton, `--check <file>` validates a received one, `--status` reports every round OPEN or CLOSED. **A round is OPEN until both verifications declare GO — ours *and* theirs. No pin switch while one is open; a release does not wait on a round** (protocol v8 §6b, E1 and E9, landed 2026-10-11 on the maintainer's word of 2026-10-07: a release claims its own side's testing, and `FORK_PIN`, which moves only on a close, is what keeps a user on a jointly verified ripper). The verdict closes the round, not the file's existence, and a missing verdict fails closed. Committing the round files is how the record survives the session. (§7.5, §7.7b.)
-    - **Full error capture, both directions, always surfaced.** Print a diagnosable line on every fatal path; capture the other side's exit code, exact argv and complete output; flush before exiting; and *show the user the dependency's own sentence* rather than a generic failure. Capture without surfacing is the same bug from the user's side.
-    - **The fork must identify itself** — `platterpus-fork` in the version banner's parenthetical, on `--version` *and* every rip's logfile — and we classify tri-state, never reporting "unmodified upstream" for a tag we merely do not recognise.
-    - **A build tag names a commit; it does not name what was built.** The tag must carry a `-dirty` marker when the tree is dirty, our classifier keys on the fork *id* and never on the pinned sha, and **any claim about an artifact's provenance must be derivable from the artifact's content, not only from its banner**. (§7.3; `PLANNING.md` KDD-34.)
-    - **A moving pin needs a route to it that does not ship inside a release.** `platterpus --install-ripper` is that route, and it drives the **same step engine** as the wizard rather than a copied shell snippet. (`PLANNING.md` KDD-34.)
-    - **Both halves of the seam are checked, mechanically, every commit** — the *output* half (their log lines vs our parser) and the *input* half (their flag table vs our argv). `tests/test_argv_surface_agreement.py` diffs every flag we send against the newest inbound round's table, and `tests/test_cyanrip_version_flag.py` pins the version probe against each build shape. (§7.7c.)
-    - **A dependency's own flags are a validated surface, not trivia.** Anything we hand the ripper — rip arguments *and* probe invocations — is subject to the argv-chokepoint rule. A flag that has been renamed is indistinguishable, from a probe's point of view, from a tool that is absent.
-    - **State the range a contract claim covers, not the snapshot.** Same shape as our dependency dialog reading `cyanrip 0.9.3` / `0 missing`: every word accurate, the message wrong. A contract line should say *which builds* it holds for. (§7.7d.)
-    - **An upstream change cannot be escaped by rolling back to upstream.** When planning a rollback, check whether the failure is *ours*, the fork's, or upstream's; the third kind has the fewest exits, and it is the easiest to misattribute because the fork is the binary in front of you. (§7.7e.)
-    - **Both directions are sanitised and error-checked, at the boundary, by code.** The rules live in **`docs/seam-rules.md` — one file, byte-identical in both repos, which neither project owns**, each tagged `[BOTH]` / `[PLATTERPUS]` / `[CYANRIP]`, with every value that crosses the seam tabled with its type. **Each half needs its own validator.** *Outbound:* every rip argv passes `assert_metadata_lookup_disabled`, and any new route to the ripper — a script verb, a debug console, a CLI flag — **re-establishes the guard by delegating to the chokepoint**, never by restating its rule. *Inbound:* their output is **external input** — control characters and NULs flagged, absurd line lengths bounded, **any elision counted and marked**, and every widget carrying dependency output is `PlainText` (`tests/test_message_boxes_are_plaintext.py` covers `QMessageBox`, and `tests/test_labels_state_their_text_format.py` covers every `QLabel` built from a value; a label filled later by `setText` is outside both, and that gap is tracked in `TASKS.md`). Scoping a sweep is fine. Scoping it silently while the rule claims everything is the defect. **A fix we find in ourselves that could help them is sent, and the bar is *could in any possible way*, not *certainly does*** (maintainer directive, 2026-09-13): the trigger is the *shape*, reported with our citation as a NEXT-ROUND item. **The fork does the same, as a double check** — neither side treats the other's checking as a reason to skip its own. (§7.7f.)
-    - **The fork has a standing CHALLENGE MANDATE, and it is asymmetric on purpose** (maintainer, 2026-08-26: they are *"the adult in the room"*). Expect over-asking and answer the questions; it absolves us of nothing — a second validator is worth having precisely because it is second; and find out *whether* they are more often right by counting, then *why*, and adopt the mechanism rather than the conclusion. The ledger is `docs/cyanrip-handshake.md` → *Challenge ledger*. (§7.7g, §9.)
-    - **A round must be able to end.** Round 7 took 37 laps and produced no release; the mechanisms adopted from the fork's round-7 convergence proposal bind both sides: **S-13** close conditions are fixed in lap 1 and cannot grow; **S-14** a finding is fixed within the round, and is never a blocker by being real (from round 31, seam-rules v7 and PROTOCOL v7 R3; round 30 closes under the old *defaults to the next round*); **S-15** an agreed test pin does not move for the rest of the round; **S-16** questions carry a target, and a questions section may be empty; and a **pre-commit** — *"our next lap is GO unless X"*, naming X — binds, and it is the one that actually ends rounds. Release-grade rigour belongs to the *release*, not to the *round*. (`docs/seam-rules.md`; §7.7h.)
-    - **THE FORK IS THE CORE, AND MAKING SURE THEY PERFORM CORRECTLY IS OUR JOB — not a courtesy, and not discharged by their having checked it themselves** (maintainer directive, 2026-09-04: *"they do it, you double check their work, even if they did, if you can"*). Verify their emissions every lap (`docs/OWNERSHIP.md` §3); **where their source is reachable, DERIVE the number; do not accept the lap's**, then ask whether the population you measured is closed; **never put a defect on them that we started, or whose root is not theirs**; a failure that reaches a user is ours to own in front of that user; and our own standard does not drop because we are downstream. **NOT bilateral, and it does not travel.** (§7.7i.)
-    - **LAPS TRAVEL BY GIT. Write the lap, commit it, push it, then tell the maintainer to point the peer at it** (maintainer directive, 2026-09-13), superseding the 2026-09-04 rule that said to ask before writing a lap. **But publishing is not sending:** committing makes a lap AVAILABLE; the operator's announcement makes it LIVE. A lap is emitted `HANDSHAKE-READY-TO-READ: no`, and `handshake.py --announce <lap>` flips it **on the maintainer's word, never on our own judgement**; our gate takes no verdict from an unreleased lap in either direction. Both repos are public: reading their tree is for verifying, never for deciding for them, and a mechanism claimed in their code still carries `cyanrip@<sha>:<path>:<line>`. **`main` is the ref of record** (`tests/test_no_lap_is_left_unsent.py`). The notification stays with the maintainer — say which commit the lap is on. (§7.5c, §7.7j.)
-    - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. *Laps travel by git* is a term of the seam, so it travels; the two carve-outs that do not are *the fork is the core* and the checking we owe them. (§7.7k.)
+12. **The cyanrip seam is bidirectional, and both directions are enforced by tooling — not by memory.** Each obligation's full text and incident record is the `docs/cyanrip-handshake.md` subsection named, and the rule as it stood on 2026-11-16 is `docs/cyanrip-handshake.md` §7.7o:
+    - **Each side publishes its half of the contract, machine-derived where possible.** Ours is `docs/cyanrip-consumer-contract.md`, generated by `scripts/emit_dependency_contract.py`, never hand-written; theirs is the provider contract. (`docs/cyanrip-handshake.md` §7.)
+    - **The handshake is AFFIRMATIVE, BILATERAL, and checked at the drive**: a round closes only when **both** sides declare `GO`; every handshake file opens with the shared wire header of **`docs/handshake-protocol.md`** (the same file in both repos, its §8 table run by `tests/test_handshake_conformance.py`); both versions are named; every rip verifies its own ripper (`handshake_approval.py`; read `rip_report.REPORT_SCHEMA_VERSION`, do not quote it); `not_determined` is not a pass. (§7.7a.)
+    - **Each round is two files and two verifications** (`scripts/handshake.py --emit N` / `--check <file>` / `--status`). **A round is OPEN until both verifications declare GO. No pin switch while one is open; a release does not wait on a round** (protocol v8 §6b, E1 and E9). A missing verdict fails closed. (§7.5, §7.7b.)
+    - **Full error capture, both directions, always surfaced** — and *show the user the dependency's own sentence*. (§7.1.)
+    - **The fork must identify itself** (`platterpus-fork` in the version banner, on `--version` and every rip's logfile); we classify tri-state. (§7.2.)
+    - **A build tag names a commit; it does not name what was built** — `-dirty` on a dirty tree, classify on the fork *id*, and derive provenance from the artifact's content. (§7.3; `PLANNING.md` KDD-34.)
+    - **A moving pin needs a route that does not ship inside a release**: `platterpus --install-ripper`, driving the wizard's step engine. (`PLANNING.md` KDD-34.)
+    - **Both halves of the seam are checked, mechanically, every commit**: `tests/test_argv_surface_agreement.py` and `tests/test_cyanrip_version_flag.py`. (§7.7c.)
+    - **A dependency's own flags are a validated surface, not trivia**: probe invocations go through the argv-chokepoint rule too.
+    - **State the range a contract claim covers, not the snapshot.** (§7.7d.)
+    - **An upstream change cannot be escaped by rolling back to upstream** — ask whether a failure is ours, the fork's or upstream's. (§7.7e.)
+    - **Both directions are sanitised and error-checked, at the boundary, by code** (`docs/seam-rules.md`, byte-identical in both repos). *Outbound:* every rip argv passes `assert_metadata_lookup_disabled`, and any new route to the ripper **delegates to the chokepoint**. *Inbound:* their output is external input, and every widget carrying it is `PlainText` (`tests/test_message_boxes_are_plaintext.py`, `tests/test_labels_state_their_text_format.py`). A fix we find in ourselves that **could in any possible way** help them is sent as a NEXT-ROUND item. (§7.7f.)
+    - **The fork has a standing CHALLENGE MANDATE, and it is asymmetric on purpose**: answer the questions, it absolves us of nothing, and count who is right in the *Challenge ledger*. (§7.7g, §9.)
+    - **A round must be able to end**: S-13 fixed close conditions, S-14 fix within the round, S-15 a fixed test pin, S-16 targeted questions, and a binding pre-commit. (`docs/seam-rules.md`; §7.7h.)
+    - **THE FORK IS THE CORE, AND MAKING SURE THEY PERFORM CORRECTLY IS OUR JOB**: verify their emissions every lap (`docs/OWNERSHIP.md` §3), derive the number from their source where reachable, never put on them a defect we started. **NOT bilateral, and it does not travel.** (§7.7i.)
+    - **LAPS TRAVEL BY GIT. Write the lap, commit it, push it, then tell the maintainer to point the peer at it.** **Publishing is not sending:** a lap is emitted `HANDSHAKE-READY-TO-READ: no` and `handshake.py --announce <lap>` flips it **on the maintainer's word only**. A mechanism claimed in their code carries `cyanrip@<sha>:<path>:<line>`; **`main` is the ref of record** (`tests/test_no_lap_is_left_unsent.py`). (§7.5c, §7.7j.)
+    - **This rule lives in both repos**; send a change to the fork in the same round, except the two carve-outs (*the fork is the core*, the checking we owe them). (§7.7k.)
 
 ## How to stop shipping the next one (read before calling a fix done)
 
-Three consecutive releases each fixed a real bug and introduced the next. These questions are cheap and would have caught all three; answer them **in the commit message**, not in your head. Full reasoning in `docs/testing.md` §5.t and §5.s. Each question is kept here in its one-line form; its full statement and the incident behind it are in the section it names.
+Three consecutive releases each fixed a real bug and introduced the next. Answer these **in the commit message**, not in your head. Each question's full statement and the incident behind it are in the section it names; the list at its former length is `docs/testing.md` §5.bw.
 
-- **Did I reproduce the symptom, or only explain it?** A mechanism that plausibly accounts for a report is not the mechanism. v0.5.14 shipped a confident diagnosis of the wrong axis and cost a release. Ten minutes with a probe beats an hour of reasoning.
-- **What new state does this fix create, and what tests *that*?** A scroll area creates nesting, a guard a precondition, an `os._exit` a skipped-teardown path — the fix's own failure modes need their own tests. **And ask it about state the fix *unblocks*, not only state it adds:** of any fix that makes a function answer where it used to decline, *what does the code downstream do with answers it never used to receive?* (`docs/testing.md` §5.s, §5.ak.)
-- **Did I check the preconditions where the thing HAPPENS, or where it was scheduled?** Count the deferrals — a timer is the obvious one, and a worker's own completion is a second, longer one. Make the conditions a named function that returns *which one refused*, and call it at every point that can interrupt; a comment where a check belongs is not a fix. (`docs/architecture.md` §3.12a.)
-- **Would this test fail if I reverted the fix?** Check by actually reverting it. **And prove the revert landed before believing the run**: assert the file changed (hash or re-read), assert the build/collection succeeded, and assert the reverted thing actually behaves differently. **The RESTORE step is the dangerous half:** `git checkout -- <file>` restores to **HEAD**, so on uncommitted work it deletes the feature — copy the file aside, restore from the copy, verify the restore by hash. Use `scripts/revert_probe.py` rather than hand-rolling it. (`docs/testing.md` §5.t.)
-- **Am I asserting that a thing HAPPENED, or that it was REQUESTED?** Across a thread hop those are different claims, and the second is the one a step can outrun. Ask of any step that drives an async subsystem: *what would still be false one millisecond after I return True?* When a method takes a principled stance in one branch, read the other; and a fixture that starts in the end state cannot see the transition. (`docs/testing.md` §5.ap.)
-- **What pins my input?** Different question from "is my logic right": a correct detector fed an input that is frozen *by design* reports the design. **A monotonic display value is not a measurement**, and **the fix for a signal going quiet is a second signal, not an exemption.** (`docs/testing.md` §5.ah.)
-- **What else WRITES to the field I'm reading — and does it write for a reason I would not want to override?** The tell is a **lifetime mismatch stated in the field's own docstring**; two facts sharing one slot need two slots. And check the fixture: a test that sets the field directly bypasses whatever is meant to populate it. (`docs/testing.md` §5.aq.)
-- **"Fail-safe" is defined against the thing being protected, not against the user's convenience — say WHICH failure the safe direction avoids.** Ask of any guard *what does a false negative cost, what does a false positive cost* — and, when they are that asymmetric, *why am I predicting this at all when I could read it?* A default is not a contract. (`docs/testing.md` §5.bw.)
-- **"Idempotent", "free", "harmless to repeat" — properties of the CALLEE, and I cannot establish them by reading my own call site.** The question is never *"is calling this twice harmless?"* but *"harmless **to whom** — me, or the thing on the other end?"* — so read the callee. **A loosened assertion with a confident comment is worse than no assertion**; when a flag needs a reset, ask whether it wanted to be an identity comparison; and a refactor that trips a correctness sweep is a prompt to teach the sweep, not to exempt the subject. (`docs/testing.md` §5.ay.)
-- **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** Before inferring anything from a line that is not there, establish that the capture *would have kept it*. **The worst artifact is not a missing diagnostic; it is one that looks complete** — so any deliberate drop is counted and marked. (`docs/testing.md` §5.az.)
-- **Can this check be satisfied by finding nothing?** Then give it a floor: "examined ≥ N", "found ≥ 2 to compare". A detector that cannot fail is decoration. **And ask it of the check you are writing to fix a check** — that is where it hides; a *move* is a claim about two places, so check both. (`docs/testing.md` §5.t.)
-- **A GREEN RUN IS EVIDENCE ONLY ABOUT THE THINGS ITS CHECKS COULD HAVE FAILED OVER — so before believing one, name the artifact whose absence would turn its most important step red.** If the answer is *"nothing"*, that step is a decoration with a severity grade on it. A severity grade is a claim about consequence, never evidence that the check exists; ask it of a section's *witness*, not its title; and two green runs from one script are not two witnesses. (`docs/testing.md` §5.bi.)
-- **A COMPLETENESS FIELD DERIVED FROM CONFIG DESCRIBES WHAT WAS REQUESTED, AND WILL BE READ AS WHAT HAPPENED.** Of any field asserting that something was verified, ask *is this computed from the request or from the result?* and *what does this say when the work was started and then dropped?* — the third state is the one nobody enumerates. (`docs/testing.md` §5.bi.)
-- **A GUARD THAT DROPS A RESULT MUST NOT ALSO DROP THE WORK, AND THE TWO LOOK IDENTICAL AT THE CALL SITE.** Ask of any staleness guard: **is the thing being discarded a CLAIM or a DELIVERABLE?** Discarding a stale claim is the point; discarding a deliverable is a silent data loss wearing a correctness guard's clothes. (`docs/testing.md` §5.bi.)
-- **A SECTION'S DISTINGUISHING PROPERTY IS ASSERTED AT THE SECTION, NEVER INHERITED.** A run cannot tell you two tests differ if nothing asserted the difference, and the sweep that fixes it needs its own non-triviality clause. (`docs/testing.md` §5.bj.)
-- **OF ANY EARLY RETURN, ASK WHICH CASE IT SKIPS AND WHETHER THAT CASE IS THE EXPENSIVE ONE.** And write the backstop that needs no cooperation from whatever dropped the work — the check that cannot be talked out of firing. (`docs/testing.md` §5.bj.)
-- **Can it be satisfied by the *wrong* thing?** **A check that passes for the wrong reason is worse than one that fails**, because a failure gets investigated and a pass gets cited. Where a check matches on a *label*, make it also require the *subject* — only the pair is a check. (`docs/testing.md` §5.ad.)
-- **Read a step by what DEPENDS on it, not only by what it asserts — and a grade is a claim about what a check can CATCH, never about what the row is named.** Of any step ask *what rests on this having run* as well as *what does this catch*; **a prose claim that a protection exists is where to look hardest**; and when a table checks N properties of a thing and one row is missing, the missing row is not random. (`docs/testing.md` → *Acceptance tiers*.)
-- **When a change moves who plays which ROLE, every validator built around the old roles is wrong — in BOTH directions — and fixing the half you noticed leaves the other half wrong and harder to see.** Grep for every checker that encodes the old arrangement *before* the next artifact arrives, run the fixed tool on your OWN output, and write a narrowing down rather than quietly scoping it. (`docs/testing.md` §5.bw.)
-- **Do two surfaces answer this question, and do they use the same key?** One predicate, N callers — the caller *delegates* rather than restating — then **test the relation**, a property no test of either side alone can express. Ask *if they relabelled this without changing the artifact, would my answer change?* (`docs/testing.md` §5.al.)
-- **Two implementations agreeing is not either one being correct** — if they share an ancestor, they share its bugs. **Assert against the source artifact, not against another run**, and add a *non-triviality* assertion, because silence compares equal to silence. (`docs/testing.md` §5.ac.)
-- **Is the population I measured closed?** A number read from a run still in flight is its **fast tail**, not its range. Close the population before quoting it, or put the qualifier *in* the number and record the count beside it. **It applies to DELEGATION too:** *what is this surface's population, and is the answer I need inside it?* (`docs/testing.md` §5.ao.)
-- **Did I verify this where it could have failed?** An invariant confirmed under conditions that guarantee it has not been tested. Name the condition that would break the claim, then check *there*. (`docs/testing.md` §5.bw.)
-- **What does my stand-in do that the real thing does not?** For every fixture, fake, stub and helper. Either delete the difference or pin it — a harness that is safer than the product makes the product's gap invisible.
-- **Is the user's symptom gone, or just the mechanism I named?** Those are different claims. Where only hardware can settle it, say so plainly instead of implying the suite proved it.
-- **If the contract has two halves, did I check both?** A dependency seam has an *input* half (the arguments we send) and an *output* half (the text we parse); checking one half of a two-half contract is not checking the contract. `tests/test_argv_surface_agreement.py` does the input half mechanically. (`docs/testing.md` §5.bw.)
-- **Am I verifying the behaviour, or the other side's *description* of the behaviour?** A list checked against itself is consistent, not verified. **Where the underlying source is reachable, derive from it** — and prefer a mechanism derived from the dependency's own emitted text over any list of shapes either side maintains by hand. (`docs/testing.md` §5.ab.)
-- **A NUMBER THAT DOES NOT REPRODUCE IS A STATEMENT ABOUT MY METHOD BEFORE IT IS A STATEMENT ABOUT THEIR FILE.** **Reproduce by THEIR published method, and only report a mismatch once the method is the one they used** — when a derived value disagrees, the two candidate causes are their artifact and my derivation, and mine is the one I can check first. (`docs/testing.md` §5.bw.)
-- **A DEAD FIELD IS WORTH CHECKING FOR WHAT IT GATES BEFORE PROPOSING TO STRIKE IT.** *Unused* and *unreachable* are different findings and only the second is urgent; offering two options as equally acceptable is a judgement, not neutrality. Ask of any dead thing: *what reads this, and what stops working if it is gone?* (`docs/testing.md` §5.bw.)
-- **Am I answering from the artifact, or from my memory of the artifact?** If a committed file can settle the question, *open it* — and name **which** file in the claim. A remembered measurement has no provenance you can re-check and it silently drops its qualifier. **When a committed artifact can settle a question, the test should read the artifact** — anything else pins your belief about it (`docs/testing.md` §5.u).
-- **Does this document promise completeness? Then it needs a sweep, not a comment.** A map is only ever wrong by omission, so it decays invisibly. Derive the expected set from the filesystem, require the unit the promise makes (an *annotated row*, not a mention), and scope the converse narrowly so it does not fire on correct prose. **A comment where a check belongs is not a fix.** (`docs/testing.md` §5.af.)
-- **Did a *correction* get less scrutiny than a claim?** A finding that arrives as "you got this wrong" is not pre-verified. §H2 of a cross-project handshake was well-argued, wrong, and applied faster than any finding made in-house, precisely because it was a correction.
-- **Never state a mechanism in the other side's code without citing where you read it.** A claim about a peer's implementation carries a file and a line, or it is not made. (Adopted verbatim from the cyanrip fork, round 12 lap 3; `docs/testing.md` §5.ax, and row 8 of the challenge ledger in `docs/cyanrip-handshake.md` §9.)
-- **And an APOLOGY can get less scrutiny than a claim, for the same reason nobody argues with it.** The mirror of the rule above: a misattributed cause produces the wrong fix. Ask of any concession: *if this were a claim instead of an apology, would I have verified it?* (`docs/testing.md` §5.ax.)
+- **Did I reproduce the symptom, or only explain it?** (`docs/testing.md` §5.t.)
+- **What new state does this fix create, and what tests *that*?** And of state it *unblocks*: what does downstream code do with answers it never used to receive? (`docs/testing.md` §5.s, §5.ak.)
+- **Did I check the preconditions where the thing HAPPENS, or where it was scheduled?** (`docs/architecture.md` §3.12a.)
+- **Would this test fail if I reverted the fix?** Check by actually reverting it, with `scripts/revert_probe.py`; `git checkout -- <file>` on uncommitted work deletes the feature. (`docs/testing.md` §5.t.)
+- **Am I asserting that a thing HAPPENED, or that it was REQUESTED?** (`docs/testing.md` §5.ap.)
+- **What pins my input?** (`docs/testing.md` §5.ah.)
+- **What else WRITES to the field I'm reading — and does it write for a reason I would not want to override?** (`docs/testing.md` §5.aq.)
+- **"Fail-safe" is defined against the thing being protected — say WHICH failure the safe direction avoids.** (`docs/testing.md` §5.bw.)
+- **"Idempotent", "free", "harmless to repeat" are properties of the CALLEE** — harmless *to whom*? (`docs/testing.md` §5.ay.)
+- **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** (`docs/testing.md` §5.az.)
+- **Can this check be satisfied by finding nothing?** Then give it a floor. (`docs/testing.md` §5.t.)
+- **A GREEN RUN IS EVIDENCE ONLY ABOUT THE THINGS ITS CHECKS COULD HAVE FAILED OVER** — name the artifact whose absence would turn its most important step red. (`docs/testing.md` §5.bi.)
+- **A COMPLETENESS FIELD DERIVED FROM CONFIG DESCRIBES WHAT WAS REQUESTED, AND WILL BE READ AS WHAT HAPPENED.** (`docs/testing.md` §5.bi.)
+- **A GUARD THAT DROPS A RESULT MUST NOT ALSO DROP THE WORK** — is the thing discarded a CLAIM or a DELIVERABLE? (`docs/testing.md` §5.bi.)
+- **A SECTION'S DISTINGUISHING PROPERTY IS ASSERTED AT THE SECTION, NEVER INHERITED.** (`docs/testing.md` §5.bj.)
+- **OF ANY EARLY RETURN, ASK WHICH CASE IT SKIPS AND WHETHER THAT CASE IS THE EXPENSIVE ONE.** (`docs/testing.md` §5.bj.)
+- **Can it be satisfied by the *wrong* thing?** (`docs/testing.md` §5.ad.)
+- **Read a step by what DEPENDS on it, not only by what it asserts.** (`docs/testing.md` → *Acceptance tiers*.)
+- **When a change moves who plays which ROLE, every validator built around the old roles is wrong — in BOTH directions.** (`docs/testing.md` §5.bw.)
+- **Do two surfaces answer this question, and do they use the same key?** (`docs/testing.md` §5.al.)
+- **Two implementations agreeing is not either one being correct.** (`docs/testing.md` §5.ac.)
+- **Is the population I measured closed?** (`docs/testing.md` §5.ao.)
+- **Did I verify this where it could have failed?** (`docs/testing.md` §5.bw.)
+- **What does my stand-in do that the real thing does not?** (`docs/testing.md` §5.t.)
+- **Is the user's symptom gone, or just the mechanism I named?** Where only hardware can settle it, say so. (`docs/testing.md` §5.s.)
+- **If the contract has two halves, did I check both?** (`docs/testing.md` §5.bw.)
+- **Am I verifying the behaviour, or the other side's *description* of the behaviour?** (`docs/testing.md` §5.ab.)
+- **A NUMBER THAT DOES NOT REPRODUCE IS A STATEMENT ABOUT MY METHOD BEFORE IT IS A STATEMENT ABOUT THEIR FILE.** (`docs/testing.md` §5.bw.)
+- **A DEAD FIELD IS WORTH CHECKING FOR WHAT IT GATES BEFORE PROPOSING TO STRIKE IT.** (`docs/testing.md` §5.bw.)
+- **Am I answering from the artifact, or from my memory of the artifact?** (`docs/testing.md` §5.u.)
+- **Does this document promise completeness? Then it needs a sweep, not a comment.** (`docs/testing.md` §5.af.)
+- **Did a *correction* get less scrutiny than a claim?** And an *apology*? (`docs/testing.md` §5.ax.)
+- **Never state a mechanism in the other side's code without citing where you read it.** (`docs/testing.md` §5.ax.)
 
 ## Deviation policy
 
-When in doubt during any session, stop and ask the user before doing the following:
+The full text as it stood on 2026-11-16: `PLANNING.md` §9. When in doubt, stop and ask the user. **Must ask before:** adding a dependency not listed in `DEPENDENCIES.md`; changing the distribution model; switching the GUI framework; skipping, reordering, or redefining a P0 feature; reaching for `appimage-builder`; bypassing the host-exported `~/.local/bin/<ripper>` routing; adding scattered dependency checks outside the self-management subsystem; **switching the container to a new cyanrip pin while a handshake round is open**.
 
-**Must ask before doing:**
-- Adding a dependency not listed in `DEPENDENCIES.md`
-- Changing the distribution model
-- Switching the GUI framework
-- Skipping, reordering, or redefining a P0 feature
-- Reaching for `appimage-builder`
-- Bypassing the host-exported `~/.local/bin/<ripper>` routing (currently cyanrip)
-- Adding scattered dependency checks outside the self-management subsystem
-- **Switching the container to a new cyanrip pin while a handshake round is open** — the pin moves only when a round closes, and both verifications must be in (`docs/cyanrip-handshake.md`). *Releasing* while a round is open no longer needs the ask: protocol v8 §6b (E1, E9) retired it on 2026-10-11, on the maintainer's word of 2026-10-07.
-- ~~**Writing a new handshake lap**~~ — **RETIRED 2026-09-13**, and moved to *just do it*: laps now travel by git, so writing one and sending it are the same act and the failure the ask guarded against (a lap written and never carried) is gone. Write it, commit it, push it, and tell the maintainer which commit it is on. See Critical rule #12's *Laps travel by git*. **Still ask before**: switching the pin while a round is open — listed above. (Releasing while one is open stopped needing the ask with protocol v8, 2026-10-11.)
-
-**Just do it (no ask needed):**
-- Renaming a function, variable, or local module
-- Splitting an oversized file into focused submodules
-- Small refactors for readability or to match project style
-- Adjusting type hints, docstrings, or comments
-- Reordering imports or reformatting per the linter
-
-The line between these is judgment. When in doubt, the safer call is to stop and ask.
+**Just do it (no ask needed):** renaming a function, variable, or local module; splitting an oversized file; small refactors for readability or project style; type hints, docstrings, comments; import order and linter formatting; **writing, committing and pushing a handshake lap** (then tell the maintainer which commit it is on; Critical rule #12). The line between these is judgment; when in doubt, ask.
 
 ## Working with the maintainer (learned)
 
-This project is as much about building durable standards as shipping the app — so this section captures what past sessions learned about *how this maintainer works and what they value*. Treat it as guidance, not law.
+Guidance, not law; the full text of each bullet as it stood on 2026-11-16 is `PLANNING.md` §9.
 
-- **North star: "good music, good cover image, good everything."** The goal isn't "a rip" — it's a complete, trustworthy library entry: bit-perfect audio (provable via CRCs), correct tags, embedded cover art. When weighing work, favor what moves the whole experience toward that.
-- **UX responsiveness is a feature, not a polish item.** The maintainer notices and reports freezes, dead buttons, and "Not Responding" windows immediately, and values them fixed ("users value those to be as responsive as possible"). This is why the GUI-thread rule above exists. A working feature that *feels* broken (frozen, silent, ambiguous) is a bug.
-- **Zero-terminal for end users.** The target user downloads one file, double-clicks, and answers prompts — no command line. Distribution and setup decisions are judged against that bar (KDD-17).
-- **Limited programming experience → optimize for the next reader.** Comment intent, not mechanics. Explain *why*. Spell out reasoning rather than asserting; the maintainer asks "is this arbitrary or is there a reason?" and deserves the reason. Prefer clarity over cleverness everywhere.
-- **Build for contributors who aren't them, in ways not yet conceived.** Leave extension seams and document them (`docs/architecture.md`). Modular, adapter-bounded, test-covered code is the deliverable — not just working code.
-- **EAC is the gold standard: match it 100% and we succeed; beat it and we win** (the owner, 2026-11-04: *"eac parity is good and is acceptable. doing better is fantastic, and we want to do that if technically possible. but they are the "gold" standard, if we match them 100% we succeed. if we are better we win. keep those priorities in mind when make tasks and such."*). Order work by that: a gap where EAC succeeds and we do not is **parity** and comes first; doing what EAC cannot is a **win**, pursued when technically possible. Label tasks as one or the other (`docs/eac-parity.md` → *Standing direction*).
-- **Real hardware is the ground truth.** Many of the best fixes came from real-disc testing on the Bazzite + Pioneer BDR-209D rig (the >587 offset bug → cyanrip; the cdrdao TOC flake → Rescan; the EAC baseline). Code-side prep is welcome, but the final proof is a hardware run; flag hardware-gated work honestly.
-- **"Burn" means writing a disc, and only that, on both sides** (the owner, 2026-11-11: *"a rip is a read from the drive, a burn is write to a cd to the drive. i do not plan to do burns right now."* and *"both sides shouldnt use burn unless they mean it as i said"*). Round 39's five back-to-back rips were called a "test burn", borrowed from *burn-in*, and that is a wrong statement about what the drive did. Say *the five-rip run*, *repeat rips*, *used up* (time), *caught out*; keep the word for a CD-R someone burned or a burner program. Records keep what they said (sent laps, released CHANGELOG sections, the session log, filed evidence names); everything current is held by `tests/test_burn_means_writing_a_disc.py`. It travels to the fork in our round 39 lap 4.
-- **Test the drive once, up front; test the disc per disc** (the owner, 2026-11-12: *"we should probably do as much up front testing as we can, and leave anything as a per drive by per cd as to them."*). Anything that is a property of the DRIVE (its read offset confirmed, cache defeat, its declared capabilities such as accurate stream and C2, whether its commands work) runs at drive setup, once, is saved to that drive's profile, and runs again only when the drive changes. Only what depends on the DISC (metadata, gaps and the cue, verification, repair) runs per disc. EAC makes the user remember its setup steps (the owner's guide: *Detect Read Features*, offset calibration); we do them for the user, in that order.
-- **Every shipped bug gets a regression test in the same change.** Institutional, non-negotiable (see `docs/testing.md`).
-- **A version number is a claim about the field, not about CI** (maintainer ruling, 2026-08-19; KDD-35; the full statement, every amendment and the evidence ledger are `docs/testing.md` §5B). **0.8.1** needs a complete hardware pass — *every* test green in ONE run — achieved **twice, on at least two machines and two distros** (the maintainer moved this bar from 0.9.1 to 0.8.1 on 2026-10-12); "the five failures were each understood" is not a pass. **1.0.0** additionally needs more than one person, machine and distro. `tests/test_no_stale_version_claims.py` §3 refuses a bump the ledger does not support. **`0.7.100` was gated on a FULL hardware pass and shipped once that run existed (2026-10-07); the jump to `.100` is the maintainer's numbering, not a typo — do not "correct" it to 0.7.0. The next gate is 0.8.1, above.** "Error free" means **zero failures in the ARCHIVAL sections**, with UX failures recorded, triaged, and non-blocking — and **the classification is a property of the TEST, declared in advance, never a judgement made about a FAILURE after seeing it** (`docs/testing.md` → *Acceptance severity*). A UX failure that shares a root cause with an archival one is archival. That prohibition is **directional**: if a re-grade makes a version EASIER to reach, be suspicious of it; if harder, this rule is not the objection — and re-grade the **field the gate reads**, not only the prose beside it.
-- **Never hand back an instruction file. Hand back three steps and a file to run.** (Directive, 2026-08-11: *"i should never get an instruction file again for 99.9% of times. it should be some text telling me step 1 is to do a normal rip, step 2 is to download and run this X file and give me 2 or 3 steps on that and what to upload and to which repo."*) A document of manual steps is **work handed back**, and it is a symptom, not a deliverable: every hand-edit and every "now run this, then run that" in a written procedure is a thing the software was supposed to do. The shape of a correct answer is short prose in the reply — *do the ordinary thing; download and run this; upload the result here* — and the automation absorbs everything mechanical. Twice now a checklist was written where a command belonged (2026-08-09, a 3-command list with 2 hand-edits, which became `--rig-session`; 2026-08-11, the same reflex again). If a procedure cannot be reduced to that, say *which* step resisted automation and why, rather than writing the long version and calling it done.
-- **Times: every record in UTC; a time written to the maintainer in New York time on a 12-hour clock, labelled, with UTC beside it** (maintainer, 2026-10-19; matched to the fork's wording in round 35 lap 16, on the owner's rule that UTC is the stamp and local time is derived from it). Laps, statuses, commits and logs carry UTC. In a reply, write e.g. *6:33 PM EDT (22:33 UTC)*, naming EDT or EST as is in effect, and the HANDOFF line the same way, since the fork writes it so. **Read the time from `date -u` before writing it; never estimate it** (2026-10-26: a HANDOFF stamped 06:57 UTC at 02:19 UTC, written from no clock; the container's clock was right).
-- **Momentum with safety.** The maintainer pushes for autonomous forward progress ("proceed", "get it done") — so act on reversible, in-scope work without asking, commit in small test-green units, and report at milestones. Still stop for destructive or scope-changing decisions.
-- **Autonomous releases are expected — but HELD from 2026-10-12 until the owner says otherwise.** The hold's stated reason was that the owner might rewrite history first (it was rewritten on 2026-10-12), and with release immutability on, a published release locks its tag to the commit it was cut from. **The owner's word of 2026-10-19 (*"When complete make the new release new lap etc. I want to do a new test run"*) released 0.7.109 and covered that release only; *"When you are both ready do a new release. Then let me know so I can do a full acceptance test."* (2026-10-20) released 0.7.110 only; and *"i can't do number 3 of waiting for me for a little bit, but do 1, and 2 do it as part of a full acceptance test, at least as long as we need to. proceed"* (2026-10-20, relayed by the claude-code-skills session at 22:31 UTC) covers the next release, carrying the second read and the fixes since 0.7.110, once its whole suite passes, plus any release needed only to carry the timed `.25`-vs-`.26` comparison into a Full run (0.7.111 shipped on it on 2026-10-21, and 0.7.112, which names `.26` and carries that comparison, is the second). *"4 yes, once the suite passes, default ripper stays .25 until a round approves another; include the Copy OK wording fix if ready."* (2026-10-26, answering the EAC parity plan of record) released 0.7.113 only. *"Release 0.7.114 now, naming .27 (5aeefc4) as the build under review, as STATUS-RELEASE-NEXT and TASKS R80 describe."* (2026-10-28) released 0.7.114 only. *"then release it and let me know when done"* (2026-10-29, answering whether to release 0.7.115, the first release installing `.27` by default) released 0.7.115 only. *"any downside to releasing both? if not, do it"* (2026-10-29, for our round 37 lap 2 and 0.7.116, the release that reads `.28`'s four wordings) released 0.7.116 only. *"Then release 0.7.117 naming .28 as the build under review, as your STATUS-RELEASE-NEXT says. That's my word."* (2026-11-03) released 0.7.117 only. *"Release all when ready and let me know to tell the fork"* and *"don't wait for the fork, release when ready"* (2026-11-03) released 0.7.118 only, the release carrying the fixes of that day's Full run and its review. *"release 0.7.119"* (2026-11-03) released 0.7.119 only, the first release installing `.28` by default after round 37 closed. *"Do the next release so we can do a test run"* (2026-11-04) released 0.7.120 only, the release naming `.29` as the build under review for round 38's Full run. *"when done, audit all docs to be up to date, then release everything you need to for me and fork"* (2026-11-04), with *"fork is going to release the next lap and .30 so we can do the testing on the new version with its improvements"* and *"get ready but wait for lap 12 to confirm"* (2026-11-05), released 0.7.121 only, the release naming `.30` as the build under review for round 38's drive test. *"Check hourly after. If ready close round a release new version. Use lastest fork release so we can full acceptance test. Update test if needed."* (2026-11-11) released 0.7.122 only, the first release installing `.30` by default after round 38 closed, naming `.31` as the build under review for round 39's five-rip run. *"check for lap 3, then do all you can, stop if you need answers, but then release all and do lap 4"* (2026-11-11) released 0.7.123 only, the release answering the fork's round 39 lap 3 (S14's C2 wording read, S15's option on every `-Z` pass) with the exact agreeing count, the whole-second C2 probe, and the word for writing a disc kept for that alone. *"if nothing else to do for this round, release the next version"* (2026-11-13, after round 39 closed) released 0.7.124 only, the first release installing `.31` by default, carrying each drive's own read offset, the cache check once per drive and the EAC-compatible log on by default. *"you have to release the new platterpus version for me to test i think, so do that"* (2026-11-14) released 0.7.125 only, the release naming `.32` as the build under review for round 40's rip. *"2. b"* (2026-11-16, choosing to release 0.7.126 after R155 and R156 are fixed) released 0.7.126 only, the first release installing `.32` by default after round 40 closed. The hold otherwise stands until the owner lifts or restates it.** Until the owner lifts the hold, prepare a release (version bump, CHANGELOG, generators) only when asked, and never dispatch `release.yml`. Otherwise: cut releases via the `workflow_dispatch` path from the cloud session (see CI/release below); don't wait for a manual tag push.
+- **North star: "good music, good cover image, good everything"** — bit-perfect audio (provable via CRCs), correct tags, embedded cover art.
+- **UX responsiveness is a feature, not a polish item.** A working feature that *feels* broken (frozen, silent, ambiguous) is a bug.
+- **Zero-terminal for end users** (KDD-17): download one file, double-click, answer prompts.
+- **Limited programming experience → optimize for the next reader.** Explain *why*; the maintainer asks "is this arbitrary or is there a reason?" and deserves the reason.
+- **Build for contributors who aren't them**: leave extension seams and document them (`docs/architecture.md`).
+- **EAC is the gold standard: match it 100% and we succeed; beat it and we win.** A gap where EAC succeeds and we do not is **parity** and comes first; label tasks parity or win (`docs/eac-parity.md` → *Standing direction*).
+- **Real hardware is the ground truth**; flag hardware-gated work honestly.
+- **"Burn" means writing a disc, and only that, on both sides** (the owner, 2026-11-11). Say *the five-rip run*, *repeat rips*, *used up*, *caught out*; records keep what they said, and `tests/test_burn_means_writing_a_disc.py` holds everything current.
+- **Test the drive once, up front; test the disc per disc** (the owner, 2026-11-12): drive properties run at drive setup and are saved to its profile; only disc-dependent work runs per disc.
+- **Every shipped bug gets a regression test in the same change.** Institutional, non-negotiable.
+- **A version number is a claim about the field, not about CI** (KDD-35; `docs/testing.md` §5B). **0.8.1** needs a complete hardware pass, every test green in ONE run, twice, on two machines and two distros; `0.7.100` is the maintainer's numbering, not a typo. The classification of a failure is a property of the TEST, declared in advance (`docs/testing.md` → *Acceptance severity*).
+- **Never hand back an instruction file. Hand back three steps and a file to run** (2026-08-11): short prose — *do the ordinary thing; run this; upload the result here* — and automation absorbs the rest. If a step resists automation, say which and why.
+- **Times: every record in UTC; to the maintainer in New York time on a 12-hour clock, labelled, with UTC beside it** (e.g. *6:33 PM EDT (22:33 UTC)*). **Read the time from `date -u`; never estimate it.**
+- **Momentum with safety.** Act on reversible, in-scope work without asking, commit in small test-green units, report at milestones; stop for destructive or scope-changing decisions.
+- **Releases are HELD from 2026-10-12 until the owner says otherwise; only the owner's word releases, and each word covers the one release it names.** Until the owner lifts the hold, prepare a release (version bump, CHANGELOG, generators) only when asked, and never dispatch `release.yml` on your own judgement. Each word and the release it covered: `docs/architecture.md` §6.3 → *The release hold, and each word that released through it*.
 
 ## Reporting to the operator
 
-*(Operator's instruction, 2026-10-14, round 33. Laps carry the record; there are no separate report files.)*
+Operator's instruction of 2026-10-14; the full text (the eight Diagnostics keys, the round summary's seven headings, and the rest) is `docs/cyanrip-handshake.md` §7.7n.
 
-**Diagnostics in every lap.** End every lap with a "## Diagnostics" section: these eight keys, in this order, one line each, as NOTE statements in your lap-statement language. Write "none" where nothing applies. Facts carry a commit, file:line, run or command, as everywhere else.
-- D1 Instructions: anything in HR-2, HR-2.1, the protocol or an operator message that didn't match your tree or didn't work as written since your last lap, and what you did instead.
-- D2 Defects: defects found and fixed since your last lap, each with its commit, and whether a test now holds it.
-- D3 Environment: what got in the way (pushes, the git proxy, branch rules, hooks, disk, timeouts, permission prompts, the stop hook) and how you got past it.
-- D4 CI: runs since your last lap, failures, re-runs and their causes.
-- D5 Sizes: checkout MB at your default branch's tip; evidence branch commits and bytes; manifest rows.
-- D6 Time: roughly how long this lap's work took, and what it waited on.
-- D7 Versions: your git version, and the tool versions your gates ran.
-- D8 Questions: anything you need from the operator, or none.
-
-**Round summary in your last lap.** Your last lap of each round, round 33 included, carries a "## Round summary" section before its Diagnostics, short and complete, under these headings:
-1. Timeline: the round's steps, with PR, commit or lap, when, and how long each took.
-2. Instructions that were wrong or incomplete, what was true, and what you did instead.
-3. Defects found, with fixes and commits, and whether a test now holds each.
-4. Measurements, before and after, and how each was measured.
-5. Environment limits, and how you got past them.
-6. What should become a general rule, with exact wording where you have it.
-7. What you'd do differently, and what's left open, with who owns each.
-
-It's read by the claude-code-skills session, which keeps the standard and skills you work under. Keep notes as the round goes so it's quick to write.
-
-**A handoff prompt at the end of every reply.** Whenever you release a lap, push to evidence, merge a pull request the other side needs, or need something from anyone, end your reply to the operator with this block, filled in, and nothing after it. The operator copies it as-is to the other session and to the claude-code-skills session. Keep it to these lines:
+- **Diagnostics in every lap**: end it with "## Diagnostics", keys D1–D8 in order, one NOTE line each, "none" where nothing applies. **The last lap of each round** carries a "## Round summary" before it.
+- **The first question, in every session and before every lap: who released the last lap, and who holds the next?** Answer it from both sides' published laps with `python3 scripts/lap_turn.py --peer <clone of the fork> --fetch`, never from memory.
+- **The sessions read each other directly.** At session start and before ending any turn, fetch the fork's `platterpus-fork` and read its `STATUS.md` and every lap released since the newest we filed; a released lap addressed to us is the cue to answer it. `ASK:` carries only what the owner keeps.
+- **A handoff prompt at the end of every reply** that releases a lap, pushes to evidence, merges a pull request the other side needs, or needs something from anyone — this block, filled in, nothing after it; the first line is copied from `lap_turn.py`'s `turn_line`, never typed:
 
 ```
 MY TURN TO SEND|MY TURN TO WAIT: round <x> lap <y> goes to <repo branch>, expecting round <a> lap <b> back
@@ -226,406 +179,111 @@ NEXT: <one line: what the reader should do now, or "nothing, for information">
 ASK: <a question for the operator, or none>
 ```
 
-**The first line says whose turn it is, before anything else** (the owner, 2026-11-13: *"round x lap y goes to repo z, expecting round a lap b back. "its my turn to send" or its "my turn to wait" should be clear on first line of handshake text"*). Copy it from the first line `python3 scripts/lap_turn.py --peer <clone of the fork> --fetch` prints (`turn_line`), never type it: it reads both sides' published laps, and a lap of ours written but held is still ours to send. Run it after the lap's release, so it says the turn that is true when the operator reads it. It travels to the fork with the block.
-
 If a reply needs no handoff, end it with: HANDOFF: none
-
-**The first question, in every session and before every lap: who released the last lap, and who holds the next?** (the owner, 2026-11-12: *"the first question on both repos should be, who released the last lap, and who is holding the next. this should cover most situations"*). Answer it from both sides' published laps, never from memory: `python3 scripts/lap_turn.py --peer <clone of the fork> --fetch` reads the newest released lap on our `main` and their `platterpus-fork`, and that lap's `HANDSHAKE-NEXT-LAP`, and names any newer lap written but held. The session-start hook prints it. If the next lap is ours, write it; if it is theirs, wait and say so. It travels to the fork, so their `CLAUDE.md` asks the same first.
-
-**The sessions read each other directly; the HANDOFF block is the operator's copy, not a relay** (the owner's word of 2026-10-19: *"make it so they will talk to each other about this in the next round/lap. We need them to communicate without us in the middle."*; accepted in round 35, the fork's lap 15 and our lap 16). At the start of every session and before ending any turn, fetch the fork's `platterpus-fork` and read its status block (their `STATUS.md`, in their handshake folder) and every lap released since the newest we filed; a released lap addressed to us is the cue to answer it, with no HANDOFF needed first. An hourly Routine did the same until the owner stopped it on 2026-10-20 (*"stop the hourly check"*); the reads now happen at those two points and whenever the owner asks. `ASK:` carries only what the owner keeps: a hardware run; a release no standing word covers, or lifting a hold; a protocol override; anything outside the two repositories. (The second-read default was on that list until the owner settled it on 2026-10-20: *"yes, read twice by default"*.) No lap only to acknowledge; two laps in a row that change neither side's open list propose closing or parking the topic; more than eight laps on one topic go to the owner. The rule is transport, so it lives here and in the fork's `CLAUDE.md`, not in `docs/handshake-protocol.md`.
 
 ## Companion documents
 
-Read these alongside this file when picking up a session. **`docs/README.md` is
-the canonical annotated index** — one line each here (so this list can't drift
-from it again; it did once, KDD-range v23 vs v25):
+**`docs/README.md` is the canonical annotated index**; one line each here (the longer list as it stood on 2026-11-16: `docs/README.md` → *`CLAUDE.md`'s companion list*):
 
 - **`PLANNING.md`** — architecture, module map, and the numbered KDD decision log
 - **`TASKS.md`** — the active task checklist; update status (`[ ]` → `[~]` → `[x]`) in the same commit as the work
 - **`DEPENDENCIES.md`** — dep pins, review cadence, retirement log
-- **`README.md`** — outward-facing description + install instructions
-- **`SECURITY.md`** — security policy (supported versions, vulnerability reporting)
-- **`docs/README.md`** — the complete annotated index of docs/, the single-source-of-truth map, and the rebuild checklist
-- **`docs/architecture.md`** — the contributor guide: patterns with their *why*, extension recipes. **Start here to extend the program.**
-- **`docs/testing.md`** — testing strategy, institutional rules, and the Definition of Done (rule #7's checklist)
-- **`docs/TEST-VERIFICATION-CHECKLIST.md`** — the self-audit to run *before* claiming a task done (Tier 2); its Final Report's `DID NOT RUN` / `KNOWN GAPS` / `RISKS` sections may not be empty
-- **`docs/test-plan.md`** — manual & release testing (acceptance run, EAC parity, gated hardware cases)
+- **`README.md`** / **`SECURITY.md`** — outward-facing description and install; security policy
+- **`docs/README.md`** — the complete annotated index of docs/ and the rebuild checklist
+- **`docs/architecture.md`** — the contributor guide: patterns with their *why*, extension recipes, packaging and release. **Start here to extend the program.**
+- **`docs/testing.md`** — testing strategy, institutional rules, and the Definition of Done
+- **`docs/TEST-VERIFICATION-CHECKLIST.md`** — the Tier 2 self-audit before claiming a task done
+- **`docs/test-plan.md`** — manual & release testing (acceptance run, EAC parity, hardware cases)
 - **`docs/dependency-contracts.md`** — exact args/flags per external tool + parsed output shapes
 - **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements/scope *as amended by the KDDs*
 - **`docs/ux-design-principles.md`** — the trust-first UX principles + the canonical gap backlog
-- **`docs/session-log.md`** — per-session chronology (newest first); lessons graduate out of it (rule #7)
-- **`docs/cyanrip-handshake.md`** — the **binding, bidirectional** release handshake with the cyanrip fork: two files per round, both directions, and **no pin approved until both have verified the other's** (from protocol v8 a release no longer waits on a round)
-- **`docs/cyanrip-consumer-contract.md`** — **generated, do not hand-edit.** Our half of the cyanrip dependency contract: every log line we parse, every line we knowingly ignore with its recorded reason, and every flag we pass — all read out of the parser's enumeration tables and a real call to the argv builder by `scripts/emit_dependency_contract.py`. The fork supplies the mirroring **provider** contract; two halves, one seam. A description *derived from* the behaviour cannot describe behaviour we do not have, which is exactly how we once told the fork a line was stdout-only when it was not
-- **`docs/cyanrip-fork.md`** — the cyanrip fork in one place: why we fork it and how the fork is kept sane (Part A the engine-strategy research, Part B the executable soft-fork runbook), what we want from cyanrip (Part C, the ranked ask list) and how it reaches upstream (Part D, the PR roadmap; the `scripts/cyanrip/` kit executes it), and Part E the closed record of the known issues handed to the fork
-- **`docs/eac-parity.md`** — the single home for EAC parity: what deviates, the log formats field by field, tracker acceptance, and what the real logcheckers deduct for
+- **`docs/session-log.md`** — per-session chronology (newest first); lessons graduate out of it
+- **`docs/cyanrip-handshake.md`** — the binding, bidirectional release handshake with the cyanrip fork
+- **`docs/cyanrip-consumer-contract.md`** — **generated, do not hand-edit**: our half of the cyanrip contract
+- **`docs/cyanrip-fork.md`** — the cyanrip fork: why, the soft-fork runbook, the ask list, the upstream roadmap
+- **`docs/eac-parity.md`** — the single home for EAC parity
+- **`docs/github-workflow-sop.md`** — git and GitHub mechanics, and this repository's commit and PR practice
 - **`docs/archive/`** — retired dated investigations + external reference; graduation map in its README
 
-Everything else under `docs/` (the seam rules + command table, the shared
-handshake protocol, the shared ownership split, the rig-session sheet and the
-rig-scripts folder, the CTDB CRC spec with its manual-repair how-to, the GitHub
-SOP, the generated script-language reference, the session-start procedure, and the evidence
-manifest `docs/evidence-manifest.tsv`) is indexed with one-line
-descriptions in `docs/README.md`. Dated investigations live in `docs/archive/` —
-including the multi-format design-of-record, archived once it shipped. **AppImage
-build/testing and the release-signing ritual are no longer separate files**: they
-are `docs/architecture.md` §6.1 and §6.2 (consolidated 2026-08-06 under Critical
-rule #7's fourth obligation), and the former `error-reporting.md` likewise became
-`docs/architecture.md` §3.7a beside the error-handling rules it restated.
-
-If `PLANNING.md` and the brief conflict, the brief **as amended by the maintainer-approved KDDs** wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
-
-There is no `compass_artifact_*.md` in the repo; the original v1 research validation was unavailable when the project was bootstrapped, so the project proceeded against the brief alone. To refresh tool-choice research, follow `docs/platterpus-session-start.md` Step 0.
+If `PLANNING.md` and the brief conflict, the brief **as amended by the maintainer-approved KDDs** wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick. To refresh tool-choice research, follow `docs/platterpus-session-start.md` Step 0.
 
 ---
 
 ## Project operations
 
-*This section grows as the project develops. Add concrete commands, paths, and operational notes as
-they're established. Keep entries terse.*
+*Commands, paths, and the rules that bite. Terse; the reasons live where each pointer says.*
 
 ### Build commands
 
-- AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` at repo root via
-  `python-appimage`)
-- App icon: `python3 build/make_icon.py` (regenerates the committed
-  `build/python-appimage/io.github.rmccann_hub.Platterpus.png` from `assets/platterpus-logo.svg`;
-  needs an SVG rasterizer on PATH — `rsvg-convert`, Inkscape, ImageMagick, or the `cairosvg` module
-  — **not** Pillow)
+- AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` via `python-appimage`; procedure `docs/architecture.md` §6.1)
+- App icon: `python3 build/make_icon.py` (from `assets/platterpus-logo.svg`; needs an SVG rasterizer, **not** Pillow)
 
 ### CI / release
 
-- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:**
-  `test` (pytest on the 3.12–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14
-  leg; every test but the UI conformance matrix), **`ui-conformance`** (that matrix,
-  `tests/test_ui_conformance.py`, once, on 3.14, since 2026-11-02: it was the long pole of every
-  leg, and what it measures does not change with the Python version; a required check from
-  2026-11-02, on the owner's change to the ruleset), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in
-  `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package, plus `scripts/`,
-  `build/*.py` and `.claude/hooks`), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8
-  backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the full
-  history, merge commits included, with the pinned and checksum-verified CLI; it refuses a shallow
-  clone and a scan below its floors, since 2026-10-05 — `SECURITY.md`; it is also the one job that
-  fetches the `evidence` branch, scanning every commit of it and checking the evidence manifest,
-  HR-2 §8a), **`sbom`** (a CycloneDX inventory of what ships, with a floor that refuses fewer than
-  ten components), and **`tests-touched`** (GATING since 2026-08-20: it fails when `src/platterpus`
-  changes with no change under `tests/`, unless a commit in the range carries
-  `[no-test-needed] <reason>` — a bare marker is refused — or the only src change is the
-  `__version__` bump of a release commit), **`lock-check`** (`bash build/lock-requirements.sh
-  --check`: every hashed lock must regenerate byte for byte from the uv version and
-  `--exclude-newer` date in its header) and **`lock-install`** (every lock into a clean venv with
-  `--require-hashes` and `pip check`, then the publish and AppImage wheel builds, without
-  publishing); both required since 2026-10-28, on the owner's change to the ruleset. **Non-gating
-  jobs** in the same file (added 2026-10-27, after that day's review; the owner adds one to the
-  ruleset to make it required): `commit-subjects` (`scripts/check_commit_subjects.py` against the
-  subject grammar below), `workflow-lint` (actionlint and zizmor `--offline`) and `shellcheck`
-  (every tracked shell script outside `docs/handshake/`), with their pins in pyproject's `ci-lint`
-  extra. Two more workflows:
-  `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`,
-  ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main`
-  and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build &
-  testing**). Why each gate exists: `docs/architecture.md` §6.3.
-- **Releases are IMMUTABLE once published** (the owner's setting, 2026-10-12): the tag cannot move,
-  and no file can be added to or replaced on a published release. `release.yml` creates each release
-  as a **draft** carrying every file, then publishes it; its re-run branch finishes a leftover draft
-  and **refuses** a release that is already published, because re-running cannot re-upload its files
-  (`tests/test_release_uploads_while_draft.py`). A broken published release is fixed by a new
-  version, never by editing it. **CodeQL default setup** runs for Actions, C/C++ and Python, and
-  **every action must be pinned to a full commit SHA** (the repository's Actions policy;
-  `tests/test_workflow_permissions.py::test_every_action_is_pinned_to_a_full_commit_sha`).
-- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag
-  (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag
-  as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes
-  don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing
-  `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a
-  GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`,
-  which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. **Handshake record:** the
-  release prints every open handshake round and goes ahead (protocol v8 §6b, from 2026-10-11) — see
-  `docs/cyanrip-handshake.md`. A partly-verified pin is still an unverified pin: `FORK_PIN` moves
-  only when a round closes. Before tagging (the reason for each step: `docs/architecture.md` §6.3):
-  - **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — the *single
-    source*; `pyproject.toml` reads it dynamically, so do **not** add a version there;
-  - **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading
-    with a matching compare link;
-  - **(3)** run **`pytest tests/test_no_stale_version_claims.py`** — the version-bump gate: it fails
-    until the CHANGELOG has a section *and* a compare link for the new version, the `[Unreleased]`
-    link points at it, and README/SECURITY name the new minor and carry its stamp;
-  - **(4)** restamp the docs the cycle touched: run `pytest tests/test_doc_version_stamps.py`; it
-    lists every Markdown doc changed since the last release tag whose
-    `*Last updated for Platterpus vX.Y.Z.*` footer must move to the new version (`docs/README.md` →
-    *Doc version stamps*);
-  - **(5)** **re-run the generators, AFTER the bump, not before**:
-    `python3 scripts/emit_script_language.py`, `python3 scripts/emit_dependency_contract.py` and
-    `python3 scripts/emit_bom.py` — all three embed `__version__`, so **hand-editing the footer does
-    not fix it**; `--check` modes exist on all three, and
-    `tests/test_dependency_contract_emitted.py` / `tests/test_script_language_emitted.py` /
-    `tests/test_bom_emitted.py` are the authority. `python3 scripts/emit_ripper_inventory.py` is
-    **not** version-stamped: run it when a handshake round ships a new provider contract, not when
-    the version moves;
-  - **(6)** **re-run `pip install -e .` before you believe a local suite run** —
-    `tests/test_app.py::test_installed_metadata_matches_canonical_version` reads the version
-    recorded at install time — and **read pytest's own exit code, not a pipeline's**.
-- **WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run.** A merge
-  creates a **new commit** (a merge commit, or formerly a squash), so CI starts again *on `main`* —
-  and `release.yml`'s CI gate reads **that** run, by head SHA. Check the CI run for the merge SHA is
-  `completed`/`success`, then dispatch. **The gate is right and must not be loosened.** (The
-  measured case: `docs/architecture.md` §6.3.)
-- **The gates that actually run at release time live in `release.yml`, not in the checklist above.**
-  Seven, in order: **(a)** the **handshake record**, which runs first so it heads the log, prints
-  every open round and refuses nothing (protocol v8 §6b, E1, E9, from 2026-10-11; until then it held
-  a stable-offered release while a round was open unless a released lap recorded a `§6b`
-  `HANDSHAKE-OVERRIDE`); then the CI gate above, which is what holds a release for its suite; then
-  the **branch gate**, which refuses a commit that is not on `main` (2026-10-27); **(b)** the
-  **changelog gate**: `[Unreleased]` empty **and** the tag's own `## [X.Y.Z]` section present and
-  non-empty; **(c)** the built-binary version check; **(d)** the **bundled-verifier check**; **(e)**
-  the **attestation check**. After the gates, `release.yml` makes an **annotated** tag on the
-  release commit and publishes with `gh release create --verify-tag` (2026-10-27; tags before
-  0.7.114 stay lightweight, KDD-37 D7). **When you change a gate, ask what it can be satisfied by.**
-  (`docs/architecture.md` §6.3.)
-- **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key
-  `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing***. The moment
-  `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so every release after
-  arming **must** carry a `.minisig`. **The maintainer decided on 2026-09-25 that it is never
-  armed** (KDD-37, D9), so do not propose arming it. What protects an update instead is the **build
-  attestation, checked fail-closed in the app** (`update_attestation.py`): `release.yml` must attest
-  and stage `platterpus-x86_64.AppImage.sigstore.json` **before** the release is published, or no
-  installed app can update to it (§6.2).
-- **Single record of changes:** every notable change is recorded in **`CHANGELOG.md`** (the one
-  authoritative update log; Keep-a-Changelog style). Add a bullet to its `[Unreleased]` section **in
-  the same commit** as the change. `PLANNING.md` (KDDs) and `docs/session-log.md` are for *design
-  decisions and session history*, not the user-facing change record.
+The full text of this section as it stood on 2026-11-16: `docs/architecture.md` §6.5; the reason for each step: §6.3.
+
+- **CI** (`.github/workflows/ci.yml`, every push to `main` and every PR). Merge only when every **required** check is green; read the live list from the default-branch ruleset (`gh api repos/rmccann-hub/Platterpus/rules/branches/main`), never from prose. `mutation.yml` (weekly, non-gating) and `appimage.yml` run beside it.
+- **Releases are IMMUTABLE once published**: a broken release is fixed by a new version, never by editing it.
+- **Releasing is automated** — never hand-build or upload. Dispatch the Release workflow (`release.yml`) with the tag as input; it creates the tag itself. Before dispatching:
+  - **(1)** bump `__version__` in **`src/platterpus/__init__.py`** — the *single source* (not `pyproject.toml`);
+  - **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a compare link;
+  - **(3)** run **`pytest tests/test_no_stale_version_claims.py`** (the version-bump gate);
+  - **(4)** restamp the docs the cycle touched: `pytest tests/test_doc_version_stamps.py` lists them;
+  - **(5)** **re-run the generators AFTER the bump**: `python3 scripts/emit_script_language.py`, `python3 scripts/emit_dependency_contract.py`, `python3 scripts/emit_bom.py` (each has `--check`); `scripts/emit_ripper_inventory.py` only when a round ships a new provider contract;
+  - **(6)** **re-run `pip install -e .` before believing a local suite run**, and read pytest's own exit code, not a pipeline's.
+- **WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run.** The release's CI gate reads the merge commit's run; do not loosen it. The gates that run at release time live in `release.yml`.
+- **Update signing is never armed** (KDD-37 D9); the build attestation, checked fail-closed in the app, protects updates, so `release.yml` must attest before it publishes (`docs/architecture.md` §6.2).
+- **Single record of changes:** `CHANGELOG.md` (Keep-a-Changelog); a bullet in `[Unreleased]` **in the same commit** as the change.
 
 ### Commit & PR hygiene
 
-The general GitHub mechanics + etiquette live in
-**[`docs/github-workflow-sop.md`](docs/github-workflow-sop.md)** (identity/SSH, fork+PR, atomic
-commits, the seven commit-message rules, PR anatomy, merge strategies, conflict resolution) — read
-it for *upstream* contributions especially. **This section is the authority for *this* repo and wins
-wherever the generic SOP differs.** What we actually do:
+This section wins wherever the generic SOP differs; the full text as it stood on 2026-11-16 is `docs/github-workflow-sop.md` §0.
 
-- **Atomic commits.** One logical change per commit — don't mix a fix with an unrelated refactor.
-  Small, test-green units keep review, `git bisect`, and `git revert` surgical.
-- **Conventional-commit subject:** `type(scope): imperative summary` — **lowercase** after the
-  colon, no trailing period, concise (aim short, but the `type(scope):` prefix + a release subject
-  legitimately run past 50 chars — clarity over a hard cap). Types in use: `feat`, `fix`, `docs`,
-  `test`, `refactor`, `style`, `chore`, `release`, and `ci` and `build`, which the `commit-subjects`
-  job also accepts. Blank line, then a body wrapped ~72 cols that explains **what and why, not how**
-  (the diff shows how).
-- **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the
-  `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
-- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for
-  a pure historical-record commit. **The exemption is strictly that** (maintainer ruling,
-  2026-07-21): contributor/CI-facing changes — type annotations, CI config, dev tooling, refactors —
-  are **not** exempt and get a bullet like any other change; "pure historical record" means the
-  commit changes nothing but the record itself (e.g. a session-log catch-up). CI backstops this.
-- **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`.
-  Prefer `git switch` over `git checkout` for branch ops. **GitHub deletes a merged head branch
-  automatically** (the repository setting, on since 2026-09-30), so after a merge the session branch
-  is gone from the remote: start the next change with `git switch -C <branch> origin/main`, and the
-  push recreates it.
-- **Every PR merges into `main` with a merge commit, never a squash** (session branches since
-  2026-09-26, on the maintainer's instruction that every branch be deletable without consequence;
-  every PR since 2026-10-12, when the owner turned squash and rebase merging off).
-  `git log --first-parent main` still shows one node per complete, deployable change. The reason is
-  the citations: our laps, TASKS and session log cite session-branch SHAs, and the fork's laps cite
-  them too. A squash puts one new commit on `main` and none of the branch's, so each citation lasted
-  only as long as its branch. **47 had already been stranded**, held only by GitHub's
-  `refs/pull/N/head`, which a plain clone does not fetch. They were brought back with
-  `git merge -s ours` (history in, tree unchanged). `tests/test_cited_commits_are_reachable.py`
-  turns `main` red if a squash strands one again, and its message names the repair. **Every pull
-  request merges with a merge commit, Dependabot's included: squash and rebase merging are off in
-  the repository settings** (the owner's decision, 2026-10-12). The `changelog` job's Dependabot
-  exemption therefore keys on the pull request's author or its `dependabot/*` branch, and on a push
-  to `main` on the commits the push brings in (every non-merge commit Dependabot's), never on the
-  head commit's author, which a merge commit makes whoever merged
-  (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all twelve gating
-  jobs**: the `pytest` 3.12–3.14 matrix (coverage floor on 3.14), **`ui-conformance`** (since
-  2026-11-02), `ruff` lint/format, `mypy`
-  typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**,
-  **`lock-check`** and **`lock-install`** (both required since 2026-10-28), and
-  **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the
-  same file said so under *CI / release* two sections above, so this was one document disagreeing
-  with itself). Don't open a PR unless asked.
-- **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use
-  **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix
-  style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no
-  force-push, no branch delete, no tag push**; releases go via the `release.yml`
-  `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply
-  — the session branch is assigned; **(5) `main` and the `v*` tags are protected by repository
-  rulesets** (the owner's decision, **2026-10-12**, replacing the decline of 2026-09-11, whose
-  premise no longer holds: this repository is public, and on GitHub Free a public repository gets
-  rulesets at no cost). A **default-branch ruleset** blocks deletion and force pushes and requires a
-  pull request with **no approvals**, with these required status checks: `lint`, `typecheck`,
-  `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, `test (py3.11)` to
-  `test (py3.14)` (`test (py3.11)` left with the 3.11 leg, KDD-46), and, since 2026-10-28, `lock-check` and `lock-install` (14 in all, read from
-  `GET /repos/rmccann-hub/Platterpus/rules/branches/main` that day), and since 2026-11-02
-  `ui-conformance` (15 in all, read from the same endpoint at 22:48 UTC that day); read the live
-  list rather than this one. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
-  (2026-10-14, HR-2 point 3), blocks its deletion and force pushes. What every session must keep
-  true under them: every change lands through a pull request (it already does); nothing pushes to
-  `main`, moves or deletes a `v*` tag, or force-pushes; **merge commits are the only merge method**
-  (squash and rebase are off, 2026-10-12), so the ruleset must not require linear history, which
-  would forbid the one method left; and the tag ruleset may block updates and deletions but **not
-  creation**, because `release.yml` creates each tag as `github-actions[bot]`: since 2026-10-27 it
-  pushes an annotated tag right before it publishes the draft (`--verify-tag`), where before it let
-  GitHub create a lightweight one on publish. A Dependabot pull request that changes a dependency
-  fails `test` **by design** (the generated `bom.cdx.json` goes stale, and `ruff`/`mypy` are pinned
-  by rule #11): carry the bump on a session branch with the regenerated files and a CHANGELOG
-  bullet, then close Dependabot's. The full check of what the rulesets touch: `PLANNING.md` KDD-43.
-  Read their live state from `gh api repos/rmccann-hub/Platterpus/rulesets`, not from this sentence.
-  (6) **merge commits, not the SOP's favoured squash** (see the bullet above): a squash strands
-  every commit a lap cites once its branch is deleted.
+- **Atomic commits**: one logical change per commit, each test-green.
+- **Subject:** `type(scope): imperative summary`, **lowercase** after the colon, no trailing period, no hard length cap. Types: `feat`, `fix`, `docs`, `test`, `refactor`, `style`, `chore`, `release`, `ci`, `build` (`scripts/check_commit_subjects.py`). Body wrapped ~72 cols: **what and why, not how**.
+- **Required trailers** on every commit: the `Co-Authored-By:` line and the `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
+- **Changelog in the same commit** (rule #7); the `[skip changelog]` exemption is strictly for a commit that changes nothing but the record itself — type annotations, CI config, dev tooling and refactors are **not** exempt.
+- **Branch:** commit only to the session's `claude/…` branch; never push to `main`. GitHub deletes a merged head branch, so start the next change with `git switch -C <branch> origin/main`.
+- **Every PR merges with a merge commit, never a squash** (squash and rebase are off): laps cite branch SHAs, and `tests/test_cited_commits_are_reachable.py` turns `main` red if one is stranded. A Dependabot bump is carried on a session branch with the regenerated files, and Dependabot's PR closed. Don't open a PR unless asked.
+- **The agent git proxy is fast-forward-only**: no force-push, no branch delete, no tag push. `main`, `v*` tags and `evidence` are protected by repository rulesets (`PLANNING.md` KDD-43; read their live state from `gh api repos/rmccann-hub/Platterpus/rulesets`).
 
 ### Run commands
 
-- **Quickstart from a fresh clone:** `bash dev-setup.sh` then
-  `source .venv/bin/activate && platterpus`
-- **Manual:**
-  `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && platterpus`
-- **From the AppImage (once published):** `./platterpus-x86_64.AppImage`
-- **From a `pipx` install (once published):** `platterpus`
-- **CLI flags on the AppImage:** there is **no `platterpus` on `PATH`** for AppImage users (only
-  `pipx`/dev installs put one there). The AppImage entrypoint
-  (`build/python-appimage/entrypoint.sh`) ends with `exec "$PYTHON_BIN" -m platterpus "$@"` (the
-  bundled interpreter), so every flag below works by passing it to the AppImage directly, e.g.
-  `./platterpus-x86_64.AppImage --doctor` or
-  `./platterpus-x86_64.AppImage --ctdb-calibrate "<album folder>"`. (User-facing version in README →
-  *Command-line usage*.)
-- **Version check without launching the GUI:** `platterpus --version` (or
-  `./platterpus-x86_64.AppImage --version`)
-- **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no
-  extra flags: it runs the full check and exits). For the tunable form use
-  `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability
-  checks). It exits non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses
-  the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it.
-  (cyanrip is the sole backend — KDD-18 — so there is no backend-override flag.)
+- **Quickstart:** `bash dev-setup.sh` then `source .venv/bin/activate && platterpus`; manual: `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && platterpus`
+- **AppImage:** `./platterpus-x86_64.AppImage` — there is **no `platterpus` on `PATH`** for AppImage users, so pass every flag to the AppImage itself (e.g. `./platterpus-x86_64.AppImage --doctor`)
+- **Version:** `platterpus --version`. **Preflight:** `platterpus --doctor`, or `python scripts/preflight.py --no-network` (logic in `src/platterpus/preflight.py`; non-zero on a hard blocker)
 
 ### Test commands
 
-- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** One command for every gate CI
-  runs (`lint`, `format`, `types`, `tests` + the coverage floor), reporting each one's **real** exit
-  code in a final table, with complete output in `.check-logs/`. `--only lint types` for a subset,
-  `--no-coverage` for a faster suite run. A `pytest … | tail` reports *tail's* status, so never read
-  a verdict through a pipe; if you do pipe something, read the status with `${PIPESTATUS[0]}` or
-  `set -o pipefail`. (What it refuses, and why it exists: `docs/testing.md` §7.)
-- `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
-- **What CI enforces:** every test on a **Python 3.12–3.14 matrix**, each leg in parallel
-  (`pytest -n auto`, pytest-xdist), and branch coverage with a hard floor —
-  `--cov=platterpus --cov-report=term-missing --cov-fail-under=93` — **on the 3.14 leg**
-  (maintainer, 2026-09-26: 3.14's `sys.monitoring` tracer is the fast one, and 3.11–3.13 paid most
-  of their time for coverage; 3.11 left the matrix on 2026-11-02, KDD-46). The gate **ratchets up, never down** (91 until 2026-10-27, raised to
-  the measured 93.28%). Each leg also fails if it collected fewer tests than
-  `tests/collected-tests-baseline.txt`, which is raised in the change that adds tests. A bare local
-  `pytest` stays serial; `scripts/check.py` passes `-n auto` like CI.
-- Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py`
-  (needs `hypothesis`, in the `dev` extra).
-- **Prove a test isn't vacuous:** `python3 scripts/revert_probe.py <spec.json>` — applies a revert,
-  runs the named tests, restores, and reports `detected` / `VACUOUS` / `REFUSED` / `NO EVIDENCE`.
-  Use it instead of hand-reverting: it proves the edit *landed* (anchor unique + file hash changed)
-  and distinguishes a collection error from a real failure, which hand-checks have got wrong four
-  recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the
-  reverted line. Spec format is in the script's docstring; exits non-zero unless every revert
-  behaved as expected.
-- **Judge a commit's checks (the `steward` skill, DRAFT, `.claude/skills/steward/SKILL.md`):**
-  `python3 scripts/pr_steward.py --pr <N>` or `--sha <merge sha> [--logs]` — `GREEN` / `FAILED` /
-  `PENDING` / `BLOCKED` / `CANCELLED` (exit 0 / 1 / 2 / 3 / 4; 5 when the API cannot be read),
-  from the ruleset's required checks and the commit's runs, never a count copied into a loop.
-  After every merge, judge `main`'s merge commit, `appimage.yml` included.
-- **Compute a handshake round digest:**
-  `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` — the
-  `HANDSHAKE-ROUND-DIGEST` field, by **the cyanrip fork's method** (adopted round 15 lap 4), over
-  **both directions**; `tests/test_round_digest.py` pins their published values. It refuses an
-  `--exclude` that matches **nothing** *or* **more than one** file. (`docs/testing.md` §7.)
-- Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` —
-  non-blocking, never gates a merge) with **`scripts/mutation_sweep.py`, ours**, one matrix leg per
-  trust-bearing module, each with its own measured `--min-checked` floor. The workflow's matrix is
-  the authority for the list and the floors;
-  `tests/test_mutation_audit_can_report_its_own_absence.py` holds the required modules as a ratchet
-  and pins the command below to a real leg. Run one leg locally the way CI does, e.g.
-  `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`.
-  (`docs/testing.md` §7.)
-- **Testing strategy + the rules every change is held to live in
-  [`docs/testing.md`](docs/testing.md)** (the trophy + hardware gate, the five-tier case taxonomy,
-  and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the
-  same PR as the fix; every new parser of external output gets a property-based "never raises"
-  test.**
+- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** Every gate CI runs (`lint`, `format`, `types`, `tests` + coverage floor), each one's **real** exit code, full output in `.check-logs/`; `--only lint types`, `--no-coverage`. Never read a verdict through a pipe; use `${PIPESTATUS[0]}` or `set -o pipefail` (`docs/testing.md` §7).
+- `pytest` from repo root (`pyproject.toml` sets `pythonpath = ["src"]`). CI runs 3.12–3.14 with `-n auto`, the coverage floor (`--cov-fail-under=93`, ratchets up, never down) on 3.14, and a collected-tests floor (`tests/collected-tests-baseline.txt`, raised in the change that adds tests).
+- Property-based tests: `pytest tests/test_parsers_property.py`.
+- **Prove a test isn't vacuous:** `python3 scripts/revert_probe.py <spec.json>` (`detected` / `VACUOUS` / `REFUSED` / `NO EVIDENCE`; spec format in its docstring).
+- **Judge a commit's checks:** `python3 scripts/pr_steward.py --pr <N>` or `--sha <merge sha> [--logs]` (the `steward` skill); after every merge, judge `main`'s merge commit.
+- **Round digest:** `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` (the fork's method; `tests/test_round_digest.py`).
+- **Mutation testing** (weekly, non-gating, `scripts/mutation_sweep.py`, ours): e.g. `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`. The workflow's matrix is the authority for the list and floors.
+- **Every shipped bug gets a regression test in the same PR; every new parser of external output gets a property-based "never raises" test** (`docs/testing.md`).
 
-### Uninstall
+### Lint / format / uninstall
 
+- **Lint:** `ruff check src tests scripts build` (`--fix` to auto-fix). **Format:** `ruff format src tests scripts build`. **Type-check:** `mypy` (bare; config in `pyproject.toml`). All in the `dev` extra (`pip install -e ".[dev]"`).
 - `bash uninstall.sh` (interactive; removes `.venv/`, GUI config, GUI logs; prompts for Picard /
   Distrobox / whipper.conf / host exports)
 - `bash uninstall.sh --full --yes` (removes everything except music files and the cloned repo)
 - `bash uninstall.sh --dry-run` (shows what would be removed)
 - `bash uninstall.sh --help`
 
-### Lint / format commands
-
-- **Lint:** `ruff check src tests scripts build` (config in `pyproject.toml` `[tool.ruff]`; rules
-  `E,F,W,I,B,UP`, a few `N` rules, `S`, `DTZ`, `BLE001` and `RUF100` (the list is `select` there),
-  `E501` off). Auto-fix: `ruff check src tests scripts build --fix`.
-- **Format:** `ruff format src tests scripts build` (88-col, double quotes — matches the existing
-  code). CI checks with `ruff format --check`.
-- **Type-check:** `mypy` (bare invocation; config in `pyproject.toml` `[tool.mypy]`, strict
-  def-typing across the whole package, plus `scripts/`, `build/*.py` and `.claude/hooks`). CI runs
-  it as the gating `typecheck` job.
-- **CI:** the `lint` job in `.github/workflows/ci.yml` runs both ruff commands in check mode on
-  every push/PR, in parallel with `test` and `typecheck`.
-- `ruff` and `mypy` are in the `dev` extra (`pip install -e ".[dev]"`).
-
 ### Enforced safety (.claude/ + git hook)
 
-Beyond the *guidance* in the Critical rules above, a few things are **enforced** (not only trusted):
+The full text: `docs/architecture.md` §6.5.
 
-- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file
-  (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore`
-  backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does
-  this**, and in a Claude Code session on the web the SessionStart hook
-  `.claude/hooks/session-start.sh` does, because a fresh cloud clone never runs `dev-setup.sh`;
-  tested by `tests/test_session_start_hook.py`). There is no bypass for audio: a test that needs
-  real PCM generates it at test time (or reads it from outside the repo), and
-  `git commit --no-verify` does not get past CI, whose required `media-guard` refuses the same file
-  on push.
-- **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands
-  (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`),
-  plus a `PreToolUse` hook, **`.claude/hooks/audio_guard.py`**, the Claude-session belt for the same
-  rule (the git hook is the canonical guard). It reads the command it is judging: it blocks a commit
-  or push while audio is staged and a command that itself stages audio, always allows
-  `git restore --staged`/`reset`/`rm`, and **fails closed** (a commit or push is refused when it
-  cannot read the staged list; everything else is allowed). Tested by
-  `tests/test_audio_guard_hook.py`, every case also under a failing `git diff`. Deliberately does
-  **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal
-  overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm
-  what loaded.
-
-- **The `evidence` branch stays out of every fetch (HR-2 §7, `docs/cyanrip-handshake.md` §7.4b).**
-  Run evidence lives on an orphan `evidence` branch, hundreds of MB that no build reads. The
-  SessionStart hook adds a negative refspec to each remote; where hooks do not run, run it yourself
-  once per remote (git 2.29 or later):
-  `git config --add remote.origin.fetch '^refs/heads/evidence'`. A tool that needs an evidence file
-  fetches its commit by hash into a temporary bare repository (`scripts/laplang/evidence.py`), never
-  into the working clone, because a `--depth` fetch makes a full clone shallow. A test reads
-  evidence only through a fixture (`tests/evidence_paths.py`);
-  `tests/test_no_new_evidence_readers.py` refuses a new reader.
+- **`.githooks/pre-commit`** blocks a commit staging audio (rule #8); activate with `git config core.hooksPath .githooks` (`dev-setup.sh` and the SessionStart hook do this). `media-guard` in CI refuses the same file.
+- **`.claude/settings.json`** denies destructive commands and secret reads, and **`.claude/hooks/audio_guard.py`** blocks a commit or push while audio is staged, failing closed.
+- **The `evidence` branch stays out of every fetch**: where hooks do not run, `git config --add remote.origin.fetch '^refs/heads/evidence'`. A test reads evidence only through `tests/evidence_paths.py`.
 
 ### Artifact filenames that cross machines
 
-**ASCII letters and digits only. No hyphens, no underscores, no spaces.
-Numbers zero-padded.** Case is the one deliberate exception, and it serves the
-rule's own purpose: the hazard was never capitals, it was *two conventions*, so
-ours matches the fork's spelling (`round16lap01FROMcyanripTOplatterpus.md` ↔
-`round16lap03FROMplatterpusTOcyanrip.md`). `round08joint.txt`, `round08lap07.md`.
-
-**Scope: artifacts a PERSON handles by hand** — rig scripts, the transport
-envelope, anything named in a command an operator will type or paste, anything
-that leaves this repo and comes back through a chat client or a file manager.
-**NOT the committed handshake laps** (`round-14-lap-18.md`, generated by
-`handshake.py::handshake_filename()` and held to that shape by `_LAP_NAME`);
-`tests/test_handshake_file_naming.py` enforces both shapes separately.
-
-**The rule is a convention; `uiscript/find_script.py` is the guarantee.**
-`--run-script` resolves a path by comparing names with separators and case
-removed, and refuses rather than guesses when two files match. Legislate the name
-*and* stop depending on it. Why this spelling, and the rig run that was lost to
-it (2026-08-13): `docs/cyanrip-handshake.md` §7.7l.
+**ASCII letters and digits only. No hyphens, no underscores, no spaces. Numbers zero-padded**, for artifacts a PERSON handles by hand (rig scripts, anything typed or pasted, anything that comes back through a chat client); case matches the fork's spelling (`round16lap01FROMcyanripTOplatterpus.md`). **NOT** the committed handshake laps (`round-14-lap-18.md`). `uiscript/find_script.py` is the guarantee; the full convention is `docs/cyanrip-handshake.md` §7.7l.
 
 ### Important paths
 
@@ -642,34 +300,11 @@ it (2026-08-13): `docs/cyanrip-handshake.md` §7.7l.
   programs, the ripper fork and its container, services, CI): `bom.cdx.json` (CycloneDX 1.7,
   machine-readable) and its generated block in `DEPENDENCIES.md` → *The full map*. Both are
   generated by `python3 scripts/emit_bom.py` (`--check` to verify); never hand-edit either
-
-### Getting help (Claude Code / Anthropic)
-
-For problems with the **AI tooling itself** — Claude Code, the Claude model, or the Anthropic API.
-(This is *not* Platterpus end-user support; app questions route to the project maintainer, not
-Anthropic.)
-
-- **Fastest:** the support messenger at [support.anthropic.com](https://support.anthropic.com/en/) —
-  message icon, bottom-right. Or, when signed in, **[Claude.ai](https://claude.ai)** /
-  **[Console](https://console.anthropic.com)** → your initials → **"Get help."** (Signed-in routes
-  faster — they see the account.)
-- **API / developer issues:** [support.claude.com](https://support.claude.com).
-- **Topic-specific email:** safety / harmful content → `usersafety@anthropic.com`; security
-  vulnerability → `security@anthropic.com`; privacy / data request → `privacy@anthropic.com`.
-- **Claude via Amazon Bedrock or Google Vertex:** contact AWS / Google support, not Anthropic
-  directly.
-- Reference: [How can I contact
-  Support?](https://support.anthropic.com/en/articles/9015913-how-can-i-contact-support)
+- Help with the AI tooling itself (not Platterpus support): `docs/architecture.md` §6.5 → *Getting help (Claude Code / Anthropic)*
 
 ### Session history
 
-Chronological session notes — what was built, decided, and learned each session — live in
-**[`docs/session-log.md`](docs/session-log.md)** (newest first). They're kept out of this file so
-the always-loaded project context stays lean and scannable.
-
-**Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* /
-*Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not
-left only in the dated log. The log is append-only chronology; the rules are the distillation.
+The full text of every *Project operations* subsection trimmed here: `docs/architecture.md` §6.5. Chronological session notes live in **[`docs/session-log.md`](docs/session-log.md)** (newest first); a durable lesson graduates to its real home (rule #7).
 
 ---
 

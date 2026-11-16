@@ -11,7 +11,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Content | Canonical home |
 |---|---|
 | Locked coding conventions & critical rules | `CLAUDE.md` → *Code conventions* / *Critical rules* |
-| How the maintainer works / project values | `CLAUDE.md` → *Working with the maintainer* |
+| How the maintainer works / project values | `CLAUDE.md` → *Working with the maintainer* (one line each; the full text is `PLANNING.md` §9) |
 | CI / release & build operations | `CLAUDE.md` → *Project operations* |
 | Commit & PR conventions (this repo) | `CLAUDE.md` → *Project operations → Commit & PR hygiene* (general mechanics: `docs/github-workflow-sop.md`) |
 | Architectural decisions + rationale (KDD-NN) | `PLANNING.md` |
@@ -114,6 +114,53 @@ If you needed to start over with a fresh git repository:
 3. **(Optional but recommended after 6+ months) Re-run Research validation:** follow `platterpus-session-start.md` **Step 0**, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
 4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `platterpus-session-start.md`. The session reproduces PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begins executing the task list.
 5. **Subsequent sessions** follow CLAUDE.md as the primary instruction document, using TASKS.md to track what's next.
+
+
+## `CLAUDE.md`'s companion list, in full (moved 2026-11-16)
+
+`CLAUDE.md` keeps one short line per companion document; the longer list it carried until the R32 trim is here, beside the index it points at.
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Companion documents), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+Read these alongside this file when picking up a session. **`docs/README.md` is
+the canonical annotated index** — one line each here (so this list can't drift
+from it again; it did once, KDD-range v23 vs v25):
+
+- **`PLANNING.md`** — architecture, module map, and the numbered KDD decision log
+- **`TASKS.md`** — the active task checklist; update status (`[ ]` → `[~]` → `[x]`) in the same commit as the work
+- **`DEPENDENCIES.md`** — dep pins, review cadence, retirement log
+- **`README.md`** — outward-facing description + install instructions
+- **`SECURITY.md`** — security policy (supported versions, vulnerability reporting)
+- **`docs/README.md`** — the complete annotated index of docs/, the single-source-of-truth map, and the rebuild checklist
+- **`docs/architecture.md`** — the contributor guide: patterns with their *why*, extension recipes. **Start here to extend the program.**
+- **`docs/testing.md`** — testing strategy, institutional rules, and the Definition of Done (rule #7's checklist)
+- **`docs/TEST-VERIFICATION-CHECKLIST.md`** — the self-audit to run *before* claiming a task done (Tier 2); its Final Report's `DID NOT RUN` / `KNOWN GAPS` / `RISKS` sections may not be empty
+- **`docs/test-plan.md`** — manual & release testing (acceptance run, EAC parity, gated hardware cases)
+- **`docs/dependency-contracts.md`** — exact args/flags per external tool + parsed output shapes
+- **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements/scope *as amended by the KDDs*
+- **`docs/ux-design-principles.md`** — the trust-first UX principles + the canonical gap backlog
+- **`docs/session-log.md`** — per-session chronology (newest first); lessons graduate out of it (rule #7)
+- **`docs/cyanrip-handshake.md`** — the **binding, bidirectional** release handshake with the cyanrip fork: two files per round, both directions, and **no pin approved until both have verified the other's** (from protocol v8 a release no longer waits on a round)
+- **`docs/cyanrip-consumer-contract.md`** — **generated, do not hand-edit.** Our half of the cyanrip dependency contract: every log line we parse, every line we knowingly ignore with its recorded reason, and every flag we pass — all read out of the parser's enumeration tables and a real call to the argv builder by `scripts/emit_dependency_contract.py`. The fork supplies the mirroring **provider** contract; two halves, one seam. A description *derived from* the behaviour cannot describe behaviour we do not have, which is exactly how we once told the fork a line was stdout-only when it was not
+- **`docs/cyanrip-fork.md`** — the cyanrip fork in one place: why we fork it and how the fork is kept sane (Part A the engine-strategy research, Part B the executable soft-fork runbook), what we want from cyanrip (Part C, the ranked ask list) and how it reaches upstream (Part D, the PR roadmap; the `scripts/cyanrip/` kit executes it), and Part E the closed record of the known issues handed to the fork
+- **`docs/eac-parity.md`** — the single home for EAC parity: what deviates, the log formats field by field, tracker acceptance, and what the real logcheckers deduct for
+- **`docs/archive/`** — retired dated investigations + external reference; graduation map in its README
+
+Everything else under `docs/` (the seam rules + command table, the shared
+handshake protocol, the shared ownership split, the rig-session sheet and the
+rig-scripts folder, the CTDB CRC spec with its manual-repair how-to, the GitHub
+SOP, the generated script-language reference, the session-start procedure, and the evidence
+manifest `docs/evidence-manifest.tsv`) is indexed with one-line
+descriptions in `docs/README.md`. Dated investigations live in `docs/archive/` —
+including the multi-format design-of-record, archived once it shipped. **AppImage
+build/testing and the release-signing ritual are no longer separate files**: they
+are `docs/architecture.md` §6.1 and §6.2 (consolidated 2026-08-06 under Critical
+rule #7's fourth obligation), and the former `error-reporting.md` likewise became
+`docs/architecture.md` §3.7a beside the error-handling rules it restated.
+
+If `PLANNING.md` and the brief conflict, the brief **as amended by the maintainer-approved KDDs** wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
+
+There is no `compass_artifact_*.md` in the repo; the original v1 research validation was unavailable when the project was bootstrapped, so the project proceeded against the brief alone. To refresh tool-choice research, follow `docs/platterpus-session-start.md` Step 0.
 
 ---
 
