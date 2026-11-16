@@ -9,6 +9,7 @@ Full run's export has and file it.
 from __future__ import annotations
 
 import csv
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -304,7 +305,13 @@ def test_chase_records_and_repeat_rips_have_filed_names() -> None:
         Path(__file__).resolve().parents[1]
         / "src/platterpus/rig_scripts/fullacceptance.txt"
     ).read_text(encoding="utf-8")
-    assert "album round 39 repeat rip 5 (run) (ripper)" in script
+    # The script names the five without a round number (2026-11-14), and no
+    # line of it names a round in a rip's album title.
+    assert "album repeat rip 5 (run) (ripper)" in script
+    assert not re.search(r"^album round \d+", script, re.M)
+    folder = "album/repeat rip 5 20261115t000000 platterpus-fork-gedb73dd"
+    assert staged_name(f"{folder}/x CD4.platterpus.json") == "repeatrip5report.json"
+    # The name 0.7.123 to 0.7.125 wrote, as filed at `ac0a5133` and `7faf1b9f`.
     folder = "album/round 39 repeat rip 5 20261112t000000 platterpus-fork-ge531a33"
     assert staged_name(f"{folder}/x CD4.platterpus.json") == "repeatrip5report.json"
     # 0.7.122's folder name, as filed at `ac0a5133`, still files as it was filed.
