@@ -2570,7 +2570,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
     # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
     # **384 -> 388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the status label, which quotes a step's own words, states PlainText, with the comment saying why.
-    "ui/host_setup_dialog.py": 388,
+    # **388 -> 546** (2026-11-17, UX review of 0.7.127), F3: a failed step leads with a plain sentence and an action (the mapping itself is its own pure module, `deps/setup_failure_text.py`), keeps the step's raw words in a details line, offers **Open log**, shows elapsed time beside the bar while setup runs (`format_elapsed`), and gives one time estimate in the README's words. What stayed here is what only the dialog can hold: the widgets, the timer and the rendering.
+    "ui/host_setup_dialog.py": 546,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the

@@ -19,6 +19,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Our status block records 0.7.127 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.127 at `69483cf`, published 2026-11-17T00:20:57Z.
 - **Four lessons of round 41 are kept where they are read** (contributor-facing): the steward skill says to read `pr_steward.py`'s verdict from its first line or exit code; `docs/testing.md` says to set the collected-test floor to CI's count; `docs/cyanrip-handshake.md` §7.5c says to re-read a held lap before announcing it; and the session log records the session.
 
+### Fixed
+
+- **A failed setup says what happened and what to do, and has an Open log button** (user-facing; UX review of 0.7.127, F3). The setup window led with the step's raw text, e.g. *Setup stopped at "Distrobox": command not found: pkexec ([Errno 2] …)*, and the log path as plain text. Each known cause (no `pkexec`, the password prompt refused or cancelled, Distrobox or Podman missing, no network, a timeout, a failed build) now leads with a plain sentence and an action naming the retry button; anything else gets a generic sentence. The step's own words stay on screen in a details line below, and **Open log** hands the log to the desktop. The mapping is `deps/setup_failure_text.py`, a pure function with a hypothesis "never raises" test. The intro no longer says setup is "usually instant" on Bazzite: it says what the README says, *it takes a few minutes: it creates the container and builds the ripper*, and the window shows the elapsed time beside the progress bar while it runs.
+
 ## [0.7.127] — 2026-11-17
 
 ### Changed
