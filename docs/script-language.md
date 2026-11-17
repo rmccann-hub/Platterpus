@@ -206,6 +206,7 @@ than the UI it stands in for.
 | `notify_on_completion` | boolean (on/off) |
 | `drive_setup_prompted` | boolean (on/off) |
 | `host_setup_prompted` | boolean (on/off) |
+| `host_setup_declined` | boolean (on/off) |
 | `appimage_integration_prompted` | boolean (on/off) |
 | `integration_declined_path` | text |
 | `integration_declined_version` | text |
@@ -1141,6 +1142,10 @@ found nothing wrong*.
     },
     {
       "field": "host_setup_prompted",
+      "type": "boolean (on/off)"
+    },
+    {
+      "field": "host_setup_declined",
       "type": "boolean (on/off)"
     },
     {

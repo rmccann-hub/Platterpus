@@ -343,7 +343,11 @@ def _stub_window(config: object) -> Any:
     # this file's own docstring is about. `MainWindowShared` is `object` at
     # runtime, so this adds no Qt base beyond QWidget.
     class _StubWindow(QWidget, UpdateMixin):
-        pass
+        # ProvisioningMixin's answer to "is a ripper on this computer?", which
+        # the automatic offer asks before it shows anything (UX review of
+        # 0.7.127, F2). These tests are about a machine that has one.
+        def _host_stack_ready(self) -> bool:
+            return True
 
     win = _StubWindow()
     win._config = config

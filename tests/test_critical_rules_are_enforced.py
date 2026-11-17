@@ -1382,7 +1382,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **851 -> 860** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` setting and its reason.
     # **860 -> 871** (2026-10-20, the owner's word "yes, read twice by default"): the `second_read_without_accuraterip` setting, with the owner's word that set its default.
     # **871 -> 883** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb_repair_after_rip`, the automatic CTDB repair's switch, with its comment.
-    "config.py": 883,
+    # **883 -> 891** (2026-11-17, follow-up to UX review F1: No holds on later launches): `host_setup_declined`, the saved No, with its comment.
+    "config.py": 891,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -1701,7 +1702,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **810 -> 868** (2026-10-06): `_build_under_review_note`, so an up-to-date answer on one channel names the build an open round reviews on the other, and the in-app route to it.
     # **868 -> 929** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): `_dirty_build_offer`, decided before any prefix comparison, so a `-dirty` build is offered the clean build instead of being told it is current; it belongs beside the other offers it pre-empts.
     # **929 -> 937** (2026-11-16, round 41): a manifest row for the commit already installed is current, whatever its number (`edb73dd` republished as release 44 on stable while our map says 43), so a rig is never offered its own build again; beside the `newer_than` call it corrects.
-    "deps/ripper_offer.py": 937,
+    # **937 -> 977** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): `install_question`, the offer's one plain question with the record kept for Show Details, and the expected-build sentence says which app version the approving round tested with.
+    "deps/ripper_offer.py": 977,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
@@ -2469,7 +2471,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1208 -> 1209** (2026-10-20, the owner's word "yes, read twice by default"): the new boolean setting in the validated list.
     # **1209 -> 1223** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **1223 -> 1224** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair switch in `_BOOL_FIELDS`.
-    "settings_validation.py": 1224,
+    # **1224 -> 1225** (2026-11-17, follow-up to UX review F1: No holds on later launches): `host_setup_declined` in `_BOOL_FIELDS`.
+    "settings_validation.py": 1225,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     # **600 -> 601** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     "sleep_inhibit.py": 601,
@@ -2583,7 +2586,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
     # **384 -> 388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the status label, which quotes a step's own words, states PlainText, with the comment saying why.
     # **388 -> 546** (2026-11-17, UX review of 0.7.127), F3: a failed step leads with a plain sentence and an action (the mapping itself is its own pure module, `deps/setup_failure_text.py`), keeps the step's raw words in a details line, offers **Open log**, shows elapsed time beside the bar while setup runs (`format_elapsed`), and gives one time estimate in the README's words. What stayed here is what only the dialog can hold: the widgets, the timer and the rendering.
-    "ui/host_setup_dialog.py": 546,
+    # **388 -> 393** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the step log is hidden until a step reports, so the wizard does not open on an empty box.
+    # **merged 551** (2026-11-17): both UX-review branches grew this file; the count is the merged file's `wc -l`.
+    "ui/host_setup_dialog.py": 551,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -2671,7 +2676,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **965 -> 969** (2026-10-27, external review item 3.4): the status-bar clock is made explicitly local, with why it is local (ruff DTZ005).
     # **969 -> 1058** (2026-11-03, TASKS R96, the launch dependency report): the launch-only marker (`_dep_check_is_launch`, set by `app.main` alone, because About's Check again and the re-check after host setup are silent too), the check generation that lets a newer check drop a held report, and the hold itself: the launch report also waits while another window of ours is in use, and a report of a missing REQUIRED tool is never given up on the 30 s clock. It lives in the deferral it extends, beside the reasons each wait exists.
     # **1058 -> 1084** (2026-11-17, UX review of 0.7.127), W2: the launch summary counts in words ("2 installed, 1 needs attention") and lists the Python packages that ship inside Platterpus under their own "Bundled components" line.
-    "ui/main_window_deps.py": 1084,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **1184 -> 1225** (2026-11-17, follow-up to UX review F1: No holds on later launches): `_setup_is_the_users_call` also covers the launch check after a saved No and before the first-run question is asked; `_setup_tools_found` clears the saved No when a complete check finds the tools.
+    # **merged 1251** (2026-11-17): both UX-review branches grew this file; the count is the merged file's `wc -l`.
+    "ui/main_window_deps.py": 1251,  # **1058 -> 1184** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): a silent report the first-run answer covers sets its setup-wizard tools aside and shows the in-window notice instead of the wizard; the notice is hidden once a complete check finds them; and a wizard closed without running is summarised as "Not installed yet", not as an install failure.  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2759,7 +2766,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1910 -> 1930** (2026-11-03, TASKS R96): the first-run offers wait for the main window through `hold_until_free`, the unattended check asked again where they open; the offers themselves moved into `_make_first_run_offers` beside the gate that schedules them.
     # **1930 -> 1935** (2026-11-03, review B8): the closing message names the `ripbundles` folder (each rip's own bundle, for its Send button) and says the one file carries the same.
     # **1935 -> 1936** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Setup & Updates is handed `_selected_drive_offset` as its offset reader.
-    "ui/main_window_provision.py": 1936,
+    # **1936 -> 1978** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the question is titled apart from the wizard, records its answer for the held launch report and, after No, shows the in-window notice; a finished setup run is counted and drops an automatic cyanrip offer worked out before it.
+    # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
+    "ui/main_window_provision.py": 2008,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2914,7 +2923,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **546 -> 559** (2026-11-12, TASKS R53, the cache check once per drive): the `CacheCheckMixin` methods its siblings call, its dialog attribute, and `_drive_being_freed`, which it calls on DriveMixin.
     # **546 -> 550** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the seam stubs for `_selected_drive_offset` and the writer's new `source` parameter.
     # Both changes merged 2026-11-13: measured 563 lines after the merge.
-    "ui/main_window_shared.py": 563,
+    # **563 -> 575** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the seam declares the first-run answer and notice methods, `_host_stack_ready`, the setup-run count and the held cyanrip offer, which the mixins now use across each other.
+    # **575 -> 576** (2026-11-17, follow-up to UX review F1: No holds on later launches): the seam declares `_first_run_question_pending` and `_setup_tools_found`.
+    "ui/main_window_shared.py": 576,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2935,7 +2946,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1004 -> 1006** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1006 -> 1087** (2026-11-03, TASKS R96): the automatic cyanrip offer waits for the main window instead of being dropped (`_hold_automatic_ripper_offer`), and `_interruption_blocker` is split into the reasons that drop a held offer (`_no_one_to_ask`) and those that delay it (`_rip_blocker`, `_modal_floor_blocker`), with the docstrings that say why the user-started check is not held. Beside the check whose answer it holds.
     # **1087 -> 1093** (2026-11-03, review of that day's Full run, B2): the cyanrip install offer is deleted when it closes, with why, beside the line that sets it; its sibling box already did.
-    "ui/main_window_update.py": 1093,
+    # **1093 -> 1112** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the automatic cyanrip offer is not shown while no ripper is installed, and the install offer asks a plain question with the record under Show Details.
+    "ui/main_window_update.py": 1112,
     # One record type and the per-album store it lives in, cohesive. **-> 304** (2026-11-03, TASKS R51 and R62 meeting): `EacLogRender` keeps what the EAC-layout log was rendered from, who cancelled included, so CTDB's later answer renders it the same way.
     # **304 -> 307** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's step label.
     # **307 -> 315** (2026-11-11, round 39's G3, the record): `EacLogRender.retried_tracks`, so a render after CTDB or the repair numbers the chase attempt as the first did.

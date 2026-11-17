@@ -261,7 +261,11 @@ class HostSetupDialog(CenteredDialog):
         self._results: QPlainTextEdit = QPlainTextEdit("", self)
         self._results.setReadOnly(True)
         self._results.setAccessibleName("Setup step results")
+        # Hidden until a step reports, so the wizard does not open on an empty
+        # box (UX review of 0.7.127, F4); the stretch below takes its room.
+        self._results.setVisible(False)
         root.addWidget(self._results, stretch=1)
+        root.addStretch(0)
 
         self._button_box: QDialogButtonBox = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Close, self
@@ -340,6 +344,7 @@ class HostSetupDialog(CenteredDialog):
         # Sticky bottom, not forced bottom: setup runs for minutes and a failing
         # step is exactly when the user scrolls up to read what it said. A plain
         # append would drag them back to the tail on the next step.
+        self._results.setVisible(True)
         append_keeping_position(self._results, line)
 
     def _on_finished(self, results: list[StepResult]) -> None:
