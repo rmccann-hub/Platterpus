@@ -1596,8 +1596,10 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
                 f"AccurateRip is the per-track authority.{per_track}"
             )
         return (
-            "CTDB: not confirmed — the CRC check is still experimental (pending "
-            "hardware validation, KDD-16); a non-match here doesn’t mean your "
+            # No decision-log number in a user's sentence (UX review of
+            # 0.7.127, W2): this said "(pending hardware validation, KDD-16)".
+            "CTDB: not confirmed — the CRC check is still experimental (not yet "
+            "validated on real drives); a non-match here doesn’t mean your "
             "rip is wrong — AccurateRip is the authority"
         )
     if verdict is Verdict.NOT_WHOLE_DISC:

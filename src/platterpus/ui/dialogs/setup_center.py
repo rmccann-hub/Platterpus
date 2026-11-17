@@ -82,6 +82,7 @@ from platterpus.ui.dependency_check_status import (
 )
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
+from platterpus.ui.plain_text import plain_tooltip
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
 
 if TYPE_CHECKING:
@@ -246,18 +247,33 @@ class SetupCenterDialog(CenteredDialog):
             checkbox=self._app_beta_check,
             buttons=[("Check for &updates", "app_update")],
         )
+        # The APPROVED build, which is a constant, not a probe. What is actually
+        # installed is only knowable by entering the container, so the check
+        # button is what answers that — stating the approved build here and the
+        # installed one there keeps the two claims apart.
+        #
+        # In a user's words on the visible line: it read "Approved build: … from
+        # handshake round 40", and a user has never been told what a handshake
+        # round is (UX review of 0.7.127, W2). The round is kept, in the tooltip,
+        # for the owner and for a bug report; the About dialog explains rounds.
+        self._ripper_status_label: QLabel = QLabel(
+            f"{_INFO} Tested build: {ripper_pin} ({ripper_version}), approved "
+            "for this version of Platterpus"
+        )
+        self._ripper_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._ripper_status_label.setWordWrap(True)
+        self._ripper_status_label.setToolTip(
+            plain_tooltip(
+                f"Approved in handshake round {approved_by_round}: the joint test "
+                "this version of Platterpus and the cyanrip fork both passed "
+                "before release."
+            )
+        )
         row = self._add_section(
             grid,
             row,
             title="Ripper (cyanrip)",
-            # The APPROVED build, which is a constant, not a probe. What is
-            # actually installed is only knowable by entering the container, so
-            # the check button is what answers that — stating the approved build
-            # here and the installed one there keeps the two claims apart.
-            status=(
-                f"{_INFO} Approved build: {ripper_pin} ({ripper_version}), "
-                f"from handshake round {approved_by_round}"
-            ),
+            status_widget=self._ripper_status_label,
             checkbox=self._ripper_beta_check,
             buttons=[
                 # Alt+C: Alt+U is the app's own update check, one section up.

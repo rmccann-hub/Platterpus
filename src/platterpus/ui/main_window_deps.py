@@ -945,12 +945,14 @@ class DependencyMixin(MainWindowShared):
         """Post-check summary popup with install-failure detail when present.
 
         The popup format:
-            "<ok_count> ok, <n> missing/needs-attention."
+            "<ok_count> installed, <n> need attention."
             "Installed: <name> <version> (<build note>), …"  ← when any are OK
                     where a dep WITH a build note reports the tool's own version
                     string and build tag rather than the parsed int-triple:
                     cyanrip 0.9.4-rc1+platterpus.5-beta.5 (the Platterpus fork;
                     build tag "platterpus-fork-g9048082")
+            "Bundled components (part of Platterpus, nothing to install): …"
+                                           ← the OK deps marked `bundled`
             "Optional (not installed): <names>"   ← only when present
             (blank line)
             "Wrong build:"                ← only when a build note says so
@@ -995,8 +997,13 @@ class DependencyMixin(MainWindowShared):
         ]
 
         not_checked = dep_manager.unchecked_names(report)
+        # Plain counts (UX review of 0.7.127, W2): this read "2 ok, 2
+        # missing/needs-attention", a slash-joined status code rather than a
+        # sentence. Same two numbers.
+        need_attention = missing_count + len(attention)
         message = (
-            f"{ok_count} ok, {missing_count + len(attention)} missing/needs-attention."
+            f"{ok_count} installed, {need_attention} "
+            f"{'needs' if need_attention == 1 else 'need'} attention."
         )
         if not_checked:
             message = (
@@ -1006,11 +1013,30 @@ class DependencyMixin(MainWindowShared):
         # Stamp the detected version next to each OK dep so the user knows
         # exactly what's installed (reproducibility), not just that it's there —
         # plus the build, where the version alone doesn't identify the binary.
-        if ok_specs:
+        #
+        # Python packages that ship INSIDE Platterpus get their own line under
+        # their own heading: listed beside cyanrip as "numpy (Python package)
+        # 2.5.5" they read as one more thing for the user to look after (W2).
+        # Kept rather than dropped, because "which numpy did this build carry?"
+        # is a question a bug report still needs answered.
+        user_specs = [s for s in ok_specs if not getattr(s, "bundled", False)]
+        bundled_specs = [s for s in ok_specs if getattr(s, "bundled", False)]
+        if user_specs:
             installed = "; ".join(
-                _installed_line(spec, ok_versions, build_notes) for spec in ok_specs
+                _installed_line(spec, ok_versions, build_notes) for spec in user_specs
             )
             message += f"\nInstalled: {installed}."
+        if bundled_specs:
+            bundled = "; ".join(
+                # The package's own name (its dep_id), without the "(Python
+                # package)" label the heading now carries.
+                f"{spec.dep_id} {format_version(ok_versions.get(spec.dep_id))}"
+                for spec in bundled_specs
+            )
+            message += (
+                "\nBundled components (part of Platterpus, nothing to install): "
+                f"{bundled}."
+            )
         if optional_missing:
             names = ", ".join(item.spec.display_name for item in optional_missing)
             message += f"\nOptional (not installed): {names}."

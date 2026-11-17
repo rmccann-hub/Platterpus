@@ -762,7 +762,10 @@ def test_ctdb_verdict_line_no_match_unvalidated_does_not_blame_the_rip() -> None
     line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=False))
     assert "differs" not in line
     assert "experimental" in line.lower()
-    assert "KDD-16" in line
+    # It still says WHY it is not confirmed, without the decision-log number a
+    # user cannot look up (UX review of 0.7.127, W2).
+    assert "not yet validated on real drives" in line
+    assert "KDD" not in line
 
 
 def test_ctdb_verdict_line_no_match_is_scoped_to_the_tested_alignment() -> None:

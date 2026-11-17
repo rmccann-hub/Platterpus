@@ -1958,7 +1958,7 @@ def test_dep_summary_with_no_failures_omits_failure_block(
     title, text = captured[0]
     assert title == "Dependency check complete"
     assert "Install failures" not in text  # no failure section
-    assert "0 ok" in text
+    assert "0 installed" in text
 
 
 def test_dep_summary_includes_failure_details(
@@ -12385,7 +12385,7 @@ def test_dep_summary_counts_a_wrong_build_as_needing_attention(
     assert info == [], "a wrong build must not be shown with an information icon"
     assert len(warn) == 1
     text = warn[0]
-    assert "1 ok, 1 missing/needs-attention." in text
+    assert "1 installed, 1 needs attention." in text
     assert "Wrong build:" in text
     assert "NOT the Platterpus fork" in text
     assert "Setup & Updates" in text  # and how to fix it
@@ -12413,7 +12413,7 @@ def test_dep_summary_stays_informational_when_the_build_is_right(
 
     assert warn == []
     assert len(info) == 1
-    assert "1 ok, 0 missing/needs-attention." in info[0]
+    assert "1 installed, 0 need attention." in info[0]
     assert "Wrong build:" not in info[0]
     assert "the Platterpus fork" in info[0]
 
