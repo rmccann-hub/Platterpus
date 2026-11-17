@@ -101,9 +101,10 @@ def test_main_window_button_mnemonics_are_unique(qapp: QApplication) -> None:
         + _mnemonic_letters(controls)
         + _mnemonic_letters(progress)
     )
-    # Every one of the eleven prominent buttons has a mnemonic… (11 since 0.6.17,
-    # when "Report bundle" joined the rip pane's output row.)
-    assert len(letters) == 11
+    # Every one of the twelve prominent buttons has a mnemonic… (11 since 0.6.17,
+    # when "Report bundle" joined the rip pane's output row; 12 since the UX
+    # review of 2026-11-17, E1: "Open log" beside a failed rip's banner.)
+    assert len(letters) == 12
     # …they are all distinct…
     assert len(set(letters)) == len(letters)
     # …and none shadows a menu-bar mnemonic.

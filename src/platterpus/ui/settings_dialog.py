@@ -37,7 +37,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -78,7 +78,13 @@ from platterpus.ui.setting_homes import (
     WINDOW_PATHS,
     fields_homed_in,
 )
-from platterpus.ui.status_colours import SECONDARY_STYLE, status_colour, status_style
+from platterpus.ui.status_colours import (
+    PALETTE_EVENTS,
+    SECONDARY_STYLE,
+    apply_status_style,
+    reapply_status_styles,
+    status_colour,
+)
 from platterpus.user_settings import apply_user_edits, with_values
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -144,10 +150,10 @@ class SettingsDialog(CenteredDialog):
         self._goal_combo.addItem(option_labels.CUSTOM_LABEL, goal_presets.GOAL_CUSTOM)
         self._goal_combo.setToolTip(
             "Pick what you want this rip to be and the format, verification and "
-            "effort options below snap to good values for it. 'Fast Verified' "
+            "effort options below snap to good values for it. 'Fast verified' "
             "(recommended): FLAC, AccurateRip + CTDB, and a track is re-read only "
             "when it fails to verify (one frame matching is not verifying) — one "
-            "fast pass on a clean disc. 'Archival': the same, plus EAC-style Test "
+            "fast pass on a clean disc. 'Archival exact': the same, plus EAC-style Test "
             "and Copy (EVERY track read until three reads are identical) — slower, and the "
             "most reproducible result. 'Portable': MP3 derived from a "
             "fully verified FLAC master, which is still kept. Changing any option "
@@ -316,10 +322,10 @@ class SettingsDialog(CenteredDialog):
         # Item data is the raw config value.
         self._format_combo: QComboBox = QComboBox(self)
         for label, value in (
-            ("FLAC — Lossless Archival Master [Recommended]", "flac"),
-            ("WavPack (.wv) — Lossless, Keeps Tags and Cover Art", "wavpack"),
-            ("MP3 — Lossy, Best-Quality VBR, Keeps Tags and Cover Art", "mp3"),
-            ("WAV — Raw PCM, Basic Tags Only, No Cover Art", "wav"),
+            ("FLAC — lossless archival master (recommended)", "flac"),
+            ("WavPack (.wv) — lossless, keeps tags and cover art", "wavpack"),
+            ("MP3 — lossy, best-quality VBR, keeps tags and cover art", "mp3"),
+            ("WAV — raw PCM, basic tags only, no cover art", "wav"),
         ):
             self._format_combo.addItem(label, value)
         format_index = self._format_combo.findData(config.output_format)
@@ -448,10 +454,10 @@ class SettingsDialog(CenteredDialog):
         # cover from the Cover Art Archive after the rip and embeds it.
         self._cover_art_combo: QComboBox = QComboBox(self)
         for label, value in (
-            ("Don't Fetch — No Cover Art at All", ""),
-            ("Embed in FLAC — Art Inside Each Track", "embed"),
-            ("Save as File — Art Beside the Tracks", "file"),
-            ("Embed and Save File — Both [Recommended]", "complete"),
+            ("Don't fetch — no cover art at all", ""),
+            ("Embed in FLAC — art inside each track", "embed"),
+            ("Save as file — art beside the tracks", "file"),
+            ("Embed and save file — both (recommended)", "complete"),
         ):
             self._cover_art_combo.addItem(label, value)
         cover_index = self._cover_art_combo.findData(config.cover_art)
@@ -460,9 +466,9 @@ class SettingsDialog(CenteredDialog):
             "What to do with the front cover, fetched from the Cover Art Archive "
             "once the rip finishes. 'Embed in FLAC': the image is written inside "
             "each track, so it travels with the file and most players show it — "
-            "this is what EAC does by default. 'Save as File': cover.jpg is "
+            "this is what EAC does by default. 'Save as file': cover.jpg is "
             "written beside the tracks and the audio files carry no image, which "
-            "suits players that read a folder image. 'Embed and Save File' "
+            "suits players that read a folder image. 'Embed and save file' "
             "(recommended): both, so neither kind of player misses it. Nothing is "
             "fetched if the release has no art in the archive."
         )
@@ -661,11 +667,11 @@ class SettingsDialog(CenteredDialog):
         # spinner is enabled only in Fixed mode.
         self._read_speed_mode_combo: QComboBox = QComboBox(self)
         self._read_speed_mode_combo.addItem(
-            "Adaptive Ladder — Fast, Slower Only if a Disc Needs It [Recommended]",
+            "Adaptive ladder — fast, slower only if a disc needs it (recommended)",
             "auto_ladder",
         )
         self._read_speed_mode_combo.addItem(
-            "Fixed Speed — Always the Speed Set Below [Advanced]", "fixed"
+            "Fixed speed — always the speed set below (advanced)", "fixed"
         )
         self._read_speed_mode_combo.setAccessibleName("Read speed mode")
         mode_index = self._read_speed_mode_combo.findData(config.read_speed_mode)
@@ -994,6 +1000,19 @@ class SettingsDialog(CenteredDialog):
             return QSize(1024, 720)
         return screen.availableGeometry().size()
 
+    def changeEvent(self, event: QEvent) -> None:  # noqa: N802 — Qt override
+        """Recolour the validation banner when the desktop's colours change.
+
+        The banner's colour was chosen for the palette in force when it was
+        set; a theme switch with the dialog open left the old side's colour
+        on the new background (UX review L1, 2026-11-17). Labels only, on the
+        GUI thread this event arrives on. The red or amber border on a field
+        is re-chosen the next time the form is validated (every keystroke).
+        """
+        if event.type() in PALETTE_EVENTS:
+            reapply_status_styles(self)
+        super().changeEvent(event)
+
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
         """Re-clamp on show, because the screen is not knowable in ``__init__``.
 
@@ -1271,9 +1290,7 @@ class SettingsDialog(CenteredDialog):
         lines = list(dict.fromkeys(lines))
         banner_text = "\n".join(lines)
         self._validation_label.setText(banner_text)
-        self._validation_label.setStyleSheet(
-            status_style("error" if errors else "warn", self._validation_label)
-        )
+        apply_status_style(self._validation_label, "error" if errors else "warn")
         self._validation_label.setVisible(True)
         # "Visible, specific error at the point of entry" must include hearing
         # it: announce the banner focus-safely, once per distinct text (this

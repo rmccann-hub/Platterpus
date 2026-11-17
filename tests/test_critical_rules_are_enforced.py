@@ -2696,7 +2696,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **653 -> 681** (2026-11-03, TASKS R112, the Full run of that day): `fidelity_summary` asks `verdict.track_accuraterip_contradiction` and counts a contradicted track not clean, with a branch that names it. The sentence is `track_proof.contradicted_tracks_sentence`, shared with the self-check.
     # **681 -> 685** (2026-11-03, TASKS R113): the status line counts a one-track rip in English ("1 of 1 track", "AccurateRip: 1 of 1 verified").
     # **685 -> 684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the status line takes its sentence from `verdict.accuraterip_contradictions` (lowered: one line fewer).
-    "ui/main_window_helpers.py": 684,
+    # **684 -> 714** (2026-11-17, UX review V1): `fidelity_summary` takes the banner's `verdict_level` and leads the line through `finish_wording.finished_line` ("⚠ Finished — 2 tracks need attention", "✓ Finished" only over a verified rip), applied once to the whole line so every clause counts against "clean".
+    "ui/main_window_helpers.py": 714,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2861,7 +2862,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Both changes merged 2026-11-13: measured 5391 lines after the merge.
     # **5391 -> 5418** (2026-11-16, TASKS R155 and R156, the fork's round 40 lap 3 S13 and S14): `_merge_shipped_track` takes the kept read's `Kept read began:` from the shipped read's own log and records which pass's read the file holds (`kept_read_pass`), with why; the merge rule lives here, and the repair's wording that reads it is its own module (`track_record_repair.py`).
     # **5418 -> 5415** (2026-11-16, TASKS R88): the three spellings of the EAC-compatible log name became `sibling_names.eac_log_name`.
-    "ui/main_window_rip.py": 5415,
+    # **5415 -> 5428** (2026-11-17, UX review V1): the finish handler hands the banner's level to the status line, and a rip cancelled after its read reads "cancelled" from its first line, never "Finished".
+    # **5428 -> 5439** (2026-11-17, UX review E1): `_on_rip_error` and the finish handler's failure branch show the failure on the banner (`finish_wording.failure_banner_text`: the error's own words first, the hint after) and mark the status line with ✖.
+    "ui/main_window_rip.py": 5439,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2936,7 +2939,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1759 -> 1834** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 1): a CTDB-only disagreement is a NOTE, never WRONG. The note line under the status line (built, named, cleared), `_render_ctdb_note` (rewrites each row's Status cell when the rip log or the CTDB answer arrives, whichever is last) and `_status_cell`'s ⓘ branch. The decision and the wording are the new focused module `ctdb_disagreement.py`; this is the pane that shows them.
     # **1834 -> 1863** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's own result line, under the CTDB verdict.
-    "ui/rip_progress.py": 1863,
+    # **1863 -> 1875** (2026-11-17, UX review L1): `changeEvent` re-chooses every status colour when the desktop's palette or theme changes under the open window; the mechanism is `status_colours.apply_status_style` / `reapply_status_styles`.
+    # **1875 -> 1929** (2026-11-17, UX review V1): the banner ends with one plain next step for the tracks AccurateRip contradicts (`finish_wording.next_step_sentence`), carries the technical sentence in its tooltip, and reports its level to the window (`verdict_level`).
+    # **1929 -> 2005** (2026-11-17, UX review E1): a failed rip is shown on the verdict banner at the error level (`show_failure`), its sentence first and any partial verdict after it, beside an **Open log** button that hands the app log to the desktop.
+    "ui/rip_progress.py": 2005,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2980,7 +2986,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1450 -> 1453** (2026-11-12, the EAC-compatible log on by default): choosing the Archival goal ticks the log, through `goal_presets.turns_on_eac_log`, the predicate `apply_preset` reads, so the dialog and a script's `set rip_goal` cannot disagree. It sets the dialog's own widget in the goal handler beside the others it sets.
     # **1450 -> 1465** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-only offset line shows the selected drive's offset, passed in by the window.
     # Both changes merged 2026-11-13: measured 1468 lines after the merge.
-    "ui/settings_dialog.py": 1468,
+    # **1468 -> 1485** (2026-11-17, UX review L1): `changeEvent` re-chooses the validation banner's colour when the desktop's palette or theme changes with the dialog open.
+    "ui/settings_dialog.py": 1485,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
@@ -2989,7 +2996,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **893 -> 914** (2026-10-26, TASKS R88, the owner's interim): `validate` refuses a name over 255 bytes with the specific message, beside the other point-of-entry path checks; the rendering is `cyanrip_name_lengths`.
     # **914 -> 928** (2026-11-03, TASKS R113, a cancelled rip's track kept "⟳ Ripping"): `STATUS_STOPPED` and `end_track_status`: a track still shown as ripping when the rip ends reads "⚠ Stopped".
     # **928 -> 944** (2026-11-03, the default pane split): `height_for_rows`, the height this widget needs for N whole rows, read from its own layout, which the window uses as the track list's floor on its first split.
-    "ui/track_table.py": 944,
+    # **944 -> 946** (2026-11-17, UX review V1): the "Rip only these" action takes its label from `finish_wording.RIP_ONLY_THESE`, the label the banner's next step names.
+    "ui/track_table.py": 946,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces

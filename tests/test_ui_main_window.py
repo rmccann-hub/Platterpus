@@ -1712,7 +1712,7 @@ def test_a_rip_cancelled_after_its_read_finished_says_cancelled_not_done(
     assert any(
         s.startswith("Rip cancelled after the read finished") for s in statuses
     ), statuses
-    assert not any(s.startswith("Done — ") for s in statuses), statuses
+    assert not any("Finished" in s[:12] for s in statuses), statuses
 
 
 def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
@@ -1748,7 +1748,7 @@ def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
     if window._post_rip_thread is not None:
         window._post_rip_thread.join(timeout=10)
 
-    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    fidelity = [s for s in statuses if " Finished" in s[:12]]
     assert fidelity, statuses  # floor: the fidelity line was composed
     assert "⚠ Platterpus recorded the rip as finished" in fidelity[-1], fidelity
 
@@ -1809,7 +1809,7 @@ def test_a_replaced_reads_errors_are_placed_on_every_surface_the_finish_writes(
         window._post_rip_thread.join(timeout=10)
     report_writer.writer().flush()
 
-    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    fidelity = [s for s in statuses if "Finished — " in s]
     assert fidelity and "all 2 tracks ripped cleanly, no read errors" in fidelity[-1]
     eac = (tmp_path / "Album (EAC-compatible).log").read_text(encoding="utf-8")
     assert (
@@ -2242,7 +2242,8 @@ def test_fidelity_summary_mentions_accuraterip_when_matched() -> None:
 
 
 def test_fidelity_summary_no_tracks() -> None:
-    assert _fidelity_summary(RipLog(tracks=())) == "Done."
+    # "Finished.", no mark: with no audio track there is no verdict to carry.
+    assert _fidelity_summary(RipLog(tracks=())) == "Finished."
 
 
 def test_a_one_track_rip_is_counted_in_english() -> None:
@@ -2268,15 +2269,17 @@ def test_a_one_track_rip_is_counted_in_english() -> None:
         log_creator="cyanrip 0.9.4", tracks=(track,), health_status="No errors occurred"
     )
     assert _fidelity_summary(rip_log) == (
-        "Done — 1 of 1 track ripped cleanly, no read errors. AccurateRip: 1 of 1 verified."
+        "Finished — 1 of 1 track ripped cleanly, no read errors. "
+        "AccurateRip: 1 of 1 verified."
     )
     two = RipLog(
         log_creator="cyanrip 0.9.4",
         tracks=(track, replace(track, number=2)),
         health_status="No errors occurred",
     )
-    assert _fidelity_summary(two).startswith(
-        "Done — all 2 tracks ripped cleanly, no read errors. AccurateRip: all 2 verified."
+    assert _fidelity_summary(two, verdict_level="ok").startswith(
+        "✓ Finished — all 2 tracks ripped cleanly, no read errors. "
+        "AccurateRip: all 2 verified."
     )
     why = _reconfirmation([track])[3]
     assert "matched 1 of 1 track at this offset" in why, why
@@ -2362,9 +2365,9 @@ def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -
     )
     summary = _fidelity_summary(rip_log, cancelled=True)
     assert summary.startswith("Rip cancelled after the read finished")
-    assert "Done" not in summary
+    assert "Done" not in summary and "Finished" not in summary
     assert "stopped. 1 of 1 track ripped cleanly" in summary
-    assert _fidelity_summary(rip_log).startswith("Done — ")
+    assert _fidelity_summary(rip_log).startswith("Finished — ")
 
 
 def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
@@ -2392,7 +2395,9 @@ def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
         health_status="No errors occurred",
     )
     summary = _fidelity_summary(rip_log)
-    assert summary.startswith("Done — 1/2 tracks ripped cleanly. ⚠ "), summary
+    assert summary.startswith(
+        "⚠ Finished — 1 track needs attention (2). 1/2 tracks ripped cleanly. ⚠ "
+    ), summary
     assert "AccurateRip says track 2 is WRONG (only frame 450 matched" in summary
     assert "the rest unverified" not in summary
 
@@ -10145,7 +10150,8 @@ def test_a_disc_or_drive_exit_reaches_the_status_line_and_the_report(
     window._finish_rip(success=False, log_path="")
 
     status = window._rip_progress.current_status()
-    assert status.startswith("Unable to open device!"), status
+    # The ✖ (UX review E1), then cyanrip's own words first.
+    assert status.startswith("✖ Unable to open device!"), status
     assert "The disc or the drive failed" in status, status
     assert window._last_outcome["ripper_exit_class"] == "disc_or_drive"
     assert window._last_outcome["ripper_exit_build_tag"] == tag

@@ -50,6 +50,7 @@ from platterpus.adapters.cyanrip_name_lengths import (
     overlong_names_for,
 )
 from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
+from platterpus.finish_wording import RIP_ONLY_THESE
 from platterpus.settings_validation import path_reference_issue, path_segment_issue
 
 # Qt's model/view API types every index/parent argument as this union, so our
@@ -862,7 +863,8 @@ class TrackTable(QWidget):
         highlighted = self._highlighted_track_numbers()
         menu = QMenu(self._view)
         if highlighted:
-            only = menu.addAction("Rip only these")
+            # The label the verdict banner's next step names (`finish_wording`).
+            only = menu.addAction(RIP_ONLY_THESE)
             only.triggered.connect(lambda: self._model.set_only_selected(highlighted))
             inc = menu.addAction("Include these in the rip")
             inc.triggered.connect(lambda: self._model.set_selected(highlighted, True))

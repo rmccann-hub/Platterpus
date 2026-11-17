@@ -23,14 +23,34 @@ at a call site is a colour nobody measured.
 Colour is never the only signal (`CLAUDE.md`, accessibility rule 1): every
 level's text also carries its marker (✓ / ⚠ / ✖ / ⓘ). This module makes the
 colour legible; the marker makes it unnecessary.
+
+**A theme change while the app is open (UX review L1, 2026-11-17).** "At the
+moment the style is set" used to mean *only* then: switching Breeze to Breeze
+Dark with the window open left the light-theme amber ``#7d4e00`` on a charcoal
+background, because nothing set the style again. So a label styled here is
+styled through :func:`apply_status_style`, which remembers the label's level on
+the label itself (a Qt *dynamic property*, the ordinary Qt way to hang a value
+on a widget), and a widget that owns such labels calls
+:func:`reapply_status_styles` from its ``changeEvent`` when Qt reports a palette
+or theme change (:data:`PALETTE_EVENTS`).
+
+**Which palette says "dark".** Measured with PySide6 6.11 (offscreen): once a
+``QLabel`` has a style sheet, *its own* ``palette()`` is frozen at the last
+time the sheet was applied. After ``QApplication.setPalette(dark)`` the label
+still reported the light window colour while its parent already reported the
+dark one; only setting a sheet again refreshed it. So the colour is chosen from
+:func:`backdrop_palette`: the nearest widget, starting at the label, that has no
+style sheet of its own, which is the palette the label's background is actually
+drawn from.
 """
 
 from __future__ import annotations
 
 from typing import Final
 
+from PySide6.QtCore import QEvent
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QApplication, QLabel, QWidget
 
 #: For light windows (#ffffff … #dedede). Each is at least 5.2:1 on the darkest
 #: background in that range.
@@ -107,15 +127,84 @@ def status_colour(level: str, palette: QPalette) -> str:
     return variants.get(level, variants[DEFAULT_LEVEL])
 
 
+def backdrop_palette(widget: QWidget) -> QPalette:
+    """The palette ``widget``'s background is drawn from, current after a theme change.
+
+    The nearest widget, starting at ``widget`` itself and walking up its
+    parents, that carries no style sheet of its own; the application palette if
+    every one of them does. See the module docstring for why a styled label's
+    own palette cannot be trusted: it still described the old theme in the
+    measurement.
+    """
+    current: QWidget | None = widget
+    while current is not None:
+        if not current.styleSheet():
+            return current.palette()
+        current = current.parentWidget()
+    return QApplication.palette()
+
+
 def status_style(level: str, widget: QWidget, *, bold: bool = True) -> str:
     """A ``QLabel`` stylesheet for a status line at ``level`` on ``widget``.
 
     Takes the widget rather than a palette so a call site cannot pass the wrong
-    one: the label's palette is what its text is drawn on.
+    one: the colour is chosen for what the label is drawn on
+    (:func:`backdrop_palette`).
     """
     weight = " font-weight: bold;" if bold else ""
-    colour = status_colour(level, widget.palette())
+    colour = status_colour(level, backdrop_palette(widget))
     return f"QLabel {{ color: {colour};{weight} padding: 2px; }}"
+
+
+#: The dynamic property :func:`apply_status_style` records a label's level in,
+#: and the one beside it for its weight. Read back only by
+#: :func:`reapply_status_styles`.
+STATUS_LEVEL_PROPERTY: Final[str] = "platterpusStatusLevel"
+STATUS_BOLD_PROPERTY: Final[str] = "platterpusStatusBold"
+
+#: The ``changeEvent`` types after which the colours must be chosen again: the
+#: widget's own palette changed, the application's did, or the desktop theme did.
+PALETTE_EVENTS: Final[frozenset[QEvent.Type]] = frozenset(
+    {
+        QEvent.Type.PaletteChange,
+        QEvent.Type.ApplicationPaletteChange,
+        QEvent.Type.ThemeChange,
+    }
+)
+
+
+def apply_status_style(label: QLabel, level: str, *, bold: bool = True) -> None:
+    """Colour ``label`` at ``level`` and remember the level for a theme change.
+
+    The style sheet is set only when it differs from the one the label has, so
+    calling this again with the same answer (every palette event does) costs
+    no re-polish and cannot loop through the events a re-polish sends.
+    """
+    label.setProperty(STATUS_LEVEL_PROPERTY, level)
+    label.setProperty(STATUS_BOLD_PROPERTY, bold)
+    style = status_style(level, label, bold=bold)
+    if label.styleSheet() != style:
+        label.setStyleSheet(style)
+
+
+def reapply_status_styles(root: QWidget) -> int:
+    """Choose every status colour under ``root`` again; return how many labels.
+
+    For a widget's ``changeEvent`` on any of :data:`PALETTE_EVENTS`: each
+    ``QLabel`` below ``root`` that :func:`apply_status_style` coloured is
+    coloured again for the palette in force now. A label that was never given
+    a level is left alone. The count is for the tests, so a sweep that found no
+    label cannot read as one that fixed them all.
+    """
+    count = 0
+    for label in root.findChildren(QLabel):
+        level = label.property(STATUS_LEVEL_PROPERTY)
+        if not isinstance(level, str) or not level:
+            continue
+        bold = label.property(STATUS_BOLD_PROPERTY)
+        apply_status_style(label, level, bold=bold if isinstance(bold, bool) else True)
+        count += 1
+    return count
 
 
 #: For a secondary line that should read as quieter than the main text. It
