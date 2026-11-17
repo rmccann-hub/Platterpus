@@ -1443,8 +1443,16 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
-#: History of this constant, newest first. **Empty again from 2026-10-14, the same
+_BOOTSTRAP_REASON: str = (
+    "v10 landed 2026-11-17 in both trees, byte-identical: the fork first, at "
+    "cyanrip@1989c762 (their round 41 lap 5 S6), then ours, copied from there with "
+    "every hash matching that lap's header. v10 §18: round 41's laps declare 9 and it "
+    "closes under v9; neither gate implements 10 until the file is byte-identical in "
+    "both trees, which it now is. Clear this in the commit that teaches the gate 10, "
+    "before our first lap of round 42."
+)
+#: History of this constant, newest first. **2026-11-17: non-empty**, the v10
+#: bootstrap (v10 §18). **Empty again from 2026-10-14, the same
 #: day**: the gate implements 9, in the commit after the fork's round 33 lap 1 (HR-2
 #: order C), cleared there as the reason required. It had read: *"v9 (HR-2 and
 #: HR-2.1) landed 2026-10-14 in both trees, byte-identical: the fork first, at
@@ -1871,6 +1879,9 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # **v9, landed 2026-10-14 (HR-2 order B)**: the fork first, at
     # `cyanrip@8f847271`, then ours, copied byte for byte from there.
     "protocol(v9)": "docs/handshake-protocol.md",
+    # v10, landed 2026-11-17 in both trees (the fork's round 41 lap 5 S6, ours in
+    # our lap 6 S7): declared as `protocol(v10)` from their lap 5 on.
+    "protocol(v10)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER

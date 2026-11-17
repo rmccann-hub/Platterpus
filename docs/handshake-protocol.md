@@ -1,4 +1,4 @@
-# Handshake protocol v9
+# Handshake protocol v10
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -370,17 +370,26 @@ sent lap is never edited; a correction is a **new lap** that says what it
 corrects. A lap that was drafted and never sent may be edited or deleted freely
 and leaves no trace — but the moment it is handed over it is evidence.
 
-**A lap is sent when it is released, and its number is claimed then (v6, K1).**
-A lap is `SENT` when its operator releases it for reading —
-`HANDSHAKE-READY-TO-READ: yes` (§5c) — not when it is committed. Committed and
-pushed but not released is still `DRAFT`: it may be revised, so a mistake found
-after `git push` has somewhere to go. **The lap number is claimed at the same
-moment.** Each side allocates the next number from its own tree and neither gate
-can see the other's held laps, so two laps drafted at once can carry the same
-number; round 21 produced two lap 4s, one per project. The number belongs to
-whichever is released first, and a held lap whose number has been taken is
-renumbered before it is released. Two *released* laps declaring the same number
-are still ambiguous (§2 rule 3), and ambiguity is not a close.
+**A lap is sent when it is released, and its number is claimed then (v6, K1; v10).**
+A lap is sent when it reaches its side's default branch with
+`HANDSHAKE-READY-TO-READ: yes`; `yes` on a branch not yet merged is a promise,
+not a send. A lap marked `HANDSHAKE-READY-TO-READ: no` is not sent until its
+operator releases it. Committed and pushed but not sent is still `DRAFT`: it
+may be revised, so a mistake found after `git push` has somewhere to go. **The
+lap number is claimed at the same moment.** Each side allocates the next number
+from its own tree and neither gate can see the other's held laps, so two laps
+drafted at once can carry the same number; round 21 produced two lap 4s, one
+per project. The number belongs to whichever is sent first, and a held lap
+whose number has been taken is renumbered before it is sent. Two *sent* laps
+declaring the same number are still ambiguous (§2 rule 3), and ambiguity is not
+a close.
+
+**Whose number is next, and a lap written out of turn (v10).** The newest
+released lap's `HANDSHAKE-NEXT-LAP` names whose the next number is; a side with
+something to send out of turn writes it held, numbered after the lap it waits
+for, and releases it once that lap is filed and answered in it; and when both
+write one number, the lap `NEXT-LAP` did not name is renumbered by its own
+side if it is not yet sent, with no message to the owner.
 
 **`RECEIVED` is only claimable by the recipient**, in its own next lap, via
 `HANDSHAKE-INBOUND-HELD` (§5a). The sender may never mark its own lap received;
@@ -1515,6 +1524,7 @@ byte-identical in both trees.**
   reviews it. It is the operator's question before it is the spec's.
 - **The evidence-transport proposal**,
   `PROTOCOL-v5-PROPOSAL-evidence-transport.md` §5b.1–§5b.8: adopt or retire.
+  Retired in v10 (§18).
 - **`HANDSHAKE-CONCURRENT-WITH`** (round 7 laps 32–33), never built. K1 may
   subsume it.
 - **A `SEAM-COMMANDS: audited @ N` close field**, and **a semantic-change marker**
@@ -1754,3 +1764,52 @@ its citation rules bind from each side's move.
 
 - It does not change §4's vocabulary, §5's close, or any conformance row.
 - It does not move a lap (HR-2 point 11), and it edits no file already sent.
+
+## 18. Changes in v10
+
+**v10 is v9 plus K1 as round 38 agreed it, Platterpus's transport rule, and
+corrections to the stale text found in the four shared documents on
+2026-11-16, and nothing else.** cyanrip's round 41 lap 1 proposed it, S23 to
+S26.
+
+- **K1, §4a** (S24): *"A lap is sent when it reaches its side's default branch
+  with `HANDSHAKE-READY-TO-READ: yes`"*, with its two further sentences. Agreed
+  in round 37 (cyanrip's lap 5 S10, and Platterpus's lap 6 S4, which added the
+  last sentence) and in round 38 (cyanrip's lap 1 S11, Platterpus's lap 2 S9),
+  and not written into the protocol until now. The paragraph's other uses of
+  *released* for *sent* follow it.
+- **The transport rule, §4a** (S25): Platterpus's round 38 lap 15 S7, which
+  cyanrip's owner chose on 2026-11-16 to put in the protocol rather than in
+  both projects' `CLAUDE.md`. S25 leaves out the original's clause that a lap
+  not yet on its side's `main` is not sent and may be renumbered, which K1 and
+  §4a's `DRAFT` already say.
+- **Stale text corrected** (S26), as cyanrip's `docs/OPEN-ITEMS.md` R41-5 lists
+  it by line:
+  - here, the evidence-transport proposal on v6's deferred list (§14) is
+    retired. No version took it; what both sides have since agreed on its
+    ground is in this file under its own clauses, a run's bundle in both
+    repositories (§6a-bis R8 point 3), the release mark (§5c), when a lap is
+    sent (§4a) and run evidence (§17); and a side that wants more of it
+    proposes it anew;
+  - in `seam-commands.md`, `--prefer-accuraterip-match` and
+    `--reread-until-accuraterip` move from §1b to §1, `-H`'s row takes the help
+    text of cyanrip's `.33`, and the rows and sentences R41-5 lists are
+    corrected;
+  - `seam-rules.md` v9 and `OWNERSHIP.md` v4 correct stale text and change no
+    rule; each says what in its own last section.
+
+**The versions v10 names**: `seam-rules.md` v9, `OWNERSHIP.md` v4, and
+`seam-commands.md` as it lands with this file, which declares no version and is
+named by its hash.
+
+**Declaring 10.** As for 9: neither side declares 10 until both have said, in a
+lap, that their gate implements it, and **neither gate implements 10 until this
+file is byte-identical in both trees.** Round 41's laps declare 9, and it
+closes under v9; v10 governs from round 42, and `seam-rules.md` v9 and
+`OWNERSHIP.md` v4 with it.
+
+### What v10 does not do
+
+- It does not change §4's vocabulary, §5's close, or any conformance row, and
+  it adds no field.
+- It edits no file already sent.
