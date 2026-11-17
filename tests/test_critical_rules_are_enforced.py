@@ -2863,7 +2863,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5391 -> 5418** (2026-11-16, TASKS R155 and R156, the fork's round 40 lap 3 S13 and S14): `_merge_shipped_track` takes the kept read's `Kept read began:` from the shipped read's own log and records which pass's read the file holds (`kept_read_pass`), with why; the merge rule lives here, and the repair's wording that reads it is its own module (`track_record_repair.py`).
     # **5418 -> 5415** (2026-11-16, TASKS R88): the three spellings of the EAC-compatible log name became `sibling_names.eac_log_name`.
     # **5415 -> 5428** (2026-11-17, UX review V1): the finish handler hands the banner's level to the status line, and a rip cancelled after its read reads "cancelled" from its first line, never "Finished".
-    "ui/main_window_rip.py": 5428,
+    # **5428 -> 5439** (2026-11-17, UX review E1): `_on_rip_error` and the finish handler's failure branch show the failure on the banner (`finish_wording.failure_banner_text`: the error's own words first, the hint after) and mark the status line with ✖.
+    "ui/main_window_rip.py": 5439,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2940,7 +2941,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1834 -> 1863** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's own result line, under the CTDB verdict.
     # **1863 -> 1875** (2026-11-17, UX review L1): `changeEvent` re-chooses every status colour when the desktop's palette or theme changes under the open window; the mechanism is `status_colours.apply_status_style` / `reapply_status_styles`.
     # **1875 -> 1929** (2026-11-17, UX review V1): the banner ends with one plain next step for the tracks AccurateRip contradicts (`finish_wording.next_step_sentence`), carries the technical sentence in its tooltip, and reports its level to the window (`verdict_level`).
-    "ui/rip_progress.py": 1929,
+    # **1929 -> 2005** (2026-11-17, UX review E1): a failed rip is shown on the verdict banner at the error level (`show_failure`), its sentence first and any partial verdict after it, beside an **Open log** button that hands the app log to the desktop.
+    "ui/rip_progress.py": 2005,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,

@@ -10150,7 +10150,8 @@ def test_a_disc_or_drive_exit_reaches_the_status_line_and_the_report(
     window._finish_rip(success=False, log_path="")
 
     status = window._rip_progress.current_status()
-    assert status.startswith("Unable to open device!"), status
+    # The ✖ (UX review E1), then cyanrip's own words first.
+    assert status.startswith("✖ Unable to open device!"), status
     assert "The disc or the drive failed" in status, status
     assert window._last_outcome["ripper_exit_class"] == "disc_or_drive"
     assert window._last_outcome["ripper_exit_build_tag"] == tag

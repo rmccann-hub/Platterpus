@@ -112,6 +112,11 @@ from platterpus.verdict import (
     track_accuraterip_contradiction,
 )
 
+#: The verdict banner's accessible name, and the one it carries while it shows a
+#: failed rip instead (`show_failure`), so a screen reader names what it is.
+_VERDICT_ACCESSIBLE_NAME: str = "AccurateRip verification verdict"
+_FAILURE_ACCESSIBLE_NAME: str = "Rip failure"
+
 __all__ = [
     "RipProgress",
     "accuraterip_verdict",
@@ -314,6 +319,11 @@ class RipProgress(QWidget):
         # None while it is hidden. Read by the window for the status line's
         # lead (`verdict_level`), so the two cannot carry different marks.
         self._verdict_level: str | None = None
+        # A failed rip's sentence (`show_failure`), shown at the error level in
+        # place of a verdict, and the log the Open log button opens. Empty and
+        # None while the rip has not failed.
+        self._verdict_failure: str = ""
+        self._failure_log_path: Path | None = None
 
         # --- Why this pane is built in three bands ---------------------------
         # This pane has to show five different things: live progress, a live
@@ -461,7 +471,25 @@ class RipProgress(QWidget):
         self._verdict_banner.setTextFormat(Qt.TextFormat.PlainText)
         self._verdict_banner.setWordWrap(True)
         self._verdict_banner.setVisible(False)
-        root.addWidget(self._verdict_banner)
+        # The banner shares its row with **Open log**, shown only while the
+        # banner reports a failed rip (UX review E1): the fallback sentence names
+        # the log's path, and a path the user must copy by hand is a dead end.
+        # Opening it goes through `open_path_externally` (QDesktopServices,
+        # which hands the file to the desktop and returns at once, so the GUI
+        # thread never waits; when nothing on the system opens a .log, the user
+        # is shown the path instead of a button that does nothing).
+        self._open_failure_log_button: QPushButton = QPushButton("Open &log", self)
+        self._open_failure_log_button.setVisible(False)
+        self._open_failure_log_button.setAccessibleName(
+            "Open the app log, which records why the rip failed"
+        )
+        self._open_failure_log_button.clicked.connect(self._on_open_failure_log)
+        verdict_row = QHBoxLayout()
+        verdict_row.addWidget(self._verdict_banner, stretch=1)
+        verdict_row.addWidget(
+            self._open_failure_log_button, alignment=Qt.AlignmentFlag.AlignTop
+        )
+        root.addLayout(verdict_row)
 
         # --- Read-effort early warning (per-track "hard to read") ---
         # Amber footnote naming tracks that needed unusually heavy re-reading (or
@@ -699,7 +727,7 @@ class RipProgress(QWidget):
         self._progress_bar.setAccessibleName("Current task progress")
         self._status_label.setAccessibleName("Rip status")
         self._log_view.setAccessibleName("Rip log output")
-        self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
+        self._verdict_banner.setAccessibleName(_VERDICT_ACCESSIBLE_NAME)
         self._read_effort_label.setAccessibleName("Read-effort warning")
         self._stall_label.setAccessibleName("Rip stall warning")
         self._ctdb_note_label.setAccessibleName("CTDB per-track note")
@@ -805,6 +833,10 @@ class RipProgress(QWidget):
         self._verdict_attention = ()
         self._verdict_level = None
         self._verdict_banner.setToolTip("")
+        self._verdict_failure = ""
+        self._failure_log_path = None
+        self._open_failure_log_button.setVisible(False)
+        self._verdict_banner.setAccessibleName(_VERDICT_ACCESSIBLE_NAME)
         # The Details tab is empty again, so drop any warning marker from its
         # label — a stale ⚠ on an empty tab would send the user looking for a
         # caveat that no longer exists.
@@ -1005,7 +1037,10 @@ class RipProgress(QWidget):
         if not reason or reason in self._verdict_downgrades:
             return
         self._verdict_downgrades.append(reason)
-        if not self._verdict_base_message:
+        # (Never while a failure is shown: the banner's text is then the failure,
+        # which `_render_verdict_banner` adds by itself, and taking it as the
+        # base would print it twice.)
+        if not self._verdict_base_message and not self._verdict_failure:
             self._verdict_base_message = self._verdict_banner.text()
         self._render_verdict_banner("warn")
 
@@ -1029,13 +1064,18 @@ class RipProgress(QWidget):
         more than one surface, compute it once (audit finding, 2026-07-31).
         """
         base = self._verdict_base_message
-        if not base and not self._verdict_downgrades:
+        failure = self._verdict_failure
+        if not base and not self._verdict_downgrades and not failure:
             self._verdict_banner.setVisible(False)
             self._verdict_level = None
             return
         # One assembly, shared with the report's verdict (`apply_downgrades`), so
         # the window and the record cannot word the same downgrade two ways.
-        text, level = apply_downgrades(base, level, self._verdict_downgrades)
+        text, level = (
+            apply_downgrades(base, level, self._verdict_downgrades)
+            if base or self._verdict_downgrades
+            else ("", level)
+        )
         # ONE PLAIN NEXT STEP, on the screen only (UX review V1). The sentence
         # above says what AccurateRip found; this says what to do about it, with
         # the controls named by the labels the window shows. Added here, not to
@@ -1043,11 +1083,47 @@ class RipProgress(QWidget):
         # which records what was found rather than advice.
         if level == "warn" and self._verdict_attention:
             text = f"{text} {next_step_sentence(self._verdict_attention)}"
+        # A FAILED RIP OUTRANKS ITS VERDICT (UX review E1). The failure's
+        # sentence comes first, at the error level with its ✖; whatever the
+        # partial log's verdict says follows on the next line, because the
+        # tracks that did finish are still worth knowing about.
+        if failure:
+            text = f"{failure}\n{text}" if text else failure
+            level = "error"
         self._verdict_level = level
         self._verdict_banner.setText(text)
         apply_status_style(self._verdict_banner, level)
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
+
+    def show_failure(self, text: str, log_path: Path | None) -> None:
+        """Show a failed rip on the verdict banner, at the error level.
+
+        ``text`` is the whole sentence (``finish_wording.failure_banner_text``:
+        ``✖``, the dependency's own words first). ``log_path`` is the log the
+        **Open log** button beside it opens; None hides the button. Replaces an
+        earlier failure's text (the finish handler words it again with
+        everything it knows), and is cleared by :meth:`clear` at the next rip.
+
+        UX review E1, 2026-11-17: a failure used to be one grey status line,
+        ``Error: …``, with no marker and nothing to click.
+        """
+        self._verdict_failure = text.strip()
+        self._failure_log_path = log_path
+        self._open_failure_log_button.setVisible(log_path is not None)
+        self._verdict_banner.setAccessibleName(_FAILURE_ACCESSIBLE_NAME)
+        self._render_verdict_banner("error")
+
+    def _on_open_failure_log(self) -> None:
+        """Open the log the failure banner names, on the desktop."""
+        if self._failure_log_path is None:
+            return
+        open_path_externally(
+            self._failure_log_path,
+            parent=self,
+            open_url=self._open_url,
+            what="log file",
+        )
 
     def verdict_level(self) -> str | None:
         """The level the verdict banner shows now, or None while it is hidden.

@@ -275,3 +275,120 @@ def test_the_next_step_names_controls_the_window_has(
     monkeypatch.setattr(track_table_module, "QMenu", _RecordingMenu)
     table._show_track_menu(table._view.rect().center())
     assert RIP_ONLY_THESE in shown, shown
+
+
+# --- E1: a failed rip is shown at the error level, with Open log --------------
+
+
+def test_the_failure_banner_puts_the_dependencys_sentence_first() -> None:
+    from platterpus.finish_wording import failure_banner_text
+
+    error = "cyanrip: Unable to open device /dev/sr0!"
+    hint = "The drive is busy or you lack permission to read it."
+    assert failure_banner_text(error, hint, "/x/log.txt") == f"✖ {error} — {hint}"
+    assert failure_banner_text(error, "", "/x/log.txt") == f"✖ {error}"
+    assert failure_banner_text("", hint, "/x/log.txt") == f"✖ {hint}"
+    assert failure_banner_text(error, error, "/x/log.txt") == f"✖ {error}"
+    nothing = failure_banner_text("  ", "", "/x/log.txt")
+    assert nothing == "✖ Rip failed — no diagnosis was captured. See /x/log.txt"
+
+
+def test_a_rip_error_is_shown_at_the_error_level_with_open_log(
+    window: MainWindow,
+) -> None:
+    """E1, reproduced: `_on_rip_error` set one grey line, "Error: …", and nothing
+    else. Now the banner shows it at the error level beside Open log."""
+    from PySide6.QtCore import QUrl
+
+    from platterpus.paths import LOG_PATH
+    from platterpus.ui import status_colours
+
+    progress = window._rip_progress
+    opened: list[QUrl] = []
+    progress._open_url = lambda url: opened.append(url) or True  # type: ignore[method-assign]
+
+    window._on_rip_error("cyanrip: Unable to open device /dev/sr0!")
+
+    banner = progress._verdict_banner
+    assert not banner.isHidden()
+    assert banner.text() == "✖ cyanrip: Unable to open device /dev/sr0!"
+    assert progress.verdict_level() == "error"
+    error_colour = status_colours.status_colour(
+        "error", status_colours.backdrop_palette(banner)
+    )
+    assert error_colour in banner.styleSheet(), banner.styleSheet()
+    assert banner.accessibleName() == "Rip failure"
+    assert progress.current_status().startswith("✖ Error: cyanrip: Unable to open")
+
+    button = progress._open_failure_log_button
+    assert not button.isHidden()
+    button.click()
+    assert [url.toLocalFile() for url in opened] == [str(LOG_PATH)]
+
+
+def test_a_failure_with_nothing_captured_keeps_the_path_and_gains_the_button(
+    window: MainWindow,
+) -> None:
+    from platterpus.paths import LOG_PATH
+
+    window._rip_worker = SimpleNamespace(failure_hint="")  # type: ignore[assignment]
+    window._last_rip_error = None
+    window._finish_rip(success=False, log_path="")
+
+    progress = window._rip_progress
+    expected = f"✖ Rip failed — no diagnosis was captured. See {LOG_PATH}"
+    assert progress._verdict_banner.text() == expected
+    assert progress.current_status().startswith(expected)  # + the record suffix
+    assert not progress._open_failure_log_button.isHidden()
+
+
+def test_the_finish_words_the_failure_again_error_first_then_the_hint(
+    window: MainWindow,
+) -> None:
+    """The status line keeps the hint's precedence; the banner puts the
+    dependency's own sentence first and the hint after it."""
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        failure_hint="Track 3 couldn't be read after repeated tries."
+    )
+    window._on_rip_error("cyanrip: read error at sector 12345")
+    window._finish_rip(success=False, log_path="")
+
+    progress = window._rip_progress
+    assert progress._verdict_banner.text() == (
+        "✖ cyanrip: read error at sector 12345 — "
+        "Track 3 couldn't be read after repeated tries."
+    )
+    assert progress.current_status().startswith("✖ Track 3 couldn't be read")
+
+
+def test_a_failure_stays_on_top_of_a_partial_logs_verdict_and_clears_next_rip(
+    qapp: QApplication,
+) -> None:
+    """A failed rip that left a log: the partial verdict follows the failure on
+    the next line, and the level stays error. The next rip starts clean."""
+    widget = RipProgress()
+    widget.show_failure("✖ cyanrip: drive went away", Path("/tmp/log.txt"))
+    track = TrackResult(
+        number=1,
+        copy_crc="AAAA1111",
+        status="ripped successfully",
+        accuraterip_v2=AccurateRipResult(
+            version=2, result="accurately ripped", confidence=200
+        ),
+    )
+    widget.set_rip_log(
+        RipLog(log_creator="cyanrip 0.9.4", tracks=(track,)),
+        disc_track_total=14,
+        outcome_status="failed",
+    )
+    text = widget._verdict_banner.text()
+    assert text.startswith("✖ cyanrip: drive went away\n⚠ 1 of 14 tracks"), text
+    assert widget.verdict_level() == "error"
+    widget.downgrade_verdict("a later check failed")
+    assert widget._verdict_banner.text().count("drive went away") == 1
+
+    widget.clear()
+    assert widget._verdict_banner.isHidden()
+    assert widget._open_failure_log_button.isHidden()
+    assert widget.verdict_level() is None
+    assert widget._verdict_banner.accessibleName() == "AccurateRip verification verdict"
