@@ -1,0 +1,45 @@
+REFUSED subprocess: ['metaflac', '--version']
+REFUSED subprocess: ['flatpak', 'info', '--user', 'org.musicbrainz.Picard']
+REFUSED subprocess: ['flac', '--version']
+REFUSED subprocess: ['ffmpeg', '-version']
+SHOT 01-QMessageBox-Set_up_Platterpus.png t=1.0s QMessageBox|Set up Platterpus TEXT: Platterpus needs a one-time setup to install its ripping tool (cyanrip) in a small container — no terminal required. Set it up now?
+
+You can also do this later from Tools → Setup & Updates… → Run setup….
+
+New to Platterpus? Help → Getting started… walks through setup and a first rip. INFO:  BUTTONS: &Yes | &No
+SHOT 02-MainWindow-Platterpus_0_7_127.png t=1.1s MainWindow|Platterpus 0.7.127
+ACTION button:Yes on Set up Platterpus
+SHOT 03-HostSetupDialog-Set_up_Platterpus.png t=3.8s HostSetupDialog|Set up Platterpus
+ACTION button:Set up on Set up Platterpus
+REFUSED subprocess: ['pkexec', 'apt-get', 'install', '-y', 'distrobox']
+SHOT 04-HostSetupDialog-Set_up_Platterpus.png t=6.6s HostSetupDialog|Set up Platterpus
+ACTION keep on Set up Platterpus
+ACTION keep on Set up Platterpus
+ACTION keep on Set up Platterpus
+ACTION reject on Set up Platterpus
+REFUSED subprocess: ['metaflac', '--version']
+SHOT 05-QMessageBox-cyanrip_update.png t=18.5s QMessageBox|cyanrip update TEXT: Platterpus couldn't identify a Platterpus-fork cyanrip build on this machine.
+
+Installed:  not identified — the ripper may be missing, or it may be stock upstream cyanrip rather than the Platterpus fork
+Expected:   0.9.4-rc3+platterpus.32 (edb73dd) — the build handshake round 40 approved, for Platterpus 0.7.125
+
+Until they match, every rip reports its ripper as 'unapproved' in its rip report. The audio is unaffected and still bit-perfect if its own checks pass — what changes is whether the record can say the ripper was jointly verified.
+
+Platterpus can install the expected build for you. It takes a few minutes and needs no commit typed in. INFO:  BUTTONS: Install it now | Not now
+SHOT 06-QMessageBox-Dependency_check_complete.png t=18.5s QMessageBox|Dependency check complete TEXT: 2 ok, 2 missing/needs-attention.
+Installed: musicbrainzngs (Python package) 0.7.1; numpy (Python package) 2.5.5.
+Optional (not installed): MusicBrainz Picard (Flatpak), flac (FLAC decoder), ffmpeg (WavPack/MP3/WAV transcoder), cd-paranoia (drive cache probe).
+
+Install failures:
+  • cyanrip: still missing after setup — re-run the wizard
+  • metaflac (FLAC tag editor): still missing after setup — re-run the wizard
+
+Full output is in /tmp/claude-0/-home-user-claude-code-skills/46cfbc1a-d1c5-5a09-bbbb-4b2444266d0f/scratchpad/ux/pp-run/home3/.local/share/platterpus/log.txt. INFO:  BUTTONS: OK
+ACTION keep on Dependency check complete
+ACTION reject on Dependency check complete
+SHOT 07-HostSetupDialog-Set_up_Platterpus.png t=24.8s HostSetupDialog|Set up Platterpus
+ACTION keep on Set up Platterpus
+ACTION reject on Set up Platterpus
+ACTION keep on cyanrip update
+ACTION reject on cyanrip update
+QUIT

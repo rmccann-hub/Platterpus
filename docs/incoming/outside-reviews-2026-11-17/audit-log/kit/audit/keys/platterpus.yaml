@@ -1,0 +1,64 @@
+# The answer key for Platterpus `main` at 27755380022f84632ad0f839b0d3fd693a6ddcab. A run is
+# never shown this file. Written 2026-10-26 before any run, moved to this commit on 2026-10-27 (PC10 added), from the review file of that day and
+# the code at that commit. `skill` is the skill that should catch the item, or `any`.
+# state: open (should be found), closed (fixed: a finding here is probably false), gap (a
+# coverage gap the run should name). `pattern` is a case-insensitive regex over one finding.
+repo: platterpus
+audited: 27755380022f84632ad0f839b0d3fd693a6ddcab
+items:
+  - id: PO1
+    skill: project-bootstrap-and-audit
+    state: open
+    about: Python 3.11 is the floor and CI's version; it gets security fixes only and ends 2027-10
+    pattern: '3\.11'
+    rated: [DRIFT, GAP]
+  - id: PC1
+    skill: any
+    state: closed
+    about: the weekly dependency check pins claude-code-skills 0.1.18 (it's 0.1.21; TASKS.md is stale)
+    pattern: '0\.1\.18'
+  - id: PC2
+    skill: any
+    state: closed
+    about: uv pinned at 0.13.1 (it's 0.13.5)
+    pattern: '0\.13\.1\b'
+  - id: PC3
+    skill: coding
+    state: closed
+    about: the ripper build trusts a 7-character pin and only warns on a dirty tree (fixed, full SHAs at fork_source.py:1759)
+    pattern: 'dirty|7.character|short (sha|pin)|FORK_PIN\b'
+  - id: PC4
+    skill: coding
+    state: closed
+    about: a value cyanrip echoes into its log can set a track's verdict (fixed, 9fe079eb)
+    pattern: 'verdict|accurip'
+  - id: PC5
+    skill: coding
+    state: closed
+    about: a field holding a line break adds a row to the EAC-layout log (fixed, 99ddb9e3)
+    pattern: 'eac.*(line break|newline)|(line break|newline).*eac'
+  - id: PC6
+    skill: coding
+    state: closed
+    about: tooltips and labels render outside text as rich text (fixed, 6eb42279)
+    pattern: 'rich ?text|markup|tooltip|PlainText'
+  - id: PC7
+    skill: coding
+    state: closed
+    about: an album year of ".." puts a rip outside the library (fixed, 268e4e08)
+    pattern: '(^|[\s"''/(])\.\.(/|["''\s)]|$)|traversal|outside the library'
+  - id: PC8
+    skill: coding
+    state: closed
+    about: the updater installs an older version than the one running (fixed, 79b628e9)
+    pattern: 'downgrade|older (version|build)'
+  - id: PC9
+    skill: coding
+    state: closed
+    about: server answers (MusicBrainz, AccurateRip, CTDB, Cover Art Archive) leave an adapter's contract (fixed, a3371b82)
+    pattern: 'musicbrainz|ctdb|cover art|server answer'
+  - id: PC10
+    skill: coding
+    state: closed
+    about: a file or folder name over 255 bytes isn't checked before a rip (fixed, 31ac6b9d, src/platterpus/naming.py)
+    pattern: '255|NAME_MAX|over.long (file |folder )?name|name length'

@@ -1,0 +1,82 @@
+REFUSED subprocess: ['metaflac', '--version']
+REFUSED subprocess: ['flatpak', 'info', '--user', 'org.musicbrainz.Picard']
+REFUSED subprocess: ['flac', '--version']
+REFUSED subprocess: ['ffmpeg', '-version']
+SHOT 01-QMessageBox-Set_up_Platterpus.png t=1.0s QMessageBox|Set up Platterpus TEXT: Platterpus needs a one-time setup to install its ripping tool (cyanrip) in a small container — no terminal required. Set it up now?
+
+You can also do this later from Tools → Setup & Updates… → Run setup….
+
+New to Platterpus? Help → Getting started… walks through setup and a first rip. INFO:  BUTTONS: &Yes | &No
+SHOT 02-MainWindow-Platterpus_0_7_127.png t=1.0s MainWindow|Platterpus 0.7.127
+MENU &File
+    'Rip as &Unknown Album…'  enabled
+    ''  enabled
+    '&Quit' Ctrl+Q enabled
+MENU &Tools
+    '&Settings…' Ctrl+, enabled
+    'Setup && &Updates…'  enabled
+    '&Advanced'  enabled
+       'Run &test script…' 
+       'Run &acceptance test…' 
+       'Run acceptance test with an &unknown disc…' 
+    ''  enabled
+    'U&ninstall Platterpus…'  enabled
+MENU &Help
+    '&Getting started…'  enabled
+    '&User Guide…' F1 enabled
+    'Open &logs folder…'  enabled
+    'Copy &diagnostics…'  enabled
+    ''  enabled
+    '&About Platterpus…'  enabled
+ACTION button:No on Set up Platterpus
+SHOT 03-HostSetupDialog-Set_up_Platterpus.png t=3.8s HostSetupDialog|Set up Platterpus
+ACTION reject on Set up Platterpus
+REFUSED subprocess: ['metaflac', '--version']
+SHOT 04-QMessageBox-Dependency_check_complete.png t=6.6s QMessageBox|Dependency check complete TEXT: 2 ok, 2 missing/needs-attention.
+Installed: musicbrainzngs (Python package) 0.7.1; numpy (Python package) 2.5.5.
+Optional (not installed): MusicBrainz Picard (Flatpak), flac (FLAC decoder), ffmpeg (WavPack/MP3/WAV transcoder), cd-paranoia (drive cache probe).
+
+Install failures:
+  • cyanrip: still missing after setup — re-run the wizard
+  • metaflac (FLAC tag editor): still missing after setup — re-run the wizard
+
+Full output is in /tmp/claude-0/-home-user-claude-code-skills/46cfbc1a-d1c5-5a09-bbbb-4b2444266d0f/scratchpad/ux/pp-run/home5/.local/share/platterpus/log.txt. INFO:  BUTTONS: OK
+ACTION reject on Dependency check complete
+SHOT 05-QMessageBox-cyanrip_update.png t=10.1s QMessageBox|cyanrip update TEXT: Platterpus couldn't identify a Platterpus-fork cyanrip build on this machine.
+
+Installed:  not identified — the ripper may be missing, or it may be stock upstream cyanrip rather than the Platterpus fork
+Expected:   0.9.4-rc3+platterpus.32 (edb73dd) — the build handshake round 40 approved, for Platterpus 0.7.125
+
+Until they match, every rip reports its ripper as 'unapproved' in its rip report. The audio is unaffected and still bit-perfect if its own checks pass — what changes is whether the record can say the ripper was jointly verified.
+
+Platterpus can install the expected build for you. It takes a few minutes and needs no commit typed in. INFO:  BUTTONS: Install it now | Not now
+ACTION reject on cyanrip update
+TRIGGER Settings…
+SHOT 06-SettingsDialog-Settings.png t=15.7s SettingsDialog|Settings
+CLOSE Settings
+TRIGGER Setup  Updates…
+SHOT 07-SetupCenterDialog-Setup___Updates.png t=22.0s SetupCenterDialog|Setup & Updates
+CLOSE Setup & Updates
+TRIGGER Getting started…
+SHOT 08-GettingStartedDialog-Platterpus___Getting_started.png t=30.4s GettingStartedDialog|Platterpus — Getting started
+CLOSE Platterpus — Getting started
+TRIGGER User Guide…
+SHOT 09-HelpDialog-Platterpus___User_Guide.png t=36.7s HelpDialog|Platterpus — User Guide
+CLOSE Platterpus — User Guide
+TRIGGER About Platterpus…
+REFUSED subprocess: ['uname', '-p']
+SHOT 10-AboutDialog-About_Platterpus.png t=43.0s AboutDialog|About Platterpus
+CLOSE About Platterpus
+TRIGGER Copy diagnostics…
+SHOT 11-DiagnosticsDialog-Diagnostics.png t=48.6s DiagnosticsDialog|Diagnostics
+CLOSE Diagnostics
+TRIGGER Rip as Unknown Album…
+SHOT 12-QMessageBox-Cannot_rip.png t=54.9s QMessageBox|Cannot rip TEXT: Select a drive first. INFO:  BUTTONS: OK
+CLOSE Cannot rip
+TRIGGER Uninstall Platterpus…
+SHOT 13-UninstallDialog-Uninstall_Platterpus.png t=64.0s UninstallDialog|Uninstall Platterpus
+CLOSE Uninstall Platterpus
+TRIGGER Run test script…
+SHOT 14-ScriptConsoleDialog-Run_test_script.png t=69.6s ScriptConsoleDialog|Run test script
+CLOSE Run test script
+QUIT

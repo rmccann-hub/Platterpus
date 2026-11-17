@@ -1,0 +1,79 @@
+# The answer key for the fork's C-only audit, at platterpus-fork 590e959dca21c7f56e30fac74ade8da8d50f8b6f.
+# A run is never shown this file. Written 2026-10-27 before the run, from the first audit's C
+# findings that an independent check confirmed (cyanrip/2026-10-27/CHECK-2026-10-27.md in
+# audit-reports). With C modules now in the skill, each should be found again, and named by a
+# module's rule or audit row rather than the general contract. Fields as in keys/platterpus.yaml;
+# `skill` is `coding` throughout, since the run uses only that skill.
+repo: cyanrip-c
+audited: 590e959dca21c7f56e30fac74ade8da8d50f8b6f
+items:
+  - id: CO1
+    skill: coding
+    state: open
+    about: cover art's AVCodecParameters copied shallowly, then its extradata freed by avformat_close_input and again per output stream (use after free, repeated frees)
+    pattern: 'extradata|AVCodecParameters|use.after.free|double free|avcodec_parameters'
+    rated: [BLOCKER, GAP]
+  - id: CO2
+    skill: coding
+    state: open
+    about: cover_arts[32] written at [31] and [32] after 31 user arts
+    pattern: 'cover_arts|\[32\]|out.of.bounds|overflow.*array|bounds'
+    rated: [BLOCKER, GAP]
+  - id: CO3
+    skill: coding
+    state: open
+    about: log, CUE and diagnostics writes never checked (no ferror; fwrite and fclose results ignored)
+    pattern: 'ferror|fclose|fwrite|unchecked write|/dev/full|ENOSPC'
+    rated: [BLOCKER, GAP]
+  - id: CO4
+    skill: coding
+    state: open
+    about: the AcoustID key copied from argv into the log and diagnostics
+    pattern: 'acoustid|argv|secret|api key|record_invocation'
+    rated: [BLOCKER, GAP]
+  - id: CO5
+    skill: coding
+    state: open
+    about: the first av_interleaved_write_frame error overwritten by a later call; av_packet_clone unchecked
+    pattern: 'av_interleaved_write_frame|first error|overwrit|av_packet_clone|packet'
+    rated: [GAP, DRIFT]
+  - id: CO6
+    skill: coding
+    state: open
+    about: string_is_url compares four characters for every scheme
+    pattern: 'string_is_url|strncmp|scheme|httpd'
+    rated: [GAP, DRIFT]
+  - id: CO7
+    skill: coding
+    state: open
+    about: av_mallocz unchecked before memcpy; a CURLcode tested with < 0
+    pattern: 'av_mallocz|CURLcode|CURLE_OK|unchecked alloc'
+    rated: [GAP, DRIFT]
+  - id: CO8
+    skill: coding
+    state: open
+    about: cover art fetched over plain HTTP
+    pattern: 'http://|plain http|https|TLS'
+    rated: [BLOCKER, GAP]
+  - id: CO9
+    skill: coding
+    state: open
+    about: meson_version '>=0.53.0' while the build uses 0.55, 0.56 and 0.62 features (c-build's floor rule)
+    pattern: 'meson_version|0\.53|floor'
+    rated: [DRIFT, GAP]
+  - id: CO10
+    skill: coding
+    state: open
+    about: the CUE sheet's FILE and REM lines written unescaped; a scope the fork's lap 12 S9 recorded
+    pattern: 'FILE "|REM |cue_str'
+    rated: [GAP, DRIFT]
+  - id: CC1
+    skill: coding
+    state: closed
+    about: the log writes values unescaped (fixed at 46cec2a; every value the log writes is escaped)
+    pattern: '(log).*(newline|control char|escape|forge)|(newline|control char|escape|forge).*(log)'
+  - id: CC2
+    skill: coding
+    state: closed
+    about: '".." in a path component: known, recorded in docs/KNOWN-ISSUES.md and held for the handshake; a finding should say so, not present it as new'
+    pattern: '\.\.|traversal|path component'
