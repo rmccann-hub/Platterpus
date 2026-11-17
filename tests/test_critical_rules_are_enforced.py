@@ -3470,7 +3470,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **945 -> 952** (2026-10-14): `PARTS` moves to our round 33 lap 2, the same way.
     "scripts/emit_envelope.py": 952,
     # **new at 341** (2026-10-26): `scripts/evidence_file.py` stages, verifies, redacts and commits a run's evidence; the round 36 runs added the verified-read chase's record, filed by verifying each embedded log. One job, the filing.
-    "scripts/evidence_file.py": 341,
+    # **341 -> 370** (2026-11-17, R186): `filing_hosts` and `--skip-host`, so a filing can leave the filing machine's own name alone when it is also a word the app writes (`vm`, the drive-profile prefix); one small function beside the stage step it feeds.
+    "scripts/evidence_file.py": 370,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a
