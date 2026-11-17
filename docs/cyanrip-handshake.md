@@ -662,6 +662,13 @@ theirs as *not released*, which fails closed and could hold a round they conside
 sent; the standing status names that cost to them explicitly rather than letting
 them meet it as a surprise.
 
+**A held lap is re-read before `--announce`** (2026-11-16). Our round 41 lap 2
+was written held while the `CLAUDE.md` slimming was under the owner's review, and
+its S21 said so; the slimming merged before the owner released the lap, so the
+sentence was false by the time the lap would go out. A lap is a statement made at
+its release, not at its writing: before flipping `HANDSHAKE-READY-TO-READ`, read
+it again against the tree as it stands, and correct what changed.
+
 ### 7.5d A short reading lap — our draft of the fork's D5 (round 30, W4)
 
 **Superseded by the shared text, 2026-09-30: PROTOCOL v7 §6d**

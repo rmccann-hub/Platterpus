@@ -69,7 +69,9 @@ wins, in this order:
      a background `until python3 scripts/pr_steward.py --pr N; [ $? -ne 2 ]; do
      sleep 60; done` (one notification when it ends), or `subscribe_pr_activity`
      for the PR's events. A test leg takes about five minutes; the whole CI run
-     about six.
+     about six. Read the verdict from the exit code or the FIRST line
+     of the output: the last line is a count of passed checks, and a loop keyed
+     on it never saw GREEN and ran to its time limit (2026-11-16).
    - **`FAILED`:** run `--logs` and read **every** failure line, not the last
      one. Reproduce the named tests locally, read pytest's own exit code, and
      fix the pattern. **Never re-run hoping it is noise** (the owner's rule):
@@ -152,4 +154,4 @@ Asked of the claude-code-skills checker, which owns the framework:
 
 ---
 
-*Last updated for Platterpus v0.7.118.*
+*Last updated for Platterpus v0.7.127.*
