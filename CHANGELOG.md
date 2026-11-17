@@ -12,7 +12,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **A Rip menu, and Ctrl+R to start a rip** (user-facing; UX review of 0.7.127, A2). Only Alt+S, the button's mnemonic, started a rip, and the menu bar had no Rip menu. **Rip → Start rip** (Ctrl+R) is greyed exactly when the Start rip button is, with the same tooltip, and runs the same handler; pressed while a track title is still being typed, it commits the title first, as Alt+S does. *Rip as Unknown Album…* is in the Rip menu too, and stays in File, where the README still sends people. Ctrl+R is a modified key (never a single character, WCAG 2.1.4), and nothing else in the window uses it.
+
 ### Changed
+
+- **Setup & Updates is a list of rows, not a wall of buttons** (user-facing; UX review of 0.7.127, L2). Each item's status is on the left and its buttons, at their normal size, on the right, where eight full-width 44 px buttons stacked under their status lines; *Add app shortcut*, the one button that acts at once, keeps the 44 px size. The window opens without scrolling on an 800 px screen (it scrolled 67 px), and grows when a long dependency report lands instead of scrolling. Every button, its Alt-key and its action are unchanged.
 
 - **The UX review's remaining rows are scheduled** (contributor-facing; the owner's plan of 2026-11-17): wave 1, R182 to R184 (the waiting and empty states, a Rip menu, the README's first screen), starts now for the next release; wave 2, R179 to R181 (one track table, grouped Settings, one verified column), follows round 41's close, with screenshots to the owner before it merges.
 - **The 2026-11-17 Full run on 0.7.127 with `.34` is filed** (contributor-facing): round 41's run, 649 pass and 3 fail, on `evidence` at `193801b1` with its 201 manifest rows, and a `partial` row in the field-evidence ledger. Two failures are the CTDB check on track 5's read, which the repair then fixed, as on round 40's run; the third is section P3's de-emphasis pair, whose forced arm misread track 1 (R185). Every `.34` record carries the drive's answered read performance, and all fourteen tracks are AccurateRip-verified in each of the seven whole-disc rips, track 5 by the labelled repair.

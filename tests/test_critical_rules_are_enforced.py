@@ -2541,7 +2541,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # finally called, through `show_dependency_check_finished`.
     # **492 -> 506** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-offset line reads the selected drive's offset through a reader the window passes, since each drive keeps its own.
     # **506 -> 522** (2026-11-17, UX review of 0.7.127), W2: the ripper line reads "Tested build: … approved for this version of Platterpus" and keeps the handshake round in a tooltip, so it builds its own status label rather than passing a string.
-    "ui/dialogs/setup_center.py": 522,
+    # **522 -> 577** (2026-11-17, UX review of 0.7.127 L2, TASKS R183): each item is a row, its status on the left and a normal-size button on the right, with `_COMMITS` naming the one button held to the commit size; and `_grow_to_fit`, which gives the window the height a status line needs when it changes while open (a long dependency report otherwise scrolled the narrower status column).
+    "ui/dialogs/setup_center.py": 577,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -2648,7 +2649,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1856 -> 1872** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's state, its `stop_thread` in `closeEvent` and the outcome recorded before the flush.
     # **1872 -> 1878** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): `closeEvent` frees a cancelled probe's drive as exit work, and `_start_disc_info` hands the superseded probe's drive to the new worker to free first; the decisions live in `main_window_drive.py`.
     # **1878 -> 1883** (2026-11-12, TASKS R53, the cache check once per drive): `CacheCheckMixin` in the class list and its import, and the disc-read success slot telling an open Set up drive that a CD has been read.
-    "ui/main_window.py": 1883,
+    # **1883 -> 1887** (2026-11-17, UX review of 0.7.127 A2, TASKS R183): the Rip menu, which `_build_menus` has to build because `tests/test_help_documents_the_menu.py` reads the menu out of this file; its wiring lives in `RipControls.bind_start_action`, and the redundant local `QKeySequence` import went to pay for part of it.
+    "ui/main_window.py": 1887,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2971,6 +2973,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2005 -> 2007** (2026-11-17, UX review of 0.7.127), W2: the unvalidated-CTDB line says "not yet validated on real drives" instead of naming KDD-16, with the comment saying why.
     # **2007 -> 2015** (2026-11-17, merging the UX-review branches): the next step is not added over a downgraded verdict (another album's disc, an unapproved ripper), where re-ripping is the wrong advice and the banner must word the verdict as the report does.
     "ui/rip_progress.py": 2015,
+    # **230 -> 301** (2026-11-17, UX review of 0.7.127 A2, TASKS R183): the Rip menu's Start rip is bound here, beside the button it stands for, so the action's enabled state comes from the button's one computation and its trigger presses the button (focus first, so a track title being typed is committed). Still one job: the rip buttons and what they hand the window.
+    "ui/rip_controls.py": 301,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,

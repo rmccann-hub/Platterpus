@@ -51,8 +51,8 @@ produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
    **Rip?** column by default — untick any you don't want. Or right-click one or
    more highlighted rows for **Rip only these** / include / exclude. Start rips
    whatever's ticked (all ticked = the whole disc).
-5. Click **Start rip**. Progress shows an overall bar plus the current task, and
-   the **Live log** tab comes forward so you can watch it work.
+5. Click **Start rip** (or **Rip → Start rip**, or **Ctrl+R**). Progress shows an
+   overall bar plus the current task, and the **Live log** tab comes forward.
 6. When it finishes, the status line reports a fidelity verdict, the verification
    banner appears (see below), and the **Tracks** tab comes forward with the
    per-track results. Files land under your output
@@ -158,8 +158,8 @@ into a new folder (non-destructive — your originals are untouched):
 
 ## Unknown discs
 
-If MusicBrainz has no match (or you're offline), use **File → Rip as Unknown
-Album…**. The track list is filled with placeholders you can edit; the folder is
+If MusicBrainz has no match (or you're offline), use **Rip → Rip as Unknown
+Album…** (the same item is also in the File menu). The track list is filled with placeholders you can edit; the folder is
 named from the album artist/title you type.
 
 ## Stopping a rip

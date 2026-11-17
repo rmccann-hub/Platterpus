@@ -54,6 +54,24 @@ _SUBMENU: Final[re.Pattern[str]] = re.compile(
 )
 
 
+#: `rip_menu.addAction(unknown_action)` — an action BUILT in one menu and shown
+#: in another too: the menu's stem and the action's variable. Its label is read
+#: from where the variable was built (`_ACTION_BUILT`).
+#:
+#: **Why (2026-11-17, UX review A2).** The Rip menu holds *Rip as Unknown
+#: Album…* as the SAME QAction File holds, because the README still names File.
+#: Read with the label patterns alone, the Rip menu would lack that item, and a
+#: path through it would be refused although a person can click it.
+_ACTION_SHOWN: Final[re.Pattern[str]] = re.compile(
+    r"(\w+)_menu\.addAction\(\s*(\w+_action)\s*\)", re.MULTILINE
+)
+
+#: `unknown_action = file_menu.addAction("Rip as &Unknown Album…")`.
+_ACTION_BUILT: Final[re.Pattern[str]] = re.compile(
+    r'(\w+_action)\s*=\s*\w+_menu\.addAction\(\s*"([^"]+)"', re.MULTILINE
+)
+
+
 def _menu_children() -> dict[str, list[tuple[str, str | None]]]:
     """``{menu stem: [(label, submenu stem or None), …]}``, read from the source.
 
@@ -67,6 +85,10 @@ def _menu_children() -> dict[str, list[tuple[str, str | None]]]:
         children.setdefault(menu, []).append((label, None))
     for child, parent, title in _SUBMENU.findall(text):
         children.setdefault(parent, []).append((title, child))
+    built = dict(_ACTION_BUILT.findall(text))
+    for menu, variable in _ACTION_SHOWN.findall(text):
+        if variable in built:
+            children.setdefault(menu, []).append((built[variable], None))
     return children
 
 
@@ -306,7 +328,7 @@ MenuTree = dict[str, "MenuTree"]
 _SECTION_BUTTON: Final[re.Pattern[str]] = re.compile(r'\("([^"]+)",\s*"\w+"\)')
 _CONSOLE_BUTTON: Final[re.Pattern[str]] = re.compile(r'QPushButton\("([^"]+)"')
 _SETTINGS_ROW: Final[re.Pattern[str]] = re.compile(r'form\.addRow\(\s*"([^"]+?):?"')
-_PATH_START: Final[re.Pattern[str]] = re.compile(r"\b(File|Tools|Help)\s*→\s*")
+_PATH_START: Final[re.Pattern[str]] = re.compile(r"\b(File|Rip|Tools|Help)\s*→\s*")
 
 
 def _plain(text: str) -> str:
@@ -365,7 +387,7 @@ def _menu_model() -> dict[str, MenuTree]:
     """
     children = _menu_children()
     model: dict[str, MenuTree] = {
-        m: _tree(m, children) for m in ("file", "tools", "help")
+        m: _tree(m, children) for m in ("file", "rip", "tools", "help")
     }
     center: MenuTree = {
         _norm(_searchable(b)): {}
@@ -533,6 +555,11 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
         "Tools -> Advanced -> Run test script... -> Load",
         "Tools -> Setup & Updates... -> Check for cyanrip updates",
         "Help → About Platterpus…",
+        # The Rip menu (2026-11-17): its own item, and the one it shares with
+        # File, which only the shared-action pattern can see.
+        "**Rip → Start rip**",
+        "Rip → Rip as Unknown Album…",
+        "File → Rip as Unknown Album…",
     ):
         assert _dead_paths(good, model) == [], good
     for bad in (
@@ -546,6 +573,8 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
         "Tools → Run acceptance test…",
         "Tools → Advanced → Uninstall Platterpus…",
         "Tools → Advanced → Run test script… → Reload",
+        "Rip → Quit",
+        "Rip → Cancel",
     ):
         assert _dead_paths(bad, model), f"accepted a dead path: {bad}"
 
