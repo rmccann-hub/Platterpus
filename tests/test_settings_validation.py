@@ -543,6 +543,7 @@ _BAD_VALUES: dict[str, object] = {
     "notify_on_completion": "yes",
     "drive_setup_prompted": "yes",
     "host_setup_prompted": "yes",
+    "host_setup_declined": "yes",
     "appimage_integration_prompted": "yes",
     "debug_logging": "yes",
     "secure_rerip_dynamic": "yes",

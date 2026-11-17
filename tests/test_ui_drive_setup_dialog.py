@@ -190,7 +190,10 @@ def test_no_detect_mode_omits_verification_wording(qapp: QApplication) -> None:
     ]
     joined = "\n".join(texts)
     assert "optional verification" not in joined
-    assert "auto-detection isn't available" in joined.lower()
+    # Says the ripper can't detect it, in those words: "the ripper", never "this
+    # backend", which no user has been told the meaning of (UX review, F5/W2).
+    assert "the ripper can't measure it from a disc" in joined.lower()
+    assert "backend" not in joined.lower()
 
 
 def test_format_result_offset_failure() -> None:
@@ -499,3 +502,77 @@ def test_the_dialog_has_exactly_one_scroll_surface(qapp: QApplication) -> None:
         f"expected one scroll surface (the results box); found {len(surfaces)}: "
         f"{[type(s).__name__ for s in surfaces]}"
     )
+
+
+# --- F5 (UX review of 0.7.127): the read-offset step --------------------------
+#
+# The review's screenshot: a ~200 px empty results box between the explanation
+# and the field, "isn't available with this backend", no default button, and no
+# confirmation beside the field once saved.
+
+
+@pytest.mark.parametrize("backend_cls", [_NonDetectingBackend, _CacheOnlyBackend])
+def test_the_results_box_is_hidden_without_an_offset_finder(
+    qapp: QApplication, backend_cls: type
+) -> None:
+    """REGRESSION (F5): no offset finder, so no empty results box on open."""
+    dialog = DriveSetupDialog(backend_cls(), "/dev/sr0", known_offset=667)
+    dialog.show()
+    qapp.processEvents()
+    assert dialog._results_label.isHidden()
+    assert not dialog._results_label.isVisible()
+
+
+def test_the_results_box_stays_for_an_offset_finder(qapp: QApplication) -> None:
+    """With Detect, the box is where its outcome lands: it stays."""
+    dialog = _dialog(qapp)
+    assert not dialog._results_label.isHidden()
+
+
+def test_a_cache_check_result_reveals_the_box(qapp: QApplication) -> None:
+    """The box is hidden, not gone: a cache check's outcome still needs it."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    dialog.show()
+    qapp.processEvents()
+    dialog._on_finished(DriveSetupResult(offset=None, can_defeat_cache=True))
+    assert not dialog._results_label.isHidden()
+    assert "Audio cache" in dialog._results_label.toPlainText()
+    # Revealing it re-derived the minimum, so the prose is still not clipped.
+    qapp.processEvents()
+    assert not _clipped_labels(dialog)
+
+
+def test_save_offset_is_the_default_button(qapp: QApplication) -> None:
+    """REGRESSION (F5): Enter in the offset field saves the offset."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0", known_offset=667)
+    assert dialog._save_offset_button.isDefault()
+    captured: list[int] = []
+    dialog.manual_offset_saved.connect(captured.append)
+    dialog.show()
+    dialog._offset_spin.setFocus()
+    qapp.processEvents()
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    QTest.keyClick(dialog._offset_spin, Qt.Key.Key_Return)
+    assert captured == [667]
+
+
+def test_saving_shows_offset_applied_beside_the_field(qapp: QApplication) -> None:
+    """REGRESSION (F5): "✓ Offset applied" beside the field, and only while true."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0", known_offset=667)
+    assert dialog._saved_label.text() == ""
+    dialog._save_offset_button.click()
+    assert dialog._saved_label.text() == "✓ Offset applied"
+    # Glyph and words, never colour alone; PlainText, stated.
+    from PySide6.QtCore import Qt
+
+    assert dialog._saved_label.textFormat() == Qt.TextFormat.PlainText
+    # Editing the value after saving: the mark no longer describes the field.
+    dialog._offset_spin.setValue(668)
+    assert dialog._saved_label.text() == ""
+    # Saved again, then the offset switched off: the mark must not vouch for it.
+    dialog._save_offset_button.click()
+    assert dialog._saved_label.text() == "✓ Offset applied"
+    dialog._apply_offset_check.setChecked(False)
+    assert dialog._saved_label.text() == ""

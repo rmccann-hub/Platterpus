@@ -544,11 +544,17 @@ def test_a_failed_config_write_in_a_first_run_offer_is_logged_not_raised(
     said = [
         r.getMessage() for r in caplog.records if "not saved to disk" in r.getMessage()
     ]
-    assert len(said) == 3 and all("disk full" in line for line in said), said
+    # Four writes: the host-setup "prompted" flag, the suite's default No to it
+    # (`host_setup_declined`, saved since 2026-11-17), the drive-setup flag, and
+    # the offset.
+    assert len(said) == 4 and all("disk full" in line for line in said), said
+    assert any("setup was declined" in line for line in said), said
     assert window._config.host_setup_prompted is True, "in effect for the session"
+    assert window._config.host_setup_declined is True, "in effect for the session"
     assert window._config.read_offset == 6
-    # The offset is the user's own value, so it is said on screen as well; the two
-    # prompt flags only cost a repeated prompt, and stay in the log.
+    # The offset is the user's own value, so it is said on screen as well; the
+    # prompt flags and the saved No only cost a repeated prompt or a wizard, and
+    # stay in the log.
     assert len(warned) == 1 and "+6" in warned[0] and "disk full" in warned[0], warned
 
 

@@ -15,11 +15,14 @@ from __future__ import annotations
 
 import html
 import logging
+import math
+import time
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QDialogButtonBox,
+    QHBoxLayout,
     QLabel,
     QPlainTextEdit,
     QProgressBar,
@@ -30,10 +33,13 @@ from PySide6.QtWidgets import (
 
 from platterpus import diagnostics
 from platterpus.deps.host_setup import HostSetup
+from platterpus.deps.setup_failure_text import explain_setup_failure
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.paths import LOG_PATH
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
-from platterpus.ui.failure_text import LOG_POINTER
+from platterpus.ui.external_open import OpenUrlFn, open_path_externally
+from platterpus.ui.plain_text import plain_tooltip
 from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
@@ -81,9 +87,16 @@ class SetupCopy:
         "• installs Distrobox + a container runtime (if missing)<br>"
         "• creates the 'ripping' container and installs cyanrip + flac into it<br>"
         "• makes the ripping tools available to this app<br><br>"
-        "Installing system packages may pop up your system password prompt "
-        "once. On Bazzite/Silverblue everything's already there, so this is "
-        "usually instant. It's safe to re-run."
+        # ONE estimate, in the README's own words (*Easiest*, step 3). This
+        # said "On Bazzite/Silverblue everything's already there, so this is
+        # usually instant": true of Distrobox and Podman only. The container
+        # and the ripper build are needed on every system, Bazzite included,
+        # and they are the slow part (UX review of 0.7.127, F3). Kept no longer
+        # than the sentence it replaced: at 150 % text on a Steam Deck the
+        # intro is already the tallest thing in the window
+        # (tests/test_ui_conformance.py, clipped_text).
+        "It takes a few minutes: it creates the container and builds the "
+        "ripper. It may ask for your password once. It's safe to re-run."
     )
     action_label: str = "&Set up"
     rerun_label: str = "Re-run setup"
@@ -147,6 +160,7 @@ class HostSetupDialog(CenteredDialog):
         host_setup: HostSetup | None = None,
         copy: SetupCopy | None = None,
         start_immediately: bool = False,
+        open_url: OpenUrlFn | None = None,
     ) -> None:
         """`host_setup` is injectable for tests; production builds the real
         one (a SubprocessRunner-backed bootstrap).
@@ -156,6 +170,10 @@ class HostSetupDialog(CenteredDialog):
         button press, for a run the user has *already* consented to in the dialog
         that opened this one: asking twice is not extra safety, it is a second
         click on the same decision.
+
+        ``open_url`` is the desktop opener behind **Open log**
+        (``QDesktopServices.openUrl`` when None); injected so tests never launch
+        a real text editor.
         """
         super().__init__(parent)
         if host_setup is None:
@@ -167,6 +185,10 @@ class HostSetupDialog(CenteredDialog):
         self._thread: QThread | None = None
         self._worker: HostSetupWorker | None = None
         self._closing: bool = False
+        self._open_url: OpenUrlFn | None = open_url
+        # When the current run started (time.monotonic), for the elapsed-time
+        # line; None while no run is in flight.
+        self._started_at: float | None = None
 
         self.setWindowTitle(self._copy.title)
         self.resize(580, 460)
@@ -191,7 +213,12 @@ class HostSetupDialog(CenteredDialog):
         self._progress: QProgressBar = QProgressBar(self)
         self._progress.setRange(0, 0)
         self._progress.setVisible(False)
-        root.addWidget(self._progress)
+        # The bar and the elapsed-time label below share ONE row: a row of its
+        # own pushed the ripper-update intro into clipping at 150 % text on a
+        # small screen (tests/test_ui_conformance.py, clipped_text).
+        progress_row = QHBoxLayout()
+        progress_row.addWidget(self._progress, 1)
+        root.addLayout(progress_row)
 
         self._status_label: QLabel = QLabel("", self)
         # PlainText: a step's own words land here (a running step's detail, a
@@ -202,14 +229,57 @@ class HostSetupDialog(CenteredDialog):
         self._status_label.setAccessibleName("Setup status")
         root.addWidget(self._status_label)
 
+        # How long the run has taken so far. Setup takes minutes and the bar is
+        # indeterminate, so a clock that moves is the one honest sign the window
+        # is alive between step changes. Ticked by a GUI-thread QTimer once a
+        # second; the setup work itself stays on the worker thread. Not
+        # announced: a screen reader reading a clock every second is noise.
+        self._elapsed_label: QLabel = QLabel("", self)
+        self._elapsed_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._elapsed_label.setAccessibleName("Setup elapsed time")
+        self._elapsed_label.setVisible(False)
+        progress_row.addWidget(self._elapsed_label)
+        self._elapsed_timer: QTimer = QTimer(self)
+        self._elapsed_timer.setInterval(1000)
+        self._elapsed_timer.timeout.connect(self._tick_elapsed)
+
+        # The failed step's OWN words, below the plain sentence that leads. The
+        # status line says what happened and what to do; this keeps what the
+        # tool actually printed, so nothing captured is dropped (CLAUDE.md:
+        # show the user the dependency's own sentence). PlainText, because it
+        # is external output; selectable, so it can be copied into a report.
+        self._details_label: QLabel = QLabel("", self)
+        self._details_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._details_label.setWordWrap(True)
+        self._details_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self._details_label.setAccessibleName("Setup failure details")
+        self._details_label.setVisible(False)
+        root.addWidget(self._details_label)
+
         self._results: QPlainTextEdit = QPlainTextEdit("", self)
         self._results.setReadOnly(True)
         self._results.setAccessibleName("Setup step results")
+        # Hidden until a step reports, so the wizard does not open on an empty
+        # box (UX review of 0.7.127, F4); the stretch below takes its room.
+        self._results.setVisible(False)
         root.addWidget(self._results, stretch=1)
+        root.addStretch(0)
 
         self._button_box: QDialogButtonBox = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Close, self
         )
+        # Open log: shown once a run has failed. The log path used to be plain
+        # text under the failure, which a user had to copy into a file manager.
+        self._open_log_button: QPushButton = QPushButton("Open &log", self)
+        self._open_log_button.setToolTip(plain_tooltip(str(LOG_PATH)))
+        self._open_log_button.clicked.connect(self._on_open_log_clicked)
+        self._button_box.addButton(
+            self._open_log_button, QDialogButtonBox.ButtonRole.ActionRole
+        )
+        # Hidden AFTER adding: the button box shows every button it is given.
+        self._open_log_button.setVisible(False)
         self._button_box.rejected.connect(self.reject)
         self._button_box.accepted.connect(self.accept)
         root.addWidget(self._button_box)
@@ -231,7 +301,18 @@ class HostSetupDialog(CenteredDialog):
         self._setup_button.setEnabled(False)
         self._results.clear()
         self._progress.setVisible(True)
-        self._status_label.setText("Setting up… this can take a few minutes.")
+        self._status_label.setText(
+            "Setting up… the first time this takes a few minutes."
+        )
+        # A re-run starts clean: the last run's failure details no longer
+        # describe anything.
+        self._details_label.clear()
+        self._details_label.setVisible(False)
+        self._open_log_button.setVisible(False)
+        self._started_at = time.monotonic()
+        self._elapsed_label.setText(f"Elapsed: {format_elapsed(0.0)}")
+        self._elapsed_label.setVisible(True)
+        self._elapsed_timer.start()
 
         self._worker = HostSetupWorker(self._host)
         self._thread = QThread(self)
@@ -263,6 +344,7 @@ class HostSetupDialog(CenteredDialog):
         # Sticky bottom, not forced bottom: setup runs for minutes and a failing
         # step is exactly when the user scrolls up to read what it said. A plain
         # append would drag them back to the tail on the next step.
+        self._results.setVisible(True)
         append_keeping_position(self._results, line)
 
     def _on_finished(self, results: list[StepResult]) -> None:
@@ -270,6 +352,7 @@ class HostSetupDialog(CenteredDialog):
         if self._closing:
             return
         self._progress.setVisible(False)
+        self._stop_elapsed(final=True)
         self._setup_button.setEnabled(True)
         self._setup_button.setText(self._copy.rerun_label)
         ready = self._host.is_ready()
@@ -301,24 +384,40 @@ class HostSetupDialog(CenteredDialog):
         )
         if failed:
             first = failed[0]
+            # A PLAIN SENTENCE LEADS; THE TOOL'S OWN WORDS FOLLOW. This printed
+            # the raw detail as the headline (`Setup stopped at "Distrobox":
+            # command not found: pkexec ([Errno 2] …)`), which named no cause a
+            # user could recognise and no next step (UX review of 0.7.127, F3).
+            # The mapping is a pure function so each known cause is tested
+            # without a window; the raw detail is kept, word for word, below it
+            # in `_details_label`, and the log path with it (`ui/failure_text`).
+            explained = explain_setup_failure(
+                first.step_id,
+                first.title,
+                first.detail,
+                retry_label=self._copy.rerun_label.replace("&", ""),
+            )
+            log.warning(
+                "host setup: step %r failed, shown as cause %s: %s",
+                first.step_id,
+                explained.cause.value,
+                first.detail,
+            )
             if ready:
                 # Can rip, but not with what we asked for. Both halves, explicitly.
                 self._status_label.setText(
-                    f"⚠ Setup did NOT fully complete — “{first.title}” failed: "
-                    f"{first.detail}\n"
+                    f"⚠ Setup did NOT fully complete — “{first.title}” failed. "
+                    f"{explained.headline}\n"
                     "A working ripper is still installed, so you can rip — but not "
-                    "with the build this version of Platterpus expects. Re-run setup, "
-                    "or send the log if it fails again.\n"
-                    # NAME THE FILE. This said "send the log" and named nothing, which
-                    # asks the user to find something they have never been told the
-                    # location of. One shared sentence (`ui/failure_text`) rather than
-                    # a twenty-first hand-written variant.
-                    f"{LOG_POINTER}"
+                    "with the build this version of Platterpus expects.\n"
+                    f"{explained.action}"
                 )
             else:
                 self._status_label.setText(
-                    f"Setup stopped at “{first.title}”: {first.detail}\n{LOG_POINTER}"
+                    f"✗ Setup stopped at “{first.title}”. {explained.headline}\n"
+                    f"{explained.action}"
                 )
+            self._show_failure_details(first.title, explained.raw)
         elif ready and all_already:
             self._status_label.setText(self._copy.already)
         elif ready:
@@ -351,13 +450,59 @@ class HostSetupDialog(CenteredDialog):
             self._status_label.setText(
                 "Setup did not complete, and no individual step reported a failure — "
                 "so there is nothing specific to point at. The ripper is not usable "
-                f"yet.\n{LOG_POINTER}"
+                "yet. Press Open log to see what each step did."
             )
+            self._show_failure_details("", "")
         # Announce the final outcome — the run may have taken minutes (gap #4).
         announce(self._status_label, self._status_label.text())
         self._worker = None
         self._thread = None
         self.setup_finished.emit(ready)
+
+    def _show_failure_details(self, title: str, raw: str) -> None:
+        """Show the failed step's own words (when it had any) and Open log.
+
+        The log path is no longer written out under the failure: it is behind
+        **Open log**, in that button's tooltip, and — on a desktop with nothing
+        set up to open a ``.txt`` file — in the dialog `open_path_externally`
+        shows instead, which names the full path to copy. Writing it here as
+        well cost two lines in a window that is already at its height limit at
+        150 % text (tests/test_ui_conformance.py, clipped_text).
+        """
+        if raw:
+            self._details_label.setText(f"What “{title}” reported: {raw}")
+            self._details_label.setVisible(True)
+        self._open_log_button.setVisible(True)
+
+    def _on_open_log_clicked(self) -> None:
+        """Hand the app log to the desktop. Fire-and-forget: ``openUrl`` spawns
+        the handler and returns, and a refusal is reported with the path."""
+        open_path_externally(
+            LOG_PATH, parent=self, open_url=self._open_url, what="log file"
+        )
+
+    # --- Elapsed time -------------------------------------------------------
+
+    def _tick_elapsed(self) -> None:
+        """Once a second while a run is in flight: refresh the elapsed line."""
+        if self._started_at is None or self._closing:
+            return
+        elapsed = time.monotonic() - self._started_at
+        self._elapsed_label.setText(f"Elapsed: {format_elapsed(elapsed)}")
+
+    def _stop_elapsed(self, *, final: bool) -> None:
+        """Stop the clock and hide it; ``final`` logs the run's total.
+
+        Hidden rather than left reading "took m:ss": once the bar beside it is
+        gone, the label would be a row of its own, and the finished window is
+        the one measured at its height limit (tests/test_ui_conformance.py).
+        """
+        self._elapsed_timer.stop()
+        if final and self._started_at is not None:
+            took = format_elapsed(time.monotonic() - self._started_at)
+            log.info("host setup: the run took %s", took)
+        self._elapsed_label.setVisible(False)
+        self._started_at = None
 
     # --- Lifecycle ----------------------------------------------------------
 
@@ -373,6 +518,7 @@ class HostSetupDialog(CenteredDialog):
         abort)."""
         from platterpus.workers import stop_thread
 
+        self._stop_elapsed(final=False)
         stop_thread(self._thread, self._worker)
         self._worker = None
         self._thread = None
@@ -386,3 +532,20 @@ class HostSetupDialog(CenteredDialog):
         self._closing = True
         self._stop()
         super().closeEvent(event)  # type: ignore[arg-type]
+
+
+def format_elapsed(seconds: float) -> str:
+    """``m:ss`` (or ``h:mm:ss`` past an hour) for the elapsed-time line.
+
+    Pure, so the format is tested without a clock. A negative or non-finite value
+    (impossible from ``monotonic``, but this must not be what raises) shows as
+    ``0:00``.
+    """
+    if not math.isfinite(seconds) or seconds < 0:
+        seconds = 0.0
+    whole = int(seconds)
+    hours, rest = divmod(whole, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"

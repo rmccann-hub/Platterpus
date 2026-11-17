@@ -37,7 +37,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QEvent, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -70,17 +70,24 @@ from platterpus.ctdb_disagreement import (
     ctdb_disagreements,
     ctdb_note_sentence,
 )
+from platterpus.data_tracks import is_data_track
+from platterpus.finish_wording import next_step_sentence
 from platterpus.parsers.rip_log import (
     RipLog,
     accuraterip_is_match,
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
-from platterpus.track_proof import contradiction_sentence
+from platterpus.track_proof import contradicted_tracks_sentence, contradiction_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
 from platterpus.ui.plain_text import plain_tooltip
-from platterpus.ui.status_colours import SECONDARY_STYLE, status_style
+from platterpus.ui.status_colours import (
+    PALETTE_EVENTS,
+    SECONDARY_STYLE,
+    apply_status_style,
+    reapply_status_styles,
+)
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -95,6 +102,7 @@ from platterpus.verdict import (
     AR_STATE_VERIFIED,
     accuraterip_compared,
     accuraterip_confidence_text,
+    accuraterip_contradictions,
     accuraterip_db_max_confidence,
     accuraterip_rejected_count,
     accuraterip_state,
@@ -103,6 +111,11 @@ from platterpus.verdict import (
     reconcile_ar_ctdb,
     track_accuraterip_contradiction,
 )
+
+#: The verdict banner's accessible name, and the one it carries while it shows a
+#: failed rip instead (`show_failure`), so a screen reader names what it is.
+_VERDICT_ACCESSIBLE_NAME: str = "AccurateRip verification verdict"
+_FAILURE_ACCESSIBLE_NAME: str = "Rip failure"
 
 __all__ = [
     "RipProgress",
@@ -297,6 +310,20 @@ class RipProgress(QWidget):
         # each downgrade appends rather than overwrites.
         self._verdict_base_message: str = ""
         self._verdict_downgrades: list[str] = []
+        # The tracks the verdict says AccurateRip contradicts, by number, when
+        # some (not all) of the rip's audio tracks are contradicted: the banner
+        # then ends with one plain next step naming them (UX review V1). Empty
+        # when there is no such step to give.
+        self._verdict_attention: tuple[object, ...] = ()
+        # The level the banner shows now ("ok", "warn", "neutral", "error"), or
+        # None while it is hidden. Read by the window for the status line's
+        # lead (`verdict_level`), so the two cannot carry different marks.
+        self._verdict_level: str | None = None
+        # A failed rip's sentence (`show_failure`), shown at the error level in
+        # place of a verdict, and the log the Open log button opens. Empty and
+        # None while the rip has not failed.
+        self._verdict_failure: str = ""
+        self._failure_log_path: Path | None = None
 
         # --- Why this pane is built in three bands ---------------------------
         # This pane has to show five different things: live progress, a live
@@ -407,7 +434,7 @@ class RipProgress(QWidget):
         self._stall_label.setTextFormat(Qt.TextFormat.PlainText)
         self._stall_label.setWordWrap(True)
         self._stall_label.setVisible(False)
-        self._stall_label.setStyleSheet(status_style("warn", self._stall_label))
+        apply_status_style(self._stall_label, "warn")
         root.addWidget(self._stall_label)
 
         # --- CTDB's per-track disagreement, as a NOTE (never WRONG) ---
@@ -444,7 +471,25 @@ class RipProgress(QWidget):
         self._verdict_banner.setTextFormat(Qt.TextFormat.PlainText)
         self._verdict_banner.setWordWrap(True)
         self._verdict_banner.setVisible(False)
-        root.addWidget(self._verdict_banner)
+        # The banner shares its row with **Open log**, shown only while the
+        # banner reports a failed rip (UX review E1): the fallback sentence names
+        # the log's path, and a path the user must copy by hand is a dead end.
+        # Opening it goes through `open_path_externally` (QDesktopServices,
+        # which hands the file to the desktop and returns at once, so the GUI
+        # thread never waits; when nothing on the system opens a .log, the user
+        # is shown the path instead of a button that does nothing).
+        self._open_failure_log_button: QPushButton = QPushButton("Open &log", self)
+        self._open_failure_log_button.setVisible(False)
+        self._open_failure_log_button.setAccessibleName(
+            "Open the app log, which records why the rip failed"
+        )
+        self._open_failure_log_button.clicked.connect(self._on_open_failure_log)
+        verdict_row = QHBoxLayout()
+        verdict_row.addWidget(self._verdict_banner, stretch=1)
+        verdict_row.addWidget(
+            self._open_failure_log_button, alignment=Qt.AlignmentFlag.AlignTop
+        )
+        root.addLayout(verdict_row)
 
         # --- Read-effort early warning (per-track "hard to read") ---
         # Amber footnote naming tracks that needed unusually heavy re-reading (or
@@ -454,9 +499,7 @@ class RipProgress(QWidget):
         self._read_effort_label.setTextFormat(Qt.TextFormat.PlainText)
         self._read_effort_label.setWordWrap(True)
         self._read_effort_label.setVisible(False)
-        self._read_effort_label.setStyleSheet(
-            status_style("warn", self._read_effort_label)
-        )
+        apply_status_style(self._read_effort_label, "warn")
         root.addWidget(self._read_effort_label)
 
         # --- Re-rip comparison banner ("you've ripped this disc before") ---
@@ -684,7 +727,7 @@ class RipProgress(QWidget):
         self._progress_bar.setAccessibleName("Current task progress")
         self._status_label.setAccessibleName("Rip status")
         self._log_view.setAccessibleName("Rip log output")
-        self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
+        self._verdict_banner.setAccessibleName(_VERDICT_ACCESSIBLE_NAME)
         self._read_effort_label.setAccessibleName("Read-effort warning")
         self._stall_label.setAccessibleName("Rip stall warning")
         self._ctdb_note_label.setAccessibleName("CTDB per-track note")
@@ -719,6 +762,21 @@ class RipProgress(QWidget):
             "CTDB verification, read-effort caveats, and album loudness",
         )
         self._tabs.setTabToolTip(_TAB_LOG, "Live output from the ripper")
+
+    def changeEvent(self, event: QEvent) -> None:  # noqa: N802 — Qt override
+        """Recolour the status lines when the desktop's colours change.
+
+        Qt calls this when the palette or theme changes under the open window
+        (Breeze to Breeze Dark in System Settings, say). Each status line's
+        colour was chosen for the palette in force when it was set, so the
+        light-theme amber stayed on a charcoal background until the app was
+        restarted (UX review L1, 2026-11-17). ``reapply_status_styles`` chooses
+        each one again for the palette in force now; it touches only labels,
+        on the GUI thread this event arrives on.
+        """
+        if event.type() in PALETTE_EVENTS:
+            reapply_status_styles(self)
+        super().changeEvent(event)
 
     # --- Public surface -----------------------------------------------------
 
@@ -772,6 +830,13 @@ class RipProgress(QWidget):
         self._last_status_text = ""
         self._verdict_base_message = ""
         self._verdict_downgrades = []
+        self._verdict_attention = ()
+        self._verdict_level = None
+        self._verdict_banner.setToolTip("")
+        self._verdict_failure = ""
+        self._failure_log_path = None
+        self._open_failure_log_button.setVisible(False)
+        self._verdict_banner.setAccessibleName(_VERDICT_ACCESSIBLE_NAME)
         # The Details tab is empty again, so drop any warning marker from its
         # label — a stale ⚠ on an empty tab would send the user looking for a
         # caveat that no longer exists.
@@ -972,7 +1037,10 @@ class RipProgress(QWidget):
         if not reason or reason in self._verdict_downgrades:
             return
         self._verdict_downgrades.append(reason)
-        if not self._verdict_base_message:
+        # (Never while a failure is shown: the banner's text is then the failure,
+        # which `_render_verdict_banner` adds by itself, and taking it as the
+        # base would print it twice.)
+        if not self._verdict_base_message and not self._verdict_failure:
             self._verdict_base_message = self._verdict_banner.text()
         self._render_verdict_banner("warn")
 
@@ -996,16 +1064,84 @@ class RipProgress(QWidget):
         more than one surface, compute it once (audit finding, 2026-07-31).
         """
         base = self._verdict_base_message
-        if not base and not self._verdict_downgrades:
+        failure = self._verdict_failure
+        if not base and not self._verdict_downgrades and not failure:
             self._verdict_banner.setVisible(False)
+            self._verdict_level = None
             return
         # One assembly, shared with the report's verdict (`apply_downgrades`), so
         # the window and the record cannot word the same downgrade two ways.
-        text, level = apply_downgrades(base, level, self._verdict_downgrades)
+        text, level = (
+            apply_downgrades(base, level, self._verdict_downgrades)
+            if base or self._verdict_downgrades
+            else ("", level)
+        )
+        # ONE PLAIN NEXT STEP, on the screen only (UX review V1). The sentence
+        # above says what AccurateRip found; this says what to do about it, with
+        # the controls named by the labels the window shows. Added here, not to
+        # the verdict, because the verdict is also the report's `verdict` field,
+        # which records what was found rather than advice.
+        #
+        # NOT when a downgrade is on the verdict. A downgrade is a second cause the
+        # window learned after the log (the disc is another album's, the ripper is
+        # not the one approved, …), and "clean the disc and re-rip" is the wrong
+        # advice for any of them: re-ripping another album's disc under these tags
+        # repeats the mistake. The banner then says exactly what the report says
+        # (`tests/test_disc_identity.py`, the banner and report word a mismatch
+        # identically), which is the right state for a verdict with two causes.
+        if level == "warn" and self._verdict_attention and not self._verdict_downgrades:
+            text = f"{text} {next_step_sentence(self._verdict_attention)}"
+        # A FAILED RIP OUTRANKS ITS VERDICT (UX review E1). The failure's
+        # sentence comes first, at the error level with its ✖; whatever the
+        # partial log's verdict says follows on the next line, because the
+        # tracks that did finish are still worth knowing about.
+        if failure:
+            text = f"{failure}\n{text}" if text else failure
+            level = "error"
+        self._verdict_level = level
         self._verdict_banner.setText(text)
-        self._verdict_banner.setStyleSheet(status_style(level, self._verdict_banner))
+        apply_status_style(self._verdict_banner, level)
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
+
+    def show_failure(self, text: str, log_path: Path | None) -> None:
+        """Show a failed rip on the verdict banner, at the error level.
+
+        ``text`` is the whole sentence (``finish_wording.failure_banner_text``:
+        ``✖``, the dependency's own words first). ``log_path`` is the log the
+        **Open log** button beside it opens; None hides the button. Replaces an
+        earlier failure's text (the finish handler words it again with
+        everything it knows), and is cleared by :meth:`clear` at the next rip.
+
+        UX review E1, 2026-11-17: a failure used to be one grey status line,
+        ``Error: …``, with no marker and nothing to click.
+        """
+        self._verdict_failure = text.strip()
+        self._failure_log_path = log_path
+        self._open_failure_log_button.setVisible(log_path is not None)
+        self._verdict_banner.setAccessibleName(_FAILURE_ACCESSIBLE_NAME)
+        self._render_verdict_banner("error")
+
+    def _on_open_failure_log(self) -> None:
+        """Open the log the failure banner names, on the desktop."""
+        if self._failure_log_path is None:
+            return
+        open_path_externally(
+            self._failure_log_path,
+            parent=self,
+            open_url=self._open_url,
+            what="log file",
+        )
+
+    def verdict_level(self) -> str | None:
+        """The level the verdict banner shows now, or None while it is hidden.
+
+        ``"ok"``, ``"warn"``, ``"neutral"`` or ``"error"``, after every
+        downgrade. The window reads it for the status line's lead
+        (``finish_wording.finished_line``), so the line under the progress bar
+        and the banner under it carry the same mark (UX review V1).
+        """
+        return self._verdict_level
 
     def set_rip_log(
         self,
@@ -1036,6 +1172,26 @@ class RipProgress(QWidget):
         # do. It also announces the headline focus-safely, the one post-rip
         # update a screen-reader user must not miss (gap #4).
         self._verdict_base_message = message
+        # Which tracks need the next step, and the technical sentence for the
+        # tooltip ("only frame 450 matched …"), from the verdict's own predicate
+        # (`accuraterip_contradictions`). A next step only when SOME of the audio
+        # tracks are contradicted: when every one is, re-ripping them all is not
+        # the advice, and the verdict already names a wrong read offset.
+        contradictions = accuraterip_contradictions(rip_log)
+        audio_tracks = [t for t in rip_log.tracks if not is_data_track(t)]
+        self._verdict_attention = (
+            tuple(number for number, _kind in contradictions)
+            if 0 < len(contradictions) < len(audio_tracks)
+            else ()
+        )
+        detail = contradicted_tracks_sentence(contradictions)
+        self._verdict_banner.setToolTip(
+            plain_tooltip(
+                f"{detail}. The Tracks tab shows each track's AccurateRip result."
+                if detail
+                else ""
+            )
+        )
         self._render_verdict_banner(level)
 
         # Read-effort early warning (per-track "hard to read"). Hidden when clean.
@@ -1126,9 +1282,7 @@ class RipProgress(QWidget):
             self._comparison_label.setVisible(False)
             return
         self._comparison_label.setText(text)
-        self._comparison_label.setStyleSheet(
-            status_style(level, self._comparison_label)
-        )
+        apply_status_style(self._comparison_label, level)
         self._comparison_label.setVisible(True)
         # A silently-changed track is exactly what a screen-reader user would
         # otherwise never learn about — announce the comparison (gap #4).
@@ -1148,9 +1302,7 @@ class RipProgress(QWidget):
         ``level`` is never the only signal. Empty ``text`` hides the line.
         """
         self._ctdb_repair_label.setText(text)
-        self._ctdb_repair_label.setStyleSheet(
-            status_style(level, self._ctdb_repair_label)
-        )
+        apply_status_style(self._ctdb_repair_label, level)
         self._ctdb_repair_label.setVisible(bool(text))
         if text:
             self._refresh_details_tab_marker()
@@ -1166,10 +1318,8 @@ class RipProgress(QWidget):
         """
         verdict_text = ctdb_verdict_line(result)
         self._ctdb_label.setText(verdict_text)
-        self._ctdb_label.setStyleSheet(
-            status_style(
-                ctdb_verdict_level(result, self._last_rip_log), self._ctdb_label
-            )
+        apply_status_style(
+            self._ctdb_label, ctdb_verdict_level(result, self._last_rip_log)
         )
         self._ctdb_label.setVisible(True)
         self._announce_ctdb(verdict_text)
@@ -1454,8 +1604,10 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
                 f"AccurateRip is the per-track authority.{per_track}"
             )
         return (
-            "CTDB: not confirmed — the CRC check is still experimental (pending "
-            "hardware validation, KDD-16); a non-match here doesn’t mean your "
+            # No decision-log number in a user's sentence (UX review of
+            # 0.7.127, W2): this said "(pending hardware validation, KDD-16)".
+            "CTDB: not confirmed — the CRC check is still experimental (not yet "
+            "validated on real drives); a non-match here doesn’t mean your "
             "rip is wrong — AccurateRip is the authority"
         )
     if verdict is Verdict.NOT_WHOLE_DISC:

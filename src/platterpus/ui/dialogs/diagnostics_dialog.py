@@ -62,6 +62,11 @@ log = logging.getLogger(__name__)
 _MAX_CHARS: int = 200_000
 
 
+def _yes_no(value: object) -> str:
+    """``yes``/``no`` for a bool, else ``unknown``: never measured is not ``no``."""
+    return "yes" if value is True else "no" if value is False else "unknown"
+
+
 def build_diagnostics_text() -> str:
     """Render the copyable report. **Pure and never raises.**
 
@@ -132,11 +137,13 @@ def build_diagnostics_text() -> str:
             for tool in sorted(deps):
                 info = deps[tool]
                 if isinstance(info, dict):
-                    build = f" build={own[tool]}" if tool in own else ""
+                    # Words, not field names (UX review W2): this read
+                    # `present=False … min_version_met=False`. Same facts.
+                    build = f", build: {own[tool]}" if tool in own else ""
                     lines.append(
-                        f"{tool}: present={info.get('present')} "
-                        f"version={info.get('version') or '(unknown)'}{build} "
-                        f"min_version_met={info.get('min_version_met')}"
+                        f"{tool}: installed: {_yes_no(info.get('present'))}, "
+                        f"version: {info.get('version') or 'unknown'}{build}, "
+                        f"minimum met: {_yes_no(info.get('min_version_met'))}"
                     )
             if unchecked:
                 lines.append(f"NOTE: {unchecked}")

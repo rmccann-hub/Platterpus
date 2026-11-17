@@ -229,28 +229,28 @@ class NamingPreset:
 PRESETS: tuple[NamingPreset, ...] = (
     NamingPreset(
         key="artist_album_track_title",
-        label="Artist / Album / 01 - Title — Simple, No Year Clutter [Recommended]",
+        label="Artist / Album / 01 - Title — simple, no year clutter (recommended)",
         track_template="%A/%d/%t - %n",
         disc_template="%A/%d/%d",
         note="The clean default used by Picard, beets and Plex. No year clutter.",
     ),
     NamingPreset(
         key="artist_album_track_title_nodash",
-        label="Artist / Album / 01 Title — Same Layout, No Dash",
+        label="Artist / Album / 01 Title — same layout, no dash",
         track_template="%A/%d/%t %n",
         disc_template="%A/%d/%d",
         note="Same layout without the dash separator.",
     ),
     NamingPreset(
         key="artist_album_year_track_title",
-        label="Artist / Album (Year) / 01 - Title — Plex and Jellyfin Style",
+        label="Artist / Album (Year) / 01 - Title — Plex and Jellyfin style",
         track_template="%A/%d (%Y)/%t - %n",
         disc_template="%A/%d (%Y)/%d",
         note="Plex/Jellyfin style — the 4-digit year in the folder.",
     ),
     NamingPreset(
         key="artist_year_album_track_title",
-        label="Artist / Year - Album / 01 - Title — Chronological, foobar2000 Style",
+        label="Artist / Year - Album / 01 - Title — chronological, foobar2000 style",
         track_template="%A/%Y - %d/%t - %n",
         disc_template="%A/%Y - %d/%d",
         note="foobar2000 style — albums sort by year.",
@@ -258,7 +258,7 @@ PRESETS: tuple[NamingPreset, ...] = (
     NamingPreset(
         key="compilation",
         label=(
-            "Artist / Album / 01 - Track Artist - Title — Compilations, Various Artists"
+            "Artist / Album / 01 - Track Artist - Title — compilations, various artists"
         ),
         track_template="%A/%d/%t - %a - %n",
         disc_template="%A/%d/%d",

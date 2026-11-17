@@ -482,6 +482,10 @@ def ripper_offers(monkeypatch: pytest.MonkeyPatch) -> list[object]:
         "_offer_ripper_install",
         lambda self, offer, detail, commit, **_: opened.append(offer),
     )
+    # A ripper is installed: with none, the automatic offer is not shown at all,
+    # since setup installs the tested build (UX review of 0.7.127, F2), and these
+    # tests are about how an offer that IS shown waits.
+    monkeypatch.setattr(MainWindow, "_host_stack_ready", lambda self: True)
     return opened
 
 

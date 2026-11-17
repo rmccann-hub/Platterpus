@@ -132,19 +132,20 @@ PRESETS: dict[str, GoalPreset] = {
 # naming-scheme combo); it's not a real preset.
 #
 # Every label follows the one Settings-option convention documented in
-# `option_labels.py` — `Name — Descriptor In Title Case [Qualifier]` — and
+# `option_labels.py` — `Name — descriptor in sentence case (qualifier)`, sentence
+# case since the owner's word of 2026-11-17 (UX review W1) — and
 # `tests/test_option_labels.py` sweeps these through its checker, so a new
 # preset added here cannot quietly introduce a sixth phrasing.
 GOAL_LABELS: list[tuple[str, str]] = [
     (
         GOAL_FAST,
-        "Fast Verified — Lossless, Fully Verified (AccurateRip + CTDB) [Recommended]",
+        "Fast verified — lossless, checked against AccurateRip and CTDB (recommended)",
     ),
     (
         GOAL_ARCHIVAL,
-        "Archival Exact — Slower, Every Lossless Track Read Twice",
+        "Archival exact — slower, every lossless track read twice",
     ),
-    (GOAL_PORTABLE, "Portable — MP3 Derived From a Fully Verified Master"),
+    (GOAL_PORTABLE, "Portable — MP3 derived from a fully verified master"),
 ]
 
 
