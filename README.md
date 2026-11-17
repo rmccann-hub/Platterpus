@@ -738,7 +738,7 @@ Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checka
 
 **Now in Settings** (surfaced in the Settings dialog):
 
-- **Goal** preset — *Fast Verified* / *Archival Exact* / *Portable* snaps the format/verification/quality controls to your intent; editing any of them switches the goal to *Custom*
+- **Goal** preset — *Fast verified* / *Archival exact* / *Portable* snaps the format/verification/quality controls to your intent; editing any of them switches the goal to *Custom*
 - **Output format** — FLAC (the lossless master, always produced), WavPack, MP3, or WAV
 - Cover art — fetch + embed in FLAC, save next to it, or both (defaults to *embed*)
 - **Max retries** (default 5) — cyanrip's `-r`: how often a sector that won't read is retried, **and** the most times a whole track may be read while the next setting looks for identical reads, so keep it above that number

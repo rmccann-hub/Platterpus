@@ -762,11 +762,11 @@ presets (0.4.0).
    and `scripts/eac_parity.py` reads it interchangeably with cyanrip's own log
    as a *candidate*. Handed in as the *baseline* it is refused, exit 2, naming
    its first line (`docs/eac-parity.md`, P1).
-2. Settings → **Goal → Archival Exact / Fast Verified / Portable** — confirm
+2. Settings → **Goal → Archival exact / Fast verified / Portable** — confirm
    each preset snaps the format/verification controls as documented, and that
    editing any snapped control flips the goal to *Custom*. With **EAC-style log**
-   unticked, choosing *Archival Exact* ticks it; unticking it again leaves the
-   goal on Archival Exact (the log is not a field the goal is matched on).
+   unticked, choosing *Archival exact* ticks it; unticking it again leaves the
+   goal on Archival exact (the log is not a field the goal is matched on).
 
 **Record:** companion log present + attributed? `____`; parity script reads it?
 `____`; presets snap/flip correctly? `____`.
@@ -2185,4 +2185,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.7.126.*
+*Last updated for Platterpus v0.7.127.*

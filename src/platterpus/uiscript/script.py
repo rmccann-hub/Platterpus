@@ -10,7 +10,7 @@ a 60-line batch destroys the other 59 results, which for an unattended run is th
 whole session.
 
 **Quoting.** Values routinely contain spaces and em dashes
-(``FLAC — Lossless Archival Master [Recommended]``), so double quotes group a
+(``FLAC — lossless archival master (recommended)``), so double quotes group a
 value. Everything else is whitespace-split. An unterminated quote is reported
 against its line rather than swallowing the rest of the file.
 
