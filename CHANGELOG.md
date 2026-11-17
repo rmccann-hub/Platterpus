@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our round 41 lap 4 is released to the fork** (contributor-facing), on the owner's word of 2026-11-16: it accepts the fork's move of round 41's pin to `.34`, restates the round's goal for `.34` through 0.7.127, gives our cells for protocol v10's command table, answers their five questions, and quotes our rule #12's shorter wording whole for their `CLAUDE.md`.
+- **Our status block records 0.7.127 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.127 at `69483cf`, published 2026-11-17T00:20:57Z.
+- **Four lessons of round 41 are kept where they are read** (contributor-facing): the steward skill says to read `pr_steward.py`'s verdict from its first line or exit code; `docs/testing.md` says to set the collected-test floor to CI's count; `docs/cyanrip-handshake.md` §7.5c says to re-read a held lap before announcing it; and the session log records the session.
+
 ## [0.7.127] — 2026-11-17
 
 ### Changed

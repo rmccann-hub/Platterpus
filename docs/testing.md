@@ -264,7 +264,10 @@ tiers. "I added a happy-path test" is not done.
    `scripts/check_test_count.py` compares. It ratchets the same way: a run above
    the floor prints a notice with the number to raise it to, so raise it in the
    change that adds tests; `tests/test_check_test_count.py` refuses a baseline
-   below the newest release tag's.
+   below the newest release tag's. **Set it to CI's count, not a working tree's**
+   (2026-11-16): local-only files can add tests CI never collects, and a merge
+   that took a local count of 10873 failed every leg at CI's 10871. Take `main`'s
+   CI-verified floor and add the tests the change adds, counted per file.
 5. **Version matrix.** CI runs the suite on every supported Python (3.12–3.14;
    3.11 until 2026-11-02, `PLANNING.md` KDD-46),
    each leg in parallel (`pytest -n auto`). The coverage floor runs on the 3.14
