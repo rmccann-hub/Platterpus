@@ -1081,7 +1081,15 @@ class RipProgress(QWidget):
         # the controls named by the labels the window shows. Added here, not to
         # the verdict, because the verdict is also the report's `verdict` field,
         # which records what was found rather than advice.
-        if level == "warn" and self._verdict_attention:
+        #
+        # NOT when a downgrade is on the verdict. A downgrade is a second cause the
+        # window learned after the log (the disc is another album's, the ripper is
+        # not the one approved, …), and "clean the disc and re-rip" is the wrong
+        # advice for any of them: re-ripping another album's disc under these tags
+        # repeats the mistake. The banner then says exactly what the report says
+        # (`tests/test_disc_identity.py`, the banner and report word a mismatch
+        # identically), which is the right state for a verdict with two causes.
+        if level == "warn" and self._verdict_attention and not self._verdict_downgrades:
             text = f"{text} {next_step_sentence(self._verdict_attention)}"
         # A FAILED RIP OUTRANKS ITS VERDICT (UX review E1). The failure's
         # sentence comes first, at the error level with its ✖; whatever the

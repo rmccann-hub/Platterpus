@@ -2969,7 +2969,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1875 -> 1929** (2026-11-17, UX review V1): the banner ends with one plain next step for the tracks AccurateRip contradicts (`finish_wording.next_step_sentence`), carries the technical sentence in its tooltip, and reports its level to the window (`verdict_level`).
     # **1929 -> 2005** (2026-11-17, UX review E1): a failed rip is shown on the verdict banner at the error level (`show_failure`), its sentence first and any partial verdict after it, beside an **Open log** button that hands the app log to the desktop.
     # **2005 -> 2007** (2026-11-17, UX review of 0.7.127), W2: the unvalidated-CTDB line says "not yet validated on real drives" instead of naming KDD-16, with the comment saying why.
-    "ui/rip_progress.py": 2007,
+    # **2007 -> 2015** (2026-11-17, merging the UX-review branches): the next step is not added over a downgraded verdict (another album's disc, an unapproved ripper), where re-ripping is the wrong advice and the banner must word the verdict as the report does.
+    "ui/rip_progress.py": 2015,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
