@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The end-user UX review of 0.7.127 is triaged into TASKS** (contributor-facing): R178 tracks the first-run and quick fixes the owner chose on 2026-11-17, and R179 to R184 hold the larger redesigns: one track table, grouped Settings, one verified column, the waiting and empty states, a Rip menu, and a README whose first screen is for users.
 - **The rig sheet asks for round 41's run** (operator-facing): `docs/rig-session.md` said no run was asked for; it now asks for one Full run with `.34` through 0.7.127, then the over-read probe last, and its rule against Overread names that probe as the one bounded exception.
 - **Our round 41 lap 4 is released to the fork** (contributor-facing), on the owner's word of 2026-11-16: it accepts the fork's move of round 41's pin to `.34`, restates the round's goal for `.34` through 0.7.127, gives our cells for protocol v10's command table, answers their five questions, and quotes our rule #12's shorter wording whole for their `CLAUDE.md`.
 - **Our status block records 0.7.127 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.127 at `69483cf`, published 2026-11-17T00:20:57Z.
