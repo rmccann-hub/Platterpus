@@ -37,6 +37,10 @@ ALBUMS: tuple[tuple[str, str], ...] = (
     # over one album folder of its own.
     ("overwrite answers", "overwriteanswers"),
     ("secure reread", "securereread"),
+    # `overreadprobe.txt`'s two bounded -O reads (round 41, filed 2026-11-17):
+    # the last track at +667 into the lead-out, then track 1 at -667.
+    ("overreadleadout", "overreadleadout"),
+    ("overreadleadin", "overreadleadin"),
     ("r16deemphoff", "deemphoff"),
     ("r16deemphon", "deemphon"),
     # Section P5's timed rips (0.7.112): the approved build twice (A1, A2) and the

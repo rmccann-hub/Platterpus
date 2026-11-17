@@ -3432,7 +3432,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # 2026-10-14, HR-2 §6-§7: the manifest's parser and the by-hash fetcher a
     # checker reads evidence through. Splitting the fetcher from the parser
     # would leave each needing the other's types.
-    "scripts/laplang/evidence.py": 333,
+    # 348 from 333 (2026-11-17): the evidence-branch fetch keeps older
+    # commits reachable after the tip is read; that fix is the fetcher's own.
+    "scripts/laplang/evidence.py": 348,
     # **632** (2026-10-12): joined at birth, recorded with its reason rather than
     # split. One job, judging one Bash call against Critical rule #8, run by Claude
     # Code as a single script; about half its lines are comments and docstrings for

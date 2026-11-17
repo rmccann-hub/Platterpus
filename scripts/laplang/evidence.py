@@ -222,6 +222,13 @@ class Fetcher:
         """Fetch `sha` at depth 1 into `temp`, once; None, or why it failed."""
         if (url, sha) in self._fetched:
             return None
+        # A commit the temporary repository already holds, because the whole
+        # evidence branch was fetched, is not fetched again: a second fetch at
+        # depth 1 would mark it shallow and cut it from its own history.
+        held = run_git(temp, "cat-file", "-e", f"{sha}^{{commit}}")
+        if held is not None and held.returncode == 0:
+            self._fetched.add((url, sha))
+            return None
         args = ["fetch", "-q", "--depth", "1"]
         if blobless:
             args.append("--filter=blob:none")
@@ -283,11 +290,19 @@ class Fetcher:
         if isinstance(temp, str):
             return temp
         if not self._evidence_fetched.get(url):
+            # A file read before this fetched its commit at depth 1, which marks
+            # that commit shallow: git then treats it as having no parents, and
+            # an older evidence commit reads as off the branch. Round 41's lap 6
+            # met this when it cited the evidence tip after an older commit. So
+            # the branch is fetched with its whole history (`--unshallow`), its
+            # commits and trees only; blobs stay where they are until read.
+            shallow = (temp / "shallow").exists()
             fetched = run_git(
                 temp,
                 "fetch",
                 "-q",
                 "--filter=blob:none",
+                *(["--unshallow"] if shallow else []),
                 "origin",
                 f"+refs/heads/{EVIDENCE_BRANCH}:refs/heads/{EVIDENCE_BRANCH}",
                 timeout=NETWORK_TIMEOUT_S,
