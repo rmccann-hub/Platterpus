@@ -2380,8 +2380,10 @@ def test_P3_decides_clause_2_and_carries_its_derivation() -> None:
 
     **What it asserts now.** The section says it decides the clause, carries the
     derivation with citations for BOTH halves (checksums on the read, loudness on
-    the delivered audio), names the floor, says the fork is asked to confirm the
-    measurement point, and does not keep the scoping phrase a peer misread once.
+    the delivered audio), names the floor, names the fork's answer on the
+    measurement point (their round 37 lap 7 S4 (d); their round 41 lap 5 S19 found
+    the section still asking), and does not keep the scoping phrase a peer misread
+    once.
     That the verb actually follows the two arms is
     `tests/test_uiscript_deemphasis.py::test_p3_grades_its_two_arms_right_after_them`.
     """
@@ -2396,7 +2398,10 @@ def test_P3_decides_clause_2_and_carries_its_derivation() -> None:
     )
     assert "THIS SECTION DECIDES THE CLAUSE" in text
     assert "0.3 LU" in lowered, "the floor is not named"
-    assert "S12 (d)" in lowered, "the open question to the fork is not named"
+    assert "S4 (d)" in lowered, (
+        "the fork's answer on the measurement point is not named"
+    )
+    assert "fork is asked to confirm" not in lowered, "the answered question is back"
     for citation in (
         "cyanrip@239adda:src/cyanrip_main.c:1680",
         "cyanrip@239adda:src/cyanrip_encode.c:818",
