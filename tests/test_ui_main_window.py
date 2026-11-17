@@ -12502,11 +12502,24 @@ def _fourteen_track_release() -> ReleaseDetail:
     )
 
 
+def _set_up() -> Config:
+    """The config of the window the layout tests below measure: set up already.
+
+    With a fresh config the first-run setup question fires on the first show;
+    under the suite's default answer (No) the window then shows its "ripping
+    tools not installed yet" strip (UX review of 0.7.127, F1), about 40 px in a
+    window that cannot rip a disc anyway. These tests are about the window a
+    person rips in, so they measure that one. A new Config each call, so no
+    test sees another's changes.
+    """
+    return Config(host_setup_prompted=True)
+
+
 def test_the_track_list_opens_showing_several_rows(
     qapp: QApplication, teardown_threads: Any
 ) -> None:
     """THE REGRESSION: it used to open on two rows of fourteen."""
-    window = teardown_threads()
+    window = teardown_threads(config=_set_up())
     try:
         window.show()
         qapp.processEvents()
@@ -12536,7 +12549,7 @@ def test_the_initial_pane_split_is_applied_once_and_not_on_every_show(
 ) -> None:
     """Applying it on every show would silently undo the user's own dragging — the
     fix's own new failure mode, so it gets its own test."""
-    window = teardown_threads()
+    window = teardown_threads(config=_set_up())
     try:
         window.show()
         qapp.processEvents()
@@ -12607,7 +12620,7 @@ def test_the_taller_default_is_what_buys_the_extra_rows(
     """
     from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
 
-    window = teardown_threads()
+    window = teardown_threads(config=_set_up())
     try:
         window.show()
         qapp.processEvents()
@@ -12683,7 +12696,7 @@ def test_the_rip_panes_tracks_table_opens_showing_four_rows_after_a_rip(
 
     from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
 
-    window = teardown_threads()
+    window = teardown_threads(config=_set_up())
     try:
         window.resize(_DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H)
         window.show()

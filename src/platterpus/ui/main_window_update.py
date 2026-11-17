@@ -458,6 +458,18 @@ class UpdateMixin(MainWindowShared):
             )
             return
         with_consent = bool(getattr(offer, "installable_with_consent", False))
+        if automatic and not self._host_stack_ready():
+            # **No ripper on this computer: setup is the answer, not this offer**
+            # (UX review of 0.7.127, F2). On every fresh install this check ran
+            # before setup and raised a "cyanrip update" box nobody asked for, on
+            # top of the first-run question and whatever followed it. Setup
+            # installs the tested build anyway, and the window already says the
+            # tools are missing. A check the user starts still answers.
+            log.info(
+                "automatic cyanrip update offer not shown — no ripper is installed "
+                "yet, and setup installs the tested build"
+            )
+            return
         if automatic:
             # Nobody asked for it, so it can hold (TASKS R96): it waits for the
             # main window instead of being dropped by whatever is open now.
@@ -616,6 +628,8 @@ class UpdateMixin(MainWindowShared):
         progress dialog is: a handler that must survive the call that created it
         cannot close over local state.
         """
+        from platterpus.deps.ripper_offer import install_question
+
         box = QMessageBox(self)
         # Deleted when it closes, as its sibling in `_on_ripper_update_result` is:
         # `open()` returns at once and the window owns the box, so without this
@@ -624,7 +638,12 @@ class UpdateMixin(MainWindowShared):
         # the deferred delete, and each clears `_ripper_offer_box`.
         box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         box.setWindowTitle("cyanrip update")
-        box.setText(detail)
+        # One fact and one question in plain words; the paragraph written for the
+        # record (handshake round, approval, why) is under Show Details, where a
+        # person who wants it can read it (UX review of 0.7.127, F2). Both are
+        # PlainText: a QMessageBox's details pane is always plain text.
+        box.setText(install_question(offer, needs_consent=needs_consent))
+        box.setDetailedText(detail)
         box.setTextFormat(Qt.TextFormat.PlainText)  # see `_on_ripper_update_result`
         box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         box.setIcon(

@@ -92,6 +92,12 @@ class ProvisioningMixin(MainWindowShared):
     #: place these answers live.
     _setup_center: SetupCenterDialogT | None = None
 
+    #: How many setup runs have FINISHED this launch (`_on_host_setup_finished`).
+    #: The dependency resolver compares it before and after the wizard, so a
+    #: wizard closed without running is reported as "not installed yet", not as
+    #: a failed install.
+    _host_setup_runs: int = 0
+
     # --- Acceptance-session state ------------------------------------------
     #
     # Declared here as class attributes with `None` defaults, rather than in
@@ -414,24 +420,50 @@ class ProvisioningMixin(MainWindowShared):
         return cyanrip_on_host()
 
     def _maybe_offer_host_setup(self) -> None:
-        """One-time, dismissible offer to run the host-setup wizard."""
+        """One-time, dismissible offer to run the host-setup wizard.
+
+        **The answer is the decision for this launch** (UX review of 0.7.127,
+        F1). The launch dependency check is usually still running, or held,
+        while this question is open, and it used to open the wizard as soon as
+        the question closed, so **No** was followed by the wizard anyway, a
+        summary listing an install failure for a setup that never ran, and a
+        cyanrip update offer. Now:
+
+        * **No** shows a strip at the top of the window saying the ripping tools
+          are not installed yet, with a **Set up…** button. No dialog follows.
+        * **Yes** opens the wizard, once. The held report does not open a second.
+
+        Both answers are recorded with the dependency mixin, which reads them
+        when the held report is delivered. A check the user starts later (Setup &
+        Updates, Check dependencies) is not covered, and resolves as before.
+
+        The title is a question, and a different one from the wizard's ("Set up
+        Platterpus"), so the two windows cannot be mistaken for each other (F4).
+        """
         if self._config.host_setup_prompted:
             return
         self._config.host_setup_prompted = True
         self._save_config_or_report("the host-setup offer was made")
         choice = message_boxes.question(
             self,
-            "Set up Platterpus",
+            "Install the ripping tools?",
             "Platterpus needs a one-time setup to install its ripping tool "
             "(cyanrip) in a small container — no terminal required. Set it up "
-            "now?\n\nYou can also do this later from Tools → Setup & Updates… → Run setup…."
+            "now?\n\nYou can also do this later: Tools → Setup & Updates… → Run setup…"
             "\n\nNew to Platterpus? Help → Getting started… walks through setup and "
             "a first rip.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
+        # Recorded BEFORE the wizard opens: the held report keeps retrying while
+        # the wizard is open and is delivered the moment it closes, so it must
+        # already know that the question was answered.
+        self._record_first_run_setup_answer()
         if choice == QMessageBox.StandardButton.Yes:
             self.open_host_setup_dialog()
+        else:
+            log.info("first-run setup declined; showing the setup notice instead")
+            self._show_setup_needed_notice()
 
     def _build_host_setup(self) -> HostSetup:
         """The HostSetup the wizard runs.
@@ -494,6 +526,10 @@ class ProvisioningMixin(MainWindowShared):
             # the wizard permanently unopenable, turning a double-install bug into a
             # dead menu item. Fail toward the state the user can recover from.
             self._host_setup_dialog = None
+            # An automatic cyanrip offer waiting for the window was worked out
+            # before this wizard ran, which may have installed the very build it
+            # would offer; it is dropped, and the next check asks again (F2).
+            self._held_ripper_offer = None
 
     def open_host_setup_dialog(self) -> None:
         """Open the host-setup wizard (Tools → Setup & Updates… → Run setup…)."""
@@ -1923,8 +1959,14 @@ class ProvisioningMixin(MainWindowShared):
         which the user (rightly) found annoying — "after every install it asked
         me about scanning the disk" (real-user report, 2026-06-27). The dep
         re-check is cheap and always runs.
+
+        Every finished run is counted (`_host_setup_runs`), ready or not, so the
+        dependency summary can tell a setup that ran from a wizard that was closed
+        unused. A ready one also takes down the "not installed yet" strip.
         """
+        self._host_setup_runs += 1
         if ready:
+            self._hide_setup_needed_notice()
             log.info("host setup reported ready — refreshing deps")
             try:
                 if not self._drive_picker.current_device():

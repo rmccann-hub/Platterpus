@@ -51,6 +51,7 @@ if TYPE_CHECKING:
     from platterpus.deps.build_notes import BuildNote
     from platterpus.deps.manager import DependencyManager, DependencyReport
     from platterpus.deps.registry import DependencySpec
+    from platterpus.ui.setup_needed_notice import SetupNeededNotice
 
 
 log = logging.getLogger(__name__)
@@ -95,6 +96,11 @@ def _new_dependency_status_label(bar: QStatusBar) -> QLabel:
     label.setTextFormat(Qt.TextFormat.PlainText)
     bar.addWidget(label, 1)
     return label
+
+
+def _setup_tools_in(items: list[MissingItem]) -> list[MissingItem]:
+    """The items the setup wizard installs (cyanrip, flac, metaflac…), in order."""
+    return [item for item in items if getattr(item.spec, "from_setup_wizard", False)]
 
 
 def _optional_purpose(item: MissingItem) -> str:
@@ -167,6 +173,14 @@ class DependencyMixin(MainWindowShared):
     #: Which check is the newest, counted as each one starts; a report held for
     #: another window is dropped once a newer check has started.
     _dep_check_generation: int = 0
+    #: The newest check that had started when the user answered the first-run
+    #: "Install the ripping tools?" question, or None when it was not asked this
+    #: launch. A silent report from that check or an older one does not offer the
+    #: container tools again; a check started after the answer resolves as usual.
+    _setup_answered_at_check: int | None = None
+    #: The "ripping tools are not installed yet" strip at the top of the window,
+    #: built the first time it is needed (`ui/setup_needed_notice.py`).
+    _setup_needed_notice: SetupNeededNotice | None = None
 
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
@@ -574,6 +588,21 @@ class DependencyMixin(MainWindowShared):
         # note where `had_required_missing` is set): resolution and the summary
         # work from the required tools, and the optional ones travel separately.
         report.missing = required_missing
+        report_generation = (
+            self._dep_check_generation if generation is None else generation
+        )
+        if not show_summary and self._setup_already_answered_for(report_generation):
+            # The user has already answered "Install the ripping tools?" for
+            # this check, so its container tools are not offered again (UX review
+            # F1, 2026-11-17): the setup wizard stays shut and no summary lists them.
+            # Read it here, where the report is delivered, because the answer
+            # usually comes while the report is held (see `_defer_if_floor_is_busy`).
+            report.missing = self._set_aside_setup_tools(required_missing)
+            had_required_missing = bool(report.missing)
+        elif complete and not _setup_tools_in(required_missing):
+            # A complete check found every container tool: the strip saying
+            # they are missing must not outlive the fact.
+            self._hide_setup_needed_notice()
         if had_required_missing:
             self._resolve_missing_unified(report)
 
@@ -705,6 +734,72 @@ class DependencyMixin(MainWindowShared):
         )
         return True
 
+    # --- The first-run answer, and the strip that replaces a declined wizard ---
+    #
+    # UX review of 0.7.127, F1: answering No to the first-run question still
+    # opened the wizard, because the launch report (held while the question was
+    # open) was delivered after it and resolved its missing container tools as if
+    # nothing had been asked. The answer is now the decision for that report.
+
+    def _record_first_run_setup_answer(self) -> None:
+        """Note that the first-run setup question has just been answered.
+
+        Called by `ProvisioningMixin._maybe_offer_host_setup` for either answer.
+        After **Yes** the wizard has already been shown, so offering it again
+        would be the second wizard `run_setup_wizard` exists to prevent; after
+        **No** the user declined it. Either way, a silent report from a check
+        that had started by now must not reopen it.
+        """
+        self._setup_answered_at_check = self._dep_check_generation
+
+    def _setup_already_answered_for(self, generation: int) -> bool:
+        """True when the first-run answer already covers check ``generation``."""
+        answered = self._setup_answered_at_check
+        return answered is not None and generation <= answered
+
+    def _set_aside_setup_tools(self, required: list[MissingItem]) -> list[MissingItem]:
+        """Keep the container tools out of resolution, and say so in the window.
+
+        Returns the required items that are left to resolve (anything the setup
+        wizard does not install still resolves as before). The container tools
+        are not dropped: the strip at the top of the window says they are not
+        installed and offers **Set up…**. It is shown only while the ripper is
+        really missing, because this report may be older than a setup that has
+        since run; that check is a file lookup, cheap on the GUI thread.
+        """
+        setup_tools = _setup_tools_in(required)
+        if not setup_tools:
+            return required
+        names = ", ".join(item.spec.display_name for item in setup_tools)
+        if self._host_stack_ready():
+            log.info(
+                "not offering setup for %s: the first-run question was answered, "
+                "and the ripper is on this computer now (this report is older)",
+                names,
+            )
+        else:
+            log.info(
+                "not reopening setup for %s: the first-run question was answered; "
+                "the window says they are not installed yet, with a Set up button",
+                names,
+            )
+            self._show_setup_needed_notice()
+        return [item for item in required if item not in setup_tools]
+
+    def _show_setup_needed_notice(self) -> None:
+        """Show the "not installed yet" strip at the top of the window (non-modal)."""
+        from platterpus.ui.setup_needed_notice import place_notice
+
+        if self._setup_needed_notice is None:
+            self._setup_needed_notice = place_notice(self, self.open_host_setup_dialog)
+        if self._setup_needed_notice is not None:
+            self._setup_needed_notice.reveal()
+
+    def _hide_setup_needed_notice(self) -> None:
+        """Hide the strip once the tools are there (a no-op when it was never built)."""
+        if self._setup_needed_notice is not None:
+            self._setup_needed_notice.conceal()
+
     def _offer_optional_install(
         self,
         gui_manager: object,
@@ -822,8 +917,17 @@ class DependencyMixin(MainWindowShared):
         #    OFF the GUI thread (BUG-9) — probe() shells into the Distrobox
         #    container, which can take up to minutes on a cold container.
         if wizard_items:
+            # Whether a setup run actually FINISHED while the wizard was open: a
+            # wizard closed without pressing its button installed nothing, so
+            # nothing failed, and the summary must say "not installed yet"
+            # rather than "still missing after setup" (UX review F1).
+            runs_before = self._host_setup_runs
             self.open_host_setup_dialog()
-            report.install_results.extend(self._reprobe_wizard_items(wizard_items))
+            report.install_results.extend(
+                self._reprobe_wizard_items(
+                    wizard_items, setup_ran=self._host_setup_runs > runs_before
+                )
+            )
 
         # 2. Packaged deps → the off-GUI-thread PendingInstallsDialog.
         if command_items:
@@ -847,7 +951,9 @@ class DependencyMixin(MainWindowShared):
                 )
             )
 
-    def _reprobe_wizard_items(self, items: list[MissingItem]) -> list[InstallResult]:
+    def _reprobe_wizard_items(
+        self, items: list[MissingItem], *, setup_ran: bool = True
+    ) -> list[InstallResult]:
         """Re-probe each wizard item's spec OFF the GUI thread (BUG-9).
 
         ``spec.probe()`` for a container tool shells into the Distrobox container
@@ -857,6 +963,10 @@ class DependencyMixin(MainWindowShared):
         thread does the probing while a nested ``QEventLoop`` keeps the window
         responsive; a ``QTimer`` polls for completion and quits the loop. Returns
         the per-item :class:`InstallResult` list (present-and-current → success).
+
+        ``setup_ran`` is False when the wizard was closed without running: a tool
+        still absent then is "not installed yet", marked ``user_declined`` so the
+        summary lists it apart from real install failures.
         """
         from PySide6.QtCore import QEventLoop, QTimer
 
@@ -872,15 +982,18 @@ class DependencyMixin(MainWindowShared):
                     ok = probe.present and meets_minimum(
                         probe.version, item.spec.min_version
                     )
+                    if ok:
+                        message = "installed via setup wizard"
+                    elif setup_ran:
+                        message = "still missing after setup — re-run the wizard"
+                    else:
+                        message = "not installed yet — setup was not run"
                     results.append(
                         InstallResult(
                             spec=item.spec,
                             success=ok,
-                            message=(
-                                "installed via setup wizard"
-                                if ok
-                                else "still missing after setup — re-run the wizard"
-                            ),
+                            message=message,
+                            user_declined=not ok and not setup_ran,
                         )
                     )
             finally:
@@ -993,6 +1106,14 @@ class DependencyMixin(MainWindowShared):
             for r in install_results
             if not r.success and not getattr(r, "user_declined", False)
         ]
+        # Declined ones are still missing, though, and the counts above include
+        # them, so they are NAMED, as "not installed yet": nothing was attempted,
+        # so nothing failed (UX review F1, 2026-11-17).
+        not_yet = [
+            r.spec.display_name
+            for r in install_results
+            if not r.success and getattr(r, "user_declined", False)
+        ]
 
         not_checked = dep_manager.unchecked_names(report)
         message = (
@@ -1022,6 +1143,11 @@ class DependencyMixin(MainWindowShared):
                 for spec, note in attention
             )
             message += f"\n\nWrong build:\n{attention_lines}"
+        if not_yet:
+            message += (
+                f"\n\nNot installed yet: {', '.join(not_yet)}. You can install "
+                "them any time from Tools → Setup & Updates…"
+            )
         if failures:
             failure_lines = "\n".join(
                 f"  • {r.spec.display_name}: {r.message}" for r in failures
