@@ -1062,6 +1062,15 @@ _MODULE_LINE_THRESHOLD: Final[int] = 300
 #: this was written. A file may shrink or leave; it may not grow, and no new file
 #: may join.
 _OVERSIZE_MODULES: Final[dict[str, int]] = {
+    # Joined 2026-11-17, UX review of 0.7.127. Each still one job, so recorded rather than split.
+    # `deps/registry.py` (300 -> 310): the dependency table gained `bundled`, the
+    # field that lets the launch summary group the Python packages shipped inside
+    # Platterpus apart from the tools a user installs (W2); a field of the table
+    # belongs in the table. `ui/dialogs/diagnostics_dialog.py` (299 -> 306): the
+    # dependency rows read "installed: yes, version: …, minimum met: no" instead
+    # of field names, through the tri-state `_yes_no` (W2).
+    "deps/registry.py": 310,
+    "ui/dialogs/diagnostics_dialog.py": 306,
     # 2026-11-13: the drive profiles' load and save, one job. Two changes of
     # 2026-11-12/13 each added a field it reads and writes (the cache verdict's
     # firmware, `cache_defeat_release`; the one-time hand-over of the old global
@@ -1995,7 +2004,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **667 -> 668** (2026-11-03, the WAV warning): the Output format help says WAV keeps basic tags only, naming them, where it said WAV has none.
     # **668 -> 678** (2026-11-05, TASKS R133, the automatic CTDB repair): the User Guide's entry for *Repair from CTDB after a rip*.
     # **678 -> 681** (2026-11-12, TASKS R53, the cache check once per drive): the User Guide says the wizard measures the cache by itself once per drive, and names Skip check and Re-analyze cache.
-    "help_content.py": 681,
+    # **681 -> 682** (2026-11-17, UX review of 0.7.127), W2: *How it's wired* moved from second to last section, with one sentence saying a reader never needs it to rip.
+    "help_content.py": 682,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2527,7 +2537,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # conditions (a rip ending must not re-arm it mid-check), and `refresh_dependencies` is
     # finally called, through `show_dependency_check_finished`.
     # **492 -> 506** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-offset line reads the selected drive's offset through a reader the window passes, since each drive keeps its own.
-    "ui/dialogs/setup_center.py": 506,
+    # **506 -> 522** (2026-11-17, UX review of 0.7.127), W2: the ripper line reads "Tested build: … approved for this version of Platterpus" and keeps the handshake round in a tooltip, so it builds its own status label rather than passing a string.
+    "ui/dialogs/setup_center.py": 522,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -2659,7 +2670,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **962 -> 965** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **965 -> 969** (2026-10-27, external review item 3.4): the status-bar clock is made explicitly local, with why it is local (ruff DTZ005).
     # **969 -> 1058** (2026-11-03, TASKS R96, the launch dependency report): the launch-only marker (`_dep_check_is_launch`, set by `app.main` alone, because About's Check again and the re-check after host setup are silent too), the check generation that lets a newer check drop a held report, and the hold itself: the launch report also waits while another window of ours is in use, and a report of a missing REQUIRED tool is never given up on the 30 s clock. It lives in the deferral it extends, beside the reasons each wait exists.
-    "ui/main_window_deps.py": 1058,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **1058 -> 1084** (2026-11-17, UX review of 0.7.127), W2: the launch summary counts in words ("2 installed, 1 needs attention") and lists the Python packages that ship inside Platterpus under their own "Bundled components" line.
+    "ui/main_window_deps.py": 1084,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2938,7 +2950,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1759 -> 1834** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 1): a CTDB-only disagreement is a NOTE, never WRONG. The note line under the status line (built, named, cleared), `_render_ctdb_note` (rewrites each row's Status cell when the rip log or the CTDB answer arrives, whichever is last) and `_status_cell`'s ⓘ branch. The decision and the wording are the new focused module `ctdb_disagreement.py`; this is the pane that shows them.
     # **1834 -> 1863** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's own result line, under the CTDB verdict.
-    "ui/rip_progress.py": 1863,
+    # **1863 -> 1865** (2026-11-17, UX review of 0.7.127), W2: the unvalidated-CTDB line says "not yet validated on real drives" instead of naming KDD-16, with the comment saying why.
+    "ui/rip_progress.py": 1865,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,

@@ -40,13 +40,6 @@ produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
 
 **New here?** **Help → Getting started…** walks through a first rip, step by step.
 
-## How it's wired
-
-The GUI runs on your desktop and calls the host-exported ripping tool
-(`~/.local/bin/cyanrip`), which transparently does the actual ripping inside
-the `ripping` Distrobox container.
-You don't interact with the container directly — the GUI handles it.
-
 ## Ripping a CD — the basics
 
 1. **Insert an audio CD** and pick your drive in the drive selector.
@@ -112,7 +105,7 @@ AccurateRip stays the primary proof. No match shows grey: it means our audio
 differs from every entry CTDB holds for the disc, which could be our read or
 theirs; the per-track line says which tracks.
 
-Alongside the rip, two records are saved next to your music: the backend's
+Alongside the rip, two records are saved next to your music: the ripper's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same
 results in a machine-readable form (per-track CRCs, AccurateRip/CTDB outcomes,
 the verdict) — handy for scripting, re-verifying later, or attaching to a report.
@@ -654,6 +647,14 @@ an older commit is rebuilt rather than accepted.
 - Project & issues: see **Help → About Platterpus…** for links.
 - Dependencies (cyanrip, MusicBrainz Picard, etc.) are checked automatically at
   launch and from Tools → Setup & Updates… → Check dependencies.
+
+## How it's wired
+
+For the curious; you never need this to rip. Platterpus runs on your desktop
+and calls the ripping tool at `~/.local/bin/cyanrip`, which does the actual
+ripping inside a small Linux container called `ripping` (made with
+Distrobox). You don't interact with the container directly — Platterpus
+handles it.
 """
 
 

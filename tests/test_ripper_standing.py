@@ -297,7 +297,7 @@ def test_diagnostics_names_the_installed_ripper_beside_the_approved_pair(
     assert f"commit {fork_source.PIN_UNDER_REVIEW}" in installed
     assert "Being tested, not approved yet" in installed
     row = next(line for line in lines if line.startswith("cyanrip: "))
-    assert f"build={fork_source.UNDER_REVIEW_TARGET.version}" in row
+    assert f"build: {fork_source.UNDER_REVIEW_TARGET.version}" in row
 
 
 def test_diagnostics_before_any_check_says_not_checked() -> None:

@@ -168,8 +168,34 @@ def test_a_completed_probe_actually_reaches_the_diagnostics_a_user_pastes() -> N
     text = build_diagnostics_text()
     assert "--- Dependencies ---" in text
     assert "not probed yet this session" not in text
-    assert "present=True" in text
+    assert "installed: yes" in text
     assert "9.9.9" in text
+
+
+def test_dependency_rows_read_as_words_not_field_names() -> None:
+    """REGRESSION (UX review of 0.7.127, W2): the rows printed field names.
+
+    `present=False version=(unknown) min_version_met=False` became
+    `installed: no, version: unknown, minimum met: no` — the same three facts, in
+    the same order, readable by the person pasting them into a bug report.
+    """
+    dep_manager.remember_report(_one_tool_probed())
+    text = build_diagnostics_text()
+    row = next(line for line in text.splitlines() if "9.9.9" in line)
+    assert "installed: yes, version: 9.9.9" in row, row
+    assert "minimum met: yes" in row, row
+    for field_name in ("present=", "version=", "min_version_met"):
+        assert field_name not in row, row
+
+
+def test_yes_no_is_tri_state() -> None:
+    """A flag that was never measured must not read as "no"."""
+    from platterpus.ui.dialogs.diagnostics_dialog import _yes_no
+
+    assert _yes_no(True) == "yes"
+    assert _yes_no(False) == "no"
+    assert _yes_no(None) == "unknown"
+    assert _yes_no("True") == "unknown"
 
 
 def test_rendering_never_raises_on_a_hostile_diagnostic() -> None:
@@ -231,7 +257,7 @@ def test_an_incomplete_check_names_what_it_did_not_reach() -> None:
     partial.unchecked_reason = "the check stopped after 120 s"
     dep_manager.remember_report(partial)
     text = build_diagnostics_text()
-    assert "present=True" in text
+    assert "installed: yes" in text
     assert f"NOTE: Check incomplete — 1 not checked: {SPECS[1].display_name}" in text
     assert "stopped after 120 s" in text
 
