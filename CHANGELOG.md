@@ -18,6 +18,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS R188 carries the owner's design for one Run tests screen** (contributor-facing, 2026-11-17): pre-built tests, combinations and custom scripts in one place, every pre-built test an ordered list of individual blocks so each test exists once, and a check that the new Full and Quick lists expand to exactly today's steps.
 - **TASKS R188 files the script console's missing list of built-in scripts** (contributor-facing): the owner could not find `overreadprobe` in it on 2026-11-17, because only the full acceptance test can be chosen there; the terminal's `--run-script overreadprobe` works.
 - **Our round 41 lap 6 is written, `GO`, and held for the owner's word** (contributor-facing): it reads round 41's rip against G1 to G4, all met, records protocol v10 landed in our tree, owns the fork's S18 finding as our defect (a record that said "not determined" for every re-read track of a build after `.31`), and is our last lap of the round.
 - **Protocol v10 is landed in our tree, byte-identical to the fork's** (contributor-facing; round 41's G4): `docs/handshake-protocol.md` v10, `docs/seam-rules.md` v9, `docs/OWNERSHIP.md` v4 and `docs/seam-commands.md`, copied from the fork's `platterpus-fork` at `8b33a6c1`, each matching the hash their round 41 lap 5 states. Our gate stays at protocol 9 until round 42, as v10 §18 says. The fork's lap 5, `GO` on `.34`, is filed byte for byte.
