@@ -279,6 +279,27 @@ def test_the_cache_probes_own_log_has_a_filed_name() -> None:
     assert staged_name("session/run/cacheprobe1364.txt") == "cacheprobe.txt"
 
 
+def test_the_overread_probes_folders_have_filed_names() -> None:
+    """`overreadprobe.txt` writes its two reads to `overreadleadout` and
+    `overreadleadin` (`-D` in the script); round 41's filing named them by hand
+    until these rows existed. The folder names are read from the script itself,
+    so renaming one side fails here rather than at the next filing."""
+    from evidence_names import staged_name
+
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "src/platterpus/rig_scripts/overreadprobe.txt"
+    ).read_text(encoding="utf-8")
+    for folder in ("overreadleadout", "overreadleadin"):
+        assert f"-D {folder} " in script
+        assert staged_name(f"album/{folder}/Unknown disc (PNTI).log") == (
+            f"{folder}.log"
+        )
+        assert staged_name(f"album/{folder}/Unknown disc (PNTI).cue") == (
+            f"{folder}.cue"
+        )
+
+
 def test_chase_records_and_repeat_rips_have_filed_names() -> None:
     """0.7.122 keeps each verified-read chase read's own ``-j`` record
     (``chase_record_keep.py``) and adds round 39's five repeat rips, each in an
