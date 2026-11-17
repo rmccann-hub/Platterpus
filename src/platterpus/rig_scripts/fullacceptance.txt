@@ -1594,9 +1594,10 @@ snapshot afterc1
 # prints the same figure twice). The 2026-11-03 Full run on .28 read B0D122E7 for
 # both arms and -20.7 LUFS forced against -19.9 disabled: 0.8 LU. A missing log,
 # CRC or loudness line, or a build that measures before the filter, is BLOCKED
-# (not determined), never a pass. The fork is asked to confirm the measurement
-# point (our round 37 lap 6, S12 (d)); until they do, the grade rests on CRC
-# equality and the R128 difference only, and its answer says so.
+# (not determined), never a pass. The fork confirmed the measurement point
+# (their round 37 lap 7 S4 (d), answering our lap 6 S12 (d)): loudness on what
+# the encoders receive, after the filter, since .20, the checksums on the read
+# buffer; the grade's answer names it.
 #
 # WHAT THIS COMMENT USED TO SAY, AND WHY IT WAS WRONG. Before 2026-09-11 it said
 # the two arms' printed checksums MUST DIFFER, identical ones meaning the fork's

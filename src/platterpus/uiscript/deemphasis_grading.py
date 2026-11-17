@@ -28,9 +28,14 @@ grades the two logs.
   not have moved whatever the filter did.
 
 So the pass condition is both: **the CRCs agree, and the integrated loudness
-differs by at least** :data:`LOUDNESS_DIFFERENCE_FLOOR_LU`. The fork is being asked
-to confirm the measurement point (our round 37 lap 6, S12 (d)); this grades on the
-CRC equality and the R128 difference only, and says so in its answer.
+differs by at least** :data:`LOUDNESS_DIFFERENCE_FLOOR_LU`. The fork confirmed the
+measurement point, answering our round 37 lap 6 S12 (d): ``measure_frame()``
+measures what the encoders receive, the filter graph's output, since ``.20``, and
+the checksums stay on the read buffer (their round 37 lap 7 S4 (d),
+``docs/handshake/inbound/round-37-lap-07.md`` line 51). The answer named the open
+question until their round 41 lap 5 S19 pointed out it had been answered
+(``cyanrip@8b33a6c1:docs/handshake/round-41-lap-05.md:128``); it now names the
+answer.
 
 **The floor, 0.3 LU, and why it is defensible.** Equal CRCs mean the two arms fed
 the meter the same samples unless the filter changed them, and the meter is
@@ -220,8 +225,9 @@ def grade_pair(
             "be the quieter one; graded on the size of the difference alone"
         )
     lines.append(
-        "  graded on CRC equality and the R128 difference only; the fork is asked "
-        "to confirm where it measures loudness (our round 37 lap 6, S12 (d))"
+        "  graded on CRC equality and the R128 difference; the fork measures "
+        "loudness on what the encoders receive, after the filter, since .20, with "
+        "the checksums on the read buffer (their round 37 lap 7 S4 (d))"
     )
     if differing:
         return PairVerdict(

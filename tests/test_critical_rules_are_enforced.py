@@ -1663,7 +1663,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3494 -> 3575** (2026-11-16, TASKS R24): `BUILD_TAGS_BOUNDING_OVERREAD`, `FIRST_RELEASE_BOUNDING_OVERREAD` and the tri-state `bounds_overread`, beside the other per-build sets, each of the nine builds cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`), so `overreadprobe.txt` asks one fact instead of typing `.24`'s tag.
     # **3575 -> 3633** (2026-11-16, round 41 names `.33`, the fork's lap 1): `PIN_UNDER_REVIEW` `13bec0a` and its round, its release sequence 45 (and `edb73dd`'s second number, 44, on stable), its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip` and bounded-overread rows, and `.32` named in the `--verify-log` set, each with the source it was read from.
     # **3633 -> 3691** (2026-11-16, round 41 moves to `.34`, the fork's lap 3 S9 on the owner's word): `PIN_UNDER_REVIEW` `fb28088` and its record, its release sequence 46 (the row that makes `.34`'s exit 74 read by its class), its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip` and bounded-overread rows, and `.33` named in the `--verify-log` set, each with the source it was read from.
-    "deps/fork_source.py": 3691,
+    # **3691 -> 3763** (2026-11-17, the fork's round 41 lap 5 S18): `AR_GUIDED_CONVERGENCE_BUILDS` and `OTHER_READS_COMPLETE_BUILDS` moved here from `track_record_sources.py` (which re-exports them and shrank), beside the other per-build sets, so naming a build names it in them too; `.32` to `.34` added, each cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`).
+    "deps/fork_source.py": 3763,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2892,7 +2893,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5415 -> 5428** (2026-11-17, UX review V1): the finish handler hands the banner's level to the status line, and a rip cancelled after its read reads "cancelled" from its first line, never "Finished".
     # **5428 -> 5439** (2026-11-17, UX review E1): `_on_rip_error` and the finish handler's failure branch show the failure on the banner (`finish_wording.failure_banner_text`: the error's own words first, the hint after) and mark the status line with ✖.
     # **5439 -> 5454** (2026-11-17, UX review of 0.7.127, TASKS R182): a cancel reveals Force stop (M4), the stall notice's next step follows the cancel, and a cancelled rip's status names its folder and offers it (E2); the wording is `finish_wording.py`'s.
-    "ui/main_window_rip.py": 5454,
+    # **5454 -> 5464** (2026-11-17, the fork's round 41 lap 5 S18): `_merge_shipped_track` carries the shipped read's `Other read:` lines with its read count, so a record that counts agreeing reads from them counts the reads the file came from; the merge rule lives here.
+    "ui/main_window_rip.py": 5464,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made

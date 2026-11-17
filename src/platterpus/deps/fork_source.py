@@ -2271,6 +2271,78 @@ def bounds_overread(build_tag: str) -> bool | None:
     return None
 
 
+# --- Builds whose -Z log the per-track record can read ----------------------------
+#
+# The two sets below are keyed by the fork's BUILD NUMBER (the ``N`` of
+# ``+platterpus.N``, read off the rip's banner by
+# ``track_record_sources.fork_build_number``), not by build tag, because the record
+# reads the banner its log printed. They live here, beside the per-build sets
+# above, so naming a build under review names it in them too: until 2026-11-17
+# they lived in ``track_record_sources.py`` and stayed at ``.31`` while ``.32``,
+# ``.33`` and ``.34`` were each named here, so every re-read track of a ``.34`` rip
+# said "not determined" (the fork's round 41 lap 5 S18).
+# ``tests/test_build_sets_cover_the_pin.py`` holds each set to the pin under review
+# and the production pin. ``track_record_sources`` re-exports both names.
+
+#: **Fork build numbers whose log we can read for the AccurateRip-guided ``-Z``
+#: rule** (``--reread-until-accuraterip``). Its log text is P2 of each build's
+#: provider contract, read by :mod:`platterpus.reread_ar_overrule` into the
+#: track's ``secure_rerip_ar_overrule``. A build joins when its own source prints
+#: the same lines from the same rule, each read by content, never by version:
+#:
+#: * ``.31`` ``e531a33`` (2026-11-11, their round 39 lap 1 S2): the early end
+#:   ``cyanrip@e531a33:src/cyanrip_main.c:2140``, the limit lines naming the
+#:   overrule ``:2180-2242``, the row ``src/cyanrip_log.c:852``; P2 of
+#:   ``round-39-lap-01-provider-contract-g6eacb8b.md`` lines 376 and 504.
+#: * ``.32`` ``edb73dd``: ``cyanrip@edb73dd:src/cyanrip_main.c:2159``,
+#:   ``:2199-2261``, ``src/cyanrip_log.c:866``.
+#: * ``.33`` ``13bec0a``: ``cyanrip@13bec0a:src/cyanrip_main.c:2175``,
+#:   ``:2215-2277``, ``src/cyanrip_log.c:866``.
+#: * ``.34`` ``fb28088``: ``cyanrip@fb28088:src/cyanrip_main.c:2212``,
+#:   ``:2252-2314``, ``src/cyanrip_log.c:866``.
+#:
+#: Read 2026-11-17: ``cyanrip_rip_track`` (``.31`` lines 1738-2517) is
+#: line-for-line the same at ``.32`` (``:1757-2536``), ``.33`` (``:1773-2552``) and
+#: ``.34`` (``:1810-2589``), ``src/spool.h`` (the rule's ``crip_agreement_overruled``
+#: and ``crip_spool_ar_verified``) is unchanged from ``e531a33`` to ``fb28088``, and
+#: the track block's ``Secure re-read:`` rows (``.31``'s ``cyanrip_log.c:838-900``)
+#: are the same at ``:852-914`` in each later build; each later contract's P2 lists
+#: the same rows (``round-40-lap-01-provider-contract-gbfe2766.md`` lines 377 and
+#: 505, ``round-41-lap-01-provider-contract-g965ca8b.md`` 377 and 505,
+#: ``round-41-lap-03-provider-contract-g3069c11.md`` 377 and 506).
+AR_GUIDED_CONVERGENCE_BUILDS: Final[frozenset[int]] = frozenset({31, 32, 33, 34})
+
+#: **Fork builds whose log prints an ``Other read:`` line for EVERY ``-Z`` read
+#: that was not kept** (:mod:`platterpus.other_reads`), so a converged track that
+#: prints none had all its reads agree, and the record's count is exact (TASKS
+#: R140, our round 39 lap 2 S16). Read in their source, not assumed: each distinct
+#: checksum of a ``-Z`` track is filed as its own spool, a repeat adding a count,
+#: every spool is copied onto the track when the track is decided
+#: (``crip_keep_reads``), and the log prints one line per read not kept:
+#:
+#: * ``.30`` ``5cc1c6b``: spools ``cyanrip@5cc1c6b:src/cyanrip_main.c:2011``,
+#:   ``crip_keep_reads`` ``:1422`` called at ``:2351``, the lines
+#:   ``src/cyanrip_log.c:869-891``.
+#: * ``.31`` ``e531a33``: spools ``cyanrip@e531a33:src/cyanrip_main.c:2034-2079``,
+#:   ``crip_keep_reads`` ``:1442-1460`` called at ``:2480``, the lines
+#:   ``src/cyanrip_log.c:874-896``.
+#: * ``.32`` ``edb73dd``: ``cyanrip@edb73dd:src/cyanrip_main.c:2053-2098``,
+#:   ``:1461-1479`` called at ``:2499``, ``src/cyanrip_log.c:888-910``.
+#: * ``.33`` ``13bec0a``: ``cyanrip@13bec0a:src/cyanrip_main.c:2069-2114``,
+#:   ``:1477-1495`` called at ``:2515``, ``src/cyanrip_log.c:888-910``.
+#: * ``.34`` ``fb28088``: ``cyanrip@fb28088:src/cyanrip_main.c:2106-2151``,
+#:   ``:1512-1530`` called at ``:2552``, ``src/cyanrip_log.c:888-910``.
+#:
+#: ``.32`` to ``.34`` were read 2026-11-17: ``crip_keep_reads`` whole (``.31``'s
+#: ``:1442-1505``) and ``cyanrip_rip_track`` whole are line-for-line ``.31``'s, and
+#: so is the ``Other read:`` loop. The one gap in the chain is
+#: ``crip_keep_reads``'s allocation failing, which prints no lines at all; a
+#: converged ``-Z`` track has at most ``-r`` spools, so it is an out-of-memory case
+#: only. Enumerated, never ``>= 30``: a later build joins when its own source is
+#: read, and until then its record keeps the floor, which is true and only weaker.
+OTHER_READS_COMPLETE_BUILDS: Final[frozenset[int]] = frozenset({30, 31, 32, 33, 34})
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- The full commits behind the short pins ---------------------------------

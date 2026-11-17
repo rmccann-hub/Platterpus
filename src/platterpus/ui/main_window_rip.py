@@ -476,6 +476,16 @@ def _merge_shipped_track(
             # `not_present`: unknown, never another read's time.
             kept_read_began=shipped.kept_read_began,
             kept_read_began_state=shipped.kept_read_began_state,
+            # The `Other read:` lines describe the reads `rip_count` counts, so
+            # they are the shipped pass's, never the album pass's beside the
+            # shipped read count. The record counts agreeing reads from them
+            # (`track_record_reads._converged_agreement`): round 41's secure
+            # re-read gave track 3 the securing pass's 4 reads and the album
+            # pass's empty lines (its 5 reads all agreed), which on a `.34` the
+            # record reads would say "4 agreeing of 4" where one read of the
+            # four was 061D2412 (the fork's round 41 lap 5 S18).
+            other_reads=shipped.other_reads,
+            other_reads_not_kept=shipped.other_reads_not_kept,
         )
     if single_read and shipped is not None:
         return replace(

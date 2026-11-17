@@ -6,7 +6,7 @@ least 2 agreeing of 3`` in rips 1, 2 and 5, where the securing pass printed
 ``Done; (2 out of 2 matches for current checksum 59D352DD)`` and no ``Other read:``
 line, so all three reads agreed. True, and weaker than the log.
 
-**The rule.** ``.30`` and ``.31`` print an ``Other read:`` line for every value
+**The rule.** ``.30`` to ``.34`` print an ``Other read:`` line for every value
 their ``-Z`` reads gave that was not kept, with how many reads gave it (read in
 their source, and stated by the fork's round 39 lap 5 S7; ``track_record_sources.OTHER_READS_COMPLETE_BUILDS``
 cites it), so on those builds a converged track with none had every read agree:
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -49,7 +50,16 @@ _CONTRACTS: dict[int, str] = {
     29: "round-38-lap-05-provider-contract-g2a06e064.md",
     30: "round-38-lap-12-provider-contract-g0c276fc.md",
     31: "round-39-lap-01-provider-contract-g6eacb8b.md",
+    32: "round-40-lap-01-provider-contract-gbfe2766.md",
+    33: "round-41-lap-01-provider-contract-g965ca8b.md",
+    34: "round-41-lap-03-provider-contract-g3069c11.md",
 }
+#: One past the newest build whose source is read: derived, so a build joining
+#: the set does not turn the "not yet read" cases below into read ones.
+_UNREAD: Final[int] = max(OTHER_READS_COMPLETE_BUILDS) + 1
+_BANNER_UNREAD: Final[str] = (
+    f"cyanrip 0.9.4-rc3+platterpus.{_UNREAD} (platterpus-fork-g0000000)"
+)
 
 
 def _securing_pass(banner: str, other_read: str = "") -> str:
@@ -126,7 +136,7 @@ def test_30_counts_exactly_as_well() -> None:
     "banner",
     [
         "cyanrip 0.9.4-rc3+platterpus.29 (platterpus-fork-g2a06e064)",  # before the line
-        "cyanrip 0.9.4-rc3+platterpus.32 (platterpus-fork-g0000000)",  # not yet read
+        _BANNER_UNREAD,  # not yet read
         "cyanrip 0.9.3 (release)",  # stock: no Other read line at all
         "",  # no banner: nothing known
     ],
@@ -181,8 +191,8 @@ def test_the_listed_builds_are_exactly_those_whose_contract_prints_the_line() ->
         if "`Other read:      %08X, read %i time%s, %s%s%s`"
         in (_ARTIFACTS / name).read_text(encoding="utf-8")
     }
-    assert len(_CONTRACTS) >= 6, "floor: the contracts compared"
-    assert printed == OTHER_READS_COMPLETE_BUILDS == frozenset({30, 31})
+    assert len(_CONTRACTS) >= 9, "floor: the contracts compared"
+    assert printed == OTHER_READS_COMPLETE_BUILDS == frozenset({30, 31, 32, 33, 34})
 
 
 @pytest.mark.parametrize(
@@ -191,7 +201,8 @@ def test_the_listed_builds_are_exactly_those_whose_contract_prints_the_line() ->
         (_BANNER_30, True),
         (_BANNER_31, True),
         ("cyanrip 0.9.4-rc3+platterpus.29 (platterpus-fork-g2a06e064)", False),
-        ("cyanrip 0.9.4-rc3+platterpus.32 (platterpus-fork-g0000000)", False),
+        ("cyanrip 0.9.4-rc3+platterpus.34 (platterpus-fork-gfb28088)", True),
+        (_BANNER_UNREAD, False),
         ("cyanrip 0.9.3 (release)", False),
         ("", False),
     ],
