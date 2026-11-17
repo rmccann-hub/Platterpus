@@ -1,5 +1,7 @@
 # Documentation
 
+> **Using Platterpus?** Start at **Help → Getting started…** in the app, or the README's [*Getting started*](../README.md#getting-started) section. Everything below is for people who work on Platterpus.
+
 This directory contains the canonical source material the project was built from, plus reference documents the rest of the codebase points to.
 
 ## Single source of truth — where each kind of content lives
