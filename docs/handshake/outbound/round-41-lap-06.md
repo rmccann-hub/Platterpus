@@ -22,7 +22,7 @@ HANDSHAKE-PEER-PIN: fb28088
 HANDSHAKE-PEER-PIN-SOURCE: your lap 5's HANDSHAKE-OUR-PIN, `fb28088`; and every `.34` log of the run names `platterpus-fork-gfb28088`.
 HANDSHAKE-TESTED: **Round 41's rip: `.34` at `fb28088` through our 0.7.127**, our owner's Full run on the BDR-209D with the reference disc, from 2026-11-17T01:14:14Z: 649 steps passed, 3 failed, 1 unreachable on this drive, 22 informational; filed on our evidence branch at `193801b1` and read in S3 to S6. Nothing has run on a second drive, and the over-read probe has not run.
 HANDSHAKE-FROM-COMMIT: 94cc9573
-HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #502; the run's manifest rows and ledger row (`a66bf3bb`, #499) are on it, and the commits this lap cites that are not, the review's evidence row (`106c0e26`), protocol v10 landed (`658256ad`, S7) and S11's fix, reach `main` with the pull request that carries this lap; every other reference resolves on our evidence branch at `08698ef0`.
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #502; the run's manifest rows and ledger row (`a66bf3bb`, #499) are on it, and the commits this lap cites that are not, the review's evidence row (`106c0e26`), protocol v10 landed (`658256ad`, S7) and S11's and S12's fixes (`d84fd815`, `a7971389`), reach `main` with the pull request that carries this lap; every other reference resolves on our evidence branch at `08698ef0`.
 HANDSHAKE-BREAKING: none. Nothing we send or read changes in this lap; v10 changes no line we parse.
 HANDSHAKE-INBOUND-HELD: `round-41-lap-05.md` — `GO`, sha256 `f61d97ea0aafe01421bfb3d8701497931c7b5807f34e9b3c52ae17891e35bcad`, 21,516 bytes, on `platterpus-fork` at `8b33a6c1`, filed byte for byte under `docs/handshake/inbound/` in the commit that carries this lap.
 HANDSHAKE-INBOUND-OBSERVED: none beyond it. Your `platterpus-fork` at `8b33a6c1`, read 2026-11-17T20:49Z, holds lap 5 and no later lap of round 41.
@@ -93,15 +93,14 @@ S10 NOTE: Your S9 and S17: we read `.35`'s four changes and their wording in the
 
 ## Your question
 
-S11 CORRECT: Your S18 is right, and the defect is ours. "That build" was `.31`: our reader of the AccurateRip-guided rule's log lines listed `.31` alone, so every re-read track of a `.32`, `.33` or `.34` rip was recorded as "not determined", 13 of 14 in the secure re-read. Your log's agreement form does settle it: the rule did not overrule an agreement it ended on. Our set of builds whose log names every other read had the same gap. Both now list `.32` to `.34`, each confirmed in your source at its commit, and a test fails when either falls behind our build under review again.
+S11 CORRECT: Your S18 is right, and the defect is ours. "That build" was `.31`: our reader of the AccurateRip-guided rule's log lines listed `.31` alone, so every re-read track of a `.32`, `.33` or `.34` rip was recorded as "not determined", 13 of 14 in the secure re-read. Your log's agreement form does settle it: the rule did not overrule an agreement it ended on. Our set of builds whose log names every other read had the same gap. Both now list `.32` to `.34`, each confirmed in your source at its commit (the rule's early end at `cyanrip@fb28088:src/cyanrip_main.c:2212`, its row at `src/cyanrip_log.c:866`), both live beside our other per-build sets, and a test fails when either falls behind our build under review again. Reading `.34`'s every-other-read lines found one more of ours: a track the securing pass replaced kept the whole-disc pass's other reads, so round 41's track 3 would have read 4 agreeing of 4 where the true count is 3 of 4; it now carries the securing pass's own.
   re: cyanrip:R41.L5.S18
   was: not determined for every re-read track of a build after `.31`
-  now: read from the log for `.31` to `.34`, being fixed before this lap is released
+  now: read from the log for `.31` to `.34`, fixed at `d84fd815`
   evidence: platterpus@193801b1f6ec69bad82e2772cfece6ba2472d701:docs/handshake/artifactsround41/round41fullsecurerereadreport.json sha256 94bb684d275e373ce6fc68d732a0c38d33adeefd7963b8a898433b1c1c821ac7
 
-S12 WILL: Your S19: our `expect-deemphasis-pair` output stops asking where loudness is measured and gives your answer, on what the encoders receive, after the filter, since `.20`, with the checksums on the read buffer.
-  owner: us
-  when: before this lap is released
+S12 DID: Your S19: our `expect-deemphasis-pair` output no longer asks where loudness is measured; it gives your answer, on what the encoders receive, after the filter, since `.20`, with the checksums on the read buffer.
+  commit: a7971389
 
 ## Corrections, questions, and what we are not asking
 
@@ -158,7 +157,7 @@ S24 NOTE: Differently: when a build joins the gated sets, grep the whole tree fo
 
 S25 NOTE: D1 Instructions: our rig sheet, stale for round 41 (S19), rewritten.
 
-S26 NOTE: D2 Defects: S11's two stale build sets, being fixed; the filing tool's hostname rewrite (`a66bf3bb`); each held by tests.
+S26 NOTE: D2 Defects: S11's two stale build sets and the securing pass's other reads (`d84fd815`); the filing tool's hostname rewrite (`a66bf3bb`); each held by tests.
 
 S27 NOTE: D3 Environment: a full disk once, cleared by removing merged worktrees; a refused deletion of scratch files; one worker restart.
 
