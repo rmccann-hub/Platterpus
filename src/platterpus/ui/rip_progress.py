@@ -324,6 +324,9 @@ class RipProgress(QWidget):
         # None while the rip has not failed.
         self._verdict_failure: str = ""
         self._failure_log_path: Path | None = None
+        # A cancelled rip's folder (`offer_cancelled_folder`), which the Open
+        # folder button beside the banner opens. None until a rip is cancelled.
+        self._cancelled_folder: Path | None = None
 
         # --- Why this pane is built in three bands ---------------------------
         # This pane has to show five different things: live progress, a live
@@ -484,10 +487,29 @@ class RipProgress(QWidget):
             "Open the app log, which records why the rip failed"
         )
         self._open_failure_log_button.clicked.connect(self._on_open_failure_log)
+        # **Open folder**, shown only after a CANCELLED rip (UX review E2): the
+        # status line says where the finished tracks and any partial files are,
+        # and this opens that folder, through the same fire-and-forget
+        # `open_path_externally`. Alt+N: the footer's "Open rip fol&der" holds D.
+        # Deliberately no "Delete partial files" beside it: deleting a user's
+        # files needs its own design and the owner's eyes (R182, wave 1).
+        self._open_cancelled_folder_button: QPushButton = QPushButton(
+            "Ope&n folder", self
+        )
+        self._open_cancelled_folder_button.setVisible(False)
+        self._open_cancelled_folder_button.setAccessibleName(
+            "Open the folder that holds the cancelled rip's files"
+        )
+        self._open_cancelled_folder_button.clicked.connect(
+            self._on_open_cancelled_folder
+        )
         verdict_row = QHBoxLayout()
         verdict_row.addWidget(self._verdict_banner, stretch=1)
         verdict_row.addWidget(
             self._open_failure_log_button, alignment=Qt.AlignmentFlag.AlignTop
+        )
+        verdict_row.addWidget(
+            self._open_cancelled_folder_button, alignment=Qt.AlignmentFlag.AlignTop
         )
         root.addLayout(verdict_row)
 
@@ -836,6 +858,8 @@ class RipProgress(QWidget):
         self._verdict_failure = ""
         self._failure_log_path = None
         self._open_failure_log_button.setVisible(False)
+        self._cancelled_folder = None
+        self._open_cancelled_folder_button.setVisible(False)
         self._verdict_banner.setAccessibleName(_VERDICT_ACCESSIBLE_NAME)
         # The Details tab is empty again, so drop any warning marker from its
         # label — a stale ⚠ on an empty tab would send the user looking for a
@@ -1121,6 +1145,27 @@ class RipProgress(QWidget):
         self._open_failure_log_button.setVisible(log_path is not None)
         self._verdict_banner.setAccessibleName(_FAILURE_ACCESSIBLE_NAME)
         self._render_verdict_banner("error")
+
+    def offer_cancelled_folder(self, folder: Path | None) -> None:
+        """After a cancelled rip, offer to open ``folder``; None hides the offer.
+
+        The window words the status line ("… are in <folder>") and hands the
+        same folder here, so the sentence and the button cannot name two
+        places. Cleared by :meth:`clear` at the next rip.
+        """
+        self._cancelled_folder = folder
+        self._open_cancelled_folder_button.setVisible(folder is not None)
+
+    def _on_open_cancelled_folder(self) -> None:
+        """Open the cancelled rip's folder on the desktop."""
+        if self._cancelled_folder is None:
+            return
+        open_path_externally(
+            self._cancelled_folder,
+            parent=self,
+            open_url=self._open_url,
+            what="rip folder",
+        )
 
     def _on_open_failure_log(self) -> None:
         """Open the log the failure banner names, on the desktop."""

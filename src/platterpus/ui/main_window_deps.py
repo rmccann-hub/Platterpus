@@ -835,11 +835,18 @@ class DependencyMixin(MainWindowShared):
             self._setup_needed_notice = place_notice(self, self.open_host_setup_dialog)
         if self._setup_needed_notice is not None:
             self._setup_needed_notice.reveal()
+        self._sync_no_drive_notice()  # the strip says it; the line must not repeat it
+
+    def _setup_notice_shown(self) -> bool:
+        """Whether the "not installed yet" strip is showing (the empty state defers)."""
+        notice = self._setup_needed_notice
+        return notice is not None and not notice.isHidden()
 
     def _hide_setup_needed_notice(self) -> None:
         """Hide the strip once the tools are there (a no-op when it was never built)."""
         if self._setup_needed_notice is not None:
             self._setup_needed_notice.conceal()
+        self._sync_no_drive_notice()
 
     def _offer_optional_install(
         self,

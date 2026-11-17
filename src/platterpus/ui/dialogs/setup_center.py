@@ -98,6 +98,18 @@ log = logging.getLogger(__name__)
 #: is a size you own: Qt's platform default is the user-agent exception, and
 #: setting one forfeits it.
 _COMMIT_HEIGHT: int = 44
+_TARGET_FLOOR: int = 24
+
+#: The buttons that change something the moment they are pressed, by key, and so
+#: are held to `_COMMIT_HEIGHT`. Only *Add app shortcut* does: it writes the menu
+#: entry at once. Every other button runs a check or opens a window (its "…"),
+#: where the commit is a later button of that window's own.
+#:
+#: **Why every button was 44 px until 2026-11-17, and why not now.** The seven
+#: full-width 44 px buttons stacked under their status lines read as a wall with
+#: nothing primary, and the body needed 814 px, so the window scrolled on an
+#: 800 px screen (UX review of 0.7.127, L2: 560 × 736 with a 67 px scroll).
+_COMMITS: frozenset[str] = frozenset({"shortcut"})
 
 #: The status marker vocabulary, from the one place it is defined. **Never colour
 #: alone** — every level carries a glyph (`dependency_check_status`).
@@ -236,6 +248,8 @@ class SetupCenterDialog(CenteredDialog):
         )
 
         grid = QGridLayout()
+        # The status column takes the width; the buttons keep their own.
+        grid.setColumnStretch(0, 1)
         layout.addLayout(grid)
         row = 0
 
@@ -366,20 +380,27 @@ class SetupCenterDialog(CenteredDialog):
             status_widget = QLabel(status or "")
             status_widget.setTextFormat(Qt.TextFormat.PlainText)
             status_widget.setWordWrap(True)
-        grid.addWidget(status_widget, row, 0, 1, 2)
-        row += 1
-
-        if checkbox is not None:
-            grid.addWidget(checkbox, row, 0, 1, 2)
-            row += 1
-
-        for label, key in buttons:
+        # ONE ROW PER ITEM: what it says on the left, what you can do about it on
+        # the right (UX review L2). The status spans the rows of its section's
+        # buttons, so a section with two buttons is still one item.
+        grid.addWidget(
+            status_widget, row, 0, max(1, len(buttons)), 1, Qt.AlignmentFlag.AlignTop
+        )
+        for offset, (label, key) in enumerate(buttons):
             button = QPushButton(label)
-            button.setMinimumHeight(_COMMIT_HEIGHT)
+            # Qt's own height, which is the platform's, held to the floor; the
+            # one button that commits gets the commit size (`_COMMITS`).
+            button.setMinimumHeight(
+                _COMMIT_HEIGHT if key in _COMMITS else _TARGET_FLOOR
+            )
             button.clicked.connect(lambda _checked=False, k=key: self._run(k))
             self._buttons[key] = button
             self._button_labels[key] = label
-            grid.addWidget(button, row, 0, 1, 2)
+            grid.addWidget(button, row + offset, 1, Qt.AlignmentFlag.AlignTop)
+        row += max(1, len(buttons))
+
+        if checkbox is not None:
+            grid.addWidget(checkbox, row, 0, 1, 2)
             row += 1
         return row
 
@@ -417,6 +438,7 @@ class SetupCenterDialog(CenteredDialog):
             )
         elif self._settings_status.text().startswith(f"{_INFO} Locked"):
             self._settings_status.setText("")
+        self._grow_to_fit()
 
     def refresh_settings(self, config: Config) -> None:
         """Show ``config``'s channels and the selected drive's read offset.
@@ -445,6 +467,7 @@ class SetupCenterDialog(CenteredDialog):
         applied = offset_config.describe_applied_offset(decision)
         marker = _INFO if offset_config.is_offset_configured(decision) else _WARN
         self._offset_label.setText(f"{marker} Read offset: {applied}")
+        self._grow_to_fit()
 
     def _on_channel_toggled(self, field: str, box: QCheckBox, beta: bool) -> None:
         """Save a channel tick-box through the window, and say what happened."""
@@ -464,6 +487,7 @@ class SetupCenterDialog(CenteredDialog):
             text += f" {result.message}"
         self._settings_status.setText(text)
         announce(self._settings_status, text)
+        self._grow_to_fit()
 
     def refresh_dependencies(self, report: object | None) -> None:
         """Re-render the dependency line after a check has reported.
@@ -477,6 +501,7 @@ class SetupCenterDialog(CenteredDialog):
             text = dependency_summary_line(report)
             self._dependency_label.setText(text)
             announce(self._dependency_label, text)
+        self._grow_to_fit()
 
     def show_dependency_check_running(self, message: str, *, busy: bool) -> None:
         """A check is in flight: say so, and grey the button if the user asked.
@@ -491,6 +516,7 @@ class SetupCenterDialog(CenteredDialog):
         if self._dependency_label is not None:
             self._dependency_label.setText(f"{_INFO} {message}")
         self._apply_dep_check_button()
+        self._grow_to_fit()
 
     def show_dependency_check_finished(
         self, report: object | None, *, failure: str = ""
@@ -506,8 +532,37 @@ class SetupCenterDialog(CenteredDialog):
         if failure and self._dependency_label is not None:
             self._dependency_label.setText(failure)
             announce(self._dependency_label, failure)
+            self._grow_to_fit()
             return
         self.refresh_dependencies(report)
+
+    def _grow_to_fit(self) -> None:
+        """A status line changed: give the window the height its text now needs.
+
+        **Why this window refits after it opens.** It is sized to its content on
+        first show (`CenteredDialog`), and its lines change while it is open: a
+        dependency check that lands can turn "Not checked yet" into a paragraph
+        naming eight tools. With the status beside its buttons (UX review L2) that
+        paragraph wraps in the narrower status column, and the body scrolled 60 px
+        in a window that had the whole screen to grow into
+        (`tests/test_ui_conformance.py`, *scrolls_only_when_capped*). The fit only
+        ever GROWS the window and stops at the screen, so calling it again never
+        shrinks a window the user made bigger; it is not called before the first
+        show, which does the first fit itself.
+
+        The body's layout is activated first. It is the top layout of a widget
+        inside the scroll area, so the fit's own ``activate()`` (the dialog's
+        layout) does not reach it, and until Qt's next event-loop turn it still
+        answers with the height of the OLD text: measured on the conformance
+        path, the fit then found nothing to grow and the body scrolled 60 px.
+        """
+        if not self.isVisible() or self.isMaximized():
+            return
+        body = self._body_scroll.widget()
+        body_layout = body.layout() if body is not None else None
+        if body_layout is not None:
+            body_layout.activate()
+        self._fit_content_to_screen()
 
     def _apply_dep_check_button(self) -> None:
         """Label and enable the dependency button from BOTH of its conditions."""

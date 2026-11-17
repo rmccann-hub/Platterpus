@@ -87,8 +87,8 @@ def _mnemonic_letters(widget: QWidget) -> list[str]:
 
 def test_main_window_button_mnemonics_are_unique(qapp: QApplication) -> None:
     """Every prominent main-window button carries a mnemonic, and no two
-    collide with each other or with the menu-bar mnemonics (File/Tools/Help
-    hold F/T/H) — an ambiguous mnemonic only cycles focus instead of
+    collide with each other or with the menu-bar mnemonics (File/Rip/Tools/Help
+    hold F/I/T/H; the Rip menu is R&ip because Refresh holds R) — an ambiguous mnemonic only cycles focus instead of
     activating, which defeats the point (gap #4)."""
     from platterpus.config import Config
 
@@ -101,11 +101,12 @@ def test_main_window_button_mnemonics_are_unique(qapp: QApplication) -> None:
         + _mnemonic_letters(controls)
         + _mnemonic_letters(progress)
     )
-    # Every one of the twelve prominent buttons has a mnemonic… (11 since 0.6.17,
+    # Every one of the thirteen prominent buttons has a mnemonic… (11 since 0.6.17,
     # when "Report bundle" joined the rip pane's output row; 12 since the UX
-    # review of 2026-11-17, E1: "Open log" beside a failed rip's banner.)
-    assert len(letters) == 12
+    # review of 2026-11-17, E1: "Open log" beside a failed rip's banner; 13 since
+    # its E2: "Open folder" beside a cancelled rip's banner.)
+    assert len(letters) == 13
     # …they are all distinct…
     assert len(set(letters)) == len(letters)
     # …and none shadows a menu-bar mnemonic.
-    assert not set(letters) & {"f", "t", "h"}
+    assert not set(letters) & {"f", "i", "t", "h"}

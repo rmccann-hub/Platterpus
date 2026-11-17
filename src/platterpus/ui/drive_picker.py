@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from typing import Final
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -31,6 +32,10 @@ from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 
 log = logging.getLogger(__name__)
+
+#: The Refresh button's label. The empty-state line under the picker names it
+#: (`ui/no_drive_notice.py`), so the sentence reads it from here, not a copy.
+REFRESH_LABEL: Final[str] = "&Refresh"
 
 
 class DrivePicker(QWidget):
@@ -51,6 +56,9 @@ class DrivePicker(QWidget):
     # ("" if none is selected → eject the system default). MainWindow does
     # the actual (off-thread) eject so this widget stays UI-only.
     eject_requested = Signal(str)
+    # Emitted after every listing lands, found or empty or failed, so the window
+    # can show or hide its "no drive" line (`found_no_drives` says which).
+    listing_changed = Signal()
 
     def __init__(
         self,
@@ -63,6 +71,10 @@ class DrivePicker(QWidget):
         # selected drive's vendor/model (e.g. for the offset lookup), not
         # just its /dev node.
         self._by_device: dict[str, DriveDescriptor] = {}
+        # True only after a listing that came back EMPTY: not before the first
+        # listing lands (nothing is known yet), and not after a failed one,
+        # which says so in the dropdown itself.
+        self._found_none: bool = False
 
         layout = QHBoxLayout(self)
         # Zero margins so the row sits flush inside the parent's
@@ -82,7 +94,7 @@ class DrivePicker(QWidget):
         # "&" marks each button's Alt+<letter> mnemonic (keyboard reachability,
         # gap #4) — letters chosen to stay unique across the main window.
         self._async_refresh: Callable[[], None] | None = None
-        self._refresh_button: QPushButton = QPushButton("&Refresh", self)
+        self._refresh_button: QPushButton = QPushButton(REFRESH_LABEL, self)
         self._refresh_button.clicked.connect(self._on_refresh_clicked)
         layout.addWidget(self._refresh_button)
 
@@ -173,12 +185,14 @@ class DrivePicker(QWidget):
         self._combo.blockSignals(True)
         self._combo.clear()
 
+        self._found_none = not drives
         if not drives:
             self._combo.addItem("(no drives found)", None)
             self._combo.blockSignals(False)
             # Let the main window explain *why* (permissions / no device)
             # instead of leaving a bare empty dropdown.
             self.drives_unavailable.emit()
+            self.listing_changed.emit()
             return
 
         restore_index = 0
@@ -215,6 +229,7 @@ class DrivePicker(QWidget):
         device = self._combo.currentData()
         if device is not None and device != previous_device:
             self.drive_changed.emit(device)
+        self.listing_changed.emit()
 
     def show_error(self, message: str) -> None:
         """Replace the drive list with a single non-selectable error item.
@@ -226,6 +241,12 @@ class DrivePicker(QWidget):
         self._combo.clear()
         self._combo.addItem(f"(error: {message})", None)
         self._combo.blockSignals(False)
+        self._found_none = False
+        self.listing_changed.emit()
+
+    def found_no_drives(self) -> bool:
+        """Whether the last listing came back empty (not failed, not pending)."""
+        return self._found_none
 
     def current_drive(self) -> DriveDescriptor | None:
         """The full descriptor (vendor/model/offset) of the selected drive.

@@ -1157,8 +1157,6 @@ class MainWindow(
         # Help). QKeySequence's StandardKey resolves to the right keys per
         # platform (e.g. Ctrl+Q / Ctrl+, / F1 on Linux) and shows them in the
         # menu automatically — part of the accessibility pass (gap #4).
-        from PySide6.QtGui import QKeySequence
-
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
         unknown_action = file_menu.addAction("Rip as &Unknown Album…")
@@ -1169,6 +1167,12 @@ class MainWindow(
             standard_shortcut(QKeySequence.StandardKey.Quit, "Ctrl+Q")
         )
         quit_action.triggered.connect(self._on_quit_requested)
+        # The Rip menu (UX review A2): Start rip (Ctrl+R) shares the button's state
+        # and handler (`RipControls.bind_start_action`); the unknown-album item is
+        # File's own QAction, which the README still names. Alt+I: Alt+R is Refresh.
+        rip_menu = menubar.addMenu("R&ip")
+        self._rip_controls.bind_start_action(rip_menu.addAction("&Start rip"))
+        rip_menu.addAction(unknown_action)
 
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")
