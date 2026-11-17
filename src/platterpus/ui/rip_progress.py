@@ -37,7 +37,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QEvent, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -80,7 +80,12 @@ from platterpus.track_proof import contradiction_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
 from platterpus.ui.plain_text import plain_tooltip
-from platterpus.ui.status_colours import SECONDARY_STYLE, status_style
+from platterpus.ui.status_colours import (
+    PALETTE_EVENTS,
+    SECONDARY_STYLE,
+    apply_status_style,
+    reapply_status_styles,
+)
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -407,7 +412,7 @@ class RipProgress(QWidget):
         self._stall_label.setTextFormat(Qt.TextFormat.PlainText)
         self._stall_label.setWordWrap(True)
         self._stall_label.setVisible(False)
-        self._stall_label.setStyleSheet(status_style("warn", self._stall_label))
+        apply_status_style(self._stall_label, "warn")
         root.addWidget(self._stall_label)
 
         # --- CTDB's per-track disagreement, as a NOTE (never WRONG) ---
@@ -454,9 +459,7 @@ class RipProgress(QWidget):
         self._read_effort_label.setTextFormat(Qt.TextFormat.PlainText)
         self._read_effort_label.setWordWrap(True)
         self._read_effort_label.setVisible(False)
-        self._read_effort_label.setStyleSheet(
-            status_style("warn", self._read_effort_label)
-        )
+        apply_status_style(self._read_effort_label, "warn")
         root.addWidget(self._read_effort_label)
 
         # --- Re-rip comparison banner ("you've ripped this disc before") ---
@@ -719,6 +722,21 @@ class RipProgress(QWidget):
             "CTDB verification, read-effort caveats, and album loudness",
         )
         self._tabs.setTabToolTip(_TAB_LOG, "Live output from the ripper")
+
+    def changeEvent(self, event: QEvent) -> None:  # noqa: N802 — Qt override
+        """Recolour the status lines when the desktop's colours change.
+
+        Qt calls this when the palette or theme changes under the open window
+        (Breeze to Breeze Dark in System Settings, say). Each status line's
+        colour was chosen for the palette in force when it was set, so the
+        light-theme amber stayed on a charcoal background until the app was
+        restarted (UX review L1, 2026-11-17). ``reapply_status_styles`` chooses
+        each one again for the palette in force now; it touches only labels,
+        on the GUI thread this event arrives on.
+        """
+        if event.type() in PALETTE_EVENTS:
+            reapply_status_styles(self)
+        super().changeEvent(event)
 
     # --- Public surface -----------------------------------------------------
 
@@ -1003,7 +1021,7 @@ class RipProgress(QWidget):
         # the window and the record cannot word the same downgrade two ways.
         text, level = apply_downgrades(base, level, self._verdict_downgrades)
         self._verdict_banner.setText(text)
-        self._verdict_banner.setStyleSheet(status_style(level, self._verdict_banner))
+        apply_status_style(self._verdict_banner, level)
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
 
@@ -1126,9 +1144,7 @@ class RipProgress(QWidget):
             self._comparison_label.setVisible(False)
             return
         self._comparison_label.setText(text)
-        self._comparison_label.setStyleSheet(
-            status_style(level, self._comparison_label)
-        )
+        apply_status_style(self._comparison_label, level)
         self._comparison_label.setVisible(True)
         # A silently-changed track is exactly what a screen-reader user would
         # otherwise never learn about — announce the comparison (gap #4).
@@ -1148,9 +1164,7 @@ class RipProgress(QWidget):
         ``level`` is never the only signal. Empty ``text`` hides the line.
         """
         self._ctdb_repair_label.setText(text)
-        self._ctdb_repair_label.setStyleSheet(
-            status_style(level, self._ctdb_repair_label)
-        )
+        apply_status_style(self._ctdb_repair_label, level)
         self._ctdb_repair_label.setVisible(bool(text))
         if text:
             self._refresh_details_tab_marker()
@@ -1166,10 +1180,8 @@ class RipProgress(QWidget):
         """
         verdict_text = ctdb_verdict_line(result)
         self._ctdb_label.setText(verdict_text)
-        self._ctdb_label.setStyleSheet(
-            status_style(
-                ctdb_verdict_level(result, self._last_rip_log), self._ctdb_label
-            )
+        apply_status_style(
+            self._ctdb_label, ctdb_verdict_level(result, self._last_rip_log)
         )
         self._ctdb_label.setVisible(True)
         self._announce_ctdb(verdict_text)

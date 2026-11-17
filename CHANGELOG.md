@@ -19,6 +19,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Our status block records 0.7.127 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.127 at `69483cf`, published 2026-11-17T00:20:57Z.
 - **Four lessons of round 41 are kept where they are read** (contributor-facing): the steward skill says to read `pr_steward.py`'s verdict from its first line or exit code; `docs/testing.md` says to set the collected-test floor to CI's count; `docs/cyanrip-handshake.md` §7.5c says to re-read a held lap before announcing it; and the session log records the session.
 
+### Fixed
+
+- **Switching the desktop between a light and a dark theme with Platterpus open now recolours the verdict and the other status lines** (UX review L1, 2026-11-17). Each line's colour was chosen once, when it was set, so a switch from Breeze to Breeze Dark left the light-theme amber on a charcoal background until a restart. The rip pane and the Settings validation banner now choose the colour again when Qt reports a palette or theme change, and they choose it from the palette the line is drawn on: a label with a style sheet kept reporting the old theme's colours in its own palette (measured with PySide6 6.11).
+
 ## [0.7.127] — 2026-11-17
 
 ### Changed

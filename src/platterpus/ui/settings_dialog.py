@@ -37,7 +37,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -78,7 +78,13 @@ from platterpus.ui.setting_homes import (
     WINDOW_PATHS,
     fields_homed_in,
 )
-from platterpus.ui.status_colours import SECONDARY_STYLE, status_colour, status_style
+from platterpus.ui.status_colours import (
+    PALETTE_EVENTS,
+    SECONDARY_STYLE,
+    apply_status_style,
+    reapply_status_styles,
+    status_colour,
+)
 from platterpus.user_settings import apply_user_edits, with_values
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -994,6 +1000,19 @@ class SettingsDialog(CenteredDialog):
             return QSize(1024, 720)
         return screen.availableGeometry().size()
 
+    def changeEvent(self, event: QEvent) -> None:  # noqa: N802 — Qt override
+        """Recolour the validation banner when the desktop's colours change.
+
+        The banner's colour was chosen for the palette in force when it was
+        set; a theme switch with the dialog open left the old side's colour
+        on the new background (UX review L1, 2026-11-17). Labels only, on the
+        GUI thread this event arrives on. The red or amber border on a field
+        is re-chosen the next time the form is validated (every keystroke).
+        """
+        if event.type() in PALETTE_EVENTS:
+            reapply_status_styles(self)
+        super().changeEvent(event)
+
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
         """Re-clamp on show, because the screen is not knowable in ``__init__``.
 
@@ -1271,9 +1290,7 @@ class SettingsDialog(CenteredDialog):
         lines = list(dict.fromkeys(lines))
         banner_text = "\n".join(lines)
         self._validation_label.setText(banner_text)
-        self._validation_label.setStyleSheet(
-            status_style("error" if errors else "warn", self._validation_label)
-        )
+        apply_status_style(self._validation_label, "error" if errors else "warn")
         self._validation_label.setVisible(True)
         # "Visible, specific error at the point of entry" must include hearing
         # it: announce the banner focus-safely, once per distinct text (this

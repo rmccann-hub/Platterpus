@@ -2936,7 +2936,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1750 -> 1759** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **1759 -> 1834** (2026-11-03, the owner's word for 0.7.119, "do 1 - 4 as recommended", item 1): a CTDB-only disagreement is a NOTE, never WRONG. The note line under the status line (built, named, cleared), `_render_ctdb_note` (rewrites each row's Status cell when the rip log or the CTDB answer arrives, whichever is last) and `_status_cell`'s ⓘ branch. The decision and the wording are the new focused module `ctdb_disagreement.py`; this is the pane that shows them.
     # **1834 -> 1863** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's own result line, under the CTDB verdict.
-    "ui/rip_progress.py": 1863,
+    # **1863 -> 1875** (2026-11-17, UX review L1): `changeEvent` re-chooses every status colour when the desktop's palette or theme changes under the open window; the mechanism is `status_colours.apply_status_style` / `reapply_status_styles`.
+    "ui/rip_progress.py": 1875,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2980,7 +2981,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1450 -> 1453** (2026-11-12, the EAC-compatible log on by default): choosing the Archival goal ticks the log, through `goal_presets.turns_on_eac_log`, the predicate `apply_preset` reads, so the dialog and a script's `set rip_goal` cannot disagree. It sets the dialog's own widget in the goal handler beside the others it sets.
     # **1450 -> 1465** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-only offset line shows the selected drive's offset, passed in by the window.
     # Both changes merged 2026-11-13: measured 1468 lines after the merge.
-    "ui/settings_dialog.py": 1468,
+    # **1468 -> 1485** (2026-11-17, UX review L1): `changeEvent` re-chooses the validation banner's colour when the desktop's palette or theme changes with the dialog open.
+    "ui/settings_dialog.py": 1485,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
