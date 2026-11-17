@@ -1,0 +1,11 @@
+REFUSED subprocess: ['metaflac', '--version']
+REFUSED subprocess: ['flatpak', 'info', '--user', 'org.musicbrainz.Picard']
+REFUSED subprocess: ['flac', '--version']
+REFUSED subprocess: ['ffmpeg', '-version']
+SHOT 01-MainWindow-Platterpus_0_7_127.png t=2.3s MainWindow|Platterpus 0.7.127|752x752
+SHOT 02-QMessageBox-Set_up_Platterpus.png t=2.4s QMessageBox|Set up Platterpus|400x192 TEXT: Platterpus needs a one-time setup to install its ripping tool (cyanrip) in a small container — no terminal required. Set it up now?
+
+You can also do this later from Tools → Setup & Updates… → Run setup….
+
+New to Platterpus? Help → Getting started… walks through setup and a first rip. INFO:  BUTTONS: &Yes | &No
+QUIT

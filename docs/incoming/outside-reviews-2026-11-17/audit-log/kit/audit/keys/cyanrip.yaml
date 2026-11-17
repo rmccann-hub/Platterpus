@@ -1,0 +1,40 @@
+# The answer key for the cyanrip fork's `platterpus-fork` at
+# 590e959dca21c7f56e30fac74ade8da8d50f8b6f. A run is never shown this file. Written 2026-10-26
+# before any run, from the review file of that day; moved to this commit on 2026-10-27 with no
+# item changed, since no code changed. Fields as in
+# keys/platterpus.yaml.
+repo: cyanrip
+audited: 590e959dca21c7f56e30fac74ade8da8d50f8b6f
+items:
+  - id: FG1
+    skill: coding
+    state: gap
+    about: the program is C, which no coding module covers
+    pattern: '\bC\b(?!#|\+\+)|\bC language|\.c files|meson'
+  - id: FO1
+    skill: any
+    state: open
+    about: no release path refuses a -dirty build; tag-release.yml only tags, and only tools/gen-golden-reference.py checks
+    pattern: 'dirty'
+    rated: [GAP, DRIFT]
+  - id: FO2
+    skill: any
+    state: open
+    about: a tag value of ".." puts the rip outside its folder, and -T passes control characters, a leading dot and reserved names (in docs/KNOWN-ISSUES.md:282, not fixed)
+    pattern: '\.\.|-T\b|leading dot|reserved name|filename'
+    rated: [BLOCKER, DRIFT, GAP]
+  - id: FC1
+    skill: any
+    state: closed
+    about: the weekly dependency check pins claude-code-skills 0.1.18 (it's 0.1.21)
+    pattern: '0\.1\.18'
+  - id: FC2
+    skill: any
+    state: closed
+    about: uv pinned at 0.13.1 (it's 0.13.5)
+    pattern: '0\.13\.1\b'
+  - id: FC3
+    skill: any
+    state: closed
+    about: the log writes values unescaped, so a title can start a line (fixed, 46cec2a)
+    pattern: '(log).*(newline|control char|escape|forge)|(newline|control char|escape|forge).*(log)'
