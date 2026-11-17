@@ -1270,3 +1270,33 @@ def test_a_republished_build_is_not_offered_to_the_rig_already_running_it() -> N
     assert on_beta.verdict == OFFER_AVAILABLE
     assert on_beta.release is not None
     assert fork_source.same_commit(on_beta.release.commit, "13bec0a")
+
+
+# --- `.34` on beta, round 41 from its lap 3 (2026-11-16) ----------------------------
+
+#: The fork's manifest as it stood when their round 41 lap 3 asked to review `.34`:
+#: `beta` at `.34` (`fb28088`, release 46), `stable` at `.32` (`edb73dd`, release 44).
+#: Their file, filed byte for byte from `cyanrip@d7385d18`.
+_MANIFEST_D7385D18 = (
+    Path(__file__).parent / "fixtures" / "fork_release_manifest_d7385d18.json"
+)
+
+
+def test_a_rig_on_dot33_is_offered_dot34_on_beta_and_dot34_is_current() -> None:
+    """The release sequence recorded for `.34` is the one their manifest states,
+    so a beta rig on `.33` (45) is offered `.34` (46), and one on `.34` is told it
+    is current at release 46, not offered its own build."""
+    manifest = parse_manifest(_MANIFEST_D7385D18.read_text(encoding="utf-8"))
+    assert manifest is not None
+    beta = manifest.channel(CHANNEL_BETA)
+    assert beta is not None and fork_source.same_commit(beta.commit, "fb28088")
+    assert beta.release_seq == fork_source.release_seq_for_commit("fb28088") == 46
+
+    on_33 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="13bec0a")
+    assert on_33.verdict == OFFER_AVAILABLE
+    assert on_33.release is not None
+    assert fork_source.same_commit(on_33.release.commit, "fb28088")
+
+    on_34 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="fb28088")
+    assert on_34.verdict == OFFER_UP_TO_DATE
+    assert "fork release 46" in on_34.detail
