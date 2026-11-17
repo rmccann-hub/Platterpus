@@ -2118,8 +2118,18 @@ class RipMixin(MainWindowShared):
         # Default status; replaced with a fidelity summary below if the
         # rip succeeded and we can parse its log. Distinguish a user
         # cancellation from a genuine failure (both report success=False).
-        if success:
-            status = "Done."
+        if success and self._rip_cancelled:
+            # Cancelled after the album pass finished (the securing pass was
+            # stopped). The fidelity line below says the same at length once the
+            # log is read; until then, and if it cannot be read, the run is still
+            # called cancelled, never "Finished".
+            status = "Rip cancelled after the read finished."
+        elif success:
+            # "Finished", with no mark: the verdict is not known yet, and the
+            # fidelity line below replaces this with one carrying the verdict's
+            # mark once the log is read (UX review V1). Not "Done.", which read
+            # as "fine" over an amber banner.
+            status = "Finished."
         elif self._rip_cancelled:
             status = "Rip cancelled by user. Partial files may remain."
         else:
@@ -2209,6 +2219,9 @@ class RipMixin(MainWindowShared):
                         expected_track_total=expected_total,
                         cancelled=finished_status == "cancelled",
                         replaced_reads=self._replaced_reads_of(rip_log),
+                        # The banner's level, set by `set_rip_log` just above, so
+                        # the line leads with the banner's own mark (V1).
+                        verdict_level=self._rip_progress.verdict_level(),
                     )
                     self._rip_progress.set_status(status + record_says)
                     # A rip that MATCHED AccurateRip confirms the applied read

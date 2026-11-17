@@ -70,13 +70,15 @@ from platterpus.ctdb_disagreement import (
     ctdb_disagreements,
     ctdb_note_sentence,
 )
+from platterpus.data_tracks import is_data_track
+from platterpus.finish_wording import next_step_sentence
 from platterpus.parsers.rip_log import (
     RipLog,
     accuraterip_is_match,
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
-from platterpus.track_proof import contradiction_sentence
+from platterpus.track_proof import contradicted_tracks_sentence, contradiction_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
 from platterpus.ui.plain_text import plain_tooltip
@@ -100,6 +102,7 @@ from platterpus.verdict import (
     AR_STATE_VERIFIED,
     accuraterip_compared,
     accuraterip_confidence_text,
+    accuraterip_contradictions,
     accuraterip_db_max_confidence,
     accuraterip_rejected_count,
     accuraterip_state,
@@ -302,6 +305,15 @@ class RipProgress(QWidget):
         # each downgrade appends rather than overwrites.
         self._verdict_base_message: str = ""
         self._verdict_downgrades: list[str] = []
+        # The tracks the verdict says AccurateRip contradicts, by number, when
+        # some (not all) of the rip's audio tracks are contradicted: the banner
+        # then ends with one plain next step naming them (UX review V1). Empty
+        # when there is no such step to give.
+        self._verdict_attention: tuple[object, ...] = ()
+        # The level the banner shows now ("ok", "warn", "neutral", "error"), or
+        # None while it is hidden. Read by the window for the status line's
+        # lead (`verdict_level`), so the two cannot carry different marks.
+        self._verdict_level: str | None = None
 
         # --- Why this pane is built in three bands ---------------------------
         # This pane has to show five different things: live progress, a live
@@ -790,6 +802,9 @@ class RipProgress(QWidget):
         self._last_status_text = ""
         self._verdict_base_message = ""
         self._verdict_downgrades = []
+        self._verdict_attention = ()
+        self._verdict_level = None
+        self._verdict_banner.setToolTip("")
         # The Details tab is empty again, so drop any warning marker from its
         # label — a stale ⚠ on an empty tab would send the user looking for a
         # caveat that no longer exists.
@@ -1016,14 +1031,33 @@ class RipProgress(QWidget):
         base = self._verdict_base_message
         if not base and not self._verdict_downgrades:
             self._verdict_banner.setVisible(False)
+            self._verdict_level = None
             return
         # One assembly, shared with the report's verdict (`apply_downgrades`), so
         # the window and the record cannot word the same downgrade two ways.
         text, level = apply_downgrades(base, level, self._verdict_downgrades)
+        # ONE PLAIN NEXT STEP, on the screen only (UX review V1). The sentence
+        # above says what AccurateRip found; this says what to do about it, with
+        # the controls named by the labels the window shows. Added here, not to
+        # the verdict, because the verdict is also the report's `verdict` field,
+        # which records what was found rather than advice.
+        if level == "warn" and self._verdict_attention:
+            text = f"{text} {next_step_sentence(self._verdict_attention)}"
+        self._verdict_level = level
         self._verdict_banner.setText(text)
         apply_status_style(self._verdict_banner, level)
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
+
+    def verdict_level(self) -> str | None:
+        """The level the verdict banner shows now, or None while it is hidden.
+
+        ``"ok"``, ``"warn"``, ``"neutral"`` or ``"error"``, after every
+        downgrade. The window reads it for the status line's lead
+        (``finish_wording.finished_line``), so the line under the progress bar
+        and the banner under it carry the same mark (UX review V1).
+        """
+        return self._verdict_level
 
     def set_rip_log(
         self,
@@ -1054,6 +1088,26 @@ class RipProgress(QWidget):
         # do. It also announces the headline focus-safely, the one post-rip
         # update a screen-reader user must not miss (gap #4).
         self._verdict_base_message = message
+        # Which tracks need the next step, and the technical sentence for the
+        # tooltip ("only frame 450 matched …"), from the verdict's own predicate
+        # (`accuraterip_contradictions`). A next step only when SOME of the audio
+        # tracks are contradicted: when every one is, re-ripping them all is not
+        # the advice, and the verdict already names a wrong read offset.
+        contradictions = accuraterip_contradictions(rip_log)
+        audio_tracks = [t for t in rip_log.tracks if not is_data_track(t)]
+        self._verdict_attention = (
+            tuple(number for number, _kind in contradictions)
+            if 0 < len(contradictions) < len(audio_tracks)
+            else ()
+        )
+        detail = contradicted_tracks_sentence(contradictions)
+        self._verdict_banner.setToolTip(
+            plain_tooltip(
+                f"{detail}. The Tracks tab shows each track's AccurateRip result."
+                if detail
+                else ""
+            )
+        )
         self._render_verdict_banner(level)
 
         # Read-effort early warning (per-track "hard to read"). Hidden when clean.
