@@ -322,3 +322,38 @@ def test_chase_records_and_repeat_rips_have_filed_names() -> None:
         staged_name(f"{folder}/x CD4.platterpus-verified-read.txt")
         == "burnrip5verifiedread.txt"
     )
+
+
+def test_a_skipped_host_is_not_replaced_and_the_rest_still_are() -> None:
+    """2026-11-17: the filing machine is called ``vm``, the app's drive-profile prefix.
+
+    Filing round 41's run rewrote ``vm:PIONEER …`` to ``host:PIONEER …`` in an
+    app log, because the tool replaces the FILING machine's hostname too. A name
+    the operator passes with ``--skip-host`` is left alone; every other one is
+    still replaced, compared case-blind as hostnames are.
+    """
+    assert evidence_file.filing_hosts(["vm"], ["rig1"], ["VM"]) == ["rig1"]
+    assert evidence_file.filing_hosts(["vm"], [], []) == ["vm"]
+    assert evidence_file.filing_hosts([], ["rig1", "vm"], ["vm"]) == ["rig1"]
+
+
+def test_stage_leaves_a_skipped_host_in_place(tmp_path: Path) -> None:
+    """End to end: ``vm:PIONEER`` survives a filing that skips ``vm``."""
+    raw = tmp_path / "raw"
+    (raw / "session" / "run").mkdir(parents=True)
+    (raw / "session" / "run" / "transcript.txt").write_text(
+        "selected drive vm:PIONEER BD-RW BDR-209D on rig1\n", encoding="utf-8"
+    )
+    out = tmp_path / "out"
+    evidence_file.stage(
+        raw,
+        out,
+        "t",
+        homes=[],
+        hosts=evidence_file.filing_hosts(["vm"], ["rig1"], ["vm"]),
+        names=[],
+    )
+    (staged,) = out.iterdir()
+    text = staged.read_text(encoding="utf-8")
+    assert "vm:PIONEER" in text
+    assert "rig1" not in text
