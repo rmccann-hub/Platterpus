@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **8** (`SEAM-RULES-VERSION: 8`). Cite it when you claim
+Format version: **9** (`SEAM-RULES-VERSION: 9`). Cite it when you claim
 conformance.
 
 ---
@@ -83,11 +83,12 @@ use or fix it in the future*, and the moment that happens, an undocumented
 argument is a thing somebody has to rediscover under time pressure, usually
 during an incident.
 
-The 41-versus-18 gap is the live example. They document 41 flags; we send 18. Two
+The 41-versus-18 gap was the example. They documented 41 flags; we sent 18. Two
 sentences that sound alike are entirely different claims — *"these are the flags
-we send"* and *"these are the flags worth sending"* — and only the first is
-currently recorded anywhere. **A flag absent from the table is indistinguishable
-from a flag nobody thought about.**
+we send"* and *"these are the flags worth sending"* — and only the first was
+recorded anywhere until round 35, when `seam-commands.md` §1b gave every flag a
+row. **A flag absent from the table is indistinguishable from a flag nobody
+thought about.**
 
 Each row states, explicitly, which it is: `HAVE` (we use it), `NO` (declined,
 **with a reason**), or `?` (**not yet examined — an open row, not a passing
@@ -110,7 +111,7 @@ not by reading the source:
 | **valid range** — the real accepted min and max | the declared type is not the accepted range; `int` says nothing about whether `-1` is taken |
 | **boundary behaviour** — at min, at max, and **one past each** | off-by-one at a boundary is the single most common argument defect, and it is invisible in a type |
 | **what it does when the value is wrong** — exit code, message, and *whether the whole operation dies or the flag is ignored* | this is the difference between a bad tag and a lost rip. `-t 17=` on a 16-track disc killed a rip in **two seconds**; the type was fine |
-| **interactions** — mutual exclusions, ordering, flags that silently override others | `-I` must never appear with `-J` in our builder, and neither of us has recorded *why* |
+| **interactions** — mutual exclusions, ordering, flags that silently override others | `-I` must never appear with `-J` in our builder, and what cyanrip does with the pair was recorded by running it: refused, exit 64 (`seam-commands.md` §7) |
 | **the empty / absent / zero case** | `0` frequently means "auto" rather than zero, and that is never in a type signature |
 
 **Exhaustive means exhaustive.** Every argument, including the ones neither side
@@ -337,7 +338,7 @@ last read it. Every row names a direction, a type, and what must be checked.
 | `-N` presence | flag | **required**; refuse the argv without it | P-1, S-2 |
 | `--consumer` | `str`, `<name>/<version>` | no whitespace (would split into two argv words and record only the first); contains `/` | P-1 |
 | `-a` tag blob | `str`, colon-delimited | no newline, no NUL (log forgery); bounded length | S-3, C-2 |
-| `-t` track selection | `int` range | **within the disc's real track count** — a `-t 17=` on a 16-track disc killed a rip in two seconds | S-1 |
+| `-t` track metadata | `str`, `n=<escaped blob>` | **its track number within the disc's real track count** — a `-t 17=` on a 16-track disc killed a rip in two seconds | S-1 |
 | `-c` disc position | `int/int` | both ints; `number <= total`; drop the flag rather than lose the rip | S-1 |
 | `-s` read offset | `int`, samples | within the drive's plausible range | S-1 |
 | `-S` read speed | `int` multiplier | bounded; `0` means drive max | S-1 |
@@ -372,7 +373,7 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 8
+SEAM-RULES-VERSION: 9
 IMPLEMENTS: BOTH(S-1..S-18) PLATTERPUS(P-1..P-3)
 ```
 
@@ -406,5 +407,12 @@ release"*, to match `PROTOCOL.md` v8's R3 and R4, since from v8 a close
 authorises no release (E2, E6). Agreed in round 31: cyanrip's lap 1 E6,
 accepted in Platterpus's lap 2 S10. Round 31's laps declare
 SEAM-RULES-VERSION 7; v8 binds from round 32, as PROTOCOL v8 §16 says.
+
+**v9 corrects three statements and changes no rule**: S-8's 41-versus-18 gap,
+which `seam-commands.md` §1b closed in round 35; S-9's `-I`/`-J` example,
+whose outcome cyanrip's probe has recorded; and §4a's `-t` row, which called
+track metadata a track selection of type `int`. Proposed in round 41:
+cyanrip's lap 1 S26, with `PROTOCOL.md` v10. Round 41's laps declare
+SEAM-RULES-VERSION 8; v9 binds from round 42, as PROTOCOL v10 §18 says.
 
 ---

@@ -1,6 +1,6 @@
 # OWNERSHIP — who owns what, where, when
 
-**OWNERSHIP-VERSION: 3**
+**OWNERSHIP-VERSION: 4**
 
 **CUSTODY IS cyanrip's. AUTHORSHIP IS JOINT.** This file and the other shared
 seam documents — `docs/handshake/PROTOCOL.md`, `docs/seam-rules.md`,
@@ -56,7 +56,7 @@ list, decide it with the test and add the row** — do not argue it in a lap.
 | what | when |
 |---|---|
 | Drive I/O, TOC, pregaps, sub-channel, ISRC/MCN/CD-TEXT, pre-emphasis | rip time |
-| Drive identity, read offset, cache model and `-x` cache probe | rip time |
+| Drive identity, read offset, cache model and `--cache-probe` | rip time |
 | C2 and paranoia counters, timing, read-stall detection | rip time |
 | The audio bytes and **every checksum over them** | rip time |
 | The log and the cue **as a stable record of all of it** | rip time |
@@ -72,14 +72,14 @@ reported by libcdio" is not "the disc has none".
 
 | what | when |
 |---|---|
-| Parsing our log, cue and `-j` record | after the rip |
+| Parsing our log, cue and `--diagnostics` record | after the rip |
 | Network lookups: MusicBrainz selection, cover art, CTDB | after the rip |
 | Cross-disc state, library layout, presentation, EAC-format rendering | after the rip |
 | **Policy** — what counts as acceptable, when to retry or quarantine | after the rip |
 | The rig, the acceptance script, and the evidence bundle | at test time |
 | **The gate over incoming artifacts, and the systematic feedback duty** | every lap |
 
-**§3's last row is new, decided 2026-08-26, and it is the reason this file
+**§3's last row was decided 2026-08-26, and it is the reason this file
 exists.** The systematic-gate duty is Platterpus's because **they can execute
 both sides and cyanrip can execute one**: they run our binary, parse our log and
 hold the drive; we do not run their program and hold no drive. **We can read
@@ -127,7 +127,7 @@ constant, and it could have been read.
 
 ## 6. When the two disagree
 
-**First, separate the two kinds of disagreement, because they need opposite
+**First, separate the four kinds of disagreement, because they need different
 responses and treating them alike is how a seam stalls.**
 
 | kind | what it means | what to do |
@@ -135,7 +135,6 @@ responses and treating them alike is how a seam stalls.**
 | **A RECORDS DIFFERENCE** | both sides computed correctly from what each holds, and the holdings differ | **RECONCILE.** Exchange the enumerated population, compute the set difference, and each side sends what the other lacks. **Nobody is wrong and nobody re-does work.** |
 | **A RULES DIFFERENCE** | the two sides are grading against different specs | **STOP.** Reconcile the shared file first; nothing else in the lap has been graded. |
 | **A CLAIM DIFFERENCE** | both hold the same inputs and disagree about what they show | **§1's test decides**, and if it cannot, §6.3. |
-
 | **A NEARLY-RIGHT PROPOSAL** | one side's answer would work with a tweak | **COUNTER-PROPOSE.** Name the smallest change that makes it work. **Refusing something you can name a working variant of is orthodoxy, not rigour.** |
 
 **RULES, FAILURE AND TESTING ARE NOT NEGOTIABLE — RIGIDITY IS.** A gate must
@@ -203,3 +202,14 @@ the question.
   public, and that has been false since 2026-09-13. §3's allocation of the gate
   duty is unchanged: it rests on what remains true, that Platterpus executes both
   sides and cyanrip executes one.
+
+## 9. Changes in v4
+
+**v4 corrects stale text v3 carried, and changes no rule.** It ships with
+`PROTOCOL.md` v10 (§18), as cyanrip's round 41 lap 1 S26 proposed.
+
+- §2 and §3 named cyanrip's options by `-x` and `-j`, letters cyanrip retired on
+  2026-10-12. They are `--cache-probe` and `--diagnostics`.
+- §3 called its last row new. It was decided on 2026-08-26.
+- §6 said its table held two kinds of disagreement. It holds four, and a blank
+  line left the fourth, a nearly-right proposal, outside the table.

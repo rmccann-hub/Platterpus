@@ -428,6 +428,12 @@ _DELIBERATELY_ABSENT: dict[str, str] = {
     "handshake/PROTOCOL.md": "the cyanrip fork's path for the shared protocol "
     "document, named inside the byte-identical docs/OWNERSHIP.md; ours is at "
     "docs/handshake-protocol.md and the shared file must not be edited to say so",
+    # The same case from v10 (2026-11-17): §18 of the shared protocol cites "cyanrip's
+    # `docs/OPEN-ITEMS.md` R41-5", the fork's open list, by its path in THEIR tree,
+    # and says so ("cyanrip's"). We hold no such file and must not edit the shared
+    # text; the item it names is in their repository at that path.
+    "OPEN-ITEMS.md": "the cyanrip fork's open list, cited as theirs in §18 of the "
+    "byte-identical docs/handshake-protocol.md (v10); it lives only in their tree",
 }
 
 

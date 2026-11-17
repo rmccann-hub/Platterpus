@@ -5,7 +5,7 @@ Split from :mod:`platterpus.track_record` (which words the record) because these
 READ other records, each defensively: the CTDB repair's outcome
 (``ctdb_result.repair``), the chase's kept attempt (the report's
 ``read_speed.retried_tracks``), and the ripper build, for the seam where the
-fork's ``.31`` AccurateRip-guided ``-Z`` rule will be recognised. Reading and
+fork's AccurateRip-guided ``-Z`` rule (from ``.31``) is recognised. Reading and
 wording are separate jobs, and the pair crossed the module-size heuristic.
 
 Pure; no Qt, no I/O; reads with ``getattr``; never raises.
@@ -19,39 +19,31 @@ from dataclasses import dataclass
 from typing import Final
 
 from platterpus.ctdb.repair_wording import after_repair_agrees
+from platterpus.deps.fork_source import (
+    # `X as X` marks a deliberate re-export (mypy's strict no-implicit-reexport):
+    # callers and tests still import both names from this module.
+    AR_GUIDED_CONVERGENCE_BUILDS as AR_GUIDED_CONVERGENCE_BUILDS,
+)
+from platterpus.deps.fork_source import (
+    OTHER_READS_COMPLETE_BUILDS as OTHER_READS_COMPLETE_BUILDS,
+)
 from platterpus.reread_ar_overrule import AccurateRipOverrule, record_phrase
 
-#: **The ``.31`` seam: fork build numbers whose log we can read for the
-#: AccurateRip-guided ``-Z`` rule.** Empty until ``.31`` was published
-#: (2026-11-11, ``e531a33``, their round 39 lap 1 S2); its log text is P2 of
-#: ``round-39-lap-01-provider-contract-g6eacb8b.md`` (lines 376 and 504 to 512),
+#: **The fork builds whose ``-Z`` log the record reads** live in
+#: :mod:`platterpus.deps.fork_source`, beside the other per-build sets, so naming a
+#: build under review there names it here too (the fork's round 41 lap 5 S18: they
+#: stayed at ``.31`` here while ``.32`` to ``.34`` were named there, and a ``.34``
+#: re-read said "not determined"). Re-exported under their old names:
+#: :data:`AR_GUIDED_CONVERGENCE_BUILDS` (the AccurateRip-guided rule's log text,
 #: read by :mod:`platterpus.reread_ar_overrule` into the track's
-#: ``secure_rerip_ar_overrule``, which :func:`_ar_guided_read` reads. A later
-#: build joins when its own contract is filed and still prints the lines.
-AR_GUIDED_CONVERGENCE_BUILDS: Final[frozenset[int]] = frozenset({31})
+#: ``secure_rerip_ar_overrule``, which :func:`_ar_guided_read` reads) and
+#: :data:`OTHER_READS_COMPLETE_BUILDS` (an ``Other read:`` line for every ``-Z``
+#: read not kept). Each entry cites the source it was read in.
+
 #: The first fork build that may apply the rule. A re-read from it or later that
 #: this release cannot read says "not determined" rather than calling the read a
 #: plain re-read, which it might not be.
 AR_GUIDED_FIRST_BUILD: Final[int] = 31
-
-#: **Fork builds whose log prints an ``Other read:`` line for EVERY ``-Z`` read
-#: that was not kept** (:mod:`platterpus.other_reads`), so a converged track that
-#: prints none had all its reads agree, and the record's count is exact (TASKS
-#: R140, our round 39 lap 2 S16). Read in their source, not assumed: each distinct
-#: checksum of a ``-Z`` track is filed as its own spool, a repeat adding a count
-#: (``cyanrip@e531a33:src/cyanrip_main.c:2034-2079``; ``cyanrip@5cc1c6b`` the same
-#: at ``:2011``), every spool is copied onto the track when the track is decided
-#: (``crip_keep_reads``, ``cyanrip@e531a33:src/cyanrip_main.c:1442-1460``, called
-#: at ``:2480``; ``cyanrip@5cc1c6b:src/cyanrip_main.c:1422``, ``:2351``), and the
-#: log prints one line per read not kept (``cyanrip@e531a33:src/cyanrip_log.c:
-#: 874-896``, ``cyanrip@5cc1c6b:src/cyanrip_log.c:869-891``). The one gap in
-#: that chain is ``crip_keep_reads``'s allocation failing, which prints no lines
-#: at all; a converged ``-Z`` track has at most ``-r`` spools, so it is an
-#: out-of-memory case only. ``.30`` (``5cc1c6b``) and ``.31`` (``e531a33``),
-#: whose meson.build line 21 names each. Enumerated, never ``>= 30``: a later
-#: build joins when its own source is read, and until then its record keeps the
-#: floor, which is true and only weaker.
-OTHER_READS_COMPLETE_BUILDS: Final[frozenset[int]] = frozenset({30, 31})
 
 # "cyanrip 0.9.4-rc3+platterpus.31": the fork's own build number. Bounded.
 _FORK_BUILD: Final[re.Pattern[str]] = re.compile(r"\+platterpus\.(?P<n>\d{1,4})\b")
@@ -185,12 +177,15 @@ def ar_guided_convergence(track: object, ripper_version: str) -> bool | None:
 
 
 def _ar_guided_read(track: object) -> bool:
-    """The ``.31`` log's own statement for this track: did AccurateRip end it?
+    """A read build's own statement for this track: did AccurateRip end it?
 
     ``True`` for a track whose ``-Z`` reads ended on a read AccurateRip matches
     after an agreement it overruled (``cyanrip@e531a33:src/cyanrip_main.c:2140``
-    and its row at ``src/cyanrip_log.c:852``); ``False`` otherwise, since a
-    ``.31`` log that names no such end is a statement that none happened.
+    and its row at ``src/cyanrip_log.c:852``; ``.34``'s at
+    ``cyanrip@fb28088:src/cyanrip_main.c:2212`` and ``src/cyanrip_log.c:866``);
+    ``False`` otherwise, since a log from a build in
+    :data:`AR_GUIDED_CONVERGENCE_BUILDS` that names no such end is a statement
+    that none happened.
     """
     overrule = getattr(track, "secure_rerip_ar_overrule", None)
     return isinstance(overrule, AccurateRipOverrule) and overrule.ended_on_match

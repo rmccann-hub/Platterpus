@@ -47,6 +47,7 @@ from platterpus.parsers.cyanrip_log import (
 )
 from platterpus.reread_limit import STOPPED_BY_REPEAT_LIMIT, STOPPED_BY_TIME_LIMIT
 from platterpus.track_record import RECORD_AR_GUIDED, track_record
+from platterpus.track_record_sources import AR_GUIDED_CONVERGENCE_BUILDS
 
 _CONTRACT: Final[Path] = (
     Path(__file__).resolve().parents[1]
@@ -317,8 +318,10 @@ def test_a_31_track_the_rule_did_not_end_carries_no_caveat() -> None:
     record = track_record(three, ripper_version=parsed.log_creator)
     assert record.kind != RECORD_AR_GUIDED
     assert "not determined" not in record.line
-    # A build after `.31` we have not read keeps the caveat.
-    later = track_record(three, ripper_version="cyanrip 0.9.4-rc3+platterpus.32")
+    # A build after the ones we have read keeps the caveat (one past the newest,
+    # derived, so a build joining the set does not stale this).
+    unread = max(AR_GUIDED_CONVERGENCE_BUILDS) + 1
+    later = track_record(three, ripper_version=f"cyanrip 0.9.4-rc3+platterpus.{unread}")
     assert "not determined" in later.line
 
 
