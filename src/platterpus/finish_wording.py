@@ -34,6 +34,7 @@ Pure: no Qt, no I/O, never raises on the values its callers pass.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Final
 
 #: The track list's right-click action that ticks only the highlighted rows.
@@ -140,3 +141,50 @@ def failure_banner_text(error: str, hint: str, log_path: object) -> str:
     if not parts:
         return f"✖ {NO_DIAGNOSIS} {log_path}"
     return "✖ " + " — ".join(parts)
+
+
+def cancelled_folder(log_path: str, output_dir: object | None) -> Path | None:
+    """The folder a cancelled rip's files are in, or None when nothing names one.
+
+    The ripper writes its log in the album's folder, so a log names the folder
+    exactly. Without one (a cancel before the log was written) the album's
+    folder is somewhere under ``output_dir``, which is the nearest folder that
+    can be named for certain. The window hands the same value to the status
+    line and to the Open folder button, so the two cannot name two places
+    (UX review E2).
+    """
+    if log_path.strip():
+        return Path(log_path).parent
+    text = "" if output_dir is None else str(output_dir).strip()
+    return Path(text) if text else None
+
+
+def cancelled_status(log_path: str, output_dir: object | None) -> str:
+    """The status line after a cancel: what is left behind, and where.
+
+    It used to read *"Rip cancelled by user. Partial files may remain."*:
+    honest, but it named no folder, and "by user" was said of every cancel,
+    the ones the app made too (a disc taken out). Keeps the word "cancelled",
+    which the rig scripts' ``expect-status cancelled`` reads.
+    """
+    folder = cancelled_folder(log_path, output_dir)
+    if folder is None:
+        return "Rip cancelled. Tracks that finished, and partial files, may remain."
+    where = f"in {folder}" if log_path.strip() else f"in the album's folder in {folder}"
+    return f"Rip cancelled. Tracks that finished, and any partial files, are {where}."
+
+
+def stall_next_step(cancelled: bool) -> str:
+    """What the stall notice tells the user to do, before and after a cancel.
+
+    Force stop is shown only once a cancel has been asked for (UX review M4,
+    `RipControls._refresh_button_state`), so before one the notice sends the
+    user to Cancel and says Force stop will follow, and after one it names
+    Force stop, the button now beside Cancel, with its cost.
+    """
+    if cancelled:
+        return "Force stop ends it now, but the rip's log will then be incomplete."
+    return (
+        "Press Cancel to recover; if the drive keeps spinning, Force stop "
+        "appears beside it."
+    )

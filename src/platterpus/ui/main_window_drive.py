@@ -42,6 +42,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 
 if TYPE_CHECKING:  # the type only; the module is imported where it is used
     from platterpus.rip_estimate import ReadRate
+    from platterpus.ui.no_drive_notice import NoDriveNotice
 
 from platterpus import cache_check_plan, drive_media, exit_work
 from platterpus.disc_probe_retry import (
@@ -88,6 +89,10 @@ log = logging.getLogger(__name__)
 
 class DriveMixin(MainWindowShared):
     """Drive setup wizard, read-offset auto-apply/override, access diagnostics."""
+
+    #: The "No CD drive found" line under the drive picker, built the first time
+    #: a listing comes back empty (`ui/no_drive_notice.py`, UX review E3).
+    _no_drive_notice: NoDriveNotice | None = None
 
     def _on_drive_setup(self) -> None:
         """Tools → Setup & Updates… → Set up drive: launch the calibration wizard.
@@ -850,13 +855,28 @@ class DriveMixin(MainWindowShared):
         Only auto-interrupts when the diagnosis is *actionable* (a permission
         fix). "No device connected" stays quiet (there's no command to run);
         Tools → Setup & Updates… → Diagnose drive access… is there for that.
+
+        First, the empty state: the line that replaces the disc panel's dashes.
+        Built here, once, because this is where an empty listing first lands;
+        from then on it follows every listing by itself.
         """
+        if self._no_drive_notice is None:
+            from platterpus.ui.no_drive_notice import place_no_drive_notice
+
+            self._no_drive_notice = place_no_drive_notice(
+                self._drive_picker, self._disc_info_panel, self._setup_notice_shown
+            )
         if self._drive_access_nudged:
             return
         diagnosis = diagnose_drive_access()
         if diagnosis.actionable:
             self._drive_access_nudged = True
             self._present_drive_diagnosis(diagnosis)
+
+    def _sync_no_drive_notice(self) -> None:
+        """Re-decide the empty-state line, after the setup strip came or went."""
+        if self._no_drive_notice is not None:
+            self._no_drive_notice.sync()
 
     def _show_drive_access_diagnosis(self) -> None:
         """Tools → Setup & Updates… → Diagnose drive access…: always show it."""

@@ -270,11 +270,18 @@ def test_the_controls_never_carry_the_global_read_offset(
     assert captured[0].read_offset_override is None
 
 
-def test_force_stop_button_enabled_only_during_rip(qapp: QApplication) -> None:
+def test_force_stop_button_enabled_only_during_rip_after_a_cancel(
+    qapp: QApplication,
+) -> None:
+    """During a rip, Force stop waits for a cancel (UX review M4, 2026-11-17):
+    it used to be enabled for the whole rip, beside Cancel at equal weight.
+    The full set of states is in `tests/test_ui_waiting_states.py`."""
     controls = RipControls(Config(output_dir="/music"))
     # Idle: force-stop disabled.
     assert controls._force_stop_button.isEnabled() is False
     controls.set_rip_active(True)
+    assert controls._force_stop_button.isEnabled() is False
+    controls.set_cancel_requested(True)
     assert controls._force_stop_button.isEnabled() is True
     controls.set_rip_active(False)
     assert controls._force_stop_button.isEnabled() is False
@@ -314,6 +321,7 @@ def test_start_locked_during_a_disc_scan(qapp: QApplication) -> None:
 def test_force_stop_button_emits_signal(qapp: QApplication) -> None:
     controls = RipControls(Config(output_dir="/music"))
     controls.set_rip_active(True)
+    controls.set_cancel_requested(True)  # shown only once a cancel was asked for
     fired: list[bool] = []
     controls.force_stop_requested.connect(lambda: fired.append(True))
     controls._force_stop_button.click()

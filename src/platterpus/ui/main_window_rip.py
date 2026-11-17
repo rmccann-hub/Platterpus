@@ -85,7 +85,13 @@ from platterpus.cancel_cause import CancelCause
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
-from platterpus.finish_wording import NO_DIAGNOSIS, failure_banner_text
+from platterpus.finish_wording import (
+    NO_DIAGNOSIS,
+    cancelled_folder,
+    cancelled_status,
+    failure_banner_text,
+    stall_next_step,
+)
 from platterpus.first_pass_reread import snapshot as first_pass_snapshot
 from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
@@ -1223,7 +1229,7 @@ class RipMixin(MainWindowShared):
             )
         self._rip_progress.set_stall_notice(
             f"⚠ No progress for {format_duration(idle)} — the drive may be stuck. "
-            f"Cancel or Force stop to recover.{overread_hint}"
+            f"{stall_next_step(self._rip_cancelled)}{overread_hint}"
         )
 
     def _on_rip_cancel(self, cause: CancelCause | None = None) -> None:
@@ -1266,6 +1272,9 @@ class RipMixin(MainWindowShared):
         )
         self._rip_worker.cancel()
         self._force_stop_timer.start(_FORCE_STOP_COUNTDOWN_MS)
+        # The status above names Force stop, so it is shown from now (UX review
+        # M4; `RipControls._refresh_button_state` says why not before).
+        self._rip_controls.set_cancel_requested(True)
 
     def _auto_force_stop(self) -> None:
         """Countdown elapsed after Cancel — free the DEVICE, and never eject.
@@ -2139,7 +2148,13 @@ class RipMixin(MainWindowShared):
             # as "fine" over an amber banner.
             status = "Finished."
         elif self._rip_cancelled:
-            status = "Rip cancelled by user. Partial files may remain."
+            # Say WHERE, and offer the folder (UX review E2): "Partial files may
+            # remain." was honest and left the user to find them.
+            output_dir = params.output_dir if params is not None else None
+            status = cancelled_status(log_path, output_dir)
+            self._rip_progress.offer_cancelled_folder(
+                cancelled_folder(log_path, output_dir)
+            )
         else:
             # Prefer an actionable sentence over the bare "Rip failed", so the user
             # knows what to do next — and read BOTH sources, in the same order the
