@@ -66,6 +66,9 @@ class RipControls(QWidget):
         self._unknown_mode: bool = False
         self._rip_active: bool = False
         self._scan_active: bool = False
+        # Whether a cancel of the running rip has been asked for, by any route
+        # (the window's `_on_rip_cancel` says so through `set_cancel_requested`).
+        self._cancel_requested: bool = False
         # The menu bar's Rip → Start rip, once the window hands it over
         # (`bind_start_action`). None until then, and in a test that builds
         # these controls on their own.
@@ -81,10 +84,11 @@ class RipControls(QWidget):
         self._start_button: QPushButton = QPushButton("&Start rip", self)
         self._cancel_button: QPushButton = QPushButton("&Cancel", self)
         # Force stop is the drastic escalation: kill the in-container reader for
-        # when the drive keeps spinning. Enabled during a rip (Cancel left it
-        # spinning → eject + kill) AND during a disc scan (a stuck TOC read
-        # wedges the drive too → free it without ejecting, so the disc stays in
-        # for a Rescan).
+        # when the drive keeps spinning. Shown during a rip only once a cancel
+        # has been asked for (Cancel left it spinning → eject + kill), and during
+        # a disc scan (a stuck TOC read wedges the drive too → free it without
+        # ejecting, so the disc stays in for a Rescan). `_refresh_button_state`
+        # says why it is hidden the rest of the time.
         self._force_stop_button: QPushButton = QPushButton("F&orce stop", self)
         self._force_stop_button.setToolTip(
             "Stop the drive if it keeps spinning — after Cancel during a rip, "
@@ -132,6 +136,19 @@ class RipControls(QWidget):
         Idle:       Start enabled (if can_start), Cancel disabled.
         """
         self._rip_active = bool(active)
+        # A rip starting or ending is a new state of the drive: whatever cancel
+        # was asked for belonged to the rip before.
+        self._cancel_requested = False
+        self._refresh_button_state()
+
+    def set_cancel_requested(self, requested: bool) -> None:
+        """A cancel of the running rip was asked for; offer Force stop from now.
+
+        Called by the window from `_on_rip_cancel`, which every cancel route goes
+        through (the button, a disc taken out, a script), once the post-cancel
+        countdown is armed. Cleared by `set_rip_active`.
+        """
+        self._cancel_requested = bool(requested)
         self._refresh_button_state()
 
     def set_scan_active(self, active: bool) -> None:
@@ -208,9 +225,28 @@ class RipControls(QWidget):
             self._start_action.setEnabled(can_start)
             self._start_action.setToolTip(plain_tooltip(tooltip))
         self._cancel_button.setEnabled(self._rip_active)
-        # Force-stop is available whenever something is holding the drive — an
-        # active rip, or a disc scan that may have wedged the TOC reader.
-        self._force_stop_button.setEnabled(self._rip_active or self._scan_active)
+        # FORCE STOP IS SHOWN ONLY WHERE IT IS THE NEXT STEP (UX review M4).
+        #
+        # It used to sit beside Cancel, at the same weight, for the whole of every
+        # rip, which made the drastic action (eject + kill the reader, and the
+        # rip's log loses its footer) as easy to reach as the ordinary one. It
+        # exists because a drive can hang where Cancel's signal does not reach the
+        # in-container reader (CLAUDE.md rule #9; `drive_control`), and that is
+        # only known AFTER Cancel: the window then arms a countdown and says
+        # "… or hit Force stop". So during a rip it appears once a cancel has
+        # been asked for, and stays for the rest of that rip (after the
+        # countdown the status still offers it, for a reader finishing a slow
+        # read).
+        #
+        # **Where it must stay, because it is the only way out.** A disc SCAN has
+        # no Cancel: a stuck table-of-contents read can be freed only by Force
+        # stop, so it is shown for the whole scan, as before. During a rip,
+        # Cancel is enabled whenever Force stop used to be (both followed
+        # `_rip_active`), and pressing it always reveals Force stop, so no state
+        # loses its escape. Hidden is also disabled, so its Alt+O cannot fire.
+        offered = self._scan_active or (self._rip_active and self._cancel_requested)
+        self._force_stop_button.setVisible(offered)
+        self._force_stop_button.setEnabled(offered)
 
     def _has_minimum_state(self) -> bool:
         if not self._drive:

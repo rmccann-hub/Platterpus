@@ -166,8 +166,8 @@ named from the album artist/title you type.
 
 - **Cancel** stops the current rip. Because the reader runs inside the
   container, the drive can take a moment to spin down.
-- If the drive keeps spinning, **Force stop** ejects and kills the reader. After
-  Cancel the GUI also auto-escalates to a force-stop after a few seconds.
+- If the drive keeps spinning, **Force stop** (it appears beside Cancel once Cancel is
+  pressed) ejects and kills the reader; the GUI also escalates on its own after a few seconds.
 - **After a cancel, some audio files will be empty — that is expected.** The
   ripper writes a track's log record before its encoder has finished flushing to
   disk, so a cancelled rip can leave a 0-byte `.flac` for a track the log says

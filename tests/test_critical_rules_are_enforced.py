@@ -2680,7 +2680,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1058 -> 1084** (2026-11-17, UX review of 0.7.127), W2: the launch summary counts in words ("2 installed, 1 needs attention") and lists the Python packages that ship inside Platterpus under their own "Bundled components" line.
     # **1184 -> 1225** (2026-11-17, follow-up to UX review F1: No holds on later launches): `_setup_is_the_users_call` also covers the launch check after a saved No and before the first-run question is asked; `_setup_tools_found` clears the saved No when a complete check finds the tools.
     # **merged 1251** (2026-11-17): both UX-review branches grew this file; the count is the merged file's `wc -l`.
-    "ui/main_window_deps.py": 1251,  # **1058 -> 1184** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): a silent report the first-run answer covers sets its setup-wizard tools aside and shows the in-window notice instead of the wizard; the notice is hidden once a complete check finds them; and a wizard closed without running is summarised as "Not installed yet", not as an install failure.  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **1251 -> 1258** (2026-11-17, UX review of 0.7.127, TASKS R182), E3: `_setup_notice_shown`, which the empty-state line asks before it shows, and a re-decision of that line when the setup strip comes or goes, so the two never say one thing twice.
+    "ui/main_window_deps.py": 1258,  # **1058 -> 1184** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): a silent report the first-run answer covers sets its setup-wizard tools aside and shows the in-window notice instead of the wizard; the notice is hidden once a complete check finds them; and a wizard closed without running is summarised as "Not installed yet", not as an install failure.  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2700,7 +2701,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **853 -> 881** (2026-11-12, TASKS R53, the cache check once per drive): the wizard's entry hands it the drive's verdict state, the disc and whether the drive is busy, and holds it while open; the ledger writer stamps the firmware beside a verdict. The window half of the feature is its own mixin, `main_window_cache_check.py`.
     # **853 -> 982** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `_selected_drive_offset`, the window's one answer to which offset the next rip on the selected drive applies, and `_move_global_offset_once`; `_set_read_offset_override` saves into the selected drive's profile and refuses with no drive selected. The pure rule and the move itself went to `offset_config.py` (`offset_for_drive`, `plan_global_offset_move`, `move_global_offset`); what is here is the window's wiring to them and its reasons.
     # Both changes merged 2026-11-13: measured 1009 lines after the merge.
-    "ui/main_window_drive.py": 1013,  # +4 2026-11-13: the first-run offer says what setup does (R150)
+    # **1013 -> 1033** (2026-11-17, UX review of 0.7.127, TASKS R182), E3: the empty-state line is built where an empty drive listing first lands (`_on_drives_unavailable`), and `_sync_no_drive_notice`; the line itself is `ui/no_drive_notice.py`.
+    "ui/main_window_drive.py": 1033,  # +4 2026-11-13: the first-run offer says what setup does (R150)
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2889,7 +2891,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5418 -> 5415** (2026-11-16, TASKS R88): the three spellings of the EAC-compatible log name became `sibling_names.eac_log_name`.
     # **5415 -> 5428** (2026-11-17, UX review V1): the finish handler hands the banner's level to the status line, and a rip cancelled after its read reads "cancelled" from its first line, never "Finished".
     # **5428 -> 5439** (2026-11-17, UX review E1): `_on_rip_error` and the finish handler's failure branch show the failure on the banner (`finish_wording.failure_banner_text`: the error's own words first, the hint after) and mark the status line with ✖.
-    "ui/main_window_rip.py": 5439,
+    # **5439 -> 5454** (2026-11-17, UX review of 0.7.127, TASKS R182): a cancel reveals Force stop (M4), the stall notice's next step follows the cancel, and a cancelled rip's status names its folder and offers it (E2); the wording is `finish_wording.py`'s.
+    "ui/main_window_rip.py": 5454,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2927,7 +2930,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Both changes merged 2026-11-13: measured 563 lines after the merge.
     # **563 -> 575** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the seam declares the first-run answer and notice methods, `_host_stack_ready`, the setup-run count and the held cyanrip offer, which the mixins now use across each other.
     # **575 -> 576** (2026-11-17, follow-up to UX review F1: No holds on later launches): the seam declares `_first_run_question_pending` and `_setup_tools_found`.
-    "ui/main_window_shared.py": 576,
+    # **576 -> 578** (2026-11-17, UX review of 0.7.127, TASKS R182): two cross-mixin stubs for the empty-state line, `_sync_no_drive_notice` and `_setup_notice_shown`.
+    "ui/main_window_shared.py": 578,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2972,9 +2976,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1929 -> 2005** (2026-11-17, UX review E1): a failed rip is shown on the verdict banner at the error level (`show_failure`), its sentence first and any partial verdict after it, beside an **Open log** button that hands the app log to the desktop.
     # **2005 -> 2007** (2026-11-17, UX review of 0.7.127), W2: the unvalidated-CTDB line says "not yet validated on real drives" instead of naming KDD-16, with the comment saying why.
     # **2007 -> 2015** (2026-11-17, merging the UX-review branches): the next step is not added over a downgraded verdict (another album's disc, an unapproved ripper), where re-ripping is the wrong advice and the banner must word the verdict as the report does.
-    "ui/rip_progress.py": 2015,
+    # **2015 -> 2060** (2026-11-17, UX review of 0.7.127, TASKS R182), E2: the cancelled rip's **Open folder** button beside the banner, `offer_cancelled_folder`, and its clearing at the next rip.
+    "ui/rip_progress.py": 2060,
     # **230 -> 301** (2026-11-17, UX review of 0.7.127 A2, TASKS R183): the Rip menu's Start rip is bound here, beside the button it stands for, so the action's enabled state comes from the button's one computation and its trigger presses the button (focus first, so a track title being typed is committed). Still one job: the rip buttons and what they hand the window.
-    "ui/rip_controls.py": 301,
+    # **301 -> 337** (2026-11-17, UX review of 0.7.127, TASKS R182), M4: Force stop is shown during a rip only once a cancel was asked for (`set_cancel_requested`), and for the whole of a disc scan, where it is the only way out; the reasoning is beside the one line that decides it.
+    "ui/rip_controls.py": 337,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
