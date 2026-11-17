@@ -1373,7 +1373,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **851 -> 860** (2026-10-16, TASKS R20 part 2, round 35): the `prefer_disc_isrc` setting and its reason.
     # **860 -> 871** (2026-10-20, the owner's word "yes, read twice by default"): the `second_read_without_accuraterip` setting, with the owner's word that set its default.
     # **871 -> 883** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb_repair_after_rip`, the automatic CTDB repair's switch, with its comment.
-    "config.py": 883,
+    # **883 -> 891** (2026-11-17, follow-up to UX review F1: No holds on later launches): `host_setup_declined`, the saved No, with its comment.
+    "config.py": 891,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -2460,7 +2461,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1208 -> 1209** (2026-10-20, the owner's word "yes, read twice by default"): the new boolean setting in the validated list.
     # **1209 -> 1223** (2026-10-26, peer review 2.7): the album YEAR is refused when it is `.` or `..`, because `%y` (cyanrip's `{date}`) puts it in the path verbatim; `path_reference_issue` is the directory-reference half of `path_segment_issue`, called by the argv chokepoint and the track table.
     # **1223 -> 1224** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair switch in `_BOOL_FIELDS`.
-    "settings_validation.py": 1224,
+    # **1224 -> 1225** (2026-11-17, follow-up to UX review F1: No holds on later launches): `host_setup_declined` in `_BOOL_FIELDS`.
+    "settings_validation.py": 1225,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     # **600 -> 601** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     "sleep_inhibit.py": 601,
@@ -2659,7 +2661,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **962 -> 965** (2026-10-26, peer review 2.6): its value tooltips / progress dialog go through `ui/plain_text.py` so outside text is never read as markup; the wrapping sits at each call it guards.
     # **965 -> 969** (2026-10-27, external review item 3.4): the status-bar clock is made explicitly local, with why it is local (ruff DTZ005).
     # **969 -> 1058** (2026-11-03, TASKS R96, the launch dependency report): the launch-only marker (`_dep_check_is_launch`, set by `app.main` alone, because About's Check again and the re-check after host setup are silent too), the check generation that lets a newer check drop a held report, and the hold itself: the launch report also waits while another window of ours is in use, and a report of a missing REQUIRED tool is never given up on the 30 s clock. It lives in the deferral it extends, beside the reasons each wait exists.
-    "ui/main_window_deps.py": 1184,  # **1058 -> 1184** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): a silent report the first-run answer covers sets its setup-wizard tools aside and shows the in-window notice instead of the wizard; the notice is hidden once a complete check finds them; and a wizard closed without running is summarised as "Not installed yet", not as an install failure.  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **1184 -> 1225** (2026-11-17, follow-up to UX review F1: No holds on later launches): `_setup_is_the_users_call` also covers the launch check after a saved No and before the first-run question is asked; `_setup_tools_found` clears the saved No when a complete check finds the tools.
+    "ui/main_window_deps.py": 1225,  # **1058 -> 1184** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): a silent report the first-run answer covers sets its setup-wizard tools aside and shows the in-window notice instead of the wizard; the notice is hidden once a complete check finds them; and a wizard closed without running is summarised as "Not installed yet", not as an install failure.  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -2747,7 +2750,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1930 -> 1935** (2026-11-03, review B8): the closing message names the `ripbundles` folder (each rip's own bundle, for its Send button) and says the one file carries the same.
     # **1935 -> 1936** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Setup & Updates is handed `_selected_drive_offset` as its offset reader.
     # **1936 -> 1978** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the question is titled apart from the wizard, records its answer for the held launch report and, after No, shows the in-window notice; a finished setup run is counted and drops an automatic cyanrip offer worked out before it.
-    "ui/main_window_provision.py": 1978,
+    # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
+    "ui/main_window_provision.py": 2008,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2901,7 +2905,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **546 -> 550** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the seam stubs for `_selected_drive_offset` and the writer's new `source` parameter.
     # Both changes merged 2026-11-13: measured 563 lines after the merge.
     # **563 -> 575** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the seam declares the first-run answer and notice methods, `_host_stack_ready`, the setup-run count and the held cyanrip offer, which the mixins now use across each other.
-    "ui/main_window_shared.py": 575,
+    # **575 -> 576** (2026-11-17, follow-up to UX review F1: No holds on later launches): the seam declares `_first_run_question_pending` and `_setup_tools_found`.
+    "ui/main_window_shared.py": 576,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

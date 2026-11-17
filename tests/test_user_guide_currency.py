@@ -85,6 +85,7 @@ _NOT_IN_GUIDE: dict[str, str] = {
     "metaflac_path": "advanced tool-path override, not a rip setting",
     "drive_setup_prompted": "internal one-shot 'have we offered drive setup' flag",
     "host_setup_prompted": "internal one-shot 'have we offered host setup' flag",
+    "host_setup_declined": "internal: the user said No to host setup, until found",
     "appimage_integration_prompted": "internal one-shot 'menu integration offered' flag",
     "integration_declined_path": "internal: remembers a declined integration path",
     "integration_declined_version": (

@@ -98,6 +98,13 @@ class ProvisioningMixin(MainWindowShared):
     #: a failed install.
     _host_setup_runs: int = 0
 
+    #: The first-run offers were scheduled and are waiting for the main window
+    #: (`hold_until_free`). With the window's start-up timer, it is how the launch
+    #: report knows the first-run question is still to come.
+    _first_run_offers_waiting: bool = False
+    #: The window's zero-delay start-up timer (built in `MainWindow.__init__`).
+    _first_run_timer: QTimer
+
     # --- Acceptance-session state ------------------------------------------
     #
     # Declared here as class attributes with `None` defaults, rather than in
@@ -224,6 +231,7 @@ class ProvisioningMixin(MainWindowShared):
         # The unattended flag is asked again before each try, where they open.
         from platterpus.ui.hold_for_user import hold_until_free
 
+        self._first_run_offers_waiting = True
         hold_until_free(
             self,
             self._make_first_run_offers,
@@ -419,6 +427,24 @@ class ProvisioningMixin(MainWindowShared):
 
         return cyanrip_on_host()
 
+    def _first_run_question_pending(self) -> bool:
+        """True while "Install the ripping tools?" is still to be asked this launch.
+
+        The launch report can arrive before it (a fresh install's probe finds no
+        ripper at once); it then leaves the wizard to the question. The same
+        conditions `_make_first_run_offers` and the question itself read.
+        """
+        timer = getattr(self, "_first_run_timer", None)
+        scheduled = self._first_run_offers_waiting or (
+            timer is not None and timer.isActive()
+        )
+        return (
+            scheduled
+            and not self._unattended
+            and not self._config.host_setup_prompted
+            and not self._host_stack_ready()
+        )
+
     def _maybe_offer_host_setup(self) -> None:
         """One-time, dismissible offer to run the host-setup wizard.
 
@@ -463,6 +489,10 @@ class ProvisioningMixin(MainWindowShared):
             self.open_host_setup_dialog()
         else:
             log.info("first-run setup declined; showing the setup notice instead")
+            # Saved, so a later launch's check does not open the wizard either;
+            # cleared once setup runs ready or a complete check finds the tools.
+            self._config.host_setup_declined = True
+            self._save_config_or_report("the first-run setup was declined")
             self._show_setup_needed_notice()
 
     def _build_host_setup(self) -> HostSetup:
@@ -1966,7 +1996,7 @@ class ProvisioningMixin(MainWindowShared):
         """
         self._host_setup_runs += 1
         if ready:
-            self._hide_setup_needed_notice()
+            self._setup_tools_found()
             log.info("host setup reported ready — refreshing deps")
             try:
                 if not self._drive_picker.current_device():

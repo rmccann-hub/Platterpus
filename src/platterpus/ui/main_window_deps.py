@@ -591,18 +591,21 @@ class DependencyMixin(MainWindowShared):
         report_generation = (
             self._dep_check_generation if generation is None else generation
         )
-        if not show_summary and self._setup_already_answered_for(report_generation):
-            # The user has already answered "Install the ripping tools?" for
-            # this check, so its container tools are not offered again (UX review
-            # F1, 2026-11-17): the setup wizard stays shut and no summary lists them.
-            # Read it here, where the report is delivered, because the answer
-            # usually comes while the report is held (see `_defer_if_floor_is_busy`).
+        if complete and not _setup_tools_in(required_missing):
+            # A complete check found every container tool: the strip saying
+            # they are missing, and a decline saved from an earlier launch, must
+            # not outlive the fact.
+            self._setup_tools_found()
+        elif self._setup_is_the_users_call(
+            report_generation, show_summary=show_summary, launch=launch
+        ):
+            # The user answers "Install the ripping tools?", not this report
+            # (UX review F1, 2026-11-17): its container tools are set aside, the
+            # setup wizard stays shut and no summary lists them. Read here, where
+            # the report is delivered, because the answer usually comes while the
+            # report is held (see `_defer_if_floor_is_busy`).
             report.missing = self._set_aside_setup_tools(required_missing)
             had_required_missing = bool(report.missing)
-        elif complete and not _setup_tools_in(required_missing):
-            # A complete check found every container tool: the strip saying
-            # they are missing must not outlive the fact.
-            self._hide_setup_needed_notice()
         if had_required_missing:
             self._resolve_missing_unified(report)
 
@@ -756,6 +759,44 @@ class DependencyMixin(MainWindowShared):
         """True when the first-run answer already covers check ``generation``."""
         answered = self._setup_answered_at_check
         return answered is not None and generation <= answered
+
+    def _setup_is_the_users_call(
+        self, generation: int, *, show_summary: bool, launch: bool
+    ) -> bool:
+        """Whether this silent report must leave the setup wizard to the user.
+
+        Three cases, all for a check nobody asked for:
+
+        * the first-run question was answered after this check started;
+        * it is the LAUNCH check, and the user said No on an earlier launch
+          (``host_setup_declined``, cleared when the tools are found). Without
+          this, No held for one launch and the next opened the wizard unasked;
+        * it is the launch check and the first-run question has not been asked
+          yet: the question decides, not whichever arrives first.
+
+        A check the user starts (Setup & Updates, Check dependencies, About's
+        Check again, the re-check after setup) is none of these, and resolves.
+        """
+        if show_summary:
+            return False
+        if self._setup_already_answered_for(generation):
+            return True
+        if not launch:
+            return False
+        if self._config.host_setup_declined:
+            log.info("launch check: setup was declined earlier; not opening it")
+            return True
+        if self._first_run_question_pending():
+            log.info("launch check: the first-run setup question decides, not it")
+            return True
+        return False
+
+    def _setup_tools_found(self) -> None:
+        """The ripping tools are there: take the strip down, forget a decline."""
+        self._hide_setup_needed_notice()
+        if self._config.host_setup_declined:
+            self._config.host_setup_declined = False
+            self._save_config_or_report("the ripping tools were found")
 
     def _set_aside_setup_tools(self, required: list[MissingItem]) -> list[MissingItem]:
         """Keep the container tools out of resolution, and say so in the window.

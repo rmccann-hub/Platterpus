@@ -452,3 +452,165 @@ def test_the_setup_wizard_hides_its_empty_log_until_a_step_reports(
         assert "Distrobox" in dialog._results.toPlainText()
     finally:
         dialog.deleteLater()
+
+
+# --- No holds on later launches, and the question decides the order ---------
+#
+# Follow-up to F1: the answer used to cover only the launch it was given on, so
+# the NEXT launch's check opened the wizard unasked, the same symptom one launch
+# later. A No is now saved (`host_setup_declined`) until the tools are found.
+
+
+@pytest.fixture()
+def free_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nothing else has the floor: a launch report is delivered at once."""
+    from platterpus.ui import hold_for_user
+    from platterpus.ui.main_window import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_modal_floor_blocker", lambda self: "")
+    monkeypatch.setattr(hold_for_user, "busy_reason", lambda _w: "")
+
+
+def _land_launch_report(window: Any, report: DependencyReport) -> None:
+    """The launch check's report, delivered as `_on_dependency_check_done` does."""
+    window._dep_check_generation += 1
+    window._apply_dependency_report(
+        window._dependency_manager, report, show_summary=False, launch=True
+    )
+
+
+def test_a_later_launch_after_no_shows_the_strip_not_the_wizard(
+    make_window: Callable[..., Any],
+    wizards: list[object],
+    boxes: list[str],
+    no_ripper: None,
+    free_floor: None,
+) -> None:
+    """Second launch after No: the launch check opens nothing and shows the strip.
+
+    A check the user starts afterwards still opens the wizard: the decline is
+    about checks nobody asked for.
+    """
+    window = make_window(
+        config=Config(host_setup_prompted=True, host_setup_declined=True)
+    )
+
+    _land_launch_report(window, _cyanrip_missing())
+
+    assert wizards == [], "a later launch opened the setup wizard after No"
+    assert boxes == [], f"a later launch after No showed {boxes}"
+    notice = window._setup_needed_notice
+    assert notice is not None and not notice.isHidden(), "the strip is not shown"
+    assert window._config.host_setup_declined, "the decline was forgotten"
+
+    window._dep_check_generation += 1  # Setup & Updates → Check dependencies
+    window._apply_dependency_report(
+        window._dependency_manager, _cyanrip_missing(), show_summary=True
+    )
+    assert len(wizards) == 1, "a check the user started did not offer setup"
+
+
+def test_without_a_decline_the_launch_check_still_offers_setup(
+    make_window: Callable[..., Any],
+    wizards: list[object],
+    no_ripper: None,
+    free_floor: None,
+) -> None:
+    """The control: asked before and never declined, the launch check resolves."""
+    window = make_window(config=Config(host_setup_prompted=True))
+
+    _land_launch_report(window, _cyanrip_missing())
+
+    assert len(wizards) == 1
+
+
+def test_no_is_saved_and_forgotten_once_the_tools_are_there(
+    make_window: Callable[..., Any],
+    no_ripper: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The decline is written to the config file, and cleared by a ready setup
+    run or by a complete check that finds the tools, each saved too."""
+    saved: list[bool] = []
+    window = make_window(
+        config=Config(host_setup_prompted=False),
+        save_cfg=lambda cfg: saved.append(cfg.host_setup_declined),
+    )
+    monkeypatch.setattr(
+        message_boxes, "question", lambda *_a, **_k: QMessageBox.StandardButton.No
+    )
+    window._maybe_offer_host_setup()
+    assert window._config.host_setup_declined
+    assert saved and saved[-1] is True, f"No was not saved: {saved}"
+
+    monkeypatch.setattr(window, "refresh_drives", lambda: None)
+    monkeypatch.setattr(window, "run_dependency_check_async", lambda **_k: None)
+    window._on_host_setup_finished(True)
+    assert not window._config.host_setup_declined, "a ready setup kept the decline"
+    assert saved[-1] is False
+
+    window._config.host_setup_declined = True
+    _land_launch_report(window, DependencyReport(missing=[]))  # all found
+    assert not window._config.host_setup_declined, "a complete check kept it"
+    assert saved[-1] is False
+
+
+def test_the_decline_round_trips_through_the_config_file(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Saved and loaded as a boolean; a bad value is refused, not coerced."""
+    from platterpus import config as config_module
+    from platterpus.settings_validation import validate_config
+
+    monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.toml")
+    assert Config().host_setup_declined is False
+
+    config_module.save(Config(host_setup_declined=True))
+    assert config_module.load().host_setup_declined is True
+    config_module.save(Config(host_setup_declined=False))
+    assert config_module.load().host_setup_declined is False
+
+    bad = Config()
+    bad.host_setup_declined = "yes"  # type: ignore[assignment]  # a corrupt file's value
+    assert any(i.field == "host_setup_declined" for i in validate_config(bad))
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes],
+    ids=["no", "yes"],
+)
+def test_a_launch_report_that_lands_before_the_question_leaves_it_to_the_question(
+    make_window: Callable[..., Any],
+    wizards: list[object],
+    boxes: list[str],
+    no_ripper: None,
+    free_floor: None,
+    monkeypatch: pytest.MonkeyPatch,
+    answer: QMessageBox.StandardButton,
+) -> None:
+    """A fresh install's probe can finish before the first-run question opens.
+
+    The report then opens no wizard (the strip says what is missing); the
+    question, asked next, decides: No opens nothing, Yes opens one wizard.
+    """
+    asked: list[str] = []
+
+    def question(_p: object, title: str, *_a: object) -> QMessageBox.StandardButton:
+        asked.append(title)
+        return answer
+
+    monkeypatch.setattr(message_boxes, "question", question)
+    window = make_window(config=Config(host_setup_prompted=False))
+    assert window._first_run_question_pending(), "floor: the question is not due"
+
+    _land_launch_report(window, _cyanrip_missing())
+    assert wizards == [], "the report opened the wizard before the question"
+
+    _wait(0.3)  # the start-up timer fires and the first-run offers are made
+    assert asked == ["Install the ripping tools?"], asked
+    expected = 1 if answer == QMessageBox.StandardButton.Yes else 0
+    assert len(wizards) == expected, f"{len(wizards)} wizards after {answer}"
+    assert boxes == [], f"the report was followed by {boxes}"
+    assert not window._first_run_question_pending()

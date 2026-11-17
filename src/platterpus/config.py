@@ -130,6 +130,7 @@ APP_STATE_FIELDS: Final[frozenset[str]] = frozenset(
     {
         "drive_setup_prompted",
         "host_setup_prompted",
+        "host_setup_declined",
         "appimage_integration_prompted",
         "integration_declined_path",
         "integration_declined_version",
@@ -203,6 +204,13 @@ class Config:
     # Same one-time, dismissible model as drive_setup_prompted; afterwards it
     # lives on Tools → Setup & Updates… → Run setup….
     host_setup_prompted: bool = False
+
+    # Set when the user answers No to that first-run offer, so a LATER launch's
+    # dependency check shows the "not installed yet" strip instead of opening the
+    # setup wizard unasked (UX review of 0.7.127, F1). Cleared when setup runs and
+    # leaves the ripper ready, or a complete check finds the tools. A check the
+    # user starts is not affected.
+    host_setup_declined: bool = False
 
     # Set once we've offered (on first AppImage run) to add Platterpus to the
     # applications menu. One-time + dismissible; no-op on source/pipx installs.

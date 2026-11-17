@@ -570,8 +570,8 @@ it for you. Answer **Yes**. It takes a few minutes and may ask for your password
 once. Nothing here needs a terminal.
 
 If you said no, the main window says the ripping tools are not installed yet, with a
-**Set up…** button; nothing else opens. To run setup later, or again, use that
-button or **Tools → Setup & Updates… → Run setup…**.
+**Set up…** button; nothing else opens, then or when you next start Platterpus.
+To run setup later, or again, use that button or **Tools → Setup & Updates… → Run setup…**.
 
 ### 3. Set up your drive
 
