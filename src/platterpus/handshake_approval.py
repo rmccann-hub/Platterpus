@@ -223,7 +223,12 @@ from platterpus.deps import fork_source
 #: `cyanrip@b1cdec95`) beside `cyanrip 0.9.4-rc3+platterpus.32`, the pair round 40
 #: reviewed and the owner's Full run of 2026-11-14 tested. A new pin (`e531a33` ->
 #: `edb73dd`, `+platterpus.32`).
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.125"
+#: **Round 41 moves it to 0.7.127**, read from both closing laps: round 41 lap 5
+#: declares `HANDSHAKE-APP-VERSION: platterpus 0.7.127` (21,516 bytes,
+#: `cyanrip@8b33a6c1`) beside `cyanrip 0.9.4-rc3+platterpus.34`, the pair round 41
+#: reviewed and the owner's Full run of 2026-11-17 tested. A new pin (`edb73dd` ->
+#: `fb28088`, `+platterpus.34`).
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.127"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -387,7 +392,11 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.125"
 #: **40 on 2026-11-16**, closed on both gates at four laps: their lap 3 `GO` and
 #: our lap 4 `GO`. It approves `.32` (`edb73dd`) with 0.7.125 on the owner's Full
 #: run of 2026-11-14, G1 to G3 met and read by both sides.
-APPROVED_BY_ROUND: Final[int] = 40
+#: **41 on 2026-11-18**, closed on both gates at six laps: their lap 5 `GO` and
+#: our lap 6 `GO`. It approves `.34` (`fb28088`) with 0.7.127 on the owner's Full
+#: run of 2026-11-17 and the over-read probe of the same day, G1 to G4 met and
+#: read by both sides.
+APPROVED_BY_ROUND: Final[int] = 41
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

@@ -117,13 +117,13 @@ def test_only_27_to_34_are_listed() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH == frozenset(
         {_TAG_27, _TAG_28, _TAG_29, _TAG_30, _TAG_31, _TAG_32, _TAG_33, _TAG_34}
     )
-    # Non-triviality: the production pin IS `.32` from round 40's close
-    # (2026-11-16), and the build under review is `.34` from round 41's lap 3
-    # (in place of `.33`), so a rig on either sends the flag; `.33`, under review
-    # before `.34`, `.27`, `.28`, `.30` and `.31`, the pins before `.32`, and
-    # `.29`, under review before `.30`, still run on rigs that installed them and
-    # still take the flag.
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_32
+    # Non-triviality: the production pin IS `.34` from round 41's close
+    # (2026-11-18), and it is still the build under review until round 42 names
+    # the next, so a rig on it sends the flag; `.33`, under review before `.34`,
+    # `.27`, `.28`, `.30`, `.31` and `.32`, the pins before it, and `.29`, under
+    # review before `.30`, still run on rigs that installed them and still take
+    # the flag.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_34
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_34
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_33)
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_32)
