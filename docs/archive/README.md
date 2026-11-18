@@ -51,4 +51,4 @@ to mine, not as authority over the living docs.
 
 ---
 
-*Last updated for Platterpus v0.7.127.*
+*Last updated for Platterpus v0.7.128.*
