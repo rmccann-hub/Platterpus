@@ -669,6 +669,14 @@ sentence was false by the time the lap would go out. A lap is a statement made a
 its release, not at its writing: before flipping `HANDSHAKE-READY-TO-READ`, read
 it again against the tree as it stands, and correct what changed.
 
+**A held lap that gains an evidence citation waits for its manifest rows on `main`**
+(2026-11-17). Round 41's lap 6 was held for the over-read probe, and the probe's
+filing gave it a new citation. The lap checker reads an evidence citation's manifest
+row at the lap's `HANDSHAKE-FROM-COMMIT`, and `tests/test_handshake_tooling.py`
+requires that commit to be on `origin/main`, so a lap cannot name the branch commit
+that adds its own rows. The order that works: file the evidence and merge its rows
+first, then point `FROM-COMMIT` at that merge and merge the lap (our #504 then #505).
+
 ### 7.5d A short reading lap — our draft of the fork's D5 (round 30, W4)
 
 **Superseded by the shared text, 2026-09-30: PROTOCOL v7 §6d**
