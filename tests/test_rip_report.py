@@ -1415,7 +1415,9 @@ def test_schema_version_is_27() -> None:
     # v46 added `rip.c2_declared` and its reason, what the capabilities page
     # declares about C2 (the fork's round 39 lap 3 S14; `tests/test_c2_declaration.py`).
     # v45 had shipped in 0.7.122.
-    assert REPORT_SCHEMA_VERSION == 46
+    # v47 added `rip.disc_mcn`, cyanrip's `Disc MCN:` row as a state (TASKS R176;
+    # `tests/test_disc_mcn.py`). v46 had shipped in 0.7.126.
+    assert REPORT_SCHEMA_VERSION == 47
 
 
 def _issue_codes(report: dict) -> set[str]:

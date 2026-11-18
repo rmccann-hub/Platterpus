@@ -206,6 +206,7 @@ than the UI it stands in for.
 | `notify_on_completion` | boolean (on/off) |
 | `drive_setup_prompted` | boolean (on/off) |
 | `host_setup_prompted` | boolean (on/off) |
+| `host_setup_declined` | boolean (on/off) |
 | `appimage_integration_prompted` | boolean (on/off) |
 | `integration_declined_path` | text |
 | `integration_declined_version` | text |
@@ -386,7 +387,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.7.126",
+  "platterpus_version": "0.7.127",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -1144,6 +1145,10 @@ found nothing wrong*.
       "type": "boolean (on/off)"
     },
     {
+      "field": "host_setup_declined",
+      "type": "boolean (on/off)"
+    },
+    {
       "field": "appimage_integration_prompted",
       "type": "boolean (on/off)"
     },
@@ -1266,4 +1271,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.7.126.*
+*Last updated for Platterpus v0.7.127.*

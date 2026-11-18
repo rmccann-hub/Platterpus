@@ -175,3 +175,44 @@ def test_a_stand_in_workers_non_string_tag_is_no_tag() -> None:
     )
     assert outcome["ripper_exit_class"] == "not_determined"
     assert outcome["ripper_exit_build_tag"] is None
+
+
+# --- `.34`'s TOC refusal, exit 74 (round 41, 2026-11-16) ---------------------------
+
+#: `.34`'s build tag, the build under review from the fork's round 41 lap 3 (S9).
+_DOT34 = "platterpus-fork-gfb28088"
+
+#: `.34`'s new fatal line as a run prints it, its `%i`s filled: the format is P5 row
+#: `cyanrip_main.c:679` of `round-41-lap-03-provider-contract-g3069c11.md`, logged at
+#: `cyanrip@fb28088:src/cyanrip_main.c:679` before anything is read; the init that
+#: fails on it returns `CRIP_EXIT_IOERR` at `:4029-4030` (their lap 3 S13).
+_INVALID_TOC = "Invalid TOC: track 2 starts at LSN 0, not after track 1 at LSN 150!"
+
+
+def test_dot34s_invalid_toc_refusal_is_the_disc_class_with_its_own_sentence() -> None:
+    """Their lap 3 S13: an unordered TOC ends the run with exit 74 and a new fatal
+    line. Our class reading of a 74 depends on placing the build by its release
+    number, so `.34` reads `disc_or_drive` only because its row (release 46) is
+    recorded; without it, `not_determined`. And the user reads cyanrip's own
+    sentence first: the line is in the regenerated inventory and is matched as a
+    ripper diagnostic, and the class sentence follows it, never replaces it."""
+    from platterpus.parsers.cyanrip_log import is_ripper_error_line
+    from platterpus.ripper_message_inventory import MESSAGES
+
+    assert release_seq_for_commit("fb28088") == 46
+    assert build_speaks_exit_classes(_DOT34) is True
+    assert classify_exit(DISC_OR_DRIVE_EXIT, _DOT34) == "disc_or_drive"
+    assert "disc or the drive" in explain_failed_exit(
+        DISC_OR_DRIVE_EXIT, _DOT34, we_stopped_it=False
+    )
+
+    formats = {m.text: m.site for m in MESSAGES}
+    assert (
+        formats.get(
+            "Invalid TOC: track %i starts at LSN %i, not after track %i at LSN %i!"
+        )
+        == "cyanrip_main.c:679"
+    )
+    assert is_ripper_error_line(_INVALID_TOC)
+    # Non-triviality: the matcher is not matching everything.
+    assert not is_ripper_error_line("Track 2 starts at LSN 150")

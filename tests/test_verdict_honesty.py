@@ -24,6 +24,7 @@ from PySide6.QtWidgets import QApplication
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.eac_log_export import render_eac_style_log
+from platterpus.finish_wording import next_step_sentence
 from platterpus.parsers.cyanrip_log import is_ripper_error_line, parse_cyanrip_log
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.rip_health import (
@@ -265,7 +266,13 @@ def test_the_report_and_the_window_show_the_same_headline(qapp: QApplication) ->
     assert report["verdict"]["message"] == expected
     widget = RipProgress()
     widget.set_rip_log(rip_log, disc_track_total=14)
-    assert widget._verdict_banner.text() == expected
+    # The window adds ONE thing after the report's sentence: the plain next step
+    # (UX review V1), which is advice, not a finding, so the report leaves it out.
+    banner = widget._verdict_banner.text()
+    assert banner.startswith(expected), banner
+    tail = banner[len(expected) :].strip()
+    assert tail == next_step_sentence(widget._verdict_attention), tail
+    assert tail, "floor: two of fourteen tracks differ, so a next step is given"
 
 
 def test_nothing_matched_a_disc_accuraterip_holds_is_amber_not_unknown() -> None:

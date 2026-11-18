@@ -510,7 +510,7 @@ def test_the_wav_warning_says_what_a_wav_keeps_and_what_it_loses(
         assert lost in warning, f"the warning does not say {lost!r} is lost"
     assert "can't store tags" not in warning
     wav_label = dialog._format_combo.itemText(dialog._format_combo.findData("wav"))
-    assert "No Tags" not in wav_label and "Basic Tags" in wav_label, wav_label
+    assert "no tags" not in wav_label.lower() and "basic tags" in wav_label, wav_label
     assert "can't store tags" not in dialog._format_combo.toolTip()
 
 

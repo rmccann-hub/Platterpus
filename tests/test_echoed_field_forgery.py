@@ -51,6 +51,7 @@ import pytest
 from platterpus.adapters.cyanrip_backend import _metadata_args
 from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
 from platterpus.cyanrip_cli import split_meta_blob
+from platterpus.disc_mcn import DiscMcn
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.parsers.rip_log import RipLog
 from platterpus.verdict import accuraterip_verdict
@@ -330,7 +331,31 @@ _HEADER_ROWS: Final[dict[str, tuple[str, object, object]]] = {
     ),
     "disc_id": ("DiscID:         FORGEDforgedFORGEDforged0-", "disc_id", ""),
     "cddb_id": ("CDDB ID:        deadbeef", "cddb_id", ""),
+    "disc_mcn": ("Disc MCN:       0123456789012", "disc_mcn", DiscMcn()),
 }
+
+#: Guarded rows the base log does not print, with the line cyanrip prints in their
+#: place and the row it follows. The base is a `.26` image rip, and every build
+#: before the fork's proposal (their round 38 lap 3 S17) prints `Disc MCN:` only
+#: for a disc with an MCN; the line put in is that proposal's `none` form, at the
+#: place its source prints the row, after `CDDB ID:` and before `Album:`
+#: (`cyanrip@13bec0a:src/cyanrip_log.c:1366-1368`).
+_INSERTED_INTO_THE_BASE: Final[dict[str, tuple[str, str]]] = {
+    "disc_mcn": ("CDDB ID:", "Disc MCN:       none (libcdio returned none)"),
+}
+
+
+def _base_for(name: str) -> str:
+    """The base log, carrying cyanrip's own copy of the row ``name``."""
+    text = _base()
+    if name not in _INSERTED_INTO_THE_BASE:
+        return text
+    after, own = _INSERTED_INTO_THE_BASE[name]
+    lines = text.split("\n")
+    at = [i for i, ln in enumerate(lines) if ln.startswith(after)]
+    assert len(at) == 1, "the fixture changed under this test"
+    return "\n".join([*lines[: at[0] + 1], own, *lines[at[0] + 1 :]])
+
 
 _ALBUM_ROW: Final[str] = "\nAlbum:          Unknown disc (OMP2)\n"
 _DISC_CDTEXT: Final[str] = (
@@ -383,7 +408,7 @@ def test_each_forged_header_row_IS_read_where_cyanrip_prints_it(name: str) -> No
     """The non-triviality floor: in cyanrip's own place, the forged row changes
     the field, so every 'unchanged' below is a real refusal, not a blind spot."""
     row, where, cleared = _HEADER_ROWS[name]
-    text = _base()
+    text = _base_for(name)
     prefix = row.split(":", 1)[0] + ":"
     lines = text.split("\n")
     at = next(i for i, ln in enumerate(lines) if ln.startswith(prefix))
@@ -403,8 +428,10 @@ def test_a_header_row_forged_on_the_Album_line_never_gives_its_value(
     """After cyanrip's own copy: a row printed above the disc CD-TEXT row keeps
     cyanrip's value; a ONCE row becomes not determined."""
     row, where, cleared = _HEADER_ROWS[name]
-    baseline = _field(parse_cyanrip_log(_base()), where)
-    text = _on_album_line(_base(), row).replace(f"OMP2)\n{row}", f"OMP2){brk}{row}")
+    baseline = _field(parse_cyanrip_log(_base_for(name)), where)
+    text = _on_album_line(_base_for(name), row).replace(
+        f"OMP2)\n{row}", f"OMP2){brk}{row}"
+    )
     forged = _field(parse_cyanrip_log(text), where)
     if _guarded(name) == "once":
         assert forged == cleared, (name, forged)
@@ -419,8 +446,10 @@ def test_a_header_row_forged_in_the_disc_CDTEXT_block_never_gives_its_value(
     """Before cyanrip's copy, for the ONCE rows: neither copy can be preferred,
     so the row is not determined rather than the forger's."""
     row, where, cleared = _HEADER_ROWS[name]
-    baseline = _field(parse_cyanrip_log(_base()), where)
-    forged = _field(parse_cyanrip_log(_in_disc_cdtext_block(_base(), row)), where)
+    baseline = _field(parse_cyanrip_log(_base_for(name)), where)
+    forged = _field(
+        parse_cyanrip_log(_in_disc_cdtext_block(_base_for(name), row)), where
+    )
     if _guarded(name) == "once":
         assert forged == cleared, (name, forged)
     else:
@@ -431,10 +460,11 @@ def test_a_header_row_forged_in_the_disc_CDTEXT_block_never_gives_its_value(
 def test_a_header_row_forged_in_a_track_echo_is_not_read(name: str) -> None:
     """Inside a track block every guarded row is a forgery: cyanrip's value stays."""
     row, where, _cleared = _HEADER_ROWS[name]
-    baseline = _field(parse_cyanrip_log(_base()), where)
-    forged = parse_cyanrip_log(_with_cdtext_block(_base(), "Song\n" + row))
+    base = _base_for(name)
+    baseline = _field(parse_cyanrip_log(base), where)
+    forged = parse_cyanrip_log(_with_cdtext_block(base, "Song\n" + row))
     assert _field(forged, where) == baseline, name
-    assert _verdict_facts(forged) == _verdict_facts(parse_cyanrip_log(_base()))
+    assert _verdict_facts(forged) == _verdict_facts(parse_cyanrip_log(base))
 
 
 def test_the_disc_header_order_the_guards_rest_on_holds_in_every_committed_log() -> (
@@ -479,8 +509,30 @@ def test_the_disc_header_order_the_guards_rest_on_holds_in_every_committed_log()
             if rule.echo_latch == "once":
                 assert len(hits) <= 1, f"{path.name}: {rule.name} {len(hits)} times"
     assert files >= 100, files
-    thin = {name: n for name, n in seen_in.items() if n < 3}
+    thin = {
+        name: n
+        for name, n in seen_in.items()
+        if n < 3 and name not in _NOT_YET_IN_THE_CORPUS
+    }
     assert not thin, f"guarded rows the corpus barely shows: {thin}"
+    # An exemption may not outlive its cause: once three committed logs print the
+    # row, the order above has been read for it from artifacts, and the row is
+    # held to the floor like the rest.
+    outgrown = sorted(n for n in _NOT_YET_IN_THE_CORPUS if seen_in[n] >= 3)
+    assert not outgrown, f"remove from _NOT_YET_IN_THE_CORPUS: {outgrown}"
+
+
+#: Guarded rows no committed log prints yet, with why, and where the order the
+#: guard rests on was read instead. May shrink, never grow without a cause.
+_NOT_YET_IN_THE_CORPUS: Final[dict[str, str]] = {
+    "disc_mcn": (
+        "printed today only for a disc with an MCN, which no committed log's disc "
+        "has; its place, after `CDDB ID:` and before `Album:`, read from the "
+        "source at `cyanrip@13bec0a:src/cyanrip_log.c:1366-1368`. The fork prints "
+        "it always from the build after our release that reads it (their round "
+        "41 lap 1 S18), so the first committed rip of that build retires this"
+    ),
+}
 
 
 # --- the residual, pinned so it cannot be forgotten (TASKS R86) ----------------

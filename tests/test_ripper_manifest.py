@@ -404,7 +404,11 @@ def test_every_recorded_sequence_agrees_with_a_published_manifest() -> None:
     keep a fixture of — but it is counted, and the floor below refuses a run in which
     nothing was actually compared.
     """
-    published: dict[str, int] = {}
+    # A SET per commit: the fork can republish a build at a new number. `edb73dd`
+    # (`.32`) is 43 on beta at `73cb652e` and 44 on stable at `57cbf654`, and a
+    # dict of one number per commit made this check's verdict depend on which
+    # fixture's filename sorted last.
+    published: dict[str, set[int]] = {}
     # Plus every manifest filed byte-exact from their tree (the first on 2026-09-30,
     # when `.19` became the build under review before any lap named it).
     filed = [
@@ -416,16 +420,16 @@ def test_every_recorded_sequence_agrees_with_a_published_manifest() -> None:
     assert filed, "the floor: at least one manifest is filed from their tree"
     for document in (PUBLISHED, PUBLISHED_V2, *filed):
         for row in document["channels"].values():
-            published[str(row["commit"])] = int(row["release_seq"])
+            published.setdefault(str(row["commit"]), set()).add(int(row["release_seq"]))
 
     checked = 0
     for commit, seq in fork_source.FORK_RELEASE_SEQ_BY_PIN.items():
         if commit not in published:
             continue
         checked += 1
-        assert seq == published[commit], (
+        assert seq in published[commit], (
             f"FORK_RELEASE_SEQ_BY_PIN says {commit} is release {seq}, but the fork's "
-            f"published manifest says {published[commit]}. Read the number off their "
+            f"published manifest says {sorted(published[commit])}. Read the number off their "
             f"document; never derive it from a version string."
         )
     assert checked >= 2, (
@@ -1227,3 +1231,72 @@ def test_the_note_is_absent_once_no_round_is_reviewing_a_build(
         round30_reviewing_20, CHANNEL_STABLE, installed_commit="174a134"
     )
     assert "is reviewing" not in offer.detail
+
+
+# --- A build republished at a new number (2026-11-16) ----------------------------
+
+#: The fork's manifest as it stood when round 41 opened: `beta` at `.33`
+#: (`13bec0a`, release 45) and `stable` at `.32` (`edb73dd`), republished there as
+#: release 44 by `cyanrip@f9fdd1a7`, while our map records `edb73dd` as 43, the
+#: number it was first published at. Their file, filed byte for byte.
+_MANIFEST_57CBF654 = (
+    Path(__file__).parent / "fixtures" / "fork_release_manifest_57cbf654.json"
+)
+
+
+def test_a_republished_build_is_not_offered_to_the_rig_already_running_it() -> None:
+    """Regression (2026-11-16): by number alone, a rig on `edb73dd` was told "a
+    newer cyanrip build is published on the stable channel" and offered `edb73dd`,
+    its own build, release 44 against its 43. A higher number for the same commit
+    is the same build, so the answer is up to date, at the row's number."""
+    manifest = parse_manifest(_MANIFEST_57CBF654.read_text(encoding="utf-8"))
+    assert manifest is not None
+    stable = manifest.channel(CHANNEL_STABLE)
+    # Non-triviality: the state that tripped it, read off their file and our map.
+    assert stable is not None and fork_source.same_commit(stable.commit, "edb73dd")
+    assert stable.release_seq == 44
+    assert fork_source.release_seq_for_commit("edb73dd") == 43
+    assert manifest.newer_than(CHANNEL_STABLE, 43) is stable  # the trap is armed
+
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="edb73dd")
+    assert offer.verdict == OFFER_UP_TO_DATE
+    assert "newest published on the stable channel" in offer.detail
+    assert "fork release 44" in offer.detail
+    assert "A newer cyanrip build" not in offer.detail
+
+    # The guard keys on the COMMIT: on beta the head is a different build, and it
+    # is still offered as newer.
+    on_beta = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="edb73dd")
+    assert on_beta.verdict == OFFER_AVAILABLE
+    assert on_beta.release is not None
+    assert fork_source.same_commit(on_beta.release.commit, "13bec0a")
+
+
+# --- `.34` on beta, round 41 from its lap 3 (2026-11-16) ----------------------------
+
+#: The fork's manifest as it stood when their round 41 lap 3 asked to review `.34`:
+#: `beta` at `.34` (`fb28088`, release 46), `stable` at `.32` (`edb73dd`, release 44).
+#: Their file, filed byte for byte from `cyanrip@d7385d18`.
+_MANIFEST_D7385D18 = (
+    Path(__file__).parent / "fixtures" / "fork_release_manifest_d7385d18.json"
+)
+
+
+def test_a_rig_on_dot33_is_offered_dot34_on_beta_and_dot34_is_current() -> None:
+    """The release sequence recorded for `.34` is the one their manifest states,
+    so a beta rig on `.33` (45) is offered `.34` (46), and one on `.34` is told it
+    is current at release 46, not offered its own build."""
+    manifest = parse_manifest(_MANIFEST_D7385D18.read_text(encoding="utf-8"))
+    assert manifest is not None
+    beta = manifest.channel(CHANNEL_BETA)
+    assert beta is not None and fork_source.same_commit(beta.commit, "fb28088")
+    assert beta.release_seq == fork_source.release_seq_for_commit("fb28088") == 46
+
+    on_33 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="13bec0a")
+    assert on_33.verdict == OFFER_AVAILABLE
+    assert on_33.release is not None
+    assert fork_source.same_commit(on_33.release.commit, "fb28088")
+
+    on_34 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="fb28088")
+    assert on_34.verdict == OFFER_UP_TO_DATE
+    assert "fork release 46" in on_34.detail

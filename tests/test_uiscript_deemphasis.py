@@ -86,7 +86,10 @@ def test_the_2026_11_03_pair_passes() -> None:
     verdict = grading.grade_pair(_arm(lufs="-20.7"), _arm("r16deemphoff", lufs="-19.9"))
     assert verdict.state == grading.PASS, verdict.detail
     assert "-0.8 LU" in verdict.detail
-    assert "S12 (d)" in verdict.detail, "the answer says what the grade rests on"
+    assert "round 37 lap 7 S4 (d)" in verdict.detail, "the answer says what it rests on"
+    # The fork answered (their round 37 lap 7 S4 (d)); their round 41 lap 5 S19
+    # found the answer still asking. It must state the answer, not the question.
+    assert "is asked" not in verdict.detail and "S12 (d)" not in verdict.detail
 
 
 def test_equal_loudness_is_the_cascade_defects_signature() -> None:

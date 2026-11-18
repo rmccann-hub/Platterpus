@@ -4,15 +4,180 @@
 
 # Platterpus
 
+Platterpus rips audio CDs on Linux to verified FLAC, the way Exact Audio Copy (EAC) does on Windows. It is for anyone who wants an exact, checked copy of their CDs: download one file, open it, and it sets itself up.
+
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.7.126, pre-1.0.** Platterpus installs one pinned build of its own fork of cyanrip, and a new build becomes the default only after a *handshake round*: both projects check each other's work and both declare `GO`. Which build that is, and which round approved it, is shown in **Help → About Platterpus…** (the *Ripper* section) and in the generated map in [`DEPENDENCIES.md`](DEPENDENCIES.md#the-full-map-machine-readable-bomcdxjson). 0.7.100 is the first release with a full-green hardware acceptance run behind it (2026-10-07), made on 0.6.66 with the fork build `.21`; round 31 approved that pair, and 0.7.103 is the first release that installs `.21` by default, and passed its own full-green run with it on 2026-10-12; 0.7.104 passed one on 2026-10-13 with `.22`, round 32 approved that pair on 2026-10-14, and 0.7.105 is the first release that installs `.22` by default; round 33 approved `.22` again with 0.7.105, on 2026-10-15, from that release's own Full run of 2026-10-14 (425 passed, none failed; not yet graded in the ledger); round 34 approved the fork's `.23` (upstream cyanrip 0.9.4-rc3) with 0.7.106 on 2026-10-16, from that release's own Full run (426 passed, none failed; not yet graded in the ledger), and 0.7.107 is the first release that installs `.23` by default; 0.7.108 reads the disc's own ISRC from the fork's `.24`, which round 35 reviewed first, and 0.7.109 also reads the shape the fork's `.25` prints for a code it refuses; 0.7.110 reviewed `.25`, to which round 35 moved and which it approved on 2026-10-20, and stops a CTDB match against a minority entry showing as verified. Each round since has reviewed and approved the fork's next build the same way, through 0.7.125 and round 40 (closed 2026-11-16); the build installed by default and any build under review are named in **Help → About Platterpus…** (the *Ripper* section). 0.8.1 needs a second full-green pass on another machine and distro ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
->
-> **On the Pioneer BDR-209D, leave Overread (`-O`) off.** With it on, cyanrip stopped at the last track's lead-out for about 23 minutes (2026-07-22, reproduced the next day; stock cyanrip 0.9.3, before the fork). Platterpus only passes the flag: the read that stalled is cyanrip's. What is not yet settled is the split between the drive refusing to read past the end of the disc and cyanrip retrying that refused read for so long. It has not yet been tried on the fork's builds: the fork's `.24` reads past the edge once and writes a refused frame as silence, and `--run-script overreadprobe` is the one bounded `-O` read that will test that on this drive; it was planned for round 35, which closed on 2026-10-20 with that run still open at the drive, and no run of it is on record ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
->
-> **What is in it.** **No-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list, **cyanrip as the single ripping backend** (KDD-18; the Platterpus fork is KDD-32/33), **multiple output formats** (FLAC is always the lossless master; WavPack, MP3 and WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a JSON rip report beside the log, **in-app updates**, **cover art** from the Cover Art Archive, **filing finished rips into your library folder**, and an **EAC-compatible companion log**, written beside every rip by default (as Exact Audio Copy writes its own), with a per-track EAC CRC32 column. It is validated on real hardware (Bazzite, Pioneer BDR-209D). This is an early release for wider testing: expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **Status: v0.7.127, pre-1.0.** An early release for wider testing, checked on real hardware on Bazzite KDE; what changed in each release is in [`CHANGELOG.md`](CHANGELOG.md), and the longer story is under [Testing status and release history](#testing-status-and-release-history).
+
+## Installation
+
+### Easiest — download one file, no terminal (recommended)
+
+You don't need the command line. Download the GUI, double-click, and it sets
+itself up by asking a couple of questions.
+
+1. **Download** `platterpus-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest)** (one file).
+2. **Allow it to run** (a one-time Linux step — a downloaded program isn't
+   runnable until you say so):
+   - **KDE (Dolphin):** right-click the file → **Properties** → **Permissions** → tick **Is executable** → OK.
+   - **GNOME (Files):** right-click → **Properties** → **Permissions** → enable **Allow executing file as program**.
+3. **Double-click it.** On first launch it will offer to:
+   - **add Platterpus to your applications menu** (so next time you click it in the menu), and
+   - **set up the ripping tool** — a guided wizard installs everything ripping needs (it may ask for your password once). It takes a few minutes: it creates the container and builds the ripper. No terminal.
+4. Then in the app: **Tools → Setup & Updates… → Set up drive…** — your drive's read offset is
+   filled in automatically; click **Save offset**. Insert a CD and **Start rip**.
+
+That's the whole thing: one download, a couple of clicks, answer the prompts.
+(Updating later: **Tools → Setup & Updates… → Check for updates** — the app updates itself.)
+
+### Easy second option — one command with pipx
+
+Comfortable with a terminal? A single copy-paste installs Platterpus from PyPI
+and puts it on your `PATH` (the GUI still runs the first-run wizard to set up the
+ripping stack):
+
+```bash
+pipx install platterpus    # then run:  platterpus
+```
+
+Don't have pipx? `sudo dnf install pipx` (Fedora/Bazzite) or `sudo apt install
+pipx` (Ubuntu/Debian). Upgrade later with `pipx upgrade platterpus`. (To run
+unreleased/dev code from a checkout instead, see
+[Method B](#method-b--pipx-recommended-for-technical-users).)
+
+> **Why a wizard?** Ripping runs through `cyanrip` inside a small container so
+> it never touches your system ([why](PLANNING.md)). The first-run wizard sets
+> that container up for you — the same work the scripts below do by hand.
+
+Testing, developing, or setting up by hand? [Manual setup (for testers and developers)](#manual-setup-for-testers-and-developers) has the one-command installer, the supported distributions and the seven manual steps.
+
+<!-- getting-started:begin — generated by scripts/emit_getting_started.py from src/platterpus/guide/getting-started.md; edit that file, not this -->
+## Getting started
+
+This guide takes you through your first archival rip: one ordinary audio CD, from
+downloading Platterpus to a folder of verified FLAC files. Allow about twenty minutes
+for the setup, plus the rip itself, which depends on the disc and the drive.
+
+You need an audio CD, a CD, DVD or Blu-ray drive, and an Internet connection, because
+the disc is looked up on MusicBrainz and checked against AccurateRip and CTDB.
+
+Words in bold, like **Start rip**, are labels you will see in the app, spelled as
+they appear there.
+
+### 1. Download Platterpus and open it
+
+Download `platterpus-x86_64.AppImage` from the project's Releases page on GitHub. It
+is one file: there is nothing to install.
+
+Before it can run, your system has to be told that the file is a program. In your
+file manager, right-click the file, open its properties, and on the permissions page
+tick the option that lets it run as a program. Then double-click it.
+
+### 2. Let Platterpus set itself up
+
+The first time it opens, Platterpus may offer to add itself to your applications
+menu. Accept if you want it there.
+
+It then asks **Install the ripping tools?**: the ripping tool, cyanrip, runs in a small
+container so that it never touches the rest of your system, and Platterpus installs
+it for you. Answer **Yes**. It takes a few minutes and may ask for your password
+once. Nothing here needs a terminal.
+
+If you said no, the main window says the ripping tools are not installed yet, with a
+**Set up…** button; nothing else opens, then or when you next start Platterpus.
+To run setup later, or again, use that button or **Tools → Setup & Updates… → Run setup…**.
+
+### 3. Set up your drive
+
+Every drive starts reading a few samples early or late. The *read offset* corrects
+that, and a rip is only bit-perfect, and only matches AccurateRip, when it is right.
+You set it once per drive.
+
+After setup, Platterpus offers to do this. You can also open it any time from
+**Tools → Setup & Updates…** with **Set up drive…**.
+
+For most drives the offset is already known from AccurateRip's list of drives and is
+filled in for you: press **Save offset**. No disc is needed. If your drive is not in
+that list, type its offset into **Read offset (samples):** by hand.
+
+### 4. Look at the settings
+
+Open **Tools → Settings…**. The defaults are already the archival ones, so for your
+first rip you do not need to change anything:
+
+- **Output format:** is FLAC, lossless, and the file every other format is made from.
+- The rip is checked against AccurateRip, and **Verify with CTDB after a rip** is on.
+- A track AccurateRip cannot confirm is read again until two reads agree.
+- **Cover art:** is embedded in every file.
+- **Write an EAC-compatible log beside each rip** is on: a log in the layout Exact
+  Audio Copy users know, written beside every rip as EAC writes its own. Platterpus
+  always keeps cyanrip's own log and its report as well; untick this if you do not
+  want the third file.
+
+Your music goes under **Output directory:**, one folder per album.
+
+### 5. Insert the disc
+
+Put the CD in the drive. Platterpus reads it and looks it up on MusicBrainz.
+
+If more than one release matches, **Pick a MusicBrainz release** asks which one is
+yours. Choose the one whose country, year and barcode match your copy.
+
+The album appears: **Album title:**, **Album artist:**, **Year:** and the track list.
+Correct anything that is wrong here. What you see is what is written into the files.
+
+### 6. Rip
+
+Press **Start rip**. Every track is ripped unless you untick it in the track list.
+
+The progress bar shows how far the rip has got, with the track being read and an
+estimate of the time left. You can press **Cancel** at any time.
+
+### 7. Read the verdict
+
+When the rip finishes, a verification banner appears above the results and stays
+there:
+
+- green, *Bit-perfect*: every track matches other people's rips of the same disc in
+  AccurateRip. This is the archival standard.
+- amber: some tracks matched and some did not. The table says which.
+- grey: AccurateRip has no rips of this disc to compare with. That is not a failure,
+  but the audio has not been checked against anyone else's.
+
+The per-track results are in the table below the banner, and the CTDB result is on
+the **Details** tab.
+
+### 8. What you get
+
+In the album's folder:
+
+- one FLAC file per track, tagged, with the cover art inside it;
+- a cue sheet, the map of the disc's tracks;
+- cyanrip's log, the record of the rip, which cyanrip can verify was not edited;
+- the report, `.platterpus.json`, with every result in a form a program can read;
+- the EAC-style log, unless you turned it off.
+
+Keep the logs and the report with the music. They are the proof of what was read.
+
+### 9. If a track is not fully verified
+
+Two results deserve a second look:
+
+- *One frame only*: AccurateRip matched one frame of the track, 1/75 of a second,
+  and nothing else. The rest of the track is not verified.
+- A track that needed heavy re-reading, or whose reads never agreed: the drive could
+  not read it the same way twice.
+
+Clean the disc and rip it again. **Help → User Guide…** explains every result in
+full, and how to compare the new rip with the last one.
+<!-- getting-started:end -->
+
+---
 
 ## At a glance
+
+**What is in it.** **No-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list, **cyanrip as the single ripping backend** (KDD-18; the Platterpus fork is KDD-32/33), **multiple output formats** (FLAC is always the lossless master; WavPack, MP3 and WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a JSON rip report beside the log, **in-app updates**, **cover art** from the Cover Art Archive, **filing finished rips into your library folder**, and an **EAC-compatible companion log**, written beside every rip by default (as Exact Audio Copy writes its own), with a per-track EAC CRC32 column. It is validated on real hardware (Bazzite, Pioneer BDR-209D). This is an early release for wider testing: expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 - **Linux only.** Primary target is Bazzite KDE Plasma 6; should work on any modern desktop Linux running Qt 6 (Fedora, Arch, Ubuntu, Tumbleweed).
 - **Runs cyanrip inside Distrobox.** The GUI calls the host-exported `cyanrip` binary; it never bundles cyanrip, and the guided wizard installs it inside the container. This is intentional — see [PLANNING.md §8 KDD-07](PLANNING.md).
@@ -20,6 +185,10 @@
 - **No terminal prompts from the ripper** — the GUI queries MusicBrainz directly, then runs cyanrip offline with the chosen release's tags, so its interactive prompt never surfaces.
 - **Choose your output format** — FLAC (default), WavPack, MP3, or WAV. FLAC is always produced as the lossless master; other formats are derived from it, so you never lose the archival copy. See [Audio output](#audio-output-what-you-get-what-you-dont).
 - **Distribution model:** AppImage primary, `pipx` secondary.
+
+### Overread on the Pioneer BDR-209D
+
+> **On the Pioneer BDR-209D, leave Overread (`-O`) off.** With it on, cyanrip stopped at the last track's lead-out for about 23 minutes (2026-07-22, reproduced the next day; stock cyanrip 0.9.3, before the fork). Platterpus only passes the flag: the read that stalled is cyanrip's. What is not yet settled is the split between the drive refusing to read past the end of the disc and cyanrip retrying that refused read for so long. It has not yet been tried on the fork's builds: the fork's `.24` reads past the edge once and writes a refused frame as silence, and `--run-script overreadprobe` is the one bounded `-O` read that will test that on this drive; it was planned for round 35, which closed on 2026-10-20 with that run still open at the drive, and no run of it is on record ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 
 ---
 
@@ -71,45 +240,294 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 
 ---
 
-## Installation
+## Ripping backend: cyanrip
 
-### Easiest — download one file, no terminal (recommended)
+The GUI drives a single ripping engine: [**cyanrip**](https://github.com/cyanreg/cyanrip) — actively maintained, EAC-equivalent archival quality. There's no backend setting or toggle; cyanrip is it. (The project originally used a different ripper, whose cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks — e.g. the Pioneer BDR-209D's +667; cyanrip applies the offset correctly with its own paranoia even past that threshold, which is why we switched. See [KDD-18](PLANNING.md).)
 
-You don't need the command line. Download the GUI, double-click, and it sets
-itself up by asking a couple of questions.
+The GUI does the MusicBrainz lookup itself and then runs cyanrip **offline** — with `-N` (no network metadata lookup) and the chosen release's tags fed in via `-a`/`-t` — so cyanrip's own interactive prompt never surfaces and the rip needs no in-container network. Cover art is fetched separately by the GUI from the Cover Art Archive.
 
-1. **Download** `platterpus-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest)** (one file).
-2. **Allow it to run** (a one-time Linux step — a downloaded program isn't
-   runnable until you say so):
-   - **KDE (Dolphin):** right-click the file → **Properties** → **Permissions** → tick **Is executable** → OK.
-   - **GNOME (Files):** right-click → **Properties** → **Permissions** → enable **Allow executing file as program**.
-3. **Double-click it.** On first launch it will offer to:
-   - **add Platterpus to your applications menu** (so next time you click it in the menu), and
-   - **set up the ripping tool** — a guided wizard installs everything ripping needs (it may ask for your password once). It takes a few minutes: it creates the container and builds the ripper. No terminal.
-4. Then in the app: **Tools → Setup & Updates… → Set up drive…** — your drive's read offset is
-   filled in automatically; click **Save offset**. Insert a CD and **Start rip**.
+## Audio output: what you get, what you don't
 
-That's the whole thing: one download, a couple of clicks, answer the prompts.
-(Updating later: **Tools → Setup & Updates… → Check for updates** — the app updates itself.)
+**Output format** is chosen in **Settings → Output format**: **FLAC** (default),
+**WavPack** (`.wv`), **MP3**, or **WAV**. Every rip produces FLAC first — the lossless
+archival *master* — and for any other choice the GUI **keeps that FLAC** and creates
+the selected format alongside it (a quick post-rip transcode via ffmpeg). So you never
+lose the lossless master, whatever you pick.
 
-### Easy second option — one command with pipx
+| Format | Lossless? | Tags | Cover art | Use it for |
+|--------|-----------|------|-----------|------------|
+| **FLAC** | ✅ (verified bit-perfect) | ✅ | ✅ embedded | The archive. The master copy. |
+| **WavPack** (`.wv`) | ✅ | ✅ | folder `cover.jpg`¹ | A lossless library in a different container |
+| **MP3** | ❌ best-quality VBR (~245 kbps) | ✅ | ✅ embedded | Phones, cars, portability |
+| **WAV** | ✅ | ❌ | ❌ | Raw PCM interchange only (the GUI warns) |
 
-Comfortable with a terminal? A single copy-paste installs Platterpus from PyPI
-and puts it on your `PATH` (the GUI still runs the first-run wizard to set up the
-ripping stack):
+¹ The front cover always lands in the album folder as an image file; ffmpeg can't embed
+art *inside* a `.wv` (a known limitation — see `docs/archive/mp3-wav-support-2026-06.md`). For embedded
+lossless art, FLAC is the choice.
+
+The flag-by-flag detail below is about how each format is encoded.
+
+*(cyanrip reads through libcdio-paranoia and encodes FLAC through FFmpeg at maximum compression. The proof that a read is right comes afterwards, from AccurateRip and CTDB.)*
+
+### FLAC (default — the lossless archival master)
+
+cyanrip reads each track through libcdio-paranoia at its most careful setting and encodes it to FLAC through FFmpeg at **maximum compression**. Paranoia corrects read errors; it does not prove the result. The proof is the AccurateRip and CTDB check after the rip, and **Verify FLACs** checks each file against its stored MD5. There's no compression-level knob to set: it's already at the top.
+
+Earlier versions listed a greyed-out **"Re-compress FLACs"** toggle in Settings. It could never do anything with cyanrip, so it has been removed. An old settings file that still mentions it loads normally.
+
+For background: **all FLAC compression levels are lossless** — `-0` and `-8` decode to identical audio; only file size (and a little decode CPU) differ. cyanrip's max-compression output is the smallest standard FLAC; whether its audio is bit-perfect is what the AccurateRip and CTDB checks say.
+
+The full FLAC encoder reference is at [xiph.org/flac/documentation_tools_flac.html](https://xiph.org/flac/documentation_tools_flac.html).
+
+### WavPack, MP3, and WAV (derived from the FLAC master)
+
+When you pick a non-FLAC format, after each rip the GUI transcodes the FLAC master to
+your choice with **ffmpeg**, keeping the FLAC. It runs in the background (never freezes
+the window), writes each file atomically, and **never costs you the lossless master** —
+if a transcode fails, you still have the FLAC to retry from. Per file:
 
 ```bash
-pipx install platterpus    # then run:  platterpus
+# WavPack — lossless, tags carried over (APEv2)
+ffmpeg -i <file>.flac -map_metadata 0 -map 0:a -c:a wavpack <file>.wv
+
+# MP3 — best-quality VBR (== lame -V0, ~245 kbps), tags + embedded cover
+ffmpeg -i <file>.flac -map_metadata 0 -id3v2_version 3 -c:v copy \
+       -c:a libmp3lame -q:a 0 <file>.mp3
+
+# WAV — raw 16-bit PCM; RIFF INFO keeps title, artist, album, track number, year and
+# genre, and loses album artist, disc number, the MusicBrainz IDs and cover art
+ffmpeg -i <file>.flac -map 0:a -c:a pcm_s16le <file>.wav
 ```
 
-Don't have pipx? `sudo dnf install pipx` (Fedora/Bazzite) or `sudo apt install
-pipx` (Ubuntu/Debian). Upgrade later with `pipx upgrade platterpus`. (To run
-unreleased/dev code from a checkout instead, see
-[Method B](#method-b--pipx-recommended-for-technical-users).)
+`ffmpeg` is the single encoder dependency for all three, and it must be on the host's
+`PATH`. The setup wizard does not install or export it: cyanrip uses FFmpeg's libraries
+inside its container, which gives the host no `ffmpeg` command. Bazzite ships it;
+elsewhere install your distribution's package. It is detected through the same
+dependency self-management subsystem as everything else — no bespoke install code. MP3
+quality is a setting (**MP3 VBR quality**, 0–9); the default, 0, is
+[HydrogenAudio's Recommended LAME](https://wiki.hydrogenaudio.org/index.php/LAME)
+VBR `-V0` (joint-stereo on), the highest-quality VBR. Design + the full encoder-argument
+rationale: [docs/archive/mp3-wav-support-2026-06.md](docs/archive/mp3-wav-support-2026-06.md).
 
-> **Why a wizard?** Ripping runs through `cyanrip` inside a small container so
-> it never touches your system ([why](PLANNING.md)). The first-run wizard sets
-> that container up for you — the same work the scripts below do by hand.
+### Compared to EAC's bit-perfect settings
+
+The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity.md](docs/eac-parity.md).
+
+Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-parity.md](docs/eac-parity.md).
+
+### Rip settings at a glance
+
+**Now in Settings** (surfaced in the Settings dialog):
+
+- **Goal** preset — *Fast verified* / *Archival exact* / *Portable* snaps the format/verification/quality controls to your intent; editing any of them switches the goal to *Custom*
+- **Output format** — FLAC (the lossless master, always produced), WavPack, MP3, or WAV
+- Cover art — fetch + embed in FLAC, save next to it, or both (defaults to *embed*)
+- **Max retries** (default 5) — cyanrip's `-r`: how often a sector that won't read is retried, **and** the most times a whole track may be read while the next setting looks for identical reads, so keep it above that number
+- **Extra matching reads to trust a track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until this many further reads match one, i.e. N+1 identical reads (cyanrip's `-Z`; **on by default**, 2, so three identical reads). See "How ripping works" below.
+- Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; the CRC is hardware-validated — a match means verified)
+- Verify FLACs after a rip (decode-test each output against its stored MD5)
+- **Overread:** *Read the disc's outermost samples (overread lead-in/out)* (off by default) — ask the drive to read the disc's real outermost samples instead of writing them as silence (cyanrip `-O`). Leave it off unless your drive is known to support overreading: on the Pioneer BDR-209D it stalled a rip for about 23 minutes.
+- **Also re-read tracks where only one frame matched AccurateRip** (on by default) — such a track is re-ripped like one that did not match at all.
+- **Verify every track with a second read (EAC-style Test & Copy)** (off by default) — runs the matching-reads check on the whole disc, not only on tracks that need it.
+- **MP3 VBR quality** (0–9, default 0 = LAME `-V0`) — used only when the output format is MP3.
+- **Move finished rips to** a library folder (empty = off) — once every post-rip check has settled (verification, transcode, checksums, the rip report), the album folder is filed into your library; a name collision lands in a "(2)" sibling, never an overwrite
+- Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
+
+*(Of the three toggles removed with the previous backend (KDD-18) — force overread, keep-going-on-track-failure, and continue-ripping-CD-Rs — the last two stay gone: cyanrip handles track failures and CD-Rs natively with no equivalent flag. Force overread returned in v0.5.0, rebuilt cyanrip-native as the Overread toggle above.)*
+
+After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
+
+### How ripping works
+
+Platterpus rips the disc **once at full speed** and checks every track against AccurateRip. A track that matches the database on that first read is already proven bit-perfect, so it's left alone. Only the tracks that *didn't* match (and, by default, a track where AccurateRip matched only one frame) are then **secure-re-ripped** — re-read until enough reads are identical — *Extra matching reads to trust a track* plus one, so three at the default of 2 (cyanrip's `-Z`, on by default; *Max retries* caps how many reads that may take) — and the better read is kept. So a clean disc is a single fast pass (roughly real-time), and the careful, slow work happens only where it's actually needed. If read errors appear, an adaptive read-speed ladder also re-reads the disc more slowly. The FLAC master is always kept and, unless disabled, decode-verified against its stored MD5; any non-FLAC output is derived from that verified master.
+
+See "EAC bit-perfect parity gaps" in [the TASKS archive](docs/archive/tasks-closed-to-2026-11-16.md) for the history.
+
+---
+
+## First run
+
+When you launch Platterpus for the first time:
+
+1. **Set up Platterpus.** The first launch offers to install the ripping tools (the container and the ripper). Answer Yes; it takes a few minutes.
+
+   **Dependency check.** The GUI checks its seven dependencies in the background — cyanrip, metaflac, flac, ffmpeg, cd-paranoia, Picard, and the `musicbrainzngs` library — and interrupts only if a required one is missing. **Tools → Setup & Updates… → Check dependencies** shows them all, with one of three resolutions for anything missing:
+   - **Auto-install** (Picard): one OK and it runs `flatpak install --user`.
+   - **Pending installs:** a checklist for items that need batching or confirmation.
+   - **Manual install:** a copyable search string for anything that needs root (or a reboot) to install.
+
+2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if your model isn't recognised or you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Setup & Updates… → Set up drive…**.
+
+3. **Pick a drive.** The dropdown at the top of the window lists the optical drives detected on your system. Click Refresh if you plug in a drive after launch.
+
+4. **Insert a CD.** The GUI fetches the disc's MusicBrainz ID, looks it up, and shows the match status. If multiple releases match, a picker dialog appears. (The GUI does the MusicBrainz lookup itself and runs cyanrip offline, so the ripper never prompts you for anything — this picker is where any disambiguation happens.)
+
+5. **Edit metadata.** The track table is editable. Fix any tags that look wrong before you rip.
+
+6. **Click "Start rip."** Overall progress, a live progress bar on the track currently ripping, and per-track AccurateRip confidence appear as the rip runs. You can cancel mid-rip.
+
+7. **View the log.** When the rip finishes, **View log** opens the rip log in a read-only viewer inside the app; its **Open externally…** button hands it to your editor. If **Move finished rips to** is set in Settings, the album folder is filed into your library once every post-rip check has settled — the View log / report / folder buttons follow it to its new home.
+
+For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the menu — the GUI rips with placeholder `Track NN` tags and optionally launches Picard for you to fix them up.
+
+---
+
+## Command-line usage (advanced)
+
+Platterpus is a GUI first, but it has a few command-line flags for diagnostics.
+**There is no `platterpus` command on your `PATH` unless you installed via `pipx`
+(Method B) or ran `dev-setup.sh` (Method C).** If you run the downloaded **AppImage** (the recommended install),
+the AppImage *is* the executable — pass the flags to it directly (its launcher
+forwards every argument straight to the app):
+
+> **First, check where the AppImage actually is.** If you accepted the first-run
+> offer to add Platterpus to your application menu, the app **moved itself** to
+> `~/Applications/platterpus-x86_64.AppImage` — it names the new path in the
+> dialog that follows, and there is nothing left in your Downloads folder. Every
+> `./platterpus-x86_64.AppImage …` command below then becomes
+> `~/Applications/platterpus-x86_64.AppImage …`; a `./`-relative command run from
+> where you downloaded it will say *No such file or directory*. If you
+> declined the offer, the file is still wherever you put it and `./` works from
+> that folder. When in doubt: `ls ~/Applications/platterpus-x86_64.AppImage`.
+
+```bash
+# Show the version and build fingerprint, then exit
+./platterpus-x86_64.AppImage --version
+
+# "Doctor" — a no-CD first-pass check of the ripping environment, then exit
+./platterpus-x86_64.AppImage --doctor
+
+# Install or update the ripping stack from the terminal, then exit: the
+# Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built
+# over it. Same steps as Tools → Setup & Updates… → Run setup…, and idempotent —
+# anything already in place reports "already present" and is left alone.
+./platterpus-x86_64.AppImage --install-ripper
+
+# Verify an already-ripped album against the CUETools Database (CTDB) and sweep
+# the CRC offset to confirm the read offset aligns with the pressing. No CD or
+# re-rip needed — it reads the FLACs already on disk.
+./platterpus-x86_64.AppImage --ctdb-calibrate "/path/to/Artist/Album/"
+
+# Audit every already-ripped album under a folder and exit. Read-only: no CD,
+# no re-rip, nothing modified. Reports, per album, which cyanrip built it,
+# whether the ripper said it finished, which disc of a multi-disc set the tags
+# came from, what pre-gap provenance was seen, whether the audio files the
+# log claims actually have bytes in them, and any audio file the log does not
+# account for, such as the partial file a cancelled rip leaves behind. Exits
+# non-zero if anything needs attention, so it is usable from a script.
+./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/
+
+# Run a batch of UI tests without a person in front of the machine. FILE holds
+# one step per line (open a dialog, check what is on screen, take a screenshot,
+# run the ripper and assert its exit code); the app opens its test console with
+# the file loaded and starts it immediately. The window is real and on screen —
+# this is "no person needed", not "no display needed". A failing step is recorded
+# and the batch keeps going, so you always come back to a complete transcript.
+# The test-script console (Tools → Advanced → Run test script…) has the same
+# thing as a saved setting, with an option to run it on every launch.
+./platterpus-x86_64.AppImage --run-script ~/my-tests.txt
+
+# Run the unattended hardware-session harness into a folder, then exit. One
+# artifact per step, and it never stops on a failure — a failing step is data.
+# Covers: both versions, --doctor, the ripper's own -j probe (which a rip never
+# sends; its -x cache probe is not run, because it goes on to rip the whole disc),
+# pre-gap screening, --audit-rips, an ETA sweep, report sizes, a fresh clone of
+# the ripper's source, handshake status and preflight. Send the whole folder.
+./platterpus-x86_64.AppImage --rig-session ~/rig-session-output
+
+# The cyanrip seam check on its own. `--rig-session` already runs this, so you
+# rarely need it directly — it exists because the cyanrip fork's own script calls
+# it, and both write into the same MANIFEST.txt so the two projects' evidence is
+# one upload rather than two piles. Read-only: nothing rips or re-encodes.
+# Inside a test script the same check is the `rig-check` verb.
+./platterpus-x86_64.AppImage --rig-check ~/seam-out \
+    --rig-check-album "/path/to/Album" --rig-check-device /dev/sr0
+
+# Compare two rips of the SAME disc track-by-track (which tracks are byte-for-
+# byte identical, which differ, and which rip is the better master). Points at
+# the .platterpus.json report each rip writes beside the FLACs.
+./platterpus-x86_64.AppImage --compare "/path/old/Album.platterpus.json" \
+                                        "/path/new/Album.platterpus.json"
+
+# Assemble the best of two rips of the same disc into a new folder — copies, per
+# track, whichever rip is the better master. Non-destructive: your two source
+# folders are never touched.
+./platterpus-x86_64.AppImage --assemble-best-of "/path/BestOf/" \
+    "/path/old/Album.platterpus.json" "/path/new/Album.platterpus.json"
+```
+
+**When to use `--compare`:** re-ripping a disc you already ripped? Compare the
+new report against the old one. Tracks that come back *identical* are rock-solid;
+a track whose result *changed* (e.g. an exact AccurateRip match last time,
+offset-variant this time) points to a read-stability problem on that track worth
+a closer look. The GUI does this automatically after a rip when it finds a prior
+rip of the same disc in your library, and shows a one-line summary in the
+results pane.
+
+**Path tip for `--ctdb-calibrate`:** a rip folder can contain a look-alike colon
+(`∶`, U+2236) where the album title had a `:` — cyanrip substitutes it so the
+folder name is filesystem-safe. Don't type a normal `:` (the path won't be
+found); let the shell supply the real character — `cd` into the folder and pass
+`"$PWD"`, or use tab-completion / a glob (`…/Every\ Breath\ You\ Take*`).
+
+**Keeping cyanrip up to date: the app does it, and you never type a commit.**
+Platterpus checks the fork's published releases a few seconds after launch and
+again from **Tools → Setup & Updates… → Check for cyanrip updates**. When the build it finds is one
+the handshake record in this repository has approved — which includes the common
+case of *your ripper isn't the build this Platterpus was verified against* — it
+offers **Install it now**, and one click builds and installs it. There is no SHA
+to copy and nothing to read first, because taking that build is what makes your
+rips report `approved`.
+
+The offer asks one plain question; the record behind it (which handshake round
+approved the build, and why it matters) is under **Show Details**.
+
+The launch-time check is **silent unless it has something to offer**, and silent
+while no ripper is installed at all, because setup installs the tested build. It looks
+at the stable channel by default; tick **Offer beta (pre-release) cyanrip builds**
+in **Tools → Setup & Updates…** to include beta builds.
+
+When the newest published build is one **no round here has verified yet**, the
+app tells you, states plainly that every rip made with it would report its ripper
+as `unapproved`, and offers it only when it is the build a handshake round is
+testing, as **Install it anyway**, which is not the default button.
+
+**When to use `--install-ripper`:** to install another build the app knows, use
+**Tools → Setup & Updates… → Choose a build…**. `--install-ripper <commit>` does the
+same from a terminal (it is the route a rig script calls), and is the only way to
+install **a commit the app does not list**: a mid-round test pin, or going back to
+an older one. It prints the pin it is building and the build tag the
+finished binary must report, so you can see which ripper you ended up with.
+
+It takes a commit:
+
+```sh
+# ~/Applications/… if you let the app add itself to your menu (see the note at
+# the top of this section); ./platterpus-x86_64.AppImage if you declined.
+~/Applications/platterpus-x86_64.AppImage --install-ripper <commit>
+```
+
+Without an argument it builds the pin baked into this Platterpus build. With a
+commit it builds that commit through the same steps and checks that the binary
+reports `platterpus-fork-g<commit>`. It does not predict the version string for a
+commit Platterpus does not pin, and it tells you up front that rips with a
+non-pinned build report `ripper handshake approval: unapproved`.
+
+**For a script that wants the channel's newest build rather than a named one**,
+pass `latest` (the fork's stable channel) or `latest-beta` (its beta channel) in
+place of a commit. Platterpus reads the fork's release manifest, prints which
+commit that is, and installs it exactly as `--install-ripper <that commit>` would —
+including the note when no closed round has approved it. It is never the default,
+and if the manifest cannot be read it installs nothing rather than something else.
+
+If you installed with **`pipx`** (Method B), the same flags work on the
+`platterpus` command instead — e.g. `platterpus --doctor`.
+
+---
+
+## Manual setup (for testers and developers)
+
+For testers, developers, and anyone who would rather set up the ripping stack by hand. Most people only need [Installation](#installation) and [Getting started](#getting-started).
 
 ### Quickstart for testers / scripted install
 
@@ -537,407 +955,6 @@ bash build/build_appimage.sh
 
 The resulting `platterpus-x86_64.AppImage` appears at the repo root. See [`build/python-appimage/README.md`](build/python-appimage/README.md) for details.
 
-<!-- getting-started:begin — generated by scripts/emit_getting_started.py from src/platterpus/guide/getting-started.md; edit that file, not this -->
-## Getting started
-
-This guide takes you through your first archival rip: one ordinary audio CD, from
-downloading Platterpus to a folder of verified FLAC files. Allow about twenty minutes
-for the setup, plus the rip itself, which depends on the disc and the drive.
-
-You need an audio CD, a CD, DVD or Blu-ray drive, and an Internet connection, because
-the disc is looked up on MusicBrainz and checked against AccurateRip and CTDB.
-
-Words in bold, like **Start rip**, are labels you will see in the app, spelled as
-they appear there.
-
-### 1. Download Platterpus and open it
-
-Download `platterpus-x86_64.AppImage` from the project's Releases page on GitHub. It
-is one file: there is nothing to install.
-
-Before it can run, your system has to be told that the file is a program. In your
-file manager, right-click the file, open its properties, and on the permissions page
-tick the option that lets it run as a program. Then double-click it.
-
-### 2. Let Platterpus set itself up
-
-The first time it opens, Platterpus may offer to add itself to your applications
-menu. Accept if you want it there.
-
-It then asks **Set up Platterpus**: the ripping tool, cyanrip, runs in a small
-container so that it never touches the rest of your system, and Platterpus installs
-it for you. Answer **Yes**. It takes a few minutes and may ask for your password
-once. Nothing here needs a terminal.
-
-If you said no, or want to run it again, it is in **Tools → Setup & Updates…** as
-**Run setup…**.
-
-### 3. Set up your drive
-
-Every drive starts reading a few samples early or late. The *read offset* corrects
-that, and a rip is only bit-perfect, and only matches AccurateRip, when it is right.
-You set it once per drive.
-
-After setup, Platterpus offers to do this. You can also open it any time from
-**Tools → Setup & Updates…** with **Set up drive…**.
-
-For most drives the offset is already known from AccurateRip's list of drives and is
-filled in for you: press **Save offset**. No disc is needed. If your drive is not in
-that list, type its offset into **Read offset (samples):** by hand.
-
-### 4. Look at the settings
-
-Open **Tools → Settings…**. The defaults are already the archival ones, so for your
-first rip you do not need to change anything:
-
-- **Output format:** is FLAC, lossless, and the file every other format is made from.
-- The rip is checked against AccurateRip, and **Verify with CTDB after a rip** is on.
-- A track AccurateRip cannot confirm is read again until two reads agree.
-- **Cover art:** is embedded in every file.
-- **Write an EAC-compatible log beside each rip** is on: a log in the layout Exact
-  Audio Copy users know, written beside every rip as EAC writes its own. Platterpus
-  always keeps cyanrip's own log and its report as well; untick this if you do not
-  want the third file.
-
-Your music goes under **Output directory:**, one folder per album.
-
-### 5. Insert the disc
-
-Put the CD in the drive. Platterpus reads it and looks it up on MusicBrainz.
-
-If more than one release matches, **Pick a MusicBrainz release** asks which one is
-yours. Choose the one whose country, year and barcode match your copy.
-
-The album appears: **Album title:**, **Album artist:**, **Year:** and the track list.
-Correct anything that is wrong here. What you see is what is written into the files.
-
-### 6. Rip
-
-Press **Start rip**. Every track is ripped unless you untick it in the track list.
-
-The progress bar shows how far the rip has got, with the track being read and an
-estimate of the time left. You can press **Cancel** at any time.
-
-### 7. Read the verdict
-
-When the rip finishes, a verification banner appears above the results and stays
-there:
-
-- green, *Bit-perfect*: every track matches other people's rips of the same disc in
-  AccurateRip. This is the archival standard.
-- amber: some tracks matched and some did not. The table says which.
-- grey: AccurateRip has no rips of this disc to compare with. That is not a failure,
-  but the audio has not been checked against anyone else's.
-
-The per-track results are in the table below the banner, and the CTDB result is on
-the **Details** tab.
-
-### 8. What you get
-
-In the album's folder:
-
-- one FLAC file per track, tagged, with the cover art inside it;
-- a cue sheet, the map of the disc's tracks;
-- cyanrip's log, the record of the rip, which cyanrip can verify was not edited;
-- the report, `.platterpus.json`, with every result in a form a program can read;
-- the EAC-style log, unless you turned it off.
-
-Keep the logs and the report with the music. They are the proof of what was read.
-
-### 9. If a track is not fully verified
-
-Two results deserve a second look:
-
-- *One frame only*: AccurateRip matched one frame of the track, 1/75 of a second,
-  and nothing else. The rest of the track is not verified.
-- A track that needed heavy re-reading, or whose reads never agreed: the drive could
-  not read it the same way twice.
-
-Clean the disc and rip it again. **Help → User Guide…** explains every result in
-full, and how to compare the new rip with the last one.
-<!-- getting-started:end -->
-
----
-
-## Ripping backend: cyanrip
-
-The GUI drives a single ripping engine: [**cyanrip**](https://github.com/cyanreg/cyanrip) — actively maintained, EAC-equivalent archival quality. There's no backend setting or toggle; cyanrip is it. (The project originally used a different ripper, whose cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks — e.g. the Pioneer BDR-209D's +667; cyanrip applies the offset correctly with its own paranoia even past that threshold, which is why we switched. See [KDD-18](PLANNING.md).)
-
-The GUI does the MusicBrainz lookup itself and then runs cyanrip **offline** — with `-N` (no network metadata lookup) and the chosen release's tags fed in via `-a`/`-t` — so cyanrip's own interactive prompt never surfaces and the rip needs no in-container network. Cover art is fetched separately by the GUI from the Cover Art Archive.
-
-## Audio output: what you get, what you don't
-
-**Output format** is chosen in **Settings → Output format**: **FLAC** (default),
-**WavPack** (`.wv`), **MP3**, or **WAV**. Every rip produces FLAC first — the lossless
-archival *master* — and for any other choice the GUI **keeps that FLAC** and creates
-the selected format alongside it (a quick post-rip transcode via ffmpeg). So you never
-lose the lossless master, whatever you pick.
-
-| Format | Lossless? | Tags | Cover art | Use it for |
-|--------|-----------|------|-----------|------------|
-| **FLAC** | ✅ (verified bit-perfect) | ✅ | ✅ embedded | The archive. The master copy. |
-| **WavPack** (`.wv`) | ✅ | ✅ | folder `cover.jpg`¹ | A lossless library in a different container |
-| **MP3** | ❌ best-quality VBR (~245 kbps) | ✅ | ✅ embedded | Phones, cars, portability |
-| **WAV** | ✅ | ❌ | ❌ | Raw PCM interchange only (the GUI warns) |
-
-¹ The front cover always lands in the album folder as an image file; ffmpeg can't embed
-art *inside* a `.wv` (a known limitation — see `docs/archive/mp3-wav-support-2026-06.md`). For embedded
-lossless art, FLAC is the choice.
-
-The flag-by-flag detail below is about how each format is encoded.
-
-*(cyanrip reads through libcdio-paranoia and encodes FLAC through FFmpeg at maximum compression. The proof that a read is right comes afterwards, from AccurateRip and CTDB.)*
-
-### FLAC (default — the lossless archival master)
-
-cyanrip reads each track through libcdio-paranoia at its most careful setting and encodes it to FLAC through FFmpeg at **maximum compression**. Paranoia corrects read errors; it does not prove the result. The proof is the AccurateRip and CTDB check after the rip, and **Verify FLACs** checks each file against its stored MD5. There's no compression-level knob to set: it's already at the top.
-
-Earlier versions listed a greyed-out **"Re-compress FLACs"** toggle in Settings. It could never do anything with cyanrip, so it has been removed. An old settings file that still mentions it loads normally.
-
-For background: **all FLAC compression levels are lossless** — `-0` and `-8` decode to identical audio; only file size (and a little decode CPU) differ. cyanrip's max-compression output is the smallest standard FLAC; whether its audio is bit-perfect is what the AccurateRip and CTDB checks say.
-
-The full FLAC encoder reference is at [xiph.org/flac/documentation_tools_flac.html](https://xiph.org/flac/documentation_tools_flac.html).
-
-### WavPack, MP3, and WAV (derived from the FLAC master)
-
-When you pick a non-FLAC format, after each rip the GUI transcodes the FLAC master to
-your choice with **ffmpeg**, keeping the FLAC. It runs in the background (never freezes
-the window), writes each file atomically, and **never costs you the lossless master** —
-if a transcode fails, you still have the FLAC to retry from. Per file:
-
-```bash
-# WavPack — lossless, tags carried over (APEv2)
-ffmpeg -i <file>.flac -map_metadata 0 -map 0:a -c:a wavpack <file>.wv
-
-# MP3 — best-quality VBR (== lame -V0, ~245 kbps), tags + embedded cover
-ffmpeg -i <file>.flac -map_metadata 0 -id3v2_version 3 -c:v copy \
-       -c:a libmp3lame -q:a 0 <file>.mp3
-
-# WAV — raw 16-bit PCM; RIFF INFO keeps title, artist, album, track number, year and
-# genre, and loses album artist, disc number, the MusicBrainz IDs and cover art
-ffmpeg -i <file>.flac -map 0:a -c:a pcm_s16le <file>.wav
-```
-
-`ffmpeg` is the single encoder dependency for all three, and it must be on the host's
-`PATH`. The setup wizard does not install or export it: cyanrip uses FFmpeg's libraries
-inside its container, which gives the host no `ffmpeg` command. Bazzite ships it;
-elsewhere install your distribution's package. It is detected through the same
-dependency self-management subsystem as everything else — no bespoke install code. MP3
-quality is a setting (**MP3 VBR quality**, 0–9); the default, 0, is
-[HydrogenAudio's Recommended LAME](https://wiki.hydrogenaudio.org/index.php/LAME)
-VBR `-V0` (joint-stereo on), the highest-quality VBR. Design + the full encoder-argument
-rationale: [docs/archive/mp3-wav-support-2026-06.md](docs/archive/mp3-wav-support-2026-06.md).
-
-### Compared to EAC's bit-perfect settings
-
-The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity.md](docs/eac-parity.md).
-
-Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-parity.md](docs/eac-parity.md).
-
-### Rip settings at a glance
-
-**Now in Settings** (surfaced in the Settings dialog):
-
-- **Goal** preset — *Fast Verified* / *Archival Exact* / *Portable* snaps the format/verification/quality controls to your intent; editing any of them switches the goal to *Custom*
-- **Output format** — FLAC (the lossless master, always produced), WavPack, MP3, or WAV
-- Cover art — fetch + embed in FLAC, save next to it, or both (defaults to *embed*)
-- **Max retries** (default 5) — cyanrip's `-r`: how often a sector that won't read is retried, **and** the most times a whole track may be read while the next setting looks for identical reads, so keep it above that number
-- **Extra matching reads to trust a track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until this many further reads match one, i.e. N+1 identical reads (cyanrip's `-Z`; **on by default**, 2, so three identical reads). See "How ripping works" below.
-- Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; the CRC is hardware-validated — a match means verified)
-- Verify FLACs after a rip (decode-test each output against its stored MD5)
-- **Overread:** *Read the disc's outermost samples (overread lead-in/out)* (off by default) — ask the drive to read the disc's real outermost samples instead of writing them as silence (cyanrip `-O`). Leave it off unless your drive is known to support overreading: on the Pioneer BDR-209D it stalled a rip for about 23 minutes.
-- **Also re-read tracks where only one frame matched AccurateRip** (on by default) — such a track is re-ripped like one that did not match at all.
-- **Verify every track with a second read (EAC-style Test & Copy)** (off by default) — runs the matching-reads check on the whole disc, not only on tracks that need it.
-- **MP3 VBR quality** (0–9, default 0 = LAME `-V0`) — used only when the output format is MP3.
-- **Move finished rips to** a library folder (empty = off) — once every post-rip check has settled (verification, transcode, checksums, the rip report), the album folder is filed into your library; a name collision lands in a "(2)" sibling, never an overwrite
-- Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
-
-*(Of the three toggles removed with the previous backend (KDD-18) — force overread, keep-going-on-track-failure, and continue-ripping-CD-Rs — the last two stay gone: cyanrip handles track failures and CD-Rs natively with no equivalent flag. Force overread returned in v0.5.0, rebuilt cyanrip-native as the Overread toggle above.)*
-
-After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
-
-### How ripping works
-
-Platterpus rips the disc **once at full speed** and checks every track against AccurateRip. A track that matches the database on that first read is already proven bit-perfect, so it's left alone. Only the tracks that *didn't* match (and, by default, a track where AccurateRip matched only one frame) are then **secure-re-ripped** — re-read until enough reads are identical — *Extra matching reads to trust a track* plus one, so three at the default of 2 (cyanrip's `-Z`, on by default; *Max retries* caps how many reads that may take) — and the better read is kept. So a clean disc is a single fast pass (roughly real-time), and the careful, slow work happens only where it's actually needed. If read errors appear, an adaptive read-speed ladder also re-reads the disc more slowly. The FLAC master is always kept and, unless disabled, decode-verified against its stored MD5; any non-FLAC output is derived from that verified master.
-
-See "EAC bit-perfect parity gaps" in [the TASKS archive](docs/archive/tasks-closed-to-2026-11-16.md) for the history.
-
----
-
-## First run
-
-When you launch Platterpus for the first time:
-
-1. **Set up Platterpus.** The first launch offers to install the ripping tools (the container and the ripper). Answer Yes; it takes a few minutes.
-
-   **Dependency check.** The GUI checks its seven dependencies in the background — cyanrip, metaflac, flac, ffmpeg, cd-paranoia, Picard, and the `musicbrainzngs` library — and interrupts only if a required one is missing. **Tools → Setup & Updates… → Check dependencies** shows them all, with one of three resolutions for anything missing:
-   - **Auto-install** (Picard): one OK and it runs `flatpak install --user`.
-   - **Pending installs:** a checklist for items that need batching or confirmation.
-   - **Manual install:** a copyable search string for anything that needs root (or a reboot) to install.
-
-2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if your model isn't recognised or you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Setup & Updates… → Set up drive…**.
-
-3. **Pick a drive.** The dropdown at the top of the window lists the optical drives detected on your system. Click Refresh if you plug in a drive after launch.
-
-4. **Insert a CD.** The GUI fetches the disc's MusicBrainz ID, looks it up, and shows the match status. If multiple releases match, a picker dialog appears. (The GUI does the MusicBrainz lookup itself and runs cyanrip offline, so the ripper never prompts you for anything — this picker is where any disambiguation happens.)
-
-5. **Edit metadata.** The track table is editable. Fix any tags that look wrong before you rip.
-
-6. **Click "Start rip."** Overall progress, a live progress bar on the track currently ripping, and per-track AccurateRip confidence appear as the rip runs. You can cancel mid-rip.
-
-7. **View the log.** When the rip finishes, **View log** opens the rip log in a read-only viewer inside the app; its **Open externally…** button hands it to your editor. If **Move finished rips to** is set in Settings, the album folder is filed into your library once every post-rip check has settled — the View log / report / folder buttons follow it to its new home.
-
-For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the menu — the GUI rips with placeholder `Track NN` tags and optionally launches Picard for you to fix them up.
-
----
-
-## Command-line usage (advanced)
-
-Platterpus is a GUI first, but it has a few command-line flags for diagnostics.
-**There is no `platterpus` command on your `PATH` unless you installed via `pipx`
-(Method B) or ran `dev-setup.sh` (Method C).** If you run the downloaded **AppImage** (the recommended install),
-the AppImage *is* the executable — pass the flags to it directly (its launcher
-forwards every argument straight to the app):
-
-> **First, check where the AppImage actually is.** If you accepted the first-run
-> offer to add Platterpus to your application menu, the app **moved itself** to
-> `~/Applications/platterpus-x86_64.AppImage` — it names the new path in the
-> dialog that follows, and there is nothing left in your Downloads folder. Every
-> `./platterpus-x86_64.AppImage …` command below then becomes
-> `~/Applications/platterpus-x86_64.AppImage …`; a `./`-relative command run from
-> where you downloaded it will say *No such file or directory*. If you
-> declined the offer, the file is still wherever you put it and `./` works from
-> that folder. When in doubt: `ls ~/Applications/platterpus-x86_64.AppImage`.
-
-```bash
-# Show the version and build fingerprint, then exit
-./platterpus-x86_64.AppImage --version
-
-# "Doctor" — a no-CD first-pass check of the ripping environment, then exit
-./platterpus-x86_64.AppImage --doctor
-
-# Install or update the ripping stack from the terminal, then exit: the
-# Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built
-# over it. Same steps as Tools → Setup & Updates… → Run setup…, and idempotent —
-# anything already in place reports "already present" and is left alone.
-./platterpus-x86_64.AppImage --install-ripper
-
-# Verify an already-ripped album against the CUETools Database (CTDB) and sweep
-# the CRC offset to confirm the read offset aligns with the pressing. No CD or
-# re-rip needed — it reads the FLACs already on disk.
-./platterpus-x86_64.AppImage --ctdb-calibrate "/path/to/Artist/Album/"
-
-# Audit every already-ripped album under a folder and exit. Read-only: no CD,
-# no re-rip, nothing modified. Reports, per album, which cyanrip built it,
-# whether the ripper said it finished, which disc of a multi-disc set the tags
-# came from, what pre-gap provenance was seen, whether the audio files the
-# log claims actually have bytes in them, and any audio file the log does not
-# account for, such as the partial file a cancelled rip leaves behind. Exits
-# non-zero if anything needs attention, so it is usable from a script.
-./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/
-
-# Run a batch of UI tests without a person in front of the machine. FILE holds
-# one step per line (open a dialog, check what is on screen, take a screenshot,
-# run the ripper and assert its exit code); the app opens its test console with
-# the file loaded and starts it immediately. The window is real and on screen —
-# this is "no person needed", not "no display needed". A failing step is recorded
-# and the batch keeps going, so you always come back to a complete transcript.
-# The test-script console (Tools → Advanced → Run test script…) has the same
-# thing as a saved setting, with an option to run it on every launch.
-./platterpus-x86_64.AppImage --run-script ~/my-tests.txt
-
-# Run the unattended hardware-session harness into a folder, then exit. One
-# artifact per step, and it never stops on a failure — a failing step is data.
-# Covers: both versions, --doctor, the ripper's own -j probe (which a rip never
-# sends; its -x cache probe is not run, because it goes on to rip the whole disc),
-# pre-gap screening, --audit-rips, an ETA sweep, report sizes, a fresh clone of
-# the ripper's source, handshake status and preflight. Send the whole folder.
-./platterpus-x86_64.AppImage --rig-session ~/rig-session-output
-
-# The cyanrip seam check on its own. `--rig-session` already runs this, so you
-# rarely need it directly — it exists because the cyanrip fork's own script calls
-# it, and both write into the same MANIFEST.txt so the two projects' evidence is
-# one upload rather than two piles. Read-only: nothing rips or re-encodes.
-# Inside a test script the same check is the `rig-check` verb.
-./platterpus-x86_64.AppImage --rig-check ~/seam-out \
-    --rig-check-album "/path/to/Album" --rig-check-device /dev/sr0
-
-# Compare two rips of the SAME disc track-by-track (which tracks are byte-for-
-# byte identical, which differ, and which rip is the better master). Points at
-# the .platterpus.json report each rip writes beside the FLACs.
-./platterpus-x86_64.AppImage --compare "/path/old/Album.platterpus.json" \
-                                        "/path/new/Album.platterpus.json"
-
-# Assemble the best of two rips of the same disc into a new folder — copies, per
-# track, whichever rip is the better master. Non-destructive: your two source
-# folders are never touched.
-./platterpus-x86_64.AppImage --assemble-best-of "/path/BestOf/" \
-    "/path/old/Album.platterpus.json" "/path/new/Album.platterpus.json"
-```
-
-**When to use `--compare`:** re-ripping a disc you already ripped? Compare the
-new report against the old one. Tracks that come back *identical* are rock-solid;
-a track whose result *changed* (e.g. an exact AccurateRip match last time,
-offset-variant this time) points to a read-stability problem on that track worth
-a closer look. The GUI does this automatically after a rip when it finds a prior
-rip of the same disc in your library, and shows a one-line summary in the
-results pane.
-
-**Path tip for `--ctdb-calibrate`:** a rip folder can contain a look-alike colon
-(`∶`, U+2236) where the album title had a `:` — cyanrip substitutes it so the
-folder name is filesystem-safe. Don't type a normal `:` (the path won't be
-found); let the shell supply the real character — `cd` into the folder and pass
-`"$PWD"`, or use tab-completion / a glob (`…/Every\ Breath\ You\ Take*`).
-
-**Keeping cyanrip up to date: the app does it, and you never type a commit.**
-Platterpus checks the fork's published releases a few seconds after launch and
-again from **Tools → Setup & Updates… → Check for cyanrip updates**. When the build it finds is one
-the handshake record in this repository has approved — which includes the common
-case of *your ripper isn't the build this Platterpus was verified against* — it
-offers **Install it now**, and one click builds and installs it. There is no SHA
-to copy and nothing to read first, because taking that build is what makes your
-rips report `approved`.
-
-The launch-time check is **silent unless it has something to offer**. It looks
-at the stable channel by default; tick **Offer beta (pre-release) cyanrip builds**
-in **Tools → Setup & Updates…** to include beta builds.
-
-When the newest published build is one **no round here has verified yet**, the
-app tells you, states plainly that every rip made with it would report its ripper
-as `unapproved`, and offers it only when it is the build a handshake round is
-testing, as **Install it anyway**, which is not the default button.
-
-**When to use `--install-ripper`:** to install another build the app knows, use
-**Tools → Setup & Updates… → Choose a build…**. `--install-ripper <commit>` does the
-same from a terminal (it is the route a rig script calls), and is the only way to
-install **a commit the app does not list**: a mid-round test pin, or going back to
-an older one. It prints the pin it is building and the build tag the
-finished binary must report, so you can see which ripper you ended up with.
-
-It takes a commit:
-
-```sh
-# ~/Applications/… if you let the app add itself to your menu (see the note at
-# the top of this section); ./platterpus-x86_64.AppImage if you declined.
-~/Applications/platterpus-x86_64.AppImage --install-ripper <commit>
-```
-
-Without an argument it builds the pin baked into this Platterpus build. With a
-commit it builds that commit through the same steps and checks that the binary
-reports `platterpus-fork-g<commit>`. It does not predict the version string for a
-commit Platterpus does not pin, and it tells you up front that rips with a
-non-pinned build report `ripper handshake approval: unapproved`.
-
-**For a script that wants the channel's newest build rather than a named one**,
-pass `latest` (the fork's stable channel) or `latest-beta` (its beta channel) in
-place of a commit. Platterpus reads the fork's release manifest, prints which
-commit that is, and installs it exactly as `--install-ripper <that commit>` would —
-including the note when no closed round has approved it. It is never the default,
-and if the manifest cannot be read it installs nothing rather than something else.
-
-If you installed with **`pipx`** (Method B), the same flags work on the
-`platterpus` command instead — e.g. `platterpus --doctor`.
-
 ---
 
 ## Troubleshooting
@@ -1132,6 +1149,12 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 
 ---
 
+## Testing status and release history
+
+Platterpus installs one pinned build of its own fork of cyanrip, and a new build becomes the default only after a *handshake round*: both projects check each other's work and both declare `GO`. Which build that is, and which round approved it, is shown in **Help → About Platterpus…** (the *Ripper* section) and in the generated map in [`DEPENDENCIES.md`](DEPENDENCIES.md#the-full-map-machine-readable-bomcdxjson). 0.7.100 is the first release with a full-green hardware acceptance run behind it (2026-10-07), made on 0.6.66 with the fork build `.21`; round 31 approved that pair, and 0.7.103 is the first release that installs `.21` by default, and passed its own full-green run with it on 2026-10-12; 0.7.104 passed one on 2026-10-13 with `.22`, round 32 approved that pair on 2026-10-14, and 0.7.105 is the first release that installs `.22` by default; round 33 approved `.22` again with 0.7.105, on 2026-10-15, from that release's own Full run of 2026-10-14 (425 passed, none failed; not yet graded in the ledger); round 34 approved the fork's `.23` (upstream cyanrip 0.9.4-rc3) with 0.7.106 on 2026-10-16, from that release's own Full run (426 passed, none failed; not yet graded in the ledger), and 0.7.107 is the first release that installs `.23` by default; 0.7.108 reads the disc's own ISRC from the fork's `.24`, which round 35 reviewed first, and 0.7.109 also reads the shape the fork's `.25` prints for a code it refuses; 0.7.110 reviewed `.25`, to which round 35 moved and which it approved on 2026-10-20, and stops a CTDB match against a minority entry showing as verified. Each round since has reviewed and approved the fork's next build the same way, through 0.7.125 and round 40 (closed 2026-11-16); the build installed by default and any build under review are named in **Help → About Platterpus…** (the *Ripper* section). 0.8.1 needs a second full-green pass on another machine and distro ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
 ## Documentation for contributors
 
 Core project documents (in this directory):
@@ -1184,4 +1207,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.7.126.*
+*Last updated for Platterpus v0.7.127.*

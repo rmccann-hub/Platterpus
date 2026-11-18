@@ -85,6 +85,13 @@ from platterpus.cancel_cause import CancelCause
 from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.error_positions import report_block as error_positions_block
+from platterpus.finish_wording import (
+    NO_DIAGNOSIS,
+    cancelled_folder,
+    cancelled_status,
+    failure_banner_text,
+    stall_next_step,
+)
 from platterpus.first_pass_reread import snapshot as first_pass_snapshot
 from platterpus.isrc_provenance import report_block as isrc_report_block
 from platterpus.offset_config import is_offset_configured
@@ -469,6 +476,16 @@ def _merge_shipped_track(
             # `not_present`: unknown, never another read's time.
             kept_read_began=shipped.kept_read_began,
             kept_read_began_state=shipped.kept_read_began_state,
+            # The `Other read:` lines describe the reads `rip_count` counts, so
+            # they are the shipped pass's, never the album pass's beside the
+            # shipped read count. The record counts agreeing reads from them
+            # (`track_record_reads._converged_agreement`): round 41's secure
+            # re-read gave track 3 the securing pass's 4 reads and the album
+            # pass's empty lines (its 5 reads all agreed), which on a `.34` the
+            # record reads would say "4 agreeing of 4" where one read of the
+            # four was 061D2412 (the fork's round 41 lap 5 S18).
+            other_reads=shipped.other_reads,
+            other_reads_not_kept=shipped.other_reads_not_kept,
         )
     if single_read and shipped is not None:
         return replace(
@@ -1222,7 +1239,7 @@ class RipMixin(MainWindowShared):
             )
         self._rip_progress.set_stall_notice(
             f"⚠ No progress for {format_duration(idle)} — the drive may be stuck. "
-            f"Cancel or Force stop to recover.{overread_hint}"
+            f"{stall_next_step(self._rip_cancelled)}{overread_hint}"
         )
 
     def _on_rip_cancel(self, cause: CancelCause | None = None) -> None:
@@ -1265,6 +1282,9 @@ class RipMixin(MainWindowShared):
         )
         self._rip_worker.cancel()
         self._force_stop_timer.start(_FORCE_STOP_COUNTDOWN_MS)
+        # The status above names Force stop, so it is shown from now (UX review
+        # M4; `RipControls._refresh_button_state` says why not before).
+        self._rip_controls.set_cancel_requested(True)
 
     def _auto_force_stop(self) -> None:
         """Countdown elapsed after Cancel — free the DEVICE, and never eject.
@@ -1717,7 +1737,14 @@ class RipMixin(MainWindowShared):
         # Remember the last hard error so a no-log failure's minimal report can
         # carry it as the outcome's failure hint (see _write_minimal_failure_report).
         self._last_rip_error = message
-        self._rip_progress.set_status(f"Error: {message}")
+        # A failure is shown at the error level, with its ✖ and the
+        # dependency's own sentence first, on the verdict banner beside an
+        # Open log button (UX review E1); the status line carries the mark too.
+        # `_on_rip_finished` words it again with the worker's hint, if any.
+        self._rip_progress.set_status(f"✖ Error: {message}")
+        self._rip_progress.show_failure(
+            failure_banner_text(message, "", LOG_PATH), LOG_PATH
+        )
 
     def _on_rip_finished(self, success: bool, log_path: str) -> None:
         """The rip subprocess exited."""
@@ -2118,10 +2145,26 @@ class RipMixin(MainWindowShared):
         # Default status; replaced with a fidelity summary below if the
         # rip succeeded and we can parse its log. Distinguish a user
         # cancellation from a genuine failure (both report success=False).
-        if success:
-            status = "Done."
+        if success and self._rip_cancelled:
+            # Cancelled after the album pass finished (the securing pass was
+            # stopped). The fidelity line below says the same at length once the
+            # log is read; until then, and if it cannot be read, the run is still
+            # called cancelled, never "Finished".
+            status = "Rip cancelled after the read finished."
+        elif success:
+            # "Finished", with no mark: the verdict is not known yet, and the
+            # fidelity line below replaces this with one carrying the verdict's
+            # mark once the log is read (UX review V1). Not "Done.", which read
+            # as "fine" over an amber banner.
+            status = "Finished."
         elif self._rip_cancelled:
-            status = "Rip cancelled by user. Partial files may remain."
+            # Say WHERE, and offer the folder (UX review E2): "Partial files may
+            # remain." was honest and left the user to find them.
+            output_dir = params.output_dir if params is not None else None
+            status = cancelled_status(log_path, output_dir)
+            self._rip_progress.offer_cancelled_folder(
+                cancelled_folder(log_path, output_dir)
+            )
         else:
             # Prefer an actionable sentence over the bare "Rip failed", so the user
             # knows what to do next — and read BOTH sources, in the same order the
@@ -2139,17 +2182,20 @@ class RipMixin(MainWindowShared):
             # Falls back to a sentence that at least names the log, rather than four
             # words that name nothing.
             hint = (self._rip_worker.failure_hint if self._rip_worker else "") or ""
-            status = (
-                hint.strip()
-                or (getattr(self, "_last_rip_error", "") or "").strip()
-                or f"Rip failed — no diagnosis was captured. See {LOG_PATH}"
-            )
+            error = (getattr(self, "_last_rip_error", "") or "").strip()
+            status = hint.strip() or error or f"{NO_DIAGNOSIS} {LOG_PATH}"
+            # The banner says it at the error level, the error's own words first
+            # and the hint after, beside an Open log button (UX review E1).
+            banner = failure_banner_text(error, hint, LOG_PATH)
             # Since ruling C1 a securing pass can follow a failed album pass: say
             # which pass exited how, so the securing pass's code is not read as
             # the reason the album pass failed (`rip_pass_exit`).
             exits = PassExits.from_outcome(self._last_outcome)
             if exits.securing_started:
                 status = f"{status} ({exits.phrase()})"
+                banner = f"{banner} ({exits.phrase()})"
+            status = f"✖ {status}"
+            self._rip_progress.show_failure(banner, LOG_PATH)
         # What cyanrip's own record says, and where it disagrees with us (W6).
         record_says = status_suffix(self._last_outcome)
         self._rip_progress.set_status(status + record_says)
@@ -2209,6 +2255,9 @@ class RipMixin(MainWindowShared):
                         expected_track_total=expected_total,
                         cancelled=finished_status == "cancelled",
                         replaced_reads=self._replaced_reads_of(rip_log),
+                        # The banner's level, set by `set_rip_log` just above, so
+                        # the line leads with the banner's own mark (V1).
+                        verdict_level=self._rip_progress.verdict_level(),
                     )
                     self._rip_progress.set_status(status + record_says)
                     # A rip that MATCHED AccurateRip confirms the applied read

@@ -209,8 +209,11 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
                 "applies it to cyanrip on every rip.\n\n"
                 "Your drive's offset comes from the AccurateRip drive list "
                 "(pre-filled below when your drive is recognised) or you can "
-                "enter it by hand. On-disc auto-detection isn't available with "
-                "this backend."
+                # "the ripper", not "this backend": a user knows they rip with
+                # something, and has never been told it is a "backend" (UX review
+                # of 0.7.127, F5 / W2).
+                "enter it by hand. The ripper can't measure it from a disc, so "
+                "there is no auto-detect here."
             )
         # Every label built from a value STATES its text format: Qt's default,
         # AutoText, treats text as HTML when its first line happens to hold a
@@ -305,6 +308,15 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         self._results_label.setReadOnly(True)
         self._results_label.setAccessibleName("Drive setup results")
         root.addWidget(self._results_label, stretch=1)
+        # HIDDEN UNTIL IT HAS SOMETHING TO SAY, when no offset finder exists. The
+        # box holds a detection's or a cache check's outcome; with no offset
+        # finder (cyanrip) it sat empty, ~200 px of white between the
+        # explanation and the field the user came here to fill (UX review of
+        # 0.7.127, F5). A cache check's result still lands in it and shows it
+        # (`_show_results`). With an offset finder the box stays, because Detect
+        # is the main action there and its output is what the user waits for.
+        if not self._can_detect:
+            self._results_label.setVisible(False)
 
         # --- Manual fallback ---------------------------------------------------
         # Auto-detection needs a disc that's in AccurateRip; a user with only
@@ -361,7 +373,21 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         manual_row.addWidget(self._offset_spin)
         self._save_offset_button: QPushButton = QPushButton("&Save offset", self)
         self._save_offset_button.clicked.connect(self._on_save_offset_clicked)
+        # THE DEFAULT BUTTON: saving the offset is what this window is for, so
+        # Enter in the offset field saves it (UX review of 0.7.127, F5). Before,
+        # the default fell to whichever push button Qt picked.
+        self._save_offset_button.setDefault(True)
         manual_row.addWidget(self._save_offset_button)
+        # "✓ Offset applied", beside the field, once a save has gone through: the
+        # status line further down said so, but out of sight of the button the
+        # user just pressed. Cleared the moment the field or the tick-box no
+        # longer matches what was saved, so it never vouches for an unsaved
+        # value. Glyph AND words, never colour alone (accessibility convention).
+        self._saved_label: QLabel = QLabel("", self)
+        self._saved_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._saved_label.setAccessibleName("Read offset saved")
+        manual_row.addWidget(self._saved_label)
+        self._offset_spin.valueChanged.connect(self._clear_saved_mark)
         manual_row.addStretch(1)
         root.addLayout(manual_row)
 
@@ -409,6 +435,30 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         if initial.action != cache_check_plan.START:
             self._set_auto_note(initial.message, refit=False)
         self._apply_content_derived_minimum_size(root)
+        if self._results_label.isHidden():
+            # No results box to give the spare height to, so open at the height
+            # the content needs rather than at the 460 px chosen with the box in
+            # mind; otherwise Qt spreads the spare height as gaps between rows.
+            self.resize(self.width(), self.minimumHeight())
+
+    def _show_results(self, summary: str) -> None:
+        """Put ``summary`` in the results box, revealing the box if it was hidden.
+
+        Revealing it adds a row, so the minimum is re-derived and the window
+        re-fitted to the screen — the same steps `_set_auto_note` takes when its
+        line appears.
+        """
+        self._results_label.setPlainText(summary)
+        if not self._results_label.isHidden():
+            return
+        self._results_label.setVisible(True)
+        self._apply_content_derived_minimum_size(self._root_layout)
+        if self.isVisible() and not self.isMaximized():
+            self._fit_content_to_screen()
+
+    def _clear_saved_mark(self) -> None:
+        """The field or the tick-box changed: "✓ Offset applied" no longer holds."""
+        self._saved_label.clear()
 
     def _apply_content_derived_minimum_size(self, root: QVBoxLayout) -> None:
         """Stop the dialog being shrunk to a size that clips its own text.
@@ -526,7 +576,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
             outcome = "Done." if result.ok else "Finished with issues."
             summary = _format_result(result)
         self._status_label.setText(outcome)
-        self._results_label.setPlainText(summary)
+        self._show_results(summary)
         # Detection ran for up to a minute with focus elsewhere — announce the
         # outcome + summary focus-safely (gap #4).
         announce(self._status_label, f"Drive setup: {outcome} {summary}")
@@ -567,6 +617,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         self._apply_offset_check.blockSignals(True)
         self._apply_offset_check.setChecked(True)
         self._apply_offset_check.blockSignals(False)
+        self._saved_label.setText("✓ Offset applied")
         confirmation = f"Saved read offset {value:+d} — it will be used for rips."
         self._status_label.setText(confirmation)
         # The save confirmation lands in a passive label — announce it so a
@@ -576,6 +627,9 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
     def _on_apply_offset_toggled(self, applied: bool) -> None:
         """Tell the window, and say what the next rip will now do."""
         self.offset_applied_changed.emit(applied)
+        if not applied:
+            # Saved, but no longer applied: the mark beside the field would lie.
+            self._clear_saved_mark()
         confirmation = (
             "Rips will apply the saved read offset."
             if applied

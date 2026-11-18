@@ -1135,8 +1135,15 @@ def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> Non
     only the pair rules out both.
     """
     quadratic = r"^\s*(?P<name>.+?)\s*,\s*(?P<offset>-?\d+)\s*$"
+    # Timed on its known-quadratic input only, a run of spaces (`\s*` takes the
+    # rest of the run at every step of `.+?`). With every fill and `stop_above`,
+    # the first fill to clear the line ended the search, and on a busy runner a
+    # LINEAR fill could clear it on noise: main's py3.13 leg, 2026-11-16, run
+    # 43952916816, recorded 75 us at 2,000 characters, which is a linear search,
+    # and failed the floor check below. The proof then rested on the wrong fill,
+    # and passing for the wrong reason is worse than failing.
     quad = _settled(
-        lambda: _worst_growth(quadratic, stop_above=_MAX_GROWTH),
+        lambda: _worst_growth(quadratic, stop_above=_MAX_GROWTH, shapes=(_SPACES,)),
         lambda ratio: ratio > _MAX_GROWTH,
     )
     quad_ratio, quad_large_s = quad[-1].ratio, quad[-1].large_s

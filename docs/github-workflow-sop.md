@@ -32,6 +32,91 @@
 
 ---
 
+## 0. This repository's commit and PR practice — `CLAUDE.md` *Commit & PR hygiene* in full (moved 2026-11-16)
+
+`CLAUDE.md` keeps the rules that bite and wins wherever this file differs; the full text of its *Commit & PR hygiene* section, as it stood before the R32 trim, is here.
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Project operations → Commit & PR hygiene), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+The general GitHub mechanics + etiquette live in
+**[`docs/github-workflow-sop.md`](github-workflow-sop.md)** (identity/SSH, fork+PR, atomic
+commits, the seven commit-message rules, PR anatomy, merge strategies, conflict resolution) — read
+it for *upstream* contributions especially. **This section is the authority for *this* repo and wins
+wherever the generic SOP differs.** What we actually do:
+
+- **Atomic commits.** One logical change per commit — don't mix a fix with an unrelated refactor.
+  Small, test-green units keep review, `git bisect`, and `git revert` surgical.
+- **Conventional-commit subject:** `type(scope): imperative summary` — **lowercase** after the
+  colon, no trailing period, concise (aim short, but the `type(scope):` prefix + a release subject
+  legitimately run past 50 chars — clarity over a hard cap). Types in use: `feat`, `fix`, `docs`,
+  `test`, `refactor`, `style`, `chore`, `release`, and `ci` and `build`, which the `commit-subjects`
+  job also accepts. Blank line, then a body wrapped ~72 cols that explains **what and why, not how**
+  (the diff shows how).
+- **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the
+  `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
+- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for
+  a pure historical-record commit. **The exemption is strictly that** (maintainer ruling,
+  2026-07-21): contributor/CI-facing changes — type annotations, CI config, dev tooling, refactors —
+  are **not** exempt and get a bullet like any other change; "pure historical record" means the
+  commit changes nothing but the record itself (e.g. a session-log catch-up). CI backstops this.
+- **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`.
+  Prefer `git switch` over `git checkout` for branch ops. **GitHub deletes a merged head branch
+  automatically** (the repository setting, on since 2026-09-30), so after a merge the session branch
+  is gone from the remote: start the next change with `git switch -C <branch> origin/main`, and the
+  push recreates it.
+- **Every PR merges into `main` with a merge commit, never a squash** (session branches since
+  2026-09-26, on the maintainer's instruction that every branch be deletable without consequence;
+  every PR since 2026-10-12, when the owner turned squash and rebase merging off).
+  `git log --first-parent main` still shows one node per complete, deployable change. The reason is
+  the citations: our laps, TASKS and session log cite session-branch SHAs, and the fork's laps cite
+  them too. A squash puts one new commit on `main` and none of the branch's, so each citation lasted
+  only as long as its branch. **47 had already been stranded**, held only by GitHub's
+  `refs/pull/N/head`, which a plain clone does not fetch. They were brought back with
+  `git merge -s ours` (history in, tree unchanged). `tests/test_cited_commits_are_reachable.py`
+  turns `main` red if a squash strands one again, and its message names the repair. **Every pull
+  request merges with a merge commit, Dependabot's included: squash and rebase merging are off in
+  the repository settings** (the owner's decision, 2026-10-12). The `changelog` job's Dependabot
+  exemption therefore keys on the pull request's author or its `dependabot/*` branch, and on a push
+  to `main` on the commits the push brings in (every non-merge commit Dependabot's), never on the
+  head commit's author, which a merge commit makes whoever merged
+  (`tests/test_changelog_dependabot_exemption.py`). Merge only when CI is green — **all twelve gating
+  jobs**: the `pytest` 3.12–3.14 matrix (coverage floor on 3.14), **`ui-conformance`** (since
+  2026-11-02), `ruff` lint/format, `mypy`
+  typecheck, the changelog check, media-guard, `pip-audit`, **`gitleaks`**, **`sbom`**,
+  **`lock-check`** and **`lock-install`** (both required since 2026-10-28), and
+  **`tests-touched`** (gating since 2026-08-20, and omitted from this list until 2026-08-27 — the
+  same file said so under *CI / release* two sections above, so this was one document disagreeing
+  with itself). Don't open a PR unless asked.
+- **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use
+  **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix
+  style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no
+  force-push, no branch delete, no tag push**; releases go via the `release.yml`
+  `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply
+  — the session branch is assigned; **(5) `main` and the `v*` tags are protected by repository
+  rulesets** (the owner's decision, **2026-10-12**, replacing the decline of 2026-09-11, whose
+  premise no longer holds: this repository is public, and on GitHub Free a public repository gets
+  rulesets at no cost). A **default-branch ruleset** blocks deletion and force pushes and requires a
+  pull request with **no approvals**, with these required status checks: `lint`, `typecheck`,
+  `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, `test (py3.11)` to
+  `test (py3.14)` (`test (py3.11)` left with the 3.11 leg, KDD-46), and, since 2026-10-28, `lock-check` and `lock-install` (14 in all, read from
+  `GET /repos/rmccann-hub/Platterpus/rules/branches/main` that day), and since 2026-11-02
+  `ui-conformance` (15 in all, read from the same endpoint at 22:48 UTC that day); read the live
+  list rather than this one. A **release-tag ruleset** protects `v*`. A third, on the **`evidence` branch**
+  (2026-10-14, HR-2 point 3), blocks its deletion and force pushes. What every session must keep
+  true under them: every change lands through a pull request (it already does); nothing pushes to
+  `main`, moves or deletes a `v*` tag, or force-pushes; **merge commits are the only merge method**
+  (squash and rebase are off, 2026-10-12), so the ruleset must not require linear history, which
+  would forbid the one method left; and the tag ruleset may block updates and deletions but **not
+  creation**, because `release.yml` creates each tag as `github-actions[bot]`: since 2026-10-27 it
+  pushes an annotated tag right before it publishes the draft (`--verify-tag`), where before it let
+  GitHub create a lightweight one on publish. A Dependabot pull request that changes a dependency
+  fails `test` **by design** (the generated `bom.cdx.json` goes stale, and `ruff`/`mypy` are pinned
+  by rule #11): carry the bump on a session branch with the regenerated files and a CHANGELOG
+  bullet, then close Dependabot's. The full check of what the rulesets touch: `PLANNING.md` KDD-43.
+  Read their live state from `gh api repos/rmccann-hub/Platterpus/rulesets`, not from this sentence.
+  (6) **merge commits, not the SOP's favoured squash** (see the bullet above): a squash strands
+  every commit a lap cites once its branch is deleted.
+
 ## 1. Local system configuration & identity
 
 ### 1.1 Global identity + editor
@@ -219,4 +304,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.7.126.*
+*Last updated for Platterpus v0.7.127.*

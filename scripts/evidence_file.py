@@ -292,6 +292,24 @@ def commit(clone: Path, out: Path, folder: str, parent: str, date: str) -> str:
     return sha
 
 
+def filing_hosts(
+    this_machine: Sequence[str], extra: Sequence[str], skip: Sequence[str]
+) -> list[str]:
+    """The hostnames a filing replaces: this machine's and ``extra``, less ``skip``.
+
+    **Why ``skip`` exists (2026-11-17).** The bundle is exported on the owner's
+    rig, which replaces its own hostname then; the filing tool adds the FILING
+    machine's name in case the two are one machine. In the cloud session that
+    files our evidence, the machine is called ``vm``, which is also the prefix
+    the app writes on every drive-profile key (``drive_profiles.py``, the
+    ``vm:`` vendor-and-model fingerprint), so ``vm:PIONEER …`` was rewritten to
+    ``host:PIONEER …`` in a filed app log. A name the operator names here is
+    left alone, and the filing says so on its last line.
+    """
+    skipped = {h.lower() for h in skip}
+    return [h for h in (*this_machine, *extra) if h.lower() not in skipped]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     sub = parser.add_subparsers(dest="mode", required=True)
@@ -304,6 +322,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     s.add_argument(
         "--names", type=Path, help="the owner's names, kept outside the repository"
+    )
+    s.add_argument(
+        "--skip-host",
+        action="append",
+        default=[],
+        help=(
+            "a hostname NOT to replace: the filing machine's own name when it is "
+            "also a word the app writes, such as `vm`, the drive-profile prefix"
+        ),
     )
     c = sub.add_parser("commit")
     c.add_argument("out", type=Path)
@@ -321,10 +348,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.out,
             args.prefix,
             homes=this_machines_homes(),
-            hosts=[*this_machines_hostnames(), *args.host],
+            hosts=filing_hosts(this_machines_hostnames(), args.host, args.skip_host),
             names=names,
         )
         print(write_record(args.out, filed, skipped, names is not None))
+        for host in args.skip_host:
+            print(f"not replaced, on purpose: {host!r} (--skip-host)")
         bad = [
             f
             for f in filed

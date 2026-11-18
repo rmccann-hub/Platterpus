@@ -22,6 +22,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from platterpus.paths import LOG_PATH
 from platterpus.ui import failure_text
 
@@ -165,7 +167,14 @@ def test_a_message_that_says_see_the_log_also_names_it() -> None:
     # FLOOR: the pattern must still be finding the phrasing at all. If a refactor
     # rewords every site, this test would otherwise pass by matching nothing and
     # stop protecting anything.
-    assert examined_matches >= 3, (
+    #
+    # 3 -> 2 on 2026-11-17: the setup window's "Re-run setup, or send the log if it
+    # fails again" became an **Open log** button (UX review of 0.7.127, F3), so one
+    # real site left. The floor counts real sites; it is not a target to keep by
+    # writing the phrase back. That the pattern still RECOGNISES the phrasing is
+    # proven separately, on fixed strings, by
+    # `test_the_see_the_log_pattern_recognises_its_phrasings` below.
+    assert examined_matches >= 2, (
         f"the 'see the log' pattern matched only {examined_matches} time(s) — it has "
         "stopped recognising how these messages are written, so a pass proves nothing"
     )
@@ -174,6 +183,24 @@ def test_a_message_that_says_see_the_log_also_names_it() -> None:
         + ", ".join(offenders)
         + ". Append platterpus.ui.failure_text.LOG_POINTER."
     )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '"Re-run setup, or send the log if it fails again."',
+        "'See the log for details.'",
+        '"Please attach the log to a bug report."',
+    ],
+)
+def test_the_see_the_log_pattern_recognises_its_phrasings(source: str) -> None:
+    """The sweep's pattern, proven on fixed strings rather than on the source tree.
+
+    The sweep's own floor counts real sites, which fall as sites are fixed; this
+    keeps "the pattern still recognises the phrasing" from resting on how many
+    unfixed sites happen to remain.
+    """
+    assert _VAGUE_LOG_REFERENCE.search(source), source
 
 
 def test_the_shared_pointers_name_the_resolved_path() -> None:

@@ -81,8 +81,8 @@ the other side's wrong code, because nothing put them in the same row.
 >
 > **The cyanrip column was `?` throughout below when this was written**, not
 > because we assumed nothing but because we had not asked yet. Their half arrived
-> from the round-8 return file on, and all 17 rows below now read `HAVE` in it —
-> counted by reading the column in round 30, not from this sentence.
+> from the round-8 return file on, and all 24 rows of §1 now read `HAVE` in it —
+> counted by reading the column in round 41, not from this sentence.
 
 ---
 
@@ -97,7 +97,7 @@ Twenty-one flags reach the argv builder's rip path (`adapters/cyanrip_backend.py
 | `-o` | format | `str` enum | **always `flac`** | archival master; every other format is transcoded host-side, so the ripper is never asked for a lossy encode | HAVE |  HAVE |
 | `-D` | folder_scheme | `str`, a naming scheme | expanded per album by `src/naming.c` | **"Directory naming scheme"** (`src/cyanrip_main.c` option table), not a plain output directory: a scheme whose components are expanded per album, continued per track by `-F`. An empty leading component once made a multi-component scheme resolve **absolute**, which a reader of the old wording here would not have looked for | HAVE |  HAVE |
 | `-a` | tag blob | `str`, colon-delimited, **backslash-escaped** | no newline, no NUL, bounded. Every `:` `=` `\` `'` in a *value* is escaped; the blob's structure (one `key=value` per unescaped `:`, exactly one unescaped `=` per field, no dangling escape) is refused at our argv chokepoint. Measured: an **unescaped** `:` does not fail, it silently truncates the value | the whole tag set as one argument | HAVE — escape shipped lap 31 |  HAVE — **and there IS an escape: `\\:`. See §7.** |
-| `-t` | track list | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required. Your reading was right and understated: it did not only read past the string, it **published** what it read as track metadata. **Refused since `3923dee`** — `Missing "=" in track metadata "%s"`, exit 64 (1 until round 35's exit classes) | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — fixed `3923dee`, measured in §7, regression test in `sc_cli` |
+| `-t` | track metadata | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required. Your reading was right and understated: it did not only read past the string, it **published** what it read as track metadata. **Refused since `3923dee`** — `Missing "=" in track metadata "%s"`, exit 64 (1 until round 35's exit classes) | a track's metadata, as cyanrip's `--help` says: `Track metadata as N=key=value:key=value (repeatable)`; which tracks are ripped is `-l`'s. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — fixed `3923dee`, measured in §7, regression test in `sc_cli` |
 | `-c` | disc position | `int/int` | both ints, `number <= total`, else the flag is dropped | `DISCNUMBER` / `TOTALDISCS` | HAVE |  HAVE |
 | `-s` | offset | `int`, samples | drive-plausible range | read offset correction | HAVE |  HAVE — **now bounded ±1048576**, §7 |
 | `-S` | speed | `int` multiplier | bounded; `0` = drive max | read speed, fixed mode only | HAVE |  HAVE |
@@ -106,14 +106,16 @@ Twenty-one flags reach the argv builder's rip path (`adapters/cyanrip_backend.py
 | `-l` | track number(s) | `int` list | must name tracks that exist on the disc | rip only these tracks. **Also how the auto-fix re-rip runs** — a second invocation with `-l <n>`, which is the structural signal that a pass is a subset rather than the whole album (it is what our progress model now keys on) | HAVE |  HAVE |
 | `-G` | — | flag | conditional | disable cover-art embedding; we embed host-side | HAVE |  HAVE |
 | `-O` | — | flag | **opt-in only** | overread into lead-in/lead-out. Their own help says it *"may freeze if unsupported by drive"*, so it is never on by default | HAVE |  HAVE |
-| `-F` | — | flag | conditional | — *(transcribed from the builder; semantics need confirming, see §5)* | HAVE |  HAVE — track naming scheme, §7 |
-| `-I` | — | flag | **never with `-J`** | — *(mutual exclusion recorded in `dependency-contracts.md`; we should state why)* | HAVE |  HAVE — refuses with `-J`, §7 |
+| `-F` | track_scheme | `str`, a naming scheme | conditional | **"Track naming scheme"** (`src/cyanrip_main.c` option table), continuing `-D`'s scheme per track | HAVE |  HAVE — track naming scheme, §7 |
+| `-I` | — | flag | **never with `-J`** | Only print CD and track info | HAVE — sent only by our disc-info probe, as `-I -N` (`adapters/cyanrip_backend.py:170`), never with `-J`, which you refuse |  HAVE — refuses with `-J`, §7 |
 | `--consumer` | tag | `str`, `<name>/<version>` | no whitespace, contains `/` | who we tell them we are. Validated because it is written verbatim into an archival log as the identity of the producing program | HAVE |  HAVE |
 | `--prefer-disc-isrc` | — | flag | sent only to a build whose provider contract lists it in P1, and only with the `Disc ISRC` setting on | a code the disc returned is what the files and the `Metadata:` block's `ISRC:` carry, over the one `-t` gave, track by track; a track whose disc gave none keeps ours, and the one we gave stays in `Invoked as:` | HAVE |  HAVE — .24, 93afa15 |
 | `-T` | mode | `str` enum | always `unicode` | how cyanrip replaces characters a file name cannot hold; pinned to cyanrip's default so a moved default cannot rename files | HAVE |  HAVE |
 | `-U` | — | flag | always present | turns off the Cover Art DB query, which cannot succeed under `-N`; the log loses only that query's line (your round 30 lap 5 S15) | HAVE |  HAVE |
 | `-W` | — | flag | always present | keeps a pre-emphasised disc's own samples, and the cue says `FLAGS PRE`, instead of de-emphasising | HAVE |  HAVE |
 | `--diagnostics` | file | `str`, a file name | `cyanrip-diagnostics-<stamp>.json`, unique per rip, in the rips folder | cyanrip's machine-readable record of the rip, the one artifact of a run refused before its log opens | HAVE |  HAVE |
+| `--prefer-accuraterip-match` | — | flag | sent only to a build that lists it (`.27` and later; `fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH`) | At the -Z repeat limit, keep the read AccurateRip matches at the highest confidence, where one does (default: false) | YES, on every rip, to `.27` and later |  HAVE |
+| `--reread-until-accuraterip` | an AccurateRip confidence | `int` | a whole number from 1 to INT32_MAX, checked before it is sent; we send only `2`, only with `-Z`, only to a build that lists it (`adapters/reread_until_accuraterip_args.py`) | Under -Z, read on past an agreement AccurateRip does not match, on a track it holds at this confidence or more, until a read it matches at this confidence or a limit (default: 0) | YES: `2`, on every pass we send with `-Z`, to `.31` and builds whose contract lists it; never without `-Z`. |  HAVE |
 
 ## 1b. Flags of ours the rip path does not send
 
@@ -131,26 +133,24 @@ has no row in §1, §1b or §2.
 | `-h`, `--help` | Print this text | NO: we never print help; our probes read --version (§2) | HAVE |
 | `--stall-secs` | Seconds a frame read must stall before reporting liveness (0 disables) (default: 10) | NO: your default is kept | HAVE |
 | `--cache-probe` | Measure the drive's readback cache before ripping (costs seconds; with -I to measure without ripping) (default: false) | NO: not in a rip; our acceptance script's section P and --rig-check send it with -I, probe-only | HAVE |
-| `--prefer-accuraterip-match` | At the -Z repeat limit, keep the read AccurateRip matches at the highest confidence, where one does (default: false) | YES, on every rip, to `.27` and later | HAVE |
 | `--reread-time-limit` | Seconds a -Z track's reads may take, checked between whole-track reads; then no further read starts (default: 0) | YES: on the securing pass only, to `.28` and later: the largest of the re-read tracks' budgets, each the greater of 5 × the track's length and 2 × its album-pass read time, in seconds; not sent when any track's budget cannot be computed. | HAVE |
-| `--reread-until-accuraterip` | Under -Z, read on past an agreement AccurateRip does not match, on a track it holds at this confidence or more, until a read it matches at this confidence or a limit (default: 0) | YES: `2`, on every pass we send with `-Z`, to `.31` and builds whose contract lists it; never without `-Z`. | HAVE |
-| `--keep-every-read` | Save every distinct -Z read of a track, the kept one too, as WAV in this folder | NO: not sent yet; our rebuild of a disputed second from several reads (TASKS R134) is what will send it, once a release of yours carries it | HAVE |
+| `--keep-every-read` | Save every distinct -Z read of a track, the kept one too, as WAV in this folder | NO: not sent yet; our rebuild of a disputed second from several reads (TASKS R134) is what will send it; your `.30` and later carry it | HAVE |
 | `--read-vendor-settings` | Ask the drive for its settings with its vendor's read-only query, where cyanrip has one for its vendor (Pioneer's settings block), into the --diagnostics record (default: false) | YES: our round 38 drive-test scripts send it on their first rip (`drivemode.txt`, `drivespeed.txt`); no app rip sends it yet (TASKS R137) | HAVE |
 | `--encoder-option` | Pass key=value to every output's encoder, as FFmpeg names its options (repeatable) | NO: our rips write FLAC at your encoder's defaults; other formats are derived from the FLAC master by our own transcoder | HAVE |
 | `-p`, `--pregap` | Track pregap handling: N=default\|drop\|merge\|track (repeatable) | NO: your default pregap handling is kept; a per-track choice is not offered | HAVE |
 | `-P`, `--paranoia` | Paranoia level (0..max, or 'none'/'max') | NO: your default level is kept; a lower level is not offered | HAVE |
-| `-H`, `--hdcd` | Enable HDCD decoding (default: false) | NO: not in a rip; our acceptance script's section P3 sends it with -E and with -W | HAVE |
+| `-H`, `--hdcd` | Enable HDCD decoding; a disc without HDCD comes out 6.02 dB quieter (default: false) | NO: not in a rip; our acceptance script's section P3 sends it with -E and with -W | HAVE |
 | `-E`, `--force-deemphasis` | Force CD deemphasis (default: false) | NO: a rip keeps the disc's own samples with -W (§1); section P3 sends -E once, to test the other side | HAVE |
 | `-K`, `--no-replaygain` | Disable ReplayGain tagging (default: false) | NO: we keep and read your ReplayGain tags | HAVE |
-| `-X`, `--no-data-tracks` | Skip data tracks instead of ripping them to raw binaries (default: false) | ? | HAVE |
+| `-X`, `--no-data-tracks` | Skip data tracks instead of ripping them to raw binaries (default: false) | NO: your default is kept; a data track is copied to its `.bin`, and our report records its CRC32 and sector-EDC verdict as fields of its own (`rip_report.py`, the data-track fields) | HAVE |
 | `-b`, `--bitrate` | Bitrate of lossy files in kbps (default: 256.000000) | NO: lossy files are derived from the FLAC master by our own transcoder | HAVE |
 | `-L`, `--log-scheme` | Log file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | NO: your default names are kept; the album folder comes from -D (§1) | HAVE |
 | `-M`, `--cue-scheme` | CUE file name scheme (default: {album}{if #totaldiscs# > #1# CD\|disc\|}) | NO: your default names are kept; the album folder comes from -D (§1) | HAVE |
 | `-J`, `--cue-only` | Only generate and print a CUE sheet, don't rip (default: false) | NO: we never ask for a cue without a rip | HAVE |
 | `-R`, `--release` | MusicBrainz release: 1-based index or ID string | NO: our MusicBrainz lookup chooses the release, and its tags reach you with -a and -t under -N | HAVE |
-| `-C`, `--cover` | Cover art: title=path (or N=path per-track, repeatable) | ? | HAVE |
+| `-C`, `--cover` | Cover art: title=path (or N=path per-track, repeatable) | NO: we fetch the cover from the Cover Art Archive and embed it ourselves after the rip, and send `-G` so you embed none (`adapters/cyanrip_backend.py`, the `-G` comment) | HAVE |
 | `-A`, `--no-accurip` | Disable AccurateRip database query and validation (default: false) | NO: AccurateRip is the verification we read | HAVE |
-| `-B`, `--no-acoustid` | Disable AcoustID fingerprinting (default: false) | ? | HAVE |
+| `-B`, `--no-acoustid` | Disable AcoustID fingerprinting (default: false) | NO: fingerprinting stays on the machine, and a submission needs `--acoustid-key`, which we never send (`cyanrip@fb28088:src/acoustid.c:168-169`) | HAVE |
 | `--acoustid-key` | AcoustID user API key, to submit fingerprints of verified rips | NO: we submit nothing to AcoustID | HAVE |
 | `-m`, `--cover-size` | Cover art max size: 250, 500, 1200, or -1 for original (default: -1) | NO: under -N and -U you fetch no cover art | HAVE |
 | `-Q`, `--eject` | Eject tray once successfully done (default: false) | NO: the app ejects after it has read the results | HAVE |
@@ -164,7 +164,8 @@ has no row in §1, §1b or §2.
 | `--verify-log` | asks the ripper to verify **its own** log with its own checksum | the one verdict in our report that is not ours, which is the entire reason it exists |
 
 **A probe invocation and a rip invocation are different contracts**, and the
-merged table must say which each flag belongs to. Ours currently does not.
+merged table must say which each flag belongs to. It does, since round 35 (§4,
+NEED 3).
 
 ## 1a. Measured limits — our own half, black-box (S-9)
 
@@ -252,12 +253,12 @@ Every row is `verified` (a test asserts it) or `documented-untested`, per S-11.
 
 | artifact / field | type | what it must satisfy | how it is checked | status | **PP** | **CR** |
 |---|---|---|---|---|---|---|
-| `.cue` → `ISRC` per track | `str`, 12 chars `[A-Z0-9]` | **every ISRC we sent must come back** on its track. We send N, the log records N, the cue must carry N | `cue_validate.validate_cue` ISRC round-trip; `tests/test_cue_validate.py` | verified | HAVE | **? — broken on `9048082`** |
+| `.cue` → `ISRC` per track | `str`, 12 chars `[A-Z0-9]` | **every ISRC we sent must come back** on its track. We send N, the log records N, the cue must carry N | `cue_validate.validate_cue` ISRC round-trip; `tests/test_cue_validate.py` | verified | HAVE | HAVE — fixed `e7f6a97`, regression test in `sc_cue_isrc` |
 | `.cue` → `INDEX 00` presence | marker | present iff the log's per-track `Pregap length` is non-zero; **track 1 exempt** (its lead-in gap cannot append to a previous track) | same validator, pregap agreement | verified | HAVE | HAVE |
 | `.cue` → `INDEX 00` value | `MM:SS:FF` | an offset **within its own `FILE`**, not an absolute disc position. Resolve against that file's start LSN before comparing — a naive absolute comparison reports 8 false mismatches of 9 | lap-29 §A, checked on all 9 markers | verified | HAVE | HAVE |
 | `.cue` → `TITLE` / `PERFORMER` | `str`, arbitrary Unicode | must be the **real** metadata, compared **character for character** against the text we sent — which catches substitution, truncation and any other mangling with one assertion. Should carry a real colon from beta.6 + app 0.6.4b13 on; **unconfirmed until a rig rip** | title-fidelity check, tri-state; `FILE` lines deliberately exempt | verified | HAVE | HAVE |
 | `.cue` → track numbering | `int` | contiguous from 1, every track has `INDEX 01`, count matches the disc | structural sanity check | verified | HAVE | ? |
-| `.log` → `album:` field | `str` | same U+2236 issue as the cue's `TITLE` | — | documented-untested | ? | ? |
+| `.log` → `album:` field | `str` | same U+2236 issue as the cue's `TITLE` | — | documented-untested | ? — our parser reads `Album:` (`parsers/cyanrip_log.py`, `_ALBUM`), and nothing of ours compares it with the album we sent | ? |
 | `.log` → its own FUN512 checksum | `str` | `--verify-log` exits 0 with *"checksum valid"* on an unmodified log | `rip_audit`, every rip | verified | HAVE | HAVE |
 
 **Why `FILE` lines are exempt from the colon check, and why that exemption is
@@ -321,12 +322,14 @@ positive teaches people to ignore the true ones.
 
 1. **A machine-readable form of their table** (JSON or TSV beside the Markdown).
    We currently parse their Markdown, which is a contract we did not agree to.
-2. **Confirmation of `-F` and the `-I`/`-J` exclusion.** Both are in our builder
-   and our hand-written contract; neither has a recorded *reason*. We would
-   rather delete them than carry flags we cannot explain.
-3. **Their view on the 41-versus-18 gap** — for each flag we do not send, whether
-   we are declining it, cannot use it, or have not noticed it. Today nothing
-   records which.
+2. **ANSWERED in §1's cyanrip column, and kept as the record of the ask:**
+   confirmation of `-F` and the `-I`/`-J` exclusion, both in our builder and
+   our hand-written contract with no recorded *reason*. `-F` is cyanrip's track
+   naming scheme, and cyanrip refuses `-I` with `-J` (§7, *Interactions*).
+3. **ANSWERED in round 35, and kept as the record of the ask:** their view on
+   the 41-versus-18 gap — for each flag we do not send, whether we are declining
+   it, cannot use it, or have not noticed it. §1b records which, `NO: <reason>`
+   for each; `-X`, `-C` and `-B`, the last three, were filled in round 41.
 
 ## 6. What we owe next
 
@@ -624,11 +627,12 @@ rather than an error — also an `absent` row.
 | grade | count | which |
 |---|---|---|
 | **usable** | most refusals | every range refusal names the flag, the value and the accepted range; every enum refusal names the invalid value. The message distinguishes, the code does not |
-| **generic** | **the exit code itself, always `1`** | **a defect row of ours.** Every refusal above exits `1`. A caller cannot tell a bad `-s` from a bad `-o` from a missing device by code alone — only by message, which S-12 then makes contract surface |
+| **generic** | **the refusals that still exit `1`** | **a defect row of ours.** Until round 35 every refusal exited `1`. From `.25` an argument refused exits `64` and a failed disc or drive `74` (`PROVIDER-CONTRACT.md` P4), so a caller tells a bad `-s` from a missing device by code; `1` is left to every failure no class names, such as `-C`'s and `-f`'s above, told apart only by message, which S-12 then makes contract surface |
 | **absent** | `-a`/`-t` colon split; `-E -W` together; quotes in `-a` | no code and no message. The colon case silently drops data, which is the worst of the three |
 
-**We are not proposing distinct exit codes this round**, because the numbers
-would become contract surface and this round is already carrying a cue change.
-Proposed for round 8 with the `generic` row left standing until then, per S-12.
+**Distinct exit codes were not proposed when this was written**, because the
+numbers would become contract surface and that round was already carrying a cue
+change. They shipped in `.25`, in round 35, and the `generic` row stands for `1`
+alone, per S-12.
 
 ---

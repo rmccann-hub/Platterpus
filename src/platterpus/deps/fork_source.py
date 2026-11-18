@@ -351,6 +351,26 @@ FORK_PIN: Final[str] = "edb73dd"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
+    # Round 41's subject from its lap 3 (2026-11-16), on BETA only: `release_seq`
+    # 46, `handshake_round` 41, `round_closed: false`, version
+    # `0.9.4-rc3+platterpus.34`. Read off their `release-manifest.json` at
+    # `d7385d18` ("Publish 0.9.4-rc3+platterpus.34 at fb28088, beta"; the same
+    # bytes at their tip `c308a5fd`), filed byte-exact as
+    # `tests/fixtures/fork_release_manifest_d7385d18.json`. Their round 41 lap 3
+    # asks to move the round's pin to it (S9), and our owner accepted on
+    # 2026-11-16. **This row is also what makes a `.34` exit read by its class**:
+    # `ripper_exit.refusal_exit_code` places a build by this number, so without
+    # it `.34`'s exit 74 (its new `Invalid TOC:` refusal among them) classified as
+    # `not_determined` rather than `disc_or_drive`.
+    "fb28088": 46,
+    # Round 41's subject from 2026-11-16, on BETA only: `release_seq` 45,
+    # `handshake_round` 41, `round_closed: false`, version `0.9.4-rc3+platterpus.33`.
+    # Read off their `release-manifest.json` at `57cbf654` ("Publish
+    # 0.9.4-rc3+platterpus.33 at 13bec0a, beta"; the same bytes at their tip
+    # `3ebc5313`), filed byte-exact as
+    # `tests/fixtures/fork_release_manifest_57cbf654.json`. Their round 41 lap 1
+    # opens the round on it (S2), on their owner's word of 2026-11-16.
+    "13bec0a": 45,
     # Round 40's subject from 2026-11-13, on BETA only: `release_seq` 43,
     # `handshake_round` 40, `round_closed: false`, version `0.9.4-rc3+platterpus.32`.
     # Read off their `release-manifest.json` at `73cb652e` ("Publish
@@ -358,6 +378,12 @@ FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
     # `97bfd984`), filed byte-exact as
     # `tests/fixtures/fork_release_manifest_73cb652e.json`. Their round 40 lap 1
     # opens the round on it (S2), on their owner's word of 2026-11-13.
+    # **The same commit is ALSO release 44**: their `f9fdd1a7` ("Publish
+    # +platterpus.32 on the stable channel", 2026-11-16) republished `edb73dd` on
+    # both channels at `release_seq` 44, and the `57cbf654` manifest names it
+    # there on stable. The map keeps the first number; the update check reads
+    # the commit as well as the number, so a republication of the build a rig
+    # already runs is never offered to it as newer (`ripper_offer.evaluate_offer`).
     "edb73dd": 43,
     # Round 39's subject from 2026-11-11, on BETA only: `release_seq` 42,
     # `handshake_round` 39, `round_closed: false`, version `0.9.4-rc3+platterpus.31`.
@@ -1120,7 +1146,31 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: at both) is filed as `round-40-lap-01-provider-contract-gbfe2766.md`; its P1 is
 #: byte-identical to `.31`'s, so every gated option sits at the same line.
 #: **`FORK_PIN` stays `e531a33` until round 40 closes.**
-PIN_UNDER_REVIEW: Final[str] = "edb73dd"
+#: **Moved `edb73dd` -> `13bec0a` on 2026-11-16, round 41**, which their lap 1
+#: (`docs/handshake/inbound/round-41-lap-01.md`, `HANDSHAKE-PIN: 13bec0a`) opens on
+#: `.33`, published on beta by the same pull request on their owner's word of that
+#: day, *"do all recommendations"* (their READY-TO-READ; S2). `.33` is published at
+#: `57cbf654` (`release_seq` 45, `round_closed: false`;
+#: `tests/fixtures/fork_release_manifest_57cbf654.json`), and `meson.build` line 21
+#: at `13bec0a` declares the version. Its `PROVIDER-CONTRACT.md` (built at
+#: `g965ca8b`, whose `src/` and `meson.build` equal `13bec0a`'s; source anchor
+#: `3a7f0fee355883a7` recomputed by their method at both) is filed as
+#: `round-41-lap-01-provider-contract-g965ca8b.md`; its P1 differs from `.32`'s only
+#: in `-H`'s help text, so every gated option sits at the same line.
+#: **`FORK_PIN` stays `edb73dd` until round 41 closes.**
+#: **Moved `13bec0a` -> `fb28088` on 2026-11-16, still round 41**, at their lap 3's
+#: S9 (`docs/handshake/inbound/round-41-lap-03.md`, `HANDSHAKE-PIN: fb28088`), which
+#: asks to review `.34` in place of `.33` because our 0.7.127, which would have
+#: named `.33`, had not shipped; our owner accepted that day. `.34` is published at
+#: `d7385d18` (`release_seq` 46, `round_closed: false`;
+#: `tests/fixtures/fork_release_manifest_d7385d18.json`), and `meson.build` line 21
+#: at `fb28088` declares the version. Its `PROVIDER-CONTRACT.md` (built at
+#: `g3069c11`, whose `src/` and `meson.build` equal `fb28088`'s; source anchor
+#: `6343712aa598c2d8` recomputed by their method at both) is filed as
+#: `round-41-lap-03-provider-contract-g3069c11.md`; its P1 is byte-identical to
+#: `.33`'s, so every gated option sits at the same line.
+#: **`FORK_PIN` stays `edb73dd` until round 41 closes.**
+PIN_UNDER_REVIEW: Final[str] = "fb28088"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -1171,7 +1221,12 @@ PIN_UNDER_REVIEW: Final[str] = "edb73dd"
 #: `handshake_round` 39, `round_closed: false`).
 #: **40 from 2026-11-13**: their lap 1 opens round 40 on `.32` (`release_seq` 43,
 #: `handshake_round` 40, `round_closed: false`).
-PIN_UNDER_REVIEW_ROUND: Final[int] = 40
+#: **41 from 2026-11-16**: their lap 1 opens round 41 on `.33` (`release_seq` 45,
+#: `handshake_round` 41, `round_closed: false`).
+#: **Still 41 for `.34` from 2026-11-16**: published on beta inside round 41 while it
+#: is open (`release_seq` 46, `handshake_round` 41, `round_closed: false`), and
+#: named in place of `.33` at their lap 3's S9 on our owner's word.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 41
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -1668,6 +1723,14 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # `PROVIDER-CONTRACT.md` at `edb73dd` (built at `gbfe2766`, same `src/` and
         # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
         "platterpus-fork-gedb73dd",
+        # Round 41's subject from 2026-11-16, `+platterpus.33`. Its
+        # `PROVIDER-CONTRACT.md` at `13bec0a` (built at `g965ca8b`, same `src/` and
+        # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-g13bec0a",
+        # Round 41's subject from its lap 3 (2026-11-16), `+platterpus.34`. Its
+        # `PROVIDER-CONTRACT.md` at `fb28088` (built at `g3069c11`, same `src/` and
+        # `meson.build`) carries `--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-gfb28088",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1871,6 +1934,22 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # `g6eacb8b`) carries `-Y` in P1 at line 114. `.32` takes its place as
         # `PIN_UNDER_REVIEW` (built at `gbfe2766`, line 114).
         f"{FORK_BRANCH}-ge531a33",
+        # `.32`, `FORK_PIN` since round 40's close (so `FORK_EXPECTED_BUILD_TAG`
+        # covers it today), and the build under review until round 41 named `.33`
+        # on 2026-11-16. Listed by name so the roll to `.33` at round 41's close
+        # cannot drop it while rigs on 0.7.126's default still run it: the
+        # 2026-08-25 defect, one build along. Its `PROVIDER-CONTRACT.md` (built at
+        # `gbfe2766`) carries `-Y` in P1 at line 114. `.33` takes its place as
+        # `PIN_UNDER_REVIEW` (built at `g965ca8b`, line 114).
+        f"{FORK_BRANCH}-gedb73dd",
+        # `.33`, the build under review from round 41's lap 1 until their lap 3's
+        # S9 moved the round to `.34` on 2026-11-16, and still on rigs that took
+        # the beta. It was in this set only as `PIN_UNDER_REVIEW`, so the move would
+        # drop it: the 2026-08-25 defect, one build along, as for `.26` and `.29`.
+        # Its `PROVIDER-CONTRACT.md` (built at `g965ca8b`) carries `-Y` in P1 at
+        # line 114. `.34` takes its place as `PIN_UNDER_REVIEW` (built at
+        # `g3069c11`, line 114).
+        f"{FORK_BRANCH}-g13bec0a",
     }
 )
 
@@ -1929,7 +2008,9 @@ def accepts_consumer_flag(build_tag: str) -> bool:
 #: ``g2a06e064``, line 60) on 2026-11-04; ``.30`` (``5cc1c6b``, built at
 #: ``g0c276fc``, line 60) on 2026-11-05; ``.31`` (``e531a33``, built at
 #: ``g6eacb8b``, line 60) on 2026-11-11; ``.32`` (``edb73dd``, built at
-#: ``gbfe2766``, line 60) on 2026-11-13.
+#: ``gbfe2766``, line 60) on 2026-11-13; ``.33`` (``13bec0a``, built at
+#: ``g965ca8b``, line 60) on 2026-11-16; ``.34`` (``fb28088``, built at
+#: ``g3069c11``, line 60) on 2026-11-16, at the fork's round 41 lap 3 S9.
 BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
     {
         "platterpus-fork-g93afa15",
@@ -1941,6 +2022,8 @@ BUILD_TAGS_ACCEPTING_PREFER_DISC_ISRC: Final[frozenset[str]] = frozenset(
         "platterpus-fork-g5cc1c6b",
         "platterpus-fork-ge531a33",
         "platterpus-fork-gedb73dd",
+        "platterpus-fork-g13bec0a",
+        "platterpus-fork-gfb28088",
     }
 )
 
@@ -1974,7 +2057,9 @@ def accepts_prefer_disc_isrc(build_tag: str) -> bool:
 #: ``g2a06e064``, line 61) on 2026-11-04; ``.30`` (``5cc1c6b``, built at
 #: ``g0c276fc``, line 61) on 2026-11-05; ``.31`` (``e531a33``, built at
 #: ``g6eacb8b``, line 61) on 2026-11-11; ``.32`` (``edb73dd``, built at
-#: ``gbfe2766``, line 61) on 2026-11-13. Enumerated, never inferred from a
+#: ``gbfe2766``, line 61) on 2026-11-13; ``.33`` (``13bec0a``, built at
+#: ``g965ca8b``, line 61) on 2026-11-16; ``.34`` (``fb28088``, built at
+#: ``g3069c11``, line 61) on 2026-11-16. Enumerated, never inferred from a
 #: version, for the reason ``--consumer``'s set gives: cyanrip refuses an option
 #: it does not know, and a refused rip reads as a missing ripper. Every build not
 #: listed reaches the verified-read chase instead (``verified_read_chase.py``,
@@ -1987,6 +2072,8 @@ BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH: Final[frozenset[str]] = frozenset
         "platterpus-fork-g5cc1c6b",
         "platterpus-fork-ge531a33",
         "platterpus-fork-gedb73dd",
+        "platterpus-fork-g13bec0a",
+        "platterpus-fork-gfb28088",
     }
 )
 
@@ -1997,7 +2084,8 @@ def accepts_prefer_accuraterip_match(build_tag: str) -> bool:
     Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
     as :func:`accepts_prefer_disc_isrc`. True for ``.27`` (``5aeefc4``), ``.28``
     (``3f288fb``), ``.29`` (``8d2ca72``), ``.30`` (``5cc1c6b``), ``.31``
-    (``e531a33``) and ``.32`` (``edb73dd``) today.
+    (``e531a33``), ``.32`` (``edb73dd``), ``.33`` (``13bec0a``) and ``.34``
+    (``fb28088``) today.
     """
     tag = (build_tag or "").strip().casefold()
     if tag.endswith("-dirty"):
@@ -2013,8 +2101,12 @@ def accepts_prefer_accuraterip_match(build_tag: str) -> bool:
 #: (``8d2ca72``, ``round-38-lap-05-provider-contract-g2a06e064.md`` line 62) and
 #: ``.30`` (``5cc1c6b``, ``round-38-lap-12-provider-contract-g0c276fc.md`` line
 #: 62), ``.31`` (``e531a33``, ``round-39-lap-01-provider-contract-g6eacb8b.md``
-#: line 62) and ``.32`` (``edb73dd``,
-#: ``round-40-lap-01-provider-contract-gbfe2766.md`` line 62). ``.27``'s
+#: line 62), ``.32`` (``edb73dd``,
+#: ``round-40-lap-01-provider-contract-gbfe2766.md`` line 62), ``.33``
+#: (``13bec0a``, ``round-41-lap-01-provider-contract-g965ca8b.md`` line 62,
+#: ``GEN_OPT_ONE`` at ``cyanrip@13bec0a:src/cyanrip_main.c:3378``) and ``.34``
+#: (``fb28088``, ``round-41-lap-03-provider-contract-g3069c11.md`` line 62,
+#: ``GEN_OPT_ONE`` at ``cyanrip@fb28088:src/cyanrip_main.c:3415``). ``.27``'s
 #: contract does not list it. The range is a whole number from 1
 #: to INT32_MAX (the option's ``GEN_OPT_ONE`` row at
 #: ``cyanrip@3f288fb:src/cyanrip_main.c:2990``, ``cyanrip@8d2ca72:…:3035`` and
@@ -2029,6 +2121,8 @@ BUILD_TAGS_ACCEPTING_REREAD_TIME_LIMIT: Final[frozenset[str]] = frozenset(
         "platterpus-fork-g5cc1c6b",
         "platterpus-fork-ge531a33",
         "platterpus-fork-gedb73dd",
+        "platterpus-fork-g13bec0a",
+        "platterpus-fork-gfb28088",
     }
 )
 
@@ -2038,8 +2132,8 @@ def accepts_reread_time_limit(build_tag: str) -> bool:
 
     Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
     as :func:`accepts_prefer_accuraterip_match`. True for ``.28`` (``3f288fb``),
-    ``.29`` (``8d2ca72``), ``.30`` (``5cc1c6b``), ``.31`` (``e531a33``) and
-    ``.32`` (``edb73dd``) today.
+    ``.29`` (``8d2ca72``), ``.30`` (``5cc1c6b``), ``.31`` (``e531a33``),
+    ``.32`` (``edb73dd``), ``.33`` (``13bec0a``) and ``.34`` (``fb28088``) today.
     """
     tag = (build_tag or "").strip().casefold()
     if tag.endswith("-dirty"):
@@ -2056,7 +2150,13 @@ def accepts_reread_time_limit(build_tag: str) -> bool:
 #: ``round-39-lap-01-provider-contract-g6eacb8b.md``; ``.30``'s contract does not
 #: list it. ``.32`` joined on 2026-11-13: ``edb73dd``, P1 line 63 of
 #: ``round-40-lap-01-provider-contract-gbfe2766.md`` (``GEN_OPT_ONE`` at
-#: ``cyanrip@edb73dd:src/cyanrip_main.c:3364``, the refusal at ``:3572-3575``). The range is a whole number from 1 to INT32_MAX (``GEN_OPT_ONE`` at
+#: ``cyanrip@edb73dd:src/cyanrip_main.c:3364``, the refusal at ``:3572-3575``).
+#: ``.33`` joined on 2026-11-16: ``13bec0a``, P1 line 63 of
+#: ``round-41-lap-01-provider-contract-g965ca8b.md`` (``GEN_OPT_ONE`` at
+#: ``cyanrip@13bec0a:src/cyanrip_main.c:3380``, the refusal at ``:3588-3591``).
+#: ``.34`` joined on 2026-11-16, at the fork's round 41 lap 3 S9: ``fb28088``, P1
+#: line 63 of ``round-41-lap-03-provider-contract-g3069c11.md`` (``GEN_OPT_ONE`` at
+#: ``cyanrip@fb28088:src/cyanrip_main.c:3417``, the refusal at ``:3625-3628``). The range is a whole number from 1 to INT32_MAX (``GEN_OPT_ONE`` at
 #: ``cyanrip@e531a33:src/cyanrip_main.c:3345``), refused without ``-Z`` (exit 64,
 #: ``cyanrip@e531a33:src/cyanrip_main.c:3553-3556``). Sent on every ``-Z`` pass,
 #: never without (``adapters/reread_until_accuraterip_args.py``). Enumerated, never
@@ -2065,6 +2165,8 @@ BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP: Final[frozenset[str]] = frozenset
     {
         "platterpus-fork-ge531a33",
         "platterpus-fork-gedb73dd",
+        "platterpus-fork-g13bec0a",
+        "platterpus-fork-gfb28088",
     }
 )
 
@@ -2073,8 +2175,8 @@ def accepts_reread_until_accuraterip(build_tag: str) -> bool:
     """Whether ``build_tag``'s build accepts ``--reread-until-accuraterip``.
 
     Tolerant of a ``-dirty`` suffix, and False for anything unrecognised, exactly
-    as :func:`accepts_reread_time_limit`. True for ``.31`` (``e531a33``) and
-    ``.32`` (``edb73dd``) today.
+    as :func:`accepts_reread_time_limit`. True for ``.31`` (``e531a33``),
+    ``.32`` (``edb73dd``), ``.33`` (``13bec0a``) and ``.34`` (``fb28088``) today.
     """
     tag = (build_tag or "").strip().casefold()
     if tag.endswith("-dirty"):
@@ -2104,7 +2206,11 @@ def accepts_reread_until_accuraterip(build_tag: str) -> bool:
 #: * ``.29`` ``8d2ca72``: ``:783``, ``:818``, ``cyanrip_log.c:613``;
 #: * ``.30`` ``5cc1c6b``: ``:848``, ``:883``, ``cyanrip_log.c:613``;
 #: * ``.31`` ``e531a33``: ``:866``, ``:901``, ``cyanrip_log.c:613``;
-#: * ``.32`` ``edb73dd``: ``:885``, ``:920``, ``cyanrip_log.c:627``.
+#: * ``.32`` ``edb73dd``: ``:885``, ``:920``, ``cyanrip_log.c:627``;
+#: * ``.33`` ``13bec0a``: ``:901``, ``:935-937``, ``cyanrip_log.c:627`` (the read
+#:   at ``:910``, the bound ``ctx->audio_end_lsn`` set at ``:606`` and ``:701``);
+#: * ``.34`` ``fb28088``: ``:924``, ``:958-960``, ``cyanrip_log.c:627`` (the read
+#:   at ``:933``, the bound ``ctx->audio_end_lsn`` set at ``:614`` and ``:724``).
 #:
 #: The one change since ``.24`` is where the lead-out begins: from ``.29`` the
 #: branch's upper bound is ``ctx->audio_end_lsn``, not ``ctx->end_lsn``
@@ -2127,6 +2233,8 @@ BUILD_TAGS_BOUNDING_OVERREAD: Final[frozenset[str]] = frozenset(
         "platterpus-fork-g5cc1c6b",
         "platterpus-fork-ge531a33",
         "platterpus-fork-gedb73dd",
+        "platterpus-fork-g13bec0a",
+        "platterpus-fork-gfb28088",
     }
 )
 
@@ -2163,6 +2271,78 @@ def bounds_overread(build_tag: str) -> bool | None:
     return None
 
 
+# --- Builds whose -Z log the per-track record can read ----------------------------
+#
+# The two sets below are keyed by the fork's BUILD NUMBER (the ``N`` of
+# ``+platterpus.N``, read off the rip's banner by
+# ``track_record_sources.fork_build_number``), not by build tag, because the record
+# reads the banner its log printed. They live here, beside the per-build sets
+# above, so naming a build under review names it in them too: until 2026-11-17
+# they lived in ``track_record_sources.py`` and stayed at ``.31`` while ``.32``,
+# ``.33`` and ``.34`` were each named here, so every re-read track of a ``.34`` rip
+# said "not determined" (the fork's round 41 lap 5 S18).
+# ``tests/test_build_sets_cover_the_pin.py`` holds each set to the pin under review
+# and the production pin. ``track_record_sources`` re-exports both names.
+
+#: **Fork build numbers whose log we can read for the AccurateRip-guided ``-Z``
+#: rule** (``--reread-until-accuraterip``). Its log text is P2 of each build's
+#: provider contract, read by :mod:`platterpus.reread_ar_overrule` into the
+#: track's ``secure_rerip_ar_overrule``. A build joins when its own source prints
+#: the same lines from the same rule, each read by content, never by version:
+#:
+#: * ``.31`` ``e531a33`` (2026-11-11, their round 39 lap 1 S2): the early end
+#:   ``cyanrip@e531a33:src/cyanrip_main.c:2140``, the limit lines naming the
+#:   overrule ``:2180-2242``, the row ``src/cyanrip_log.c:852``; P2 of
+#:   ``round-39-lap-01-provider-contract-g6eacb8b.md`` lines 376 and 504.
+#: * ``.32`` ``edb73dd``: ``cyanrip@edb73dd:src/cyanrip_main.c:2159``,
+#:   ``:2199-2261``, ``src/cyanrip_log.c:866``.
+#: * ``.33`` ``13bec0a``: ``cyanrip@13bec0a:src/cyanrip_main.c:2175``,
+#:   ``:2215-2277``, ``src/cyanrip_log.c:866``.
+#: * ``.34`` ``fb28088``: ``cyanrip@fb28088:src/cyanrip_main.c:2212``,
+#:   ``:2252-2314``, ``src/cyanrip_log.c:866``.
+#:
+#: Read 2026-11-17: ``cyanrip_rip_track`` (``.31`` lines 1738-2517) is
+#: line-for-line the same at ``.32`` (``:1757-2536``), ``.33`` (``:1773-2552``) and
+#: ``.34`` (``:1810-2589``), ``src/spool.h`` (the rule's ``crip_agreement_overruled``
+#: and ``crip_spool_ar_verified``) is unchanged from ``e531a33`` to ``fb28088``, and
+#: the track block's ``Secure re-read:`` rows (``.31``'s ``cyanrip_log.c:838-900``)
+#: are the same at ``:852-914`` in each later build; each later contract's P2 lists
+#: the same rows (``round-40-lap-01-provider-contract-gbfe2766.md`` lines 377 and
+#: 505, ``round-41-lap-01-provider-contract-g965ca8b.md`` 377 and 505,
+#: ``round-41-lap-03-provider-contract-g3069c11.md`` 377 and 506).
+AR_GUIDED_CONVERGENCE_BUILDS: Final[frozenset[int]] = frozenset({31, 32, 33, 34})
+
+#: **Fork builds whose log prints an ``Other read:`` line for EVERY ``-Z`` read
+#: that was not kept** (:mod:`platterpus.other_reads`), so a converged track that
+#: prints none had all its reads agree, and the record's count is exact (TASKS
+#: R140, our round 39 lap 2 S16). Read in their source, not assumed: each distinct
+#: checksum of a ``-Z`` track is filed as its own spool, a repeat adding a count,
+#: every spool is copied onto the track when the track is decided
+#: (``crip_keep_reads``), and the log prints one line per read not kept:
+#:
+#: * ``.30`` ``5cc1c6b``: spools ``cyanrip@5cc1c6b:src/cyanrip_main.c:2011``,
+#:   ``crip_keep_reads`` ``:1422`` called at ``:2351``, the lines
+#:   ``src/cyanrip_log.c:869-891``.
+#: * ``.31`` ``e531a33``: spools ``cyanrip@e531a33:src/cyanrip_main.c:2034-2079``,
+#:   ``crip_keep_reads`` ``:1442-1460`` called at ``:2480``, the lines
+#:   ``src/cyanrip_log.c:874-896``.
+#: * ``.32`` ``edb73dd``: ``cyanrip@edb73dd:src/cyanrip_main.c:2053-2098``,
+#:   ``:1461-1479`` called at ``:2499``, ``src/cyanrip_log.c:888-910``.
+#: * ``.33`` ``13bec0a``: ``cyanrip@13bec0a:src/cyanrip_main.c:2069-2114``,
+#:   ``:1477-1495`` called at ``:2515``, ``src/cyanrip_log.c:888-910``.
+#: * ``.34`` ``fb28088``: ``cyanrip@fb28088:src/cyanrip_main.c:2106-2151``,
+#:   ``:1512-1530`` called at ``:2552``, ``src/cyanrip_log.c:888-910``.
+#:
+#: ``.32`` to ``.34`` were read 2026-11-17: ``crip_keep_reads`` whole (``.31``'s
+#: ``:1442-1505``) and ``cyanrip_rip_track`` whole are line-for-line ``.31``'s, and
+#: so is the ``Other read:`` loop. The one gap in the chain is
+#: ``crip_keep_reads``'s allocation failing, which prints no lines at all; a
+#: converged ``-Z`` track has at most ``-r`` spools, so it is an out-of-memory case
+#: only. Enumerated, never ``>= 30``: a later build joins when its own source is
+#: read, and until then its record keeps the floor, which is true and only weaker.
+OTHER_READS_COMPLETE_BUILDS: Final[frozenset[int]] = frozenset({30, 31, 32, 33, 34})
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- The full commits behind the short pins ---------------------------------
@@ -2190,7 +2370,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 #: :data:`FORK_PIN` in full.
 FORK_PIN_FULL: Final[str] = "edb73ddc1a5a86dedb08795ba94aa8fce0de0904"
 #: :data:`PIN_UNDER_REVIEW` in full.
-PIN_UNDER_REVIEW_FULL: Final[str] = "edb73ddc1a5a86dedb08795ba94aa8fce0de0904"
+PIN_UNDER_REVIEW_FULL: Final[str] = "fb2808836827a8407996052b82f9b42e1d400036"
 #: :data:`FORK_TEST_PIN` in full.
 FORK_TEST_PIN_FULL: Final[str] = "3952c03a397790b7c6bd4ae07a5a01c0a5d65e77"
 
@@ -2769,7 +2949,15 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `HANDSHAKE-RIPPER-VERSION` and their manifest's beta entry at `73cb652e`**:
     # `commit` `edb73dd`, `version` `0.9.4-rc3+platterpus.32`, as `meson.build`
     # line 21 there declares.
-    version="0.9.4-rc3+platterpus.32",
+    # **Round 41's subject from 2026-11-16, `.33`, from their lap 1's
+    # `HANDSHAKE-RIPPER-VERSION` and their manifest's beta entry at `57cbf654`**:
+    # `commit` `13bec0a`, `version` `0.9.4-rc3+platterpus.33`, as `meson.build`
+    # line 21 there declares.
+    # **`.34` from 2026-11-16, still round 41, from their lap 3's
+    # `HANDSHAKE-RIPPER-VERSION` and their manifest's beta entry at `d7385d18`**:
+    # `commit` `fb28088`, `version` `0.9.4-rc3+platterpus.34`, as `meson.build`
+    # line 21 there declares.
+    version="0.9.4-rc3+platterpus.34",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

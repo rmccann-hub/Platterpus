@@ -295,6 +295,48 @@ def test_the_fetcher_fetches_a_commit_once_and_reads_trees_it_lacks(
     assert fetcher.object_id(clone, "f" * 40, folder) is None
 
 
+def _second_evidence_commit(remote: Path) -> str:
+    """Add a commit on top of `evidence` in `remote`, as each filing does."""
+    _git(remote, "checkout", "-q", "evidence")
+    later = remote / "docs/handshake/artifactsround99/round99probe.txt"
+    later.write_bytes(b"a later filing\n")
+    _git(remote, "add", str(later.relative_to(remote)))
+    _git(remote, "commit", "-q", "-m", "evidence: a later run")
+    tip = _git(remote, "rev-parse", "HEAD")
+    _git(remote, "checkout", "-q", "-f", "main")
+    return tip
+
+
+@pytest.mark.parametrize("tip_first", [False, True])
+def test_reading_the_evidence_tip_does_not_cut_older_commits_off(
+    tmp_path: Path, tip_first: bool
+) -> None:
+    """Round 41's lap 6 cited the full run's commit, then the over-read probe's
+    commit on top of it, then the full run's again, and the last was refused as
+    "not reachable from refs/heads/evidence": reading the tip had fetched it at
+    depth 1, which marks it shallow, so git saw no parents behind it. Either
+    order of reads must leave every older evidence commit on the branch."""
+    from laplang.evidence import Fetcher
+
+    world = _world(tmp_path)
+    clone, remote = world["clone"], world["remote"]
+    assert isinstance(clone, Path) and isinstance(remote, Path)
+    old = str(world["evidence"])
+    tip = _second_evidence_commit(remote)
+    probe = "docs/handshake/artifactsround99/round99probe.txt"
+    fetcher = Fetcher()
+    if tip_first:
+        assert fetcher.read(clone, tip, probe) == b"a later filing\n"
+        assert fetcher.reachable_from_evidence(clone, old) is True
+    else:
+        assert fetcher.read(clone, old, RUN) == LOG
+        assert fetcher.reachable_from_evidence(clone, old) is True
+        assert fetcher.read(clone, tip, probe) == b"a later filing\n"
+    assert fetcher.reachable_from_evidence(clone, old) is True
+    assert fetcher.reachable_from_evidence(clone, tip) is True
+    assert fetcher.read(clone, old, RUN) == LOG
+
+
 def _lap_citing(tmp_path: Path, clone: Path, citation: str) -> list[str]:
     """Check a one-statement lap whose evidence is `citation`; the LSL.4 refusals."""
     from laplang.cli import check_path

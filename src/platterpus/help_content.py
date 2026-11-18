@@ -40,13 +40,6 @@ produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
 
 **New here?** **Help → Getting started…** walks through a first rip, step by step.
 
-## How it's wired
-
-The GUI runs on your desktop and calls the host-exported ripping tool
-(`~/.local/bin/cyanrip`), which transparently does the actual ripping inside
-the `ripping` Distrobox container.
-You don't interact with the container directly — the GUI handles it.
-
 ## Ripping a CD — the basics
 
 1. **Insert an audio CD** and pick your drive in the drive selector.
@@ -58,8 +51,8 @@ You don't interact with the container directly — the GUI handles it.
    **Rip?** column by default — untick any you don't want. Or right-click one or
    more highlighted rows for **Rip only these** / include / exclude. Start rips
    whatever's ticked (all ticked = the whole disc).
-5. Click **Start rip**. Progress shows an overall bar plus the current task, and
-   the **Live log** tab comes forward so you can watch it work.
+5. Click **Start rip** (or **Rip → Start rip**, or **Ctrl+R**). Progress shows an
+   overall bar plus the current task, and the **Live log** tab comes forward.
 6. When it finishes, the status line reports a fidelity verdict, the verification
    banner appears (see below), and the **Tracks** tab comes forward with the
    per-track results. Files land under your output
@@ -112,7 +105,7 @@ AccurateRip stays the primary proof. No match shows grey: it means our audio
 differs from every entry CTDB holds for the disc, which could be our read or
 theirs; the per-track line says which tracks.
 
-Alongside the rip, two records are saved next to your music: the backend's
+Alongside the rip, two records are saved next to your music: the ripper's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same
 results in a machine-readable form (per-track CRCs, AccurateRip/CTDB outcomes,
 the verdict) — handy for scripting, re-verifying later, or attaching to a report.
@@ -165,16 +158,16 @@ into a new folder (non-destructive — your originals are untouched):
 
 ## Unknown discs
 
-If MusicBrainz has no match (or you're offline), use **File → Rip as Unknown
-Album…**. The track list is filled with placeholders you can edit; the folder is
+If MusicBrainz has no match (or you're offline), use **Rip → Rip as Unknown
+Album…** (the same item is also in the File menu). The track list is filled with placeholders you can edit; the folder is
 named from the album artist/title you type.
 
 ## Stopping a rip
 
 - **Cancel** stops the current rip. Because the reader runs inside the
   container, the drive can take a moment to spin down.
-- If the drive keeps spinning, **Force stop** ejects and kills the reader. After
-  Cancel the GUI also auto-escalates to a force-stop after a few seconds.
+- If the drive keeps spinning, **Force stop** (it appears beside Cancel once Cancel is
+  pressed) ejects and kills the reader; the GUI also escalates on its own after a few seconds.
 - **After a cancel, some audio files will be empty — that is expected.** The
   ripper writes a track's log record before its encoder has finished flushing to
   disk, so a cancelled rip can leave a 0-byte `.flac` for a track the log says
@@ -199,8 +192,8 @@ read offset in *Set up drive…*, the two update channels in *Setup & Updates…
 and the startup test script in the script console.
 
 - **Goal** — pick what you want the rip to be and the format/verification/quality
-  options snap to good values for it: *Fast Verified* (lossless, fully verified
-  — the recommended default), *Archival Exact* (the same checks, plus the
+  options snap to good values for it: *Fast verified* (lossless, fully verified
+  — the recommended default), *Archival exact* (the same checks, plus the
   smallest lossless files), or *Portable* (an MP3 copy for phones). You can still
   tweak any individual option below — that switches the Goal to *Custom*.
 - **Output format** — *FLAC* (the lossless archival master, always produced),
@@ -234,7 +227,7 @@ and the startup test script in the script console.
   the default 5, with 2 there, a track may be read up to five times to find three
   identical reads, so two reads can disagree and it can still be verified. At 3,
   one bad read leaves it unverified. 0 leaves it to cyanrip's own default of 10.
-- **Read speed** — how fast to read the disc. *Adaptive Ladder* (the default)
+- **Read speed** — how fast to read the disc. *Adaptive ladder* (the default)
   reads at full speed and only slows down for a disc that needs it; you can
   instead set a **Fixed speed** cap. A slower read sometimes helps a scratched
   disc, at the cost of time. (Some drives — including the Pioneer BDR-209D —
@@ -310,7 +303,7 @@ and the startup test script in the script console.
   stored checksum (on by default). There is no compression setting: cyanrip
   already writes every FLAC at maximum compression.
 - **Write an EAC-compatible log** — on by default, as Exact Audio Copy writes its
-  log on every rip (*Archival Exact* ticks it): beside cyanrip's own `.log`, a
+  log on every rip (*Archival exact* ticks it): beside cyanrip's own `.log`, a
   second log in the format Exact Audio Copy uses. It records the same rip, and says
   plainly, at the top and bottom, that it is *not* a genuine EAC log (we never
   pretend to be EAC). Its last line is a Platterpus integrity checksum: a SHA-256
@@ -654,6 +647,14 @@ an older commit is rebuilt rather than accepted.
 - Project & issues: see **Help → About Platterpus…** for links.
 - Dependencies (cyanrip, MusicBrainz Picard, etc.) are checked automatically at
   launch and from Tools → Setup & Updates… → Check dependencies.
+
+## How it's wired
+
+For the curious; you never need this to rip. Platterpus runs on your desktop
+and calls the ripping tool at `~/.local/bin/cyanrip`, which does the actual
+ripping inside a small Linux container called `ripping` (made with
+Distrobox). You don't interact with the container directly — Platterpus
+handles it.
 """
 
 

@@ -93,6 +93,14 @@ class DependencySpec:
     # Only cyanrip needs one today; the field exists so a second such tool is a
     # registry entry rather than a special case in the UI (Critical rule #6).
     build_note: Callable[[ProbeResult], BuildNote] | None = None
+    # When True, this is a Python package that ships INSIDE Platterpus (bundled
+    # into the AppImage at build time), not something the user installs. The
+    # launch summary lists it under its own "Bundled components" line rather
+    # than beside the tools a user can act on: "numpy (Python package) 2.5.5"
+    # next to cyanrip read as one more thing to look after (UX review of
+    # 0.7.127, W2). Probed and reported exactly as before; only the summary's
+    # grouping reads it.
+    bundled: bool = False
 
 
 # --- Bound probes -----------------------------------------------------------
@@ -214,6 +222,7 @@ SPECS: list[DependencySpec] = [
             "Python MusicBrainz client. Bundled into the AppImage at "
             "build time; if missing, the AppImage build is incomplete."
         ),
+        bundled=True,
     ),
     DependencySpec(
         dep_id="flac",
@@ -286,6 +295,7 @@ SPECS: list[DependencySpec] = [
             "Bundled in the AppImage; if missing, that location is not determined."
         ),
         optional=True,  # absent only leaves the CTDB localisation not determined
+        bundled=True,
     ),
 ]
 

@@ -375,29 +375,39 @@ def test_a_track_whose_reads_agreed_is_not_called_disagreeing() -> None:
 
 
 def test_the_31_seam_is_named_and_never_guessed() -> None:
-    """`.31`'s log text is read (2026-11-11, its contract filed), so a `.31` re-read
-    the rule did not end says so plainly; a re-read from a LATER build we have not
-    read says whether it applied is not determined. `.31`'s own lines are held in
-    `tests/test_cyanrip_dot31_reread_until_accuraterip.py`."""
-    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31})
+    """`.31`'s log text is read (2026-11-11, its contract filed), and `.32` to `.34`'s
+    (2026-11-17, their source the same for every line the record reads), so a re-read
+    from one of them the rule did not end says so plainly; a re-read from a LATER
+    build we have not read says whether it applied is not determined. `.31`'s own
+    lines are held in `tests/test_cyanrip_dot31_reread_until_accuraterip.py`, the
+    sets against the pins in `tests/test_build_sets_cover_the_pin.py`."""
+    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31, 32, 33, 34})
     assert fork_build_number("cyanrip 0.9.4-rc3+platterpus.31") == 31
     assert fork_build_number("cyanrip 0.9.3") is None
+    # One past the newest build read: derived, so a build joining does not stale it.
+    unread = max(AR_GUIDED_CONVERGENCE_BUILDS) + 1
     reread = replace(_verified(1), rip_count=3, secure_rerip_converged=True)
     assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.30") is False
     assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.31") is False
-    assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.32") is None
-    later = track_record(reread, ripper_version="cyanrip 0.9.4-rc3+platterpus.32")
+    assert ar_guided_convergence(reread, "cyanrip 0.9.4-rc3+platterpus.34") is False
+    assert (
+        ar_guided_convergence(reread, f"cyanrip 0.9.4-rc3+platterpus.{unread}") is None
+    )
+    later = track_record(
+        reread, ripper_version=f"cyanrip 0.9.4-rc3+platterpus.{unread}"
+    )
     assert later.kind == RECORD_REREAD
     assert (
         "whether the fork's .31 AccurateRip-guided -Z rule chose this read is not determined"
         in later.line
     )
-    for read_build in ("30", "31"):
+    for read_build in ("30", "31", "32", "33", "34"):
         record = track_record(reread, ripper_version=f"x+platterpus.{read_build}")
         assert "not determined" not in record.line, read_build
     # A first read cannot have been chosen by a -Z rule, so it carries no caveat.
     assert (
-        ".31" not in track_record(_verified(1), ripper_version="x+platterpus.32").line
+        ".31"
+        not in track_record(_verified(1), ripper_version=f"x+platterpus.{unread}").line
     )
 
 

@@ -24,8 +24,9 @@ happen if this log format changed, which we'd notice immediately.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from platterpus.disc_mcn import DiscMcn
 from platterpus.safe_int import int_or_none
 
 _CDDB_DISC_ID = re.compile(r"^CDDB disc id:\s*(?P<value>\S+)\s*$")
@@ -59,6 +60,9 @@ class DiscInfo:
     musicbrainz_disc_id: str = ""
     musicbrainz_submit_url: str = ""
     num_tracks: int = 0
+    #: cyanrip's ``Disc MCN:`` row (``disc_mcn.py``); the legacy format has none,
+    #: so it stays ``not_present`` there.
+    disc_mcn: DiscMcn = field(default_factory=DiscMcn)
 
 
 def parse_cd_info(stdout: str) -> DiscInfo:

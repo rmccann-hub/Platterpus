@@ -201,6 +201,64 @@ def test_the_readme_rendering_moves_headings_down_and_paths_out() -> None:
     assert "](src/platterpus/guide/images/01-a.png)" in out
 
 
+#: Words a first-time reader may meet before the README's first heading. The opening
+#: was 653 words of release and round history until 2026-11-17 (UX review D1, TASKS
+#: R184); the two sentences, the tagline and the status line are about 120.
+_README_OPENING_WORD_LIMIT: int = 200
+
+#: Project-internal words that mean nothing to a user. None may appear between the
+#: title and *Getting started* (UX review D1: they appeared 40 times in the README).
+_INTERNAL_WORDS: re.Pattern[str] = re.compile(
+    r"\bKDD-\d|\bround \d|\bhandshake|\bTASKS\b", re.IGNORECASE
+)
+
+
+def test_the_readme_reaches_getting_started_before_the_manual_setup_and_history() -> (
+    None
+):
+    """UX review D1 and D2 (R184): the README's first screen is for a user.
+
+    *Getting started* sat at line 541, after the manual Distrobox steps, under a
+    653-word opening of release history. The blocks moved lower, word for word; this
+    holds the order, the opening's length and its vocabulary so they do not drift
+    back. Each heading is looked up and must exist, so none of it passes by finding
+    nothing.
+    """
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    headings = [line for line in readme.split("\n") if line.startswith("## ")]
+    order = {h: i for i, h in enumerate(headings)}
+    wanted = [
+        "## Installation",
+        "## Getting started",
+        "## Manual setup (for testers and developers)",
+        "## Testing status and release history",
+    ]
+    missing = [h for h in wanted if h not in order]
+    assert not missing, f"README.md has lost a heading: {missing}"
+    assert [order[h] for h in wanted] == sorted(order[h] for h in wanted), (
+        f"README.md's headings are out of order; want {wanted}"
+    )
+    title_end = readme.index("\n# Platterpus\n") + len("\n# Platterpus\n")
+    opening = readme[title_end : readme.index("\n## ", title_end)]
+    words = len(opening.split())
+    assert 20 <= words <= _README_OPENING_WORD_LIMIT, (
+        f"README.md has {words} words before its first heading; keep the opening "
+        f"to about two sentences and a status line (at most "
+        f"{_README_OPENING_WORD_LIMIT}), and move the rest below Getting started"
+    )
+    first_screen = readme[: readme.index("\n## Getting started\n")]
+    internal = sorted({m.group(0) for m in _INTERNAL_WORDS.finditer(first_screen)})
+    assert not internal, (
+        f"project-internal words above Getting started in README.md: {internal}"
+    )
+
+
+def test_the_readme_opening_check_catches_the_opening_it_replaced() -> None:
+    """Non-triviality: the pattern finds the words the old opening carried."""
+    old = "cyanrip as the single ripping backend (KDD-18) ... round 31 approved"
+    assert {m.group(0) for m in _INTERNAL_WORDS.finditer(old)} == {"KDD-1", "round 3"}
+
+
 # --- The walkthrough script ------------------------------------------------------------
 
 

@@ -374,6 +374,7 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "notify_on_completion",
     "drive_setup_prompted",
     "host_setup_prompted",
+    "host_setup_declined",
     "appimage_integration_prompted",
     "debug_logging",
     "secure_rerip_dynamic",

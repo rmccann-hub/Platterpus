@@ -268,6 +268,13 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_handshake_approval.py::test_the_offer_and_the_rip_never_disagree_about_approval": (
         "test_the_approval_relation_is_not_vacuously_true"
     ),
+    # TASKS R176: cyanrip's `Disc MCN:` row in every form, in both parsers.
+    "test_disc_mcn.py::test_each_form_reads_in_the_rip_log": (
+        "test_the_form_table_holds_every_form_and_every_state"
+    ),
+    "test_disc_mcn.py::test_each_form_reads_in_the_info_parser_as_in_the_rip_log": (
+        "test_the_form_table_holds_every_form_and_every_state"
+    ),
     "test_handshake_tooling.py::test_dropping_any_single_section_is_caught": (
         "test_the_section_list_is_not_trivially_small"
     ),

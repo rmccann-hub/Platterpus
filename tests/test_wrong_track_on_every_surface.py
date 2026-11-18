@@ -112,7 +112,9 @@ def test_the_status_line_does_not_call_the_wrong_track_clean() -> None:
     summary = fidelity_summary(parse_cyanrip_log(_f1_text()), expected_track_total=14)
     for word in _CLEAN_WORDS:
         assert word not in summary, summary
-    assert summary.startswith("Done — 13/14 tracks ripped cleanly. ⚠ "), summary
+    assert summary.startswith(
+        "⚠ Finished — 1 track needs attention (5). 13/14 tracks ripped cleanly. ⚠ "
+    ), summary
     assert "AccurateRip says track 5 is WRONG (only frame 450 matched" in summary
 
 
@@ -305,7 +307,7 @@ def test_every_surface_the_finish_writes_agrees_track_5_is_not_clean(
     report_writer.writer().flush()
 
     # The status line, and the notification, which sends what the window shows.
-    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    fidelity = [s for s in statuses if s.startswith("⚠ Finished — ")]
     assert fidelity, statuses  # floor: the status line was composed
     assert tray.shown, "floor: the notification was posted"
     _title, body = tray.shown[-1]

@@ -1444,6 +1444,84 @@ and digits only (`CLAUDE.md` → *Artifact filenames that cross machines*). It i
 be named in a chat message and typed into a file dialog, which is exactly the crossing
 that cost a rig run once.
 
+### 3.14 The code conventions and four Critical rules in full — moved from `CLAUDE.md` (2026-11-16)
+
+`CLAUDE.md` keeps only what a session needs on every task: each rule's operative sentence and a pointer here (`TASKS.md` R32, on the owner's word of 2026-11-16). The text below is what it said before that trim, so nothing it carried is lost. Critical rules #1, #2, #3, #5, #6, #8 and #11 stayed in `CLAUDE.md` word for word and are not repeated here; #12 moved to `docs/cyanrip-handshake.md` §7.7o, and the rest of that file to the homes its pointers name.
+
+#### The file's preamble
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (its opening paragraph), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+This file is loaded by Claude Code on every session in this project. It captures the persistent rules and constraints for the codebase. The **rules** section below the line is locked — do not edit it without explicit user confirmation. The **project operations** section at the bottom grows as the project develops.
+
+#### Code conventions
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Code conventions), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+- **Comments:** heavy. The maintainer has limited programming experience — comment intent, not mechanics. A reader who can read Python but doesn't deeply know Qt or cyanrip should understand the file.
+- **Type hints:** mandatory on all function signatures, class attributes, and module-level constants.
+- **Modules:** small and focused. Split when a file exceeds ~300 lines. One responsibility per module. The line count is a *heuristic for cohesion*, not a hard cap — don't split a cohesive 350-line file to hit a number, and *do* split a 200-line file that's secretly doing three jobs. A heavily-tested Qt "god-object" (e.g. `MainWindow`) is split via **mixins** the concrete class inherits, so methods stay reachable as `window._x` (which tests and Qt signal wiring depend on) while each concern lives in its own focused file — see `docs/architecture.md`.
+- **No clever metaprogramming.** Avoid decorators that mutate behavior unobviously, dynamic class creation, monkey-patching, or "magic" imports.
+- **Never block the GUI thread.** Any operation that can take more than a few milliseconds — `subprocess.run`, network I/O, large-file hashing/copying, `thread.join()`, `kbuildsycoca6` — must NOT run on the Qt main thread; a blocked event loop shows "Not Responding" and ignores every click until it returns. Need the result → a `QObject` worker on a `QThread` (or a daemon thread that reports back via a queued signal). Don't need it → fire-and-forget `subprocess.Popen(..., start_new_session=True)`. This rule was written in blood — it has now bitten **three** times. **The recurring trap is a modal dialog that does the blocking work itself in a button slot** — `exec()` runs a nested event loop, but the slot still blocks the GUI thread. Any dialog that installs/downloads/probes MUST run that work on a worker thread and report back via queued signals; the injected work callable must be **thread-safe** (no Qt, no opening sub-dialogs). When reviewing a change, ask: *if this ran on a stalled network or a cold container, would the window freeze?* — and *does any dialog slot call subprocess/network/`exec` synchronously?* (`docs/architecture.md` §3.2, "Dialogs that do blocking work".)
+- **Error handling:** catch specific exceptions, never bare `except:`. Log with the `logging` module, not `print`.
+- **Validate every input and every dependency output — visibly, and to the log.** (Added 2026-07-01. The full convention, with its history, sits beside institutional rule 11 in `docs/testing.md` §5.) Three obligations:
+  - **Inputs:** every value that enters the program from outside the code — Settings, config-file values, CLI args — is validated for *type, range, character set, and format* at its boundary, by a **pure, testable function** (e.g. `settings_validation.py`), never scattered inline in widget slots. Invalid input gets a **visible, specific error at the point of entry** and is **logged to the log file** (`logging.warning`/`error`). A widget's own constraint (a `QSpinBox` range) is a *convenience*, not the validation.
+  - **Outputs to dependencies:** before invoking an external tool, validate that the arguments we hand it satisfy that tool's documented contract (`docs/dependency-contracts.md` — the single reference for allowable args/syntax/output per dependency) — **range as well as syntax, enforced by code at the argv chokepoint, not merely stated here.** Any value derived from something *other than the disc being ripped* gets a range check before it becomes an argument (a `-t 17=` for a 16-track disc refused a whole rip, `docs/testing.md` §5.m). **Capture and log** a failing dependency's stderr/stdout; its parsers still **never raise**.
+  - **Diagnostic completeness — capture *everything* the dependency told us, and never drop it silently.** For every external tool: its **exit code** (tri-state — `null` for a child never reaped, never written as `0`), the **exact argv** as spawned (read off `Popen.args`), and its **complete output**, stderr merged. Where output must be bounded, keep **head *and* tail** and mark any elision with a count. **A silent truncation reads as completeness.** And surfacing is part of capture: a diagnosis we captured but never showed the user is the same bug from their side (`docs/cyanrip-handshake.md` §7.1).
+- **Subprocess output parsing:** robust to cyanrip minor-version output changes. Use named-group regexes, not column-index splits. Parsers of external output **never raise** — they return a best-effort dataclass and get a `hypothesis` "never raises" property test.
+- **Say which build produced an artifact.** Where more than one binary can produce output we archive — today the Platterpus fork of cyanrip vs upstream — the artifact must name which, in the rendered log *and* the JSON, and the verdict is **tri-state**: an unrecognised or absent build tag reports "not determined", never the negative. Classification lives in one shared pure module (`ripper_identity.py`) so the log, the report and the UI cannot describe the same binary three different ways. Two logs of one disc from two binaries are not interchangeable evidence, and a version number cannot separate them when the fork tracks upstream versions.
+- **A new testing capability is a SCRIPT VERB. A CLI flag is the exception, and it has to be argued for.** (Maintainer directive, 2026-08-11: *"the entire point of adding the ability to run scripts is for this. you dont need to build special arguements unless absolutely needed."*) **Default: add a verb to `uiscript/verbs.py` + a `_do_<verb>` handler, and regenerate the page** (`docs/script-language.md`). A `--flag` is justified only when a verb genuinely cannot serve: no GUI exists at that point (`--doctor`, `--version`), or an **external caller in another repository** must invoke it (`--rig-check`). When both are warranted, they are **two thin callers of one function** — never two implementations. Enforced by `tests/test_script_surface_is_the_default.py`, whose flag allowlist may shrink, never grow. (`docs/architecture.md` §3.10.)
+- **Accessibility is a code convention, not a polish pass — target WCAG 2.2 AA.** Full audit and the numbers: `docs/ux-design-principles.md` → *Conformance target*; enforcement: `tests/test_accessibility_standards.py`. The three that bite in code review: **(1) status is never colour alone** — every level carries a marker (`✓`/`⚠`/`ⓘ`); **(2) no single-character keyboard shortcuts** — use `QKeySequence.StandardKey` or add a modifier (WCAG 2.1.4); **(3) an explicit size is a size you own** — a 24 px floor, and 44 px for anything that commits. And **a gesture must never change a value**: a scroll over a spin box that edits calibration reaching cyanrip's argv is a data-integrity defect (`ui/scroll_guards.py`).
+- **Naming:** snake_case for functions, variables, modules; PascalCase for classes; SCREAMING_SNAKE_CASE for module-level constants.
+
+#### Critical rule #4 — FLAC is the default and the archival master
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Critical rules, rule #4), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+4. **FLAC is the default and the archival master; MP3, WavPack, and WAV are derived outputs.** (Superseded the original "FLAC only for v1" — multi-format shipped 2026-06-26 with the maintainer's explicit sign-off; FLAC stays the lossless master.) Every rip produces FLAC first (lossless, provably bit-perfect); when the user selects another format in Settings the GUI **keeps that FLAC** and derives the chosen format from it via the *single* post-rip transcode adapter (`adapters/transcode.py`). FLAC and WavPack are lossless; MP3 is best-practice VBR (lossy by design — "not for that use"); WAV is raw PCM with only basic tags (title, artist, album, track number, year, genre) and no cover art — the UI warns (amended on the owner's word of 2026-11-03, after a test through our own transcode measured what a WAV keeps). Every encoder routes through the same dependency self-management subsystem — **no bespoke per-encoder install code**. A new format extends the one transcode adapter + the one dep subsystem; it never gets its own install path.
+
+#### Critical rule #7 — Documentation currency is part of “Done”
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Critical rules, rule #7), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+7. **Documentation currency is part of "Done."** A change isn't finished when the tests are green — it's finished when the *record* matches the code. This rule is the always-loaded anchor; it **daisy-chains** to the rest, so the one file guaranteed to be read every session pulls the others in. Four obligations, in order:
+   - **In the same commit as the change:** add the `CHANGELOG.md` `[Unreleased]` bullet (mechanics under *Project operations → Single record of changes*; CI backstops this). Pure historical-record commits (e.g. a session-log catch-up) are exempt and mark themselves with a `[skip changelog]` line of its own in the commit message.
+   - **Before ending a session:** append a `docs/session-log.md` entry (newest-first) — what was built, decided, learned.
+   - **Graduate every durable lesson to its real home** — a Critical rule or Code convention *here*, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — so the rule lives where it's read and the log keeps only the dated entry. A lesson left *only* in the log is not graduated.
+   - **A NEW file is the last resort, and the commit must name the homes it rejected.** (Added 2026-08-06 on the maintainer's instruction: *"make sure you are not making and adding md files just for the sake of it… if you have, amalgomate as much as you can into the fewest files possible without losing info and context, this includes logs too."*) Graduating means **into a home that already exists** — a rule here, a KDD in `PLANNING.md`, a section of `docs/architecture.md` / `docs/testing.md`, a row in `TASKS.md`, a round file under `docs/handshake/`. A **new** document is permitted only when **no existing home fits**, and **the commit message must name the homes that were considered and say why each one failed.** **A second doc that duplicates a home is worse than one long home.** Nothing here licenses **losing** context: amalgamating means moving the content under a named heading in the target and deleting the source, never summarising it away. Retiring a file means retiring **every inbound link** to it in the same commit, and naming the dead file as a **label, not a path** — write ``the former `appimage-testing.md` ``, never that basename with a `docs/` prefix in front of it, because `tests/test_doc_index_completeness.py::test_every_docs_path_named_in_claude_md_resolves` holds every such path written in this file to resolving. The measured case behind the rule (four new top-level docs in 71 minutes) and its full text: `PLANNING.md` KDD-20.
+     - **A recurring activity's sheet is REWRITTEN when it goes stale, never joined by a sibling.** One `docs/rig-session.md`, rewritten in place and naming its pairing in its header; superseded originals go to `docs/archive/` **with a row in its graduation map**. Ask of any new file: *is this a new topic, or the same topic at a new value?*
+     - **This applies to logs and artifacts too, with one carve-out:** an **EAC-compatible log must stay as close to the EAC original as possible without forging it** (`docs/eac-parity.md`, KDD-24). Consolidate *our* documents; leave a compatibility artifact alone.
+     - **This rule travels to the cyanrip fork**, in the same round it changes, and belongs in the handshake file as well.
+
+   The full code-and-docs checklist is the **Definition of Done in `docs/testing.md §6`**, and the
+   **self-audit before claiming completion is `docs/TEST-VERIFICATION-CHECKLIST.md`** (maintainer-supplied,
+   2026-09-05). Run it at **Tier 2** and output its Final Report, whose `DID NOT RUN`, `KNOWN GAPS` and
+   `RISKS` sections may not be empty (why it earned its place: its row in `docs/README.md`). Same bite as
+   the regression-test rule: institutional, non-negotiable.
+
+#### Critical rule #9 — Qt / PySide6 threading rules
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Critical rules, rule #9), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+9. **Qt / PySide6 threading rules.** Every one of these was paid for with a crash or a freeze; none is theoretical. The incident behind each, in full: `docs/architecture.md` §3.2 (the threading rules as this file used to state them).
+   - **NEVER drop the last Python reference to a running `QThread`.** In PySide6 that invokes `~QThread()`, which Qt treats as fatal (`qFatal` → `SIGABRT`). If a thread cannot be stopped, **abandon** it: keep the reference in a module-level list and leak it deliberately.
+   - **Retaining a reference does NOT make process exit safe.** CPython clears module globals during interpreter shutdown, so the last reference drops there anyway. Any exit path that can run with a live abandoned thread must bypass teardown (`platterpus.hard_exit`), and must flush the log first because `os._exit` does not (the v0.5.8 crash).
+   - **NEVER say "detach".** Qt has no detach operation. Say "abandon", and retain the reference.
+   - **`quit()` only reaches a thread sitting in its event loop.** Every worker that blocks MUST expose a `cancel()` that interrupts the block by killing the child process. **A `cancel()` that only sets a flag the blocked call never checks is a false promise — do not ship one, and do not document one as working.** Use `Popen` (with `start_new_session=True`), not `subprocess.run`, when the caller must be able to kill it. Grep for a call site before believing a `cancel()` works, and check the call site is *reachable*, not merely present.
+   - **Never `wait()` on a child whose output pipe you have stopped draining.** Any early exit from a read loop must bound the wait and escalate to a **group** SIGKILL; bound the post-SIGKILL wait too, and report an unreapable child rather than blocking forever.
+   - **`worker.finished → thread.quit` is a QUEUED connection to the GUI thread.** Once `app.exec()` has returned it is never delivered. Never rely on it as the only stop mechanism.
+   - **Shutdown order is: `cancel()` every worker, THEN `quit()`, THEN wait.**
+   - **Bound the whole shutdown, not each worker.** Share one `ShutdownDeadline`; workers that run out of budget are abandoned, which is safe once exit bypasses teardown. Never hand `QThread.wait()` a negative number: Qt reads it as *wait forever*.
+   - **Only the GUI thread touches widgets.** Workers communicate via signals.
+   - **Every `QThread` slot the window declares must be stopped in `closeEvent`.** `tests/test_harness_fidelity.py` enforces this, and enforces that the *test harness* never cleans up a thread production leaves running.
+   - **That applies to EVERY class that creates a thread, not just the window** — swept, not trusted, by `tests/test_qthread_ownership.py`, which also requires every flag-only `cancel()` to be justified and ratchets the workers that have no `cancel()` at all. Read the live count from `tests/test_qthread_ownership.py::_WORKERS_WITHOUT_CANCEL`, never from prose. Enforce a rule across the codebase, not at the place it was learned (`docs/testing.md` §5.o).
+
+#### Critical rule #10 — Typing is strict
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Critical rules, rule #10), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder.*
+
+10. **Typing is strict, and the standard is stricter than the checker.** `mypy` is configured `--strict`-equivalent with a shrinking per-module opt-out list in `pyproject.toml`; retire one opt-out per commit, never add one. Beyond what mypy can see: `from __future__ import annotations` in every module; every parameter and return annotated including `-> None`; every class attribute annotated including instance attrs set in `__init__`; `X | None` never `Optional[X]`; no untyped dict as a pseudo-struct (use a `TypedDict` or a dataclass); PySide6 `Signal` payload types named in the class body — `Signal(object)  # list[DriveDescriptor]` — because Qt's queued connections force `object` and the comment is the only remaining type information. **No bare `Any`**, and no bare `# type: ignore`: always `# type: ignore[code]  # reason`. **Do not weaken a type to make a checker pass.**
+
 ## 4. Extension points — how to add things
 
 > The goal: a contributor who has never spoken to the author can add a
@@ -2154,6 +2232,14 @@ fix is now a new, signed version (§6.4 step 5).
 
 **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing*** (absorbed the former `release-signing.md` 2026-08-06). Pointed at from here because it is executed under release-time pressure and this section is the front door a maintainer actually opens — and because **its arming transition is dangerous to half-read**: the moment `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so the *first* release after arming and every one after it **must** carry a `.minisig` or users cannot auto-update to it. Today the gate ships dormant (empty key, SHA-256 only), so nothing about releases changes until someone deliberately arms it. **The maintainer decided on 2026-09-25 that it is never armed** (KDD-37, D9), so do not propose arming it. What protects an update instead is the **build attestation, checked fail-closed in the app** (`update_attestation.py`, added 2026-09-25 on the maintainer's yes): `release.yml` must attest and stage `platterpus-x86_64.AppImage.sigstore.json` **before** the release is published, or no installed app can update to it (§6.2).
 
+#### The release hold, and each word that released through it
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Working with the maintainer, the release-hold bullet), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+`CLAUDE.md` keeps the hold and the rule that only the owner's word releases; the record of each word and the release it covered is kept here. Add the next word to the end of this bullet's list, in the same form, when the owner gives it.
+
+- **Autonomous releases are expected — but HELD from 2026-10-12 until the owner says otherwise.** The hold's stated reason was that the owner might rewrite history first (it was rewritten on 2026-10-12), and with release immutability on, a published release locks its tag to the commit it was cut from. **The owner's word of 2026-10-19 (*"When complete make the new release new lap etc. I want to do a new test run"*) released 0.7.109 and covered that release only; *"When you are both ready do a new release. Then let me know so I can do a full acceptance test."* (2026-10-20) released 0.7.110 only; and *"i can't do number 3 of waiting for me for a little bit, but do 1, and 2 do it as part of a full acceptance test, at least as long as we need to. proceed"* (2026-10-20, relayed by the claude-code-skills session at 22:31 UTC) covers the next release, carrying the second read and the fixes since 0.7.110, once its whole suite passes, plus any release needed only to carry the timed `.25`-vs-`.26` comparison into a Full run (0.7.111 shipped on it on 2026-10-21, and 0.7.112, which names `.26` and carries that comparison, is the second). *"4 yes, once the suite passes, default ripper stays .25 until a round approves another; include the Copy OK wording fix if ready."* (2026-10-26, answering the EAC parity plan of record) released 0.7.113 only. *"Release 0.7.114 now, naming .27 (5aeefc4) as the build under review, as STATUS-RELEASE-NEXT and TASKS R80 describe."* (2026-10-28) released 0.7.114 only. *"then release it and let me know when done"* (2026-10-29, answering whether to release 0.7.115, the first release installing `.27` by default) released 0.7.115 only. *"any downside to releasing both? if not, do it"* (2026-10-29, for our round 37 lap 2 and 0.7.116, the release that reads `.28`'s four wordings) released 0.7.116 only. *"Then release 0.7.117 naming .28 as the build under review, as your STATUS-RELEASE-NEXT says. That's my word."* (2026-11-03) released 0.7.117 only. *"Release all when ready and let me know to tell the fork"* and *"don't wait for the fork, release when ready"* (2026-11-03) released 0.7.118 only, the release carrying the fixes of that day's Full run and its review. *"release 0.7.119"* (2026-11-03) released 0.7.119 only, the first release installing `.28` by default after round 37 closed. *"Do the next release so we can do a test run"* (2026-11-04) released 0.7.120 only, the release naming `.29` as the build under review for round 38's Full run. *"when done, audit all docs to be up to date, then release everything you need to for me and fork"* (2026-11-04), with *"fork is going to release the next lap and .30 so we can do the testing on the new version with its improvements"* and *"get ready but wait for lap 12 to confirm"* (2026-11-05), released 0.7.121 only, the release naming `.30` as the build under review for round 38's drive test. *"Check hourly after. If ready close round a release new version. Use lastest fork release so we can full acceptance test. Update test if needed."* (2026-11-11) released 0.7.122 only, the first release installing `.30` by default after round 38 closed, naming `.31` as the build under review for round 39's five-rip run. *"check for lap 3, then do all you can, stop if you need answers, but then release all and do lap 4"* (2026-11-11) released 0.7.123 only, the release answering the fork's round 39 lap 3 (S14's C2 wording read, S15's option on every `-Z` pass) with the exact agreeing count, the whole-second C2 probe, and the word for writing a disc kept for that alone. *"if nothing else to do for this round, release the next version"* (2026-11-13, after round 39 closed) released 0.7.124 only, the first release installing `.31` by default, carrying each drive's own read offset, the cache check once per drive and the EAC-compatible log on by default. *"you have to release the new platterpus version for me to test i think, so do that"* (2026-11-14) released 0.7.125 only, the release naming `.32` as the build under review for round 40's rip. *"2. b"* (2026-11-16, choosing to release 0.7.126 after R155 and R156 are fixed) released 0.7.126 only, the first release installing `.32` by default after round 40 closed. *"yes do it all and release the new lap … if you can release the new version, if not, just do the lap back"* (2026-11-16) released 0.7.127 only, the release naming `.34` as the build under review for round 41's rip, after the pin moved from `.33` at the fork's round 41 lap 3 S9. The hold otherwise stands until the owner lifts or restates it.** Until the owner lifts the hold, prepare a release (version bump, CHANGELOG, generators) only when asked, and never dispatch `release.yml`. Otherwise: cut releases via the `workflow_dispatch` path from the cloud session (see CI/release below); don't wait for a manual tag push.
+
 ### 6.4 When a release is bad (added 2026-09-28)
 
 A version number is a claim about the field (KDD-35), and this is how that claim is
@@ -2205,6 +2291,298 @@ withdrawn. Every step below works from a browser. Two facts decide the order:
    must not be in it. On <https://pypi.org/project/platterpus/#history> the version
    carries a *yanked* label. Then, on a machine running an older version, **Tools →
    Setup & Updates… → Check for updates** must not offer the bad one.
+
+### 6.5 `CLAUDE.md` *Project operations* in full — moved 2026-11-16
+
+`CLAUDE.md` keeps the commands a session runs and the rules that bite; the text below is every *Project operations* subsection as it stood before the R32 trim, except three: *Commit & PR hygiene* moved to `docs/github-workflow-sop.md` §0, and *Uninstall* and *Important paths* stayed in `CLAUDE.md` word for word.
+
+*Verbatim from `CLAUDE.md` at `3e2f194a` (Project operations), moved here on 2026-11-16 when that file was trimmed to what a session needs on every task (`TASKS.md` R32). Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section; relative link targets are rebased to this file's folder; subsection headings are one level deeper.*
+
+*This section grows as the project develops. Add concrete commands, paths, and operational notes as
+they're established. Keep entries terse.*
+
+#### Build commands
+
+- AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` at repo root via
+  `python-appimage`)
+- App icon: `python3 build/make_icon.py` (regenerates the committed
+  `build/python-appimage/io.github.rmccann_hub.Platterpus.png` from `assets/platterpus-logo.svg`;
+  needs an SVG rasterizer on PATH — `rsvg-convert`, Inkscape, ImageMagick, or the `cairosvg` module
+  — **not** Pillow)
+
+#### CI / release
+
+- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:**
+  `test` (pytest on the 3.12–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14
+  leg; every test but the UI conformance matrix), **`ui-conformance`** (that matrix,
+  `tests/test_ui_conformance.py`, once, on 3.14, since 2026-11-02: it was the long pole of every
+  leg, and what it measures does not change with the Python version; a required check from
+  2026-11-02, on the owner's change to the ruleset), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in
+  `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package, plus `scripts/`,
+  `build/*.py` and `.claude/hooks`), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8
+  backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the full
+  history, merge commits included, with the pinned and checksum-verified CLI; it refuses a shallow
+  clone and a scan below its floors, since 2026-10-05 — `SECURITY.md`; it is also the one job that
+  fetches the `evidence` branch, scanning every commit of it and checking the evidence manifest,
+  HR-2 §8a), **`sbom`** (a CycloneDX inventory of what ships, with a floor that refuses fewer than
+  ten components), and **`tests-touched`** (GATING since 2026-08-20: it fails when `src/platterpus`
+  changes with no change under `tests/`, unless a commit in the range carries
+  `[no-test-needed] <reason>` — a bare marker is refused — or the only src change is the
+  `__version__` bump of a release commit), **`lock-check`** (`bash build/lock-requirements.sh
+  --check`: every hashed lock must regenerate byte for byte from the uv version and
+  `--exclude-newer` date in its header) and **`lock-install`** (every lock into a clean venv with
+  `--require-hashes` and `pip check`, then the publish and AppImage wheel builds, without
+  publishing); both required since 2026-10-28, on the owner's change to the ruleset. **Non-gating
+  jobs** in the same file (added 2026-10-27, after that day's review; the owner adds one to the
+  ruleset to make it required): `commit-subjects` (`scripts/check_commit_subjects.py` against the
+  subject grammar below), `workflow-lint` (actionlint and zizmor `--offline`) and `shellcheck`
+  (every tracked shell script outside `docs/handshake/`), with their pins in pyproject's `ci-lint`
+  extra. Two more workflows:
+  `mutation.yml` runs mutation testing **weekly, non-gating**, with **`scripts/mutation_sweep.py`,
+  ours, not `mutmut`**; and `appimage.yml` builds + smoke-tests the AppImage on every push to `main`
+  and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build &
+  testing**). Why each gate exists: `docs/architecture.md` §6.3.
+- **Releases are IMMUTABLE once published** (the owner's setting, 2026-10-12): the tag cannot move,
+  and no file can be added to or replaced on a published release. `release.yml` creates each release
+  as a **draft** carrying every file, then publishes it; its re-run branch finishes a leftover draft
+  and **refuses** a release that is already published, because re-running cannot re-upload its files
+  (`tests/test_release_uploads_while_draft.py`). A broken published release is fixed by a new
+  version, never by editing it. **CodeQL default setup** runs for Actions, C/C++ and Python, and
+  **every action must be pinned to a full commit SHA** (the repository's Actions policy;
+  `tests/test_workflow_permissions.py::test_every_action_is_pinned_to_a_full_commit_sha`).
+- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag
+  (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag
+  as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes
+  don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing
+  `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a
+  GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`,
+  which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. **Handshake record:** the
+  release prints every open handshake round and goes ahead (protocol v8 §6b, from 2026-10-11) — see
+  `docs/cyanrip-handshake.md`. A partly-verified pin is still an unverified pin: `FORK_PIN` moves
+  only when a round closes. Before tagging (the reason for each step: `docs/architecture.md` §6.3):
+  - **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — the *single
+    source*; `pyproject.toml` reads it dynamically, so do **not** add a version there;
+  - **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading
+    with a matching compare link;
+  - **(3)** run **`pytest tests/test_no_stale_version_claims.py`** — the version-bump gate: it fails
+    until the CHANGELOG has a section *and* a compare link for the new version, the `[Unreleased]`
+    link points at it, and README/SECURITY name the new minor and carry its stamp;
+  - **(4)** restamp the docs the cycle touched: run `pytest tests/test_doc_version_stamps.py`; it
+    lists every Markdown doc changed since the last release tag whose
+    `*Last updated for Platterpus vX.Y.Z.*` footer must move to the new version (`docs/README.md` →
+    *Doc version stamps*);
+  - **(5)** **re-run the generators, AFTER the bump, not before**:
+    `python3 scripts/emit_script_language.py`, `python3 scripts/emit_dependency_contract.py` and
+    `python3 scripts/emit_bom.py` — all three embed `__version__`, so **hand-editing the footer does
+    not fix it**; `--check` modes exist on all three, and
+    `tests/test_dependency_contract_emitted.py` / `tests/test_script_language_emitted.py` /
+    `tests/test_bom_emitted.py` are the authority. `python3 scripts/emit_ripper_inventory.py` is
+    **not** version-stamped: run it when a handshake round ships a new provider contract, not when
+    the version moves;
+  - **(6)** **re-run `pip install -e .` before you believe a local suite run** —
+    `tests/test_app.py::test_installed_metadata_matches_canonical_version` reads the version
+    recorded at install time — and **read pytest's own exit code, not a pipeline's**.
+- **WAIT FOR `main`'s OWN CI BEFORE DISPATCHING THE RELEASE, and it is not the PR's run.** A merge
+  creates a **new commit** (a merge commit, or formerly a squash), so CI starts again *on `main`* —
+  and `release.yml`'s CI gate reads **that** run, by head SHA. Check the CI run for the merge SHA is
+  `completed`/`success`, then dispatch. **The gate is right and must not be loosened.** (The
+  measured case: `docs/architecture.md` §6.3.)
+- **The gates that actually run at release time live in `release.yml`, not in the checklist above.**
+  Seven, in order: **(a)** the **handshake record**, which runs first so it heads the log, prints
+  every open round and refuses nothing (protocol v8 §6b, E1, E9, from 2026-10-11; until then it held
+  a stable-offered release while a round was open unless a released lap recorded a `§6b`
+  `HANDSHAKE-OVERRIDE`); then the CI gate above, which is what holds a release for its suite; then
+  the **branch gate**, which refuses a commit that is not on `main` (2026-10-27); **(b)** the
+  **changelog gate**: `[Unreleased]` empty **and** the tag's own `## [X.Y.Z]` section present and
+  non-empty; **(c)** the built-binary version check; **(d)** the **bundled-verifier check**; **(e)**
+  the **attestation check**. After the gates, `release.yml` makes an **annotated** tag on the
+  release commit and publishes with `gh release create --verify-tag` (2026-10-27; tags before
+  0.7.114 stay lightweight, KDD-37 D7). **When you change a gate, ask what it can be satisfied by.**
+  (`docs/architecture.md` §6.3.)
+- **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key
+  `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing***. The moment
+  `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so every release after
+  arming **must** carry a `.minisig`. **The maintainer decided on 2026-09-25 that it is never
+  armed** (KDD-37, D9), so do not propose arming it. What protects an update instead is the **build
+  attestation, checked fail-closed in the app** (`update_attestation.py`): `release.yml` must attest
+  and stage `platterpus-x86_64.AppImage.sigstore.json` **before** the release is published, or no
+  installed app can update to it (§6.2).
+- **Single record of changes:** every notable change is recorded in **`CHANGELOG.md`** (the one
+  authoritative update log; Keep-a-Changelog style). Add a bullet to its `[Unreleased]` section **in
+  the same commit** as the change. `PLANNING.md` (KDDs) and `docs/session-log.md` are for *design
+  decisions and session history*, not the user-facing change record.
+
+#### Run commands
+
+- **Quickstart from a fresh clone:** `bash dev-setup.sh` then
+  `source .venv/bin/activate && platterpus`
+- **Manual:**
+  `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && platterpus`
+- **From the AppImage (once published):** `./platterpus-x86_64.AppImage`
+- **From a `pipx` install (once published):** `platterpus`
+- **CLI flags on the AppImage:** there is **no `platterpus` on `PATH`** for AppImage users (only
+  `pipx`/dev installs put one there). The AppImage entrypoint
+  (`build/python-appimage/entrypoint.sh`) ends with `exec "$PYTHON_BIN" -m platterpus "$@"` (the
+  bundled interpreter), so every flag below works by passing it to the AppImage directly, e.g.
+  `./platterpus-x86_64.AppImage --doctor` or
+  `./platterpus-x86_64.AppImage --ctdb-calibrate "<album folder>"`. (User-facing version in README →
+  *Command-line usage*.)
+- **Version check without launching the GUI:** `platterpus --version` (or
+  `./platterpus-x86_64.AppImage --version`)
+- **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no
+  extra flags: it runs the full check and exits). For the tunable form use
+  `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability
+  checks). It exits non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses
+  the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it.
+  (cyanrip is the sole backend — KDD-18 — so there is no backend-override flag.)
+
+#### Test commands
+
+- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** One command for every gate CI
+  runs (`lint`, `format`, `types`, `tests` + the coverage floor), reporting each one's **real** exit
+  code in a final table, with complete output in `.check-logs/`. `--only lint types` for a subset,
+  `--no-coverage` for a faster suite run. A `pytest … | tail` reports *tail's* status, so never read
+  a verdict through a pipe; if you do pipe something, read the status with `${PIPESTATUS[0]}` or
+  `set -o pipefail`. (What it refuses, and why it exists: `docs/testing.md` §7.)
+- `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
+- **What CI enforces:** every test on a **Python 3.12–3.14 matrix**, each leg in parallel
+  (`pytest -n auto`, pytest-xdist), and branch coverage with a hard floor —
+  `--cov=platterpus --cov-report=term-missing --cov-fail-under=93` — **on the 3.14 leg**
+  (maintainer, 2026-09-26: 3.14's `sys.monitoring` tracer is the fast one, and 3.11–3.13 paid most
+  of their time for coverage; 3.11 left the matrix on 2026-11-02, KDD-46). The gate **ratchets up, never down** (91 until 2026-10-27, raised to
+  the measured 93.28%). Each leg also fails if it collected fewer tests than
+  `tests/collected-tests-baseline.txt`, which is raised in the change that adds tests. A bare local
+  `pytest` stays serial; `scripts/check.py` passes `-n auto` like CI.
+- Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py`
+  (needs `hypothesis`, in the `dev` extra).
+- **Prove a test isn't vacuous:** `python3 scripts/revert_probe.py <spec.json>` — applies a revert,
+  runs the named tests, restores, and reports `detected` / `VACUOUS` / `REFUSED` / `NO EVIDENCE`.
+  Use it instead of hand-reverting: it proves the edit *landed* (anchor unique + file hash changed)
+  and distinguishes a collection error from a real failure, which hand-checks have got wrong four
+  recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the
+  reverted line. Spec format is in the script's docstring; exits non-zero unless every revert
+  behaved as expected.
+- **Judge a commit's checks (the `steward` skill, DRAFT, `.claude/skills/steward/SKILL.md`):**
+  `python3 scripts/pr_steward.py --pr <N>` or `--sha <merge sha> [--logs]` — `GREEN` / `FAILED` /
+  `PENDING` / `BLOCKED` / `CANCELLED` (exit 0 / 1 / 2 / 3 / 4; 5 when the API cannot be read),
+  from the ruleset's required checks and the commit's runs, never a count copied into a loop.
+  After every merge, judge `main`'s merge commit, `appimage.yml` included.
+- **Compute a handshake round digest:**
+  `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` — the
+  `HANDSHAKE-ROUND-DIGEST` field, by **the cyanrip fork's method** (adopted round 15 lap 4), over
+  **both directions**; `tests/test_round_digest.py` pins their published values. It refuses an
+  `--exclude` that matches **nothing** *or* **more than one** file. (`docs/testing.md` §7.)
+- Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` —
+  non-blocking, never gates a merge) with **`scripts/mutation_sweep.py`, ours**, one matrix leg per
+  trust-bearing module, each with its own measured `--min-checked` floor. The workflow's matrix is
+  the authority for the list and the floors;
+  `tests/test_mutation_audit_can_report_its_own_absence.py` holds the required modules as a ratchet
+  and pins the command below to a real leg. Run one leg locally the way CI does, e.g.
+  `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`.
+  (`docs/testing.md` §7.)
+- **Testing strategy + the rules every change is held to live in
+  [`docs/testing.md`](testing.md)** (the trophy + hardware gate, the five-tier case taxonomy,
+  and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the
+  same PR as the fix; every new parser of external output gets a property-based "never raises"
+  test.**
+
+#### Lint / format commands
+
+- **Lint:** `ruff check src tests scripts build` (config in `pyproject.toml` `[tool.ruff]`; rules
+  `E,F,W,I,B,UP`, a few `N` rules, `S`, `DTZ`, `BLE001` and `RUF100` (the list is `select` there),
+  `E501` off). Auto-fix: `ruff check src tests scripts build --fix`.
+- **Format:** `ruff format src tests scripts build` (88-col, double quotes — matches the existing
+  code). CI checks with `ruff format --check`.
+- **Type-check:** `mypy` (bare invocation; config in `pyproject.toml` `[tool.mypy]`, strict
+  def-typing across the whole package, plus `scripts/`, `build/*.py` and `.claude/hooks`). CI runs
+  it as the gating `typecheck` job.
+- **CI:** the `lint` job in `.github/workflows/ci.yml` runs both ruff commands in check mode on
+  every push/PR, in parallel with `test` and `typecheck`.
+- `ruff` and `mypy` are in the `dev` extra (`pip install -e ".[dev]"`).
+
+#### Enforced safety (.claude/ + git hook)
+
+Beyond the *guidance* in the Critical rules above, a few things are **enforced** (not only trusted):
+
+- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file
+  (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore`
+  backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does
+  this**, and in a Claude Code session on the web the SessionStart hook
+  `.claude/hooks/session-start.sh` does, because a fresh cloud clone never runs `dev-setup.sh`;
+  tested by `tests/test_session_start_hook.py`). There is no bypass for audio: a test that needs
+  real PCM generates it at test time (or reads it from outside the repo), and
+  `git commit --no-verify` does not get past CI, whose required `media-guard` refuses the same file
+  on push.
+- **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands
+  (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`),
+  plus a `PreToolUse` hook, **`.claude/hooks/audio_guard.py`**, the Claude-session belt for the same
+  rule (the git hook is the canonical guard). It reads the command it is judging: it blocks a commit
+  or push while audio is staged and a command that itself stages audio, always allows
+  `git restore --staged`/`reset`/`rm`, and **fails closed** (a commit or push is refused when it
+  cannot read the staged list; everything else is allowed). Tested by
+  `tests/test_audio_guard_hook.py`, every case also under a failing `git diff`. Deliberately does
+  **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal
+  overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm
+  what loaded.
+
+- **The `evidence` branch stays out of every fetch (HR-2 §7, `docs/cyanrip-handshake.md` §7.4b).**
+  Run evidence lives on an orphan `evidence` branch, hundreds of MB that no build reads. The
+  SessionStart hook adds a negative refspec to each remote; where hooks do not run, run it yourself
+  once per remote (git 2.29 or later):
+  `git config --add remote.origin.fetch '^refs/heads/evidence'`. A tool that needs an evidence file
+  fetches its commit by hash into a temporary bare repository (`scripts/laplang/evidence.py`), never
+  into the working clone, because a `--depth` fetch makes a full clone shallow. A test reads
+  evidence only through a fixture (`tests/evidence_paths.py`);
+  `tests/test_no_new_evidence_readers.py` refuses a new reader.
+
+#### Artifact filenames that cross machines
+
+**ASCII letters and digits only. No hyphens, no underscores, no spaces.
+Numbers zero-padded.** Case is the one deliberate exception, and it serves the
+rule's own purpose: the hazard was never capitals, it was *two conventions*, so
+ours matches the fork's spelling (`round16lap01FROMcyanripTOplatterpus.md` ↔
+`round16lap03FROMplatterpusTOcyanrip.md`). `round08joint.txt`, `round08lap07.md`.
+
+**Scope: artifacts a PERSON handles by hand** — rig scripts, the transport
+envelope, anything named in a command an operator will type or paste, anything
+that leaves this repo and comes back through a chat client or a file manager.
+**NOT the committed handshake laps** (`round-14-lap-18.md`, generated by
+`handshake.py::handshake_filename()` and held to that shape by `_LAP_NAME`);
+`tests/test_handshake_file_naming.py` enforces both shapes separately.
+
+**The rule is a convention; `uiscript/find_script.py` is the guarantee.**
+`--run-script` resolves a path by comparing names with separators and case
+removed, and refuses rather than guesses when two files match. Legislate the name
+*and* stop depending on it. Why this spelling, and the rig run that was lost to
+it (2026-08-13): `docs/cyanrip-handshake.md` §7.7l.
+
+#### Getting help (Claude Code / Anthropic)
+
+For problems with the **AI tooling itself** — Claude Code, the Claude model, or the Anthropic API.
+(This is *not* Platterpus end-user support; app questions route to the project maintainer, not
+Anthropic.)
+
+- **Fastest:** the support messenger at [support.anthropic.com](https://support.anthropic.com/en/) —
+  message icon, bottom-right. Or, when signed in, **[Claude.ai](https://claude.ai)** /
+  **[Console](https://console.anthropic.com)** → your initials → **"Get help."** (Signed-in routes
+  faster — they see the account.)
+- **API / developer issues:** [support.claude.com](https://support.claude.com).
+- **Topic-specific email:** safety / harmful content → `usersafety@anthropic.com`; security
+  vulnerability → `security@anthropic.com`; privacy / data request → `privacy@anthropic.com`.
+- **Claude via Amazon Bedrock or Google Vertex:** contact AWS / Google support, not Anthropic
+  directly.
+- Reference: [How can I contact
+  Support?](https://support.anthropic.com/en/articles/9015913-how-can-i-contact-support)
+
+#### Session history
+
+Chronological session notes — what was built, decided, and learned each session — live in
+**[`docs/session-log.md`](session-log.md)** (newest first). They're kept out of this file so
+the always-loaded project context stays lean and scannable.
+
+**Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* /
+*Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not
+left only in the dated log. The log is append-only chronology; the rules are the distillation.
 
 ## 7. Security & licensing hygiene
 
@@ -2290,4 +2668,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.7.124.*
+*Last updated for Platterpus v0.7.127.*

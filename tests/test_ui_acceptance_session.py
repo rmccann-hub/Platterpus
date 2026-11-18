@@ -1197,6 +1197,9 @@ def test_the_install_offer_does_not_surface_over_a_running_session(
     win = _start(window, session, process_until)
     win.show()
     offered: list[object] = []
+    # A ripper is installed, as on a rig: with none the automatic offer is not
+    # shown at all (UX review of 0.7.127, F2), and the control below needs it shown.
+    monkeypatch.setattr(MainWindow, "_host_stack_ready", lambda self: True)
     monkeypatch.setattr(
         MainWindow,
         "_offer_ripper_install",

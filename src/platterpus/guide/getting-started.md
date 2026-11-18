@@ -24,13 +24,14 @@ tick the option that lets it run as a program. Then double-click it.
 The first time it opens, Platterpus may offer to add itself to your applications
 menu. Accept if you want it there.
 
-It then asks **Set up Platterpus**: the ripping tool, cyanrip, runs in a small
+It then asks **Install the ripping tools?**: the ripping tool, cyanrip, runs in a small
 container so that it never touches the rest of your system, and Platterpus installs
 it for you. Answer **Yes**. It takes a few minutes and may ask for your password
 once. Nothing here needs a terminal.
 
-If you said no, or want to run it again, it is in **Tools → Setup & Updates…** as
-**Run setup…**.
+If you said no, the main window says the ripping tools are not installed yet, with a
+**Set up…** button; nothing else opens, then or when you next start Platterpus.
+To run setup later, or again, use that button or **Tools → Setup & Updates… → Run setup…**.
 
 ## 3. Set up your drive
 
@@ -116,4 +117,4 @@ Two results deserve a second look:
 Clean the disc and rip it again. **Help → User Guide…** explains every result in
 full, and how to compare the new rip with the last one.
 
-*Last updated for Platterpus v0.7.124.*
+*Last updated for Platterpus v0.7.127.*

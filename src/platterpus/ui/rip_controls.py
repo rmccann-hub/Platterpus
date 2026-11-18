@@ -1,4 +1,4 @@
-"""Rip controls widget — Start / Cancel buttons.
+"""Rip controls widget — Start / Cancel / Force stop buttons, and the Rip menu's Start.
 
 On Start click, assembles a `RipParameters` from the current state and
 emits `rip_requested(params)`. On Cancel, emits `cancel_requested`.
@@ -11,18 +11,40 @@ The Start button enables only when the minimum required state is
 present: a drive AND a release_id (or just a drive when the user has
 opted into unknown-album mode). Cancel is only enabled while a rip
 is active.
+
+The menu bar's **Rip → Start rip** (Ctrl+R) is a second door to the same Start
+button, not a second implementation: `bind_start_action` gives the menu's action
+the button's enabled state, from the one computation in `_refresh_button_state`,
+and its trigger presses the button. See that method for why it is built that way.
 """
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from typing import Final
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from platterpus.config import Config
 from platterpus.ui.plain_text import plain_tooltip
 from platterpus.workers.rip_worker import RipParameters
+
+log = logging.getLogger(__name__)
+
+#: The keyboard shortcut that starts a rip, shown beside **Rip → Start rip**.
+#:
+#: **Why Ctrl+R, and why not a single key.** EAC users reach for an accelerator
+#: (UX review of 0.7.127, A2: only Alt+S, the button's mnemonic, started a rip).
+#: A shortcut that is a bare character would fire while a speech-input user is
+#: dictating (WCAG 2.1.4, `tests/test_accessibility_standards.py`), so it carries
+#: Ctrl. Qt has no `QKeySequence.StandardKey` for "start the main job", so this is
+#: a literal rather than a platform lookup; nothing else in the window binds
+#: Ctrl+R (Quit Ctrl+Q, Settings Ctrl+comma, the User Guide F1), which
+#: `tests/test_ui_rip_menu.py` checks on the built window rather than here.
+START_RIP_SHORTCUT: Final[str] = "Ctrl+R"
 
 
 class RipControls(QWidget):
@@ -44,6 +66,13 @@ class RipControls(QWidget):
         self._unknown_mode: bool = False
         self._rip_active: bool = False
         self._scan_active: bool = False
+        # Whether a cancel of the running rip has been asked for, by any route
+        # (the window's `_on_rip_cancel` says so through `set_cancel_requested`).
+        self._cancel_requested: bool = False
+        # The menu bar's Rip → Start rip, once the window hands it over
+        # (`bind_start_action`). None until then, and in a test that builds
+        # these controls on their own.
+        self._start_action: QAction | None = None
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -55,10 +84,11 @@ class RipControls(QWidget):
         self._start_button: QPushButton = QPushButton("&Start rip", self)
         self._cancel_button: QPushButton = QPushButton("&Cancel", self)
         # Force stop is the drastic escalation: kill the in-container reader for
-        # when the drive keeps spinning. Enabled during a rip (Cancel left it
-        # spinning → eject + kill) AND during a disc scan (a stuck TOC read
-        # wedges the drive too → free it without ejecting, so the disc stays in
-        # for a Rescan).
+        # when the drive keeps spinning. Shown during a rip only once a cancel
+        # has been asked for (Cancel left it spinning → eject + kill), and during
+        # a disc scan (a stuck TOC read wedges the drive too → free it without
+        # ejecting, so the disc stays in for a Rescan). `_refresh_button_state`
+        # says why it is hidden the rest of the time.
         self._force_stop_button: QPushButton = QPushButton("F&orce stop", self)
         self._force_stop_button.setToolTip(
             "Stop the drive if it keeps spinning — after Cancel during a rip, "
@@ -106,6 +136,19 @@ class RipControls(QWidget):
         Idle:       Start enabled (if can_start), Cancel disabled.
         """
         self._rip_active = bool(active)
+        # A rip starting or ending is a new state of the drive: whatever cancel
+        # was asked for belonged to the rip before.
+        self._cancel_requested = False
+        self._refresh_button_state()
+
+    def set_cancel_requested(self, requested: bool) -> None:
+        """A cancel of the running rip was asked for; offer Force stop from now.
+
+        Called by the window from `_on_rip_cancel`, which every cancel route goes
+        through (the button, a disc taken out, a script), once the post-cancel
+        countdown is armed. Cleared by `set_rip_active`.
+        """
+        self._cancel_requested = bool(requested)
         self._refresh_button_state()
 
     def set_scan_active(self, active: bool) -> None:
@@ -119,6 +162,31 @@ class RipControls(QWidget):
         unaffected — there's no rip to cancel during a scan.
         """
         self._scan_active = bool(active)
+        self._refresh_button_state()
+
+    def bind_start_action(self, action: QAction) -> None:
+        """Make ``action`` (Rip → Start rip) a second door to the Start button.
+
+        **One predicate, two doors.** The action's enabled state and tooltip are
+        set in `_refresh_button_state`, from the same ``can_start`` value as the
+        button's, in the same call, so the menu item can never offer a rip the
+        button refuses. Its trigger presses the button rather than calling the
+        rip code itself, so a click, Alt+S and Ctrl+R all run one handler.
+
+        The shortcut is set here, beside the button it stands for, and checked:
+        an empty sequence would be a menu item that silently lost its key, the
+        failure `main_window.standard_shortcut` exists for (CLAUDE.md rule #11).
+        """
+        sequence = QKeySequence(START_RIP_SHORTCUT)
+        if sequence.isEmpty():
+            log.warning(
+                "Qt parsed the Start rip shortcut %r as empty; Rip → Start rip "
+                "and Alt+S still start a rip",
+                START_RIP_SHORTCUT,
+            )
+        action.setShortcut(sequence)
+        action.triggered.connect(self._on_start_action)
+        self._start_action = action
         self._refresh_button_state()
 
     # --- Read-back ----------------------------------------------------------
@@ -149,11 +217,36 @@ class RipControls(QWidget):
         self._start_button.setEnabled(can_start)
         # A disabled button with no explanation reads as "broken" — say *why*
         # it's greyed out (and what to do) so the user is never left guessing.
-        self._start_button.setToolTip(plain_tooltip(self._start_tooltip()))
+        tooltip = self._start_tooltip()
+        self._start_button.setToolTip(plain_tooltip(tooltip))
+        # The menu's Start rip follows the button from the SAME value, here, so
+        # the two can never disagree (`bind_start_action`).
+        if self._start_action is not None:
+            self._start_action.setEnabled(can_start)
+            self._start_action.setToolTip(plain_tooltip(tooltip))
         self._cancel_button.setEnabled(self._rip_active)
-        # Force-stop is available whenever something is holding the drive — an
-        # active rip, or a disc scan that may have wedged the TOC reader.
-        self._force_stop_button.setEnabled(self._rip_active or self._scan_active)
+        # FORCE STOP IS SHOWN ONLY WHERE IT IS THE NEXT STEP (UX review M4).
+        #
+        # It used to sit beside Cancel, at the same weight, for the whole of every
+        # rip, which made the drastic action (eject + kill the reader, and the
+        # rip's log loses its footer) as easy to reach as the ordinary one. It
+        # exists because a drive can hang where Cancel's signal does not reach the
+        # in-container reader (CLAUDE.md rule #9; `drive_control`), and that is
+        # only known AFTER Cancel: the window then arms a countdown and says
+        # "… or hit Force stop". So during a rip it appears once a cancel has
+        # been asked for, and stays for the rest of that rip (after the
+        # countdown the status still offers it, for a reader finishing a slow
+        # read).
+        #
+        # **Where it must stay, because it is the only way out.** A disc SCAN has
+        # no Cancel: a stuck table-of-contents read can be freed only by Force
+        # stop, so it is shown for the whole scan, as before. During a rip,
+        # Cancel is enabled whenever Force stop used to be (both followed
+        # `_rip_active`), and pressing it always reveals Force stop, so no state
+        # loses its escape. Hidden is also disabled, so its Alt+O cannot fire.
+        offered = self._scan_active or (self._rip_active and self._cancel_requested)
+        self._force_stop_button.setVisible(offered)
+        self._force_stop_button.setEnabled(offered)
 
     def _has_minimum_state(self) -> bool:
         if not self._drive:
@@ -180,7 +273,7 @@ class RipControls(QWidget):
                 "Identify the disc first: pick a MusicBrainz match, or use "
                 "File → Rip as Unknown Album to rip without metadata."
             )
-        return "Start ripping the disc in the selected drive."
+        return f"Start ripping the disc in the selected drive ({START_RIP_SHORTCUT})."
 
     def _on_start(self) -> None:
         # Unknown discs use the literal "Unknown Album" templates so a raw
@@ -222,6 +315,20 @@ class RipControls(QWidget):
             output_format=self._config.output_format,
         )
         self.rip_requested.emit(params)
+
+    def _on_start_action(self) -> None:
+        """Rip → Start rip (or Ctrl+R): press the Start button, as Alt+S does.
+
+        **Focus first, and the reason is the track list.** Alt+S, the button's
+        mnemonic, moves keyboard focus to the button before clicking it, and
+        moving focus out of a track-title cell still being edited is what
+        commits the edit. A menu shortcut moves no focus, so without this line
+        Ctrl+R pressed while typing a title would start the rip with the title
+        as it was before the edit. ``click()`` on a disabled button does
+        nothing, which backs up the disabled action.
+        """
+        self._start_button.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self._start_button.click()
 
     def _on_cancel(self) -> None:
         self.cancel_requested.emit()

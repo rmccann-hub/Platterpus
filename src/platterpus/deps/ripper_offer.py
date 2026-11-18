@@ -256,6 +256,40 @@ class RipperOffer:
         return row.version, tuple(row.meson_options)
 
 
+def install_question(offer: object, *, needs_consent: bool) -> str:
+    """The plain-words question an install offer asks; :attr:`RipperOffer.detail` goes under Details.
+
+    **Why the paragraph is no longer the question** (UX review of 0.7.127, F2).
+    The offer box used to show :attr:`RipperOffer.detail` as its text, which is
+    written for the record: handshake rounds, ``unapproved``, "no commit typed
+    in", and an approval that names the app version the round tested with, which
+    a user read as the app's own version being stale. All of it is still true,
+    and all of it is still one click away under **Show Details**; the text a
+    person must answer is now one fact and one question.
+
+    Wording only: which build is offered, and whether it needs consent, is
+    decided by :func:`evaluate_offer` and passed in, never re-derived here.
+    ``offer`` is typed ``object`` because the window holds it that way.
+    """
+    later = "\n\nIt takes a few minutes. More detail is under Show Details."
+    if needs_consent:
+        return (
+            "A ripper build that is still being tested is available. Until its "
+            "testing finishes, every rip made with it records its ripper as not yet "
+            "approved. The audio itself is unaffected.\n\nInstall it anyway?" + later
+        )
+    if getattr(offer, "verdict", "") == OFFER_AVAILABLE:
+        return "A newer, tested ripper build is available. Install it now?" + later
+    # Every other offer puts back the build this Platterpus was tested with: the
+    # installed one is a different build, a changed one, or one that could not be
+    # identified. "Could not confirm" is true of all three; "is not" would claim a
+    # negative the probe may not have established (CLAUDE.md: tri-state).
+    return (
+        "Platterpus could not confirm that the ripper on this computer is the "
+        "tested build this version expects. Install the tested build now?" + later
+    )
+
+
 def _install_hint(commit: str) -> str:
     """The exact command that installs ``commit``, for the offers that need one.
 
@@ -314,11 +348,17 @@ def _approves_commit(commit: str) -> bool:
 
 
 def _expected_build_sentence() -> str:
-    """One line naming the build this Platterpus was verified against, and by whom."""
+    """One line naming the build this Platterpus was verified against, and by whom.
+
+    The app version is the one the approving round TESTED WITH, and the sentence
+    says so. It read "approved, for Platterpus 0.7.125" in a 0.7.127 window, which
+    a user took for the app calling itself 0.7.125 (UX review of 0.7.127, F2).
+    """
     our_round, our_version = _approved_record()
     return (
         f"{fork_source.FORK_EXPECTED_VERSION} ({fork_source.FORK_PIN}) — the build "
-        f"handshake round {our_round} approved, for Platterpus {our_version}"
+        f"handshake round {our_round} approved, testing it with Platterpus "
+        f"{our_version}"
     )
 
 
@@ -673,6 +713,14 @@ def evaluate_offer(
         )
 
     newer = manifest.newer_than(channel, installed_seq)
+    if newer is not None and fork_source.same_commit(newer.commit, installed):
+        # A HIGHER NUMBER FOR THE SAME COMMIT IS NOT A NEWER BUILD. The fork can
+        # republish a build: `edb73dd` (`.32`) is release 43 on beta and release 44
+        # on stable from `cyanrip@f9fdd1a7` (2026-11-16), and our map keeps 43. By
+        # number alone a rig already on `edb73dd` was told "a newer cyanrip build is
+        # published" and offered its own build to install again. The installed build
+        # IS that row, so it is current, at the row's number.
+        return _up_to_date_offer(channel, row, installed, row.release_seq, manifest)
     if newer is None:
         return _up_to_date_offer(channel, row, installed, installed_seq, manifest)
 
