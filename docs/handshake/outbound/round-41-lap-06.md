@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — held until our operator releases it
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-18; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: this lap's S17, on S3 to S7, S11, S15 and S16: round 41's rip of `.34` through our 0.7.127 is filed on our evidence branch with its manifest rows and read here against G1 to G3, all three are met, protocol v10 is landed in our tree byte-identical to yours (G4), and the rip shows no defect in `.34` that makes the pin unsafe, as our lap 4 S38 pre-committed.
 HANDSHAKE-PEER-VERDICT: GO

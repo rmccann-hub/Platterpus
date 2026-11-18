@@ -324,7 +324,17 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: evidence is the owner's Full run of 2026-11-14 on 0.7.125 (filed on our evidence
 #: branch at `7faf1b9f` and on the fork's at `589db536`), read by both sides against
 #: G1 to G3. Neither side names a defect of `.32` that makes the pin unsafe.
-FORK_PIN: Final[str] = "edb73dd"
+#: **Rolled to `fb28088` (`+platterpus.34`, upstream rc3) on round 41's close
+#: (2026-11-18)**: our lap 6 `GO` (released on our owner's word *"release when
+#: ready"*) against their lap 5 `GO` (`docs/handshake/inbound/round-41-lap-05.md`,
+#: sha256 `f61d97ea…`, 21,516 bytes, on `platterpus-fork` at `cyanrip@8b33a6c1`);
+#: both gates read the round CLOSED. `fb28088` is round 41's pin from their lap 3's
+#: move on 2026-11-16. Its evidence is the owner's Full run of 2026-11-17 on
+#: 0.7.127 (filed on our evidence branch at `193801b1` and on the fork's at
+#: `e1e6a682`), read by both sides against G1 to G4, and the over-read probe of the
+#: same day (our evidence `977d78fa`, `f63869fe`). Neither side names a defect of
+#: `.34` that makes the pin unsafe.
+FORK_PIN: Final[str] = "fb28088"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -775,7 +785,9 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: `meson.build:21` at `e531a33`, which declares the same string.
 #: **Rolled to `0.9.4-rc3+platterpus.32` on 2026-11-16, with `FORK_PIN`**, read off
 #: `meson.build:21` at `edb73dd`, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.32"
+#: **Rolled to `0.9.4-rc3+platterpus.34` on 2026-11-18, with `FORK_PIN`**, read off
+#: `meson.build:21` at `fb28088`, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.34"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -2368,7 +2380,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 # full commit fails the suite rather than silently weakening the build check.
 
 #: :data:`FORK_PIN` in full.
-FORK_PIN_FULL: Final[str] = "edb73ddc1a5a86dedb08795ba94aa8fce0de0904"
+FORK_PIN_FULL: Final[str] = "fb2808836827a8407996052b82f9b42e1d400036"
 #: :data:`PIN_UNDER_REVIEW` in full.
 PIN_UNDER_REVIEW_FULL: Final[str] = "fb2808836827a8407996052b82f9b42e1d400036"
 #: :data:`FORK_TEST_PIN` in full.
@@ -2786,17 +2798,20 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 40 approved, GO on both sides: the round's pin from its "
-        "release, held fixed by rule R4 for the whole round "
-        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 43, read from their "
+        "the build round 41 approved, GO on both sides: the round's pin from its "
+        "move at the fork's lap 3, held fixed by rule R4 for the rest of the round "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 46, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). Over +platterpus.31 it "
-        "says truthfully whether the drive declares C2 error pointers, and names "
-        "more of the drive calls it waits on; what a rip delivers is unchanged. "
-        "Round 40's evidence on it is the Full acceptance run on a drive, "
-        "installed through Platterpus 0.7.125, with five whole-disc rips in a row "
-        "each ending with all 14 tracks AccurateRip-verified. "
-        "See docs/handshake/inbound/round-40-lap-03.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.32 it "
+        "records the read speed the drive declares, says what HDCD decoding does "
+        "to a disc without HDCD, and refuses a table of contents whose tracks run "
+        "out of order instead of ripping an empty track; what a rip of a good "
+        "disc delivers is unchanged. Round "
+        "41's evidence on it is the Full acceptance run on a drive, installed "
+        "through Platterpus 0.7.127, with all 14 tracks AccurateRip-verified in "
+        "each of seven whole-disc rips, and a bounded overread probe at both "
+        "edges of the disc that ended cleanly. "
+        "See docs/handshake/inbound/round-41-lap-05.md"
     ),
 )
 
