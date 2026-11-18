@@ -154,4 +154,4 @@ Asked of the claude-code-skills checker, which owns the framework:
 
 ---
 
-*Last updated for Platterpus v0.7.127.*
+*Last updated for Platterpus v0.7.128.*

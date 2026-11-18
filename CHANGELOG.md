@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.128] — 2026-11-18
+
 ### Added
 
 - **A Rip menu, and Ctrl+R to start a rip** (user-facing; UX review of 0.7.127, A2). Only Alt+S, the button's mnemonic, started a rip, and the menu bar had no Rip menu. **Rip → Start rip** (Ctrl+R) is greyed exactly when the Start rip button is, with the same tooltip, and runs the same handler; pressed while a track title is still being typed, it commits the title first, as Alt+S does. *Rip as Unknown Album…* is in the Rip menu too, and stays in File, where the README still sends people. Ctrl+R is a modified key (never a single character, WCAG 2.1.4), and nothing else in the window uses it.
@@ -20042,7 +20044,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.127...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.128...HEAD
+[0.7.128]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.127...v0.7.128
 [0.7.127]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...v0.7.127
 [0.7.126]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...v0.7.126
 [0.7.125]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.124...v0.7.125
@@ -20140,4 +20143,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.127.*
+*Last updated for Platterpus v0.7.128.*
