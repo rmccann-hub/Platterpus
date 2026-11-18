@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our status block records 0.7.128 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.128 at `0ec72e6`, published 2026-11-18T02:35:17Z.
+
 ## [0.7.128] — 2026-11-18
 
 ### Added
