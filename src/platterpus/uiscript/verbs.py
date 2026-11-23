@@ -767,6 +767,17 @@ _VERB_LIST: tuple[Verb, ...] = (
         "keep <config-field> — leave this setting as it is for the run, on purpose, "
         "and record its value (the baseline sets or keeps every setting)",
     ),
+    # TASKS R189: a probe that may change a setting checks it put it back, against
+    # the value it found, never against a value typed into the script. The
+    # over-read probe's last step read `expect force_overread off` and failed the
+    # probe on the owner's own setting, which was on before the run started.
+    Verb(
+        "expect-kept",
+        1,
+        1,
+        "expect-kept <config-field> — assert the setting still has the value the "
+        "last `keep` of it recorded (fails when it changed; an error with no keep)",
+    ),
     Verb(
         "set-drive-offset",
         0,

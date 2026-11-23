@@ -54,6 +54,7 @@ from platterpus.uiscript import run_sizes
 from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.block_verbs import BlockVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
 from platterpus.uiscript.control_verbs import ControlVerbsMixin
 from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
@@ -398,6 +399,7 @@ def _preflight(steps: list[Step]) -> list[str]:
 
 class ScriptRunner(
     ArtifactVerbsMixin,
+    BlockVerbsMixin,
     ProbeVerbsMixin,
     PermutationVerbsMixin,
     PregapVerbsMixin,
@@ -463,6 +465,8 @@ class ScriptRunner(
         #: `record-accuracy` results by label (`accuracy_verbs.py`, section P6);
         #: `start` resets them, as it does the timings.
         self._accuracies: dict[str, AccuracyRecord] = {}
+        #: The values `keep` recorded, by setting, for `expect-kept` (TASKS R189).
+        self._kept: dict[str, object] = {}
         self._artifact_dir: Path | None = None
         #: Set by :meth:`contain_in`: the folder this run writes into instead of
         #: its own stamped one, and whether it still builds a bundle of its own.
@@ -609,6 +613,7 @@ class ScriptRunner(
         self._timings = {}
         self._same_build_skip = ""
         self._accuracies = {}
+        self._kept = {}
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
@@ -4306,7 +4311,11 @@ class ScriptRunner(
         if field not in user_setting_names() or config is None:
             self._record(step, Outcome.ERROR, f"no user setting called {field!r}")
             return
-        self._record(step, Outcome.PASS, f"kept: {field} = {getattr(config, field)!r}")
+        value = getattr(config, field)
+        # Remembered for `expect-kept` (TASKS R189): a step that checks a setting
+        # was put back compares with what was HERE, never with a typed value.
+        self._kept[field] = value
+        self._record(step, Outcome.PASS, f"kept: {field} = {value!r}")
 
     def _do_expect(self, step: Step) -> None:
         """``expect <config-field> <value>`` — assert a setting equals a value."""

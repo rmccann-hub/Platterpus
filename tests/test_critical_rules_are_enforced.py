@@ -3224,7 +3224,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4981 -> 5038** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): every path that kills the `cyanrip` verb's child (stop, timeout, unreapable) also frees its drive (`_free_the_jobs_drive`, `_argv_device`), and `cyanrip_in_flight` lets the window stand aside while one runs.
     # **5038 -> 5068** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `set-drive-offset` / `expect-drive-offset` ask the window's `_selected_drive_offset`, and `set read_offset` goes to the offset writer, so it saves for the selected drive instead of changing a value no rip reads.
     # **5068 -> 5083** (2026-11-16, TASKS R24): the import and base class of `RipperBuildVerbsMixin` (its handler, `expect-ripper-bounds-overread`, lives in `ripper_build_verbs.py`, not here), and `expect-drive-offset <offset>`, which asserts the selected drive's own offset is a named number, beside the handler it extends; the parser is `script_values.parse_offset`.
-    "uiscript/runner.py": 5083,
+    # **5083 -> 5092** (2026-11-23, TASKS R189): `keep` records the value it kept in `_kept`, declared and reset with the run's other per-run state, and the import and base class of `BlockVerbsMixin`; `expect-kept`, which reads it, lives in `block_verbs.py`, not here.
+    "uiscript/runner.py": 5092,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3286,7 +3287,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1170 -> 1172** (2026-11-11, round 39's G2, TASKS R138): `expect-track-records` names the AccurateRip v2 check of repaired tracks it now makes; the grading is `uiscript/repair_accuraterip_grading.py`.
     # **1172 -> 1191** (2026-11-16, TASKS R24): the `expect-ripper-bounds-overread` declaration, beside `expect-ripper-under-review`, and `expect-drive-offset`'s optional offset. The table is the vocabulary's security boundary, so a verb is an entry here.
     # **1191 -> 1194** (2026-11-16, TASKS R59 (a)): `expect-album-audit`'s help names the second warning it expects, a ripping-error tally placed on replaced reads.
-    "uiscript/verbs.py": 1194,
+    # **1194 -> 1205** (2026-11-23, TASKS R189): the `expect-kept` declaration, beside `keep`, whose value it checks. The table is the vocabulary's security boundary, so a verb is an entry here.
+    "uiscript/verbs.py": 1205,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

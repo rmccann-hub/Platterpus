@@ -1,7 +1,7 @@
 # Platterpus UI script — ONE bounded -O read, run by hand (TASKS R24).
 #
 # Run it with:  ./platterpus-x86_64.AppImage --run-script overreadprobe
-#          or:  Tools → Advanced → Run test script…  → Load → Run
+#          or:  Tools → Advanced → Run tests…  → Over-read probe → Run
 #
 # WHAT IT IS FOR. `-O` reads past the disc's edges: into the lead-out, so the
 # last track can be read at a positive offset without padding, and into the
@@ -25,11 +25,18 @@
 # records the kill.
 #
 # WHAT IT RECORDS. The transcript keeps each step's exit code, its exact argv
-# and its complete output; cyanrip prints the `Beyond disc:` line to its output
-# as well as its log (`cyanrip@edb73dd:src/cyanrip_log.c:627` writes it, and
-# `:1955` copies every log line to standard output), so the line is in the
-# transcript, and the logs land in `overreadleadout` and `overreadleadin` in
-# the rips folder. The bundle the run ends with carries both.
+# and each read's whole output; cyanrip prints the `Beyond disc:` line to its
+# output as well as its log (`cyanrip@edb73dd:src/cyanrip_log.c:627` writes it,
+# and `:1955` copies every log line to standard output), so the line is in the
+# transcript. The two reads' own logs are in two folders in the rips folder:
+# `overreadleadout` (the last track) and `overreadleadin` (track 1). Send the
+# transcript, and the log from each of those two folders.
+#
+# YOUR OVERREAD SETTING IS LEFT AS YOU HAD IT. The reads below pass `-O`
+# themselves and never change the setting; the probe records it before the
+# first read (`keep`) and checks after the last that it is still that value
+# (`expect-kept`). It used to check it was OFF, and failed the probe on an
+# owner whose setting was on before the run started (TASKS R189).
 #
 # ONE THING TO DO BY HAND FIRST: put the reference disc in and let the drive
 # settle. Run it on its own, not during a Full run.
@@ -60,6 +67,8 @@ expect-drive-offset 667
 abort-if-failed not the BDR-209D at +667, so the read would not be the one asked for
 
 log --- 3. the read: last track only, -O, killed at the step's fixed limit ---
+# Your Overread setting as it is now, so step 5 can check nothing changed it.
+keep force_overread
 cyanrip -N -s (offset) -l (lasttrack) -O -D overreadleadout (consumer) (diagnostics)
 expect-exit 0
 expect-cyanrip Beyond disc:
@@ -76,5 +85,5 @@ cyanrip -N -s -667 -l 1 -O -D overreadleadin (consumer) (diagnostics)
 expect-exit 0
 expect-cyanrip Beyond disc:
 
-log --- 5. nothing here turned overread on for your rips ---
-expect force_overread off
+log --- 5. your Overread setting is what it was before the first read ---
+expect-kept force_overread

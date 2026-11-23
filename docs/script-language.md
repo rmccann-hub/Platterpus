@@ -104,6 +104,7 @@ text is taken verbatim as one value.
 | `expect-unknown-record` | 0 | ready | expect-unknown-record — the last rip's report records an unknown-album rip with no release id and no failed tagging pass (waits for it to settle) |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `keep` | 1 | ready | keep <config-field> — leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting) |
+| `expect-kept` | 1 | ready | expect-kept <config-field> — assert the setting still has the value the last `keep` of it recorded (fails when it changed; an error with no keep) |
 | `set-drive-offset` | 0 | ready | set-drive-offset — set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known) |
 | `expect-drive-offset` | 0–1 | ready | expect-drive-offset [<offset>] — assert the selected drive's read offset is still the one set-drive-offset set, with the override on; with <offset>, also that it is that number (a script written for one drive) |
 | `expect-offset-refusal` | 0 | ready | expect-offset-refusal — turn the read-offset override off and press Start: a drive the AccurateRip list does not carry must be refused ('Set up your drive first') with no rip; the wizard is declined and the override put back. On a listed drive the app would apply the list's offset and rip, so the step records unreachable and changes nothing |
@@ -851,6 +852,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "keep <config-field> \u2014 leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting)"
+    },
+    {
+      "name": "expect-kept",
+      "min_args": 1,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-kept <config-field> \u2014 assert the setting still has the value the last `keep` of it recorded (fails when it changed; an error with no keep)"
     },
     {
       "name": "set-drive-offset",
