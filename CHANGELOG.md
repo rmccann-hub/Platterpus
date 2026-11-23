@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`docs/architecture.md` says a parallel branch's work is not safe until it is pushed** (contributor-facing): on 2026-11-18 four helpers' local commits for wave 2 and the uninstaller were lost when the idle session's container was replaced; bring a stopped helper's commits onto the session branch and push them before ending the turn, and run two helpers at a time.
 - **Our status block records 0.7.128 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.128 at `0ec72e6`, published 2026-11-18T02:35:17Z.
 
 ## [0.7.128] — 2026-11-18
