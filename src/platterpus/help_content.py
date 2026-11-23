@@ -51,28 +51,45 @@ produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
    **Rip?** column by default — untick any you don't want. Or right-click one or
    more highlighted rows for **Rip only these** / include / exclude. Start rips
    whatever's ticked (all ticked = the whole disc).
-5. Click **Start rip** (or **Rip → Start rip**, or **Ctrl+R**). Progress shows an
-   overall bar plus the current task, and the **Live log** tab comes forward.
+5. Click **Start rip** (or **Rip → Start rip**, or **Ctrl+R**). One progress
+   bar shows the whole rip ("Track 5 of 14 — 31% of the rip"), the status line
+   the current step, and the track list follows the rip row by row. The
+   ripper's own output is on the **Live log** tab, one click away.
 6. When it finishes, the status line reports a fidelity verdict, the verification
-   banner appears (see below), and the **Tracks** tab comes forward with the
-   per-track results. Files land under your output
-   folder (see Settings).
+   banner appears (see below), and the track list gains a **Verified** column
+   with each track's result. Files land under your output folder (see
+   Settings).
+
+The disc's MusicBrainz and CDDB IDs, the last rip's AccurateRip summary and the
+drive's cache-defeat verdict are folded into **Disc details** above the album
+fields (Alt+A opens it); a **⚠** on it means one of those rows holds a warning.
 
 ## Understanding the results — is my rip trustworthy?
 
-After a rip, a bold **verification banner** sits above the results and tells you
-at a glance whether the rip can be trusted. It stays put — it is never scrolled
-away or tucked behind a tab, so the answer to "is this rip good?" is always on
-screen. Below it, three tabs hold the detail:
+After a rip, a bold **verification banner** tells you at a glance whether the
+rip can be trusted. It stays put — it is never scrolled away or tucked behind a
+tab, so the answer to "is this rip good?" is always on screen. When CTDB has
+answered too, the line under the banner says **which check decides, and why**:
+AccurateRip for a track it rejects (a CTDB match does not clear it), CTDB for a
+track a CTDB repair replaced and a fresh CTDB check confirmed, and a note where
+CTDB questions a track AccurateRip found nothing wrong with.
 
-- **Tracks** — the per-track table, shown automatically when a rip finishes.
-- **Details** — the CTDB result, why CTDB and AccurateRip can look like they
-  disagree, and album loudness. When there is something in here worth reading,
-  the tab label itself shows a **⚠** so you don't have to go looking.
-- **Live log** — the ripper's own output, shown automatically *while* a rip runs.
+Each track's result is in the track list: **Status** (✓ Done, or ⚠ Wrong
+(AccurateRip) for a track AccurateRip contradicts) and **Verified** (✓ 200
+matching rips, ⚠ Mismatch, ⓘ Not in database, or ✓ CTDB where only CTDB has an
+answer). Point at a cell for the detail. Right-click a column heading and choose
+**Show AccurateRip and CRC columns** for the AccurateRip v1 and v2 results and
+each track's EAC CRC, the view an EAC user knows.
 
-Alt+T / Alt+D / Alt+L switch between them, as do the arrow keys once the tab
-strip has focus.
+Below the banner, two tabs hold the rest:
+
+- **Details** — the CTDB result, any CTDB repair, and album loudness. When there
+  is something in here worth reading, the tab label itself shows a **⚠** so you
+  don't have to go looking.
+- **Live log** — the ripper's own output.
+
+Alt+D / Alt+L switch between them, as do the arrow keys once the tab strip has
+focus.
 
 - 🟢 **Green — "Bit-perfect: all N tracks verified against AccurateRip"** —
   every track's audio matches the shared AccurateRip database. This is the

@@ -1159,7 +1159,15 @@ class RipMixin(MainWindowShared):
         # cancelled rip is never a dead end (the "Open rip folder did nothing
         # after I force-cancelled" report). set_log_path refines these to the
         # backend's own .log / folder at finish.
-        self._rip_progress.begin_rip(Path(params.output_dir), LOG_PATH)
+        # The tracks this rip reads, for the one bar's "Track 5 of 14": the
+        # ticked ones, or every row when the whole disc is ripped (an empty
+        # `only_tracks` is cyanrip's "all").
+        rip_tracks = params.only_tracks or tuple(
+            track.number for track in self._track_table.tracks()
+        )
+        self._rip_progress.begin_rip(
+            Path(params.output_dir), LOG_PATH, tracks=rip_tracks
+        )
         # Arm the liveness watchdog: record "now" as the last-signal time and
         # start the timer. Any worker signal below refreshes it via
         # _note_rip_signal; the timer flags a stall when it goes quiet.
@@ -1183,6 +1191,8 @@ class RipMixin(MainWindowShared):
         # and advance the live Status column (current row → ripping, each finished
         # track → done).
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
+        # …and name the track in the one progress bar ("Track 5 of 14").
+        self._rip_worker.current_track.connect(self._rip_progress.set_current_track)
         self._rip_worker.current_track.connect(self._track_table.mark_track_ripping)
         self._rip_worker.track_completed.connect(self._track_table.mark_track_done)
         self._rip_worker.error.connect(self._on_rip_error)
