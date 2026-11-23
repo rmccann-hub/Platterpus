@@ -63,13 +63,13 @@ set -euo pipefail
 # named to mirror the fork's `~/cyanrip-rig`; the owner's "stop polluting my home
 # directory", 2026-09-11). One folder per round's drive test, so a later round's
 # test cannot mix with this one. Deleting the folder removes all of it.
-ROUND="${DRIVETEST_ROUND:-38}"
+ROUND="${DRIVETEST_ROUND:-42}"
 DM="$HOME/platterpus-rig/drivetest$ROUND"
 STATE="$DM/state"
 LOG="$DM/drivetest.log"
 DEVICE="${DRIVETEST_DEVICE:-/dev/sr0}"
 # The build under test. Overridable so a later round can reuse the script.
-EXPECT_BUILD="${DRIVETEST_EXPECT_BUILD:-platterpus.30}"
+EXPECT_BUILD="${DRIVETEST_EXPECT_BUILD:-platterpus.35}"
 # Where the rip scripts are fetched from. This script runs the CURRENT
 # drivemode.txt and drivespeed.txt from the repository, not the copies packaged
 # in the installed release, so a fix to a rip script (the release it picks, on
@@ -672,7 +672,9 @@ quiet() {
 #      `block_crcs`, a CRC a second, our round 39 lap 2): track 3's seconds 244,
 #      251 and 252 and track 5's second 144, and track 3's second 245, which
 #      round 40's rip added (the fork's round 41 lap 1 S19: its misreads sat in
-#      seconds 244, 245, 251 and 252) (C2_SECONDS below). Each second is
+#      seconds 244, 245, 251 and 252), and track 3's second 240 and track 1's
+#      second 162, which round 42 asks for (the fork's round 42 lap 1 S32,
+#      G2) (C2_SECONDS below). Each second is
 #      read as three 26-frame windows from its first frame (+0, +26, +52: 78
 #      frames, the second's 75 and 3 more), because the read offset (+667
 #      samples, 1.13 frames) puts a file's second that far into the disc: its
@@ -681,16 +683,16 @@ quiet() {
 #      (14h) at 83416, where the first probe (2026-11-11) read them. It says
 #      whether the drive flags the samples it gets wrong, which decides how round
 #      39 re-reads. The first probe's windows held only parts of seconds 244 and
-#      251 and none of 252 (the fork's round 39 lap 3 S12). 49 flushes and reads
-#      in all: the control and five seconds, 16 windows, three reads each, and
-#      the block-error read (40 with four seconds, 16 with the first probe's
-#      points); the summary counts them and records how long they took.
+#      251 and none of 252 (the fork's round 39 lap 3 S12). 67 flushes and reads
+#      in all: the control and seven seconds, 22 windows, three reads each, and
+#      the block-error read (49 with five seconds, 40 with four, 16 with the first
+#      probe's points); the summary counts them and records how long they took.
 PROBE_SECS="${DRIVETEST_PROBE_SECS:-300}"
 # LABEL:TRACK_START:SECOND for each second the probe covers. The track starts
-# are the reference disc's TOC (`Start LSN: 28067` for track 3 and `72570` for
-# track 5 in every cyanrip log of it); second s of a track starts on the disc's
-# frame TRACK_START + 75 s.
-C2_SECONDS="t3s244:28067:244 t3s245:28067:245 t3s251:28067:251 t3s252:28067:252 t5s144:72570:144"
+# are the reference disc's TOC (`Start LSN: 0` for track 1, `28067` for track 3
+# and `72570` for track 5 in every cyanrip log of it); second s of a track
+# starts on the disc's frame TRACK_START + 75 s.
+C2_SECONDS="t1s162:0:162 t3s240:28067:240 t3s244:28067:244 t3s245:28067:245 t3s251:28067:251 t3s252:28067:252 t5s144:72570:144"
 probe() {
   UPLOAD_NAME=probe; UPLOAD_SINCE="$STATE/probe.started"; UPLOAD_PIECES=(probe)
   date -u > "$STATE/probe.started"

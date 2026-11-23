@@ -14,6 +14,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The drive test's C2 probe is ready for round 42** (operator-facing): `docs/rig-scripts/drivetest.sh` now expects `.35` and keeps its files in `~/platterpus-rig/drivetest42/` by default, and its C2 probe reads track 3's second 240 and track 1's second 162 as round 42's G2 asks, 67 reads in all where it made 49. TASKS R194 records that the Run tests screen's Full estimate (12 h at 1.0x) contradicts its own 4 to 6 hour label.
 - **Our round 42 lap 2 is released to the fork, and our status block records 0.7.129 as released** (contributor-facing; the owner's word of 2026-11-23): the lap says 0.7.129 names `.35` under review, and `STATUS-RELEASED` names 0.7.129 at `a964e3b`, published 2026-11-23T22:38:06Z.
 
 ## [0.7.129] — 2026-11-23

@@ -38,10 +38,10 @@ _REFERENCE_LOG: Final[Path] = (
 #: too (the fork's round 41 lap 1 S19). The probe must cover these; it may cover
 #: more.
 _WRONG_SECONDS: Final[frozenset[tuple[int, int]]] = frozenset(
-    {(3, 244), (3, 245), (3, 251), (3, 252), (5, 144)}
+    {(1, 162), (3, 240), (3, 244), (3, 245), (3, 251), (3, 252), (5, 144)}
 )
 #: Reads the probe makes: three a window (the control, and three windows a second
-#: for each of the five seconds), and the one block-error read.
+#: for each of the seven seconds), and the one block-error read.
 _PROBE_READS: Final[int] = 3 * (1 + 3 * len(_WRONG_SECONDS)) + 1
 #: Where the fork's probe found C2 bits: LBA 83430, in track 5 (their lap 3 S11).
 _C2_BITS_LBA: Final[int] = 83430
@@ -169,9 +169,10 @@ def test_the_read_count_the_script_states_is_the_count_it_makes() -> None:
     """The comment above `C2_SECONDS` says how many reads the probe makes, and
     the README repeats it; both must be the count `c2_windows` produces (three
     reads a window) plus the block-error read, so a second added to the list
-    cannot leave the stated count behind (S19 added second 245: 40 -> 49)."""
+    cannot leave the stated count behind (S19 added second 245: 40 -> 49; round
+    42's S32 added track 3's second 240 and track 1's second 162: 49 -> 67)."""
     reads = 3 * len(_windows()) + 1
-    assert reads == _PROBE_READS == 49
+    assert reads == _PROBE_READS == 67
     script = _SCRIPT.read_text(encoding="utf-8")
     readme = (_SCRIPT.parent / "README.md").read_text(encoding="utf-8")
     assert f"{reads} flushes and reads" in script
