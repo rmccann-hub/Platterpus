@@ -220,13 +220,15 @@ def test_the_results_table_status_cell_is_not_clean_for_a_wrong_track(
 ) -> None:
     widget = RipProgress()
     widget.set_rip_log(_run_a_n_rip(), disc_track_total=14)
-    rows = {
-        widget._ar_table.item(row, 0).text(): widget._ar_table.item(row, 2)
-        for row in range(widget._ar_table.rowCount())
-    }
+    # The Status cells the pane hands the one track table (R179).
+    rows = {str(n): cells.status for n, cells in widget.track_results().items()}
     wrong = rows["3"]
     # Status is never colour alone: the cell carries a marker and words.
-    assert wrong.text() == "⚠ Wrong (AccurateRip)"
-    assert "ripped successfully" in wrong.toolTip()
-    assert "frame 450" in wrong.toolTip()
-    assert rows["1"].text() == "ripped successfully"
+    assert wrong.text == "⚠ Wrong (AccurateRip)"
+    assert "ripped successfully" in wrong.tip
+    assert "frame 450" in wrong.tip
+    # A clean copy reads the table's one status word; the ripper's is the tooltip.
+    assert rows["1"].text == "✓ Done"
+    assert "ripped successfully" in rows["1"].tip
+    # The Verified column agrees: never a ✓ over the wrong track.
+    assert widget.track_results()[3].verified.text == "⚠ Mismatch"

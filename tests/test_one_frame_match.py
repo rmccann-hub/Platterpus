@@ -31,7 +31,9 @@ from platterpus.parsers.rip_log import RipLog, TrackResult
 from platterpus.rip_compare import STATUS_OFFSET_VARIANT, _describe_status
 from platterpus.rip_plan import describe_rip_plan
 from platterpus.ui.main_window_helpers import _partial_accurate_clause
-from platterpus.ui.rip_progress import _ar_cell, _ar_tooltip, _eac_cell
+from platterpus.ui.track_results import ar_cell as _ar_cell
+from platterpus.ui.track_results import ar_tooltip as _ar_tooltip
+from platterpus.ui.track_results import eac_cell as _eac_cell
 from platterpus.verdict import accuraterip_verdict, reconcile_ar_ctdb
 
 #: Evidence moved off `main` (HR-2): named by its original path, read from its

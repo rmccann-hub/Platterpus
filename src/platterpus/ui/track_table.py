@@ -16,12 +16,21 @@ Layout:
   ...
 
 Editable columns: Title, Artist. Track number and length are read-only.
+
+**It is the window's only track list** (UX review of 0.7.127, M2; TASKS R179).
+After a rip it gains a **Verified** column (``✓ 200 matching rips``,
+``⚠ Mismatch``) and three detail columns that stay hidden until asked for
+(AccurateRip v1, AccurateRip v2, EAC CRC: a right-click on the column headings,
+or on a row, shows them), and its Status column takes the rip's per-track
+verdict. Every one of those cells is rendered by ``ui/track_results.py``; this
+widget only shows them (:meth:`TrackTable.set_results`). Before, a second results
+table in the rip pane listed the same tracks with different status words.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
 from PySide6.QtCore import (
@@ -32,6 +41,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
@@ -52,6 +62,8 @@ from platterpus.adapters.cyanrip_name_lengths import (
 from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
 from platterpus.finish_wording import RIP_ONLY_THESE
 from platterpus.settings_validation import path_reference_issue, path_segment_issue
+from platterpus.ui.plain_text import plain_tooltip
+from platterpus.ui.track_results import Cell, TrackResultCells
 
 # Qt's model/view API types every index/parent argument as this union, so our
 # QAbstractTableModel overrides must annotate it the same way or mypy flags an
@@ -77,16 +89,55 @@ class AlbumMetadata:
 
 
 # Column layout. Defined once so the model + view + tests share it. The leading
-# "Rip?" column is a per-track checkbox (which tracks to rip → cyanrip `-l`);
-# Status stays LAST.
-_COLUMNS: list[str] = ["Rip?", "#", "Title", "Artist", "Length", "Status"]
+# "Rip?" column is a per-track checkbox (which tracks to rip → cyanrip `-l`).
+# The four after Status are the rip's results (R179/R181): hidden until a rip
+# has given them something, and the last three hidden until asked for.
+_COLUMNS: list[str] = [
+    "Rip?",
+    "#",
+    "Title",
+    "Artist",
+    "Length",
+    "Status",
+    "Verified",
+    "AccurateRip v1",
+    "AccurateRip v2",
+    "EAC CRC",
+]
 _COL_RIP: int = 0
 _COL_NUMBER: int = 1
 _COL_TITLE: int = 2
 _COL_ARTIST: int = 3
 _COL_LENGTH: int = 4
 _COL_STATUS: int = 5
+_COL_VERIFIED: int = 6
+_COL_AR_V1: int = 7
+_COL_AR_V2: int = 8
+_COL_CRC: int = 9
 _EDITABLE_COLS: set[int] = {_COL_TITLE, _COL_ARTIST}
+#: The columns only a finished rip fills: Verified, then the detail columns.
+RESULT_COLUMNS: tuple[int, ...] = (_COL_VERIFIED, _COL_AR_V1, _COL_AR_V2, _COL_CRC)
+#: The detail columns, hidden by default (UX review V3: "AR v1", "one frame only
+#: (200)" and a hex CRC with "~" were the databases' internals on the main
+#: screen). The EAC-style view a person asks for, and every word is in the
+#: Verified cell's tooltip either way.
+DETAIL_COLUMNS: tuple[int, ...] = (_COL_AR_V1, _COL_AR_V2, _COL_CRC)
+#: The headers' tooltips: what each results column holds.
+_HEADER_TIPS: dict[int, str] = {
+    _COL_VERIFIED: (
+        "Whether the track is verified: AccurateRip's answer, or CTDB's where "
+        "AccurateRip has none. Point at a cell for the detail; right-click a "
+        "column heading to show the AccurateRip and CRC columns."
+    ),
+    _COL_AR_V1: "AccurateRip's version 1 checksum result: its confidence of the "
+    "database's best for this track.",
+    _COL_AR_V2: "AccurateRip's version 2 checksum result.",
+    _COL_CRC: "The track's CRC32 as EAC computes it (its Copy CRC), to compare "
+    "with an EAC log. ✓ verified and copy OK; ~ only one frame matched.",
+}
+#: The action, in the header's and the rows' right-click menus, that shows or
+#: hides the detail columns.
+SHOW_DETAIL_TEXT: str = "Show AccurateRip and CRC columns"
 
 # Per-track live rip status, shown in the Status column as it advances. Symbol
 # AND text (not colour alone) per docs/ux-design-principles.md #10; pending shows
@@ -254,6 +305,10 @@ class TrackTableModel(QAbstractTableModel):
         # unticking a row drops it from the rip (cyanrip `-l`). A number absent
         # from this map is treated as selected (so a freshly-set list is all-on).
         self._selected: dict[int, bool] = {}
+        # The last rip's per-track results, keyed by track number (R179/R181).
+        # Empty until a rip finishes; cleared with the tracks and at a rip's
+        # start, so a result never describes another disc or another rip.
+        self._results: dict[int, TrackResultCells] = {}
 
     # --- Public surface ---
 
@@ -272,6 +327,7 @@ class TrackTableModel(QAbstractTableModel):
         self._tracks = list(tracks)
         self._status = {}
         self._selected = {t.number: True for t in self._tracks}
+        self._results = {}
         self.endResetModel()
         self.selection_changed.emit(self.selected_count(), len(self._tracks))
 
@@ -354,6 +410,44 @@ class TrackTableModel(QAbstractTableModel):
         """Return the current track list (with any user edits applied)."""
         return list(self._tracks)
 
+    def set_results(self, results: Mapping[int, TrackResultCells]) -> None:
+        """Show a rip's per-track results (empty clears them).
+
+        Display only: never a tag, never a selection, so it is allowed while a
+        rip holds the table (the results land as the rip ends). A number with no
+        row (a track the table does not list) is ignored.
+        """
+        self._results = dict(results)
+        if self._tracks:
+            top = self.index(0, _COL_STATUS)
+            bottom = self.index(len(self._tracks) - 1, _COL_CRC)
+            self.dataChanged.emit(
+                top,
+                bottom,
+                [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.ToolTipRole],
+            )
+
+    def has_results(self) -> bool:
+        """True while some listed track carries a rip result."""
+        return any(t.number in self._results for t in self._tracks)
+
+    def result_for(self, track_number: int) -> TrackResultCells | None:
+        """The result cells shown for ``track_number``, or None."""
+        return self._results.get(track_number)
+
+    def _result_cell(self, track_number: int, col: int) -> Cell | None:
+        """The results cell at ``col`` for a track, or None when there is none."""
+        result = self._results.get(track_number)
+        if result is None:
+            return None
+        return {
+            _COL_STATUS: result.status,
+            _COL_VERIFIED: result.verified,
+            _COL_AR_V1: result.ar_v1,
+            _COL_AR_V2: result.ar_v2,
+            _COL_CRC: result.crc,
+        }.get(col)
+
     def set_all_artists(self, artist: str) -> None:
         """Set every track's artist to `artist` (album-artist propagation).
 
@@ -382,11 +476,12 @@ class TrackTableModel(QAbstractTableModel):
         orientation: Qt.Orientation,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> object:
-        if (
-            role == Qt.ItemDataRole.DisplayRole
-            and orientation == Qt.Orientation.Horizontal
-        ):
+        if orientation != Qt.Orientation.Horizontal:
+            return None
+        if role == Qt.ItemDataRole.DisplayRole:
             return _COLUMNS[section]
+        if role == Qt.ItemDataRole.ToolTipRole and section in _HEADER_TIPS:
+            return _HEADER_TIPS[section]
         return None
 
     def data(
@@ -406,12 +501,25 @@ class TrackTableModel(QAbstractTableModel):
                 if self._is_selected(track.number)
                 else Qt.CheckState.Unchecked
             )
+        if role == Qt.ItemDataRole.ToolTipRole:
+            # The ripper's and the databases' words can hold a `<`, so every
+            # tooltip goes through `plain_tooltip` (Critical rule #12, inbound).
+            cell = self._result_cell(self._tracks[index.row()].number, col)
+            return plain_tooltip(cell.tip) if cell is not None and cell.tip else None
         if role not in (
             Qt.ItemDataRole.DisplayRole,
             Qt.ItemDataRole.EditRole,
         ):
             return None
         track = self._tracks[index.row()]
+        result = self._result_cell(track.number, col)
+        if result is not None:
+            # After a rip the Status column shows the rip's per-track verdict
+            # (which may be ⚠ over a track the live column called done), and
+            # the results columns their cells.
+            return result.text
+        if col in RESULT_COLUMNS:
+            return None
         if col == _COL_RIP:
             return None  # checkbox only — no text beside it
         if col == _COL_NUMBER:
@@ -571,6 +679,17 @@ class TrackTable(QWidget):
                 else QHeaderView.ResizeMode.Interactive
             )
             header.setSectionResizeMode(col, mode)
+        # The results columns: hidden until a rip fills them, and the detail
+        # ones until asked for (`set_detail_columns_visible`). The header's
+        # right-click menu holds the switch, the EAC-style view toggle the UX
+        # review's V3 asked for; the rows' right-click menu repeats it.
+        self._detail_columns_wanted: bool = False
+        self._show_detail_action: QAction = QAction(SHOW_DETAIL_TEXT, self)
+        self._show_detail_action.setCheckable(True)
+        self._show_detail_action.toggled.connect(self.set_detail_columns_visible)
+        header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        header.customContextMenuRequested.connect(self._show_header_menu)
+        self._refresh_result_columns()
         self._apply_column_widths()
         # Right-click a row (or several highlighted rows) for quick rip-selection
         # actions — the second half of the "checkbox column + right-click" model.
@@ -579,7 +698,70 @@ class TrackTable(QWidget):
         # Surface the model's selection changes as our own signal so the main
         # window can watch one object (the widget), not the inner model.
         self._model.selection_changed.connect(self.selection_changed)
+        # A new disc (or none) drops the last rip's results, and with them the
+        # Verified column; re-hide the columns whenever the rows are replaced.
+        self._model.modelReset.connect(self._refresh_result_columns)
         root.addWidget(self._view, stretch=1)
+
+    # --- The results columns (R179/R181) -------------------------------------
+
+    def set_results(self, results: Mapping[int, TrackResultCells]) -> None:
+        """Show a finished rip's per-track results; an empty mapping clears them.
+
+        Connected to ``RipProgress.track_results_changed``, which emits the cells
+        it rendered whenever the rip log, CTDB's answer or the repair lands, and
+        emits an empty mapping when it is cleared for the next rip. The Verified
+        column appears with the first results and goes with them.
+        """
+        self._model.set_results(results)
+        self._refresh_result_columns()
+        if self._model.has_results():
+            # Sized once per result set, never during a rip: results change only
+            # when a check lands, so this cannot re-lay the table out under a
+            # reader the way a per-track resize did (see `_COL_PAD_PX`).
+            for col in (_COL_STATUS, *RESULT_COLUMNS):
+                if not self._view.isColumnHidden(col):
+                    self._view.resizeColumnToContents(col)
+
+    def has_results(self) -> bool:
+        """True while the table shows a rip's results (the Verified column)."""
+        return self._model.has_results()
+
+    def result_for(self, track_number: int) -> TrackResultCells | None:
+        """The result cells shown for ``track_number``, or None."""
+        return self._model.result_for(track_number)
+
+    def set_detail_columns_visible(self, visible: bool) -> None:
+        """Show or hide the AccurateRip v1, v2 and EAC CRC columns.
+
+        Remembered for the session: a person who asked for the EAC-style view
+        keeps it for the next rip. The columns show only while there are results
+        to fill them, so asking before a rip changes nothing visible yet.
+        """
+        self._detail_columns_wanted = visible
+        if self._show_detail_action.isChecked() != visible:
+            self._show_detail_action.setChecked(visible)
+        self._refresh_result_columns()
+        if visible and self._model.has_results():
+            for col in DETAIL_COLUMNS:
+                self._view.resizeColumnToContents(col)
+
+    def detail_columns_visible(self) -> bool:
+        """True while the detail columns are on screen."""
+        return not self._view.isColumnHidden(_COL_AR_V1)
+
+    def _refresh_result_columns(self) -> None:
+        """Hide every results column the current state has nothing for."""
+        has = self._model.has_results()
+        self._view.setColumnHidden(_COL_VERIFIED, not has)
+        for col in DETAIL_COLUMNS:
+            self._view.setColumnHidden(col, not (has and self._detail_columns_wanted))
+
+    def _show_header_menu(self, pos: QPoint) -> None:
+        """Right-click on a column heading: the detail columns' switch."""
+        menu = QMenu(self._view)
+        menu.addAction(self._show_detail_action)
+        menu.exec(self._view.horizontalHeader().mapToGlobal(pos))
 
     def _apply_column_widths(self) -> None:
         """Size every non-stretching column from the widest text it can hold.
@@ -875,6 +1057,9 @@ class TrackTable(QWidget):
         all_on.triggered.connect(lambda: self._model.set_all_selected(True))
         all_off = menu.addAction("Select none")
         all_off.triggered.connect(lambda: self._model.set_all_selected(False))
+        if self._model.has_results():
+            menu.addSeparator()
+            menu.addAction(self._show_detail_action)
         menu.exec(self._view.viewport().mapToGlobal(pos))
 
     def validate(self, naming: RipNaming | None = None) -> tuple[bool, str]:

@@ -343,7 +343,10 @@ class CtdbRepairMixin(MainWindowShared):
         if said is None or generation != self._rip_generation:
             return
         level, text = said
-        self._rip_progress.set_ctdb_repair(text, level)
+        # The result too, so the reconciled verdict line and the track table's
+        # Verified column say which tracks were repaired and whether a fresh
+        # CTDB check confirmed them (R181).
+        self._rip_progress.set_ctdb_repair(text, level, result=result)
         self._rip_progress.append_log_line(text)
 
     def _rerun_after_ctdb_repair(self, generation: int) -> None:
