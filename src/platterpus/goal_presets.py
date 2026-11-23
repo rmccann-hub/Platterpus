@@ -17,7 +17,7 @@ adopting this changed no behaviour.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 
 from platterpus.config import Config
 
@@ -221,3 +221,34 @@ def detect_goal(config: Config) -> str:
         ):
             return key
     return GOAL_CUSTOM
+
+
+def fields_differing(config: Config, goal: str) -> list[str]:
+    """The preset fields where ``config`` differs from ``goal``'s preset.
+
+    In the preset's own field order, so a sentence built from them reads the
+    same way every time. Empty for ``custom`` or an unknown goal, which sets
+    nothing and so has nothing to differ from. This is what lets Settings say
+    *which* option made the goal Custom (TASKS R180, UX review S1), not only
+    that something did. ``detect_goal`` returns a preset exactly when this is
+    empty for it; ``tests/test_goal_presets.py`` holds the two to that.
+    """
+    preset = PRESETS.get(goal)
+    if preset is None:
+        return []
+    return [
+        field.name
+        for field in fields(preset)
+        if getattr(config, field.name) != getattr(preset, field.name)
+    ]
+
+
+def nearest_preset(config: Config) -> str:
+    """The preset ``config`` is fewest fields away from.
+
+    A tie goes to the preset listed first in :data:`PRESETS`, which is the
+    recommended *Fast verified*: ``min`` keeps the first of equal keys, so the
+    answer never depends on anything but the config. Settings names it in its
+    Custom line ("Output format differs from Fast verified").
+    """
+    return min(PRESETS, key=lambda key: len(fields_differing(config, key)))

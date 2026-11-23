@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **What a goal sets, and why it is Custom, as facts the Settings dialog can show** (contributor-facing; UX review of 0.7.127, S1). `goal_presets.fields_differing` names each option a config differs from a preset in, and `nearest_preset` the preset it is fewest options from (a tie goes to *Fast verified*); a property test holds them to `detect_goal`, so the Custom line and the goal combo cannot disagree. The new `ui/settings_groups.py` lays out the four headed groups, marks the rows a goal sets with ◆ and writes the line under the Goal (TASKS R180); the dialog adopts it in the next change.
+
 ### Changed
 
 - **Our status block records 0.7.128 as released** (contributor-facing): `STATUS-RELEASED` names 0.7.128 at `0ec72e6`, published 2026-11-18T02:35:17Z.
