@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.129] — 2026-11-23
+
 ### Added
 
 - **One Run tests… screen chooses every test** (user-facing; TASKS R188, the owner's design of 2026-11-17, screenshots approved 2026-11-23). **Tools → Advanced → Run tests…** replaces *Run acceptance test…*, *Run acceptance test with an unknown disc…* and the script console's Load…, Choose… and Use built-in buttons, which could not reach the scripts packed inside the AppImage. Three tabs: **Pre-built and yours** (Full, Standard and Quick acceptance, the Quick check, Repeat rips ×5, the drive setup check, the over-read probe and the other packaged tests, then your own scripts from `~/.config/platterpus/scripts/`, marked *(yours)*), **Combination** (tick built-in tests, each saying what it needs; they run in a fixed order with the setup they need added once), and **Script file** (any file, checked by content before Run is enabled). A box under the choice says what will run by name, its time estimate, and whether it counts as evidence (✓ only for the whole Full acceptance run). **Run** starts the same session as before (session folder, sleep lock, settings restored, one file to send); **Edit script…** opens the test in the console; **Run this at start-up** now holds the start-up script and autorun settings. The C2 probe stays a rig script run by hand, and the screen says so. Everything above Run scrolls as one body on a small screen, so Run and Close stay reachable.
@@ -20077,7 +20079,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.128...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.129...HEAD
+[0.7.129]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.128...v0.7.129
 [0.7.128]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.127...v0.7.128
 [0.7.127]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...v0.7.127
 [0.7.126]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.125...v0.7.126
@@ -20176,4 +20179,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.128.*
+*Last updated for Platterpus v0.7.129.*
