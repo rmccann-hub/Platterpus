@@ -1,0 +1,21 @@
+log --- 5. rip ONE track: track 2 ---
+select-tracks 2
+album quick check (run) (ripper)
+album-artist Platterpus Quick Check
+rip
+# Three and a half minutes expected; thirty allows for every re-read the app
+# may do, and past it the run stops rather than grade a rip still reading.
+wait-for-rip 1800
+snapshot afterrip
+screenshot afterrip
+expect-rip-complete
+expect-verification
+expect-rip-argv with -l
+expect-rip-argv without -O
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
+rig-check
+

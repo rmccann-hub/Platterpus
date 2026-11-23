@@ -1,0 +1,6 @@
+log --- 2. the drive's read offset, or stop ---
+set-drive-offset
+expect-drive-offset
+expect override_read_offset on
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+

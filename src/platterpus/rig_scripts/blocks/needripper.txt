@@ -1,0 +1,13 @@
+# --- SETUP: the ripper, read once -----------------------------------------
+# A setup block (TASKS R188). A combination of tests gets it ONCE, before the
+# first block that needs it, so every block after it can trust two things: the
+# installed ripper answers, and it is the Platterpus fork. It also arms the
+# `(ripper)` placeholder the album titles use, which reads the build tag from
+# the banner captured here. It does not ask for the build under review: that is
+# the Full run's identity block, and a hand-picked combination is not evidence.
+log --- setup: the installed ripper answers, and it is the fork ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+abort-if-failed the installed ripper did not answer, or is not the Platterpus fork, so nothing after this would be about the right program
+

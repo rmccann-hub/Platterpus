@@ -1,0 +1,60 @@
+# --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------
+# LAST OF THE DRIVE WORK, DELIBERATELY. `-x` alone has form: measured once on
+# this rig (32 sectors, 73.5 KiB, uncached read 362.6 ms, 2026-08-19) and then it
+# ripped the whole disc, ETA 1h 3m, leaving the drive held. `-x` is a MODIFIER;
+# `-x -I` is the probe-only invocation and writes no audio — the fork states that
+# in their round-13 lap 5 and round-14 lap 1 §T3, and their lap 3 §C3 confirms
+# they CANNOT promise it returns the drive, because nothing in their suite has
+# ever executed a single timed read (on an image the probe refuses before doing
+# anything).
+#
+# So it is real, it is theirs to be right about, they asked for it, and it goes
+# after every rip in this file: if it does hold the drive, it costs the tail of
+# the run and not the rip evidence. A hang here is the finding.
+#
+# `-N` is present because the script sanitiser requires it of any non-probe
+# invocation and it is right to — without it cyanrip runs its own MusicBrainz
+# lookup and can block on a prompt with no terminal attached, which is the
+# unattended hang this whole feature exists to prevent.
+#
+# ASSERT THE FIELD NAME, NOT THE VALUE, AND THAT IS DELIBERATE. The build under
+# review REMOVED the old `%i sectors measured (…)` wording — it claimed a
+# precision the method does not have. The value is now one of five forms, and
+# exactly ONE is ever emitted (they are arms of a switch, each writing the whole
+# buffer):
+#
+#     Cache probe:    %i to %i sectors (…)                    a range
+#     Cache probe:    at least %i sectors, upper bound unknown (…)
+#     Cache probe:    no readback cache measured (…)          measured, found none
+#     Cache probe:    unknown (read failed at %i sectors, …)  could not measure
+#     Cache probe:    unknown (read could not be timed …)     could not measure
+#
+# `no readback cache measured` and `unknown (…)` are NOT the same claim — the
+# first is a measurement that found nothing, the second a measurement that could
+# not be taken. On an image the line reads `not run (disc image has no drive
+# cache)`, so its ABSENCE here is the first sign the probe really ran on metal.
+# A script asserting any one value would fail on a correct probe.
+#
+# WHERE THIS EVIDENCE LANDS: the script report and the transcript, NOT the
+# rig-check manifest. `-x` is not in the rip argv builder at all, so no
+# Platterpus rip ever probes and no rip log can carry the line. The `cyanrip`
+# verb records the exact argv, the exit code and the complete output for this
+# step, which is a stronger record than a manifest row would be.
+
+# AND `cd-paranoia -A` BESIDE IT, EVERY RUN (the fork's round 30 lap 3 S24).
+# Their figure has read `at least 2048 sectors` sixteen times against
+# cd-paranoia's 137 to 140, and their lap 3 S25 says why: the calibration seeks
+# full-stroke and the test read seeks back a short way, so every test read
+# scores as a hit. A fix to that has to be measured against something, and
+# `cd-paranoia -A` is it. `cache-probe` runs it through the same adapter the
+# drive setup uses, records INFO whatever it finds (it gathers, it does not
+# judge), and saves its whole output as `cacheprobe<line>.txt` in the run
+# folder, so the figure travels with the text it was read from.
+log --- P. T3: the fork's cache probe, probe-only ---
+run-size standard
+cyanrip -N -d (device) --cache-probe -I
+expect-exit 0
+expect-cyanrip Cache probe
+cache-probe
+snapshot aftercacheprobe
+

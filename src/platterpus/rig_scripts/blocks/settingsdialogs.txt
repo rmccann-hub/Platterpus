@@ -1,0 +1,199 @@
+# --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
+# Pure round-trips through the REAL validator, which is the source of truth — a
+# spin box's own range is a convenience, not the validation (CLAUDE.md: validate
+# every input, visibly and to the log).
+#
+# Every `set` here is a value we then read back. A silent coercion would show up
+# as an `expect` failure rather than as a wrong rip hours later.
+#
+# THE READ OFFSET IS THE DRIVE'S, not an arbitrary test value — so it is a guard
+# and section Q is right not to restore it. `set-drive-offset` keeps the offset
+# this machine is already set to, or takes the AccurateRip drive list's, and fails
+# if neither is known. On the maintainer's Pioneer BDR-209D that is +667, from
+# three independent places: the bundled AccurateRip drive table (whose
+# regeneration script REFUSES to write unless the BDR-209D=+667 sentinel still
+# passes), `docs/test-plan.md` -> Hardware test checklist (*"confirmed, two independent
+# sources agree"*), and a rip verified byte-identical against the EAC baseline on
+# 12 of 14 tracks. Said out loud because the cyanrip fork asked (round 14 lap 3
+# §C6) and could not tell a guard from a mistake by reading it.
+#
+# This used to say "ON ANY OTHER DRIVE, change this to that drive's offset
+# before running" — an edit by hand, which a second machine's operator would not
+# know to make. The verb makes it unnecessary.
+
+# AND THE VALUE ALONE IS NOT THE SETTING. `read_offset` is inert until
+# `override_read_offset` is on: `is_offset_configured()` reads ONLY that flag,
+# because cyanrip reads no config file and the number reaches it solely as `-s`,
+# emitted solely when the override is set. So a `set read_offset` on its own
+# both passes and changes nothing about the rip — the classic shape this file
+# already carries three scars from (§5.bj: *a section's distinguishing property
+# is asserted at the section, never inherited*), arriving on the one value that
+# is pure drive calibration.
+#
+# What it costs to leave unasserted is not a wrong number, it is a DETOUR: with
+# the override off, `_on_rip_requested` calls `_auto_apply_known_offset()`, which
+# applies the AccurateRip table's offset and opens an information modal saying
+# so. This runner's timer fires inside a modal's nested event loop — that is the
+# property that lets a script dismiss dialogs at all — so the batch does not
+# deadlock, it keeps walking past a rip that has not started yet. Every accuracy
+# section after it would then be about the wrong thing, with the transcript
+# green. Two lines are cheaper than that.
+log --- B. settings: validated round-trips ---
+run-size quick
+# THE DRIVE'S OFFSET, NOT A TYPED ONE. This read `set read_offset 667`, which is
+# the Pioneer BDR-209D's offset and wrong on every other drive: a second machine
+# would have ripped the whole run at the wrong offset, every AccurateRip check
+# failing for our reason rather than the disc's. `set-drive-offset` keeps the
+# offset this machine is already set to, or takes the AccurateRip drive list's,
+# and fails naming the fix if neither is known — so the abort below it holds.
+set-drive-offset
+expect-drive-offset
+expect override_read_offset on
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+set max_retries 3
+expect max_retries 3
+# AND PUT IT BACK before anything rips. `max_retries` is cyanrip's `-r`, and
+# `-r` is also the ceiling on a secure re-read's whole-track reads: `-Z 2`
+# needs three identical reads, so at `-r 3` a single read that disagrees
+# leaves the track unverified (the fork's src/cyanrip_main.c:997-1012 at
+# faec4a8). Until 2026-09-28 the 3 above rode into every rip until section Q,
+# so that day's Full run did every secure re-read in F and N, and their
+# automatic re-reads, at `-r 3 -Z 2` with no room for one bad read, instead
+# of the shipped `-r 5`. The accuracy sections test what a user gets, so they
+# run on the user's default. The round trip above is still the test; this is
+# the restore, and `tests/test_rig_scripts.py` checks every rip's ceiling.
+set max_retries 5
+expect max_retries 5
+set output_format flac
+expect output_format flac
+set force_overread off
+expect force_overread off
+set prefer_disc_isrc on
+expect prefer_disc_isrc on
+# THREE SETTINGS NO RIP HERE CAN USE, so each is only round-tripped through the
+# validator and goes straight back (TASKS "Permutations the acceptance test
+# still does not run"). That proves the value is accepted and stored, and
+# nothing about what the setting does: `update_channel` decides only which
+# releases Check for updates offers, and no step runs that check (section A's
+# `expect-newest-pair` reads the beta channel itself); auto-eject would eject
+# the disc every later section needs; and Picard is offered only on the
+# unknown-album path, which section E stops the run rather than reach.
+set auto_eject_after_rip on
+expect auto_eject_after_rip on
+set auto_eject_after_rip off
+expect auto_eject_after_rip off
+set auto_launch_picard on
+expect auto_launch_picard on
+set auto_launch_picard off
+expect auto_launch_picard off
+set update_channel beta
+expect update_channel beta
+set update_channel stable
+expect update_channel stable
+set ripper_channel beta
+expect ripper_channel beta
+snapshot settingsafter
+
+# --- C. VALIDATION REFUSALS: proving the guards actually fire ---------------
+# The half of validation nothing has ever tested on hardware. `expect-refused`
+# asserts the pure validator REJECTS a value **and leaves the setting
+# unchanged** — both halves, because a guard that reports a refusal and writes
+# the value anyway is worse than no guard: the log says the input was rejected
+# while the setting still reaches cyanrip's argv.
+#
+# These are the numbers that become command-line arguments. A read offset out of
+# range rips every subsequent disc wrong with a clean-looking log, which is
+# exactly why the range exists and why it is worth one second to prove it holds.
+
+log --- C. validation: every guard must refuse and not write ---
+run-size quick
+expect-refused read_offset 99999
+expect-refused read_offset -99999
+expect-refused max_retries 101
+expect-refused secure_rerip_matches 11
+expect-refused mp3_vbr_quality 10
+# A PAIR, not a range: 2 is inside Max retries' own range, and beside the
+# default 2 extra matching reads it can never let a secure re-read succeed
+# (three identical reads needed, two allowed). The validator refuses the
+# pair (since 2026-09-28); this proves it does on the rig, not only in tests.
+expect-refused max_retries 2
+# And the floor: the guards must not refuse everything. If these were also
+# refused, every assertion above would pass for the wrong reason.
+expect-drive-offset
+expect max_retries 5
+snapshot validationdone
+
+# --- D. DIALOGS: everything that can be opened, opened and closed ----------
+# Not assertions about text — assertions that opening and closing a dialog does
+# not crash, hang, or leave one on screen. `expect-dialog none` at the end is the
+# one that catches a dialog that failed to close, which is how a modal comes to
+# swallow every later step.
+#
+# Screenshots for the dense ones (maintainer: "it is a lot"). Every dialog is
+# still OPENED — that is the part that can crash.
+
+log --- D. dialogs: open, close, and prove none is left up ---
+run-size quick
+open drive
+screenshot dialogdrive
+cancel
+open settings
+screenshot dialogsettings
+cancel
+open dependencies
+screenshot dialogdependencies
+cancel
+open about
+cancel
+open diagnostics
+screenshot dialogdiagnostics
+cancel
+open guide
+cancel
+open setup
+cancel
+snapshot dialogsdone
+
+# NO `expect-dialog none` HERE, and the omission is the fix rather than a gap.
+#
+# **Measured, 2026-08-25 (run 3).** With a disc in the drive, the app identifies
+# it at launch and OPENS THE RELEASE PICKER BY ITSELF — before this script
+# reaches section D at all. So the picker sits underneath the whole dialog
+# section, and an `expect-dialog none` here reported it, correctly, as a
+# failure: *"a dialog is open: 'Pick a MusicBrainz release'"*. The assertion was
+# true; the expectation was wrong.
+#
+# The script cannot assert an empty screen before it has answered the picker,
+# because having a disc in the drive is a PRECONDITION of this whole run. So the
+# assertion moves to just after `pick-release`, where it says something real:
+# the picker we answered is gone and nothing else was left behind it.
+
+# --- D2. SETTINGS OK: the dialog's OK saves the settings as they stand ------
+# Section D cancels every dialog, so until 2026-11-03 nothing pressed Settings'
+# OK, the button every user who opens Settings presses (the review of the
+# 2026-11-03 Full run, C9). OK applies only what the user changed and then
+# saves the whole config, so with nothing changed it must save exactly what is
+# running, and change no setting it was not asked to.
+#
+# THE STEP CAN FAIL, AND THAT IS WHY IT IS SHAPED LIKE THIS. `set` saves too, so
+# a check that the file matches the app would pass whether OK saved or not. The
+# `set` here writes the file, the `wait 3` puts it more than two seconds in the
+# past, and `expect-config-saved 2` then needs the file written within the last
+# two seconds: only OK can have done that. The value is the baseline's own, so
+# nothing about the run changes. The `expect` lines after it are the other half:
+# OK must not have changed a setting nobody touched, the drive's offset least.
+log --- D2. settings: OK saves the settings as they stand ---
+run-size quick
+set notify_on_completion on
+wait 3
+open settings
+screenshot dialogsettingsok
+ok
+wait 1
+expect-config-saved 2
+expect notify_on_completion on
+expect max_retries 5
+expect output_format flac
+expect-drive-offset
+expect override_read_offset on
+

@@ -210,12 +210,17 @@ where = ["src"]
 # with the settings window"*. A test the program cannot reach is a test the
 # operator has to assemble by hand.
 #
+# `rig_scripts/blocks/*.txt` are the blocks those scripts are cut into (TASKS
+# R188): every pre-built test on the Run tests screen is an ordered list of them,
+# so without this line the screen would offer tests it cannot read.
+#
 # `guide/` is the getting-started guide (KDD-42 W6): its text and, once shot, its
 # pictures. It is app content the viewer opens offline, so it ships the same way.
 platterpus = [
     "resources/*.svg",
     "rig_session.sh",
     "rig_scripts/*.txt",
+    "rig_scripts/blocks/*.txt",
     "guide/*.md",
     "guide/images/*.png",
     "guide/images/*.gif",

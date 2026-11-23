@@ -1,0 +1,11 @@
+# --- SETUP: the drive's read offset, set once ------------------------------
+# A setup block (TASKS R188). The drive's own offset, never a typed one: the one
+# this drive is already set to, or else the AccurateRip drive list's. A rip at
+# an offset nobody chose would fail every AccurateRip check for our reason, not
+# the disc's, so a combination stops here when neither is known.
+log --- setup: the drive's read offset ---
+set-drive-offset
+expect-drive-offset
+expect override_read_offset on
+abort-if-failed the read offset for this drive is not known; set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+

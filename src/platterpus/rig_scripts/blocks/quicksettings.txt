@@ -1,0 +1,19 @@
+log --- 3. the settings this check grades: the shipped defaults ---
+# One goal sets the format, both post-rip checks and the re-read rule; each is
+# read back, because a result is only as good as the settings it ran under.
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect output_format flac
+expect ctdb_verify_after_rip on
+expect verify_flac_after_rip on
+expect secure_rerip_dynamic on
+set max_retries 5
+expect max_retries 5
+set cover_art embed
+expect cover_art embed
+set force_overread off
+expect force_overread off
+# Your library folder, recorded as it is and left alone.
+keep library_dir
+snapshot settingsdone
+
