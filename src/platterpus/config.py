@@ -27,10 +27,7 @@ from typing import TYPE_CHECKING, Any, Final
 import tomli_w
 
 from platterpus.atomic_write import atomic_write_bytes
-from platterpus.paths import (
-    CONFIG_DIR,
-    CONFIG_PATH,
-)
+from platterpus.paths import CONFIG_DIR, CONFIG_PATH, DEFAULT_OUTPUT_DIR
 
 if TYPE_CHECKING:
     # Type-only: settings_validation imports Config, so a runtime import here
@@ -58,9 +55,9 @@ SCHEMA_VERSION: int = 9
 # re-read time on offset-variant tracks only; the setting protects the archive.
 DEFAULT_RERIP_OFFSET_VARIANT: Final[bool] = True
 
-# Computed once at import time. If the user's HOME changes mid-process,
-# the GUI needs a restart — same as every other XDG-aware application.
-_DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
+# Computed once at import time, in `paths` (the uninstaller reads it too). If the
+# user's HOME changes mid-process, the GUI needs a restart — like any XDG app.
+_DEFAULT_OUTPUT_DIR: Path = DEFAULT_OUTPUT_DIR
 
 # Path templates — Platterpus's %-token templates (the syntax the GUI exposes),
 # translated to cyanrip's own naming scheme at rip time (see cyanrip_backend).

@@ -1383,7 +1383,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **860 -> 871** (2026-10-20, the owner's word "yes, read twice by default"): the `second_read_without_accuraterip` setting, with the owner's word that set its default.
     # **871 -> 883** (2026-11-05, TASKS R133, the automatic CTDB repair): `ctdb_repair_after_rip`, the automatic CTDB repair's switch, with its comment.
     # **883 -> 891** (2026-11-17, follow-up to UX review F1: No holds on later launches): `host_setup_declined`, the saved No, with its comment.
-    "config.py": 891,
+    # **891 -> 888** (2026-11-23, TASKS R190): down: the default rips folder moved to `paths.DEFAULT_OUTPUT_DIR`, where the uninstaller reads it without the TOML writer, and the paths import fits on one line.
+    "config.py": 888,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -1678,7 +1679,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "deps/ripper_wrapper_probe.py": 511,
     # **663 -> 688 (2026-09-25)**: the default wizard keeps the build under review, records that it did, and says so in its 'already present' line.
     # **688 -> 695** (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` build of the target is not the target installed, so the wizard builds the clean one over it.
-    "deps/host_setup.py": 695,
+    # **695 -> 705** (2026-11-23, TASKS R190): the install note. A Distrobox or podman install that succeeds is recorded (`system_packages_marker`), so the uninstaller offers to remove what we installed and nothing else; the field and the call sit beside the step that installs.
+    "deps/host_setup.py": 705,
     # **343 -> 392 (2026-09-21).** The menu-cache rebuild the uninstaller never
     # did, and the comment saying why it is unconditional on the failure path and
     # absent on a dry run. Installing refreshed the caches and uninstalling did
@@ -1686,7 +1688,28 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # real-user screenshot. Most of the growth is that explanation, which is the
     # part that stops somebody "simplifying" it back to a step or to always-on.
     # **392 -> 393** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "deps/host_teardown.py": 393,
+    # **393 -> 407** (2026-11-23, TASKS R190, "include everything in the
+    # uninstaller"): rewritten as scan -> plan -> remove -> re-scan over the one
+    # footprint list. The list itself moved out (`install_footprint.py`), as did
+    # the plan (`uninstall_plan.py`), Picard's Flatpak items
+    # (`flatpak_footprint.py`) and the killable runner (`uninstall_runner.py`).
+    # What stays is every probe and removal that runs a container tool, kept in
+    # this one file on purpose: it is the only uninstall module on the
+    # container-tool allowlist below, and splitting it would add a second.
+    "deps/host_teardown.py": 407,
+    # **new at 367** (2026-11-23, TASKS R190): born over 300. **One list, kept as
+    # one module deliberately**: the point of it is that every place Platterpus
+    # writes is named in a single readable sequence, in removal order, which both
+    # uninstallers read. It is data with a comment per entry; splitting it would
+    # bring back the two lists that drifted. Where the folders are is already
+    # split out (`user_locations.py`).
+    "deps/install_footprint.py": 367,
+    # **new at 376** (2026-11-23, TASKS R190): crossed 300 when the dialog gained
+    # its keep boxes, the rips and system-package boxes, the preview from a
+    # worker scan and the re-scan's result. One dialog, one flow; the wording it
+    # shares with the command line (`uninstall_plan.preview_lines`, `summary`)
+    # already lives outside it.
+    "ui/uninstall_dialog.py": 376,
     # **new at 343** (2026-09-28, the same report): `CHECK_DEADLINE_S`, the report's
     # `unchecked` / `unchecked_reason` fields, the deadline in `check_all`, and
     # `describe_unchecked` — the ONE wording of an incomplete check that five surfaces read.
@@ -4016,6 +4039,7 @@ _PRINT_ALLOWED: Final[dict[str, str]] = {
     "app.py": "the command-line flags (--version, --doctor, --rig-check…) write to the terminal",
     "cli_compare.py": "the --compare command writes its table to the terminal",
     "rip_audit.py": "the --audit command writes its report to the terminal",
+    "deps/uninstall_cli.py": "uninstall.sh's plan and report are written to the terminal",
 }
 
 
@@ -4182,7 +4206,7 @@ _CONTAINER_TOOL_ALLOWED: Final[dict[str, str]] = {
     "drive_control.py": "rule #3's one scoped exception: force-stopping a runaway reader on cancel",
     "deps/fork_source.py": "builds the pinned fork inside the container and exports it (the setup wizard and --install-ripper)",
     "deps/host_setup.py": "creates the `ripping` container during setup",
-    "deps/host_teardown.py": "removes what setup created, on uninstall",
+    "deps/host_teardown.py": "removes what setup created (the container and its image), on uninstall",
     "deps/ripper_wrapper_probe.py": "times `distrobox-enter -- true` to diagnose a wrapper that hangs",
 }
 

@@ -1,382 +1,72 @@
 #!/usr/bin/env bash
 # Uninstall Platterpus from your system.
 #
-# Default removals (safe — easily redoable with dev-setup.sh):
-#   - The .venv/ directory
-#   - GUI config at ~/.config/platterpus/
-#   - GUI logs at ~/.local/share/platterpus/
+# By default this removes EVERYTHING Platterpus created, so a reinstall starts
+# fresh: the 'ripping' container and its image (when no other container uses
+# it), the host-exported tools in ~/.local/bin, menu and desktop shortcuts, the
+# AppImages, the cyanrip build cache, MusicBrainz Picard with its data, test-run
+# folders, settings, logs, and a source checkout's .venv.
 #
-# Optional removals (prompted interactively, or --full to enable all):
-#   - MusicBrainz Picard Flatpak
-#   - The Distrobox 'ripping' container
-#   - Leftover ripper settings from older versions at ~/.config/whipper/
-#   - Host-exported cyanrip, metaflac, flac and cd-paranoia at ~/.local/bin/
-#     (plus an older version's leftover wrapper there, if any)
+# Kept unless you ask: your rips (--remove-rips deletes the folder your
+# settings name), and Distrobox/podman (--remove-system-packages, offered only
+# when Platterpus installed them). The cloned repo itself is never touched.
 #
-# NEVER removed unless explicitly asked via --remove-rips:
-#   - Music files at ~/Music/rips/ (or wherever your Config points)
-#   - The cloned repo directory itself — `cd ..; rm -rf <repo>` is yours
+# This file is a thin launcher. The list of what to remove, and the code that
+# removes it, is src/platterpus/deps/ (install_footprint.py, host_teardown.py,
+# uninstall_cli.py) — the same code the in-app Tools → Uninstall uses, so the
+# two cannot drift apart again (TASKS R190).
 #
 # Usage:
-#   bash uninstall.sh                  # interactive: prompts for each broader removal
-#   bash uninstall.sh --yes            # remove the defaults silently; skip broader
-#   bash uninstall.sh --full --yes     # remove everything including broader stack
-#   bash uninstall.sh --dry-run        # show what would be removed without doing it
+#   bash uninstall.sh                  show the plan, ask, then remove
+#   bash uninstall.sh --dry-run        show the plan; change nothing
+#   bash uninstall.sh --yes            remove without asking
+#   bash uninstall.sh --keep-settings --keep-logs --keep-picard   keep those
+#   bash uninstall.sh --remove-rips    ALSO delete your rips
+#   bash uninstall.sh --full           accepted for old scripts (now the default)
 #   bash uninstall.sh --help
 
 set -euo pipefail
 
-# --- Defaults --------------------------------------------------------------
+here="$(cd "$(dirname "$0")" && pwd)"
 
-INTERACTIVE=1
-DRY_RUN=0
-REMOVE_PICARD=0
-REMOVE_CONTAINER=0
-REMOVE_LEGACY_CONFIG=0
-REMOVE_EXPORTS=0
-REMOVE_RIPS=0
-
-usage() {
-    cat <<'HELP'
-Uninstall Platterpus from your system.
-
-Default removals (safe — easily redoable with dev-setup.sh):
-  - The .venv/ directory
-  - GUI config at ~/.config/platterpus/
-  - GUI logs at ~/.local/share/platterpus/
-
-Optional removals (prompted interactively, or --full to enable all):
-  - MusicBrainz Picard Flatpak
-  - The Distrobox 'ripping' container
-  - Leftover ripper settings from older versions at ~/.config/whipper/
-  - Host-exported cyanrip, metaflac, flac and cd-paranoia at ~/.local/bin/
-    (plus an older version's leftover wrapper there, if any)
-
-NEVER removed unless explicitly asked via --remove-rips:
-  - Music files at ~/Music/rips/ (or wherever your Config points)
-  - The cloned repo directory itself — `cd ..; rm -rf <repo>` is yours
-
-Usage:
-  bash uninstall.sh                  interactive prompts
-  bash uninstall.sh --yes            remove defaults silently; skip broader
-  bash uninstall.sh --full --yes     remove everything including broader stack
-  bash uninstall.sh --dry-run        show what would be removed
-  bash uninstall.sh --help           this message
-HELP
-}
-
-# --- Parse args ------------------------------------------------------------
-
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --yes) INTERACTIVE=0 ;;
-        --dry-run) DRY_RUN=1 ;;
-        --full)
-            REMOVE_PICARD=1
-            REMOVE_CONTAINER=1
-            REMOVE_LEGACY_CONFIG=1
-            REMOVE_EXPORTS=1
-            ;;
-        --remove-rips) REMOVE_RIPS=1 ;;
-        -h|--help) usage; exit 0 ;;
-        *)
-            echo "Unknown option: $1" >&2
-            usage >&2
-            exit 1
-            ;;
-    esac
-    shift
-done
-
-# --- Helpers --------------------------------------------------------------
-
-# run "<command>" — executes if not dry-run, otherwise prints what would run.
-run() {
-    if [ "$DRY_RUN" -eq 1 ]; then
-        echo "  DRY-RUN: $*"
-    else
-        "$@"
-    fi
-}
-
-# prompt "<question>" — returns 0 (yes) / 1 (no). In non-interactive mode,
-# returns 1 (no) unless the variable for this category was already set to 1
-# (via --full or a specific flag).
-prompt() {
-    local question="$1"
-    if [ "$INTERACTIVE" -eq 0 ]; then
-        return 1
-    fi
-    read -rp "$question [y/N] " ans
-    [[ "$ans" =~ ^[Yy]$ ]]
-}
-
-removed() { echo "  ✓ removed: $1"; }
-skipped() { echo "  - skipped:  $1"; }
-missing() { echo "  - not present: $1"; }
-# A probe that could not run is neither "present" nor "absent". Saying "not
-# present" for it left Picard or the container installed while telling the user
-# it was gone, so it gets its own line, and the thing is left in place.
-unchecked() { echo "  ? could not check: $1"; }
-
-# --- Header ---------------------------------------------------------------
-
-cd "$(dirname "$0")"
-REPO_ROOT="$(pwd)"
-
-echo "Platterpus uninstall"
-echo "  Repo root: $REPO_ROOT"
-if [ "$DRY_RUN" -eq 1 ]; then
-    echo "  Mode: DRY RUN (no files will be touched)"
-fi
-echo
-
-# --- 1. Always-removed (safe defaults) ------------------------------------
-
-echo "Default removals:"
-
-if [ -d "$REPO_ROOT/.venv" ]; then
-    run rm -rf "$REPO_ROOT/.venv"
-    removed "$REPO_ROOT/.venv"
-else
-    missing "$REPO_ROOT/.venv"
-fi
-
-# `platterpus` CLI symlink dev-setup.sh puts on PATH. Only remove it if
-# it actually points into this repo's venv (don't clobber a pipx install
-# of the same name).
-CLI_LINK="$HOME/.local/bin/platterpus"
-if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO_ROOT/.venv/bin/platterpus" ]; then
-    run rm -f "$CLI_LINK"
-    removed "$CLI_LINK"
-else
-    missing "$CLI_LINK"
-fi
-
-GUI_CONFIG="$HOME/.config/platterpus"
-if [ -d "$GUI_CONFIG" ]; then
-    run rm -rf "$GUI_CONFIG"
-    removed "$GUI_CONFIG"
-else
-    missing "$GUI_CONFIG"
-fi
-
-GUI_LOGS="$HOME/.local/share/platterpus"
-if [ -d "$GUI_LOGS" ]; then
-    run rm -rf "$GUI_LOGS"
-    removed "$GUI_LOGS"
-else
-    missing "$GUI_LOGS"
-fi
-
-# Pre-rename leftovers: folders under the app's name before it was Platterpus.
-# The rename copied them to ~/.config/platterpus rather than moving them, so the
-# old dirs can linger — clear them for a clean slate. The names are the real
-# ones on disk, so they are spelled exactly.
-for _legacy in "$HOME/.config/whipper-gui" "$HOME/.local/share/whipper-gui"; do
-    if [ -d "$_legacy" ]; then
-        run rm -rf "$_legacy"
-        removed "$_legacy (pre-rename leftover)"
-    fi
-done
-
-# The freedesktop app-id: the AppImage integration writes its menu entry and
-# icon under this name (paths.APP_ID), while dev-setup.sh uses the short
-# `platterpus` name. Remove BOTH so every install method is covered — and the
-# app's pre-rename name too, for a truly clean slate.
-APP_ID="io.github.rmccann_hub.Platterpus"
-
-# Main menu launcher. Created as "$APP_ID.desktop" by the AppImage (the bug this
-# fixes: the old uninstaller only deleted "platterpus.desktop" and orphaned the
-# AppImage's real entry), or "platterpus.desktop" by dev-setup.sh.
-DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-_desktop_removed=0
-for _name in "$APP_ID.desktop" "platterpus.desktop" "whipper-gui.desktop"; do
-    DESKTOP_FILE="$DESKTOP_DIR/$_name"
-    if [ -f "$DESKTOP_FILE" ]; then
-        run rm -f "$DESKTOP_FILE"
-        removed "$DESKTOP_FILE"
-        _desktop_removed=1
-    fi
-done
-if [ "$_desktop_removed" -eq 1 ]; then
-    # Refresh the app-menu caches so the entry disappears immediately
-    # (mirrors dev-setup.sh). update-desktop-database covers the MIME
-    # cache; KDE Plasma's launcher needs kbuildsycoca. Best-effort.
-    if command -v update-desktop-database >/dev/null 2>&1; then
-        run update-desktop-database "$DESKTOP_DIR"
-    fi
-    for _kbs in kbuildsycoca6 kbuildsycoca5; do
-        if command -v "$_kbs" >/dev/null 2>&1; then
-            run "$_kbs"
-            break
+# A Python new enough for Platterpus (3.12+), first match wins.
+find_python() {
+    local candidate
+    for candidate in python3.14 python3.13 python3.12 python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 12))' 2>/dev/null; then
+            echo "$candidate"
+            return 0
         fi
     done
-else
-    missing "$DESKTOP_DIR/$APP_ID.desktop"
+    return 1
+}
+
+# 1. A source checkout with its own .venv (dev-setup.sh made it).
+if [ -x "$here/.venv/bin/python" ] \
+    && "$here/.venv/bin/python" -c 'import platterpus' 2>/dev/null; then
+    exec "$here/.venv/bin/python" -m platterpus.deps.uninstall_cli \
+        --repo-root "$here" "$@"
 fi
 
-# The clickable copy placed on the user's Desktop (AppImage uses "$APP_ID",
-# dev-setup uses "platterpus").
-DESKTOP_USER_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
-for _name in "$APP_ID.desktop" "platterpus.desktop"; do
-    DESKTOP_ICON="$DESKTOP_USER_DIR/$_name"
-    if [ -f "$DESKTOP_ICON" ]; then
-        run rm -f "$DESKTOP_ICON"
-        removed "$DESKTOP_ICON"
-    fi
-done
+# 2. A source checkout without a working .venv: run its source directly. The
+#    uninstaller needs only the standard library and Platterpus itself.
+if [ -d "$here/src/platterpus" ] && py="$(find_python)"; then
+    PYTHONPATH="$here/src${PYTHONPATH:+:$PYTHONPATH}" exec "$py" \
+        -m platterpus.deps.uninstall_cli --repo-root "$here" "$@"
+fi
 
-# AppImage install (install.sh / install-appimage.sh): the parked AppImage,
-# its extracted icon, the uninstall shortcut, and the staged copy of this
-# very script. Globs the versioned AppImage filename.
-APPS_DIR="$HOME/Applications"
+# 3. The copy staged next to the AppImage (no checkout): open the app's own
+#    uninstaller window, which removes the same list.
 shopt -s nullglob
-for _app in "$APPS_DIR"/platterpus*.AppImage "$APPS_DIR"/[Ww]hipper-[Gg][Uu][Ii]*.AppImage; do
-    run rm -f "$_app"
-    removed "$_app"
+for app in "$HOME/Applications"/platterpus*.AppImage; do
+    if [ -x "$app" ]; then
+        echo "Opening the uninstaller window from $app"
+        exec "$app" --uninstall
+    fi
 done
 shopt -u nullglob
 
-# Extracted app icon. The AppImage integration copies it as "$APP_ID.png"; the
-# old uninstaller only knew "platterpus.png". Remove both.
-ICONS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
-for _name in "$APP_ID.png" "platterpus.png"; do
-    APP_ICON="$ICONS_DIR/$_name"
-    if [ -f "$APP_ICON" ]; then
-        run rm -f "$APP_ICON"
-        removed "$APP_ICON"
-    fi
-done
-
-UNINSTALL_DESKTOP="$DESKTOP_DIR/platterpus-uninstall.desktop"
-if [ -f "$UNINSTALL_DESKTOP" ]; then
-    run rm -f "$UNINSTALL_DESKTOP"
-    removed "$UNINSTALL_DESKTOP"
-fi
-
-# The staged copy of this uninstaller (deleting a running script is safe on
-# Linux — the kernel keeps the open inode until the process exits).
-STAGED_UNINSTALLER="$APPS_DIR/platterpus-uninstall.sh"
-if [ -f "$STAGED_UNINSTALLER" ]; then
-    run rm -f "$STAGED_UNINSTALLER"
-    removed "$STAGED_UNINSTALLER"
-fi
-
-# Build artifact left over from dev-setup or AppImage builds.
-if [ -d "$REPO_ROOT/build/python-appimage/__pycache__" ]; then
-    run rm -rf "$REPO_ROOT/build/python-appimage/__pycache__"
-fi
-
-echo
-
-# --- 2. Optional removals (Picard, container, leftovers, exports) --------
-
-echo "Optional removals (Picard, container, older-version leftovers, host exports):"
-
-# Picard
-if [ "$REMOVE_PICARD" -eq 1 ] || prompt "Remove MusicBrainz Picard (Flatpak)?"; then
-    # The listing is captured FIRST and searched second. Piping it straight into
-    # `grep -q` read a failed `flatpak list` as "not installed", and under
-    # `set -o pipefail` a long listing could read that way too: `grep -q` exits
-    # at the first match and the producer dies of SIGPIPE mid-write.
-    if ! command -v flatpak >/dev/null 2>&1; then
-        missing "Picard (Flatpak — not installed at user level)"
-    elif ! flatpak_list=$(flatpak list --user 2>&1); then
-        unchecked "Picard (Flatpak) — \`flatpak list --user\` failed: ${flatpak_list%%$'\n'*}. Left in place."
-    elif grep -q "org.musicbrainz.Picard" <<<"$flatpak_list"; then
-        run flatpak uninstall --user -y org.musicbrainz.Picard
-        removed "Picard (Flatpak)"
-    else
-        missing "Picard (Flatpak — not installed at user level)"
-    fi
-else
-    skipped "MusicBrainz Picard"
-fi
-
-# Distrobox 'ripping' container
-if [ "$REMOVE_CONTAINER" -eq 1 ] || prompt "Remove the 'ripping' Distrobox container?"; then
-    # Captured first, searched second, for the reason given at Picard above.
-    if ! command -v distrobox >/dev/null 2>&1; then
-        missing "Distrobox 'ripping' container"
-    elif ! distrobox_list=$(distrobox list 2>&1); then
-        unchecked "Distrobox 'ripping' container — \`distrobox list\` failed: ${distrobox_list%%$'\n'*}. Left in place."
-    elif grep -q "ripping" <<<"$distrobox_list"; then
-        run distrobox stop ripping --yes 2>/dev/null || true
-        run distrobox rm ripping --force 2>/dev/null || true
-        removed "Distrobox 'ripping' container"
-    else
-        missing "Distrobox 'ripping' container"
-    fi
-else
-    skipped "Distrobox 'ripping' container"
-fi
-
-# Leftover settings of the ripper older versions drove (before cyanrip, KDD-18).
-# The whole folder, not just its config file, so an older drive wizard's `.bak`
-# backup doesn't survive a "full" uninstall. Matches the in-app uninstaller
-# (deps/host_teardown.py), which removes the folder. Nothing reads it any more.
-LEGACY_CONFIG_DIR="$HOME/.config/whipper"
-if [ "$REMOVE_LEGACY_CONFIG" -eq 1 ] || prompt "Remove leftover ripper settings from older versions at $LEGACY_CONFIG_DIR?"; then
-    if [ -d "$LEGACY_CONFIG_DIR" ]; then
-        run rm -rf "$LEGACY_CONFIG_DIR"
-        removed "$LEGACY_CONFIG_DIR"
-    else
-        missing "$LEGACY_CONFIG_DIR"
-    fi
-else
-    skipped "$LEGACY_CONFIG_DIR"
-fi
-
-# Host-exported binaries from Distrobox. Must match what setup-host.sh and the
-# in-app host-setup wizard exported: cyanrip, metaflac, flac AND cd-paranoia
-# (the optional cache-probe tool, KDD-29). `flac` was missing once and its
-# wrapper was orphaned; `cd-paranoia` then repeated it. The last name in the
-# list is a leftover: the wrapper of the ripper older versions drove, which an
-# older install may still have exported.
-if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported cyanrip, metaflac, flac and cd-paranoia wrappers (and any older-version leftover) at ~/.local/bin/?"; then
-    for bin in cyanrip metaflac flac cd-paranoia whipper; do
-        target="$HOME/.local/bin/$bin"
-        if [ -f "$target" ]; then
-            run rm -f "$target"
-            removed "$target"
-        else
-            missing "$target"
-        fi
-    done
-else
-    skipped "host-exported cyanrip, metaflac, flac and cd-paranoia"
-fi
-
-# Music files — opt-in only, never via --full.
-if [ "$REMOVE_RIPS" -eq 1 ]; then
-    RIPS_DIR="$HOME/Music/rips"
-    if [ -d "$RIPS_DIR" ]; then
-        echo
-        echo "⚠️  --remove-rips was passed. About to delete $RIPS_DIR"
-        echo "    (this is your music! make sure you have a backup.)"
-        if [ "$INTERACTIVE" -eq 1 ]; then
-            read -rp "Type 'DELETE' to confirm: " confirm
-            if [ "$confirm" != "DELETE" ]; then
-                echo "  Aborted; rips kept."
-                exit 0
-            fi
-        fi
-        run rm -rf "$RIPS_DIR"
-        removed "$RIPS_DIR"
-    fi
-fi
-
-echo
-echo "Done."
-echo
-echo "Not touched (remove yourself if you want):"
-# Only mention the repo when we're actually running from a checkout (the
-# staged-copy/AppImage case runs from ~/Applications, where there's no repo).
-if [ -f "$REPO_ROOT/pyproject.toml" ]; then
-    echo "  - The cloned repo at $REPO_ROOT"
-    echo "    To remove: cd .. && rm -rf \"$(basename "$REPO_ROOT")\""
-fi
-if [ "$REMOVE_RIPS" -eq 0 ]; then
-    echo "  - Music files at ~/Music/rips/ (use --remove-rips if you really want to)"
-fi
+echo "Could not find Platterpus here (no source checkout, no AppImage in" >&2
+echo "$HOME/Applications). If anything is left, see the README's Uninstall section." >&2
+exit 1

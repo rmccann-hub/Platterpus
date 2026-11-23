@@ -59,6 +59,7 @@ def _setup(tmp_path: Path, runner: _FakeRunner) -> HostSetup:
         cyanrip_path=tmp_path / "cyanrip",
         flac_path=tmp_path / "flac",
         cdparanoia_path=tmp_path / "cd-paranoia",
+        install_note=tmp_path / "installed-system-packages.txt",
     )
 
 
@@ -359,6 +360,35 @@ def test_unknown_distro_backend_is_manual_failure(tmp_path: Path) -> None:
 
 
 # --- Dry run: nothing executes -------------------------------------------
+
+
+def test_the_packages_setup_installs_are_noted_for_the_uninstaller(
+    tmp_path: Path,
+) -> None:
+    """TASKS R190: Distrobox/podman are offered for removal only if WE installed them."""
+    from platterpus.deps import system_packages_marker
+
+    note = tmp_path / "installed-system-packages.txt"
+    _setup(tmp_path, _FakeRunner()).run(dry_run=True)
+    assert not note.exists(), "a dry run installed nothing"
+
+    _setup(tmp_path, _FakeRunner()).run()
+    assert system_packages_marker.read_installed(note) == ("distrobox", "podman")
+
+
+def test_preinstalled_packages_are_not_noted(tmp_path: Path) -> None:
+    """Bazzite ships Distrobox and podman: the note must stay empty there."""
+    runner = _FakeRunner()
+    runner.present = {"distrobox", "podman"}
+    _setup(tmp_path, runner).run()
+    assert not (tmp_path / "installed-system-packages.txt").exists()
+
+
+def test_a_failed_install_is_not_noted(tmp_path: Path) -> None:
+    runner = _FakeRunner()
+    runner.results[("pkexec", "dnf", "install", "-y", "distrobox")] = (1, "denied")
+    _setup(tmp_path, runner).run()
+    assert not (tmp_path / "installed-system-packages.txt").exists()
 
 
 def test_dry_run_reports_without_executing(tmp_path: Path) -> None:

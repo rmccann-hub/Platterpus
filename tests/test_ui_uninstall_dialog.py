@@ -1,250 +1,292 @@
-"""Tests for the in-app Uninstaller dialog.
+"""Tests for the in-app Uninstaller dialog (TASKS R190).
 
-Render slots are driven directly with fake results (no QThread, nothing
-removed); the run flow is tested with a fake teardown factory and a
-monkeypatched confirm prompt.
+The scan and removal slots are driven directly with fake observations and
+reports (no thread, nothing removed); the run flow is tested with a fake engine
+factory and a monkeypatched confirmation.
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from platterpus.deps.install_footprint import FootprintItem, Group, Kind
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.deps.uninstall_plan import (
+    Choices,
+    Observation,
+    Plan,
+    UninstallReport,
+)
 from platterpus.paths import LOG_PATH
 from platterpus.ui import message_boxes
 from platterpus.ui.uninstall_dialog import UninstallDialog
 
 
-def _dialog(qapp: QApplication, build=None) -> UninstallDialog:
-    return UninstallDialog(build_teardown=build or (lambda *a: None))
+def _item(
+    item_id: str, group: Group = Group.APP, kind: Kind = Kind.TREE
+) -> FootprintItem:
+    return FootprintItem(item_id, f"title of {item_id}", kind, group, path=Path("/x"))
 
 
-def test_checkboxes_default_to_remove_everything(qapp: QApplication) -> None:
+def _observations() -> tuple[Observation, ...]:
+    return (
+        Observation(_item("cache"), present=("/home/u/.cache/platterpus",)),
+        Observation(
+            _item("settings", Group.SETTINGS), present=("/home/u/.config/platterpus",)
+        ),
+        Observation(
+            _item("logs", Group.LOGS), present=("/home/u/.local/share/platterpus",)
+        ),
+        Observation(
+            _item("picard", Group.PICARD, Kind.FLATPAK_APP),
+            present=("org.musicbrainz.Picard",),
+        ),
+        Observation(_item("rips", Group.RIPS), present=("/home/u/Music/rips",)),
+    )
+
+
+def _dialog(
+    qapp: QApplication,
+    build=None,
+    rips: tuple[Path | None, str] = (Path("/home/u/Music/rips"), ""),
+) -> UninstallDialog:
+    return UninstallDialog(
+        build_engine=build or (lambda _rips: (None, None)),
+        rips=rips,
+        scan_on_open=False,
+    )
+
+
+def _report(**kwargs: object) -> UninstallReport:
+    defaults: dict[str, object] = {"plan": Plan(), "results": (), "leftovers": ()}
+    defaults.update(kwargs)
+    return UninstallReport(**defaults)  # type: ignore[arg-type]  # test kwargs
+
+
+def test_defaults_remove_everything_but_rips_and_packages(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
-    assert dialog._container_check.isChecked() is True
-    assert dialog._legacy_config_check.isChecked() is True
+    assert dialog.choices() == Choices()
+    assert not dialog._remove_rips.isChecked()
+    assert dialog._remove_packages.isVisibleTo(dialog) is False
+
+
+def test_the_preview_lists_what_goes_and_what_stays(qapp: QApplication) -> None:
+    dialog = _dialog(qapp)
+    dialog._on_scanned(_observations())
+    text = dialog._details.toPlainText()
+    assert text.startswith("Will remove:")
+    assert "/home/u/.config/platterpus" in text.split("Will keep:")[0]
+    assert "Music/rips (you chose to keep your rips)" in text
+    assert dialog._uninstall_button.isEnabled()
+
+    dialog._keep_settings.setChecked(True)  # the preview follows the boxes
+    kept = dialog._details.toPlainText().split("Will keep:")[1]
+    assert "/home/u/.config/platterpus" in kept
+
+
+def test_the_rips_box_names_the_configured_folder_or_why_not(
+    qapp: QApplication,
+) -> None:
+    named = _dialog(qapp, rips=(Path("/srv/flac"), ""))
+    assert "/srv/flac" in named._remove_rips.text() and named._remove_rips.isEnabled()
+    refused = _dialog(
+        qapp, rips=(None, "the rips folder is the root of the filesystem")
+    )
+    assert "root of the filesystem" in refused._remove_rips.text()
+    assert not refused._remove_rips.isEnabled()
+    refused._remove_rips.setChecked(True)
+    assert refused.choices().remove_rips is False
+
+
+def test_the_packages_box_appears_only_when_the_note_names_them(
+    qapp: QApplication,
+) -> None:
+    dialog = _dialog(qapp)
+    dialog._on_scanned(_observations())
+    assert not dialog._remove_packages.isVisibleTo(dialog)
+    package = Observation(
+        _item("package:podman", Group.SYSTEM_PACKAGES, Kind.SYSTEM_PACKAGE),
+        present=("podman",),
+    )
+    dialog._on_scanned((*_observations(), package))
+    assert dialog._remove_packages.isVisibleTo(dialog)
+    dialog._remove_packages.setChecked(True)
+    assert dialog.choices().remove_system_packages
 
 
 def test_confirm_cancel_runs_nothing(qapp: QApplication, monkeypatch) -> None:
-    built: list = []
-    dialog = _dialog(qapp, build=lambda *a: built.append(a))
+    built: list[object] = []
+    dialog = _dialog(qapp, build=lambda rips: built.append(rips))
+    dialog._on_scanned(_observations())
     monkeypatch.setattr(
         message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Cancel
     )
     dialog._on_uninstall_clicked()
-    assert built == []  # declined → no teardown was even constructed
+    assert built == []
     assert dialog._thread is None
 
 
-def test_confirm_yes_builds_teardown_from_checkboxes(
+def test_confirm_yes_runs_the_engine_with_the_boxes(
     qapp: QApplication, monkeypatch
 ) -> None:
-    """The ticked boxes flow into the engine; the worker thread starts."""
+    seen: list[Choices] = []
+    asked: list[str] = []
 
-    class _InstantEngine:
-        def __init__(self, args):
-            self.args = args
+    class _Engine:
+        def run(self, choices, progress=None, cancelled=None):
+            seen.append(choices)
+            return _report()
 
-        def run(self, progress=None, dry_run=False, cancelled=None):
-            return [StepResult("shortcuts", "Shortcuts", StepStatus.DONE)]
+    class _Runner:
+        def cancel(self) -> None:
+            pass
 
-    built: list = []
-
-    def build(remove_container: bool, remove_legacy_config: bool):
-        built.append((remove_container, remove_legacy_config))
-        return _InstantEngine(built[-1])
-
-    dialog = _dialog(qapp, build=build)
-    dialog._legacy_config_check.setChecked(False)
+    dialog = _dialog(qapp, build=lambda _rips: (_Engine(), _Runner()))
+    dialog._on_scanned(_observations())
+    dialog._keep_logs.setChecked(True)
+    dialog._remove_rips.setChecked(True)
     monkeypatch.setattr(
-        message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes,
+        "warning",
+        lambda _p, _t, text, *a, **k: (
+            asked.append(text) or QMessageBox.StandardButton.Yes
+        ),
     )
-
     dialog._on_uninstall_clicked()
-    # `built` is appended synchronously before the thread starts; join the
-    # worker via the dialog's own teardown (no event pumping — processing
-    # global events here would fire stale deferred events from other tests).
-    dialog._stop()
+    dialog._stop()  # joins the worker without pumping global events
 
-    assert built == [(True, False)]
+    assert seen == [Choices(keep_logs=True, remove_rips=True)]
+    assert "/home/u/Music/rips will be DELETED" in asked[0]
 
 
-def test_on_finished_success_locks_ui_and_signals(qapp: QApplication) -> None:
+def test_success_says_what_the_rescan_found_and_signals(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
-    dialog._uninstall_button.setEnabled(False)  # as the run flow leaves it
     seen: list[bool] = []
     dialog.uninstall_finished.connect(seen.append)
-
     dialog._on_finished(
-        [
-            StepResult("shortcuts", "Shortcuts", StepStatus.RAN, "removed …"),
-            StepResult("app_data", "Settings + logs", StepStatus.RAN),
-        ]
+        _report(results=(StepResult("cache", "cache", StepStatus.RAN),))
     )
-
-    assert "✓" in dialog._status_label.text()
-    assert "Close this app" in dialog._status_label.text()
-    # No "try again" affordance after success — the app should be closed.
+    assert dialog._status_label.text().startswith(
+        "✓ Uninstalled, and a check afterwards"
+    )
     assert dialog._uninstall_button.isEnabled() is False
     assert seen == [True]
 
 
-def test_on_finished_failure_reenables_and_reports(qapp: QApplication) -> None:
+def test_leftovers_and_failures_are_reported(
+    qapp: QApplication, caplog: pytest.LogCaptureFixture
+) -> None:
     dialog = _dialog(qapp)
-    dialog._uninstall_button.setEnabled(False)
     seen: list[bool] = []
     dialog.uninstall_finished.connect(seen.append)
-
-    dialog._on_finished(
-        [
-            StepResult("shortcuts", "Shortcuts", StepStatus.RAN),
-            StepResult(
-                "container",
-                "'ripping' container",
-                StepStatus.FAILED,
-                "container is in use",
-            ),
-            StepResult("app_data", "Settings + logs", StepStatus.CANCELLED),
-        ]
+    failed = StepResult(
+        "container", "the 'ripping' container", StepStatus.FAILED, "in use"
     )
-
-    assert "container is in use" in dialog._status_label.text()
-    assert dialog._uninstall_button.isEnabled() is True  # retry possible
+    with caplog.at_level(logging.ERROR):
+        dialog._on_finished(
+            _report(results=(failed,), leftovers=("menu icon: /home/u/icon.png",))
+        )
+    status = dialog._status_label.text()
+    assert "Could not remove: the 'ripping' container" in status
+    assert "1 item(s) are still on this computer" in status
+    assert str(LOG_PATH) in status
+    assert "menu icon: /home/u/icon.png" in dialog._details.toPlainText()
+    assert "in use" in caplog.text
+    assert dialog._uninstall_button.isEnabled()
     assert seen == [False]
 
 
-def test_on_step_appends_result_lines(qapp: QApplication) -> None:
+def test_a_missing_report_is_not_called_success(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
-    dialog._on_step(StepResult("exports", "Exports", StepStatus.RAN, "removed cyanrip"))
-    assert "removed cyanrip" in dialog._results.toPlainText()
-    # RUNNING goes to the status line, not the log.
-    dialog._on_step(StepResult("container", "Container", StepStatus.RUNNING))
-    assert "Container" in dialog._status_label.text()
-    assert "Container" not in dialog._results.toPlainText()
+    seen: list[bool] = []
+    dialog.uninstall_finished.connect(seen.append)
+    dialog._on_finished(None)
+    assert dialog._status_label.text().startswith("⚠")
+    assert seen == [False]
 
 
-def test_on_step_without_detail_has_no_dash(qapp: QApplication) -> None:
+def test_steps_go_to_the_status_line_and_the_details(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
-    dialog._on_step(StepResult("shortcuts", "Shortcuts", StepStatus.RAN))
-    line = dialog._results.toPlainText()
-    assert "Shortcuts" in line
-    assert "—" not in line  # no detail → no " — …" suffix
+    dialog._on_step(StepResult("cache", "the cache", StepStatus.RUNNING))
+    assert "the cache" in dialog._status_label.text()
+    assert "the cache" not in dialog._details.toPlainText()
+    dialog._on_step(StepResult("cache", "the cache", StepStatus.RAN, "removed /x"))
+    assert "✓ the cache — removed /x" in dialog._details.toPlainText()
 
 
-def test_uninstall_click_ignored_while_already_running(
-    qapp: QApplication, monkeypatch
-) -> None:
-    built: list = []
-    dialog = _dialog(qapp, build=lambda *a: built.append(a))
-    # Pretend a run is already in flight.
+def test_a_click_while_running_is_ignored(qapp: QApplication, monkeypatch) -> None:
+    built: list[object] = []
+    dialog = _dialog(qapp, build=lambda rips: built.append(rips))
     dialog._thread = QThread(dialog)
     monkeypatch.setattr(
         message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-
-    dialog._on_uninstall_clicked()  # must early-return, not start a second run
-
-    assert built == []  # no second teardown built
-    dialog._thread = None  # avoid touching the sentinel thread at teardown
+    dialog._on_uninstall_clicked()
+    assert built == []
+    dialog._thread = None
 
 
-def test_step_and_finished_ignored_while_closing(qapp: QApplication) -> None:
+def test_nothing_updates_while_closing(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
     dialog._closing = True
     seen: list[bool] = []
     dialog.uninstall_finished.connect(seen.append)
-
-    dialog._on_step(StepResult("exports", "Exports", StepStatus.RAN, "x"))
-    dialog._on_finished([StepResult("shortcuts", "Shortcuts", StepStatus.RAN)])
-
-    # A closing dialog updates nothing and emits nothing (the window is going
-    # away; touching destroyed widgets would crash).
-    assert dialog._results.toPlainText() == ""
+    dialog._on_step(StepResult("x", "x", StepStatus.RAN, "x"))
+    dialog._on_finished(_report())
+    dialog._on_scanned(_observations())
     assert seen == []
+    assert dialog._observations == ()
 
 
-def test_on_finished_incomplete_without_a_failed_step(
-    qapp: QApplication, caplog: pytest.LogCaptureFixture
-) -> None:
-    # No FAILED step, but not all ok (a CANCELLED step) — the branch nobody had
-    # considered, and therefore the least diagnosable message in the dialog: four
-    # words, no detail, and this file emitted no logging AT ALL. It must now say
-    # what it actually knows, name the log, and record the step statuses.
-    dialog = _dialog(qapp)
-    dialog._uninstall_button.setEnabled(False)
-    seen: list[bool] = []
-    dialog.uninstall_finished.connect(seen.append)
-
-    with caplog.at_level(logging.ERROR):
-        dialog._on_finished(
-            [
-                StepResult("shortcuts", "Shortcuts", StepStatus.RAN),
-                StepResult("app_data", "Settings + logs", StepStatus.CANCELLED),
-            ]
-        )
-
-    text = dialog._status_label.text()
-    assert text.startswith("Uninstall did not complete")
-    # Says WHY there is nothing specific to point at, rather than leaving the user
-    # to guess whether a step failed.
-    assert "no individual step reported a failure" in text
-    assert str(LOG_PATH) in text
-    # And it is on disk: the step statuses are what a triager needs, and this file
-    # used to write nothing anywhere.
-    assert "shortcuts=ran" in caplog.text
-    assert "app_data=cancelled" in caplog.text
-    assert dialog._uninstall_button.isEnabled() is True
-    assert seen == [False]
-
-
-def test_stop_is_a_no_op_when_nothing_is_running(qapp: QApplication) -> None:
-    dialog = _dialog(qapp)
-    dialog._stop()  # thread is None → returns without error
-    assert dialog._thread is None
-
-
-def test_stop_quits_a_started_threadless_worker(qapp: QApplication) -> None:
-    # thread present but no worker (e.g. teardown raced): _stop still quits and
-    # clears the thread without trying to cancel a missing worker.
-    dialog = _dialog(qapp)
-    dialog._thread = QThread(dialog)  # never started → wait() returns at once
-    dialog._worker = None
-
-    dialog._stop()
-
-    assert dialog._thread is None
-    assert dialog._worker is None
-
-
-def test_reject_marks_closing_and_stops(qapp: QApplication) -> None:
+def test_close_and_reject_stop_the_worker(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
     dialog.reject()
-    assert dialog._closing is True
-    assert dialog._thread is None
+    assert dialog._closing and dialog._thread is None
+    other = _dialog(qapp)
+    other.close()
+    assert other._closing and other._thread is None
 
 
-def test_close_event_marks_closing_and_stops(qapp: QApplication) -> None:
-    dialog = _dialog(qapp)
-    dialog.close()  # delivers a real QCloseEvent → closeEvent
-    assert dialog._closing is True
-    assert dialog._thread is None
-
-
-def test_step_starts_and_finish_are_announced(qapp: QApplication, monkeypatch) -> None:
-    """Same focus-safe announcement contract as the setup wizard (a11y gap #4)."""
+def test_progress_and_outcome_are_announced(qapp: QApplication, monkeypatch) -> None:
     heard: list[str] = []
     monkeypatch.setattr(
         "platterpus.ui.uninstall_dialog.announce",
         lambda _source, message: heard.append(message) or True,
     )
     dialog = _dialog(qapp)
-
-    dialog._on_step(StepResult("shortcuts", "Shortcuts", StepStatus.RUNNING))
-    dialog._on_finished([StepResult("shortcuts", "Shortcuts", StepStatus.RAN)])
-
-    assert any("Shortcuts" in m for m in heard)
+    dialog._on_step(StepResult("cache", "the cache", StepStatus.RUNNING))
+    dialog._on_finished(_report())
+    assert any("the cache" in m for m in heard)
     assert heard[-1] == dialog._status_label.text()
+
+
+def test_the_scan_runs_on_a_worker_thread(qapp: QApplication, process_until) -> None:
+    """The real engine shape, through the real worker: scanned, then finished."""
+    import threading
+
+    threads: list[str] = []
+
+    class _Engine:
+        def scan(self):
+            threads.append(threading.current_thread().name)
+            return _observations()
+
+    class _Runner:
+        def cancel(self) -> None:
+            pass
+
+    dialog = UninstallDialog(
+        build_engine=lambda _rips: (_Engine(), _Runner()),
+        rips=(None, "not configured"),
+        scan_on_open=True,
+    )
+    assert dialog._thread is not None
+    assert process_until(lambda: dialog._thread is None)
+    assert threads and threads[0] != threading.main_thread().name
+    assert dialog._details.toPlainText().startswith("Will remove:")
+    dialog.reject()

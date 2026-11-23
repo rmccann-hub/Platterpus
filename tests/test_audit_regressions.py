@@ -44,23 +44,6 @@ from platterpus.verdict import (
 )
 
 
-class _NullRunner:
-    """The `CommandRunner` protocol, answering "nothing is here" to everything.
-
-    `HostTeardown` only needs it to decide which steps are already done; the
-    export-list assertion below is a pure question about its own configuration.
-    """
-
-    def which(self, name: str) -> bool:
-        return False
-
-    def exists(self, path: Path) -> bool:
-        return False
-
-    def run(self, argv: list[str]) -> tuple[int, str]:
-        return 0, ""
-
-
 @pytest.fixture()
 def window(qapp: QApplication):
     """A real MainWindow with fake collaborators, torn down after the test.
@@ -734,26 +717,23 @@ def test_uninstall_removes_every_binary_setup_exported() -> None:
     to setup and not to teardown."""
     import inspect
 
-    from platterpus.deps import host_setup, host_teardown
+    from platterpus.deps import host_setup, install_footprint
 
     exported = {"cyanrip", "metaflac", "flac", "cd-paranoia"}
     setup_source = inspect.getsource(host_setup)
     for name in exported:
         assert f"/usr/bin/{name}" in setup_source, name
 
-    engine = host_teardown.HostTeardown(runner=_NullRunner())
-    removed = {p.name for p in engine._export_files()}
+    removed = set(install_footprint.EXPORTED_BINARIES)
     assert exported <= removed
 
 
 def test_uninstall_script_removes_the_same_set() -> None:
-    line = next(
-        ln
-        for ln in Path("uninstall.sh").read_text(encoding="utf-8").splitlines()
-        if ln.strip().startswith("for bin in ")
-    )
-    for name in ("cyanrip", "metaflac", "flac", "cd-paranoia"):
-        assert name in line, name
+    """The script used to keep its own `for bin in …` list, which drifted. Since
+    TASKS R190 it launches the one engine, so the set cannot differ."""
+    script = Path("uninstall.sh").read_text(encoding="utf-8")
+    assert "-m platterpus.deps.uninstall_cli" in script
+    assert "for bin in " not in script
 
 
 # --- The type gate itself ----------------------------------------------------

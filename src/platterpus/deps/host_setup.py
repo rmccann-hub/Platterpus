@@ -29,7 +29,7 @@ from pathlib import Path
 
 from platterpus import diagnostics
 from platterpus.cyanrip_cli import VERSION_FLAGS
-from platterpus.deps import fork_source
+from platterpus.deps import fork_source, system_packages_marker
 from platterpus.deps.step_engine import (
     CommandRunner,
     StepResult,
@@ -56,6 +56,9 @@ _OS_RELEASE: Path = Path("/etc/os-release")
 # previous step's text — which looked like a freeze (real-user report
 # 2026-06-26: the wizard appeared stuck at "'ripping' container — working…").
 _SLOW_PROBE_STEPS: frozenset[str] = frozenset({"tools", "cyanrip", "cyanrip_fork"})
+
+#: Steps that install a SYSTEM package, and the package each installs.
+_SYSTEM_PACKAGE_STEPS: dict[str, str] = {"distrobox": "distrobox", "backend": "podman"}
 
 # --- cyanrip packaging (KDD-18) ---------------------------------------------
 # Fedora does NOT package cyanrip (verified 2026-06-09: no result in the
@@ -177,6 +180,9 @@ class HostSetup:
     #: the build step built the test pin, so a correct install reported "not done" and was
     #: rebuilt on every run.
     fork_target: fork_source.ForkTarget | None = None
+    #: The install note: Distrobox or podman installed here is recorded, so the
+    #: uninstaller can offer to remove what we installed and nothing else.
+    install_note: Path = system_packages_marker.MARKER_PATH
     #: Set by :meth:`fork_installed` when what satisfied it was the build a round is
     #: reviewing rather than the target, so the "already present" line names the
     #: build that is actually there.
@@ -572,6 +578,10 @@ class HostSetup:
                 )
             )
             ok, detail = self._run_commands(commands)
+            if ok and step_id in _SYSTEM_PACKAGE_STEPS:
+                system_packages_marker.record_installed(
+                    _SYSTEM_PACKAGE_STEPS[step_id], self.install_note
+                )
             if ok:
                 record(
                     StepResult(

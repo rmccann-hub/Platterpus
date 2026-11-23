@@ -267,10 +267,9 @@ This section wins wherever the generic SOP differs; the full text as it stood on
 ### Lint / format / uninstall
 
 - **Lint:** `ruff check src tests scripts build` (`--fix` to auto-fix). **Format:** `ruff format src tests scripts build`. **Type-check:** `mypy` (bare; config in `pyproject.toml`). All in the `dev` extra (`pip install -e ".[dev]"`).
-- `bash uninstall.sh` (interactive; removes `.venv/`, GUI config, GUI logs; prompts for Picard /
-  Distrobox / whipper.conf / host exports)
-- `bash uninstall.sh --full --yes` (removes everything except music files and the cloned repo)
-- `bash uninstall.sh --dry-run` (shows what would be removed)
+- `bash uninstall.sh` (plan, ask, remove everything Platterpus created: the list Tools → Uninstall
+  reads, `deps/install_footprint.py`; `--keep-settings`/`--keep-logs`/`--keep-picard`; rips kept)
+- `bash uninstall.sh --dry-run` (shows what would be removed); `--yes` skips the question
 - `bash uninstall.sh --help`
 
 ### Enforced safety (.claude/ + git hook)
@@ -293,7 +292,7 @@ The full text: `docs/architecture.md` §6.5.
 - Ripper binary (host-exported from Distrobox): `~/.local/bin/cyanrip`
 - Legacy `whipper.conf`: `~/.config/whipper/whipper.conf` — **not read** by the app since 2026-09-24
   (`drive_profiles.py`); cyanrip does not use it, and the read offset lives in the GUI's own config.
-  Only `uninstall.sh` still offers to remove it
+  Only the uninstaller still removes it
 - MusicBrainz Picard (Flatpak, used for auto-launch on unknown discs):
   `flatpak run org.musicbrainz.Picard`
 - **The full map of everything Platterpus has or relies on** (languages, packages, external
@@ -308,4 +307,4 @@ The full text of every *Project operations* subsection trimmed here: `docs/archi
 
 ---
 
-*Last updated for Platterpus v0.7.127.*
+*Last updated for Platterpus v0.7.128.*
