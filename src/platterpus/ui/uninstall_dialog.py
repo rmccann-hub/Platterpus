@@ -1,27 +1,34 @@
-"""In-app Uninstaller — removes everything this app installed, no terminal.
+"""In-app Uninstaller — removes everything Platterpus created, with choices to keep some.
 
-The GUI counterpart of ``uninstall.sh`` (current-plan item 4; standing user
-request): one dialog that removes the app's shortcuts, the host-exported
-binaries, the `ripping` container, optionally the leftovers of older versions
-and the AppImage file, and the GUI's own settings + logs — while **always keeping
-Distrobox/podman and all music**.
+The owner's requirement (2026-11-18, TASKS R190): a full removal by default,
+so a reinstall is truly fresh, with boxes to keep (a) settings and measured
+drive data, (b) logs, test runs and support bundles, and (c) MusicBrainz
+Picard. Two more boxes are OFF unless ticked: (d) delete the rips in the folder
+the settings name, and (e) remove Distrobox and podman, shown ONLY when the
+install note says Platterpus installed them.
 
-Structure mirrors ``HostSetupDialog``: the engine
-(`deps/host_teardown.HostTeardown`) runs off-thread via the shared
-:class:`HostSetupWorker`, with live per-step progress and clean thread
-teardown on close. The destructive action is double-gated: a confirm prompt
-before anything runs, and per-piece checkboxes for the optional parts.
+The flow: on open, a worker scans the computer (``deps/host_teardown``) and
+the dialog shows a preview of exactly what will go and what will stay, updated
+as boxes change. "Uninstall…" asks once, then a second worker removes, with
+live progress, and the result names anything still on disk after a re-scan —
+so the last line says what happened, not what was asked.
+
+Both the scan and the removal run on worker threads (they ask ``podman`` and
+``flatpak``, which can take a minute); closing the dialog cancels the worker,
+which kills the command in flight (CLAUDE.md rule 9).
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialogButtonBox,
+    QGroupBox,
     QLabel,
     QMessageBox,
     QPlainTextEdit,
@@ -32,95 +39,119 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.deps.host_teardown import HostTeardown
+from platterpus.deps.install_footprint import Group
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.deps.uninstall_plan import (
+    Choices,
+    Observation,
+    UninstallReport,
+    build_plan,
+    preview_lines,
+    summary,
+)
+from platterpus.deps.uninstall_runner import CommandKiller
 from platterpus.ui import message_boxes
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.failure_text import LOG_POINTER
 from platterpus.ui.scroll_guards import append_keeping_position
-from platterpus.workers import start_worker_thread
-from platterpus.workers.host_setup_worker import HostSetupWorker
+from platterpus.workers import start_worker_thread, stop_thread
+from platterpus.workers.uninstall_worker import UninstallWorker
 
 log = logging.getLogger(__name__)
 
 _STATUS_GLYPH: dict[StepStatus, str] = {
-    StepStatus.DONE: "✓",
+    StepStatus.DONE: "ⓘ",
     StepStatus.RAN: "✓",
-    StepStatus.WOULD_RUN: "•",
-    StepStatus.FAILED: "✗",
+    StepStatus.FAILED: "⚠",
     StepStatus.CANCELLED: "•",
 }
 
 
-class UninstallDialog(CenteredDialog):
-    """Modal uninstaller with per-piece checkboxes and live progress."""
+#: Builds one engine and the runner that can kill its commands. One per run.
+EngineFactory = Callable[[Path | None], tuple[HostTeardown, CommandKiller]]
 
-    # True when everything selected was removed — the main window then
-    # offers to close the app (its config no longer exists on disk).
+
+class UninstallDialog(CenteredDialog):
+    """Modal uninstaller: keep boxes, a preview, a confirmation, live progress."""
+
+    # True when everything planned was removed and nothing is left; the main
+    # window then offers to close the app.
     uninstall_finished = Signal(bool)
 
     def __init__(
         self,
         parent: QWidget | None = None,
-        build_teardown: Callable[[bool, bool], HostTeardown] | None = None,
+        build_engine: EngineFactory | None = None,
+        rips: tuple[Path | None, str] | None = None,
+        scan_on_open: bool = True,
     ) -> None:
-        """`build_teardown(remove_container, remove_legacy_config) ->
-        HostTeardown` is injectable for tests; production builds the real
-        engine (SubprocessRunner + the running AppImage path, if any)."""
+        """``build_engine`` and ``rips`` (folder, refusal reason) are injectable
+        for tests; ``scan_on_open=False`` leaves the scan to the test."""
         super().__init__(parent)
-        self._build_teardown = build_teardown or _default_build_teardown
-        self._teardown: HostTeardown | None = None
+        self._build_engine: EngineFactory = build_engine or _default_build_engine
+        self._rips_folder, rips_refusal = (
+            rips if rips is not None else _rips_from_settings()
+        )
+        self._observations: tuple[Observation, ...] = ()
         self._thread: QThread | None = None
-        self._worker: HostSetupWorker | None = None
+        self._worker: UninstallWorker | None = None
         self._closing: bool = False
 
         self.setWindowTitle("Uninstall Platterpus")
-        self.resize(580, 480)
-        self.setMinimumSize(480, 380)
-
+        self.resize(640, 620)
+        self.setMinimumSize(520, 480)
         root = QVBoxLayout(self)
 
-        # RichText, stated: the bold "Never touched:" is markup of ours, and every
-        # word here is a literal. Line breaks are <br>, since markup reads a
-        # newline as a space. Left to Qt's default AutoText, which decides from
-        # the FIRST line (and this one holds no tag), the label showed the <b>
-        # tags as typed characters (tests/test_labels_state_their_text_format.py).
         intro = QLabel(
-            "This removes what Platterpus installed on this computer:<br><br>"
-            "• menu and desktop shortcuts<br>"
-            "• cyanrip / metaflac / flac from ~/.local/bin<br>"
-            "• the app's own settings and logs<br>"
-            "• the items ticked below<br><br>"
-            "<b>Never touched:</b> your music, and Distrobox/podman "
-            "themselves (other containers keep working).",
+            "This removes everything Platterpus put on this computer, so a "
+            "reinstall starts fresh: the app, its shortcuts, the 'ripping' "
+            "container and its image, the cyanrip build cache, Picard, settings "
+            "and logs. Tick what you want to keep.",
             self,
         )
-        intro.setTextFormat(Qt.TextFormat.RichText)
+        intro.setTextFormat(Qt.TextFormat.PlainText)
         intro.setWordWrap(True)
         root.addWidget(intro)
 
-        self._container_check: QCheckBox = QCheckBox(
-            "Remove the 'ripping' container (cyanrip and its tools inside it)", self
+        keep_box = QGroupBox("Keep", self)
+        keep_layout = QVBoxLayout(keep_box)
+        self._keep_settings: QCheckBox = QCheckBox(
+            "My settings and measured drive data", keep_box
         )
-        self._container_check.setChecked(True)
-        root.addWidget(self._container_check)
+        self._keep_logs: QCheckBox = QCheckBox(
+            "Logs, test runs and support bundles", keep_box
+        )
+        self._keep_picard: QCheckBox = QCheckBox("MusicBrainz Picard", keep_box)
+        for box in (self._keep_settings, self._keep_logs, self._keep_picard):
+            keep_layout.addWidget(box)
+        root.addWidget(keep_box)
 
-        # Older versions drove a different ripper, which kept a config folder of
-        # its own. Nothing reads it now; the box removes it if it is still there.
-        self._legacy_config_check: QCheckBox = QCheckBox(
-            "Remove leftover ripper settings from older versions", self
+        also_box = QGroupBox("Also remove (only if ticked)", self)
+        also_layout = QVBoxLayout(also_box)
+        if self._rips_folder is not None:
+            rips_text = f"Delete my rips in {self._rips_folder}"
+        else:
+            rips_text = f"Delete my rips (not offered: {rips_refusal})"
+        self._remove_rips: QCheckBox = QCheckBox(rips_text, also_box)
+        self._remove_rips.setEnabled(self._rips_folder is not None)
+        self._remove_packages: QCheckBox = QCheckBox(
+            "Distrobox and podman (Platterpus installed them)", also_box
         )
-        self._legacy_config_check.setToolTip(
-            "ON (default): deletes ~/.config/whipper, the folder the ripper older "
-            "Platterpus versions used kept its settings in. Nothing reads it any "
-            "more. OFF: the folder is left where it is."
-        )
-        self._legacy_config_check.setChecked(True)
-        root.addWidget(self._legacy_config_check)
+        # Shown only when the scan finds packages the install note names.
+        self._remove_packages.setVisible(False)
+        also_layout.addWidget(self._remove_rips)
+        also_layout.addWidget(self._remove_packages)
+        root.addWidget(also_box)
+        for box in self._choice_boxes():
+            box.toggled.connect(self._refresh_preview)
 
-        self._uninstall_button: QPushButton = QPushButton("&Uninstall…", self)
-        self._uninstall_button.clicked.connect(self._on_uninstall_clicked)
-        root.addWidget(self._uninstall_button)
+        self._details: QPlainTextEdit = QPlainTextEdit(
+            "Checking what is on this computer…", self
+        )
+        self._details.setReadOnly(True)
+        self._details.setAccessibleName("Uninstall preview and results")
+        root.addWidget(self._details, stretch=1)
 
         self._progress: QProgressBar = QProgressBar(self)
         self._progress.setRange(0, 0)
@@ -128,137 +159,181 @@ class UninstallDialog(CenteredDialog):
         root.addWidget(self._progress)
 
         self._status_label: QLabel = QLabel("", self)
-        # PlainText: a failed step's own detail (a command's output) is quoted
-        # here, and Qt's default AutoText would read a `<` in it as markup.
+        # PlainText: a failed step's detail quotes a tool's output.
         self._status_label.setTextFormat(Qt.TextFormat.PlainText)
         self._status_label.setWordWrap(True)
         self._status_label.setAccessibleName("Uninstall status")
         root.addWidget(self._status_label)
 
-        self._results: QPlainTextEdit = QPlainTextEdit("", self)
-        self._results.setReadOnly(True)
-        self._results.setAccessibleName("Uninstall step results")
-        root.addWidget(self._results, stretch=1)
-
+        self._uninstall_button: QPushButton = QPushButton("&Uninstall…", self)
+        self._uninstall_button.setEnabled(False)
+        self._uninstall_button.clicked.connect(self._on_uninstall_clicked)
         self._button_box: QDialogButtonBox = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Close, self
+        )
+        self._button_box.addButton(
+            self._uninstall_button, QDialogButtonBox.ButtonRole.DestructiveRole
         )
         self._button_box.rejected.connect(self.reject)
         root.addWidget(self._button_box)
 
-    # --- Run flow -------------------------------------------------------
+        if scan_on_open:
+            self._start(scan=True)
+
+    # --- Choices and preview -------------------------------------------------
+
+    def _choice_boxes(self) -> tuple[QCheckBox, ...]:
+        return (
+            self._keep_settings,
+            self._keep_logs,
+            self._keep_picard,
+            self._remove_rips,
+            self._remove_packages,
+        )
+
+    def choices(self) -> Choices:
+        """The boxes, as the engine reads them."""
+        return Choices(
+            keep_settings=self._keep_settings.isChecked(),
+            keep_logs=self._keep_logs.isChecked(),
+            keep_picard=self._keep_picard.isChecked(),
+            remove_rips=self._remove_rips.isChecked() and self._rips_folder is not None,
+            remove_system_packages=(
+                self._remove_packages.isChecked()
+                and self._remove_packages.isVisibleTo(self)
+            ),
+        )
+
+    def _on_scanned(self, observations: tuple[Observation, ...]) -> None:
+        if self._closing:
+            return
+        self._observations = observations
+        packages = [
+            o
+            for o in observations
+            if o.item.group is Group.SYSTEM_PACKAGES and o.present
+        ]
+        self._remove_packages.setVisible(bool(packages))
+        self._uninstall_button.setEnabled(bool(observations))
+        if not observations:
+            self._status_label.setText(
+                f"⚠ Could not check this computer. {LOG_POINTER}"
+            )
+        self._refresh_preview()
+
+    def _refresh_preview(self) -> None:
+        if not self._observations or self._thread is not None:
+            return
+        plan = build_plan(self._observations, self.choices())
+        self._details.setPlainText("\n".join(preview_lines(plan)))
+        self._uninstall_button.setEnabled(not plan.nothing_to_do)
+
+    # --- Run flow ------------------------------------------------------------
 
     def _on_uninstall_clicked(self) -> None:
-        if self._thread is not None:  # already running
+        if self._thread is not None:
             return
-        # The one confirmation gate before anything destructive happens.
+        choices = self.choices()
+        text = (
+            "Remove everything listed under “Will remove”?\n\n"
+            "This can't be undone (you can always reinstall)."
+        )
+        if choices.remove_rips:
+            text += f"\n\nYour rips in {self._rips_folder} will be DELETED."
         choice = message_boxes.warning(
             self,
             "Uninstall Platterpus?",
-            "Remove Platterpus and the ticked items from this computer?\n\n"
-            "Your music is not touched. This can't be undone (you can "
-            "always reinstall later).",
+            text,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
         if choice != QMessageBox.StandardButton.Yes:
             return
-
-        self._teardown = self._build_teardown(
-            self._container_check.isChecked(),
-            self._legacy_config_check.isChecked(),
-        )
+        for box in self._choice_boxes():
+            box.setEnabled(False)
         self._uninstall_button.setEnabled(False)
-        self._container_check.setEnabled(False)
-        self._legacy_config_check.setEnabled(False)
-        self._results.clear()
-        self._progress.setVisible(True)
+        self._details.clear()
         self._status_label.setText("Uninstalling…")
+        self._start(scan=False, choices=choices)
 
-        self._worker = HostSetupWorker(self._teardown)
+    def _start(self, scan: bool, choices: Choices | None = None) -> None:
+        engine, runner = self._build_engine(self._rips_folder)
+        worker = UninstallWorker(engine, runner, choices)
+        self._worker = worker
         self._thread = QThread(self)
-        self._worker.step.connect(self._on_step)
-        self._worker.finished.connect(self._on_finished)
-        start_worker_thread(self._worker, self._thread, self._worker.run)
+        self._progress.setVisible(True)
+        if scan:
+            worker.scanned.connect(self._on_scanned)
+            worker.finished.connect(self._on_scan_finished)
+            start_worker_thread(worker, self._thread, worker.scan)
+        else:
+            worker.step.connect(self._on_step)
+            worker.finished.connect(self._on_finished)
+            start_worker_thread(worker, self._thread, worker.remove)
+
+    def _on_scan_finished(self, _report: object) -> None:
+        if self._closing:
+            return
+        self._progress.setVisible(False)
+        self._worker = None
+        self._thread = None
+        self._refresh_preview()
 
     def _on_step(self, result: StepResult) -> None:
         if self._closing:
             return
         if result.status is StepStatus.RUNNING:
-            step_text = f"⏳ {result.title}"
-            self._status_label.setText(step_text)
-            # One announcement per step start — focus-safe progress for a
-            # minutes-long run (gap #4).
-            announce(self._status_label, step_text)
+            text = f"⏳ Removing {result.title}…"
+            self._status_label.setText(text)
+            announce(self._status_label, text)
             return
         line = f"{_STATUS_GLYPH.get(result.status, '•')} {result.title}"
         if result.detail:
             line += f" — {result.detail}"
-        # Sticky bottom — see the same call in `host_setup_dialog`. Uninstall is
-        # the run you least want to lose your place in: a step that reports it
-        # skipped something is the one the user stops to read.
-        append_keeping_position(self._results, line)
+        append_keeping_position(self._details, line)
 
-    def _on_finished(self, results: list[StepResult]) -> None:
+    def _on_finished(self, report: UninstallReport | None) -> None:
         if self._closing:
             return
         self._progress.setVisible(False)
-        complete = bool(results) and all(r.ok for r in results)
-        if complete:
-            self._status_label.setText(
-                "✓ Uninstalled. Close this app — it no longer has settings "
-                "on disk. (Reinstall any time from the project page.)"
-            )
-        else:
-            failed = next((r for r in results if r.status is StepStatus.FAILED), None)
-            if failed is not None:
-                # This file emitted NO logging at all — there was no `log` in it — so
-                # a failed uninstall left one label on screen and nothing on disk.
-                log.error(
-                    "uninstall stopped at %s (%s): %s",
-                    failed.step_id,
-                    failed.title,
-                    failed.detail or "(no detail reported)",
-                )
-                self._status_label.setText(
-                    f"Uninstall stopped at “{failed.title}”: {failed.detail}\n"
-                    f"{LOG_POINTER}"
-                )
-            else:
-                # `complete` is False and nothing is marked FAILED. Same shape as the
-                # setup dialog's uncovered branch: the least diagnosable message was
-                # the one for the case nobody had considered.
-                log.error(
-                    "uninstall finished incomplete with no failed step; "
-                    "%d result(s): %s",
-                    len(results),
-                    ", ".join(f"{r.step_id}={r.status.value}" for r in results)
-                    or "(none)",
-                )
-                self._status_label.setText(
-                    "Uninstall did not complete, and no individual step reported a "
-                    "failure — so there is nothing specific to point at. Some files "
-                    f"may still be on disk.\n{LOG_POINTER}"
-                )
-            self._uninstall_button.setEnabled(True)
-            self._container_check.setEnabled(True)
-            self._legacy_config_check.setEnabled(True)
-        # Announce the final outcome — the run may have taken minutes (gap #4).
-        announce(self._status_label, self._status_label.text())
         self._worker = None
         self._thread = None
+        complete = report is not None and report.complete
+        if report is None:
+            log.error("uninstall finished without a report")
+            self._status_label.setText(
+                f"⚠ The uninstall stopped unexpectedly. {LOG_POINTER}"
+            )
+        elif complete:
+            self._status_label.setText(
+                f"{summary(report)} Close this app now. "
+                "(Reinstall any time from the project page.)"
+            )
+        else:
+            self._report_problems(report)
+        if not complete:
+            for box in self._choice_boxes():
+                box.setEnabled(
+                    box is not self._remove_rips or self._rips_folder is not None
+                )
+            self._uninstall_button.setEnabled(True)
+        announce(self._status_label, self._status_label.text())
         self.uninstall_finished.emit(complete)
 
-    # --- Lifecycle --------------------------------------------------------
+    def _report_problems(self, report: UninstallReport) -> None:
+        if report.leftovers:
+            append_keeping_position(self._details, "Still on this computer:")
+            for line in report.leftovers:
+                append_keeping_position(self._details, f"  ⚠ {line}")
+        for r in report.failed:
+            log.error("uninstall failed at %s: %s", r.step_id, r.detail)
+        self._status_label.setText(f"{summary(report)}\n{LOG_POINTER}")
+
+    # --- Lifecycle -----------------------------------------------------------
 
     def _stop(self) -> None:
-        # Don't block the GUI thread joining a step in flight (podman/container
-        # teardown can't be interrupted by quit()); stop_thread cancels, waits
-        # briefly, and ABANDONS a still-running thread, retaining its reference
-        # (Critical rule #9: Qt has no "detach"), rather than freezing the window
-        # or destroying a live QThread.
-        from platterpus.workers import stop_thread
-
+        # Cancel kills the command in flight; a thread that still does not stop
+        # in time is ABANDONED with its reference kept (rule 9), never waited on.
         stop_thread(self._thread, self._worker)
         self._worker = None
         self._thread = None
@@ -274,16 +349,28 @@ class UninstallDialog(CenteredDialog):
         super().closeEvent(event)  # type: ignore[arg-type]
 
 
-def _default_build_teardown(
-    remove_container: bool, remove_legacy_config: bool
-) -> HostTeardown:
-    """Production teardown: real runner + the running AppImage (if any)."""
-    from platterpus.appimage_integration import appimage_path
-    from platterpus.deps.step_engine import SubprocessRunner
+def _rips_from_settings() -> tuple[Path | None, str]:
+    """The rips folder the settings name, if deleting it is safe; else the reason."""
+    from platterpus.deps.user_locations import rips_setting, safe_rips_folder
+    from platterpus.paths import CONFIG_PATH
 
-    return HostTeardown(
-        runner=SubprocessRunner(),
-        remove_container=remove_container,
-        remove_legacy_config=remove_legacy_config,
+    return safe_rips_folder(rips_setting(CONFIG_PATH), Path.home())
+
+
+def _default_build_engine(rips: Path | None) -> tuple[HostTeardown, CommandKiller]:
+    """Production engine: the killable runner, the real folders, this process's AppImage."""
+    import sys
+
+    from platterpus.appimage_integration import appimage_path
+    from platterpus.deps.uninstall_runner import UninstallRunner
+    from platterpus.deps.user_locations import Locations, dev_checkout_venv
+
+    runner = UninstallRunner()
+    engine = HostTeardown(
+        runner=runner,
+        locations=Locations.from_environment(),
         appimage=appimage_path(),
+        venv=dev_checkout_venv(Path(sys.prefix)),
+        rips=rips,
     )
+    return engine, runner

@@ -1099,23 +1099,17 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac/flac/cd-paranoia commands (and any leftovers from older versions, such as `~/.local/bin/whipper`), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). By default it removes **everything Platterpus created**, so a reinstall starts fresh: the `ripping` container and its Fedora toolbox image (the image only when no other container uses it), the cyanrip/metaflac/flac/cd-paranoia commands in `~/.local/bin` (only the ones Distrobox wrote), menu and desktop shortcuts, the AppImages in `~/Applications` and any interrupted download, the cyanrip source and build cache in `~/.cache/platterpus`, MusicBrainz Picard with its data (its runtime and the flathub remote too, when nothing else uses them), test-run folders under `~/platterpus-rig`, leftovers from older versions, and the app's own settings and logs. Tick boxes keep **settings and measured drive data**, **logs, test runs and bundles**, or **Picard**. Before anything is removed it shows a preview of exactly what will go, and afterwards it checks again and names anything still on disk. **Kept unless you ask:** your rips (a box deletes the folder your settings name, never anything else), and Distrobox/podman (offered only when Platterpus installed them). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
 
-**Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
+**Script alternative** (source checkouts, or if you prefer the terminal): [`uninstall.sh`](uninstall.sh) runs the same uninstaller as the app, reading the same list, and also removes the checkout's `.venv/`. It shows the plan, asks once, then removes. The cloned repo itself is never touched.
 
 ```bash
-# Interactive — removes the GUI's venv/config/logs by default, then prompts
-# you about the broader stack (Picard, the ripping container,
-# the host-exported binaries) one at a time.
-bash uninstall.sh
-
-# Preview only — print what would be removed, change nothing.
-bash uninstall.sh --dry-run
-
-# Everything except your music files and the cloned repo, no prompts.
-bash uninstall.sh --full --yes
-
-bash uninstall.sh --help   # full option list
+bash uninstall.sh                 # show the plan, ask, then remove everything
+bash uninstall.sh --dry-run       # preview only — change nothing
+bash uninstall.sh --yes           # no question
+bash uninstall.sh --keep-settings --keep-logs --keep-picard   # keep those
+bash uninstall.sh --remove-rips   # ALSO delete the rips folder your settings name
+bash uninstall.sh --help          # full option list
 ```
 
 To remove the host stack fully by hand instead:

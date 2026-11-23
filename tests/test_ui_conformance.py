@@ -262,7 +262,11 @@ def _factories() -> dict[str, object]:
             config=Config(),
             save_setting=lambda _f, _v: SettingWrite(True),
         ),
-        "UninstallDialog": lambda: UninstallDialog(build_teardown=lambda *a: None),
+        "UninstallDialog": lambda: UninstallDialog(
+            build_engine=lambda _rips: (None, None),  # type: ignore[arg-type,return-value]  # never called: no scan
+            rips=(Path("/home/user/Music/rips"), ""),
+            scan_on_open=False,
+        ),
         "UnknownAlbumDialog": lambda: UnknownAlbumDialog(),
     }
 

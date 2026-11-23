@@ -59,14 +59,6 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
         2,
         "the leftover config folder and wrapper, spelled as on disk",
     ),
-    "src/platterpus/ui/uninstall_dialog.py": (
-        1,
-        "tooltip names the real folder it deletes",
-    ),
-    "uninstall.sh": (
-        7,
-        "the leftover folder, wrapper and pre-rename folder names it removes",
-    ),
     "src/platterpus/parsers/cyanrip_log.py": (
         1,
         "the legacy-log header regex matches the literal text",
@@ -147,7 +139,7 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
     # Mixed files are counted, not exempted, so their live sections stay clean:
     # a new mention anywhere in them fails.
     "PLANNING.md": (
-        125,
+        123,
         "the KDD decision log, plus exact leftover paths in the module map",
     ),
     # 142 until 2026-11-16, when the closed sections moved to docs/archive/.
@@ -157,7 +149,7 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
         "struck-through rows, the HISTORICAL section and the dated review log",
     ),
     "README.md": (
-        10,
+        9,
         "exact leftover paths in the uninstall section and the paths table",
     ),
     "docs/test-plan.md": (

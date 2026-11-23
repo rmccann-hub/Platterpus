@@ -1,398 +1,463 @@
-"""Tests for the in-app Uninstaller engine (deps/host_teardown.py).
+"""Tests for the uninstall engine (deps/host_teardown.py): scan, plan, remove, re-scan.
 
-Driven through a fake CommandRunner + injected removers and tmp dirs, so no
-real file or container is ever touched. Verifies the user's contract: remove
-everything the app installed; never touch Distrobox/podman or music.
+Driven through a fake runner and a fake home under ``tmp_path``, so no real file,
+container or Flatpak is ever touched. The contract (TASKS R190): everything
+Platterpus created goes by default; the choices keep groups; the image goes only
+when no other container uses it; one failure never stops the rest; the logs are
+kept when anything failed; and the report names what is STILL present after a
+re-scan, not what was asked.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
-from platterpus.deps.host_teardown import HostTeardown
+import pytest
+
+from platterpus.deps import system_packages_marker
+from platterpus.deps.host_setup import DEFAULT_IMAGE
+from platterpus.deps.host_teardown import (
+    HostTeardown,
+    container_names,
+    package_remove_argv,
+)
+from platterpus.deps.install_footprint import PICARD_APP_ID, Group
 from platterpus.deps.step_engine import StepStatus
-from platterpus.paths import LEGACY_RIPPER_CONFIG_DIR, LEGACY_RIPPER_WRAPPER_PATH
+from platterpus.deps.uninstall_plan import Choices, build_plan
+from platterpus.deps.user_locations import Locations
+
+Answer = tuple[int, str] | Callable[[list[str]], tuple[int, str]]
 
 
 class _FakeRunner:
-    def __init__(self) -> None:
-        self.present: set[str] = set()
+    """Programs on PATH, and canned answers keyed by argv (or by its first words)."""
+
+    def __init__(self, present: set[str] | None = None) -> None:
+        self.present: set[str] = present or set()
         self.calls: list[list[str]] = []
-        self.results: dict[tuple[str, ...], tuple[int, str]] = {}
-        self.default: tuple[int, str] = (0, "")
+        self.answers: dict[tuple[str, ...], Answer] = {}
 
     def which(self, name: str) -> bool:
         return name in self.present
 
-    def exists(self, path: Path) -> bool:
-        return Path(path).exists()  # real tmp files in these tests
-
-    def run(self, argv: list[str]) -> tuple[int, str]:
+    def run(self, argv: list[str], timeout: float = 60.0) -> tuple[int, str]:
         self.calls.append(argv)
-        return self.results.get(tuple(argv), self.default)
+        for length in range(len(argv), 0, -1):
+            answer = self.answers.get(tuple(argv[:length]))
+            if answer is not None:
+                return answer(argv) if callable(answer) else answer
+        return 0, ""
 
 
-#: Leftovers of the ripper older versions drove, by their real names on disk,
-#: read from `paths` so the tests and the engine cannot name different folders.
-_LEGACY_DIR: str = LEGACY_RIPPER_CONFIG_DIR.name
-_LEGACY_WRAPPER: str = LEGACY_RIPPER_WRAPPER_PATH.name
-
-
-def _teardown(tmp_path: Path, runner: _FakeRunner, **kwargs) -> HostTeardown:
-    """A HostTeardown rooted entirely in tmp_path."""
-    defaults = dict(
-        runner=runner,
-        gui_config_dir=tmp_path / "config" / "platterpus",
-        gui_data_dir=tmp_path / "share" / "platterpus",
-        legacy_config_dir=tmp_path / "config" / _LEGACY_DIR,
-        bin_dir=tmp_path / "bin",
-        desktop_dir=tmp_path / "applications",
-        icon_dir=tmp_path / "icons",
-        desktop_folder=tmp_path / "Desktop",
-        apps_dir=tmp_path / "Applications",
+def _locations(tmp_path: Path) -> Locations:
+    home = tmp_path / "home"
+    return Locations(
+        home=home,
+        config_home=home / ".config",
+        data_home=home / ".local" / "share",
+        desktop_folder=home / "Desktop",
     )
+
+
+def _engine(tmp_path: Path, runner: _FakeRunner, **kwargs: object) -> HostTeardown:
+    loc = _locations(tmp_path)
+    defaults: dict[str, object] = {
+        "runner": runner,
+        "locations": loc,
+        "install_note": loc.data_home
+        / "platterpus"
+        / system_packages_marker.MARKER_NAME,
+        "refresh_menu": lambda: None,
+    }
     defaults.update(kwargs)
-    return HostTeardown(**defaults)
+    return HostTeardown(**defaults)  # type: ignore[arg-type]  # test kwargs
 
 
-def _populate_everything(tmp_path: Path) -> None:
-    """Create every artifact the engine targets."""
-    files = [
-        tmp_path / "applications" / "io.github.rmccann_hub.Platterpus.desktop",
-        tmp_path / "applications" / "platterpus-uninstall.desktop",
-        tmp_path / "Desktop" / "io.github.rmccann_hub.Platterpus.desktop",
-        tmp_path / "icons" / "io.github.rmccann_hub.Platterpus.png",
-        tmp_path / "Applications" / "platterpus-uninstall.sh",
-        tmp_path / "bin" / "platterpus",
-        tmp_path / "bin" / _LEGACY_WRAPPER,
-        tmp_path / "bin" / "metaflac",
-        tmp_path / "bin" / "cyanrip",
-        tmp_path / "bin" / "flac",
-        tmp_path / "config" / _LEGACY_DIR / "settings.conf",
-        tmp_path / "config" / "platterpus" / "config.toml",
-        tmp_path / "share" / "platterpus" / "log.txt",
-    ]
-    for f in files:
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text("x", encoding="utf-8")
+def _touch(path: Path, text: str = "x") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
-def _ids(results: list) -> dict[str, str]:
-    return {r.step_id: r.status.value for r in results}
+def _populate(tmp_path: Path) -> Path:
+    """A home holding one of nearly everything Platterpus creates."""
+    home = _locations(tmp_path).home
+    _touch(home / ".local/bin/cyanrip", "#!/bin/sh\n# distrobox_binary\n")
+    _touch(home / ".local/bin/flac", "#!/bin/sh\nexec /usr/bin/distrobox-enter\n")
+    _touch(home / ".local/share/applications/io.github.rmccann_hub.Platterpus.desktop")
+    _touch(home / ".local/share/applications/platterpus-uninstall.desktop")
+    _touch(home / ".local/share/icons/io.github.rmccann_hub.Platterpus.png")
+    _touch(home / "Desktop/io.github.rmccann_hub.Platterpus.desktop")
+    _touch(home / "Applications/platterpus-x86_64.AppImage")
+    _touch(home / "Applications/platterpus-0.7.100.AppImage")
+    _touch(home / "Applications/.platterpus-update.part")
+    _touch(home / "Applications/platterpus-uninstall.sh")
+    _touch(home / ".cache/platterpus/cyanrip-fork/meson.build")
+    _touch(home / "platterpus-rig/rigsession1/log.txt")
+    _touch(home / ".config/platterpus/config.toml")
+    _touch(home / ".local/share/platterpus/log.txt")
+    return home
 
 
-# --- Easy: full install → everything removed -------------------------------
+def _with_container(runner: _FakeRunner, *, image_users: str = "ripping\n") -> None:
+    runner.present |= {"distrobox", "podman"}
+    runner.answers[("distrobox", "list")] = (
+        0,
+        "ID           | NAME     | STATUS | IMAGE\n"
+        f"abc123       | ripping  | Up     | {DEFAULT_IMAGE}\n",
+    )
+    runner.answers[("podman", "image", "inspect")] = (0, "[{}]")
+    runner.answers[("podman", "ps")] = (0, image_users)
 
 
-def test_full_uninstall_removes_everything(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
+# --- The default removes everything -------------------------------------------
+
+
+def test_default_uninstall_removes_everything_and_the_rescan_finds_nothing(
+    tmp_path: Path,
+) -> None:
+    home = _populate(tmp_path)
     runner = _FakeRunner()
-    runner.present = {"distrobox"}
-    runner.results[("distrobox", "list")] = (0, "ID | ripping | Up\n")
+    _with_container(runner)
 
-    td = _teardown(tmp_path, runner)
-    results = td.run()
+    # After `distrobox rm`, the listing no longer names the container, and the
+    # image is gone after `podman rmi`: the re-scan must see the world change.
+    def removed(argv: list[str]) -> tuple[int, str]:
+        runner.answers[("distrobox", "list")] = (0, "ID | NAME | STATUS\n")
+        runner.answers[("podman", "ps")] = (0, "")
+        return 0, ""
 
-    assert all(r.ok for r in results)
-    # Every file artifact is gone…
-    assert not (
-        tmp_path / "applications" / "io.github.rmccann_hub.Platterpus.desktop"
-    ).exists()
-    assert not (tmp_path / "bin" / _LEGACY_WRAPPER).exists()
-    assert not (tmp_path / "bin" / "cyanrip").exists()
-    # Regression (#34): setup exports flac too, so uninstall must remove its
-    # wrapper — it was previously omitted and orphaned in ~/.local/bin.
-    assert not (tmp_path / "bin" / "flac").exists()
-    assert not (tmp_path / "config" / _LEGACY_DIR).exists()
-    assert not (tmp_path / "config" / "platterpus").exists()
-    assert not (tmp_path / "share" / "platterpus").exists()
-    # …and the container was removed by force.
+    def image_gone(argv: list[str]) -> tuple[int, str]:
+        runner.answers[("podman", "image", "inspect")] = (125, "Error: image not known")
+        return 0, ""
+
+    runner.answers[("distrobox", "rm")] = removed
+    runner.answers[("podman", "rmi")] = image_gone
+
+    report = _engine(tmp_path, runner).run(Choices())
+
+    assert report.complete, (report.failed, report.leftovers)
     assert ["distrobox", "rm", "--force", "ripping"] in runner.calls
+    assert ["podman", "rmi", DEFAULT_IMAGE] in runner.calls
+    left = sorted(
+        str(p.relative_to(home)) for p in (tmp_path / "home").rglob("*") if p.is_file()
+    )
+    assert left == [], left
 
 
-def test_app_data_is_the_last_step(tmp_path: Path) -> None:
-    """Settings + logs go last so a failed earlier step leaves the log
-    available for debugging."""
-    td = _teardown(tmp_path, _FakeRunner())
-    assert td.STEP_IDS[-1] == "app_data"
-
-
-# --- Idempotent: clean system → all DONE ------------------------------------
-
-
-def test_clean_system_is_all_done(tmp_path: Path) -> None:
-    runner = _FakeRunner()  # no distrobox → container counts as absent
-    results = _teardown(tmp_path, runner).run()
-    assert all(r.status is StepStatus.DONE for r in results)
-    assert _teardown(tmp_path, runner).is_complete() is True
-    # Nothing was executed — the only runner use would be `distrobox list`.
-    assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
-
-
-# --- Options: the checkboxes control the plan --------------------------------
-
-
-def test_optional_steps_can_be_kept(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
-    runner = _FakeRunner()
-    runner.present = {"distrobox"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
-
-    td = _teardown(tmp_path, runner, remove_container=False, remove_legacy_config=False)
-    assert "container" not in td.STEP_IDS
-    assert "legacy_config" not in td.STEP_IDS
-    td.run()
-
-    # Kept: the container and the leftover config. Removed: the rest.
-    assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
-    assert (tmp_path / "config" / _LEGACY_DIR / "settings.conf").exists()
-    assert not (tmp_path / "bin" / _LEGACY_WRAPPER).exists()
-
-
-def test_appimage_step_only_when_running_as_appimage(tmp_path: Path) -> None:
-    runner = _FakeRunner()
-    assert "appimage" not in _teardown(tmp_path, runner).STEP_IDS
-
-    appimage = tmp_path / "platterpus-x86_64.AppImage"
-    appimage.write_text("ELF", encoding="utf-8")
-    td = _teardown(tmp_path, runner, appimage=appimage)
-    assert "appimage" in td.STEP_IDS
-    td.run()
-    assert not appimage.exists()
-
-
-# --- The keep-contract: distrobox/podman are never targets -------------------
-
-
-def test_never_removes_distrobox_or_podman(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
-    runner = _FakeRunner()
-    runner.present = {"distrobox", "podman"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
-
-    _teardown(tmp_path, runner).run()
-
-    # The ONLY mutating command ever issued is the container removal.
-    mutating = [c for c in runner.calls if c != ["distrobox", "list"]]
-    assert mutating == [["distrobox", "rm", "--force", "ripping"]]
-
-
-# --- Failure: best-effort (continue past it) + report ------------------------
-
-
-def test_container_failure_does_not_skip_other_removals(tmp_path: Path) -> None:
-    """A failed step (e.g. a busy container) must NOT cancel the rest —
-    teardown steps are independent, so everything else is still removed; only
-    the GUI's own settings/logs are kept so the failure can be debugged. This
-    was the 'uninstall didn't do all' bug (one failure skipped everything after
-    it)."""
-    _populate_everything(tmp_path)
-    runner = _FakeRunner()
-    runner.present = {"distrobox"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
-    runner.results[("distrobox", "rm", "--force", "ripping")] = (
-        1,
-        "Error: container is in use",
+def test_choices_keep_settings_logs_and_picard(tmp_path: Path) -> None:
+    home = _populate(tmp_path)
+    runner = _FakeRunner({"flatpak"})
+    runner.answers[("flatpak", "list", "--user", "--app", "--columns=application")] = (
+        0,
+        f"{PICARD_APP_ID}\n",
+    )
+    report = _engine(tmp_path, runner).run(
+        Choices(keep_settings=True, keep_logs=True, keep_picard=True)
     )
 
-    results = _teardown(tmp_path, runner).run()
-
-    status = _ids(results)
-    assert status["container"] == "failed"
-    # The step AFTER the failure still ran (the fix) — the leftover config is gone.
-    assert status["legacy_config"] == "ran"
-    assert not (tmp_path / "config" / _LEGACY_DIR).exists()
-    # Settings/logs are deliberately KEPT (not cancelled) so the log survives.
-    assert status["app_data"] == "done"
-    assert (tmp_path / "share" / "platterpus" / "log.txt").exists()
-    # Best-effort: nothing was CANCELLED — every step was attempted.
-    assert StepStatus.CANCELLED not in {r.status for r in results}
-    failed = next(r for r in results if r.status is StepStatus.FAILED)
-    assert "in use" in failed.detail
+    assert (home / ".config/platterpus/config.toml").exists()
+    assert (home / ".local/share/platterpus/log.txt").exists()
+    assert (home / "platterpus-rig/rigsession1/log.txt").exists()  # a test run: (b)
+    assert not any(c[:2] == ["flatpak", "uninstall"] for c in runner.calls)
+    kept = {obs.item.group for obs, _why in report.plan.kept}
+    assert {Group.SETTINGS, Group.LOGS, Group.PICARD} <= kept
+    assert not (home / ".cache/platterpus").exists()
 
 
-def test_unremovable_file_reports_failure(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
-
-    def explode(path: Path) -> None:
-        raise OSError("permission denied")
-
-    td = _teardown(tmp_path, _FakeRunner(), remove_file=explode)
-    results = td.run()
-    failed = next(r for r in results if r.status is StepStatus.FAILED)
-    assert "permission denied" in failed.detail
+# --- Exact container name, and the image only when nobody else uses it ---------
 
 
-# --- Dry run -----------------------------------------------------------------
+def test_container_name_is_matched_exactly() -> None:
+    listing = (
+        "ID | NAME | STATUS | IMAGE\n"
+        "1 | ripping-old | Up | x\n"
+        "2 | my-ripping | Up | x\n"
+        "3 | \x1b[32mripping\x1b[0m | Up | x\n"
+    )
+    assert container_names(listing) == ["ripping-old", "my-ripping", "ripping"]
+    assert "ripping" not in container_names("ID | NAME\n1 | ripping-old\n")
 
 
-def test_dry_run_removes_nothing_and_reports_targets(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
+def test_a_container_merely_containing_the_word_is_not_ours(tmp_path: Path) -> None:
+    runner = _FakeRunner({"distrobox"})
+    runner.answers[("distrobox", "list")] = (
+        0,
+        "ID | NAME | STATUS\n1 | ripping2 | Up\n",
+    )
+    obs = {o.item.item_id: o for o in _engine(tmp_path, runner).scan()}
+    assert obs["container"].present == ()
+
+
+def test_image_is_kept_when_another_container_uses_it(tmp_path: Path) -> None:
     runner = _FakeRunner()
-    runner.present = {"distrobox"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
+    _with_container(runner, image_users="ripping\nmy-dev-box\n")
+    engine = _engine(tmp_path, runner)
 
-    results = _teardown(tmp_path, runner).run(dry_run=True)
+    plan = build_plan(engine.scan(), Choices())
+    kept = {obs.item.item_id: why for obs, why in plan.kept}
+    assert "my-dev-box" in kept["image"]
 
-    assert all(r.status is StepStatus.WOULD_RUN for r in results)
-    assert (tmp_path / "bin" / _LEGACY_WRAPPER).exists()  # nothing touched
-    assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
-    shortcuts = next(r for r in results if r.step_id == "shortcuts")
-    assert "io.github.rmccann_hub.Platterpus.desktop" in shortcuts.detail
-
-
-# --- Cancel ------------------------------------------------------------------
+    engine.run(Choices())
+    assert not any(c[:2] == ["podman", "rmi"] for c in runner.calls)
 
 
-def test_cancel_before_first_step(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
-    results = _teardown(tmp_path, _FakeRunner()).run(cancelled=lambda: True)
-    assert all(r.status is StepStatus.CANCELLED for r in results)
-    assert (tmp_path / "bin" / _LEGACY_WRAPPER).exists()
-
-
-def test_canonical_applications_copy_removed_without_appimage_env(
+def test_image_users_are_checked_again_where_the_removal_happens(
     tmp_path: Path,
 ) -> None:
-    """Integration moves the AppImage to ~/Applications; the uninstaller must
-    find and remove that copy even when not launched from it ($APPIMAGE
-    unset — e.g. a source run, or launched from a second stray copy)."""
-    canonical = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
-    canonical.parent.mkdir(parents=True)
-    canonical.write_bytes(b"ELF")
+    """A container created after the scan holds the image: re-checked, not assumed."""
     runner = _FakeRunner()
+    _with_container(runner)
+    engine = _engine(tmp_path, runner)
+    plan = build_plan(engine.scan(), Choices())
+    runner.answers[("podman", "ps")] = (0, "made-since\n")
 
-    td = _teardown(tmp_path, runner)  # note: appimage=None
-    assert "appimage" in td.STEP_IDS
-    td.run()
+    results, _ = engine.remove(plan)
 
-    assert not canonical.exists()
-
-
-# --- Tree-removal edge cases, progress, and container-probe failure ----------
+    image = next(r for r in results if r.step_id == "image")
+    assert image.status is StepStatus.RAN and "made-since" in image.detail
+    assert not any(c[:2] == ["podman", "rmi"] for c in runner.calls)
 
 
-def test_app_data_tree_failure_is_reported_and_skips_absent_tree(
+def test_a_listing_that_fails_is_unchecked_not_absent(tmp_path: Path) -> None:
+    runner = _FakeRunner({"distrobox", "flatpak"})
+    runner.answers[("distrobox", "list")] = (1, "Error: cannot connect to podman")
+    runner.answers[("flatpak",)] = (1, "error: simulated")
+    obs = {o.item.item_id: o for o in _engine(tmp_path, runner).scan()}
+    assert "cannot connect to podman" in obs["container"].unchecked
+    assert "simulated" in obs["picard"].unchecked
+    plan = build_plan(tuple(obs.values()), Choices())
+    assert {o.item.item_id for o in plan.unchecked} >= {"container", "picard"}
+    assert "container" not in {o.item.item_id for o in plan.remove}
+
+
+# --- Only what is ours ----------------------------------------------------------
+
+
+def test_a_bin_file_distrobox_did_not_write_is_left_alone(tmp_path: Path) -> None:
+    home = _locations(tmp_path).home
+    mine = _touch(home / ".local/bin/flac", "#!/bin/sh\necho the user's own flac\n")
+    report = _engine(tmp_path, _FakeRunner()).run(Choices())
+    assert mine.exists()
+    assert any(o.item.item_id == "export:flac" for o, _ in report.plan.kept)
+
+
+def test_the_cli_link_goes_only_when_it_points_into_a_venv(tmp_path: Path) -> None:
+    home = _locations(tmp_path).home
+    (home / ".local/bin").mkdir(parents=True)
+    link = home / ".local/bin/platterpus"
+    link.symlink_to(tmp_path / "pipx/venvs/platterpus/bin/platterpus")
+    _engine(tmp_path, _FakeRunner()).run(Choices())
+    assert link.is_symlink(), "a pipx link is not dev-setup.sh's"
+
+    link.unlink()
+    link.symlink_to(tmp_path / "repo/.venv/bin/platterpus")
+    _engine(tmp_path, _FakeRunner()).run(Choices())
+    assert not link.is_symlink()
+
+
+def test_rips_go_only_when_asked_and_only_the_given_folder(tmp_path: Path) -> None:
+    rips = _touch(tmp_path / "library" / "Album" / "01.txt").parent.parent
+    engine = _engine(tmp_path, _FakeRunner(), rips=rips)
+    engine.run(Choices())
+    assert rips.exists(), "rips removed without being asked"
+    engine.run(Choices(remove_rips=True))
+    assert not rips.exists()
+
+
+# --- Independence, the logs, and the re-scan -------------------------------------
+
+
+def test_one_failure_does_not_stop_the_rest_and_the_logs_are_kept(
     tmp_path: Path,
 ) -> None:
-    # Only the GUI config tree exists (the data/log tree is already gone). The
-    # app_data step removes the present tree and skips the absent one; if the
-    # removal raises, the step fails with a presentable message.
-    (tmp_path / "config" / "platterpus").mkdir(parents=True)
-    (tmp_path / "config" / "platterpus" / "config.toml").write_text("x")
-
-    def explode(path: Path) -> None:
-        raise OSError("directory not empty")
-
-    results = _teardown(tmp_path, _FakeRunner(), remove_tree=explode).run()
-
-    app_data = next(r for r in results if r.step_id == "app_data")
-    assert app_data.status is StepStatus.FAILED
-    assert "could not remove" in app_data.detail
-
-
-def test_run_reports_running_progress_per_step(tmp_path: Path) -> None:
-    _populate_everything(tmp_path)
+    home = _populate(tmp_path)
     runner = _FakeRunner()
-    runner.present = {"distrobox"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
+    _with_container(runner)
+    runner.answers[("distrobox", "rm")] = (1, "Error: container is in use")
 
-    seen: list[tuple[str, StepStatus]] = []
-    _teardown(tmp_path, runner).run(
-        progress=lambda r: seen.append((r.step_id, r.status))
+    report = _engine(tmp_path, runner).run(Choices())
+
+    assert [r.step_id for r in report.failed] == ["container"]
+    assert "container is in use" in report.failed[0].detail
+    assert not (home / ".config/platterpus").exists(), "later steps still ran"
+    assert (home / ".local/share/platterpus/log.txt").exists(), "log kept to debug"
+    logs = next(r for r in report.results if r.step_id == "logs")
+    assert logs.status is StepStatus.DONE and "kept" in logs.detail
+    assert not report.complete
+
+
+def test_the_rescan_reports_what_is_still_present(tmp_path: Path) -> None:
+    """A remover that 'succeeds' but leaves the file is caught by looking again."""
+    home = _populate(tmp_path)
+    stubborn = home / ".local/share/icons/io.github.rmccann_hub.Platterpus.png"
+    real_unlink: Callable[[Path], None] = lambda p: p.unlink()  # noqa: E731
+
+    def remover(path: Path) -> None:
+        if path != stubborn:
+            real_unlink(path)
+
+    report = _engine(tmp_path, _FakeRunner(), remove_file=remover).run(Choices())
+
+    assert stubborn.exists()
+    assert any(str(stubborn) in line for line in report.leftovers), report.leftovers
+    assert not report.complete
+
+
+def test_cancel_stops_before_the_next_item_and_says_so(tmp_path: Path) -> None:
+    _populate(tmp_path)
+    seen: list[str] = []
+    report = _engine(tmp_path, _FakeRunner()).run(
+        Choices(), progress=lambda r: seen.append(r.step_id), cancelled=lambda: True
     )
+    assert report.cancelled and not report.complete
+    assert all(r.status is StepStatus.CANCELLED for r in report.results)
 
-    # Each actioned step emits a transient RUNNING before its terminal result.
-    assert ("shortcuts", StepStatus.RUNNING) in seen
 
-
-def test_container_probe_treats_list_failure_as_absent(tmp_path: Path) -> None:
-    # `distrobox list` failing (non-zero) must not crash or wrongly try to
-    # remove a container — it's treated as "no such container" (already done).
+def test_the_menu_cache_is_refreshed_even_after_a_failure(tmp_path: Path) -> None:
+    refreshed: list[bool] = []
     runner = _FakeRunner()
-    runner.present = {"distrobox"}
-    runner.results[("distrobox", "list")] = (1, "cannot connect to podman")
-
-    results = _teardown(tmp_path, runner).run()
-
-    container = next(r for r in results if r.step_id == "container")
-    assert container.status is StepStatus.DONE
-    assert all(c[:2] != ["distrobox", "rm"] for c in runner.calls)
-
-
-# ---------------------------------------------------------------------------
-# THE UNINSTALLER MUST REBUILD THE MENU CACHE IT INVALIDATES.
-#
-# `appimage_integration.integrate()` refreshes the freedesktop + KDE caches on
-# the way IN, and nothing refreshed them on the way OUT — install rebuilt the
-# menu, uninstall did not. The `.desktop` files go from disk, but KDE serves its
-# menu from the `sycoca` cache, so the launcher keeps a Platterpus entry pointing
-# at an AppImage that is no longer there.
-#
-# Real-user report, 2026-09-21, a screenshot of the launcher:
-#     Launching Platterpus (Failed)
-#     Could not find the program '/home/…/Applications/platterpus-x86_64.AppImage'
-#
-# Which reads as a broken *install* rather than a finished uninstall — so the
-# obvious next move is to reinstall the thing you had just removed.
-# ---------------------------------------------------------------------------
-
-
-def test_uninstall_rebuilds_the_menu_cache(tmp_path: Path, monkeypatch) -> None:
-    from platterpus import appimage_integration
-
-    calls: list[int] = []
-    monkeypatch.setattr(
-        appimage_integration, "_default_refresh", lambda: calls.append(1)
+    _with_container(runner)
+    runner.answers[("distrobox", "rm")] = (1, "busy")
+    _engine(tmp_path, runner, refresh_menu=lambda: refreshed.append(True)).run(
+        Choices()
     )
-    _teardown(tmp_path, _FakeRunner()).run()
-    assert calls, (
-        "the uninstaller removed the desktop entries and never rebuilt the menu "
-        "cache, so the launcher keeps a phantom Platterpus entry pointing at a "
-        "deleted AppImage"
-    )
+    assert refreshed == [True]
 
 
-def test_the_refresh_still_happens_when_a_step_FAILED(
-    tmp_path: Path, monkeypatch
+# --- Picard, its runtime and the flathub remote ---------------------------------
+
+
+class _Flatpak:
+    """A stateful stand-in for user-level Flatpak: uninstalling really removes.
+
+    A static fake kept listing Picard after `flatpak uninstall`, which the real
+    tool does not do, so the remote looked used forever.
+    """
+
+    RUNTIME = "org.kde.Platform/x86_64/6.8"
+
+    def __init__(
+        self, runner: _FakeRunner, other_app: str = "", other_ref: str = ""
+    ) -> None:
+        # ref -> (application id or "" for a runtime, the runtime it uses, origin)
+        self.refs: dict[str, tuple[str, str, str]] = {
+            f"{PICARD_APP_ID}/x86_64/stable": (PICARD_APP_ID, self.RUNTIME, "flathub"),
+            self.RUNTIME: ("", "", "flathub"),
+            "org.kde.Platform.Locale/x86_64/6.8": ("", "", "flathub"),
+        }
+        if other_app:
+            self.refs[f"{other_app}/x86_64/stable"] = (
+                other_app,
+                self.RUNTIME,
+                "flathub",
+            )
+        if other_ref and other_ref not in self.refs:
+            self.refs[other_ref] = ("", "", "flathub")
+        self.remotes: set[str] = {"flathub"}
+        runner.present.add("flatpak")
+        runner.answers[("flatpak",)] = self.answer
+
+    def answer(self, argv: list[str]) -> tuple[int, str]:
+        args = argv[1:]
+        apps = [(a, rt) for a, rt, _ in self.refs.values() if a]
+        if args[:2] == ["list", "--user"] and "--columns=application" in args:
+            return 0, "".join(f"{a}\n" for a, _ in apps)
+        if args[:2] == ["list", "--user"] and "--columns=application,runtime" in args:
+            return 0, "".join(f"{a}\t{rt}\n" for a, rt in apps)
+        if args[:3] == ["list", "--user", "--runtime"]:
+            return 0, "".join(f"{r}\n" for r, (a, _, _) in self.refs.items() if not a)
+        if args[:2] == ["list", "--user"] and "--columns=ref,origin" in args:
+            return 0, "".join(f"{r}\t{o}\n" for r, (_, _, o) in self.refs.items())
+        if args[:1] == ["info"]:
+            found = [rt for a, rt in apps if a == args[-1]]
+            return (0, f"{found[0]}\n") if found else (1, "error: not installed")
+        if args[:1] == ["remotes"]:
+            return 0, "".join(f"{r}\n" for r in sorted(self.remotes))
+        if args[:1] == ["remote-delete"]:
+            self.remotes.discard(args[-1])
+            return 0, ""
+        if args[:1] == ["uninstall"]:
+            target = args[-1]
+            for ref, (app, _, _) in list(self.refs.items()):
+                rid = ref.split("/", 1)[0]
+                base = target.split("/", 1)[0]
+                if app == target or ref == target or rid.startswith(f"{base}."):
+                    del self.refs[ref]
+            return 0, ""
+        return 1, f"unexpected flatpak call {argv}"
+
+
+def _picard_runner(
+    other_app_on_runtime: str = "", other_flathub_ref: str = ""
+) -> _FakeRunner:
+    runner = _FakeRunner()
+    _Flatpak(runner, other_app_on_runtime, other_flathub_ref)
+    return runner
+
+
+def test_picard_its_runtime_and_the_remote_go_when_nothing_else_uses_them(
+    tmp_path: Path,
 ) -> None:
-    """The unhappy path is the one that most needs it.
-
-    The shortcuts step runs FIRST, so by the time anything else can fail the
-    entries are already off disk and the cache is already wrong. Skipping the
-    refresh on failure would leave the phantom entry in exactly the runs a user
-    is most likely to be confused by.
-    """
-    from platterpus import appimage_integration
-
-    calls: list[int] = []
-    monkeypatch.setattr(
-        appimage_integration, "_default_refresh", lambda: calls.append(1)
+    runner = _picard_runner()
+    report = _engine(tmp_path, runner).run(Choices())
+    assert report.complete, (report.failed, report.leftovers)
+    assert ["flatpak", "uninstall", "--user", "-y", "--delete-data", PICARD_APP_ID] in (
+        runner.calls
     )
-    # Populate first: a clean tree makes every step "already removed", so nothing
-    # would reach `_do_step` and the test would pass without testing anything.
-    _populate_everything(tmp_path)
-
-    def explode(path: Path) -> None:
-        raise OSError("permission denied")
-
-    teardown = _teardown(tmp_path, _FakeRunner(), remove_file=explode)
-    results = teardown.run()
-    assert any(r.status is StepStatus.FAILED for r in results), "no step failed"
-    assert calls, "a failed removal skipped the menu refresh"
-
-
-def test_a_dry_run_refreshes_nothing(tmp_path: Path, monkeypatch) -> None:
-    """It removed nothing, so there is nothing to rebuild.
-
-    The converse, and it is what stops the fix being "just always call it" — a
-    preview with a side effect on the user's menu is not a preview.
-    """
-    from platterpus import appimage_integration
-
-    calls: list[int] = []
-    monkeypatch.setattr(
-        appimage_integration, "_default_refresh", lambda: calls.append(1)
+    assert ["flatpak", "uninstall", "--user", "-y", "org.kde.Platform/x86_64/6.8"] in (
+        runner.calls
     )
-    _teardown(tmp_path, _FakeRunner()).run(dry_run=True)
-    assert calls == []
+    assert ["flatpak", "remote-delete", "--user", "flathub"] in runner.calls
+
+
+def test_a_shared_runtime_and_a_used_remote_are_kept(tmp_path: Path) -> None:
+    runner = _picard_runner("org.kde.kate", "org.kde.kate/x86_64/stable")
+    plan = build_plan(_engine(tmp_path, runner).scan(), Choices())
+    kept = {obs.item.item_id: why for obs, why in plan.kept}
+    assert "org.kde.kate" in kept["picard:runtime"]
+    assert "org.kde.kate" in kept["picard:remote"]
+
+
+# --- System packages: only the ones the note names, only when asked ---------------
+
+
+def test_system_packages_need_the_note_and_the_box(tmp_path: Path) -> None:
+    loc = _locations(tmp_path)
+    note = loc.data_home / "platterpus" / system_packages_marker.MARKER_NAME
+    os_release = _touch(tmp_path / "os-release", 'ID="fedora"\n')
+    runner = _FakeRunner({"distrobox", "podman"})
+    runner.answers[("distrobox", "list")] = (0, "ID | NAME\n")
+    runner.answers[("podman", "image")] = (125, "image not known")
+
+    engine = _engine(tmp_path, runner, os_release=os_release, install_note=note)
+    assert not any(o.item.group is Group.SYSTEM_PACKAGES for o in engine.scan())
+
+    system_packages_marker.record_installed("podman", note)
+    engine.run(Choices(keep_logs=True))
+    assert not any("remove" in c for c in runner.calls), "removed without the box"
+
+    engine.run(Choices(keep_logs=True, remove_system_packages=True))
+    assert ["pkexec", "dnf", "remove", "-y", "podman"] in runner.calls
+    assert system_packages_marker.read_installed(note) == ()
+
+
+@pytest.mark.parametrize(
+    ("os_id", "expected"),
+    [
+        ("fedora", ["sudo", "dnf", "remove", "-y", "podman"]),
+        ("ubuntu", ["sudo", "apt-get", "remove", "-y", "podman"]),
+        ("arch", ["sudo", "pacman", "-R", "--noconfirm", "podman"]),
+        (
+            "opensuse-tumbleweed",
+            ["sudo", "zypper", "--non-interactive", "remove", "podman"],
+        ),
+        ("plan9", []),
+    ],
+)
+def test_package_remove_argv_mirrors_install(
+    tmp_path: Path, os_id: str, expected: list[str]
+) -> None:
+    os_release = _touch(tmp_path / "os-release", f"ID={os_id}\n")
+    assert package_remove_argv("podman", os_release, "sudo") == expected

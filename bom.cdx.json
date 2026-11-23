@@ -1138,7 +1138,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/adapters/cache_probe.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
+          "value": "src/platterpus/adapters/cache_probe.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/install_footprint.py, src/platterpus/deps/registry.py"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -1384,7 +1384,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/adapters/flac_rewrite.py, src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
+          "value": "src/platterpus/adapters/flac_rewrite.py, src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/install_footprint.py, src/platterpus/deps/registry.py"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -1599,7 +1599,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/deps/checks.py, src/platterpus/deps/registry.py, src/platterpus/ui/unknown_album.py"
+          "value": "src/platterpus/deps/checks.py, src/platterpus/deps/install_footprint.py, src/platterpus/deps/registry.py, src/platterpus/ui/unknown_album.py"
         },
         {
           "name": "platterpus:pin-enforced-in",

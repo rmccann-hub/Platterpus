@@ -48,6 +48,11 @@ CONFIG_PATH: Path = CONFIG_DIR / "config.toml"
 # as `-s`, stays the only authority (PLANNING.md KDD-23).
 DRIVE_PROFILES_PATH: Path = CONFIG_DIR / "drive_profiles.json"
 
+# Where rips go when the settings name no folder (`config.Config.output_dir`'s
+# default). Here rather than in `config` so the command-line uninstaller can read
+# it without the TOML writer `config` imports.
+DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
+
 # Where our log file lives (rotated by logging_setup.py).
 LOG_DIR: Path = _XDG_DATA_HOME / APP_NAME
 LOG_PATH: Path = LOG_DIR / "log.txt"
