@@ -66,7 +66,9 @@ from platterpus.ctdb.repair_wording import (
     OFF_IN_SETTINGS,
     repair_text,
 )
+from platterpus.reconciled_verdict import repaired_tracks
 from platterpus.ui.failure_text import LOG_POINTER
+from platterpus.ui.main_window_helpers import fidelity_summary
 from platterpus.ui.main_window_shared import MainWindowShared
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_repair_worker import CtdbRepairOutcome, CtdbRepairWorker
@@ -348,6 +350,38 @@ class CtdbRepairMixin(MainWindowShared):
         # CTDB check confirmed them (R181).
         self._rip_progress.set_ctdb_repair(text, level, result=result)
         self._rip_progress.append_log_line(text)
+        self._refresh_finished_line(result)
+
+    def _refresh_finished_line(self, result: CtdbVerifyResult) -> None:
+        """Rebuild the finished status line once a CTDB repair is confirmed.
+
+        The line was written at the rip's end, before the repair, so it listed a
+        repaired track as WRONG and needing attention while the reconciled line
+        beside it said CTDB decides that track. Rebuilt from the same inputs
+        with ``repaired`` taken from ``reconciled_verdict.repaired_tracks``, the
+        reconciled line's own source, so the two cannot disagree. Only while the
+        finished line is still on screen: a later status is never replaced.
+        """
+        confirmed = [
+            number for number, agrees in repaired_tracks(result).items() if agrees
+        ]
+        kept = self._finished_line
+        if not confirmed or kept is None:
+            return
+        if self._rip_progress.current_status() != kept.shown:
+            log.info("finished line not rebuilt after the repair: a later status shows")
+            return
+        status = fidelity_summary(
+            kept.rip_log,
+            expected_track_total=kept.expected_track_total,
+            cancelled=kept.cancelled,
+            replaced_reads=kept.replaced_reads,
+            verdict_level=self._rip_progress.verdict_level(),
+            repaired=confirmed,
+        )
+        text = status + kept.suffix
+        self._finished_line = dataclasses.replace(kept, shown=text)
+        self._rip_progress.set_status(text)
 
     def _rerun_after_ctdb_repair(self, generation: int) -> None:
         """Re-make the derived copies and re-check what is on disk now.

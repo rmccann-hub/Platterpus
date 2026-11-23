@@ -500,3 +500,117 @@ def _no_match_with_track_2_differing() -> CtdbVerifyResult:
             for n in range(1, 15)
         ),
     )
+
+
+# --- The finished status line: the real tab, and a repaired track (follow-ups) ---
+
+
+def _two_wrong() -> RipLog:
+    """F1 with track 9 given track 5's one-frame-only result: both WRONG."""
+    rip_log = _f1()
+    five = next(t for t in rip_log.tracks if t.number == 5)
+    return replace(
+        rip_log,
+        tracks=tuple(
+            replace(
+                t,
+                accuraterip_v1=five.accuraterip_v1,
+                accuraterip_v2=five.accuraterip_v2,
+                accuraterip_offset=five.accuraterip_offset,
+            )
+            if t.number == 9
+            else t
+            for t in rip_log.tracks
+        ),
+    )
+
+
+def _repaired_nine() -> tuple[CtdbVerifyResult, CtdbVerifyResult]:
+    """CTDB's answer before the repair, and the result of repairing track 9."""
+    before = CtdbVerifyResult(Verdict.NO_MATCH, best_confidence=212)
+    record = RepairRecord(
+        status=RepairStatus.REPAIRED,
+        tracks=(RepairedTrack(9, "/m/09.flac", "/m/09.flac.bak", 12, 1, 2, 3, 3),),
+    )
+    after = CtdbVerifyResult(Verdict.MATCH, confidence=212, best_confidence=212)
+    return before, replace(before, repair=record, after_repair=after)
+
+
+def test_the_status_line_names_only_tabs_that_exist(qapp: QApplication) -> None:
+    """It said "See the Rip log tab" for months: no such tab ever existed.
+
+    What it points at is what the ripper printed, which the Live log tab holds.
+    Every tab the finished line names must be one the pane builds, swept over
+    the line's shapes that name one (a WRONG track, and two).
+    """
+    import re
+
+    from platterpus.finish_wording import LIVE_LOG_TAB
+    from platterpus.ui.main_window_helpers import fidelity_summary
+    from platterpus.ui.rip_progress import _TAB_LABEL_LOG
+
+    pane = RipProgress()
+    tabs = {
+        pane._tabs.tabText(i).replace("&", "").removeprefix("⚠ ")
+        for i in range(pane._tabs.count())
+    }
+    assert _TAB_LABEL_LOG.replace("&", "") == LIVE_LOG_TAB
+    assert LIVE_LOG_TAB in tabs
+    lines = [
+        fidelity_summary(_f1(), expected_track_total=14, verdict_level="warn"),
+        fidelity_summary(_two_wrong(), expected_track_total=14, verdict_level="warn"),
+    ]
+    named = [m for line in lines for m in re.findall(r"[Tt]he ([\w ]+?) tab", line)]
+    assert named, f"floor: no line named a tab: {lines}"
+    assert set(named) <= tabs, f"the status line names a tab that is not one: {named}"
+
+
+def test_a_confirmed_repair_takes_its_track_off_the_status_line(
+    qapp: QApplication, teardown_threads: Any
+) -> None:
+    """State (c): the verdict line said CTDB decides track 9 (repaired, freshly
+    verified) while the status line still listed it as WRONG and needing
+    attention. The line is rebuilt from the reconciled line's own source."""
+    from platterpus.ui.main_window_helpers import FinishedLine, fidelity_summary
+
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+    pane = window._rip_progress
+    rip_log = _two_wrong()
+    pane.set_rip_log(rip_log, disc_track_total=14)
+    status = fidelity_summary(
+        rip_log, expected_track_total=14, verdict_level=pane.verdict_level()
+    )
+    pane.set_status(status)
+    window._finished_line = FinishedLine(rip_log, 14, False, None, "", status)
+    assert "2 tracks need attention (5 and 9)" in status  # floor: the stale line
+
+    before, repaired = _repaired_nine()
+    pane.set_ctdb_result(before)
+    window._tell_ctdb_repair(window._rip_generation, repaired)
+
+    line = pane.current_status()
+    assert "1 track needs attention (5)" in line, line
+    assert "AccurateRip says track 5 is WRONG" in line, line
+    assert "(5 and 9)" not in line and "5, 9" not in line, line
+    assert "Track 9 was repaired from CTDB" in line, line
+    assert "AccurateRip rejected the read it replaced" in line, line
+    assert pane.reconciled_text().startswith("⚠ CTDB decides track 9")
+
+
+def test_a_later_status_is_not_replaced_by_the_rebuilt_line(
+    qapp: QApplication, teardown_threads: Any
+) -> None:
+    from platterpus.ui.main_window_helpers import FinishedLine, fidelity_summary
+
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+    pane = window._rip_progress
+    rip_log = _two_wrong()
+    pane.set_rip_log(rip_log, disc_track_total=14)
+    status = fidelity_summary(rip_log, expected_track_total=14)
+    window._finished_line = FinishedLine(rip_log, 14, False, None, "", status)
+    pane.set_status("⚠ Read stability: track 3 still didn't read identically.")
+    _before, repaired = _repaired_nine()
+    window._tell_ctdb_repair(window._rip_generation, repaired)
+    assert pane.current_status().startswith("⚠ Read stability"), (
+        "a later status was overwritten by the rebuilt finished line"
+    )

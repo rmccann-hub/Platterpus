@@ -123,6 +123,7 @@ if TYPE_CHECKING:
     from platterpus.ui.host_setup_dialog import HostSetupDialog
     from platterpus.ui.main_window_ctdb_repair import CtdbRepairContext
     from platterpus.ui.main_window_disc_return import ParkedDisc
+    from platterpus.ui.main_window_helpers import FinishedLine
 
     # TYPE_CHECKING-only, and it has to be: ``main_window_rip`` imports THIS
     # module at runtime (every mixin inherits the seam), so a real import here
@@ -365,6 +366,8 @@ class MainWindowShared(_SeamBase):
 
     # Rip generation guard (drops a stale previous rip's late verify).
     _rip_generation: int
+    #: The finished rip's status line and what it was built from (R181).
+    _finished_line: FinishedLine | None
     #: This rip's `settings` block and gate inputs, FROZEN AT START.
     #:
     #: Added 2026-09-15. `build_settings`/`build_gates` read the live `Config`, and
