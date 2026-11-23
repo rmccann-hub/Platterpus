@@ -7,7 +7,7 @@
 >
 > **Just want to test the release that's in your hand?** Follow
 > [`rig-session.md`](rig-session.md), the current run sheet, and run
-> **Tools → Advanced → Run acceptance test…** in the app, which keeps everything a
+> **Tools → Advanced → Run tests…** in the app, which keeps everything a
 > run makes — rips, screenshots, transcript and one `.tar.gz` — in one session
 > folder under `~/platterpus-rig/` ([`rig-scripts/README.md`](rig-scripts/README.md)).
 > The **Hardware test checklist** near the end of this document holds the hardware
@@ -871,7 +871,7 @@ has happened here:
    binaries are not interchangeable evidence.
 2. **`--doctor` first.** It costs seconds and it fails on the things that would
    otherwise waste the disc pass.
-3. **Run Tools → Advanced → Run acceptance test… → Full** (324 steps at v0.6.65; the script has grown since, and the run states its own estimate when it starts)
+3. **Run Tools → Advanced → Run tests…, choosing Full acceptance** (324 steps at v0.6.65; the script has grown since, and the run states its own estimate when it starts)
    end to end. Only a Full run counts as evidence. Do not stop at the first failure.
 4. **Upload the evidence bundle**, not a transcript. One file, self-describing,
    with the exit code (tri-state — `null` for a child never reaped is a real
@@ -920,7 +920,7 @@ not decoration — it is what a future version bump is allowed to claim.
 > which cyanrip build it installs by default, and any build a handshake round is testing
 > are shown in **Help → About Platterpus…**; they are not repeated here because they move
 > with every release. The primary hardware route is the in-app acceptance run named at
-> the top of this document (**Tools → Advanced → Run acceptance test…**, one session
+> the top of this document (**Tools → Advanced → Run tests…**, one session
 > folder under `~/platterpus-rig/`; `docs/rig-scripts/README.md`, `docs/rig-session.md`).
 > The individual §A–§D cases below are still the record of what the acceptance script
 > does not cover. **This sheet is due a rewrite rather than another patch** — tracked in

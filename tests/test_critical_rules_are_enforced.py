@@ -2034,7 +2034,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **678 -> 681** (2026-11-12, TASKS R53, the cache check once per drive): the User Guide says the wizard measures the cache by itself once per drive, and names Skip check and Re-analyze cache.
     # **681 -> 682** (2026-11-17, UX review of 0.7.127), W2: *How it's wired* moved from second to last section, with one sentence saying a reader never needs it to rip.
     # **682 -> 694** (2026-11-23, TASKS R180, UX review S1 and S2): the User Guide's paragraph on Settings' four groups, the Read offset row's **Set up drive…** button and the ◆ on the rows a Goal sets.
-    "help_content.py": 694,
+    # **694 -> 707** (2026-11-23, TASKS R188): the acceptance section describes the Run tests screen's three tabs and the box under the choice, and the start-up settings' new home; the unknown-disc run is a pre-built test now, not a menu item.
+    "help_content.py": 707,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2590,7 +2591,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **571 -> 612** (2026-09-30): `close_for(reason)` and a `reject()` that refuses Esc during a run, plus where a close came from: the console's own close handling (the fork's round 30 S25).
     # **612 -> 604** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console's `allow_unsafe` and its read-only box went.
     # **604 -> 608** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): the console shows the run's estimate before the first step's line; the estimate itself is `uiscript/run_estimate.py`.
-    "ui/dialogs/script_console.py": 608,
+    # **608 -> 569** (2026-11-23, TASKS R188): lowered: the Load… button, the start-up settings box and its refresh went to the Run tests screen; `name_next_run` came in, the test name a session hands the runner.
+    "ui/dialogs/script_console.py": 569,
+    # **409** (2026-11-23, TASKS R188, new): ONE screen, the owner's design, and one job: choose a test and start it. Its three tabs share one choice, one summary box and one Run, so splitting a tab into a module would split that one state; the choice's logic (`uiscript/chosen_test.py`) and the start-up box (`script_settings_box.py`) are already out of it.
+    "ui/dialogs/run_tests_dialog.py": 409,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
@@ -2677,7 +2681,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1872 -> 1878** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): `closeEvent` frees a cancelled probe's drive as exit work, and `_start_disc_info` hands the superseded probe's drive to the new worker to free first; the decisions live in `main_window_drive.py`.
     # **1878 -> 1883** (2026-11-12, TASKS R53, the cache check once per drive): `CacheCheckMixin` in the class list and its import, and the disc-read success slot telling an open Set up drive that a CD has been read.
     # **1883 -> 1887** (2026-11-17, UX review of 0.7.127 A2, TASKS R183): the Rip menu, which `_build_menus` has to build because `tests/test_help_documents_the_menu.py` reads the menu out of this file; its wiring lives in `RipControls.bind_start_action`, and the redundant local `QKeySequence` import went to pay for part of it.
-    "ui/main_window.py": 1887,
+    # **1887 -> 1879** (2026-11-23, TASKS R188): lowered: Tools → Advanced holds one Run tests… item where it held two acceptance items; the mixin it opens is `main_window_run_tests.py`.
+    "ui/main_window.py": 1879,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2799,7 +2804,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1935 -> 1936** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Setup & Updates is handed `_selected_drive_offset` as its offset reader.
     # **1936 -> 1978** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the question is titled apart from the wizard, records its answer for the held launch report and, after No, shows the in-window notice; a finished setup run is counted and drops an automatic cyanrip offer worked out before it.
     # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
-    "ui/main_window_provision.py": 2008,
+    # **2008 -> 2020** (2026-11-23, TASKS R188): `run_acceptance_session` takes the chosen test (its file or its text, its name and blocks) and hands the name to the console; the two old menu slots went. The screen's opener is `main_window_run_tests.py`, not here.
+    "ui/main_window_provision.py": 2020,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME

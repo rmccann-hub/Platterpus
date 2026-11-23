@@ -77,6 +77,7 @@ from platterpus.ui.main_window_helpers import (  # noqa: F401
 from platterpus.ui.main_window_picker import ReleasePickerMixin
 from platterpus.ui.main_window_provision import ProvisioningMixin
 from platterpus.ui.main_window_rip import RipMixin, _PendingBundle
+from platterpus.ui.main_window_run_tests import RunTestsMixin
 from platterpus.ui.main_window_settings import SettingsMixin
 from platterpus.ui.main_window_update import UpdateMixin
 from platterpus.ui.post_rip_record import PostRipRecord
@@ -250,6 +251,7 @@ class MainWindow(
     CtdbRepairMixin,
     UpdateMixin,
     ProvisioningMixin,
+    RunTestsMixin,
     DriveMixin,
     CacheCheckMixin,
     DiscReturnMixin,
@@ -1223,7 +1225,7 @@ class MainWindow(
         # running a hardware session needs, and somebody who has never written a
         # rig script should not have to read past two entries for running them.
         # Uninstall stays in Tools itself, where people can see it. Alt+A is free
-        # for the submenu because "Run acceptance test…" moved inside it; an
+        # for the submenu because the acceptance item (now Run tests…) moved inside it; an
         # Alt-letter only has to be unique within the menu that is open, and
         # `tests/test_ui_conformance.py` checks every submenu as its own group.
         advanced_menu = tools_menu.addMenu("&Advanced")
@@ -1235,25 +1237,16 @@ class MainWindow(
         script_action = advanced_menu.addAction("Run &test script…")
         script_action.triggered.connect(self.open_script_console)
 
-        # The whole overnight acceptance session, as one menu item. It used to be
-        # two bash scripts and a thing to remember in the morning; the maintainer's
-        # ruling was that a program that hands back commands is handing back work
-        # ("this was supposed to be a no cli program"). See the block comment above
-        # `ProvisioningMixin.run_acceptance_session`.
-        #
-        acceptance_action = advanced_menu.addAction("Run &acceptance test…")
-        # A no-argument slot, not `run_acceptance_session` itself: `triggered`
-        # hands its slot a `checked` bool, which would land in `size`.
-        acceptance_action.triggered.connect(self._on_run_acceptance_action)
-        # The second acceptance run, for a disc MusicBrainz does not know: the
-        # full run stops before the unknown-album path on purpose (TASKS C4 (b),
-        # KDD-41). Alt+U is free in this submenu.
-        unknown_disc_action = advanced_menu.addAction(
-            "Run acceptance test with an &unknown disc…"
-        )
-        unknown_disc_action.triggered.connect(
-            self._on_run_unknown_disc_acceptance_action
-        )
+        # EVERY TEST, ONE SCREEN (TASKS R188, the owner's design of 2026-11-17):
+        # Run tests… replaced "Run acceptance test…" and "Run acceptance test
+        # with an unknown disc…", and the console's pickers. A pre-built test, a
+        # combination of blocks or a script file; each starts the same overnight
+        # session (`ProvisioningMixin.run_acceptance_session`). It used to be two
+        # bash scripts and a thing to remember in the morning; the maintainer's
+        # ruling was that a program that hands back commands is handing back work.
+        # A no-argument lambda: `triggered` hands its slot a `checked` bool.
+        run_tests_action = advanced_menu.addAction("&Run tests…")
+        run_tests_action.triggered.connect(lambda: self.open_run_tests_dialog())
         # The dependency check lives in ONE place: Setup & Updates → Check
         # dependencies (it also runs automatically at launch). This comment used
         # to say it lived only on a Settings button, and that stopped being true
@@ -1298,8 +1291,7 @@ class MainWindow(
             # Locked during a rip like the rest: an acceptance session rips
             # discs itself, so starting one on top of a live rip would have two
             # sessions driving one drive.
-            acceptance_action,
-            unknown_disc_action,
+            run_tests_action,
         ]
         logs_action = help_menu.addAction("Open &logs folder…")
         logs_action.triggered.connect(self._on_open_logs_folder)

@@ -4768,22 +4768,17 @@ def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -
     submenus = [a.menu() for a in tools.actions() if a.menu() is not None]
     assert [m.title() for m in submenus] == ["&Advanced"], direct
     inside = [a.text().replace("&", "") for a in submenus[0].actions()]
-    assert inside == [
-        "Run test script…",
-        "Run acceptance test…",
-        # The second acceptance script, for a disc MusicBrainz does not know
-        # (KDD-41 C4 (b), 2026-10-06), beside the first.
-        "Run acceptance test with an unknown disc…",
-    ], inside
-    assert not {"Run test script…", "Run acceptance test…"} & set(direct), direct
+    # Run tests… replaced both acceptance items on 2026-11-23 (TASKS R188): the
+    # full run and the unknown-disc run are pre-built tests on its list.
+    assert inside == ["Run test script…", "Run tests…"], inside
+    assert not {"Run test script…", "Run tests…"} & set(direct), direct
     # Uninstall stays where a user can see it — the half of D4 A that is easy to
     # lose by sweeping "the rarely used items" into the submenu together.
     assert "Uninstall Platterpus…" in direct
 
     # Moving the acceptance item did not unhook it from the rip lock: it rips
     # discs itself, so starting one on top of a live rip is still refused.
-    # Both acceptance items, for the same reason.
-    for acceptance in submenus[0].actions()[1:3]:
+    for acceptance in submenus[0].actions()[1:2]:
         assert acceptance.isEnabled()
         window._set_rip_lock(True)
         try:

@@ -1,7 +1,7 @@
 # Platterpus UI script — ONE bounded -O read, run by hand (TASKS R24).
 #
 # Run it with:  ./platterpus-x86_64.AppImage --run-script overreadprobe
-#          or:  Tools → Advanced → Run tests…  → Over-read probe → Run
+#          or:  Tools → Advanced → Run tests…, choose Over-read probe, press Run
 #
 # WHAT IT IS FOR. `-O` reads past the disc's edges: into the lead-out, so the
 # last track can be read at a positive offset without padding, and into the

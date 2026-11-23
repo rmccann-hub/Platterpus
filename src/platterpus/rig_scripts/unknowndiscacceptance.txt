@@ -8,8 +8,8 @@
 #                   the reliable choice. A commercial disc is almost always in
 #                   MusicBrainz: on one, section E stops this run in its first
 #                   few minutes, before any drive time, and says so.
-#   How to run it:  Tools -> Advanced -> Run acceptance test with an unknown
-#                   disc...  (the app does the rest: session folder, sleep
+#   How to run it:  Tools -> Advanced -> Run tests..., choose Unknown-disc
+#                   acceptance, press Run  (the app does the rest: session folder, sleep
 #                   lock, the run, one file to send)
 #   Where it lives: INSIDE the app. Source:
 #                   src/platterpus/rig_scripts/unknowndiscacceptance.txt

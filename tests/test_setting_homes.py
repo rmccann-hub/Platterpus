@@ -44,7 +44,7 @@ from platterpus.config import Config
 from platterpus.ui import setting_homes
 from platterpus.ui.setting_homes import (
     DRIVE_SETUP,
-    SCRIPT_CONSOLE,
+    RUN_TESTS,
     SETTING_HOMES,
     SETTINGS,
     SETUP_CENTER,
@@ -63,6 +63,9 @@ _VALUE_CONTROLS: Final[tuple[type, ...]] = (
     QLineEdit,
 )
 
+#: Attributes holding a dict of controls that `_named_controls` names as one.
+_NAMED_CONTROL_DICTS: Final[frozenset[str]] = frozenset({"_block_checks"})
+
 #: Value controls that edit no setting, per window, each with its reason.
 _NOT_A_SETTING: Final[dict[str, dict[str, str]]] = {
     SETTINGS: {
@@ -73,7 +76,16 @@ _NOT_A_SETTING: Final[dict[str, dict[str, str]]] = {
     },
     DRIVE_SETUP: {},
     SETUP_CENTER: {},
-    SCRIPT_CONSOLE: {},
+    RUN_TESTS: {
+        "_block_checks": (
+            "the Combination tab's tick-boxes, one per built-in block: they choose "
+            "which tests run this time and store nothing"
+        ),
+        "_file_edit": (
+            "the Script file tab's chosen path, read-only: it says which file the "
+            "next run reads and is not saved"
+        ),
+    },
 }
 
 
@@ -83,12 +95,11 @@ def _windows(
     """One way to build each window that edits settings."""
     from test_ui_drive_setup_dialog import _StubBackend
 
-    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+    from platterpus.ui.dialogs.run_tests_dialog import RunTestsDialog
     from platterpus.ui.dialogs.setup_center import SetupCenterDialog
     from platterpus.ui.drive_setup_dialog import DriveSetupDialog
     from platterpus.ui.settings_dialog import SettingsDialog
 
-    holder = QWidget()
     return {
         SETTINGS: lambda: SettingsDialog(Config()),
         DRIVE_SETUP: lambda: DriveSetupDialog(_StubBackend(), "/dev/sr0"),
@@ -103,17 +114,31 @@ def _windows(
             config=Config(),
             save_setting=lambda _f, _v: SettingWrite(True),
         ),
-        SCRIPT_CONSOLE: lambda: ScriptConsoleDialog(holder),
+        RUN_TESTS: lambda: RunTestsDialog(
+            None,
+            config=Config(),
+            start=lambda _choice: False,
+            edit=lambda _choice: None,
+        ),
     }
 
 
 def _named_controls(window: QWidget) -> dict[int, str]:
-    """``{id(control): attribute name}`` for the window's own value controls."""
-    return {
+    """``{id(control): attribute name}`` for the window's own value controls.
+
+    A dict of controls (the Run tests screen's tick-boxes, one per block) is
+    named once, by the attribute that holds it.
+    """
+    named: dict[int, str] = {
         id(value): name
         for name, value in vars(window).items()
         if isinstance(value, _VALUE_CONTROLS)
     }
+    for name, value in vars(window).items():
+        if name in _NAMED_CONTROL_DICTS and isinstance(value, dict):
+            for control in value.values():
+                named.setdefault(id(control), name)
+    return named
 
 
 def _inner(widget: QWidget, window: QWidget) -> bool:
@@ -143,7 +168,7 @@ def test_the_window_sweep_has_the_four_homes_to_sweep() -> None:
     An emptied `WINDOW_PATHS` would generate no cases, and "no window has a second
     editor" would pass having opened none.
     """
-    assert set(WINDOW_PATHS) == {SETTINGS, DRIVE_SETUP, SETUP_CENTER, SCRIPT_CONSOLE}
+    assert set(WINDOW_PATHS) == {SETTINGS, DRIVE_SETUP, SETUP_CENTER, RUN_TESTS}
 
 
 def test_each_window_is_home_to_something_and_the_sets_partition() -> None:
@@ -157,7 +182,7 @@ def test_the_moved_settings_live_beside_what_they_steer() -> None:
     """The placements this change made, pinned so a revert fails by name."""
     assert fields_homed_in(DRIVE_SETUP) == {"read_offset", "override_read_offset"}
     assert fields_homed_in(SETUP_CENTER) == {"update_channel", "ripper_channel"}
-    assert fields_homed_in(SCRIPT_CONSOLE) == {
+    assert fields_homed_in(RUN_TESTS) == {
         "test_script_path",
         "test_script_autorun",
     }
@@ -224,10 +249,12 @@ def test_the_allowlist_names_only_controls_that_exist(qapp: QApplication) -> Non
     for window_key, excused in _NOT_A_SETTING.items():
         window = windows[window_key]()
         for name in excused:
-            assert isinstance(getattr(window, name, None), _VALUE_CONTROLS), (
-                window_key,
-                name,
-            )
+            held = getattr(window, name, None)
+            if isinstance(held, dict):
+                assert held, (window_key, name)
+                assert all(isinstance(v, _VALUE_CONTROLS) for v in held.values())
+                continue
+            assert isinstance(held, _VALUE_CONTROLS), (window_key, name)
 
 
 def test_the_converse_can_fail(qapp: QApplication) -> None:

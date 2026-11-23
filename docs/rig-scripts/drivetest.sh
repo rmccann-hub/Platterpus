@@ -877,7 +877,7 @@ restored() {
   fi
   make_upload restored "$STATE/test.started" dumps
   echo
-  echo "Last: the Full run, in the app: Tools > Advanced > Run acceptance test..., Full."
+  echo "Last: the Full run, in the app: Tools > Advanced > Run tests..., Full acceptance."
 }
 
 # The fork's round 39 lap 1 S10: the records of 2026-11-09 and 2026-11-10, if

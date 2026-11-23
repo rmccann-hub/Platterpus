@@ -41,11 +41,12 @@ NEED_OFFSET: Final[str] = "needoffset"
 NEED_DISC: Final[str] = "needdisc"
 SETUP_ORDER: Final[tuple[str, ...]] = (NEED_RIPPER, NEED_OFFSET, NEED_DISC)
 
-#: What each need reads as after "needs": short, so "(needs …)" fits on a line.
+#: What each need reads as after "needs": one word each, so the longest tick-box
+#: still fits a Steam Deck at 150% text; the Combination tab explains the words.
 NEED_WORDS: Final[dict[str, str]] = {
-    NEED_RIPPER: "the ripper",
-    NEED_OFFSET: "the drive's offset",
-    NEED_DISC: "a disc identified",
+    NEED_RIPPER: "ripper",
+    NEED_OFFSET: "offset",
+    NEED_DISC: "disc",
 }
 
 #: Kinds of block. Only COMBINABLE ones are offered on the Combination tab.

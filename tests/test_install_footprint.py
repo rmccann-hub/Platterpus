@@ -210,7 +210,7 @@ _HOME_REFERENCES: dict[str, str] = {
     "tool_paths.py": "reads: where the exported tools are found",
     "rip_compare.py": "reads: proposes ~/Music as a folder to open",
     "ui/main_window_provision.py": "rig session folders under ~/platterpus-rig: rig",
-    "ui/dialogs/script_settings_box.py": "reads: a file dialog's starting folder",
+    "ui/dialogs/run_tests_dialog.py": "reads: a file dialog's starting folder (it writes only under settings: the scripts folder)",
     "ui/dialogs/script_console.py": "reads: a file dialog's starting folder",
     "app.py": "--rig-session's default folder under ~/platterpus-rig: rig",
     "ui/uninstall_dialog.py": "reads: the uninstaller itself",
