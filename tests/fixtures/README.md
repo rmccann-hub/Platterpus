@@ -105,6 +105,19 @@ drive, so `drive_declared` is null here as in the `/13` copies above.
 recognise a record by its schema prefix. Its `invocation` line is the fork's build
 path, not anyone's home folder. Do not edit it.
 
+## cyanrip_fork_diagnostics14_golden_dot35.json and cyanrip_fork_golden_reference_r42.log (added 2026-11-23)
+
+**The fork's golden reference for `.35`**, the `-j` record and the log, byte for byte
+from `cyanrip@5ff89ffa:docs/golden-reference.diagnostics.json` and
+`docs/golden-reference.log` ("Regenerate the golden reference and sample for round
+42's lap 1", carried by their lap 1's pull request, unchanged at `e665c9b`). Built at
+`g0a062f8`, whose `src/` is `1280aa4`'s. The record is still
+`cyanrip-diagnostics/14` with `.34`'s keys and `cdtext.language` null; the log prints
+`.35`'s `Disc MCN:       none (libcdio returned none)`, an image having no MCN.
+`tests/test_round42_dot35_lines.py` reads both, and inserts `.35`'s `Session gap:` line
+into a copy of the log, since a one-session image prints none. Their `invocation`
+line is the fork's build path, not anyone's home folder. Do not edit them.
+
 ## cyanrip_fork_diagnostics14_golden_dot34.json (added 2026-11-16)
 
 **The fork's golden-reference `-j` record for `.34`** (`cyanrip-diagnostics/14`),
@@ -153,7 +166,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.7.127.*
+*Last updated for Platterpus v0.7.128.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 
@@ -203,6 +216,19 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 `174a134` (`.19`). It names `.20` as the build round 30's closing run reviews; the
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
+
+## fork_release_manifest_d7dfec93.json (added 2026-11-23)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@d7dfec93`, the commit that published `.35` ("Publish
+0.9.4-rc3+platterpus.35 at 1280aa4, beta", 2026-11-17, while round 41 was open):
+sha256 `4c37f896…`, 1,135 bytes, pinned by
+`tests/test_handshake_pin_under_review.py`. Beta names `1280aa4` (`.35`,
+`release_seq` 47, `handshake_round` 41, `round_closed: false`); stable names
+`edb73dd` (`.32`) at `release_seq` 44, `round_closed: true`. Their tip has since
+moved `.34` to stable at 48 and republished `.35` on beta at 49 (`cyanrip@e43efd3`).
+Round 42's subject from their lap 1; `tests/test_ripper_manifest.py` reads it to hold
+that a beta rig on `.34` is offered `.35` and one on `.35` is current. Not edited.
 
 ## fork_release_manifest_d7385d18.json (added 2026-11-16)
 

@@ -211,8 +211,70 @@ def test_dot34s_invalid_toc_refusal_is_the_disc_class_with_its_own_sentence() ->
         formats.get(
             "Invalid TOC: track %i starts at LSN %i, not after track %i at LSN %i!"
         )
-        == "cyanrip_main.c:679"
+        # The newest filed contract (`.35`'s) places it one line on, at
+        # `cyanrip@1280aa4:src/cyanrip_main.c:680`; the row is the same message.
+        == "cyanrip_main.c:680"
     )
     assert is_ripper_error_line(_INVALID_TOC)
     # Non-triviality: the matcher is not matching everything.
     assert not is_ripper_error_line("Track 2 starts at LSN 150")
+
+
+# --- `.35`'s pregap refusals, exit 74 (round 42, 2026-11-23) ------------------------
+
+#: `.35`'s build tag, the build under review from the fork's round 42 lap 1.
+_DOT35 = "platterpus-fork-g1280aa4"
+
+#: `.35`'s two new fatal lines as a run prints them, their `%i`s filled: the formats
+#: are P5 rows `cyanrip_main.c:698` and `:705` of
+#: `round-42-lap-01-provider-contract-g11c2d91.md`, logged at
+#: `cyanrip@1280aa4:src/cyanrip_main.c:698-700` and `:705-708`, each followed by
+#: `return AVERROR(EINVAL)` from `cyanrip_ctx_init`, whose failure returns
+#: `CRIP_EXIT_IOERR` (74) at `:4085-4086`, as `.34`'s `Invalid TOC:` does (their
+#: round 42 lap 1 S6). An image only; a drive's pregap is
+#: read, not declared.
+_INVALID_PREGAP_AFTER = (
+    "Invalid pregap: track 3's pregap starts at LSN 20075, after the track itself "
+    "at LSN 20000!"
+)
+_INVALID_PREGAP_BEFORE = (
+    "Invalid pregap: track 2's pregap starts at LSN 100, not after track 1 at LSN 150!"
+)
+
+
+@pytest.mark.parametrize("line", [_INVALID_PREGAP_AFTER, _INVALID_PREGAP_BEFORE])
+def test_dot35s_invalid_pregap_refusals_are_the_disc_class_with_their_own_sentence(
+    line: str,
+) -> None:
+    """Their lap 1 S6: an image whose pregap lies outside its own track is refused
+    at exit 74 with one of two new fatal lines at column 0, read as `Invalid TOC:`
+    is. `.35` reads `disc_or_drive` only because its release row (47) is recorded,
+    and cyanrip's own sentence leads: both formats are in the regenerated inventory
+    and each filled line is matched as a ripper diagnostic."""
+    from platterpus.parsers.cyanrip_log import is_ripper_error_line
+    from platterpus.ripper_message_inventory import MESSAGES
+
+    assert release_seq_for_commit("1280aa4") == 47
+    assert build_speaks_exit_classes(_DOT35) is True
+    assert classify_exit(DISC_OR_DRIVE_EXIT, _DOT35) == "disc_or_drive"
+    assert "disc or the drive" in explain_failed_exit(
+        DISC_OR_DRIVE_EXIT, _DOT35, we_stopped_it=False
+    )
+    formats = {m.text: m.site for m in MESSAGES}
+    assert (
+        formats.get(
+            "Invalid pregap: track %i's pregap starts at LSN %i, after the track itself "
+            "at LSN %i!"
+        )
+        == "cyanrip_main.c:698"
+    )
+    assert (
+        formats.get(
+            "Invalid pregap: track %i's pregap starts at LSN %i, not after track %i at "
+            "LSN %i!"
+        )
+        == "cyanrip_main.c:705"
+    )
+    assert is_ripper_error_line(line)
+    # Non-triviality: the pregap row of a track block is not a diagnostic.
+    assert not is_ripper_error_line("  Pregap LSN:     20000")

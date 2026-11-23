@@ -85,6 +85,7 @@ from platterpus import (
 from platterpus import other_reads as _other
 from platterpus import reread_ar_overrule as _ar_overrule
 from platterpus import ripper_track_notes as _notes
+from platterpus import session_gap as _session_gap
 from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers import cyanrip_disc_blocks as _blocks
@@ -2252,6 +2253,8 @@ class _TrackAcc:
     # the disc. Both None when the line is absent: "not stated", never 0.
     beyond_disc_frames_refused: int | None = None
     beyond_disc_frames: int | None = None
+    # `Session gap:` (`.35`): the CD-Extra cut made by assumption. None if absent.
+    session_gap: _session_gap.SessionGap | None = None
     # True once this block's `Metadata:` or `CD-TEXT:` header has been read: from
     # there on a verdict-shaped row is an echoed value, never cyanrip's own
     # (see `_TRACK_ECHO_HEADER`).
@@ -3418,6 +3421,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # `.24`, under `-O` only (TASKS R26): frames outside the disc the drive
     # refused, written as silence.
     ("track_beyond_disc", _BEYOND_DISC),
+    # `.35`: the CD-Extra cut made by assumption (`session_gap.py`).
+    ("track_session_gap", _session_gap.SESSION_GAP_LINE),
     # FORK-ONLY (see the pattern block). Listed so the enumeration stays complete;
     # they match nothing in the committed 0.9.3 logs, which is exactly the point.
     ("track_peak_kind_header", _PEAK_KIND_HEADER),
@@ -4022,6 +4027,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 disc_isrc_reason=current.disc_isrc_reason,
                 beyond_disc_frames_refused=current.beyond_disc_frames_refused,
                 beyond_disc_frames=current.beyond_disc_frames,
+                session_gap=current.session_gap,
             )
         )
         current = None
@@ -4444,6 +4450,22 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.appended_silence_frames = int_or_none(
                     match.group("frames"), field="cyanrip appended silence frames"
                 )
+                continue
+
+            # `.35`: "Session gap: not determined (...)" under `End LSN:`, the
+            # CD-Extra cut made by assumption (`session_gap.py`). An unread
+            # wording is kept as `unrecognised` and logged; never a raise.
+            match = _session_gap.SESSION_GAP_LINE.match(line)
+            if match:
+                current.session_gap = _session_gap.read_session_gap(
+                    match.group("value")
+                )
+                if current.session_gap.state == _session_gap.SESSION_GAP_UNRECOGNISED:
+                    log.warning(
+                        "cyanrip log: track %s: unrecognised Session gap: %r",
+                        current.number,
+                        current.session_gap.text,
+                    )
                 continue
 
             # "Beyond disc: 2 of 2 frames refused (written as silence)" — `.24`

@@ -93,6 +93,7 @@ from platterpus.ripper_track_notes import RipperCoverArt, TrackFilter
 from platterpus.ripping_error_parts import RippingErrorParts
 from platterpus.safe_int import int_or_none
 from platterpus.secure_rereads_footer import SecureRereads
+from platterpus.session_gap import SessionGap
 
 # --- the two drive facts in cyanrip's disc header, from the fork's `.26` ------
 #
@@ -566,6 +567,12 @@ class TrackResult:
     # outside the disc): "not stated", never 0.
     beyond_disc_frames_refused: int | None = None
     beyond_disc_frames: int | None = None
+    # The `Session gap:` line under `End LSN:` (`.35`, the fork's round 42 lap 1
+    # S7; `session_gap.read_session_gap`): the CD-Extra cut was made by
+    # assumption, the last-session query having failed, so this track's End LSN
+    # is not a measured session layout. None when the line is absent: an earlier
+    # build, a one-session disc, or a drive that answered the query.
+    session_gap: SessionGap | None = None
 
 
 @dataclass(frozen=True)
