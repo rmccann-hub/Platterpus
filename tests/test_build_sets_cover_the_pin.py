@@ -165,10 +165,12 @@ def test_the_old_names_still_import_from_track_record_sources() -> None:
 
 def test_the_builds_read_are_exactly_those_cited() -> None:
     """Enumerated, never a range: the sets are exactly the builds whose source
-    their comments cite (``.31`` to ``.34`` for the rule; ``.30`` to ``.34`` for
-    the lines), and every one is a build that can apply the rule."""
-    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31, 32, 33, 34})
-    assert OTHER_READS_COMPLETE_BUILDS == frozenset({30, 31, 32, 33, 34})
+    their comments cite (``.31`` to ``.35`` for the rule; ``.30`` to ``.35`` for
+    the lines), and every one is a build that can apply the rule. ``.35`` joined
+    on 2026-11-23, its ``cyanrip_rip_track`` and ``crip_keep_reads`` read line
+    for line against ``.34``'s (``fork_source``)."""
+    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31, 32, 33, 34, 35})
+    assert OTHER_READS_COMPLETE_BUILDS == frozenset({30, 31, 32, 33, 34, 35})
     assert min(AR_GUIDED_CONVERGENCE_BUILDS) >= AR_GUIDED_FIRST_BUILD
 
 

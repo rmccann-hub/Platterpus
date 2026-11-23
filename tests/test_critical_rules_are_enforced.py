@@ -1666,7 +1666,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3633 -> 3691** (2026-11-16, round 41 moves to `.34`, the fork's lap 3 S9 on the owner's word): `PIN_UNDER_REVIEW` `fb28088` and its record, its release sequence 46 (the row that makes `.34`'s exit 74 read by its class), its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip` and bounded-overread rows, and `.33` named in the `--verify-log` set, each with the source it was read from.
     # **3691 -> 3763** (2026-11-17, the fork's round 41 lap 5 S18): `AR_GUIDED_CONVERGENCE_BUILDS` and `OTHER_READS_COMPLETE_BUILDS` moved here from `track_record_sources.py` (which re-exports them and shrank), beside the other per-build sets, so naming a build names it in them too; `.32` to `.34` added, each cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`).
     # **3763 -> 3778** (2026-11-18): round 41 closes; FORK_PIN rolls to fb28088 with its record.
-    "deps/fork_source.py": 3778,
+    # **3778 -> 3861** (2026-11-23, round 42 names `.35`, the fork's lap 1): `PIN_UNDER_REVIEW` `1280aa4` and its round, its release sequence 47 (and its second number, 49, after `.34` went to stable), its full commit and version, its consumer-flag, `--prefer-disc-isrc` (now a no-op in `.35`), `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip`, bounded-overread, AccurateRip-guided and complete-other-reads rows, and `.34` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 3861,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2476,7 +2477,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1625 -> 1649** (2026-11-05): regenerated from `.30`'s contract (`round-38-lap-12-provider-contract-g0c276fc.md`), 166 P5 and 14 P5a, generated: the four new rows, `Error saving read %08X of track %i: %s!`, the two `--keep-every-read` refusals and `--read-vendor-settings needs --diagnostics: ...`, six lines each.
     # **1649 -> 1699** (2026-11-11): regenerated from `.31`'s contract (`round-39-lap-01-provider-contract-g6eacb8b.md`), 167 P5 and 19 P5a, generated: the `--reread-until-accuraterip needs -Z` refusal added; its five new P5a rows (the AccurateRip-matched end and four limit lines with the overrule clause) decided in `P5A_NOT_RETAINED` as -Z verdicts, each with its source line, and the two time-limit rows' reason corrected now that the securing pass sends the limit.
     # **1699 -> 1705** (2026-11-16): regenerated from `.34`'s contract (`round-41-lap-03-provider-contract-g3069c11.md`), 168 P5 and 19 P5a, generated: the one new row, `Invalid TOC: track %i starts at LSN %i, not after track %i at LSN %i!` (exit 74), six lines.
-    "ripper_message_inventory.py": 1705,
+    # **1705 -> 1717** (2026-11-23): regenerated from `.35`'s contract (`round-42-lap-01-provider-contract-g11c2d91.md`), 170 P5 and 19 P5a, generated: the two new `Invalid pregap:` rows (exit 74, the fork's round 42 lap 1 S6), six lines each.
+    "ripper_message_inventory.py": 1717,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
