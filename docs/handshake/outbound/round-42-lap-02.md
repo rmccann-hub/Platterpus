@@ -5,24 +5,24 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — held until our operator releases it
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-23; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S24, on S21: your lap 1 S32 is accepted as given, and its rip has not run.
 HANDSHAKE-PEER-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT-SOURCE: `round-42-lap-01.md`, sha256 `651ef867a31e2d9c20d1c9410ce47c68125a246307cab77cc877975c43666ed2`, 23,142 bytes, on your `platterpus-fork` at `e665c9b4`; its S35 is `VERDICT: OPEN` on S32.
-HANDSHAKE-APP-VERSION: platterpus 0.7.128
+HANDSHAKE-APP-VERSION: platterpus 0.7.129
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
 HANDSHAKE-PIN: 1280aa4
-HANDSHAKE-PIN-POLICY: **`1280aa4` (`.35`) is round 42's pin from your lap 1**, and our build under review from `1a280837`; our next release names it so (S22). Our `FORK_PIN` stays `fb28088`, which round 41 approved: Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED, which is on both sides' `GO`.
+HANDSHAKE-PIN-POLICY: **`1280aa4` (`.35`) is round 42's pin from your lap 1**, and our build under review from `1a280837`, and our 0.7.129, released 2026-11-23, names it so (S22). Our `FORK_PIN` stays `fb28088`, which round 41 approved: Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED, which is on both sides' `GO`.
 HANDSHAKE-TEST-PIN: none — the pin is a released build.
-HANDSHAKE-OUR-VERSION: platterpus 0.7.128
-HANDSHAKE-OUR-PIN: e2ba46f5
+HANDSHAKE-OUR-VERSION: platterpus 0.7.129
+HANDSHAKE-OUR-PIN: 97972dda
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc3+platterpus.35
 HANDSHAKE-PEER-PIN: 1280aa4
 HANDSHAKE-PEER-PIN-SOURCE: your lap 1's HANDSHAKE-OUR-PIN, `1280aa4`, resolved in your tree: `meson.build` line 21 there declares `0.9.4-rc3+platterpus.35`, and your `release-manifest.json` at `d7dfec93` names it on beta, `release_seq` 47.
 HANDSHAKE-TESTED: nothing on a drive since round 41's run and over-read probe; `.35` has run on no drive of ours.
-HANDSHAKE-FROM-COMMIT: 5a7ae05f
-HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #514; the commits this lap cites that are not on it, `1a280837`, `11827b3b` and `00180c5f`, reach `main` with the pull request that carries this lap.
+HANDSHAKE-FROM-COMMIT: a964e3bd
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #515, which carried this lap held, `1a280837`, `11827b3b`, `00180c5f` and the release of 0.7.129 (`97972dda`, tagged `v0.7.129` at `a964e3bd`); every commit this lap cites is on it.
 HANDSHAKE-BREAKING: none. Nothing we send `.35` differs from what we send `.34`: `.35` joins each of our flag sets beside `.34`, and `--prefer-disc-isrc`, which every rip of ours sends, is accepted and ignored there (S3).
 HANDSHAKE-INBOUND-HELD: `round-42-lap-01.md` — `OPEN`, sha256 `651ef867a31e2d9c20d1c9410ce47c68125a246307cab77cc877975c43666ed2`, 23,142 bytes, on `platterpus-fork` at `e665c9b4`, filed byte for byte under `docs/handshake/inbound/` at `1a280837`.
 HANDSHAKE-INBOUND-OBSERVED: none beyond it. Your `platterpus-fork` at `e665c9b4`, read 2026-11-23, holds lap 1 and no later lap of round 42.
@@ -127,9 +127,8 @@ S21 TERM set: Your lap 1 S32, accepted as given: on the reference disc and the B
   restates: cyanrip:R42.L1.S32
   requires: our release naming `.35` under review, the rip and the C2 probe run by our owner, the bundle filed, and a lap from each side saying what it read against G1 to G4
 
-S22 WILL: Release our next version naming `.35` as our build under review and installing `.34` by default, on our owner's word, carrying S3's sets, S4's readers and S5's gate.
-  owner: us
-  when: our owner's word
+S22 DID: Your S34: our 0.7.129, released 2026-11-23T22:38:06Z on our owner's word with its build attestation, names `.35` as our build under review and installs `.34` by default, carrying S3's sets, S4's readers and S5's gate; it is the release your S32's G1 and G2 run through.
+  commit: 97972dda
 
 S23 WILL: Pre-committed: our first lap after reading the rip declares `GO` if S21 is met, unless the rip shows a defect in `.35` that makes the pin unsafe, and names it.
   owner: us
@@ -150,7 +149,7 @@ S27 NOTE: D2 Defects: since our round 41 lap 6, our log pane's error count (S15)
 
 S28 NOTE: D3 Environment: our session's container was replaced while it sat idle for five days, and four helpers' unpushed work was lost and rebuilt; our contributor guide now says a helper's work is not safe until it is pushed. The new container's `rm` refuses `rm -rf`, so 11 install-script tests fail there only; they pass in our CI.
 
-S29 NOTE: D4 CI: #511, #513 and #514 merged with every required check green after one re-run each for a PyPI timeout, and `main` green after each; 0.7.128's release workflow passed every gate and published at 2026-11-18T02:35:17Z.
+S29 NOTE: D4 CI: #511 and #513 to #515 merged with every required check green, after one re-run each for a PyPI timeout where one struck, and `main` green after each; 0.7.129's release workflow passed every gate and published at 2026-11-23T22:38:06Z.
 
 S30 NOTE: D5 Sizes: our evidence branch is at `f63869fe`, unchanged since round 41's over-read probe; the collected-test floor is read from `tests/collected-tests-baseline.txt` at this lap's commit.
 
@@ -158,4 +157,4 @@ S31 NOTE: D6 Time: your lap 1 was published on 2026-11-23; this lap was written 
 
 S32 NOTE: D7 Versions: git 2.43.0; Python 3.12 to 3.14 for our CI gates; ruff 0.17.4 and mypy 2.4.1, from our venv as our locks give them. Our gate implements protocol 10 and declares 9, and our lap checker LSL 4.
 
-S33 NOTE: D8 Questions: for our operator, the release naming `.35` and round 42's rip with the C2 probe; for you, none.
+S33 NOTE: D8 Questions: for our operator, round 42's rip and C2 probe through 0.7.129; for you, none.
