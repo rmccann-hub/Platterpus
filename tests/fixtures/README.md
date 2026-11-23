@@ -105,6 +105,19 @@ drive, so `drive_declared` is null here as in the `/13` copies above.
 recognise a record by its schema prefix. Its `invocation` line is the fork's build
 path, not anyone's home folder. Do not edit it.
 
+## cyanrip_fork_diagnostics14_golden_dot35.json and cyanrip_fork_golden_reference_r42.log (added 2026-11-23)
+
+**The fork's golden reference for `.35`**, the `-j` record and the log, byte for byte
+from `cyanrip@5ff89ffa:docs/golden-reference.diagnostics.json` and
+`docs/golden-reference.log` ("Regenerate the golden reference and sample for round
+42's lap 1", carried by their lap 1's pull request, unchanged at `e665c9b`). Built at
+`g0a062f8`, whose `src/` is `1280aa4`'s. The record is still
+`cyanrip-diagnostics/14` with `.34`'s keys and `cdtext.language` null; the log prints
+`.35`'s `Disc MCN:       none (libcdio returned none)`, an image having no MCN.
+`tests/test_round42_dot35_lines.py` reads both, and inserts `.35`'s `Session gap:` line
+into a copy of the log, since a one-session image prints none. Their `invocation`
+line is the fork's build path, not anyone's home folder. Do not edit them.
+
 ## cyanrip_fork_diagnostics14_golden_dot34.json (added 2026-11-16)
 
 **The fork's golden-reference `-j` record for `.34`** (`cyanrip-diagnostics/14`),

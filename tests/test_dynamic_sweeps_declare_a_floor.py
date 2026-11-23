@@ -275,6 +275,10 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_disc_mcn.py::test_each_form_reads_in_the_info_parser_as_in_the_rip_log": (
         "test_the_form_table_holds_every_form_and_every_state"
     ),
+    # The fork's round 42 lap 1 S3: `.35`'s four new `Disc MCN:` reasons.
+    "test_disc_mcn.py::test_each_dot35_form_reads_alike_in_both_parsers_and_is_not_noted": (
+        "test_the_dot35_reasons_are_the_laps_own_words"
+    ),
     "test_handshake_tooling.py::test_dropping_any_single_section_is_caught": (
         "test_the_section_list_is_not_trivially_small"
     ),

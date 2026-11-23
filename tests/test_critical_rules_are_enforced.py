@@ -2135,7 +2135,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4866 -> 4857** (2026-11-12, the fork's round 39 lap 3 S14): the `C2 errors:` reading moved out to `c2_declaration.py`; `_take_c2` now only calls it.
     # **4857 -> 4864** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `_RIP_ERRORS` gains the `parts` group for the wording that names every part of the count, the comment saying why it cannot take `including`'s line, `_Disc.ripping_error_parts`, its hand-over, and the warning that names a part we do not know; `_ripping_error_skips` and every reading moved out to `ripping_error_parts.py`.
     # **4864 -> 4889** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the `disc_mcn` disc rule, held by the ONCE echo guard as `DiscID:` and `CDDB ID:` beside it are, with its handler, its clearer, `_Disc.disc_mcn` and the hand-over; every reading of the value lives in `disc_mcn.py`, shared with the `-I` parser.
-    "parsers/cyanrip_log.py": 4889,
+    # **4889 -> 4911** (2026-11-23, the fork's round 42 lap 1 S7): `.35`'s `Session gap:` track line, read by its own module (`session_gap.py`) and kept on the track with a warning for an unread wording; the rule, the builder field, the flush and the contract row stay here, beside `Appended:` and `Beyond disc:`, the block's other rows.
+    "parsers/cyanrip_log.py": 4911,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2175,7 +2176,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1258 -> 1270** (2026-11-16, TASKS R156, the fork's round 40 lap 3 S14): `TrackResult.kept_read_pass`, which pass's read the file holds, beside `first_pass_reread`, the other fact the merge writes, with what each value means.
     # **1270 -> 1275** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `RipLog.ripping_error_parts`, every part of the `Ripping errors:` count named, with its import and what None and `unknown` mean.
     # **1275 -> 1281** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipLog.disc_mcn`, the `Disc MCN:` row as a state, with its import and what it is (a pressing's identity, not a TOC fact).
-    "parsers/rip_log.py": 1281,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # 1281 -> 1288 (2026-11-23): `TrackResult.session_gap`, `.35`'s CD-Extra cut made by assumption, with its comment; the dataclass lives in `session_gap.py`.
+    "parsers/rip_log.py": 1288,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
