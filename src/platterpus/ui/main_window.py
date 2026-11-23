@@ -61,6 +61,7 @@ from platterpus.ui.main_window_ctdb_repair import CtdbRepairMixin
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_disc_return import DiscReturnMixin, ParkedDisc
 from platterpus.ui.main_window_drive import DriveMixin
+from platterpus.ui.main_window_helpers import FinishedLine
 
 # fidelity_summary / friendly_disc_scan_error / safe_path_segment are re-exported
 # for the test-facing API (`from ...main_window import _fidelity_summary`); their
@@ -136,7 +137,13 @@ _SCREEN_MARGIN_PX: int = 48
 # state (`tests/test_ui_main_window.py`), table rows lower / upper:
 #     0.40/0.40 ... 2 / 6        0.30/0.50 ... 4 / 4      <- now
 # The upper list keeps at least `_MIN_DEFAULT_TRACK_ROWS` on a smaller screen.
-_PANE_SHARES: tuple[float, float, float] = (0.20, 0.30, 0.50)
+#
+# 0.20/0.30/0.50 -> 0.00/0.60/0.40 (2026-11-23, UX review of 0.7.127, M1 and M2;
+# TASKS R179). There is one track table now (the rip pane's Tracks table is
+# gone), and the disc panel folds its IDs into Disc details, so the panel takes
+# exactly its own height (share 0, lifted to its size hint by the floor) and the
+# track list takes the room the second table had.
+_PANE_SHARES: tuple[float, float, float] = (0.00, 0.60, 0.40)
 _MIN_DEFAULT_TRACK_ROWS: int = 4
 
 
@@ -158,6 +165,16 @@ def _default_pane_sizes(
         sizes[pane] += moved
         sizes[2] -= moved
     return sizes
+
+
+def _panel_height(panel: QWidget, width: int) -> int:
+    """The height ``panel``'s rows need at ``width``: its height-for-width.
+
+    Falls back to the size hint when the panel's layout does not trade height
+    for width (it always does here: its values are word-wrapped labels).
+    """
+    height = panel.heightForWidth(width) if width > 0 else -1
+    return height if height > 0 else panel.sizeHint().height()
 
 
 # How long after launch the automatic cyanrip check waits before running. Long
@@ -511,6 +528,9 @@ class MainWindow(
         # finish because the debounced report re-writes happen after the rip params
         # are cleared. See `platterpus.verdict.expected_track_total`.
         self._last_expected_track_total: int | None = None
+        # The finished rip's status line and its inputs (R181): rebuilt when a
+        # confirmed CTDB repair lands, while it is still the line on screen.
+        self._finished_line: FinishedLine | None = None
         self._force_stop_done: bool = False
         # The device the pending rescue is FOR, captured when the timer is armed.
         # It must not be read at fire time: `_do_force_stop` used to ask the drive
@@ -754,6 +774,14 @@ class MainWindow(
         # Doing it in __init__ is too early (nothing is laid out yet) and doing it on
         # every show would undo the user's own dragging.
         self._pane_shares_applied: bool = False
+        # ONE track table (UX review M2, R179): the rip pane renders each
+        # track's result cells and the table shows them, in the Status column
+        # and the Verified column it gains after a rip. A direct, GUI-thread
+        # connection: both widgets live on the GUI thread.
+        self._rip_progress.track_results_changed.connect(self._track_table.set_results)
+        # Opening or closing Disc details changes how tall the disc panel needs
+        # to be, and a splitter pane does not grow by itself (UX review M1).
+        self._disc_info_panel.details_toggled.connect(self._on_disc_details_toggled)
 
         # Cover-art outcome lands in the rip log view (not the status line —
         # that's showing the fidelity verdict by then, which matters more).
@@ -934,13 +962,43 @@ class MainWindow(
             splitter = self._content_splitter
             rip_section = splitter.widget(2)  # the controls + progress pane
             floors = (
-                self._disc_info_panel.minimumSizeHint().height(),
+                # With a share of 0 the floor IS the panel's height: what its rows
+                # need at the splitter's width. Not its minimum (a word-wrapped
+                # label's minimum is one line) and not its size hint (which wraps
+                # at a width of Qt's choosing and measured two lines too tall).
+                _panel_height(self._disc_info_panel, splitter.width()),
                 self._track_table.height_for_rows(_MIN_DEFAULT_TRACK_ROWS),
                 rip_section.minimumSizeHint().height() if rip_section else 0,
             )
             splitter.setSizes(_default_pane_sizes(total, _PANE_SHARES, floors))
         except Exception:  # noqa: BLE001 — layout polish must never break startup
             log.exception("could not apply the initial pane split; keeping Qt's")
+
+    def _on_disc_details_toggled(self, _expanded: bool) -> None:
+        """Give the disc panel the height its rows need now, from the track list.
+
+        Opening Disc details adds four rows to a pane the splitter sized for
+        three, and Qt neither grows the pane nor clips it cleanly; closing them
+        leaves a gap. So the pane is set to its new size hint, and the track list
+        below it pays or gains the difference: it is the neighbour, and the rip
+        pane's own height is what its header needs. Best-effort, like the first
+        split: a failure leaves Qt's own distribution.
+        """
+        try:
+            splitter = self._content_splitter
+            sizes = splitter.sizes()
+            if len(sizes) != 3 or sum(sizes) <= 0:
+                return
+            panel_layout = self._disc_info_panel.layout()
+            if panel_layout is not None:
+                panel_layout.activate()
+            wanted = _panel_height(self._disc_info_panel, splitter.width())
+            delta = wanted - sizes[0]
+            sizes[0] = wanted
+            sizes[1] = max(0, sizes[1] - delta)
+            splitter.setSizes(sizes)
+        except Exception:  # noqa: BLE001 — layout polish must never break the window
+            log.exception("could not resize the disc panel for Disc details")
 
     def _work_in_flight(self) -> str:
         """What a close would interrupt, in words, or "" when nothing would."""

@@ -10,14 +10,23 @@ MusicBrainz" is two-step async work. Keeping that logic in the main
 window (or a controller) means this widget stays trivially testable
 and re-usable.
 
-Fields displayed:
+Fields displayed, always visible (what the task needs):
   Drive               — the device path of the currently-selected drive
+  MusicBrainz match   — outcome of the MB lookup (or a status message)
+  Read offset         — where the drive's read offset came from, and how sure
+
+and folded into a collapsible **Disc details** row, closed by default (UX review
+of 0.7.127, M1: seven rows of reference data sat above the editable track table,
+which then showed 4 of 11 tracks at the default window size):
   MusicBrainz disc ID — from the ripper's disc probe (`cyanrip -I`)
   CDDB disc ID        — same source
-  MusicBrainz match   — outcome of the MB lookup (or a status message)
   AccurateRip         — blank until a rip finishes, then the real outcome
                         (how many tracks the AccurateRip database confirmed).
-                        Per-track detail is in `RipProgress`.
+                        Per-track detail is in the track table's Verified column.
+  Cache defeat        — the drive's measured cache-defeat verdict
+
+A folded row is never a place a warning hides: when one of them carries a ``⚠``
+the Disc details toggle carries it too (:meth:`DiscInfoPanel._refresh_details_marker`).
 
 Right-click anywhere on the panel opens the album's menu — Copy / Select All for
 the value under the pointer, then the per-album actions the window hands over
@@ -29,9 +38,16 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QPoint, Qt, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFormLayout, QLabel, QMenu, QWidget
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QToolButton,
+    QWidget,
+)
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
 from platterpus.data_tracks import audio_track_totals, is_data_track
@@ -41,10 +57,24 @@ from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.track_proof import contradicted_tracks_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.album_menu import build_album_menu, popup_album_menu
+from platterpus.ui.plain_text import plain_tooltip
+from platterpus.ui.status_colours import SECONDARY_STYLE
 from platterpus.verdict import accuraterip_contradictions
 
 # Placeholder shown in fields we don't have data for yet.
 _PLACEHOLDER: str = "—"
+
+#: The Disc details toggle's caption. Alt+A is its mnemonic: every other letter
+#: of "Disc details" is already a main-window mnemonic (Start, Rip menu, Cancel,
+#: Rescan, Tools, Open rip folder, Live log), and an ambiguous mnemonic only
+#: cycles focus instead of acting (`tests/test_ui_accessibility.py`).
+DETAILS_TOGGLE_TEXT: str = "Disc det&ails"
+#: What the folded rows hold, said beside the toggle so a reader looking for a
+#: disc ID knows where it went without opening anything.
+DETAILS_HINT: str = "disc IDs, AccurateRip result, cache defeat"
+#: The marker the toggle carries while a folded row holds a warning. The same
+#: glyph the rows themselves use, so the toggle says "there is a ⚠ in here".
+_WARNING_MARK: str = "⚠"
 
 
 def format_drive_summary(
@@ -80,6 +110,12 @@ def format_drive_summary(
 
 class DiscInfoPanel(QWidget):
     """Read-only panel. Pure view; no data fetching here."""
+
+    #: Emitted with the new state whenever Disc details opens or closes, after
+    #: the rows are shown or hidden. The window listens so it can give the
+    #: panel the height its rows now need (it sits in a splitter, which does not
+    #: grow a pane by itself).
+    details_toggled = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -124,14 +160,67 @@ class DiscInfoPanel(QWidget):
         )
         self._cache_value.setWordWrap(True)
 
+        # --- What stays visible: the rows the task needs -----------------------
+        # The drive, what MusicBrainz made of the disc, and the read offset (a
+        # trust line whose ⚠ guard must never be folded away). Everything else
+        # is reference data and folds into Disc details below (UX review M1).
+        # ONE form for every row, so the folded rows line up with the visible
+        # ones when they open; the fold hides form rows (`setRowVisible`) rather
+        # than a second form whose captions would sit at another width.
         form = QFormLayout(self)
+        self._form: QFormLayout = form
         form.addRow("Drive:", self._drive_value)
+        form.addRow("MusicBrainz match:", self._mb_match_value)
+        form.addRow("Read offset:", self._offset_value)
+
+        # --- The Disc details toggle -----------------------------------------
+        # A tool button with an arrow, the platform's disclosure idiom (KDE's
+        # own "Details" sections look the same). Closed by default: the IDs are
+        # for copying into Picard or a bug report, not for reading every rip.
+        # Checkable, so its state IS the open/closed state, and a screen reader
+        # announces "toggle button, checked/unchecked" with no extra wiring.
+        self._details_toggle: QToolButton = QToolButton(self)
+        self._details_toggle.setText(DETAILS_TOGGLE_TEXT)
+        self._details_toggle.setCheckable(True)
+        self._details_toggle.setChecked(False)
+        self._details_toggle.setAutoRaise(True)
+        self._details_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self._details_toggle.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        # No explicit height: the style's own (28 px in Breeze, measured) is the
+        # target size, and an explicit 24 px floor let a short window squeeze
+        # the toggle below the style's height (`tests/test_ui_conformance.py`,
+        # button_floor). WCAG 2.5.8's 24 px floor is the style's to meet here.
+        self._details_toggle.setAccessibleName("Disc details")
+        self._details_toggle.setAccessibleDescription(
+            "Show or hide the disc IDs, the last rip's AccurateRip result and the "
+            "drive's cache-defeat verdict"
+        )
+        self._details_toggle.toggled.connect(self.set_details_expanded)
+        self._details_hint: QLabel = QLabel(DETAILS_HINT, self)
+        self._details_hint.setTextFormat(Qt.TextFormat.PlainText)
+        self._details_hint.setStyleSheet(SECONDARY_STYLE)
+        toggle_row = QHBoxLayout()
+        toggle_row.setContentsMargins(0, 0, 0, 0)
+        toggle_row.addWidget(self._details_toggle)
+        toggle_row.addWidget(self._details_hint, stretch=1)
+        form.addRow(toggle_row)
+
+        # --- The folded rows ---------------------------------------------------
+        # Hidden as form rows, all four together (`set_details_expanded`). The
+        # labels keep their names and their text while hidden: the script
+        # runner's `snapshot` and every test read them by attribute, so folding
+        # them changes what a person sees and nothing a reader reads.
+        self._detail_rows: tuple[int, ...] = tuple(
+            form.rowCount() + offset for offset in range(4)
+        )
         form.addRow("MusicBrainz disc ID:", self._mb_id_value)
         form.addRow("CDDB disc ID:", self._cddb_id_value)
-        form.addRow("MusicBrainz match:", self._mb_match_value)
         form.addRow("AccurateRip:", self._accuraterip_value)
-        form.addRow("Read offset:", self._offset_value)
         form.addRow("Cache defeat:", self._cache_value)
+        for row in self._detail_rows:
+            form.setRowVisible(row, False)
 
         # A right-click on the panel AROUND the values — a row caption, which is
         # not selectable so its click falls through to here, or a gap — opens the
@@ -142,6 +231,31 @@ class DiscInfoPanel(QWidget):
         self.customContextMenuRequested.connect(
             lambda pos: self._show_album_menu(None, pos)
         )
+
+    def event(self, event: QEvent) -> bool:
+        """Keep the minimum height what the rows need at the current width.
+
+        The panel sits in the window's splitter with a share of 0 (it takes its
+        own height and no more), so its MINIMUM is what the splitter honours when
+        the window is short. A word-wrapped label's minimum is one line, so the
+        layout's own minimum understated the rows, and measured on a Steam Deck
+        at 150% text the splitter squeezed the Disc details toggle below the
+        style's height (`tests/test_ui_conformance.py`, button_floor). The same
+        fix as the rip pane's (`RipProgress._fit_minimum_height`): the minimum
+        is the height-for-width, recomputed whenever a row's text, a fold or
+        the width changes.
+        """
+        handled = super().event(event)
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize):
+            self._fit_minimum_height()
+        return handled
+
+    def _fit_minimum_height(self) -> None:
+        """Set the minimum height to the rows' height-for-width, when it changed."""
+        width = self.width()
+        needed = self.heightForWidth(width) if width > 0 else -1
+        if needed > 0 and needed != self.minimumHeight():
+            self.setMinimumHeight(needed)
 
     # --- Drive selection -----------------------------------------------------
 
@@ -174,6 +288,7 @@ class DiscInfoPanel(QWidget):
         self._cddb_id_value.setText(_PLACEHOLDER)
         self._mb_match_value.setText(_PLACEHOLDER)
         self._accuraterip_value.setText(_PLACEHOLDER)
+        self._refresh_details_marker()
         if keep_drive_rows:
             return
         # The offset row is drive-derived (not disc-derived), but it's cleared
@@ -183,6 +298,7 @@ class DiscInfoPanel(QWidget):
         # Same story for the cache-defeat row (drive-derived; repopulated from
         # the drive profile right after a drive change).
         self._cache_value.setText(_PLACEHOLDER)
+        self._refresh_details_marker()
 
     def set_drive_cache_defeat(self, text: str) -> None:
         """Show the selected drive's MEASURED cache-defeat verdict.
@@ -192,6 +308,7 @@ class DiscInfoPanel(QWidget):
         this stays a pure view. Mirrors :meth:`set_drive_offset_provenance`.
         """
         self._cache_value.setText(text or _PLACEHOLDER)
+        self._refresh_details_marker()
 
     def set_drive_offset_provenance(self, text: str) -> None:
         """Show where the selected drive's read offset came from + how sure.
@@ -238,6 +355,7 @@ class DiscInfoPanel(QWidget):
         total = len(tracks)
         if total == 0:
             self._accuraterip_value.setText(_PLACEHOLDER)
+            self._refresh_details_marker()
             return
         on_disc, _logged = audio_track_totals(rip_log, disc_track_total)
         matched = sum(1 for track in tracks if track_accuraterip_verified(track))
@@ -257,6 +375,7 @@ class DiscInfoPanel(QWidget):
         # (review A2 of the 2026-11-03 Full run: "13 of 14 tracks matched").
         wrong = contradicted_tracks_sentence(accuraterip_contradictions(rip_log))
         self._accuraterip_value.setText(f"{text} · ⚠ {wrong}" if wrong else text)
+        self._refresh_details_marker()
 
     def clear_accuraterip_result(self) -> None:
         """Blank the AccurateRip row: a rip has started, so the last one's is stale.
@@ -265,6 +384,7 @@ class DiscInfoPanel(QWidget):
         result for the whole of the next rip.
         """
         self._accuraterip_value.setText(_PLACEHOLDER)
+        self._refresh_details_marker()
 
     # --- Disc info (from the ripper's disc probe, `cyanrip -I`) -------------
 
@@ -365,6 +485,70 @@ class DiscInfoPanel(QWidget):
         error_text = f"MusicBrainz error: {message}"
         self._mb_match_value.setText(error_text)
         announce(self._mb_match_value, error_text)
+
+    # --- Disc details (the folded rows) --------------------------------------
+
+    def set_details_expanded(self, expanded: bool) -> None:
+        """Open (``True``) or close the Disc details rows.
+
+        The toggle's own ``toggled`` signal lands here, and so can a caller
+        (a test, or a later "remember it open" setting): either way the button,
+        its arrow and the rows agree, and :attr:`details_toggled` is emitted
+        once the rows have changed, so a listener measures the new layout.
+        """
+        if self._details_toggle.isChecked() != expanded:
+            # Re-enters here through `toggled` with the button already moved;
+            # the second pass does the work, so return after starting it.
+            self._details_toggle.setChecked(expanded)
+            return
+        self._details_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+        )
+        for row in self._detail_rows:
+            self._form.setRowVisible(row, expanded)
+        # Now, not at the next layout pass: a listener resizing the splitter in
+        # its slot would otherwise meet the old minimum, and closing the rows
+        # could not give their height back.
+        self._fit_minimum_height()
+        self.details_toggled.emit(expanded)
+
+    def details_expanded(self) -> bool:
+        """True while the Disc details rows are open."""
+        return self._details_toggle.isChecked()
+
+    def _refresh_details_marker(self) -> None:
+        """Put a ``⚠`` on the closed toggle when a folded row holds a warning.
+
+        Folding is how this panel gave the track table its room, and a fold is a
+        bad place to keep a warning: nothing behind it is seen until it is
+        opened. So the toggle carries the signal itself, the way the results
+        pane's Details tab does. The AccurateRip row says "⚠ AccurateRip says
+        track 5 is WRONG …" after such a rip, and the cache-defeat row can carry
+        a ⚠ verdict; either one marks the toggle, and its tooltip names which.
+        """
+        flagged = [
+            name
+            for name, label in (
+                ("AccurateRip", self._accuraterip_value),
+                ("Cache defeat", self._cache_value),
+            )
+            if _WARNING_MARK in label.text()
+        ]
+        text = (
+            f"{DETAILS_TOGGLE_TEXT}  {_WARNING_MARK}"
+            if flagged
+            else DETAILS_TOGGLE_TEXT
+        )
+        if self._details_toggle.text() != text:
+            self._details_toggle.setText(text)
+        self._details_toggle.setToolTip(
+            plain_tooltip(
+                f"{_WARNING_MARK} A warning is in here: {', '.join(flagged)}."
+                if flagged
+                else "Show or hide the disc IDs, the AccurateRip result and the "
+                "cache-defeat verdict."
+            )
+        )
 
     # --- The album's right-click menu ---------------------------------------
 

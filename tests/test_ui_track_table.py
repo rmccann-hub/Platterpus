@@ -78,7 +78,9 @@ def test_format_length_negative_is_empty() -> None:
 def test_model_starts_empty(qapp: QApplication) -> None:
     model = TrackTableModel()
     assert model.rowCount() == 0
-    assert model.columnCount() == 6  # Rip?, #, Title, Artist, Length, Status
+    # Rip?, #, Title, Artist, Length, Status, then the four results columns a
+    # rip fills (Verified, AccurateRip v1, AccurateRip v2, EAC CRC; R179/R181).
+    assert model.columnCount() == 10
 
 
 def test_model_set_tracks_populates_rows(qapp: QApplication) -> None:
@@ -146,7 +148,7 @@ def test_model_setData_refuses_to_edit_number_or_length(
 
 def test_model_headers(qapp: QApplication) -> None:
     model = TrackTableModel()
-    expected = ["Rip?", "#", "Title", "Artist", "Length", "Status"]
+    expected = ["Rip?", "#", "Title", "Artist", "Length", "Status", "Verified"]
     for i, header in enumerate(expected):
         assert model.headerData(i, Qt.Orientation.Horizontal) == header
 

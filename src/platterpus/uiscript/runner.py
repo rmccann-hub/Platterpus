@@ -2524,7 +2524,7 @@ class ScriptRunner(
         pick one and silently mean only that. The objection is about *silence*, not
         about ambiguity: the fix is to pick the surface and say which, here, in the
         help text, and in every message this emits. It reads
-        `RipProgress.current_status()`, the label under the Overall bar, which is
+        `RipProgress.current_status()`, the label under the progress bar, which is
         also what the desktop notification reads — so the two cannot disagree about
         what the status is.
 

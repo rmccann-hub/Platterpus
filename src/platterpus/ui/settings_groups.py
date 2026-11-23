@@ -223,14 +223,10 @@ class SettingsGroups:
     def mark_goal_rows(self, widgets: Iterable[QWidget]) -> list[QWidget]:
         """Put :data:`GOAL_MARK` before the label of each of ``widgets``' rows.
 
-        A row with a label gets the mark at the start of it. A checkbox row has
-        no label (its text is on the box), so the mark goes at the start of the
-        box's own text: a mark alone in the label column sat on a line of its
-        own above the box once a narrow window wrapped the rows (the owner's
-        screenshots of 2026-11-23). Each marked control's accessible
-        description says so too, since a screen reader reads the control rather
-        than the column beside it. Returns the widgets carrying the mark. Safe
-        to call twice: a marked label or box is not marked again.
+        A labelled row gets it before its label; a checkbox row (no label)
+        before the box's text, since a lone mark in the label column wrapped
+        onto its own line at 560 px. The accessible description says so too.
+        Returns the marked widgets; safe to call twice.
         """
         marked: list[QWidget] = []
         for widget in widgets:
@@ -245,9 +241,7 @@ class SettingsGroups:
             item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
             old = item.widget() if item is not None else None
             if old is None and isinstance(widget, QCheckBox):
-                # No label column to mark: the mark leads the box's own text.
-                if not widget.text().startswith(GOAL_MARK):
-                    widget.setText(f"{GOAL_MARK} {widget.text()}")
+                _lead_with_goal_mark(widget)  # no label: the box's text carries it
                 widget.setAccessibleDescription("A goal sets this option.")
                 marked.append(widget)
                 continue
@@ -272,6 +266,13 @@ class SettingsGroups:
             widget.setAccessibleDescription("A goal sets this option.")
             marked.append(mark)
         return marked
+
+
+def _lead_with_goal_mark(box: QCheckBox) -> None:
+    """Put :data:`GOAL_MARK` before a checkbox's text, once. Typed, so the
+    label-format sweep sees a checkbox, which shows its text as written."""
+    if not box.text().startswith(GOAL_MARK):
+        box.setText(f"{GOAL_MARK} {box.text()}")
 
 
 def _row_holding(form: QFormLayout, widget: QWidget) -> int | None:

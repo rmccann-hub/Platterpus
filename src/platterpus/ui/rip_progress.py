@@ -1,16 +1,16 @@
-"""Rip progress widget — live status pane + AccurateRip results.
+"""Rip progress widget — live status pane + the rip's verdict.
 
 Three bands, top to bottom:
 
   **header** (fixed, never scrolls, never hidden)
-      Overall progress bar · status line + task progress bar · stall notice ·
-      the verdict banner (the bold, colour-coded at-a-glance trust headline) ·
-      the read-effort and re-rip-comparison warnings
+      the ONE progress bar ("Track 5 of 14 — 31% of the rip") · status line ·
+      stall notice · the verdict banner (the bold, colour-coded at-a-glance
+      trust headline) · the reconciled verdict line (which of AccurateRip and
+      CTDB decides, and why) · the read-effort and re-rip-comparison warnings
   **body** (a QTabWidget — exactly one scroll surface visible at a time)
-      "Tracks"   the per-track AccurateRip results table
-      "Details"  the CTDB verdict, the AccurateRip reconciliation, and album
-                 loudness — marked with a ⚠ in the tab label when it holds a
-                 caveat, so nothing hides behind an unopened tab
+      "Details"  the CTDB verdict, the CTDB repair, and album loudness — marked
+                 with a ⚠ in the tab label when it holds a caveat, so nothing
+                 hides behind an unopened tab
       "Live log" the ripper's own output, a read-only console
   **footer** (fixed)
       View log · View report · View cue · Open rip folder
@@ -27,36 +27,41 @@ The "View log" / "View report" buttons open the file in an in-app read-only
 viewer (avoiding the "Open With" chooser a .log/.platterpus.json triggers on a
 fresh KDE); "Open rip folder" defers to the file manager via
 QDesktopServices.openUrl().
+
+**The per-track results are not here any more** (UX review of 0.7.127, M2; TASKS
+R179). This pane had its own results table in a "Tracks" tab, listing the same
+tracks as the editable track table above it with different status words, and a
+second, unlabelled progress bar. The window now has one track table, which gains
+a Verified column after a rip: this pane computes its cells
+(``ui/track_results.py``) and hands them over with :attr:`RipProgress.track_results_changed`,
+so the verdict banner, the reconciled line and the table are rendered from the
+same inputs at the same moments.
 """
 
 from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt, QUrl
+from PySide6.QtCore import QEvent, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QScrollArea,
-    QTableWidget,
-    QTableWidgetItem,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from platterpus import album_loudness, one_frame_match
+from platterpus import album_loudness
 from platterpus.build_info import self_invocation
 from platterpus.ctdb.track_wording import per_track_sentence
 from platterpus.ctdb.verify import (
@@ -65,20 +70,11 @@ from platterpus.ctdb.verify import (
     minority_match_sentence,
     shifted_pressing_phrase,
 )
-from platterpus.ctdb_disagreement import (
-    CELL_NOTE,
-    ctdb_disagreements,
-    ctdb_note_sentence,
-)
 from platterpus.data_tracks import is_data_track
 from platterpus.finish_wording import next_step_sentence
-from platterpus.parsers.rip_log import (
-    RipLog,
-    accuraterip_is_match,
-    track_accuraterip_verified,
-    tracks_needing_heavy_reread,
-)
-from platterpus.track_proof import contradicted_tracks_sentence, contradiction_sentence
+from platterpus.parsers.rip_log import RipLog, tracks_needing_heavy_reread
+from platterpus.reconciled_verdict import reconcile_verdict, repaired_tracks
+from platterpus.track_proof import contradicted_tracks_sentence
 from platterpus.ui.accessibility import announce
 from platterpus.ui.external_open import open_path_externally
 from platterpus.ui.plain_text import plain_tooltip
@@ -92,24 +88,12 @@ from platterpus.ui.status_colours import (
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
 # home is the pure platterpus.verdict module.
+from platterpus.ui.track_results import TrackResultCells, result_cells
 from platterpus.verdict import (
-    AR_CONTRADICTION_WRONG,
-    AR_STATE_ABSENT,
-    AR_STATE_NO_DATA,
-    AR_STATE_NO_MATCH,
-    AR_STATE_NOT_CHECKED,
-    AR_STATE_OFFSET_VARIANT,
-    AR_STATE_VERIFIED,
-    accuraterip_compared,
-    accuraterip_confidence_text,
     accuraterip_contradictions,
-    accuraterip_db_max_confidence,
     accuraterip_rejected_count,
-    accuraterip_state,
     accuraterip_verdict,
     apply_downgrades,
-    reconcile_ar_ctdb,
-    track_accuraterip_contradiction,
 )
 
 #: The verdict banner's accessible name, and the one it carries while it shows a
@@ -126,77 +110,35 @@ __all__ = [
     "status_phase_key",
 ]
 
-# Shared explanation of the "only one frame matched" state (cyanrip's `Accurip
-# 450` line, "partially accurately ripped" up to +platterpus.16), used as the AR-cell tooltip and echoed in the
-# User Guide glossary. It lives in `one_frame_match` so the table, the help and
-# the banner read one wording. Until 2026-09-24 it said the audio "matches a
-# known pressing … shifted by a fixed offset" and was "usually perfectly fine",
-# which was wrong on the mechanism: see that module.
-ONE_FRAME_TOOLTIP: str = one_frame_match.TOOLTIP
-
-# The "we compared it and nothing matched" state. This is NOT "not in the
-# database" — the disc IS there, our read just doesn't match any stored copy of
-# it — and saying "not in DB" about such a track is a factually false claim. The
-# durable EAC-compatible log already learned this (it writes "Cannot be verified
-# as accurate", review finding 2026-07-28); the on-screen table did not, and
-# collapsed the case into "not in DB" until 2026-07-31. The narrow column can
-# only carry "in DB, no match", so the nuance lives here in the tooltip.
-NO_MATCH_TOOLTIP: str = (
-    "In the database, but no match: AccurateRip has this disc, and this track's "
-    "checksum was compared against the copies other people submitted — none of "
-    'them matched. That is NOT the same as "not in the database": the track '
-    "simply cannot be verified as accurate. Innocent causes are common (an "
-    "unlisted pressing, or a drive read offset that differs from ours), but a "
-    "genuine read error looks exactly the same from here — re-rip the disc to "
-    "tell them apart, and compare the two rips."
-)
-
-# The lookup never ran, so the database has said nothing either way. Kept
-# separate from NO_MATCH_TOOLTIP because collapsing them is the exact conflation
-# that made a never-queried disc read as a failed comparison (audit, 2026-07-31).
-NOT_CHECKED_TOOLTIP: str = (
-    "Not checked: no AccurateRip lookup was made for this rip, so the database "
-    "has said nothing about this track either way. This is not a result — it is "
-    "the absence of one. Re-rip with AccurateRip enabled (and a working network "
-    "connection from the ripping container) to get a verdict."
-)
-
 log = logging.getLogger(__name__)
-
-# AR table column layout. The brief calls out per-track AR confidence;
-# we expose v1 and v2 separately since they can disagree. The trailing "EAC"
-# column shows each track's EAC-format CRC32 (cyanrip's "EAC CRC32", = the Copy
-# CRC in the companion log) so it can be eyeballed against a real EAC rip,
-# plus a ✓ when the track meets the archival bar we can actually verify.
-_AR_COLUMNS: list[str] = ["#", "Title", "Status", "AR v1", "AR v2", "EAC"]
-_AR_COL_NUMBER: int = 0
-_AR_COL_TITLE: int = 1
-_AR_COL_STATUS: int = 2
-_AR_COL_V1: int = 3
-_AR_COL_V2: int = 4
-_AR_COL_EAC: int = 5
-
-# Glyphs for the EAC column's at-a-glance archival mark (symbol + text, never
-# colour alone — the trust-first UX rule).
-_EAC_VERIFIED: str = "✓"
-_EAC_PARTIAL: str = "~"
 
 # Tab order in the pane's body. Named rather than inlined because three separate
 # methods switch between them and an off-by-one here would silently show the
 # wrong tab at the end of a rip.
-_TAB_TRACKS: int = 0
-_TAB_DETAILS: int = 1
-_TAB_LOG: int = 2
+_TAB_DETAILS: int = 0
+_TAB_LOG: int = 1
 
 # Base labels for the tabs. `_refresh_details_tab_marker` prepends a warning
 # glyph to the Details label when that tab is holding a caveat, so a user who
 # never opens it can still SEE that there is something in there — the tab must
 # not become a place where warnings go to hide (docs/ux-design-principles.md:
 # status is conveyed by symbol + text, never by absence).
-_TAB_LABEL_TRACKS: str = "&Tracks"
 _TAB_LABEL_DETAILS: str = "&Details"
 _TAB_LABEL_LOG: str = "Live &log"
 
+
+#: What the Details tab says before a rip has given it anything: during a rip
+#: it is the tab on show (UX review M3: the raw console is not the default), so
+#: it says where the live work is instead of being a blank page.
+DETAILS_PLACEHOLDER: str = (
+    "ⓘ While a rip runs, the track list above follows it row by row. When it "
+    "finishes, this tab holds the CTDB check, any CTDB repair and the album "
+    "loudness. The ripper's own output is in the Live log tab."
+)
+
+#: The one progress bar's text before any track has started (the disc scan) and
+#: when no rip is running: the percentage of the whole rip, said as such.
+_BAR_FORMAT_IDLE: str = "%p% of the rip"
 
 # Hook so tests can intercept the "open file" action without launching
 # a real text editor.
@@ -238,7 +180,14 @@ def _bar_value(percent: float) -> int:
 
 
 class RipProgress(QWidget):
-    """Live progress + log + AccurateRip results."""
+    """Live progress + log + the rip's verdict."""
+
+    #: The per-track cells the track table shows after a rip, recomputed and
+    #: emitted whenever one of their inputs lands (the rip log, CTDB's answer,
+    #: the repair) and emitted EMPTY when the pane is cleared for a new rip. The
+    #: window connects it to ``TrackTable.set_results`` on the GUI thread, so the
+    #: table always shows what this pane's verdict was rendered from.
+    track_results_changed = Signal(object)  # dict[int, TrackResultCells]
 
     def __init__(
         self,
@@ -295,6 +244,18 @@ class RipProgress(QWidget):
         # track AccurateRip does not contradict (`ctdb_disagreement`), whichever
         # of the rip log and the CTDB answer arrives last.
         self._ctdb_tracks: tuple[object, ...] = ()
+        # The last CTDB result and the automatic repair's result, kept for the
+        # reconciled verdict line, which needs all three inputs (the rip log,
+        # CTDB's answer and the repair) whichever arrives last.
+        self._ctdb_result: object | None = None
+        self._repair_result: object | None = None
+        # The per-track cells last handed to the track table, kept so a reader
+        # (a test, a script verb) can see what the table was given.
+        self._track_results: dict[int, TrackResultCells] = {}
+        # The tracks this rip covers, in order, and the one being read now, for
+        # the one bar's "Track 5 of 14" (`set_current_track`).
+        self._rip_tracks: tuple[int, ...] = ()
+        self._current_track: int | None = None
         # Screen-reader announcement throttles (gap #4, focus-safe live updates).
         # The status line redraws many times a second (percent + ETA), so we
         # announce only when its *phase* changes (see status_phase_key); the CTDB
@@ -315,6 +276,9 @@ class RipProgress(QWidget):
         # then ends with one plain next step naming them (UX review V1). Empty
         # when there is no such step to give.
         self._verdict_attention: tuple[object, ...] = ()
+        # The level the banner was last drawn with (before any failure turns it
+        # to "error"), so the banner can be drawn again when a repair lands.
+        self._verdict_render_level: str = ""
         # The level the banner shows now ("ok", "warn", "neutral", "error"), or
         # None while it is hidden. Read by the window for the status line's
         # lead (`verdict_level`), so the two cannot carry different marks.
@@ -374,21 +338,25 @@ class RipProgress(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
 
-        # --- Overall progress (whole rip) ---
-        # A coarse start-to-finish bar so the user can gauge how much of
-        # the entire disc is left, independent of the per-track churn.
-        overall_row = QHBoxLayout()
-        overall_row.addWidget(QLabel("Overall", self))
+        # --- The ONE progress bar (whole rip) ---
+        # A start-to-finish bar so the user can gauge how much of the disc is
+        # left, labelled IN the bar with the track it is on: "Track 5 of 14 —
+        # 31% of the rip" (`_refresh_bar_format`). There used to be a second,
+        # unlabelled bar under the status line for the current operation's own
+        # 0-100%, and an "Overall" caption beside this one: two bars, one of them
+        # unexplained (UX review of 0.7.127, M2). The status line already says
+        # the current operation and its percentage ("Ripping track 5 of 14…
+        # 62%"), so the second bar repeated it without saying what it was.
         self._overall_bar: QProgressBar = QProgressBar(self)
         self._overall_bar.setRange(0, 100)
         self._overall_bar.setValue(0)
         self._overall_bar.setTextVisible(True)
-        overall_row.addWidget(self._overall_bar, stretch=1)
-        root.addLayout(overall_row)
+        self._overall_bar.setFormat(_BAR_FORMAT_IDLE)
+        root.addWidget(self._overall_bar)
 
-        # --- Status line + current-task progress bar ---
-        # The status label names the current operation; the task bar
-        # tracks that one operation's 0-100% (it resets read→verify→encode).
+        # --- Status line ---
+        # Names the current operation and its own percentage, and at the end of
+        # a rip carries the finished line.
         self._status_label: QLabel = QLabel("Idle.", self)
         # PlainText, like every label in this pane that is given a value later:
         # this one shows cyanrip's own fatal sentence, and Qt's default AutoText
@@ -439,26 +407,6 @@ class RipProgress(QWidget):
         self._stall_label.setVisible(False)
         apply_status_style(self._stall_label, "warn")
         root.addWidget(self._stall_label)
-
-        # --- CTDB's per-track disagreement, as a NOTE (never WRONG) ---
-        # The status line's detail once CTDB answers: which tracks CTDB questions
-        # that AccurateRip does not contradict, and that AccurateRip is the
-        # verdict (`ctdb_disagreement`, the owner's word for 0.7.119). Right under
-        # the status line rather than in the Details tab, so a user reading the
-        # end-of-rip line sees it without opening anything. The ⓘ carries it
-        # without colour; the secondary style keeps it from reading as a warning.
-        self._ctdb_note_label: QLabel = QLabel("", self)
-        self._ctdb_note_label.setTextFormat(Qt.TextFormat.PlainText)
-        self._ctdb_note_label.setWordWrap(True)
-        self._ctdb_note_label.setVisible(False)
-        self._ctdb_note_label.setStyleSheet(SECONDARY_STYLE)
-        root.addWidget(self._ctdb_note_label)
-
-        self._progress_bar: QProgressBar = QProgressBar(self)
-        self._progress_bar.setRange(0, 100)
-        self._progress_bar.setValue(0)
-        self._progress_bar.setTextVisible(True)
-        root.addWidget(self._progress_bar)
 
         # --- Verification verdict banner (at-a-glance trust) ---
         # A single bold, colour-coded headline above the per-track table so the
@@ -513,6 +461,23 @@ class RipProgress(QWidget):
         )
         root.addLayout(verdict_row)
 
+        # --- The reconciled verdict: which source decides, and why ------------
+        # ONE line under the banner that reconciles AccurateRip and CTDB (UX
+        # review of 0.7.127, V2 and A3; TASKS R181). Before it, CTDB's "verified
+        # ✓" sat in the Details tab and AccurateRip's "WRONG" in the banner, both
+        # amber, and nothing said which to believe. The sentence comes from
+        # `reconciled_verdict.reconcile_verdict` and always names the source that
+        # decides; it carries the CTDB per-track note of 0.7.119 ("CTDB disagrees
+        # on track 2 (differs); AccurateRip is the verdict") word for word, which
+        # used to be its own line under the status line. It leads with ✓, ⚠ or ⓘ,
+        # so its colour is never the only signal. Hidden until CTDB answers: with
+        # no CTDB answer, the banner is the whole verdict.
+        self._reconciled_label: QLabel = QLabel("", self)
+        self._reconciled_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._reconciled_label.setWordWrap(True)
+        self._reconciled_label.setVisible(False)
+        root.addWidget(self._reconciled_label)
+
         # --- Read-effort early warning (per-track "hard to read") ---
         # Amber footnote naming tracks that needed unusually heavy re-reading (or
         # a -Z that never converged) even if they matched AccurateRip — the
@@ -541,44 +506,17 @@ class RipProgress(QWidget):
         # can never show two scrollbars and can never nest one inside another
         # (see the band comment at the top of __init__ for the measurements).
         #
-        # The order is the order you need them in: the per-track table is what
-        # you read when a rip finishes and is therefore first and default; the
-        # supporting explanations sit behind it; the live console is last because
-        # it matters *during* a rip, and `begin_rip`/`set_rip_log` switch to the
-        # right one at the right moment so you never have to click to see what is
-        # happening now.
+        # Two tabs since the per-track results moved into the one track table
+        # (UX review M2): the supporting explanations, then the live console.
+        # Details is the default, during a rip too: the review's M3 found the raw
+        # console ("Ripping and encoding track 4, progress - 100.00%") was what a
+        # rip opened on, while the track list above already follows the rip row
+        # by row. The console stays one click away.
         self._tabs: QTabWidget = QTabWidget(self)
         # Document mode: this is an interior grouping, not a top-level notebook,
         # so the heavier framed-tab look would read as a separate window.
         self._tabs.setDocumentMode(True)
         root.addWidget(self._tabs, stretch=1)
-
-        # --- AccurateRip results table ---
-        self._ar_table: QTableWidget = QTableWidget(0, len(_AR_COLUMNS), self)
-        self._ar_table.setHorizontalHeaderLabels(_AR_COLUMNS)
-        self._ar_table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self._ar_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self._ar_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._ar_table.verticalHeader().setVisible(False)
-        header = self._ar_table.horizontalHeader()
-        header.setSectionResizeMode(_AR_COL_TITLE, QHeaderView.ResizeMode.Stretch)
-        for col in (
-            _AR_COL_NUMBER,
-            _AR_COL_STATUS,
-            _AR_COL_V1,
-            _AR_COL_V2,
-            _AR_COL_EAC,
-        ):
-            header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
-        # A small minimum so the splitter can shrink this tab and free up drag
-        # slack at the default window size. Without it the pane's minimum height
-        # ≈ the whole window, leaving nothing to redistribute — the splitter
-        # handles showed the resize cursor but wouldn't move until the window was
-        # maximized (real-user report, 0.4.4). The table scrolls, so 64 px is fine.
-        self._ar_table.setMinimumHeight(64)
-        self._tabs.addTab(self._ar_table, _TAB_LABEL_TRACKS)
 
         # --- The "Details" tab: the supporting explanations -------------------
         # The three explanatory paragraphs are the *evidence* behind the headline
@@ -600,6 +538,15 @@ class RipProgress(QWidget):
         details.setContentsMargins(4, 4, 4, 4)
         self._tabs.addTab(self._details_area, _TAB_LABEL_DETAILS)
 
+        # --- The Details tab's empty state ---
+        # Shown while none of the lines below has anything, so the default tab
+        # is never a blank page (see DETAILS_PLACEHOLDER).
+        self._details_placeholder: QLabel = QLabel(DETAILS_PLACEHOLDER, self)
+        self._details_placeholder.setTextFormat(Qt.TextFormat.PlainText)
+        self._details_placeholder.setWordWrap(True)
+        self._details_placeholder.setStyleSheet(SECONDARY_STYLE)
+        details.addWidget(self._details_placeholder)
+
         # --- CTDB verdict line (second, TOC-keyed verification path) ---
         # A one-liner that only appears when a CTDB verify ran (it's an opt-in,
         # post-rip network check). The audio-CRC algorithm is now
@@ -613,20 +560,10 @@ class RipProgress(QWidget):
         self._ctdb_label.setVisible(False)
         details.addWidget(self._ctdb_label)
 
-        # --- CTDB ↔ AccurateRip reconciliation ---
-        # A neutral one-liner explaining why a CTDB "no match" and an AccurateRip
-        # "mostly accurate" are the SAME finding, not two contradictory ones (a
-        # whole-disc CRC can't match when a couple of tracks differ). Only shown
-        # when the two would otherwise look like they disagree (see
-        # verdict.reconcile_ar_ctdb); hidden the rest of the time.
-        self._ctdb_reconcile_label: QLabel = QLabel("", self)
-        self._ctdb_reconcile_label.setTextFormat(Qt.TextFormat.PlainText)
-        self._ctdb_reconcile_label.setWordWrap(True)
-        self._ctdb_reconcile_label.setVisible(False)
-        # Quieter than the main lines, but in the TEXT colour: `palette(mid)`
-        # measured ~1.1:1 on Breeze Dark (`ui/status_colours.py`).
-        self._ctdb_reconcile_label.setStyleSheet(SECONDARY_STYLE)
-        details.addWidget(self._ctdb_reconcile_label)
+        # (The CTDB ↔ AccurateRip reconciliation that sat here, explaining why a
+        # CTDB "no match" and an AccurateRip "mostly accurate" are one finding,
+        # is now part of the reconciled verdict line in the header, which every
+        # user sees without opening this tab: UX review V2.)
 
         # --- The automatic CTDB repair (KDD-47, amended 2026-11-05: no button) ---
         # What the repair did, or why it did not, in plain words and with its
@@ -666,7 +603,9 @@ class RipProgress(QWidget):
         # Cap the scrollback so a long rip doesn't blow up memory; the ripper
         # emits thousands of lines per rip.
         self._log_view.setMaximumBlockCount(10_000)
-        # Same splitter-slack reasoning as the table above.
+        # A small minimum so the splitter can shrink this pane and free up drag
+        # slack at the default window size (the 0.4.4 resize report); the log
+        # scrolls, so 64 px is fine.
         self._log_view.setMinimumHeight(64)
         self._tabs.addTab(self._log_view, _TAB_LABEL_LOG)
 
@@ -746,19 +685,16 @@ class RipProgress(QWidget):
         # "label". Name every status surface so the rip is followable without
         # sight, and so the colour-coded verdict is never the *only* signal.
         self._overall_bar.setAccessibleName("Overall rip progress")
-        self._progress_bar.setAccessibleName("Current task progress")
         self._status_label.setAccessibleName("Rip status")
         self._log_view.setAccessibleName("Rip log output")
         self._verdict_banner.setAccessibleName(_VERDICT_ACCESSIBLE_NAME)
         self._read_effort_label.setAccessibleName("Read-effort warning")
         self._stall_label.setAccessibleName("Rip stall warning")
-        self._ctdb_note_label.setAccessibleName("CTDB per-track note")
-        self._comparison_label.setAccessibleName("Re-rip comparison")
-        self._ar_table.setAccessibleName("Per-track AccurateRip results")
-        self._ctdb_label.setAccessibleName("CTDB verification result")
-        self._ctdb_reconcile_label.setAccessibleName(
-            "CTDB and AccurateRip reconciliation"
+        self._reconciled_label.setAccessibleName(
+            "Which check decides the verdict, AccurateRip or CTDB, and why"
         )
+        self._comparison_label.setAccessibleName("Re-rip comparison")
+        self._ctdb_label.setAccessibleName("CTDB verification result")
         self._ctdb_repair_label.setAccessibleName("CTDB repair result")
         self._loudness_label.setAccessibleName(
             "Album loudness and partial-match summary"
@@ -777,13 +713,69 @@ class RipProgress(QWidget):
         # mnemonic (in its label), the strip is in the tab order, and the widget
         # itself is named so a screen reader says what the grouping *is* rather
         # than just "tab bar". Ctrl+Tab / arrow keys move between tabs for free.
-        self._tabs.setAccessibleName("Rip results, details, and live log")
-        self._tabs.setTabToolTip(_TAB_TRACKS, "Per-track AccurateRip results")
+        self._tabs.setAccessibleName("Rip details and live log")
         self._tabs.setTabToolTip(
             _TAB_DETAILS,
-            "CTDB verification, read-effort caveats, and album loudness",
+            "CTDB verification, the CTDB repair, and album loudness",
         )
         self._tabs.setTabToolTip(_TAB_LOG, "Live output from the ripper")
+
+    def event(self, event: QEvent) -> bool:
+        """Keep the pane's minimum height honest whenever its contents change.
+
+        A label's new text, a line shown or hidden, or a new width all reach this
+        widget as a ``LayoutRequest`` or a ``Resize``, and each can change how
+        tall the header must be. See :meth:`_fit_minimum_height` for why.
+        """
+        handled = super().event(event)
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize):
+            self._fit_minimum_height()
+        return handled
+
+    def _fit_minimum_height(self) -> None:
+        """Set the minimum height to what the header needs at the current width.
+
+        THE v0.5.15 TRAP, met again by this pane's own redesign (R179): a
+        QVBoxLayout given less height than its word-wrapped labels need does not
+        clip and does not scroll; it overflows, and the labels are drawn over the
+        tabs. A wrapped label's minimum size is ONE line, so the pane's minimum
+        said it fit in a height it did not. With the results table gone the
+        splitter gives this pane less room than before, and the verdict banner,
+        the reconciled line and the finished status line together run to six or
+        seven lines on a 1000 px window: measured, the reconciled line's last
+        line was drawn under the tab strip.
+
+        So the minimum is computed from the height each visible header item needs
+        AT THIS WIDTH (``heightForWidth``), plus the tabs' and the footer's own
+        minimums. The splitter honours a child's minimum, so a long verdict now
+        takes its room from the track list above instead of drawing over the
+        tabs; the track list has its own floor. Cheap (a dozen items) and set
+        only when it changes.
+        """
+        layout = self.layout()
+        if layout is None:
+            return
+        width = self.width()
+        if width <= 0:
+            return
+        margins = layout.contentsMargins()
+        inner = max(1, width - margins.left() - margins.right())
+        needed = margins.top() + margins.bottom()
+        shown = 0
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            if item is None or item.isEmpty():
+                continue
+            shown += 1
+            if item.widget() is self._tabs:
+                needed += self._tabs.minimumSizeHint().height()
+            elif item.hasHeightForWidth():
+                needed += item.heightForWidth(inner)
+            else:
+                needed += item.minimumSize().height()
+        needed += layout.spacing() * max(0, shown - 1)
+        if needed != self.minimumHeight():
+            self.setMinimumHeight(needed)
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 — Qt override
         """Recolour the status lines when the desktop's colours change.
@@ -806,7 +798,9 @@ class RipProgress(QWidget):
         """Reset to the idle state. Called when starting a new rip."""
         self._status_label.setText("Idle.")
         self._overall_bar.setValue(0)
-        self._progress_bar.setValue(0)
+        self._rip_tracks = ()
+        self._current_track = None
+        self._refresh_bar_format()
         self._log_view.clear()
         self._verdict_banner.clear()
         self._verdict_banner.setVisible(False)
@@ -814,16 +808,15 @@ class RipProgress(QWidget):
         self._read_effort_label.setVisible(False)
         self._comparison_label.clear()
         self._comparison_label.setVisible(False)
-        self._ar_table.setRowCount(0)
         self._ctdb_label.clear()
         self._ctdb_label.setVisible(False)
-        self._ctdb_reconcile_label.clear()
-        self._ctdb_reconcile_label.setVisible(False)
         self._ctdb_repair_label.clear()
         self._ctdb_repair_label.setVisible(False)
-        self._ctdb_note_label.clear()
-        self._ctdb_note_label.setVisible(False)
+        self._reconciled_label.clear()
+        self._reconciled_label.setVisible(False)
         self._ctdb_tracks = ()
+        self._ctdb_result = None
+        self._repair_result = None
         self._loudness_label.clear()
         self._loudness_label.setVisible(False)
         self._stall_label.clear()
@@ -853,6 +846,7 @@ class RipProgress(QWidget):
         self._verdict_base_message = ""
         self._verdict_downgrades = []
         self._verdict_attention = ()
+        self._verdict_render_level = ""
         self._verdict_level = None
         self._verdict_banner.setToolTip("")
         self._verdict_failure = ""
@@ -865,6 +859,8 @@ class RipProgress(QWidget):
         # label — a stale ⚠ on an empty tab would send the user looking for a
         # caveat that no longer exists.
         self._refresh_details_tab_marker()
+        # The track table drops the last rip's Verified column and results.
+        self._emit_track_results()
 
     def _refresh_details_tab_marker(self) -> None:
         """Mark the Details tab when it is holding something the user should see.
@@ -887,13 +883,30 @@ class RipProgress(QWidget):
         # knowing once.)
         has_warning = any(
             not label.isHidden() and bool(label.text())
-            for label in (self._ctdb_label, self._ctdb_reconcile_label)
+            for label in (self._ctdb_label, self._ctdb_repair_label)
+        )
+        # The empty state shows only while nothing else in the tab does.
+        self._details_placeholder.setVisible(
+            all(
+                label.isHidden() or not label.text()
+                for label in (
+                    self._ctdb_label,
+                    self._ctdb_repair_label,
+                    self._loudness_label,
+                )
+            )
         )
         label = f"⚠ {_TAB_LABEL_DETAILS}" if has_warning else _TAB_LABEL_DETAILS
         if self._tabs.tabText(_TAB_DETAILS) != label:
             self._tabs.setTabText(_TAB_DETAILS, label)
 
-    def begin_rip(self, rip_dir: Path | None, live_log: Path | None) -> None:
+    def begin_rip(
+        self,
+        rip_dir: Path | None,
+        live_log: Path | None,
+        *,
+        tracks: Sequence[int] = (),
+    ) -> None:
         """At rip START, make the in-progress rip reachable immediately.
 
         Enables **Open rip folder** (→ ``rip_dir``, which cyanrip populates as it
@@ -903,17 +916,61 @@ class RipProgress(QWidget):
         :meth:`set_log_path` supersedes these with the backend's own richer
         ``.log`` / ``.cue`` / JSON report. Report + cue stay disabled until then
         (they don't exist yet). Call after :meth:`clear`.
+
+        ``tracks`` are the track numbers this rip reads, in order, for the bar's
+        "Track 5 of 14" (:meth:`set_current_track`); empty when unknown, and the
+        bar then says only the percentage.
         """
+        self._rip_tracks = tuple(tracks)
+        self._current_track = None
+        self._refresh_bar_format()
         self._rip_dir = rip_dir
         self._inprogress_rip_dir = rip_dir
         self._live_log_path = live_log
         self._open_folder_button.setEnabled(rip_dir is not None)
         self._view_log_button.setEnabled(live_log is not None)
-        # Show the live console for the duration of the rip. During a rip the
-        # console is the interesting tab and the results table is empty, so
-        # landing on anything else would mean the user has to click to watch
-        # their own rip. `set_rip_log` switches back to Tracks at the end.
-        self._tabs.setCurrentIndex(_TAB_LOG)
+        # NOT the live console (UX review M3). The track list above follows the
+        # rip row by row, which is what a person watches; the raw console is one
+        # click away for whoever wants it. (It used to be switched to here, and
+        # the rip opened on "Ripping and encoding track 4, progress - 100.00%".)
+        self._tabs.setCurrentIndex(_TAB_DETAILS)
+
+    def set_current_track(self, number: int) -> None:
+        """The rip has moved on to track ``number``: say so in the bar.
+
+        Connected to the rip worker's ``current_track`` signal (queued to the GUI
+        thread). Only the bar's text changes; its value stays the whole rip's
+        percentage (:meth:`set_progress`).
+        """
+        self._current_track = number
+        self._refresh_bar_format()
+
+    def bar_text(self) -> str:
+        """The one progress bar's text as shown ("Track 5 of 14 — 31% of the rip")."""
+        return self._overall_bar.text()
+
+    def _refresh_bar_format(self) -> None:
+        """Label the one bar with the track it is on, and what its percentage is.
+
+        "Track 5 of 14 — %p% of the rip" for a whole-disc rip; for a rip of some
+        tracks, "Track 5 (2 of 3) — %p% of the rip", because "Track 5 of 3"
+        would be nonsense and the disc's own number is the one in the table. A
+        track the rip was not told about (a securing re-read is still one of the
+        rip's tracks, so this is only a defensive case) is named alone.
+        """
+        number = self._current_track
+        tracks = self._rip_tracks
+        if number is None:
+            text = _BAR_FORMAT_IDLE
+        elif number in tracks and tracks == tuple(range(1, len(tracks) + 1)):
+            text = f"Track {number} of {len(tracks)} — {_BAR_FORMAT_IDLE}"
+        elif number in tracks:
+            position = tracks.index(number) + 1
+            text = f"Track {number} ({position} of {len(tracks)}) — {_BAR_FORMAT_IDLE}"
+        else:
+            text = f"Track {number} — {_BAR_FORMAT_IDLE}"
+        if self._overall_bar.format() != text:
+            self._overall_bar.setFormat(text)
 
     def set_stall_notice(self, text: str | None) -> None:
         """Show (``text``) or hide (``None``) the stall banner.
@@ -985,15 +1042,18 @@ class RipProgress(QWidget):
             self._scroll_log_to_end()
 
     def set_progress(self, overall: float, task: float) -> None:
-        """Update both progress bars.
+        """Update the one progress bar.
 
-        `overall` is the whole-rip percentage (monotonic); `task` is the
-        current operation's own 0-100%. The status label is driven
-        separately via `set_status` (fed from the rip worker's phase
+        `overall` is the whole-rip percentage (monotonic) and drives the bar.
+        `task` is the current operation's own 0-100%; it is accepted because the
+        worker's signal carries it, and not drawn, because the status line
+        already says it ("Ripping track 5 of 14… 62%") and a second bar for it
+        was the unlabelled one the UX review's M2 found. The status label is
+        driven separately via `set_status` (fed from the rip worker's phase
         signal), so the label stays meaningful during phases that have no
         numeric percent.
 
-        **Both values are clamped, and non-finite ones are dropped.** This is the
+        **The value is clamped, and a non-finite one is dropped.** This is the
         last line of defence before an `int()` that runs on the GUI thread, and
         `int()` on a non-finite float *raises* — `OverflowError` for `inf`,
         `ValueError` for `nan`. Either would escape a queued slot into the
@@ -1007,7 +1067,7 @@ class RipProgress(QWidget):
         process and a guard here costs two comparisons (audit, 2026-07-31).
         """
         self._overall_bar.setValue(_bar_value(overall))
-        self._progress_bar.setValue(_bar_value(task))
+        del task  # said by the status line; see the docstring
 
     def set_status(self, text: str) -> None:
         """Set the status label, prefixed with the wall-clock time it was set.
@@ -1113,8 +1173,16 @@ class RipProgress(QWidget):
         # repeats the mistake. The banner then says exactly what the report says
         # (`tests/test_disc_identity.py`, the banner and report word a mismatch
         # identically), which is the right state for a verdict with two causes.
-        if level == "warn" and self._verdict_attention and not self._verdict_downgrades:
-            text = f"{text} {next_step_sentence(self._verdict_attention)}"
+        #
+        # Nor for a track a CTDB repair replaced and a fresh CTDB check confirmed:
+        # the reconciled line says CTDB decides it, and "re-rip track 9" under
+        # "CTDB decides track 9" would be two instructions about one file.
+        self._verdict_render_level = level
+        attention = tuple(
+            n for n in self._verdict_attention if n not in self._repaired_confirmed()
+        )
+        if level == "warn" and attention and not self._verdict_downgrades:
+            text = f"{text} {next_step_sentence(attention)}"
         # A FAILED RIP OUTRANKS ITS VERDICT (UX review E1). The failure's
         # sentence comes first, at the error level with its ✖; whatever the
         # partial log's verdict says follows on the next line, because the
@@ -1206,6 +1274,9 @@ class RipProgress(QWidget):
         """
         # Kept so the async CTDB verdict can reconcile itself against AccurateRip.
         self._last_rip_log = rip_log
+        # The rip is over, so the one bar no longer names a track it is on.
+        self._current_track = None
+        self._refresh_bar_format()
         message, level = accuraterip_verdict(
             rip_log,
             disc_track_total=disc_track_total,
@@ -1232,7 +1303,7 @@ class RipProgress(QWidget):
         detail = contradicted_tracks_sentence(contradictions)
         self._verdict_banner.setToolTip(
             plain_tooltip(
-                f"{detail}. The Tracks tab shows each track's AccurateRip result."
+                f"{detail}. The track list's Verified column shows each track's result."
                 if detail
                 else ""
             )
@@ -1246,74 +1317,21 @@ class RipProgress(QWidget):
         if effort:
             announce(self._read_effort_label, effort)
 
-        tracks = rip_log.tracks
-        self._ar_table.setRowCount(len(tracks))
-        for row, track in enumerate(tracks):
-            number_item = QTableWidgetItem(str(track.number))
-            title_item = QTableWidgetItem(_basename(track.filename))
-            status_text, status_tip = _status_cell(track)
-            status_item = QTableWidgetItem(status_text)
-            status_item.setToolTip(plain_tooltip(status_tip))
-            # Pass the frame-450 result so a track where only that frame matched
-            # (v1/v2 "not found") says so, rather than cyanrip's "…or bad rip",
-            # which names a cause just as the old "pressing" wording did.
-            offset = track.accuraterip_offset
-            # cyanrip's per-track "Accurip:" status — the only thing that says
-            # whether a lookup happened at all. Without it, a disc nobody looked
-            # up read as "in DB, no match" (audit, 2026-07-31).
-            lookup = getattr(track, "accuraterip_lookup", None)
-            v1_item = QTableWidgetItem(
-                _ar_cell(track.accuraterip_v1, offset_result=offset, lookup=lookup)
-            )
-            v2_item = QTableWidgetItem(
-                _ar_cell(track.accuraterip_v2, offset_result=offset, lookup=lookup)
-            )
-            # Footnote the cells that need one — the one-frame explanation
-            # (#4 of the 2026-07-09 trust improvements) and the "in the database
-            # but nothing matched" explanation. `_ar_tooltip` reads the SAME
-            # `_ar_state` as the cell text above, so the words and their
-            # explanation can't disagree; deciding it here by hand is what let
-            # the two drift before. Qt shows no tooltip for an empty string, so
-            # an unremarkable cell needs no branch.
-            v1_item.setToolTip(
-                plain_tooltip(
-                    _ar_tooltip(
-                        track.accuraterip_v1, offset_result=offset, lookup=lookup
-                    )
-                )
-            )
-            v2_item.setToolTip(
-                plain_tooltip(
-                    _ar_tooltip(
-                        track.accuraterip_v2, offset_result=offset, lookup=lookup
-                    )
-                )
-            )
-            eac_text, eac_tip = _eac_cell(track)
-            eac_item = QTableWidgetItem(eac_text)
-            eac_item.setToolTip(plain_tooltip(eac_tip))
-            self._ar_table.setItem(row, _AR_COL_NUMBER, number_item)
-            self._ar_table.setItem(row, _AR_COL_TITLE, title_item)
-            self._ar_table.setItem(row, _AR_COL_STATUS, status_item)
-            self._ar_table.setItem(row, _AR_COL_V1, v1_item)
-            self._ar_table.setItem(row, _AR_COL_V2, v2_item)
-            self._ar_table.setItem(row, _AR_COL_EAC, eac_item)
-
-        # A CTDB answer that arrived first is applied to the fresh rows.
-        self._render_ctdb_note()
+        # The per-track cells for the track table, and the reconciled line: a
+        # CTDB answer that arrived first is applied to them here.
+        self._render_reconciled()
 
         # Album loudness + partial-accurate footnote (data cyanrip already
         # logged; previously only in the JSON). Hidden when there's nothing.
         summary = loudness_summary_line(rip_log)
         self._loudness_label.setText(summary)
         self._loudness_label.setVisible(bool(summary))
+        self._refresh_details_tab_marker()
 
-        # The rip is over, so the per-track results are what matters now — switch
-        # away from the live console the user was watching. Only when there is
-        # actually a table to show: an empty result set would swap a console with
-        # useful output for a blank grid.
-        if self._ar_table.rowCount():
-            self._tabs.setCurrentIndex(_TAB_TRACKS)
+        # The rip is over: show the Details tab, whatever the user was reading
+        # during it (the console, say). The per-track results are in the track
+        # list above, which needs no tab.
+        self._tabs.setCurrentIndex(_TAB_DETAILS)
 
     def set_comparison(self, comparison: object) -> None:
         """Show the re-rip comparison banner from a RipComparison.
@@ -1340,11 +1358,19 @@ class RipProgress(QWidget):
         self._refresh_details_tab_marker()
         self._announce_ctdb(text)
 
-    def set_ctdb_repair(self, text: str, level: str) -> None:
+    def set_ctdb_repair(
+        self, text: str, level: str, *, result: object | None = None
+    ) -> None:
         """Show what the automatic CTDB repair did, or why it did not.
 
         ``text`` carries its own marker (``✓``/``⚠``/``ⓘ``), so the colour from
         ``level`` is never the only signal. Empty ``text`` hides the line.
+
+        ``result`` is the repair's finished result (the CTDB result carrying its
+        ``repair`` record and ``after_repair`` check), when there is one: the
+        reconciled line and the track table then say which tracks were repaired
+        and whether a fresh CTDB check confirmed them. None (the in-progress
+        line) leaves what they say unchanged.
         """
         self._ctdb_repair_label.setText(text)
         apply_status_style(self._ctdb_repair_label, level)
@@ -1352,6 +1378,9 @@ class RipProgress(QWidget):
         if text:
             self._refresh_details_tab_marker()
             self._announce_ctdb(text)
+        if result is not None:
+            self._repair_result = result
+            self._render_reconciled()
 
     def set_ctdb_result(self, result: CtdbVerifyResult) -> None:
         """Render the final CTDB verdict under the AccurateRip table.
@@ -1361,32 +1390,19 @@ class RipProgress(QWidget):
         (``result.trustworthy`` False), a match falls back to an "experimental"
         label — we never claim a verification the algorithm can't stand behind.
         """
-        verdict_text = ctdb_verdict_line(result)
+        level = ctdb_verdict_level(result, self._last_rip_log)
+        verdict_text = ctdb_display_line(result, level)
         self._ctdb_label.setText(verdict_text)
-        apply_status_style(
-            self._ctdb_label, ctdb_verdict_level(result, self._last_rip_log)
-        )
+        apply_status_style(self._ctdb_label, level)
         self._ctdb_label.setVisible(True)
         self._announce_ctdb(verdict_text)
 
-        # Reconcile against AccurateRip so a CTDB "no match" beside an
-        # AccurateRip "mostly accurate" doesn't read as a contradiction. Shown
-        # only when the two would otherwise look like they disagree.
-        reconciliation = (
-            reconcile_ar_ctdb(self._last_rip_log, result)
-            if self._last_rip_log is not None
-            else None
-        )
-        if reconciliation:
-            self._ctdb_reconcile_label.setText(reconciliation)
-            self._ctdb_reconcile_label.setVisible(True)
-        else:
-            self._ctdb_reconcile_label.clear()
-            self._ctdb_reconcile_label.setVisible(False)
-        # Where CTDB questions a track AccurateRip does not contradict: a note in
-        # the table and under the status line, never a WRONG.
+        # The reconciled line under the banner says which of the two decides,
+        # and the track table's cells take CTDB's per-track answer (its ⓘ note
+        # on a track CTDB questions that AccurateRip does not contradict).
+        self._ctdb_result = result
         self._ctdb_tracks = tuple(getattr(result, "tracks", ()) or ())
-        self._render_ctdb_note()
+        self._render_reconciled()
         # The Details tab now holds a verdict the user has not seen — put the
         # marker on its label so they know to look, rather than discovering it
         # only if they happen to click.
@@ -1439,34 +1455,66 @@ class RipProgress(QWidget):
 
     # --- Internals ----------------------------------------------------------
 
-    def _render_ctdb_note(self) -> None:
-        """Show where CTDB disagrees about a track AccurateRip does not contradict.
+    def track_results(self) -> dict[int, TrackResultCells]:
+        """The per-track cells last handed to the track table, by track number."""
+        return dict(self._track_results)
 
-        Reads the one predicate (``ctdb_disagreement.ctdb_disagreements``) from
-        the kept rip log and CTDB rows, rewrites each table row's Status cell
-        through :func:`_status_cell` (so a row is rendered from its track, never
-        appended to twice), and shows or hides the note under the status line.
-        Called by :meth:`set_rip_log` and :meth:`set_ctdb_result`, so the order
-        the two arrive in does not matter.
+    def reconciled_text(self) -> str:
+        """The reconciled verdict line as shown, or "" while it is hidden."""
+        return (
+            "" if self._reconciled_label.isHidden() else self._reconciled_label.text()
+        )
+
+    def _repaired_confirmed(self) -> frozenset[object]:
+        """Tracks a CTDB repair replaced and a fresh CTDB check confirmed."""
+        return frozenset(
+            n for n, agrees in repaired_tracks(self._repair_result).items() if agrees
+        )
+
+    def _emit_track_results(self) -> None:
+        """Recompute the track table's cells from what this pane holds; emit them.
+
+        Empty with no rip log (a cleared pane), so the table drops the last
+        rip's Verified column. Read from the same three inputs as the reconciled
+        line, at the same moments, so the two cannot describe one rip two ways.
         """
         rip_log = self._last_rip_log
-        found = ctdb_disagreements(self._ctdb_tracks, rip_log)
-        kinds = dict(found)
-        tracks = rip_log.tracks if rip_log is not None else ()
-        for row, track in enumerate(tracks[: self._ar_table.rowCount()]):
-            text, tip = _status_cell(track, kinds.get(track.number))
-            item = self._ar_table.item(row, _AR_COL_STATUS)
-            if item is not None:
-                item.setText(text)
-                item.setToolTip(plain_tooltip(tip))
-        sentence = ctdb_note_sentence(found)
-        if sentence:
-            self._ctdb_note_label.setText(f"{sentence}.")
-            self._ctdb_note_label.setVisible(True)
-            announce(self._ctdb_note_label, sentence)
-        else:
-            self._ctdb_note_label.clear()
-            self._ctdb_note_label.setVisible(False)
+        self._track_results = (
+            result_cells(rip_log, self._ctdb_tracks, self._repair_result)
+            if rip_log is not None
+            else {}
+        )
+        self.track_results_changed.emit(dict(self._track_results))
+
+    def _render_reconciled(self) -> None:
+        """Re-render the reconciled verdict line and the track table's cells.
+
+        Called by :meth:`set_rip_log`, :meth:`set_ctdb_result` and
+        :meth:`set_ctdb_repair`, so the order the three inputs arrive in does not
+        matter: each one re-renders from all three. The line is hidden until
+        CTDB has answered (``reconcile_verdict`` returns None), and announced to
+        a screen reader once per distinct sentence.
+        """
+        self._emit_track_results()
+        if self._repair_result is not None and self._verdict_render_level:
+            # A confirmed repair takes its tracks out of the banner's next step.
+            self._render_verdict_banner(self._verdict_render_level)
+        verdict = reconcile_verdict(
+            self._last_rip_log, self._ctdb_result, self._repair_result
+        )
+        if verdict is None:
+            self._reconciled_label.clear()
+            self._reconciled_label.setVisible(False)
+            return
+        changed = verdict.text != self._reconciled_label.text()
+        self._reconciled_label.setText(verdict.text)
+        # Not bold: the banner above is the headline, and two bold amber
+        # paragraphs one under the other was the weight the UX review's A3 found
+        # separated nothing. The marker and the colour still carry the level.
+        apply_status_style(self._reconciled_label, verdict.level, bold=False)
+        self._reconciled_label.setVisible(True)
+        if changed:
+            announce(self._reconciled_label, verdict.text)
 
     def _announce_ctdb(self, text: str) -> None:
         """Announce a CTDB line once — the in-progress ping, then the verdict.
@@ -1694,6 +1742,25 @@ def ctdb_verdict_level(result: CtdbVerifyResult, rip_log: object = None) -> str:
     return "neutral"
 
 
+def ctdb_display_line(result: CtdbVerifyResult, level: str) -> str:
+    """The Details tab's CTDB line, which never says "verified ✓" in amber.
+
+    :func:`ctdb_verdict_line` words a trustworthy match "CTDB: verified ✓", and
+    :func:`ctdb_verdict_level` makes it amber when AccurateRip rejects a track:
+    the UX review's A3 found exactly that, a "verified ✓" whose colour said the
+    opposite. So at the warn level the match is worded as what it is, a match of
+    the whole disc that the reconciled line above weighs against AccurateRip,
+    with a ``⚠`` that agrees with the colour. Every other line is unchanged.
+    """
+    text = ctdb_verdict_line(result)
+    if level == "warn" and result.verdict is Verdict.MATCH and result.trustworthy:
+        return (
+            f"CTDB: ⚠ the whole disc matches (confidence {result.confidence}), but "
+            "AccurateRip rejects a track; the verdict line above says which decides."
+        )
+    return text
+
+
 def loudness_summary_line(rip_log: object) -> str:
     """One-line album-loudness + partial-accurate footnote, or "" when there's
     nothing to show.
@@ -1800,261 +1867,4 @@ def read_effort_summary_line(rip_log: object) -> str:
     return (
         f"⚠ Track(s) {listed} needed heavy re-reading — the read may not be "
         "reproducible; re-rip to confirm."
-    )
-
-
-# Banner colours live in `ui/status_colours.py`: one variant per level for light
-# themes and one for dark, chosen from the label's own palette. The fixed hex
-# values that used to sit here were described as reading on both and measured
-# 2.5-3.2:1 on Breeze Dark (WCAG AA is 4.5:1).
-
-
-def _basename(path: str) -> str:
-    """Render a track filename as just its basename without extension."""
-    if not path:
-        return ""
-    stem = Path(path).stem
-    return stem or path
-
-
-def _status_cell(track: object, ctdb_kind: str | None = None) -> tuple[str, str]:
-    """The Status column for a track: ``(text, tooltip)``.
-
-    The ripper's own word ("ripped successfully") unless AccurateRip contradicts
-    the copy (``verdict.track_accuraterip_contradiction``, the one predicate the
-    EAC-layout log and the report ask). Then a ``⚠`` and the finding replace it,
-    because the ripper's word is clean and the plan of record (2026-10-26, row 8)
-    forbids clean wording over such a track. The tooltip is the EAC-layout log's
-    ``Proof:`` row, from the same function, plus the ripper's word, so nothing
-    is hidden. The ``⚠`` carries the status without colour.
-
-    ``ctdb_kind`` is what ``ctdb_disagreement.ctdb_disagreements`` said of this
-    track (None when CTDB agrees, did not answer, or AccurateRip already
-    contradicts it). Then the ripper's word stays and an ``ⓘ`` note follows it,
-    with the note's sentence as the tooltip: CTDB's disagreement is information,
-    and AccurateRip is the verdict. Never raises.
-    """
-    status = str(getattr(track, "status", "") or "")
-    contradiction = track_accuraterip_contradiction(track)
-    if contradiction is None:
-        if ctdb_kind is None:
-            return status, ""
-        number = getattr(track, "number", "?")
-        note = ctdb_note_sentence([(number, ctdb_kind)])
-        said = f" The ripper reported: “{status}”." if status else ""
-        return (f"{status} · {CELL_NOTE}" if status else CELL_NOTE), f"{note}.{said}"
-    text = (
-        "⚠ Wrong (AccurateRip)"
-        if contradiction == AR_CONTRADICTION_WRONG
-        else "⚠ Differs from AccurateRip"
-    )
-    said = f" The ripper reported: “{status}”." if status else ""
-    return text, f"Proof: {contradiction_sentence(track, contradiction)}.{said}"
-
-
-def _copy_is_ok(status: str) -> bool:
-    """True when a track's status is a clean copy (EAC's 'Copy OK')."""
-    return status.strip().lower() in ("copy ok", "ripped successfully")
-
-
-def _eac_cell(track: object) -> tuple[str, str]:
-    """Render the EAC column for a track: the EAC CRC32 value + an archival mark.
-
-    Returns ``(text, tooltip)``. The value is cyanrip's per-track EAC CRC32 (the
-    same "Copy CRC" the companion log carries), so it can be diffed against a
-    real EAC rip. The trailing glyph is an at-a-glance, HONEST archival mark —
-    never a claim that our log equals an EAC-signed one (Platterpus never signs
-    an EAC log):
-
-    * ``✓`` — the track is AccurateRip-verified *and* its copy is OK. The rip as
-      a whole is read-offset-corrected with no read errors, so a verified track
-      meets the archival bar we can actually check.
-    * ``~`` — only one frame (frame 450) matched AccurateRip; the rest of the
-      track is unverified (never a false ✓).
-    * (no glyph) — a real CRC we recorded but can't externally verify (not in
-      the AccurateRip database).
-
-    Never raises (duck-typed via ``getattr`` / the shared match helpers).
-    """
-    crc = (getattr(track, "copy_crc", "") or "").upper()
-    if not crc:
-        return "—", "No per-track EAC CRC32 was recorded for this track."
-    status = getattr(track, "status", "") or ""
-    if track_accuraterip_verified(track) and _copy_is_ok(status):
-        return (
-            f"{crc}  {_EAC_VERIFIED}",
-            "EAC-format CRC32. ✓ = AccurateRip-verified and copy OK; the rip is "
-            "read-offset-corrected with no read errors, so this track meets the "
-            "archival bar we can verify. NOT a claim of EAC-checksum equivalence "
-            "— Platterpus never signs an EAC log.",
-        )
-    if accuraterip_is_match(getattr(track, "accuraterip_offset", None)):
-        return (
-            f"{crc}  {_EAC_PARTIAL}",
-            "EAC-format CRC32. ~ = only one frame (frame 450) of this track "
-            "matched AccurateRip; the rest of the track is unverified.",
-        )
-    return (
-        crc,
-        "EAC-format CRC32 (compare against a real EAC log). No ✓: this track "
-        "didn't match the AccurateRip database — either it isn't present, or the "
-        "read didn't match a stored copy — so it can't be independently verified.",
-    )
-
-
-# --- The AccurateRip states, decided in ONE place ---------------------------
-#
-# AccurateRip can put a track in exactly four states, and the project's dominant
-# bug shape is each render surface re-deriving them with its own if-chain (four
-# such disagreements shipped in one week — see tests/test_surface_consistency.py).
-# Naming the states, and deciding them once in `_ar_state`, means the cell text
-# and the cell tooltip cannot drift apart *within* this module; the fitness test
-# then guards the harder seam — that this module and the durable EAC-compatible
-# log (`eac_log_export._accuraterip_line`) put the same track in the same state.
-#
-# Values are plain strings, not an Enum, because they are only ever compared
-# against these constants and a string keeps the debugger/log output readable.
-# The state names and the classifier now live in `platterpus.verdict`, the module
-# whose whole purpose is "one definition of verified" — because the EAC log
-# renderer needs the identical classification and two copies is how the two
-# surfaces came to disagree. Aliased to the old private names so this file's
-# rendering code reads unchanged.
-_AR_STATE_VERIFIED = AR_STATE_VERIFIED
-_AR_STATE_OFFSET_VARIANT = AR_STATE_OFFSET_VARIANT
-_AR_STATE_NO_MATCH = AR_STATE_NO_MATCH
-_AR_STATE_ABSENT = AR_STATE_ABSENT
-_AR_STATE_NO_DATA = AR_STATE_NO_DATA
-_AR_STATE_NOT_CHECKED = AR_STATE_NOT_CHECKED
-_ar_compared = accuraterip_compared
-_ar_state = accuraterip_state
-
-
-def _ar_cell(
-    result: object, *, offset_result: object = None, lookup: str | None = None
-) -> str:
-    """Render one AccurateRip cell (v1 or v2) for a track.
-
-    ``offset_result`` is the track's frame-450 result (cyanrip's "Accurip 450:").
-    When the whole-track checksum (``result``) did NOT match but frame 450 DID,
-    we say "one frame only (N)": what matched, and nothing about why. The cell
-    used to say "offset-variant match" and call the track "actually fine", which
-    was a cause nothing measured (see :mod:`platterpus.one_frame_match`); the
-    tooltip carries the rest.
-
-    The cell text is short because the column is narrow; where short text cannot
-    carry the nuance (``in DB, no match``), :func:`_ar_tooltip` supplies it.
-    Never raises (duck-typed via ``accuraterip_is_match`` / ``getattr``).
-    """
-    state = _ar_state(result, offset_result, lookup)
-    if state == _AR_STATE_VERIFIED:
-        # A genuine database match, format-agnostic across the legacy log
-        # format's "Found, exact match" and cyanrip's "accurately ripped,
-        # confidence N".
-        #
-        # "N of M", where M is the database's best confidence for this track.
-        # The bare N was close to meaningless on its own: confidence 3 is
-        # excellent on an obscure disc and a warning on a famous one. The pair is
-        # the DIFFERENT-PRESSING signal — a low own-confidence against a high
-        # maximum means most people's discs disagree with yours, which is a
-        # pressing difference rather than a bad rip. cyanrip has printed the
-        # maximum on every per-track `Accurip:` row all along and we read the row
-        # only to answer "did a lookup happen" (2026-08-24). Rendered through the
-        # shared `verdict` helper so the table, the report and any later surface
-        # cannot describe one track's standing three different ways.
-        return f"OK ({accuraterip_confidence_text(result, lookup)})"
-    if state == _AR_STATE_OFFSET_VARIANT:
-        conf = getattr(offset_result, "confidence", None)
-        return (
-            f"{one_frame_match.CELL} ({conf})"
-            if conf is not None
-            else one_frame_match.CELL
-        )
-    if state == _AR_STATE_NOT_CHECKED:
-        # NOT "not in DB" — nobody looked, so the database has no opinion. Saying
-        # "no match" here asserted both that the disc is present and that our read
-        # disagreed with it, neither of which was established.
-        return "not checked"
-    if state == _AR_STATE_NO_MATCH:
-        # THE FIX (2026-07-31): this used to say "not in DB" — a false claim
-        # about a disc the database demonstrably has. Keep it short enough for
-        # the column; NO_MATCH_TOOLTIP carries the rest.
-        return "in DB, no match"
-    if state == _AR_STATE_NO_DATA:
-        return "—"
-    # Absent: nothing was submitted for this disc, so there was nothing to
-    # compare against. Say that plainly instead of cyanrip's alarmist "either a
-    # new pressing, or bad rip" (a not-in-DB track is not necessarily a bad rip).
-    result_text = getattr(result, "result", "") or ""
-    lowered = result_text.lower()
-    if not result_text or "not present" in lowered or "not found" in lowered:
-        return "not in DB"
-    # Unrecognized wording from a future backend: show it verbatim rather than
-    # guessing, so an unexpected state is diagnosable instead of mislabelled.
-    confidence = getattr(result, "confidence", None)
-    return f"{result_text} ({confidence})" if confidence is not None else result_text
-
-
-def _ar_tooltip(
-    result: object, *, offset_result: object = None, lookup: str | None = None
-) -> str:
-    """The tooltip for one AR cell — empty when the cell text needs no footnote.
-
-    Derived from the same :func:`_ar_state` as the cell text, so a cell can never
-    show one state's words with another state's explanation. (It previously was
-    re-derived at the call site, which is the same one-fact-many-derivations
-    shape this whole module keeps getting bitten by.) Never raises.
-    """
-    state = _ar_state(result, offset_result, lookup)
-    if state == _AR_STATE_OFFSET_VARIANT:
-        return ONE_FRAME_TOOLTIP
-    if state == _AR_STATE_NOT_CHECKED:
-        return NOT_CHECKED_TOOLTIP
-    if state == _AR_STATE_NO_MATCH:
-        return NO_MATCH_TOOLTIP
-    if state == _AR_STATE_VERIFIED:
-        # A verified track needs no footnote UNLESS its own confidence is far
-        # below the database's best for the same track — which the cell now shows
-        # as "N of M" but has no room to explain. The column is narrow; this is
-        # where the nuance goes, exactly as it does for `in DB, no match`.
-        return _confidence_standing_tooltip(result, lookup)
-    return ""
-
-
-#: A verified track whose own confidence is at or below this FRACTION of the
-#: database's best gets the different-pressing footnote. A ratio, not a fixed
-#: number, because the meaning is relative: confidence 3 against a maximum of 3 is
-#: an obscure disc everyone rips identically, and confidence 3 against 200 is a
-#: pressing almost nobody else has. One quarter is a deliberately loose bar — the
-#: footnote is an explanation, not a warning, and it says what the numbers mean
-#: rather than passing judgement on the rip.
-_DIFFERENT_PRESSING_RATIO: float = 0.25
-
-#: The floor below which the ratio says nothing. With a database maximum in single
-#: figures every rip is "far below" something, and a footnote on every track is a
-#: footnote nobody reads.
-_DIFFERENT_PRESSING_MIN_MAX: int = 10
-
-
-def _confidence_standing_tooltip(result: object, lookup: str | None) -> str:
-    """Explain an "N of M" confidence pair when the gap is worth explaining.
-
-    Empty for the ordinary case — a track that matched what most people have, or
-    a disc whose database entry is too thin for the comparison to mean anything.
-    Never raises.
-    """
-    own = getattr(result, "confidence", None)
-    db_max = accuraterip_db_max_confidence(lookup)
-    if own is None or db_max is None:
-        return ""
-    if db_max < _DIFFERENT_PRESSING_MIN_MAX:
-        return ""
-    if own > db_max * _DIFFERENT_PRESSING_RATIO:
-        return ""
-    return (
-        f"This rip is bit-perfect — it matched {own} other submission(s) exactly.\n\n"
-        f"The number after 'of' is the most any single version of this track has "
-        f"({db_max}). Yours matched a much less common one, which usually means "
-        f"you have a different PRESSING of the disc — a different factory or "
-        f"release with slightly different audio. That is normal and is not a "
-        f"problem with your rip or your drive."
     )

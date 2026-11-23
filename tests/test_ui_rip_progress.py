@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
-from PySide6.QtWidgets import QApplication, QLabel, QWidget
+from PySide6.QtWidgets import QApplication, QLabel, QProgressBar, QWidget
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.parsers.rip_log import (
@@ -14,15 +14,17 @@ from platterpus.parsers.rip_log import (
     TrackResult,
 )
 from platterpus.ui.rip_progress import (
+    _TAB_DETAILS,
+    _TAB_LOG,
     RipProgress,
-    _ar_cell,
-    _basename,
-    _eac_cell,
     accuraterip_verdict,
     ctdb_verdict_level,
     ctdb_verdict_line,
     loudness_summary_line,
 )
+from platterpus.ui.track_results import TrackResultCells
+from platterpus.ui.track_results import ar_cell as _ar_cell
+from platterpus.ui.track_results import eac_cell as _eac_cell
 
 # --- Helpers --------------------------------------------------------------
 
@@ -108,15 +110,25 @@ def test_eac_cell_without_crc_is_dash() -> None:
     assert text == "—"
 
 
+def _results(widget: RipProgress) -> list[TrackResultCells]:
+    """The per-track cells the pane handed to the track table, in track order.
+
+    The pane's own results table is gone (UX review of 0.7.127, M2; TASKS R179):
+    it renders the cells and the window's one track table shows them, so the
+    tests read what the pane handed over.
+    """
+    return [cells for _number, cells in sorted(widget.track_results().items())]
+
+
 # --- Initial state -------------------------------------------------------
 
 
 def test_default_state(qapp: QApplication) -> None:
     widget = RipProgress()
     assert widget._status_label.text() == "Idle."
-    assert widget._progress_bar.value() == 0
+    assert widget._overall_bar.value() == 0
     assert widget._log_view.toPlainText() == ""
-    assert widget._ar_table.rowCount() == 0
+    assert widget.track_results() == {}
     assert widget._view_log_button.isEnabled() is False
 
 
@@ -124,22 +136,20 @@ def test_scroll_areas_have_small_minimum_height_for_splitter(
     qapp: QApplication,
 ) -> None:
     # The vertical splitter in the main window can only redistribute space if
-    # its panes can shrink. The log view and AccurateRip table are the big
-    # scrollable areas; they keep a small (≤120px) minimum so the splitter has
-    # drag slack at the default window size (0.4.x resize fix: the handles
-    # showed the resize cursor but wouldn't move until the window was maximized).
+    # its panes can shrink. The log view is the big scrollable area; it keeps a
+    # small (≤120px) minimum so the splitter has drag slack at the default
+    # window size (0.4.x resize fix: the handles showed the resize cursor but
+    # wouldn't move until the window was maximized).
     widget = RipProgress()
     assert 0 < widget._log_view.minimumHeight() <= 120
-    assert 0 < widget._ar_table.minimumHeight() <= 120
 
 
 def test_status_surfaces_have_accessible_names(qapp: QApplication) -> None:
     # Screen readers need a name on every status surface (a11y, principle #10).
     widget = RipProgress()
     assert widget._overall_bar.accessibleName()
-    assert widget._progress_bar.accessibleName()
     assert widget._verdict_banner.accessibleName()
-    assert widget._ar_table.accessibleName()
+    assert widget._reconciled_label.accessibleName()
     assert widget._ctdb_label.accessibleName()
     assert widget._loudness_label.accessibleName()
 
@@ -256,15 +266,19 @@ def test_append_log_line_adds_text(qapp: QApplication) -> None:
 # --- Progress updates ----------------------------------------------------
 
 
-def test_set_progress_updates_both_bars_only(qapp: QApplication) -> None:
-    # set_progress drives the overall + task bars; the status label is
-    # owned by set_status (fed from the worker's phase signal).
+def test_set_progress_updates_the_one_bar_only(qapp: QApplication) -> None:
+    # set_progress drives the ONE bar with the whole rip's percentage; the
+    # current operation's own percentage is the status line's (UX review M2: a
+    # second, unlabelled bar showed it), and the status label is owned by
+    # set_status (fed from the worker's phase signal).
     widget = RipProgress()
     before = widget._status_label.text()
     widget.set_progress(60.0, 42.0)
 
     assert widget._overall_bar.value() == 60
-    assert widget._progress_bar.value() == 42
+    assert widget.bar_text() == "60% of the rip"
+    assert "42" not in widget.bar_text()
+    assert len(widget.findChildren(QProgressBar)) == 1, "one progress bar"
     assert widget._status_label.text() == before  # unchanged
 
 
@@ -311,22 +325,27 @@ def test_set_rip_log_populates_table(qapp: QApplication) -> None:
 
     widget.set_rip_log(log)
 
-    assert widget._ar_table.rowCount() == 2
-    assert widget._ar_table.item(0, 0).text() == "1"
-    assert "Speak to Me" in widget._ar_table.item(0, 1).text()
-    assert widget._ar_table.item(0, 2).text() == "Copy OK"
-    assert widget._ar_table.item(0, 3).text() == "OK (14)"
-    assert widget._ar_table.item(0, 4).text() == "OK (11)"
+    assert sorted(widget.track_results()) == [1, 2]
+    one, two = _results(widget)
+    # A clean copy reads the live column's word, so a track has ONE status word
+    # before, during and after a rip (UX review M2); the ripper's is the tooltip.
+    assert one.status.text == "✓ Done"
+    assert "Copy OK" in one.status.tip
+    assert one.ar_v1.text == "OK (14)"
+    assert one.ar_v2.text == "OK (11)"
+    assert one.verified.text == "✓ 14 matching rips"
     # Track 2 — v1 not in DB, v2 missing.
-    assert widget._ar_table.item(1, 3).text() == "not in DB"
-    assert widget._ar_table.item(1, 4).text() == "—"
+    assert two.ar_v1.text == "not in DB"
+    assert two.ar_v2.text == "—"
+    assert two.verified.text == "ⓘ Not in database"
 
 
 def test_set_rip_log_empty_tracks_clears_table(qapp: QApplication) -> None:
     widget = RipProgress()
-    widget._ar_table.setRowCount(3)  # pretend we had results
+    widget.set_rip_log(RipLog(tracks=(_track(1), _track(2), _track(3))))
+    assert len(widget.track_results()) == 3  # floor: there were results
     widget.set_rip_log(RipLog())
-    assert widget._ar_table.rowCount() == 0
+    assert widget.track_results() == {}
 
 
 # --- Album loudness + partial-accurate footnote --------------------------
@@ -634,21 +653,10 @@ def test_clear_resets_all_state(qapp: QApplication, tmp_path: Path) -> None:
 
     assert widget._status_label.text() == "Idle."
     assert widget._overall_bar.value() == 0
-    assert widget._progress_bar.value() == 0
+    assert widget.bar_text() == "0% of the rip"
     assert widget._log_view.toPlainText() == ""
-    assert widget._ar_table.rowCount() == 0
+    assert widget.track_results() == {}
     assert widget._view_log_button.isEnabled() is False
-
-
-# --- _basename helper ----------------------------------------------------
-
-
-def test_basename_strips_extension() -> None:
-    assert _basename("Artist/Album/01. Title.flac") == "01. Title"
-
-
-def test_basename_handles_empty() -> None:
-    assert _basename("") == ""
 
 
 # --- _ar_cell helper -----------------------------------------------------
@@ -728,9 +736,11 @@ def test_set_rip_log_offset_variant_track_not_shown_as_bad(
         )
     )
     widget.set_rip_log(log)
-    assert widget._ar_table.item(0, 3).text() == "one frame only (28)"
-    assert widget._ar_table.item(0, 4).text() == "one frame only (28)"
-    assert "bad rip" not in widget._ar_table.item(0, 3).text()
+    (cells,) = _results(widget)
+    assert cells.ar_v1.text == "one frame only (28)"
+    assert cells.ar_v2.text == "one frame only (28)"
+    assert "bad rip" not in cells.ar_v1.text
+    assert cells.verified.text == "⚠ Mismatch"
 
 
 # --- CTDB verdict --------------------------------------------------------
@@ -970,8 +980,10 @@ def test_ctdb_no_match_shows_reconciliation(qapp: QApplication) -> None:
     widget.set_ctdb_result(
         CtdbVerifyResult(verdict=Verdict.NO_MATCH, confidence=100, crc_validated=True)
     )
-    assert widget._ctdb_reconcile_label.isHidden() is False
-    assert "only one frame matched" in widget._ctdb_reconcile_label.text()
+    # The reconciliation is part of the one reconciled line now (R181).
+    line = widget.reconciled_text()
+    assert "only one frame matched" in line
+    assert line.startswith("⚠ AccurateRip decides tracks 13 and 14:")
 
 
 def test_ctdb_match_hides_reconciliation(qapp: QApplication) -> None:
@@ -988,11 +1000,14 @@ def test_ctdb_match_hides_reconciliation(qapp: QApplication) -> None:
     widget.set_ctdb_result(
         CtdbVerifyResult(verdict=Verdict.MATCH, confidence=9, crc_validated=True)
     )
-    assert widget._ctdb_reconcile_label.isHidden() is True
+    # Both agree, so the reconciled line says so instead of explaining a
+    # disagreement.
+    assert widget.reconciled_text().startswith("✓ AccurateRip and CTDB agree")
+    assert "seem to disagree" not in widget.reconciled_text()
 
 
 def test_offset_variant_cells_get_a_tooltip(qapp: QApplication) -> None:
-    from platterpus.ui.rip_progress import _AR_COL_V1, ONE_FRAME_TOOLTIP
+    from platterpus.ui.track_results import ONE_FRAME_TOOLTIP
 
     widget = RipProgress()
     log = RipLog(
@@ -1005,11 +1020,10 @@ def test_offset_variant_cells_get_a_tooltip(qapp: QApplication) -> None:
         )
     )
     widget.set_rip_log(log)
-    item = widget._ar_table.item(0, _AR_COL_V1)
-    # Shown through `plain_tooltip` (peer review 2.6), so compared the same way.
-    from platterpus.ui.plain_text import plain_tooltip
-
-    assert item.toolTip() == plain_tooltip(ONE_FRAME_TOOLTIP)
+    (cells,) = _results(widget)
+    assert cells.ar_v1.tip == ONE_FRAME_TOOLTIP
+    # …and the Verified cell, the one on screen by default, carries it too.
+    assert ONE_FRAME_TOOLTIP in cells.verified.tip
 
 
 # --- Re-rip comparison banner (0.4.24) --------------------------------------
@@ -1339,19 +1353,17 @@ def _populate_like_a_finished_rip(pane: RipProgress) -> None:
         "offset-shifted pressings and this check only tests the standard one."
     )
     pane._ctdb_label.setVisible(True)
-    pane._ctdb_reconcile_label.setText(
-        "Why this and AccurateRip seem to disagree: 2 track(s) matched only an "
-        "offset-variant pressing, so the whole-disc CTDB CRC won't match the "
-        "database's — this is the SAME finding as Accurip 450 above, not a "
-        "separate problem."
+    pane._reconciled_label.setText(
+        "⚠ AccurateRip decides tracks 3 and 5: it says they are wrong. CTDB's "
+        "whole-disc no-match is the same finding seen from the whole disc, not a "
+        "second problem."
     )
-    pane._ctdb_reconcile_label.setVisible(True)
+    pane._reconciled_label.setVisible(True)
     pane._loudness_label.setText(
         "Album loudness: -13.9 LUFS integrated, range 8.9 LU, true peak "
         "0.8 dBFS · 2/2 tracks ripped partially accurately"
     )
     pane._loudness_label.setVisible(True)
-    pane._ar_table.setRowCount(14)
 
 
 def test_the_pane_never_paints_its_children_over_each_other(
@@ -1550,54 +1562,45 @@ def test_no_scroll_surface_is_nested_inside_another(qapp: QApplication) -> None:
     )
 
 
-def test_the_live_log_is_shown_during_a_rip_and_results_at_the_end(
+def test_the_live_log_is_not_the_default_tab_during_a_rip(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    """The tabs must follow the rip, so the user never clicks to see 'now'.
+    """UX review of 0.7.127, M3: a rip opened on cyanrip's raw console.
 
-    A tab that has to be found is worse than a cramped column, so the pane
-    switches itself: the console while ripping, the per-track results when the
-    log lands.
+    The track list above follows the rip row by row, which is what a person
+    watches; the console stays one click away. So a rip starts on Details (with
+    its empty-state sentence, never a blank page), even when the user had the
+    console open before, and the end of the rip shows Details with its findings.
     """
     pane = RipProgress()
     pane.clear()
+    pane._tabs.setCurrentIndex(_TAB_LOG)  # the user left the console open
     pane.begin_rip(tmp_path, tmp_path / "log.txt")
     qapp.processEvents()
-    assert pane._tabs.currentWidget() is pane._log_view, (
-        "during a rip the live console should be showing, not an empty table"
+    assert pane._tabs.currentWidget() is not pane._log_view, (
+        "a rip must not open on the raw console (UX review M3)"
     )
+    assert pane._tabs.currentIndex() == _TAB_DETAILS
+    assert not pane._details_placeholder.isHidden(), (
+        "the default tab during a rip is a blank page"
+    )
+    assert "Live log" in pane._details_placeholder.text()
 
-    pane.set_rip_log(
-        RipLog(
-            log_creator="cyanrip 0.9.3",
-            tracks=(_track(1),),
-        )
-    )
+    pane.set_rip_log(RipLog(log_creator="cyanrip 0.9.3", tracks=(_track(1),)))
     qapp.processEvents()
-    assert pane._tabs.currentWidget() is pane._ar_table, (
-        "when the rip log lands the per-track results should come to the front"
-    )
+    assert pane._tabs.currentIndex() == _TAB_DETAILS
 
 
-def test_an_empty_result_set_does_not_swap_away_from_the_log(
-    qapp: QApplication, tmp_path: Path
-) -> None:
-    """Don't replace a console that has output with a blank grid.
-
-    If the rip produced no per-track rows, the log is the only thing that can
-    explain why — so switching to an empty table would hide the evidence.
-    """
+def test_the_console_stays_one_click_away(qapp: QApplication, tmp_path: Path) -> None:
+    """The log tab still exists, still collects every line, and opens on them."""
     pane = RipProgress()
     pane.clear()
     pane.begin_rip(tmp_path, tmp_path / "log.txt")
     pane.append_log_line("cyanrip: could not read the disc")
+    pane._tabs.setCurrentIndex(_TAB_LOG)
     qapp.processEvents()
-
-    pane.set_rip_log(RipLog(log_creator="cyanrip 0.9.3", tracks=()))
-    qapp.processEvents()
-    assert pane._tabs.currentWidget() is pane._log_view, (
-        "with no tracks to show, the pane should stay on the log"
-    )
+    assert pane._tabs.currentWidget() is pane._log_view
+    assert "could not read the disc" in pane._log_view.toPlainText()
 
 
 def test_a_caveat_in_the_details_tab_is_marked_on_the_tab_label(
@@ -1611,12 +1614,12 @@ def test_a_caveat_in_the_details_tab_is_marked_on_the_tab_label(
     a tab to discover they should have clicked it.
     """
     pane = RipProgress()
-    plain = pane._tabs.tabText(1)
+    plain = pane._tabs.tabText(_TAB_DETAILS)
     assert "⚠" not in plain, "a fresh pane has no caveats, so no marker"
 
     pane.set_ctdb_status("Verifying against CTDB…")
     qapp.processEvents()
-    marked = pane._tabs.tabText(1)
+    marked = pane._tabs.tabText(_TAB_DETAILS)
     assert "⚠" in marked, (
         f"the Details tab holds a CTDB line but its label is {marked!r} — a user "
         "who never opens the tab has no way to know there is something in it"
@@ -1624,7 +1627,7 @@ def test_a_caveat_in_the_details_tab_is_marked_on_the_tab_label(
 
     pane.clear()
     qapp.processEvents()
-    assert "⚠" not in pane._tabs.tabText(1), (
+    assert "⚠" not in pane._tabs.tabText(_TAB_DETAILS), (
         "clearing the pane must drop the marker, or it points at a caveat that "
         "no longer exists"
     )
@@ -1661,7 +1664,7 @@ def test_the_ar_cell_shows_the_databases_best_confidence_beside_the_tracks_own()
     by a capability audit against the previous backend, which structured both
     and rendered `confidence 3 of 200`).
     """
-    from platterpus.ui.rip_progress import _ar_cell
+    from platterpus.ui.track_results import ar_cell as _ar_cell
 
     assert _ar_cell(_Conf(3), lookup=_FOUND_200) == "OK (3 of 200)"
     assert _ar_cell(_Conf(200), lookup=_FOUND_200) == "OK (200 of 200)"
@@ -1673,7 +1676,7 @@ def test_the_ar_cell_falls_back_to_the_bare_confidence_when_no_maximum_is_stated
     """Every log that carries no `Accurip:` status row — a legacy-format one, a
     hand-trimmed one, an older cyanrip — must render exactly as before. The pair is an
     addition, never a precondition."""
-    from platterpus.ui.rip_progress import _ar_cell
+    from platterpus.ui.track_results import ar_cell as _ar_cell
 
     assert _ar_cell(_Conf(14), lookup=None) == "OK (14)"
     assert _ar_cell(_Conf(14), lookup="disabled") == "OK (14)"
@@ -1685,7 +1688,7 @@ def test_a_maximum_below_the_tracks_own_confidence_is_not_rendered_as_a_pair() -
 
     Show the number we are sure of instead of an ordering we cannot account for.
     """
-    from platterpus.ui.rip_progress import _ar_cell
+    from platterpus.ui.track_results import ar_cell as _ar_cell
 
     assert (
         _ar_cell(_Conf(9), lookup="disc found in database (max confidence: 3)")
@@ -1700,7 +1703,7 @@ def test_a_far_below_maximum_confidence_gets_the_different_pressing_footnote() -
     likely cause of the gap is a different factory pressing. Saying nothing leaves
     a user to read "3 of 200" as a near-failure, which is the opposite of true.
     """
-    from platterpus.ui.rip_progress import _ar_tooltip
+    from platterpus.ui.track_results import ar_tooltip as _ar_tooltip
 
     tip = _ar_tooltip(_Conf(3), lookup=_FOUND_200)
     assert "bit-perfect" in tip, f"the footnote must not read as a failure: {tip!r}"
@@ -1715,7 +1718,7 @@ def test_the_footnote_stays_quiet_when_the_comparison_would_mean_nothing() -> No
 
     A footnote on every track is a footnote nobody reads.
     """
-    from platterpus.ui.rip_progress import _ar_tooltip
+    from platterpus.ui.track_results import ar_tooltip as _ar_tooltip
 
     assert _ar_tooltip(_Conf(200), lookup=_FOUND_200) == "", "matched the most common"
     assert _ar_tooltip(_Conf(60), lookup=_FOUND_200) == "", "well within the norm"
@@ -1734,7 +1737,8 @@ def test_the_cell_and_the_footnote_read_the_same_maximum() -> None:
     property rather than trusting the wiring: whenever the footnote fires, the
     cell it annotates must actually be showing a pair.
     """
-    from platterpus.ui.rip_progress import _ar_cell, _ar_tooltip
+    from platterpus.ui.track_results import ar_cell as _ar_cell
+    from platterpus.ui.track_results import ar_tooltip as _ar_tooltip
 
     fired = 0
     for own in (1, 3, 25, 49, 50, 51, 120, 200):

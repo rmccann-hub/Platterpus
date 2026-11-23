@@ -13,7 +13,7 @@ already existed (``open settings``, ``ok``, ``answer-dialog click=replace``,
 * ``expect-no-rip`` — no rip is running. After answering the overwrite prompt's
   Cancel, the answer that started nothing must have started nothing.
 * ``wait-for-status <seconds> <text>`` — wait until the status line under the
-  Overall bar contains ``text``, so a step can act at a phase of a rip (the
+  progress bar contains ``text``, so a step can act at a phase of a rip (the
   securing pass's ``to secure it``) rather than at a guessed time.
 
 A mixin :class:`~platterpus.uiscript.runner.ScriptRunner` inherits, like the other
@@ -63,7 +63,7 @@ def config_differences(running: dict[str, Any], on_disk: dict[str, Any]) -> list
 
 
 def status_text(window: object) -> str | None:
-    """The rip status line under the Overall bar, or ``None`` with no such line.
+    """The rip status line under the progress bar, or ``None`` with no such line.
 
     The same surface ``expect-status`` and the desktop notification read
     (``RipProgress.current_status``), so the three cannot disagree.

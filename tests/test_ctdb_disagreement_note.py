@@ -7,9 +7,16 @@ and before this change a track CTDB *differs* on, or agrees with only a
 *minority* on (``outvoted``), showed the ripper's clean "ripped successfully" in
 the results table with nothing beside it: the disagreement reached only the
 Details tab's CTDB sentence and the report. Now the track's Status cell and
-tooltip, and the note under the status line, carry an ``ⓘ`` note naming the
-track and saying that AccurateRip is the verdict, all through one predicate
-(``ctdb_disagreement.ctdb_disagreements``).
+tooltip, and the reconciled verdict line under the banner, carry an ``ⓘ`` note
+naming the track and saying that AccurateRip is the verdict, all through one
+predicate (``ctdb_disagreement.ctdb_disagreements``).
+
+**Where the note lives since R181** (UX review of 0.7.127, V2): the note used to
+be its own line under the status line, and the Status cell was in the rip pane's
+results table. The one track table's Status cell now carries it (the pane hands
+the table its cells, ``RipProgress.track_results``), and the note is part of the
+one reconciled verdict line, word for word. These tests drive the pane with the
+real F1 log and assert the note reaches that line: R181's own check.
 
 The rip log is the owner's 2026-11-03 Full run, section F (the evidence fixture
 for ``round37full1103awholedisc.log``): track 5 matched AccurateRip on frame 450
@@ -223,29 +230,31 @@ def test_every_surface_notes_a_ctdb_only_disagreement_and_none_says_wrong(
     status_line = fidelity_summary(rip_log, expected_track_total=14)
     progress.set_status(status_line)
 
-    # The results table: the ripper's word stays, the note follows it, and the
-    # tooltip carries the sentence. Never a ⚠ or a "Wrong".
-    table = progress._ar_table
-    assert table.rowCount() == 14
+    # The track table's Status cells: the clean word stays ("✓ Done", the one
+    # status word the table uses), the note follows it, and the tooltip carries
+    # the sentence and the ripper's own word. Never a ⚠ or a "Wrong".
+    cells = progress.track_results()
+    assert sorted(cells) == list(range(1, 15))
     noted: set[int] = set()
-    for row in range(14):
-        number = int(table.item(row, 0).text())
-        cell = table.item(row, 2)
-        assert not cell.text().startswith("⚠"), cell.text()
-        assert "wrong" not in (cell.text() + cell.toolTip()).lower(), cell.toolTip()
-        if NOTE_MARKER in cell.text():
+    for number, track_cells in cells.items():
+        cell = track_cells.status
+        assert not cell.text.startswith("⚠"), cell.text
+        assert "wrong" not in (cell.text + cell.tip).lower(), cell.tip
+        if NOTE_MARKER in cell.text:
             noted.add(number)
-            assert cell.text() == "ripped successfully · ⓘ CTDB disagrees"
-            assert f"track {number} (" in cell.toolTip()
-            assert "AccurateRip is the verdict" in cell.toolTip()
+            assert cell.text == "✓ Done · ⓘ CTDB disagrees"
+            assert f"track {number} (" in cell.tip
+            assert "AccurateRip is the verdict" in cell.tip
+            assert "ripped successfully" in cell.tip
         else:
-            assert cell.text() == "ripped successfully"
+            assert cell.text == "✓ Done"
 
-    # The note under the status line (the status line's detail).
-    note = progress._ctdb_note_label
+    # The reconciled verdict line carries the note, with real data (R181).
+    note = progress._reconciled_label
     assert not note.isHidden()
     assert note.text().startswith(NOTE_MARKER)
     assert "AccurateRip is the verdict" in note.text()
+    assert progress.reconciled_text() == note.text()
 
     # The surfaces that say WRONG are AccurateRip's, and none of them does.
     banner = progress._verdict_banner.text()
@@ -267,17 +276,19 @@ def test_the_note_goes_when_ctdb_agrees_and_on_clear(qapp: QApplication) -> None
     progress = RipProgress()
     progress.set_rip_log(rip_log, disc_track_total=14)
     progress.set_ctdb_result(_ctdb_result({}))
-    assert progress._ctdb_note_label.isHidden()
+    assert "CTDB disagrees" not in progress.reconciled_text()
     assert all(
-        NOTE_MARKER not in progress._ar_table.item(r, 2).text() for r in range(14)
+        NOTE_MARKER not in cells.status.text
+        for cells in progress.track_results().values()
     )
     progress.set_ctdb_result(_ctdb_result(_CTDB_QUESTIONED))
-    assert not progress._ctdb_note_label.isHidden()  # floor: it was shown
+    assert "CTDB disagrees" in progress.reconciled_text()  # floor: it was shown
     progress.clear()
-    assert progress._ctdb_note_label.isHidden()
-    assert progress._ctdb_note_label.text() == ""
+    assert progress._reconciled_label.isHidden()
+    assert progress._reconciled_label.text() == ""
+    assert progress.track_results() == {}
     progress.set_rip_log(rip_log, disc_track_total=14)
-    assert progress._ctdb_note_label.isHidden(), "a cleared CTDB answer came back"
+    assert progress._reconciled_label.isHidden(), "a cleared CTDB answer came back"
 
 
 def test_the_wrong_track_keeps_its_warning_beside_a_ctdb_note(
@@ -290,12 +301,15 @@ def test_the_wrong_track_keeps_its_warning_beside_a_ctdb_note(
     progress.set_ctdb_result(
         _ctdb_result({2: CTDB_DISAGREES_DIFFERS, 5: CTDB_DISAGREES_DIFFERS})
     )
-    cells = {
-        int(progress._ar_table.item(r, 0).text()): progress._ar_table.item(r, 2).text()
-        for r in range(14)
-    }
+    cells = {n: c.status.text for n, c in progress.track_results().items()}
     assert cells[5] == "⚠ Wrong (AccurateRip)"
-    assert cells[2] == "ripped successfully · ⓘ CTDB disagrees"
-    assert progress._ctdb_note_label.text() == (
-        "ⓘ CTDB disagrees on track 2 (differs); AccurateRip is the verdict."
-    )
+    assert cells[2] == "✓ Done · ⓘ CTDB disagrees"
+    # The line leads with AccurateRip's ⚠ for track 5, and the note about track
+    # 2 keeps its own ⓘ beside it, word for word.
+    line = progress.reconciled_text()
+    assert line.startswith("⚠ AccurateRip decides track 5:")
+    assert (
+        "ⓘ CTDB disagrees on track 2 (differs); AccurateRip is the verdict, "
+        "because AccurateRip, the per-track check, found nothing wrong with this "
+        "track."
+    ) in line

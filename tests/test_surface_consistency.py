@@ -77,7 +77,7 @@ from platterpus.rip_report import build_report
 # which is the level at which they can be compared at all. That they really are
 # what the user sees is pinned separately, in
 # ``test_the_per_track_log_line_is_what_the_rendered_log_actually_carries``.
-from platterpus.ui.rip_progress import _ar_cell
+from platterpus.ui.track_results import ar_cell as _ar_cell
 from platterpus.verdict import (
     AR_STATE_ABSENT,
     AR_STATE_NO_DATA,
