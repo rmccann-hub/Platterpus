@@ -11,6 +11,7 @@ import pytest
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QDialogButtonBox,
     QFormLayout,
     QLabel,
@@ -1449,16 +1450,21 @@ def test_each_group_has_a_bold_heading_and_one_sentence(qapp: QApplication) -> N
 
 
 def test_exactly_the_rows_a_goal_sets_carry_the_mark(qapp: QApplication) -> None:
-    """◆ before each row a preset sets, in the label column even for a
-    checkbox row with no label of its own, and before no other row."""
+    """◆ before each row a preset sets: in the label column for a row with a
+    label, and at the start of the box's own text for a checkbox row with
+    none (a lone ◆ in the label column wrapped onto a line of its own at
+    560 px, the owner's screenshots of 2026-11-23); and before no other row."""
     dialog = SettingsDialog(Config())
     goal_controls = dialog._goal_set_controls()
     assert len(goal_controls) == len(dataclasses.fields(goal_presets.GoalPreset))
     for widget in goal_controls:
-        assert _row_label(dialog, widget).startswith("◆"), widget.objectName()
+        assert _mark_text(dialog, widget).startswith("◆"), widget.objectName()
         assert "goal sets" in widget.accessibleDescription()
-    # A checkbox row had no label: the mark is its whole label.
-    assert _row_label(dialog, dialog._verify_every_track_check) == "◆"
+    # A checkbox row has no label: the mark leads the box's text, and no label
+    # column entry holds a mark alone.
+    box = dialog._verify_every_track_check
+    assert box.text().startswith("◆ Verify every track"), box.text()
+    assert _row_label(dialog, box) == ""
     assert _row_label(dialog, dialog._format_combo) == "◆ Output format:"
     others = [
         getattr(dialog, SETTING_HOMES[field].control)
@@ -1467,10 +1473,19 @@ def test_exactly_the_rows_a_goal_sets_carry_the_mark(qapp: QApplication) -> None
     unmarked = [w for w in others if w not in goal_controls]
     assert len(unmarked) >= 15, "too few unmarked rows to check"
     for widget in unmarked:
-        assert not _row_label(dialog, widget).startswith("◆"), widget.objectName()
+        assert not _mark_text(dialog, widget).startswith("◆"), widget.objectName()
     # Restore Defaults rebuilds no row, so it cannot mark one twice.
     dialog.restore_defaults()
     assert _row_label(dialog, dialog._format_combo) == "◆ Output format:"
+    assert not box.text().startswith("◆ ◆")
+
+
+def _mark_text(dialog: SettingsDialog, widget: QWidget) -> str:
+    """Where a row's ◆ would be: its label, or a label-less checkbox's text."""
+    label = _row_label(dialog, widget)
+    if not label and isinstance(widget, QCheckBox):
+        return widget.text()
+    return label
 
 
 def test_the_goal_line_says_custom_and_why_when_a_marked_row_changes(

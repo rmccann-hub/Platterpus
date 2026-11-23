@@ -37,7 +37,7 @@ from collections.abc import Iterable
 from typing import Final
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFormLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QFormLayout, QLabel, QVBoxLayout, QWidget
 
 from platterpus import goal_presets
 from platterpus.config import Config
@@ -220,17 +220,19 @@ class SettingsGroups:
             current = current.parentWidget()
         return None
 
-    def mark_goal_rows(self, widgets: Iterable[QWidget]) -> list[QLabel]:
+    def mark_goal_rows(self, widgets: Iterable[QWidget]) -> list[QWidget]:
         """Put :data:`GOAL_MARK` before the label of each of ``widgets``' rows.
 
-        A row with a label gets the mark at the start of it; a checkbox row has
-        no label (its text is on the box), so the mark gets a label of its own,
-        in the label column, where the eye looks for it. Each marked control's
-        accessible description says so too, since a screen reader reads the
-        control rather than the column beside it. Returns the labels carrying
-        the mark. Safe to call twice: a marked label is not marked again.
+        A row with a label gets the mark at the start of it. A checkbox row has
+        no label (its text is on the box), so the mark goes at the start of the
+        box's own text: a mark alone in the label column sat on a line of its
+        own above the box once a narrow window wrapped the rows (the owner's
+        screenshots of 2026-11-23). Each marked control's accessible
+        description says so too, since a screen reader reads the control rather
+        than the column beside it. Returns the widgets carrying the mark. Safe
+        to call twice: a marked label or box is not marked again.
         """
-        marked: list[QLabel] = []
+        marked: list[QWidget] = []
         for widget in widgets:
             key = self.section_of(widget)
             if key is None:
@@ -242,6 +244,13 @@ class SettingsGroups:
                 continue
             item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
             old = item.widget() if item is not None else None
+            if old is None and isinstance(widget, QCheckBox):
+                # No label column to mark: the mark leads the box's own text.
+                if not widget.text().startswith(GOAL_MARK):
+                    widget.setText(f"{GOAL_MARK} {widget.text()}")
+                widget.setAccessibleDescription("A goal sets this option.")
+                marked.append(widget)
+                continue
             text = old.text() if isinstance(old, QLabel) else ""
             if isinstance(old, QLabel) and text.startswith(GOAL_MARK):
                 marked.append(old)
