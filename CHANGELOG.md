@@ -19,6 +19,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The de-emphasis pair grades *not determined* when its two reads disagree** (contributor-facing; TASKS R185, the owner's answer of 2026-11-23): one arm misreading says something about the drive and the disc, not about de-emphasis, so it no longer fails the step.
 - **The live log shows cyanrip's running error count again** (user-facing): hiding cyanrip's own ETA from a progress line also cut off the `, errors - N` after it; only the ETA goes now (the fork's round 42 lap 1 S25 noticed).
 - **TASKS records the owner's approval of the one track table and the reconciled verdict** (contributor-facing; R179, R181, 2026-11-23).
 - **A test of `expect-newest-pair` no longer reaches GitHub** (contributor-facing): after its slowed manifest fetch returned, the step's real release check went to the network and, on a slow CI network, outlasted the 5 s thread join at teardown; it is now stood in for.

@@ -230,16 +230,16 @@ def grade_pair(
         "the checksums on the read buffer (their round 37 lap 7 S4 (d))"
     )
     if differing:
-        return PairVerdict(
-            FAIL,
-            "\n".join(
-                [
-                    f"the two arms READ different audio (track(s) "
-                    f"{', '.join(map(str, differing))}), so a loudness difference "
-                    "cannot be put down to de-emphasis",
-                    *lines,
-                ]
-            ),
+        # Not determined, never a fail (the owner's answer to TASKS R185, given
+        # 2026-11-23 and relayed in the fork's round 42 lap 1 S31): arms that
+        # READ different audio say one arm misread, which is about the drive and
+        # the disc, not about de-emphasis. Round 41's P3 failed this way on the
+        # forced arm's misread of track 1 (12 FIXUP_ATOM, evidence `193801b1`).
+        return _not_determined(
+            f"the two arms READ different audio (track(s) "
+            f"{', '.join(map(str, differing))}), so one arm misread and a "
+            "loudness difference cannot be put down to de-emphasis",
+            lines,
         )
     if abs(delta) < floor:
         return PairVerdict(

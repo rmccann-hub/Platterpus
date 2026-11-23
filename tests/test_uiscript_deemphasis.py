@@ -110,12 +110,16 @@ def test_a_difference_at_the_floor_passes_despite_float_arithmetic() -> None:
     assert verdict.state == grading.PASS, verdict.detail
 
 
-def test_arms_that_read_different_audio_fail() -> None:
+def test_arms_that_read_different_audio_are_not_determined() -> None:
+    """One arm misread, which says nothing about de-emphasis: not determined,
+    never a fail (the owner's answer to TASKS R185, 2026-11-23; round 41's P3
+    failed this way on one arm's misread of track 1)."""
     verdict = grading.grade_pair(
         _arm(lufs="-20.7"), _arm("r16deemphoff", crc="DEADBEEF", lufs="-19.9")
     )
-    assert verdict.state == grading.FAIL
+    assert verdict.state == grading.NOT_DETERMINED, verdict.detail
     assert "READ different audio" in verdict.detail
+    assert "misread" in verdict.detail
 
 
 @pytest.mark.parametrize(
