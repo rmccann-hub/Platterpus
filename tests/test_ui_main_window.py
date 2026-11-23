@@ -14792,6 +14792,51 @@ def test_settings_ok_does_not_revert_an_offset_saved_while_it_was_open(
     assert saved and saved[-1] == 6, f"save sequence was {saved}"
 
 
+def test_settings_set_up_drive_opens_the_wizard_and_shows_its_new_offset(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Settings' **Set up drive…** (TASKS R180, UX review S2), at the window.
+
+    The button opens the same wizard as Setup & Updates, for the selected
+    drive, and the read offset row then shows what the wizard saved, not the
+    offset Settings opened with. OK afterwards writes no offset back (the
+    2026-09-23 race above), because Settings edits none.
+    """
+    from platterpus.ui import settings_dialog
+
+    saved: list[int] = []
+    window = teardown_threads(
+        config=Config(read_offset=667, override_read_offset=True),
+        save_cfg=lambda cfg: saved.append(cfg.read_offset),
+    )
+    _pin_pioneer(window, monkeypatch)
+    window._set_read_offset_override(667)
+    opened: list[bool] = []
+
+    def wizard_saves_an_offset() -> None:
+        opened.append(True)
+        window._set_read_offset_override(48)
+
+    monkeypatch.setattr(window, "_on_drive_setup", wizard_saves_an_offset)
+    shown: list[str] = []
+
+    def exec_pressing_set_up_drive(self: settings_dialog.SettingsDialog) -> int:
+        assert self._drive_setup_button.isEnabled(), "a drive is selected"
+        shown.append(self._offset_status_label.text())
+        self._drive_setup_button.click()
+        shown.append(self._offset_status_label.text())
+        return int(QDialog.DialogCode.Accepted)
+
+    monkeypatch.setattr(
+        settings_dialog.SettingsDialog, "exec", exec_pressing_set_up_drive
+    )
+    window._on_open_settings()
+    assert opened == [True]
+    assert "+667 samples" in shown[0], shown
+    assert "+48 samples" in shown[1], shown
+    assert saved and saved[-1] == 48, f"save sequence was {saved}"
+
+
 def test_a_shown_window_survives_being_garbage_collected() -> None:
     """A normal quit tears the window down this way; it must not segfault.
 

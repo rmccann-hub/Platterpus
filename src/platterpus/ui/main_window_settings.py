@@ -46,6 +46,10 @@ class SettingsMixin(MainWindowShared):
         # Apply saves through the same method as OK, then re-baselines the
         # dialog, so Cancel after Apply keeps what was applied.
         dialog.apply_requested.connect(lambda: self._apply_settings_from(dialog))
+        # The read offset row's Set up drive… (TASKS R180, UX review S2).
+        dialog.drive_setup_requested.connect(
+            lambda: self._drive_setup_from_settings(dialog)
+        )
         accepted = dialog.exec() == QDialog.DialogCode.Accepted
         if accepted:
             self._apply_settings_from(dialog)
@@ -74,6 +78,21 @@ class SettingsMixin(MainWindowShared):
             message_boxes.warning(self, "Couldn't save settings", f"{exc}")
         dialog.mark_applied()
         self._refresh_setting_views()
+
+    def _drive_setup_from_settings(self, dialog: SettingsDialog) -> None:
+        """Settings' **Set up drive…**: the drive wizard, then the new offset.
+
+        The same wizard as Tools → Setup & Updates… → Set up drive…, for the
+        drive selected in this window, opened over Settings. It saves what it
+        changes as it always has (the offset per drive, its Apply tick-box
+        through :meth:`_save_user_setting`); Settings edits neither, and OK
+        writes only what was changed in Settings (`apply_user_edits`), so it
+        cannot write an old offset back. Once the wizard closes, the row shows
+        the offset the next rip will use.
+        """
+        log.info("settings: Set up drive… pressed")
+        self._on_drive_setup()
+        dialog.set_drive_offset(self._selected_drive_offset())
 
     # --- One setting, from its one control ---------------------------------
 
