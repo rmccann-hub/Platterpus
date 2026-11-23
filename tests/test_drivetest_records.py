@@ -17,6 +17,7 @@ must never get in. The drive is never touched (``records`` reads none).
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -25,6 +26,22 @@ from pathlib import Path
 import pytest
 
 _SCRIPT = Path(__file__).resolve().parents[1] / "docs/rig-scripts/drivetest.sh"
+
+
+def _script_round() -> str:
+    """The round the script's folder is named for, read from its own default
+    (`ROUND="${DRIVETEST_ROUND:-N}"`), so moving the default to a new round does
+    not leave this test naming the old folder."""
+    found = re.search(
+        r'^ROUND="\$\{DRIVETEST_ROUND:-(\d+)\}"$',
+        _SCRIPT.read_text(encoding="utf-8"),
+        re.M,
+    )
+    assert found is not None, "drivetest.sh has no ROUND default line"
+    return found[1]
+
+
+_ROUND: str = _script_round()
 
 pytestmark = pytest.mark.skipif(
     shutil.which("bash") is None or shutil.which("tar") is None,
@@ -91,13 +108,16 @@ def test_records_packs_every_record_since_the_date_and_no_audio(tmp_path: Path) 
     assert done.returncode == 0, done.stdout + done.stderr
 
     upload = (
-        home / "platterpus-rig" / "drivetest38" / "platterpusdrivetest38records.tar.gz"
+        home
+        / "platterpus-rig"
+        / f"drivetest{_ROUND}"
+        / f"platterpusdrivetest{_ROUND}records.tar.gz"
     )
     assert upload.is_file(), done.stdout
     with tarfile.open(upload) as archive:
         names = archive.getnames()
         summary = archive.extractfile(
-            "platterpusdrivetest38records/records/RECORDS.txt"
+            f"platterpusdrivetest{_ROUND}records/records/RECORDS.txt"
         )
         assert summary is not None
         said = summary.read().decode()
