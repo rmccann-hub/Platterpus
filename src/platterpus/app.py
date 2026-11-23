@@ -1344,11 +1344,11 @@ def main(argv: list[str] | None = None) -> int:
         dialog = UninstallDialog()
         dialog.exec()
         # Same guard as the main exit below. The uninstall dialog's worker runs
-        # `podman`/`dnf` steps whose in-flight subprocess cannot be interrupted
-        # (its cancel flag is only polled *between* steps, and a step's timeout is
-        # 1800 s), so closing mid-teardown reliably abandons a running thread —
-        # and this path used to return straight into interpreter shutdown, which
-        # then destroyed it. Found by a threading audit, 2026-07-29.
+        # `podman`/`flatpak`/`dnf` commands; its cancel kills the one in flight
+        # (TASKS R190), but a child stuck in the kernel can outlive the wait, so
+        # closing mid-teardown can still abandon a running thread — and this
+        # path used to return straight into interpreter shutdown, which then
+        # destroyed it. Found by a threading audit, 2026-07-29.
         hard_exit.exit_now_if_threads_abandoned(0)
         return 0
 

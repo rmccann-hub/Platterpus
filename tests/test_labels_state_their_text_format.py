@@ -1524,26 +1524,26 @@ def test_the_uninstall_intro_shows_its_bold_words_not_their_tags(
 ) -> None:
     """Tools → Uninstall showed `<b>Never touched:</b>`, tags and all.
 
-    The intro is a literal of ours, but its first line held no tag, so Qt's
+    The intro was a literal of ours whose first line held no tag, so Qt's
     AutoText showed the whole label as plain text. Measured before the fix
     (PySide6 6.11.2, offscreen): AutoText drew it pixel for pixel as PlainText.
-    The list must still read as a list after the fix, because markup reads a
-    line break as a space.
+    Since TASKS R190 the intro holds no markup at all and says so: it is stated
+    PlainText, so a `<` can never become a tag and no tag can show as text.
     """
     from platterpus.ui.uninstall_dialog import UninstallDialog
 
-    dialog = UninstallDialog(build_teardown=lambda *a: None)
-    intro = _labels_showing(dialog, "Never touched:")
+    dialog = UninstallDialog(
+        build_engine=lambda _rips: (None, None),  # type: ignore[arg-type,return-value]  # no scan
+        rips=(None, "not configured"),
+        scan_on_open=False,
+    )
+    intro = _labels_showing(dialog, "This removes everything Platterpus put")
     assert len(intro) == 1
     # The user's symptom first, then the cause.
     shown = _shown(intro[0])
     assert "<b>" not in shown and "</b>" not in shown, shown
-    assert shown.startswith(
-        "This removes what Platterpus installed on this computer:\n\n"
-        "• menu and desktop shortcuts\n"
-    ), shown
-    assert "\n• the items ticked below\n\nNever touched: your music" in shown, shown
-    assert intro[0].textFormat() != Qt.TextFormat.AutoText, (
+    assert "Tick what you want to keep." in shown, shown
+    assert intro[0].textFormat() == Qt.TextFormat.PlainText, (
         "the intro still leaves its format to Qt's guess"
     )
 

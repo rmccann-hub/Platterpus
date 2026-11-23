@@ -99,15 +99,17 @@ From a checkout (`git pull` first so you have the latest `uninstall.sh`):
 ```bash
 cd ~/Platterpus
 git pull
-bash uninstall.sh --full --yes
+bash uninstall.sh --yes
 ```
-*Expected:* removes the AppImage in `~/Applications`, menu/desktop entries, the
-`ripping` container, host-exported `metaflac`/`cyanrip`, any leftovers from older
-versions (`~/.local/bin/whipper`, `~/.config/whipper/`), Picard, and the app's
-config + logs. **Never** your music. (No checkout? Use the app's **Tools →
-Uninstall Platterpus…** and tick both boxes — the container, and *leftover ripper
-settings from older versions*. The AppImage removes itself as part of the run when
-launched from one.)
+*Expected:* everything Platterpus created goes (TASKS R190): the AppImage in
+`~/Applications`, menu/desktop entries, the `ripping` container and its
+`fedora-toolbox` image (unless another container uses it), host-exported
+`metaflac`/`cyanrip`/`flac`/`cd-paranoia`, `~/.cache/platterpus`,
+`~/platterpus-rig`, any leftovers from older versions (`~/.local/bin/whipper`,
+`~/.config/whipper/`), Picard with its data, and the app's config + logs. The last
+line says a check afterwards found nothing left. **Never** your music. (No
+checkout? Use the app's **Tools → Uninstall Platterpus…** and leave every Keep box
+unticked. The AppImage removes itself as part of the run when launched from one.)
 
 ### A2 — [ ] Confirm the slate is clean
 ```bash
@@ -606,13 +608,15 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 
 **Steps**
 1. Note what exists first: `ls ~/.local/bin/{whipper,metaflac,cyanrip,platterpus}`,
-   `distrobox list`, the app menu entries, `~/.config/whipper{,-gui}`,
+   `distrobox list`, `podman images`, `flatpak list --user`, the app menu entries,
+   `~/.config/whipper{,-gui}`, `~/.cache/platterpus`, `~/platterpus-rig`,
    `~/.local/share/platterpus`. (The `whipper` paths are leftovers from older
    versions; the uninstaller removes them if present.)
 2. Launch the **Uninstall Platterpus** menu entry (tests `--uninstall` mode),
    or Tools → Uninstall Platterpus… inside the app.
-3. Leave both checkboxes ticked → Uninstall → confirm. Watch the per-step log;
-   record any ✗ verbatim.
+3. Leave every Keep box unticked, read the preview (it lists each path) →
+   Uninstall → confirm. Watch the per-step log; record any ⚠ verbatim. The last
+   line should say a check afterwards found nothing left.
 4. Verify gone: all of step 1's items, the menu entries (may need a
    re-login/menu refresh), and — if launched from the AppImage — the AppImage
    file itself.
@@ -1742,8 +1746,8 @@ past the widget by hand-editing `~/.config/platterpus/config.toml` to
 
 #### B8 — [ ] Uninstall removes `cd-paranoia` too
 
-*Tools → Uninstall Platterpus…* → **tick the host-exports item, untick everything else** →
-run.
+*Tools → Uninstall Platterpus…* → **tick all three Keep boxes** (the host exports
+are always removed) → run.
 
 ```sh
 ls ~/.local/bin/ | grep -E "cyanrip|metaflac|flac|cd-paranoia"

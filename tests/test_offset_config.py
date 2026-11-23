@@ -217,11 +217,12 @@ def test_only_the_uninstaller_refers_to_the_leftover_config_folder() -> None:
     """Nothing reads the old ripper's config folder; the uninstaller removes it.
 
     Derived from the tree, so a new reader anywhere in the package fails here by
-    name. `paths.py` defines the constant; `deps/host_teardown.py` removes it.
+    name. `paths.py` defines the constant; `deps/install_footprint.py` lists it
+    for removal (TASKS R190: the one list both uninstallers read).
     """
     users = sorted(
         str(path.relative_to(_SRC))
         for path in _SRC.rglob("*.py")
         if "LEGACY_RIPPER_CONFIG_DIR" in path.read_text(encoding="utf-8")
     )
-    assert users == ["deps/host_teardown.py", "paths.py"], users
+    assert users == ["deps/install_footprint.py", "paths.py"], users

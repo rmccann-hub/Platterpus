@@ -127,6 +127,18 @@ step() { echo; echo "=== $* ==="; }
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# note_installed(): record a system package THIS script installed, so the
+# uninstaller may offer to remove it and nothing else (TASKS R190). The same
+# file and format as src/platterpus/deps/system_packages_marker.py: one name
+# per line in the app's data folder. Skipped on a dry run; never fatal.
+note_installed() {
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    local note_dir="${XDG_DATA_HOME:-$HOME/.local/share}/platterpus"
+    local note="$note_dir/installed-system-packages.txt"
+    mkdir -p "$note_dir" 2>/dev/null || return 0
+    grep -qx "$1" "$note" 2>/dev/null || echo "$1" >>"$note" 2>/dev/null || true
+}
+
 # distrobox runs a command inside the container and returns.
 in_container() { run distrobox enter "$CONTAINER" -- "$@"; }
 
@@ -168,6 +180,7 @@ ensure_distrobox() {
     if [ "$DRY_RUN" -eq 0 ] && ! have distrobox; then
         die "Distrobox install did not succeed. See README Step 1."
     fi
+    note_installed distrobox
 }
 
 # --- Step 1.5: container backend (podman/docker) ---------------------------
@@ -208,6 +221,7 @@ ensure_container_backend() {
     if [ "$DRY_RUN" -eq 0 ] && ! have podman; then
         die "podman install did not succeed. Install podman or docker and re-run."
     fi
+    note_installed podman
 }
 
 # --- Step 2: container -----------------------------------------------------

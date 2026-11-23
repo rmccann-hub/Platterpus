@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import dataclasses
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QDialogButtonBox,
+    QFormLayout,
+    QLabel,
+    QWidget,
+)
 
 from platterpus import goal_presets, naming, settings_validation
 from platterpus.config import SCHEMA_VERSION, Config
@@ -18,7 +26,17 @@ from platterpus.goal_presets import (
     GOAL_FAST,
     GOAL_PORTABLE,
 )
+from platterpus.ui.setting_homes import SETTING_HOMES, SETTINGS, fields_homed_in
 from platterpus.ui.settings_dialog import SettingsDialog
+from platterpus.ui.settings_groups import (
+    ACCURACY,
+    ADVANCED,
+    AFTER_RIP,
+    GOAL_KEY_TEXT,
+    GROUPS,
+    OUTPUT,
+    form_row,
+)
 
 # --- Construction --------------------------------------------------------
 
@@ -137,14 +155,17 @@ def test_initial_widget_state_matches_input_config(
     assert dialog._auto_picard_check.isChecked() is True
 
 
-def test_the_read_offset_is_shown_read_only_and_names_its_home(
+def test_the_read_offset_is_shown_read_only_beside_a_set_up_drive_button(
     qapp: QApplication,
 ) -> None:
-    """Settings says what offset the next rip uses, and where it is set.
+    """Settings says what offset the next rip uses, and opens where it is set.
 
     It used to be a spin box here as well as in the drive wizard, and OK once
     wrote the stale copy over the one the wizard had saved. Now it is text: a
-    label, so no click or scroll in this window can change it.
+    label, so no click or scroll in this window can change it. Beside it, a
+    **Set up drive…** button (TASKS R180, UX review S2) replaced the sentence
+    that named the wizard's path three menus deep; it is greyed, saying why,
+    when no drive is selected.
     """
     from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
     from platterpus.offset_config import offset_for_drive
@@ -159,7 +180,9 @@ def test_the_read_offset_is_shown_read_only_and_names_its_home(
     text = applied._offset_status_label.text()
     assert "+667 samples, applied to every rip on this drive" in text
     assert "+999" not in text
-    assert "Tools → Setup & Updates… → Set up drive…" in text
+    assert "Tools →" not in text  # the button is the way there now
+    assert applied._drive_setup_button.text() == "Set up drive…"
+    assert applied._drive_setup_button.isEnabled()
     assert isinstance(applied._offset_status_label, QLabel)
     assert applied._offset_status_label.textFormat() == Qt.TextFormat.PlainText
 
@@ -174,6 +197,8 @@ def test_the_read_offset_is_shown_read_only_and_names_its_home(
     none = SettingsDialog(Config(read_offset=667, override_read_offset=True))
     assert "no drive selected" in none._offset_status_label.text()
     assert "+667" not in none._offset_status_label.text()
+    assert not none._drive_setup_button.isEnabled()
+    assert "No drive is selected" in none._drive_setup_button.toolTip()
 
 
 # --- to_config -----------------------------------------------------------
@@ -650,6 +675,18 @@ def test_settings_opens_no_other_window(qapp: QApplication) -> None:
     assert texts, "no buttons found — this would pass by finding nothing"
     for gone in ("Check dependencies", "Re-detect…"):
         assert gone not in texts, f"Settings still carries a {gone!r} door: {texts}"
+    # The one door since 2026-11-23 (TASKS R180, UX review S2): Set up drive…
+    # beside the read offset. It opens nothing itself, only asks the window,
+    # which re-reads the offset into the row when the wizard closes.
+    from platterpus.offset_config import offset_for_drive
+
+    with_drive = SettingsDialog(
+        Config(), drive_offset=offset_for_drive(None, apply_offsets=True)
+    )
+    assert with_drive._drive_setup_button.isEnabled()
+    before = set(QApplication.topLevelWidgets())
+    with_drive._drive_setup_button.click()
+    assert set(QApplication.topLevelWidgets()) == before
 
 
 def test_apply_user_edits_writes_only_what_the_user_changed() -> None:
@@ -1317,3 +1354,249 @@ def test_an_impossible_retry_pair_is_shown_while_it_is_set_and_blocks_ok(
     dialog._max_retries_spin.setValue(5)
     assert dialog._validation_label.isHidden() is True
     assert dialog._max_retries_spin.styleSheet() == ""
+
+
+# --- Groups, the Goal's marks and the narrow window (TASKS R180) -------------
+#
+# The end-user UX review of 0.7.127: S1 (one 33-row form, presets that do not
+# show what they set), S2 (the read offset a sentence pointing three menus
+# deep) and L3 (Settings scrolled sideways).
+
+
+def _row_label(dialog: SettingsDialog, widget: QWidget) -> str:
+    """The text in the label column of ``widget``'s row, or "" for none."""
+    for key, _heading, _sentence in GROUPS:
+        form = dialog._groups.form(key)
+        current: QWidget | None = widget
+        while current is not None:
+            row = form_row(form, current)
+            if row is not None:
+                item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+                label = item.widget() if item is not None else None
+                return label.text() if isinstance(label, QLabel) else ""
+            current = current.parentWidget()
+    raise AssertionError(f"{widget!r} is in no group")
+
+
+def test_every_setting_settings_edits_sits_in_one_of_the_four_groups(
+    qapp: QApplication,
+) -> None:
+    """No setting was lost in the regrouping: each control homed in Settings
+    is on the page, under a heading, except the Goal, which heads the page."""
+    dialog = SettingsDialog(Config())
+    owned = fields_homed_in(SETTINGS)
+    assert len(owned) >= 25, f"only {len(owned)} settings found to check"
+    placed = {
+        field: dialog._groups.section_of(getattr(dialog, SETTING_HOMES[field].control))
+        for field in owned
+    }
+    assert placed.pop("rip_goal") is None  # above the groups, on purpose
+    assert all(placed.values()), [f for f, g in placed.items() if g is None]
+    assert set(placed.values()) == {key for key, _h, _s in GROUPS}
+    # Where the review asked for things: the raw templates and the metaflac
+    # path behind Advanced; the format in Output; the re-reads in Accuracy.
+    for field in (
+        "track_template",
+        "disc_template",
+        "track_template_unknown",
+        "disc_template_unknown",
+        "metaflac_path",
+    ):
+        assert placed[field] == ADVANCED, field
+    assert placed["output_format"] == OUTPUT
+    assert placed["secure_rerip_matches"] == ACCURACY
+    assert placed["auto_eject_after_rip"] == AFTER_RIP
+
+
+def test_every_setting_key_is_still_saved_after_the_regrouping(
+    qapp: QApplication,
+) -> None:
+    """The keys OK saves are the ones the home table gives Settings, and an
+    edit to a control in each group still reaches the saved config."""
+    dialog = SettingsDialog(Config())
+    assert set(dialog.widget_values()) == fields_homed_in(SETTINGS)
+    dialog._output_dir_edit.setText("/music/out")  # Output
+    dialog._ctdb_repair_check.setChecked(False)  # Accuracy
+    dialog._notify_check.setChecked(False)  # After a rip
+    dialog._metaflac_path_edit.setText("/usr/bin/metaflac")  # Advanced
+    saved = dialog.user_edits_applied_to(Config())
+    assert saved.output_dir == "/music/out"
+    assert saved.ctdb_repair_after_rip is False
+    assert saved.notify_on_completion is False
+    assert saved.metaflac_path == "/usr/bin/metaflac"
+
+
+def test_each_group_has_a_bold_heading_and_one_sentence(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config())
+    headings = [dialog._groups.heading(key) for key, _h, _s in GROUPS]
+    assert [h.text() for h in headings] == [
+        "Output",
+        "Accuracy",
+        "After a rip",
+        "Advanced",
+    ]
+    assert all(h.font().bold() for h in headings)
+    texts = {label.text() for label in dialog.findChildren(QLabel)}
+    for _key, _heading, sentence in GROUPS:
+        assert sentence in texts
+    assert (
+        "Where finished rips go, what they are called, and what each one holds."
+        in texts
+    )
+    assert (
+        "How the disc is read and checked. These decide whether a rip is "
+        "bit-perfect, and whether you can prove it." in texts
+    )
+
+
+def test_exactly_the_rows_a_goal_sets_carry_the_mark(qapp: QApplication) -> None:
+    """◆ before each row a preset sets: in the label column for a row with a
+    label, and at the start of the box's own text for a checkbox row with
+    none (a lone ◆ in the label column wrapped onto a line of its own at
+    560 px, the owner's screenshots of 2026-11-23); and before no other row."""
+    dialog = SettingsDialog(Config())
+    goal_controls = dialog._goal_set_controls()
+    assert len(goal_controls) == len(dataclasses.fields(goal_presets.GoalPreset))
+    for widget in goal_controls:
+        assert _mark_text(dialog, widget).startswith("◆"), widget.objectName()
+        assert "goal sets" in widget.accessibleDescription()
+    # A checkbox row has no label: the mark leads the box's text, and no label
+    # column entry holds a mark alone.
+    box = dialog._verify_every_track_check
+    assert box.text().startswith("◆ Verify every track"), box.text()
+    assert _row_label(dialog, box) == ""
+    assert _row_label(dialog, dialog._format_combo) == "◆ Output format:"
+    others = [
+        getattr(dialog, SETTING_HOMES[field].control)
+        for field in fields_homed_in(SETTINGS) - {"rip_goal"}
+    ]
+    unmarked = [w for w in others if w not in goal_controls]
+    assert len(unmarked) >= 15, "too few unmarked rows to check"
+    for widget in unmarked:
+        assert not _mark_text(dialog, widget).startswith("◆"), widget.objectName()
+    # Restore Defaults rebuilds no row, so it cannot mark one twice.
+    dialog.restore_defaults()
+    assert _row_label(dialog, dialog._format_combo) == "◆ Output format:"
+    assert not box.text().startswith("◆ ◆")
+
+
+def _mark_text(dialog: SettingsDialog, widget: QWidget) -> str:
+    """Where a row's ◆ would be: its label, or a label-less checkbox's text."""
+    label = _row_label(dialog, widget)
+    if not label and isinstance(widget, QCheckBox):
+        return widget.text()
+    return label
+
+
+def test_the_goal_line_says_custom_and_why_when_a_marked_row_changes(
+    qapp: QApplication,
+) -> None:
+    dialog = SettingsDialog(Config())
+    line = dialog._goal_status_label
+    assert line.text() == GOAL_KEY_TEXT
+    assert line.textFormat() == Qt.TextFormat.PlainText
+    dialog._format_combo.setCurrentIndex(dialog._format_combo.findData("wavpack"))
+    assert dialog._goal_combo.currentData() == GOAL_CUSTOM
+    assert line.text() == (
+        "ⓘ Custom: Output format differs from Fast verified. ◆ marks the "
+        "options a goal sets. Change one and the goal becomes Custom."
+    )
+    # A second change while already Custom joins the sentence.
+    dialog._ctdb_verify_check.setChecked(False)
+    assert "Output format and CTDB differ from Fast verified." in line.text()
+    # Picking a goal again puts the key back.
+    dialog._goal_combo.setCurrentIndex(dialog._goal_combo.findData(GOAL_ARCHIVAL))
+    assert line.text() == GOAL_KEY_TEXT
+    # Restore Defaults sets the goal quietly; the line follows it anyway.
+    dialog._format_combo.setCurrentIndex(dialog._format_combo.findData("wav"))
+    dialog.restore_defaults()
+    assert line.text() == GOAL_KEY_TEXT
+
+
+def test_set_up_drive_asks_the_window_and_shows_the_offset_it_hands_back(
+    qapp: QApplication,
+) -> None:
+    """The dialog opens nothing itself: it asks, and shows what it is given."""
+    from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
+    from platterpus.offset_config import offset_for_drive
+
+    record = OffsetRecord(667, OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    dialog = SettingsDialog(
+        Config(), drive_offset=offset_for_drive(record, apply_offsets=True)
+    )
+    asked: list[bool] = []
+    dialog.drive_setup_requested.connect(lambda: asked.append(True))
+    dialog._drive_setup_button.click()
+    assert asked == [True]
+    new = OffsetRecord(48, OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    dialog.set_drive_offset(offset_for_drive(new, apply_offsets=True))
+    assert "+48 samples" in dialog._offset_status_label.text()
+    assert dialog._groups.section_of(dialog._drive_setup_button) == ACCURACY
+    # Never a shortcut of one character (CLAUDE.md, accessibility rule 2).
+    assert dialog._drive_setup_button.shortcut().isEmpty()
+
+
+def _shown_at(dialog: SettingsDialog, width: int, height: int) -> None:
+    dialog.show()
+    dialog.resize(width, height)
+    for _ in range(3):
+        QApplication.processEvents()
+
+
+def test_a_560_px_window_wraps_rows_instead_of_scrolling_sideways(
+    qapp: QApplication,
+) -> None:
+    """L3: at 560 px the page scrolled 201 px sideways (measured on the code
+    before R180, offscreen, PySide6 6.11.1). Now nothing is wider than the
+    viewport, so there is no horizontal range at all. Measured in DejaVu Sans,
+    CI's only font: in this session's Inter the Goal dropdown fitted, and in
+    DejaVu Sans it needed 13 px more than the window had, so a test run in the
+    wider font is the one that can fail."""
+    from PySide6.QtGui import QFont
+
+    before = qapp.font()
+    qapp.setFont(QFont("DejaVu Sans", 10))
+    dialog = SettingsDialog(Config())
+    try:
+        _shown_at(dialog, 560, 700)
+        assert dialog.width() == 560
+        scroll = dialog._form_scroll
+        assert scroll.horizontalScrollBar().maximum() == 0
+        page = scroll.widget()
+        assert page is not None
+        assert page.minimumSizeHint().width() <= scroll.viewport().width()
+        # Non-vacuous: the page still scrolls the other way, so it was laid out.
+        assert scroll.verticalScrollBar().maximum() > 0
+    finally:
+        dialog.close()
+        qapp.setFont(before)
+
+
+def test_a_save_refused_for_a_bad_value_scrolls_to_that_field(
+    qapp: QApplication,
+) -> None:
+    """The banner is always on screen; the field it names may be at the bottom,
+    under Advanced. A refused OK brings that field into view and focuses it."""
+    from PySide6.QtWidgets import QDialog
+
+    dialog = SettingsDialog(Config())
+    try:
+        _shown_at(dialog, 560, 420)
+        bar = dialog._form_scroll.verticalScrollBar()
+        assert bar.value() == 0
+        field = dialog._disc_template_unknown_edit
+        field.blockSignals(True)  # so only the refusal shows it, not an edit
+        field.setText("")
+        field.blockSignals(False)
+        viewport = dialog._form_scroll.viewport()
+        top = field.mapTo(viewport, field.rect().topLeft()).y()
+        assert top > viewport.height(), "the field already showed; nothing to prove"
+        dialog.accept()
+        QApplication.processEvents()
+        assert dialog.result() != QDialog.DialogCode.Accepted
+        assert bar.value() > 0
+        top = field.mapTo(viewport, field.rect().topLeft()).y()
+        assert 0 <= top and top + field.height() <= viewport.height()
+        assert field.hasFocus() or QApplication.focusWidget() is field
+    finally:
+        dialog.close()
