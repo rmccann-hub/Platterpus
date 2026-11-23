@@ -19,6 +19,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **TASKS records the owner's approval of the new uninstaller** (contributor-facing; R190, 2026-11-23).
 - **A checkbox a Goal sets carries its ◆ in its own text** (user-facing; R180): the mark leads the box's text instead of sitting alone in the label column, where a narrow window wrapped it onto a line of its own above the box.
 - **TASKS records the owner's decisions of 2026-11-23** (contributor-facing): the Settings and Run tests screenshots are approved; the C2 probe stays a rig script run by hand, which the Run tests screen points to; Full's five repeat rips stay one fixed block.
 - **`docs/architecture.md` says a parallel branch's work is not safe until it is pushed** (contributor-facing): on 2026-11-18 four helpers' local commits for wave 2 and the uninstaller were lost when the idle session's container was replaced; bring a stopped helper's commits onto the session branch and push them before ending the turn, and run two helpers at a time.
