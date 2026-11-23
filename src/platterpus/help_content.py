@@ -191,6 +191,18 @@ live beside that thing instead, so each has exactly one place to change it: the
 read offset in *Set up drive…*, the two update channels in *Setup & Updates…*,
 and the startup test script in the script console.
 
+The options sit under four headings, each with one line saying what it is for:
+*Output* (where rips go, what they are called, what each holds), *Accuracy* (how
+the disc is read and checked), *After a rip* (what happens once it is read) and
+*Advanced* (the raw naming templates, the `metaflac` path, Overread and debug
+logging, which most people never change). The *Read offset* row under Accuracy
+shows the selected drive's offset with a **Set up drive…** button beside it,
+which opens the drive wizard and shows the new offset when the wizard closes; it
+is greyed, and its tooltip says why, while no drive is selected. A **◆** before
+a row means the *Goal* sets it. The line under the Goal explains the mark, and
+once you change a marked row it says *Custom* and which options differ from the
+nearest goal, for example "Output format differs from Fast verified".
+
 - **Goal** — pick what you want the rip to be and the format/verification/quality
   options snap to good values for it: *Fast verified* (lossless, fully verified
   — the recommended default), *Archival exact* (the same checks, plus the

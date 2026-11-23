@@ -6,13 +6,25 @@ and the caller reads back via `to_config()` and persists through
 `platterpus.config.save()`. This keeps the dialog testable without
 touching `~/.config`.
 
-It opens nothing else. It used to carry two doors to other windows — a
-"Check dependencies" button and a "Re-detect…" button beside the read offset —
-and both were removed on 2026-09-23 (maintainer: *"this probably doesnt need
-multiple access points"*). Each duplicated a button in **Tools → Setup &
-Updates…**, and the second one was worse than a duplicate: the drive wizard it
-opened saved a new offset while this dialog still showed the old one, so
-pressing OK wrote the old one back. See :func:`apply_user_edits`.
+It opens one other window: the drive wizard, from **Set up drive…** beside the
+read offset (TASKS R180, the UX review's S2, 2026-11-23). It used to carry two
+doors to other windows — a "Check dependencies" button and a "Re-detect…"
+button beside the read offset — and both were removed on 2026-09-23
+(maintainer: *"this probably doesnt need multiple access points"*). Each
+duplicated a button in **Tools → Setup & Updates…**, and the second one was
+worse than a duplicate: the drive wizard it opened saved a new offset while
+this dialog still showed the old one, so pressing OK wrote the old one back.
+Both of those causes are gone: OK writes only what was changed HERE
+(:func:`apply_user_edits`), and the window re-reads the offset into this row
+when the wizard closes (:meth:`SettingsDialog.set_drive_offset`). What is left
+is the review's finding that the row was a sentence naming a path three menus
+deep, which the owner's wave-2 plan answers with this one button.
+
+**Four headed groups** (TASKS R180, findings S1 and L3): *Output*, *Accuracy*,
+*After a rip* and *Advanced*, laid out by :mod:`platterpus.ui.settings_groups`,
+with a ◆ before each row a Goal sets and a line under the Goal saying why it is
+Custom when it is. A narrow window wraps a row under its label rather than
+scrolling sideways.
 
 **It edits the rip, and only the rip** (2026-09-24). Seven settings used to have
 a second editor here as well as their real one, and each now has ONE home,
@@ -45,7 +57,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialogButtonBox,
     QFileDialog,
-    QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -72,11 +83,18 @@ from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.plain_text import plain_tooltip
 from platterpus.ui.scroll_guards import WheelGuard, protect_value_widgets
 from platterpus.ui.setting_homes import (
-    DRIVE_SETUP,
     SETTING_HOMES,
     SETTINGS,
-    WINDOW_PATHS,
     fields_homed_in,
+)
+from platterpus.ui.settings_groups import (
+    ACCURACY,
+    ADVANCED,
+    AFTER_RIP,
+    OUTPUT,
+    SettingsGroups,
+    goal_status_text,
+    new_form,
 )
 from platterpus.ui.status_colours import (
     PALETTE_EVENTS,
@@ -105,6 +123,11 @@ class SettingsDialog(CenteredDialog):
     #: the dialog stays a view and there is one save path, not two.
     apply_requested = Signal()
 
+    #: **Set up drive…** beside the read offset was pressed. The window opens the
+    #: drive wizard for the selected drive and hands the offset it then holds
+    #: back through :meth:`set_drive_offset`; the dialog edits no offset itself.
+    drive_setup_requested = Signal()
+
     def __init__(
         self,
         config: Config,
@@ -128,7 +151,15 @@ class SettingsDialog(CenteredDialog):
         self.setModal(True)
 
         root = QVBoxLayout(self)
-        form = QFormLayout()
+        # The page inside the scroll area (below): the Goal on top, then the four
+        # headed groups of `settings_groups` (TASKS R180, UX review S1). Every
+        # row is still added with `form.addRow`, `form` being the group's form at
+        # that point: the User Guide and tooltip sweeps read the row labels out of
+        # this file's source by that call.
+        form_host = QWidget(self)
+        page = QVBoxLayout(form_host)
+        form = new_form()
+        page.addLayout(form)
 
         # --- Goal preset (anchors the rest of the settings to intent) ---
         # First row on purpose: pick a goal and the format/verification/quality
@@ -161,6 +192,23 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Goal:", self._goal_combo)
 
+        # The line under the Goal (TASKS R180, UX review S1): the key to the ◆
+        # on the rows a goal sets, and once the goal is Custom, which of them
+        # differ from the nearest preset. Picking a goal used to change seven
+        # rows with nothing on screen saying which. Text from
+        # `settings_groups.goal_status_text`; filled once the rows exist.
+        self._goal_status_label: QLabel = QLabel("", self)
+        self._goal_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._goal_status_label.setWordWrap(True)
+        self._goal_status_label.setAccessibleName("Goal status")
+        self._goal_status_label.setStyleSheet(SECONDARY_STYLE)
+        form.addRow("", self._goal_status_label)
+
+        self._groups: SettingsGroups = SettingsGroups(page, form_host)
+
+        # ===== Output: where rips go, what they are called, what each holds =====
+        form = self._groups.form(OUTPUT)
+
         # --- Path rows (QLineEdit + Browse button) ---
         # These fields live inside a composite row widget, so the form label is
         # NOT their buddy (QFormLayout only auto-buddies a directly-added
@@ -177,21 +225,6 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Output directory:", output_row)
 
-        # Library folder (optional — empty leaves rips in the output directory).
-        # When set, a finished rip's album folder is moved here AFTER every
-        # post-rip check settles (see main_window_rip._maybe_schedule_library_move).
-        self._library_dir_edit, library_row = self._build_dir_row(
-            config.library_dir, "Library folder"
-        )
-        self._library_dir_edit.setToolTip(
-            "Optional. When set, a successful rip's album folder is moved here "
-            "once every post-rip check has finished (tagging, cover art, the "
-            "verification suite, checksums) — so the output directory stays a "
-            "workspace and your library only ever receives finished, verified "
-            "rips. Leave empty to keep rips in the output directory."
-        )
-        form.addRow("Move finished rips to:", library_row)
-
         # --- Templates ---
         # A preset dropdown so the common layouts are one click instead of a
         # hand-written code string (the old default looked terrible — repeated
@@ -204,7 +237,7 @@ class SettingsDialog(CenteredDialog):
             self._naming_combo.addItem(preset.label, preset.key)
         self._naming_combo.addItem(naming.CUSTOM_LABEL, None)
         self._naming_combo.setToolTip(
-            "A shortcut that fills the two template boxes below — it stores "
+            "A shortcut that fills the two template boxes under Advanced — it stores "
             "nothing of its own, so whatever it writes there is what a rip "
             "uses. Each choice names the folder layout it produces: the "
             "recommended one gives Artist/Album/01 - Title, the year presets "
@@ -215,22 +248,6 @@ class SettingsDialog(CenteredDialog):
             "either template switches this to Custom and changes nothing else."
         )
         form.addRow("Naming scheme:", self._naming_combo)
-
-        self._track_template_edit: QLineEdit = QLineEdit(config.track_template, self)
-        self._track_template_edit.setToolTip(
-            "Path for identified discs. Codes: %A artist, %d album, "
-            "%t track #, %n title, %a track artist, %y date, %Y year (4-digit), "
-            "%N disc number, %M total discs.\n"
-            "Pick a preset above, or hand-edit here."
-        )
-        form.addRow("Track template:", self._track_template_edit)
-
-        self._disc_template_edit: QLineEdit = QLineEdit(config.disc_template, self)
-        self._disc_template_edit.setToolTip(
-            "Folder path for the rip's .log and .cue on identified discs. Same "
-            "codes as the track template above."
-        )
-        form.addRow("Disc template (.log/.cue):", self._disc_template_edit)
 
         # Live preview: the selected template rendered against a metadata-heavy
         # sample (colon in the title, a featured/per-track artist) so the user
@@ -247,74 +264,6 @@ class SettingsDialog(CenteredDialog):
         # the maintainer reported (2026-09-23).
         self._naming_preview.setStyleSheet(SECONDARY_STYLE)
         form.addRow("Example:", self._naming_preview)
-
-        # Wire up: preset → fill fields; manual edit → flip to Custom; either →
-        # refresh preview. Signals are blocked while syncing to avoid a loop.
-        self._naming_combo.currentIndexChanged.connect(self._on_naming_preset_chosen)
-        self._track_template_edit.textChanged.connect(self._on_template_text_changed)
-        self._disc_template_edit.textChanged.connect(self._on_template_text_changed)
-        self._sync_naming_combo_to_templates()
-        self._refresh_naming_preview()
-
-        # Unknown-disc templates: used for the --unknown rip, where there is no
-        # real album title for %d (the ripper older versions used filled it with
-        # the raw disc-ID hash), so a literal path keeps the folder tidy.
-        self._track_template_unknown_edit: QLineEdit = QLineEdit(
-            config.track_template_unknown, self
-        )
-        self._track_template_unknown_edit.setToolTip(
-            "Track path used when a disc isn't identified (File → Rip as Unknown "
-            "Album). Uses the literal 'Unknown Album' names, never a disc-ID hash."
-        )
-        form.addRow("Track template (unknown):", self._track_template_unknown_edit)
-
-        self._disc_template_unknown_edit: QLineEdit = QLineEdit(
-            config.disc_template_unknown, self
-        )
-        self._disc_template_unknown_edit.setToolTip(
-            "Folder path for the .log/.cue of an unidentified disc "
-            "(File → Rip as Unknown Album)."
-        )
-        form.addRow("Disc template (unknown):", self._disc_template_unknown_edit)
-
-        # --- Read offset: SHOWN here, edited in the drive wizard ---
-        # A rip depends on it, so Settings says what it is — but it has one home,
-        # the drive wizard, and a second editor here is how an OK once wrote a
-        # stale offset over one the wizard had just saved (`apply_user_edits`).
-        # Read-only text, so there is nothing here a scroll or a click can change.
-        applied = offset_config.describe_applied_offset(
-            drive_offset
-            or offset_config.offset_for_drive(
-                None,
-                apply_offsets=config.override_read_offset,
-                drive_selected=False,
-            )
-        )
-        self._offset_status_label: QLabel = QLabel(
-            f"{applied}\nSet it in {WINDOW_PATHS[DRIVE_SETUP]}", self
-        )
-        self._offset_status_label.setTextFormat(Qt.TextFormat.PlainText)
-        self._offset_status_label.setWordWrap(True)
-        self._offset_status_label.setAccessibleName("Read offset")
-        self._offset_status_label.setToolTip(
-            "The selected drive's read offset, in samples (cyanrip's -s). It is "
-            "a property of the DRIVE, not of the disc, so it is set once per "
-            "drive, in the drive wizard, where it can be looked up from the "
-            "AccurateRip drive list. Each drive keeps its own. Shown here because "
-            "every rip depends on it."
-        )
-        form.addRow("Read offset:", self._offset_status_label)
-
-        # --- Tool paths ---
-        self._metaflac_path_edit, metaflac_row = self._build_file_row(
-            config.metaflac_path, "metaflac path"
-        )
-        self._metaflac_path_edit.setToolTip(
-            "Path to the 'metaflac' tool used to adjust FLAC tags after a rip. "
-            "Leave as 'metaflac' to use the host-exported command on your PATH "
-            "(the normal case). Advanced."
-        )
-        form.addRow("metaflac path:", metaflac_row)
 
         # --- Output format ---
         # Every rip produces FLAC (the lossless master); a non-FLAC choice is
@@ -379,76 +328,6 @@ class SettingsDialog(CenteredDialog):
         self._format_combo.currentIndexChanged.connect(self._update_mp3_quality_enabled)
         self._update_mp3_quality_enabled()
 
-        # --- Toggles ---
-        self._auto_picard_check: QCheckBox = QCheckBox(
-            # It does NOT launch anything on its own: the only path to Picard is
-            # the Unknown Album dialog, which you open deliberately. This setting
-            # is that dialog's checkbox default. The old wording read as automatic
-            # and cost a reviewer a check of whether it could fire mid-run.
-            "Tick \u201claunch Picard\u201d by default on unknown discs",
-            self,
-        )
-        self._auto_picard_check.setChecked(config.auto_launch_picard)
-        self._auto_picard_check.setToolTip(
-            "This launches nothing on its own. It sets the default state of the "
-            "'open in Picard' checkbox inside the Rip as Unknown Album dialog, "
-            "which you open deliberately. ON: that box starts ticked, so accepting "
-            "the dialog opens Picard after the rip. OFF (default): it starts "
-            "unticked and Picard is never opened unless you tick it there."
-        )
-        form.addRow("Picard integration:", self._auto_picard_check)
-
-        # Auto-eject the disc when a rip finishes successfully. Convenience
-        # only — the manual Eject button next to the drive picker works
-        # regardless of this toggle.
-        self._auto_eject_check: QCheckBox = QCheckBox(
-            "Eject the disc after a successful rip", self
-        )
-        self._auto_eject_check.setChecked(config.auto_eject_after_rip)
-        self._auto_eject_check.setToolTip(
-            "ON: the tray opens as soon as a rip finishes successfully. OFF "
-            "(default): the disc stays in, which is what you want when ripping "
-            "several discs in a row or re-reading one. A failed or cancelled rip "
-            "never ejects either way."
-        )
-        form.addRow("After rip:", self._auto_eject_check)
-
-        # Desktop notification when a rip finishes — so an unattended rip alerts
-        # you even when Platterpus isn't the focused window. On by default.
-        self._notify_check: QCheckBox = QCheckBox(
-            "Show a desktop notification when a rip finishes", self
-        )
-        self._notify_check.setChecked(config.notify_on_completion)
-        self._notify_check.setToolTip(
-            "ON: a desktop notification appears when a rip finishes or fails, so "
-            "you need not watch the window. OFF: no notification — the window is "
-            "the only place the result appears. A rip you cancel yourself is "
-            "never announced either way."
-        )
-        form.addRow("", self._notify_check)
-
-        # Debug logging — verbose log file for bug reports. Off by default;
-        # testers turn it on, reproduce the issue, then attach the log.
-        self._debug_logging_check: QCheckBox = QCheckBox(
-            "Debug logging (verbose log for bug reports)", self
-        )
-        self._debug_logging_check.setChecked(config.debug_logging)
-        # The REAL log path, resolved through `paths.LOG_PATH` rather than the
-        # `~/.local/share/...` literal this used to name. That literal is wrong under
-        # a custom `XDG_DATA_HOME` or a sandbox, and this tooltip's whole job is to
-        # tell a user which file to attach to a bug report — naming a path they do
-        # not have is worse than naming none, because they conclude it is missing.
-        self._debug_logging_check.setToolTip(
-            plain_tooltip(
-                f"ON: every probe, command and parse step is recorded to the log file "
-                f"at\n{LOG_PATH} — turn this on, reproduce the problem, then attach "
-                "that file to a bug report. OFF (default): only notable events are "
-                "logged, which keeps the file small but usually will not contain "
-                "enough to diagnose a failure after the fact."
-            )
-        )
-        form.addRow("Logging:", self._debug_logging_check)
-
         # --- EAC bit-perfect parity gaps (KDD-13) ---
         # Cover art: "" = don't fetch. With cyanrip the GUI fetches the front
         # cover from the Cover Art Archive after the rip and embeds it.
@@ -491,6 +370,77 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("", self._additional_art_check)
 
+        # --prefer-disc-isrc (round 35, TASKS R20). Effect-first wording, as above.
+        self._prefer_disc_isrc_check: QCheckBox = QCheckBox(
+            "Tag each track with the ISRC its disc carries, when it carries one", self
+        )
+        self._prefer_disc_isrc_check.setChecked(config.prefer_disc_isrc)
+        self._prefer_disc_isrc_check.setToolTip(
+            "An ISRC identifies a recording. MusicBrainz lists one per recording, "
+            "and a recording can have several; a disc can carry its own in its "
+            "sub-channel, which says which one this pressing has. On (default): a "
+            "track whose disc carries an ISRC is tagged with it, and any other track "
+            "keeps MusicBrainz's. Off: every track is tagged with MusicBrainz's. "
+            "Either way the rip report records both. Needs a ripper build that "
+            "supports it; an older one ignores this setting."
+        )
+        form.addRow("Disc ISRC:", self._prefer_disc_isrc_check)
+
+        # --- EAC-layout companion log ---
+        # Write an honest, clearly-attributed EAC-*layout* text log beside each
+        # rip (never a signed/forged EAC log). On by default; Archival ticks it.
+        self._eac_log_check: QCheckBox = QCheckBox(
+            "Write an EAC-compatible log beside each rip", self
+        )
+        self._eac_log_check.setChecked(config.write_eac_log_after_rip)
+        self._eac_log_check.setToolTip(
+            "ON (default): a second, EAC-layout text log is written beside the "
+            "audio (as '… (EAC-compatible).log'), in the layout Exact Audio Copy "
+            "users know. OFF: it is not; cyanrip's own log and the Platterpus "
+            "report are written beside every rip either way. The EAC-layout file "
+            "is clearly marked as generated by Platterpus and is never a signed "
+            "EAC log — we do not forge that signature."
+        )
+        form.addRow("EAC-style log:", self._eac_log_check)
+
+        # ===== Accuracy: how the disc is read and checked =====
+        form = self._groups.form(ACCURACY)
+
+        # --- Read offset: SHOWN here, edited in the drive wizard ---
+        # A rip depends on it, so Settings says what it is — but it has one home,
+        # the drive wizard, and a second editor here is how an OK once wrote a
+        # stale offset over one the wizard had just saved (`apply_user_edits`).
+        # Read-only text, so there is nothing here a scroll or a click can change.
+        #
+        # Beside it, a **Set up drive…** button that opens that wizard (TASKS
+        # R180, UX review S2), where the row used to be a sentence naming a path
+        # three menus deep. A door, not a second editor: the offset is still
+        # edited only in the wizard, and the window re-reads it into this row
+        # when the wizard closes (`set_drive_offset`).
+        self._offset_status_label: QLabel = QLabel("", self)
+        self._offset_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._offset_status_label.setWordWrap(True)
+        self._offset_status_label.setAccessibleName("Read offset")
+        self._offset_status_label.setToolTip(
+            "The selected drive's read offset, in samples (cyanrip's -s). It is "
+            "a property of the DRIVE, not of the disc, so it is set once per "
+            "drive, in the drive wizard, where it can be looked up from the "
+            "AccurateRip drive list. Each drive keeps its own. Shown here because "
+            "every rip depends on it."
+        )
+        self._drive_setup_button: QPushButton = QPushButton("Set up drive…", self)
+        self._drive_setup_button.setAccessibleName("Set up the selected drive")
+        self._drive_setup_button.clicked.connect(self.drive_setup_requested.emit)
+        offset_row = QWidget(self)
+        offset_layout = QHBoxLayout(offset_row)
+        offset_layout.setContentsMargins(0, 0, 0, 0)
+        offset_layout.addWidget(self._offset_status_label, stretch=1)
+        offset_layout.addWidget(
+            self._drive_setup_button, alignment=Qt.AlignmentFlag.AlignTop
+        )
+        self.set_drive_offset(drive_offset)
+        form.addRow("Read offset:", offset_row)
+
         self._max_retries_spin: QSpinBox = QSpinBox(self)
         self._max_retries_spin.setRange(
             settings_validation.MAX_RETRIES_MIN, settings_validation.MAX_RETRIES_MAX
@@ -517,40 +467,6 @@ class SettingsDialog(CenteredDialog):
             "a badly damaged track then takes much longer to give up."
         )
         form.addRow("Max retries:", self._max_retries_spin)
-
-        # Overread (cyanrip -O): opt-in, effect-first wording (gap #5 style).
-        # Deliberately NOT goal-driven — it's a drive-capability call, not a
-        # rip-goal trade-off, so switching Goal never flips it.
-        self._force_overread_check: QCheckBox = QCheckBox(
-            "Read the disc's outermost samples (overread lead-in/out)", self
-        )
-        self._force_overread_check.setChecked(config.force_overread)
-        self._force_overread_check.setToolTip(
-            "With a read offset applied, a disc's very first and last samples "
-            "sit in the lead-in/lead-out. Off (default): those few samples are "
-            'written as silence — the same as EAC\'s "overread: No", and how '
-            "this app's EAC parity baseline matched. On: the drive is asked to "
-            "actually read them (cyanrip's -O). Advanced: only some drives can "
-            "overread — cyanrip warns an unsupported drive may freeze, so turn "
-            "this on only if you know your drive supports it."
-        )
-        form.addRow("Overread:", self._force_overread_check)
-
-        # --prefer-disc-isrc (round 35, TASKS R20). Effect-first wording, as above.
-        self._prefer_disc_isrc_check: QCheckBox = QCheckBox(
-            "Tag each track with the ISRC its disc carries, when it carries one", self
-        )
-        self._prefer_disc_isrc_check.setChecked(config.prefer_disc_isrc)
-        self._prefer_disc_isrc_check.setToolTip(
-            "An ISRC identifies a recording. MusicBrainz lists one per recording, "
-            "and a recording can have several; a disc can carry its own in its "
-            "sub-channel, which says which one this pressing has. On (default): a "
-            "track whose disc carries an ISRC is tagged with it, and any other track "
-            "keeps MusicBrainz's. Off: every track is tagged with MusicBrainz's. "
-            "Either way the rip report records both. Needs a ripper build that "
-            "supports it; an older one ignores this setting."
-        )
-        form.addRow("Disc ISRC:", self._prefer_disc_isrc_check)
 
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
         # Secure re-rip effort: how many EXTRA reads must match before a track that
@@ -773,22 +689,173 @@ class SettingsDialog(CenteredDialog):
         # the box sat here permanently greyed out. A control that cannot change
         # anything is noise a user has to read past, so it went with the setting.
 
-        # --- EAC-layout companion log ---
-        # Write an honest, clearly-attributed EAC-*layout* text log beside each
-        # rip (never a signed/forged EAC log). On by default; Archival ticks it.
-        self._eac_log_check: QCheckBox = QCheckBox(
-            "Write an EAC-compatible log beside each rip", self
+        # ===== After a rip: what happens once the disc is read =====
+        form = self._groups.form(AFTER_RIP)
+
+        # Library folder (optional — empty leaves rips in the output directory).
+        # When set, a finished rip's album folder is moved here AFTER every
+        # post-rip check settles (see main_window_rip._maybe_schedule_library_move).
+        self._library_dir_edit, library_row = self._build_dir_row(
+            config.library_dir, "Library folder"
         )
-        self._eac_log_check.setChecked(config.write_eac_log_after_rip)
-        self._eac_log_check.setToolTip(
-            "ON (default): a second, EAC-layout text log is written beside the "
-            "audio (as '… (EAC-compatible).log'), in the layout Exact Audio Copy "
-            "users know. OFF: it is not; cyanrip's own log and the Platterpus "
-            "report are written beside every rip either way. The EAC-layout file "
-            "is clearly marked as generated by Platterpus and is never a signed "
-            "EAC log — we do not forge that signature."
+        self._library_dir_edit.setToolTip(
+            "Optional. When set, a successful rip's album folder is moved here "
+            "once every post-rip check has finished (tagging, cover art, the "
+            "verification suite, checksums) — so the output directory stays a "
+            "workspace and your library only ever receives finished, verified "
+            "rips. Leave empty to keep rips in the output directory."
         )
-        form.addRow("EAC-style log:", self._eac_log_check)
+        form.addRow("Move finished rips to:", library_row)
+
+        # Auto-eject the disc when a rip finishes successfully. Convenience
+        # only — the manual Eject button next to the drive picker works
+        # regardless of this toggle.
+        self._auto_eject_check: QCheckBox = QCheckBox(
+            "Eject the disc after a successful rip", self
+        )
+        self._auto_eject_check.setChecked(config.auto_eject_after_rip)
+        self._auto_eject_check.setToolTip(
+            "ON: the tray opens as soon as a rip finishes successfully. OFF "
+            "(default): the disc stays in, which is what you want when ripping "
+            "several discs in a row or re-reading one. A failed or cancelled rip "
+            "never ejects either way."
+        )
+        form.addRow("After rip:", self._auto_eject_check)
+
+        # Desktop notification when a rip finishes — so an unattended rip alerts
+        # you even when Platterpus isn't the focused window. On by default.
+        self._notify_check: QCheckBox = QCheckBox(
+            "Show a desktop notification when a rip finishes", self
+        )
+        self._notify_check.setChecked(config.notify_on_completion)
+        self._notify_check.setToolTip(
+            "ON: a desktop notification appears when a rip finishes or fails, so "
+            "you need not watch the window. OFF: no notification — the window is "
+            "the only place the result appears. A rip you cancel yourself is "
+            "never announced either way."
+        )
+        form.addRow("", self._notify_check)
+
+        # --- Toggles ---
+        self._auto_picard_check: QCheckBox = QCheckBox(
+            # It does NOT launch anything on its own: the only path to Picard is
+            # the Unknown Album dialog, which you open deliberately. This setting
+            # is that dialog's checkbox default. The old wording read as automatic
+            # and cost a reviewer a check of whether it could fire mid-run.
+            "Tick \u201claunch Picard\u201d by default on unknown discs",
+            self,
+        )
+        self._auto_picard_check.setChecked(config.auto_launch_picard)
+        self._auto_picard_check.setToolTip(
+            "This launches nothing on its own. It sets the default state of the "
+            "'open in Picard' checkbox inside the Rip as Unknown Album dialog, "
+            "which you open deliberately. ON: that box starts ticked, so accepting "
+            "the dialog opens Picard after the rip. OFF (default): it starts "
+            "unticked and Picard is never opened unless you tick it there."
+        )
+        form.addRow("Picard integration:", self._auto_picard_check)
+
+        # ===== Advanced: raw templates, tool paths, unusual drives, bug reports =====
+        form = self._groups.form(ADVANCED)
+
+        self._track_template_edit: QLineEdit = QLineEdit(config.track_template, self)
+        self._track_template_edit.setToolTip(
+            "Path for identified discs. Codes: %A artist, %d album, "
+            "%t track #, %n title, %a track artist, %y date, %Y year (4-digit), "
+            "%N disc number, %M total discs.\n"
+            "Pick a Naming scheme under Output, or hand-edit here."
+        )
+        form.addRow("Track template:", self._track_template_edit)
+
+        self._disc_template_edit: QLineEdit = QLineEdit(config.disc_template, self)
+        self._disc_template_edit.setToolTip(
+            "Folder path for the rip's .log and .cue on identified discs. Same "
+            "codes as the track template above."
+        )
+        form.addRow("Disc template (.log/.cue):", self._disc_template_edit)
+
+        # Wire up: preset → fill fields; manual edit → flip to Custom; either →
+        # refresh preview. Signals are blocked while syncing to avoid a loop.
+        self._naming_combo.currentIndexChanged.connect(self._on_naming_preset_chosen)
+        self._track_template_edit.textChanged.connect(self._on_template_text_changed)
+        self._disc_template_edit.textChanged.connect(self._on_template_text_changed)
+        self._sync_naming_combo_to_templates()
+        self._refresh_naming_preview()
+
+        # Unknown-disc templates: used for the --unknown rip, where there is no
+        # real album title for %d (the ripper older versions used filled it with
+        # the raw disc-ID hash), so a literal path keeps the folder tidy.
+        self._track_template_unknown_edit: QLineEdit = QLineEdit(
+            config.track_template_unknown, self
+        )
+        self._track_template_unknown_edit.setToolTip(
+            "Track path used when a disc isn't identified (File → Rip as Unknown "
+            "Album). Uses the literal 'Unknown Album' names, never a disc-ID hash."
+        )
+        form.addRow("Track template (unknown):", self._track_template_unknown_edit)
+
+        self._disc_template_unknown_edit: QLineEdit = QLineEdit(
+            config.disc_template_unknown, self
+        )
+        self._disc_template_unknown_edit.setToolTip(
+            "Folder path for the .log/.cue of an unidentified disc "
+            "(File → Rip as Unknown Album)."
+        )
+        form.addRow("Disc template (unknown):", self._disc_template_unknown_edit)
+
+        # --- Tool paths ---
+        self._metaflac_path_edit, metaflac_row = self._build_file_row(
+            config.metaflac_path, "metaflac path"
+        )
+        self._metaflac_path_edit.setToolTip(
+            "Path to the 'metaflac' tool used to adjust FLAC tags after a rip. "
+            "Leave as 'metaflac' to use the host-exported command on your PATH "
+            "(the normal case). Advanced."
+        )
+        form.addRow("metaflac path:", metaflac_row)
+
+        # Overread (cyanrip -O): opt-in, effect-first wording (gap #5 style).
+        # Deliberately NOT goal-driven — it's a drive-capability call, not a
+        # rip-goal trade-off, so switching Goal never flips it.
+        self._force_overread_check: QCheckBox = QCheckBox(
+            "Read the disc's outermost samples (overread lead-in/out)", self
+        )
+        self._force_overread_check.setChecked(config.force_overread)
+        self._force_overread_check.setToolTip(
+            "With a read offset applied, a disc's very first and last samples "
+            "sit in the lead-in/lead-out. Off (default): those few samples are "
+            'written as silence — the same as EAC\'s "overread: No", and how '
+            "this app's EAC parity baseline matched. On: the drive is asked to "
+            "actually read them (cyanrip's -O). Advanced: only some drives can "
+            "overread — cyanrip warns an unsupported drive may freeze, so turn "
+            "this on only if you know your drive supports it."
+        )
+        form.addRow("Overread:", self._force_overread_check)
+
+        # Debug logging — verbose log file for bug reports. Off by default;
+        # testers turn it on, reproduce the issue, then attach the log.
+        self._debug_logging_check: QCheckBox = QCheckBox(
+            "Debug logging (verbose log for bug reports)", self
+        )
+        self._debug_logging_check.setChecked(config.debug_logging)
+        # The REAL log path, resolved through `paths.LOG_PATH` rather than the
+        # `~/.local/share/...` literal this used to name. That literal is wrong under
+        # a custom `XDG_DATA_HOME` or a sandbox, and this tooltip's whole job is to
+        # tell a user which file to attach to a bug report — naming a path they do
+        # not have is worse than naming none, because they conclude it is missing.
+        self._debug_logging_check.setToolTip(
+            plain_tooltip(
+                f"ON: every probe, command and parse step is recorded to the log file "
+                f"at\n{LOG_PATH} — turn this on, reproduce the problem, then attach "
+                "that file to a bug report. OFF (default): only notable events are "
+                "logged, which keeps the file small but usually will not contain "
+                "enough to diagnose a failure after the fact."
+            )
+        )
+        form.addRow("Logging:", self._debug_logging_check)
+
+        # The page's rows sit at the top; spare height goes below the last group.
+        page.addStretch(1)
 
         # --- The form scrolls; the actions never do --------------------------
         # Measured, not guessed (2026-08-06, real hardware): this form is 35 rows
@@ -818,8 +885,6 @@ class SettingsDialog(CenteredDialog):
         # `tests/test_ui_settings_dialog.py` asserts exactly that alongside the
         # constrained-size checks, because "it still looks right at its natural
         # size" is not a test of a scroll area (docs/testing.md §5.v).
-        form_host = QWidget(self)
-        form_host.setLayout(form)
         self._form_scroll: QScrollArea = QScrollArea(self)
         self._form_scroll.setWidget(form_host)
         # Without this the inner widget keeps its own size and the scroll area
@@ -894,6 +959,12 @@ class SettingsDialog(CenteredDialog):
 
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
+        # Mark the rows a goal sets, from the preset's own fields through the
+        # home table, so a field added to `GoalPreset` is marked the day it is
+        # added rather than when someone remembers this list.
+        self._groups.mark_goal_rows(self._goal_set_controls())
+        self._goal_combo.currentIndexChanged.connect(self._refresh_goal_status)
+        self._refresh_goal_status()
 
         # --- OK / Apply / Cancel / Restore Defaults ---
         button_box = QDialogButtonBox(
@@ -1032,6 +1103,38 @@ class SettingsDialog(CenteredDialog):
 
     # --- Public surface -----------------------------------------------------
 
+    def set_drive_offset(self, drive_offset: offset_config.DriveOffset | None) -> None:
+        """Show the read offset the next rip on the selected drive applies.
+
+        Called once while the dialog is built and again by the window when the
+        drive wizard opened from here closes, so the row never shows an offset
+        the wizard has just replaced. None, or a decision made with no drive
+        selected, greys **Set up drive…**: there is no drive for it to set up,
+        and its tooltip says so and where to pick one.
+        """
+        decision = drive_offset or offset_config.offset_for_drive(
+            None,
+            apply_offsets=self._config.override_read_offset,
+            drive_selected=False,
+        )
+        self._offset_status_label.setText(
+            offset_config.describe_applied_offset(decision)
+        )
+        has_drive = decision.reason != offset_config.REASON_NO_DRIVE
+        self._drive_setup_button.setEnabled(has_drive)
+        self._drive_setup_button.setToolTip(
+            plain_tooltip(
+                "Open the drive setup wizard for the selected drive: its read "
+                "offset, from the AccurateRip drive list or typed by hand, and "
+                "its audio cache check. The offset is changed there, and this "
+                "row shows the new one when the wizard closes."
+                if has_drive
+                else "No drive is selected, so there is no drive to set up. Close "
+                "Settings, pick a drive in the main window's drive list, then "
+                "press this again."
+            )
+        )
+
     def user_edits_applied_to(self, current: Config) -> Config:
         """The config to save: ``current`` plus only what the user changed here.
 
@@ -1138,6 +1241,7 @@ class SettingsDialog(CenteredDialog):
         self._goal_combo.blockSignals(True)
         self._goal_combo.setCurrentIndex(goal_index if goal_index >= 0 else 0)
         self._goal_combo.blockSignals(False)
+        self._refresh_goal_status()
         self._sync_naming_combo_to_templates()
         self._refresh_naming_preview()
         self._update_apply_enabled()
@@ -1248,8 +1352,28 @@ class SettingsDialog(CenteredDialog):
             # its name and reason.
             settings_validation.log_issues(issues, self.to_config())
             self._render_validation(issues)
+            self._scroll_to_first_error(issues)
             return True
         return False
+
+    def _scroll_to_first_error(self, issues: list[ValidationIssue]) -> None:
+        """Bring the first refused field into view, and put the cursor in it.
+
+        The banner naming the problem sits outside the scroll area, so it is
+        always seen; the field it names may not be. Grouping (TASKS R180) put
+        the raw templates and the ``metaflac`` path at the bottom, under
+        Advanced, so a save refused over one of them would otherwise show a
+        banner about a field the user has to scroll to find.
+        """
+        for issue in issues:
+            if not issue.is_error():
+                continue
+            widget = self._validated_widgets.get(issue.field)
+            if widget is None:
+                continue
+            self._form_scroll.ensureWidgetVisible(widget)
+            widget.setFocus(Qt.FocusReason.OtherFocusReason)
+            return
 
     def _revalidate(self) -> None:
         """Validate the current widget state and show any issues inline. Cheap
@@ -1333,6 +1457,23 @@ class SettingsDialog(CenteredDialog):
     # read as the authoritative roster. Removed 2026-07-31 rather than repaired,
     # because a second list is the drift; `test_goal_presets` now asserts the
     # wiring covers every `GoalPreset` field, which is what catches the next one.
+    #
+    # `_goal_set_controls` (2026-11-23, TASKS R180) is NOT that list come back:
+    # it is written by no one, but read off `GoalPreset`'s fields through the
+    # home table, so it cannot name five of six. It feeds the ◆ marks only.
+
+    def _goal_set_controls(self) -> list[QWidget]:
+        """The control of every field a goal preset sets, in the preset's order."""
+        return [
+            getattr(self, SETTING_HOMES[field.name].control)
+            for field in dataclasses.fields(goal_presets.GoalPreset)
+        ]
+
+    def _refresh_goal_status(self) -> None:
+        """Re-write the line under the Goal from the controls as they stand."""
+        self._goal_status_label.setText(
+            goal_status_text(self._goal_combo.currentData(), self.to_config())
+        )
 
     def _wire_goal_presets(self) -> None:
         """Show the goal matching the incoming config, then keep combo and
@@ -1406,6 +1547,9 @@ class SettingsDialog(CenteredDialog):
         custom_index = self._goal_combo.findData(goal_presets.GOAL_CUSTOM)
         if custom_index >= 0 and self._goal_combo.currentIndex() != custom_index:
             self._goal_combo.setCurrentIndex(custom_index)
+        # Already Custom, or just made so: either way the line under the Goal
+        # names the options that now differ, and one more may have joined them.
+        self._refresh_goal_status()
 
     def _build_dir_row(
         self, initial_path: str, accessible_name: str

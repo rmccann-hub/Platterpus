@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import fields, replace
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 import platterpus.ui.settings_dialog
 from platterpus.config import Config
 from platterpus.goal_presets import (
@@ -11,10 +14,18 @@ from platterpus.goal_presets import (
     GOAL_CUSTOM,
     GOAL_FAST,
     GOAL_PORTABLE,
+    PRESETS,
     GoalPreset,
     apply_preset,
     detect_goal,
+    fields_differing,
+    nearest_preset,
     turns_on_eac_log,
+)
+from platterpus.ui.settings_groups import (
+    GOAL_FIELD_NAMES,
+    GOAL_KEY_TEXT,
+    goal_status_text,
 )
 
 
@@ -215,4 +226,130 @@ def test_every_goal_preset_field_has_a_wired_control() -> None:
         "control whose changed-signal reaches _on_dependent_changed, or editing "
         "that control leaves the goal combo showing a preset the settings no "
         "longer match. Wire the missing one — do not adjust this count."
+    )
+
+
+# --- Which options differ, and from which preset (TASKS R180, UX review S1) --
+#
+# Settings' line under the Goal names the options that made it Custom and the
+# preset they differ from. These two functions are that sentence's facts.
+
+
+def test_a_preset_applied_differs_from_itself_in_nothing() -> None:
+    # Floor: three goals today; a loop over none would pass having checked none.
+    assert len(PRESETS) >= 3
+    for goal in PRESETS:
+        config = apply_preset(Config(), goal)
+        assert fields_differing(config, goal) == [], goal
+        assert nearest_preset(config) == goal
+
+
+def test_fields_differing_names_each_changed_field_in_the_presets_order() -> None:
+    config = replace(
+        apply_preset(Config(), GOAL_FAST),
+        read_speed_mode="fixed",
+        output_format="wavpack",
+    )
+    # The preset's field order (output_format first), not the order of change.
+    assert fields_differing(config, GOAL_FAST) == ["output_format", "read_speed_mode"]
+
+
+def test_custom_and_unknown_goals_differ_in_nothing() -> None:
+    """Custom sets nothing, so there is nothing for a config to differ from."""
+    assert fields_differing(Config(output_format="wav"), GOAL_CUSTOM) == []
+    assert fields_differing(Config(), "no-such-goal") == []
+
+
+def test_nearest_preset_is_the_one_fewest_fields_away() -> None:
+    # MP3 at a fixed speed: one field off Portable, two off Fast verified.
+    portable_ish = replace(
+        apply_preset(Config(), GOAL_PORTABLE), read_speed_mode="fixed"
+    )
+    assert nearest_preset(portable_ish) == GOAL_PORTABLE
+    # Test and Copy with CTDB off: one field off Archival, two off Fast.
+    archival_ish = replace(
+        apply_preset(Config(), GOAL_ARCHIVAL), ctdb_verify_after_rip=False
+    )
+    assert nearest_preset(archival_ish) == GOAL_ARCHIVAL
+
+
+def test_a_tie_goes_to_the_recommended_preset_listed_first() -> None:
+    """WavPack is one field off Fast verified and one off Portable (the format
+    each time). A tie must depend on nothing but the config, so it goes to the
+    first preset in `PRESETS`, the recommended one."""
+    tie = replace(apply_preset(Config(), GOAL_FAST), output_format="wavpack")
+    assert len(fields_differing(tie, GOAL_FAST)) == 1
+    assert len(fields_differing(tie, GOAL_PORTABLE)) == 1
+    assert next(iter(PRESETS)) == GOAL_FAST
+    assert nearest_preset(tie) == GOAL_FAST
+
+
+@given(
+    output_format=st.sampled_from(["flac", "wavpack", "mp3", "wav"]),
+    ctdb=st.booleans(),
+    verify_flac=st.booleans(),
+    matches=st.integers(min_value=0, max_value=5),
+    dynamic=st.booleans(),
+    variant=st.booleans(),
+    speed=st.sampled_from(["auto_ladder", "fixed"]),
+)
+def test_detect_goal_names_a_preset_exactly_when_nothing_differs_from_it(
+    output_format: str,
+    ctdb: bool,
+    verify_flac: bool,
+    matches: int,
+    dynamic: bool,
+    variant: bool,
+    speed: str,
+) -> None:
+    """Two surfaces answer "is this a preset?": `detect_goal` (the combo on
+    open, the rip report's goal) and `fields_differing` (the Custom line). They
+    must use the same key, or the line could say Custom about a config the
+    combo names (`docs/testing.md` §5.al)."""
+    config = Config(
+        output_format=output_format,
+        ctdb_verify_after_rip=ctdb,
+        verify_flac_after_rip=verify_flac,
+        secure_rerip_matches=matches,
+        secure_rerip_dynamic=dynamic,
+        rerip_offset_variant=variant,
+        read_speed_mode=speed,
+    )
+    nearest = nearest_preset(config)
+    if detect_goal(config) == GOAL_CUSTOM:
+        assert fields_differing(config, nearest) != []
+    else:
+        assert fields_differing(config, nearest) == []
+        assert detect_goal(config) == nearest
+
+
+# --- The line under the Goal, and the names it uses -------------------------
+
+
+def test_every_preset_field_has_a_name_in_the_custom_line() -> None:
+    assert set(GOAL_FIELD_NAMES) == {f.name for f in fields(GoalPreset)}
+
+
+def test_the_goal_line_explains_the_mark_while_a_preset_is_named() -> None:
+    for goal in PRESETS:
+        assert goal_status_text(goal, Config()) == GOAL_KEY_TEXT
+    assert GOAL_KEY_TEXT == (
+        "◆ marks the options a goal sets. Change one and the goal becomes Custom."
+    )
+
+
+def test_the_custom_line_names_what_differs_and_from_which_preset() -> None:
+    one = replace(apply_preset(Config(), GOAL_FAST), output_format="wavpack")
+    assert goal_status_text(GOAL_CUSTOM, one) == (
+        "ⓘ Custom: Output format differs from Fast verified. ◆ marks the options "
+        "a goal sets. Change one and the goal becomes Custom."
+    )
+    three = replace(one, read_speed_mode="fixed", ctdb_verify_after_rip=False)
+    assert goal_status_text(GOAL_CUSTOM, three).startswith(
+        "ⓘ Custom: Output format, CTDB and Read speed differ from Fast verified."
+    )
+    # Custom picked by hand over values that still match a preset says so.
+    same = apply_preset(Config(), GOAL_PORTABLE)
+    assert goal_status_text(GOAL_CUSTOM, same).startswith(
+        "ⓘ Custom: every option a goal sets still matches Portable."
     )
