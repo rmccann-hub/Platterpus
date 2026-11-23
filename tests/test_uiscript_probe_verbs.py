@@ -387,6 +387,11 @@ def test_expect_newest_pair_times_out_as_not_determined(
 
     monkeypatch.setattr(probe_verbs, "PAIR_WAIT_S", 0.2)
     monkeypatch.setattr(ripper_manifest, "fetch_manifest", slow)
+    # The fetch reads our own releases after the manifest; left real, that
+    # call went to GitHub once `release` freed the thread, and on a slow CI
+    # network it outlasted the harness's 5 s join at teardown (PR #513: an
+    # error on py3.13 and py3.14, never locally). No test reaches a network.
+    monkeypatch.setattr("platterpus.update_check.latest_release", lambda **_: _ours())
     try:
         step = _step_outcome(
             ScriptRunner(_window()), qapp, process_until, "expect-newest-pair"
