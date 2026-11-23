@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Our round 42 lap 2 is released to the fork, and our status block records 0.7.129 as released** (contributor-facing; the owner's word of 2026-11-23): the lap says 0.7.129 names `.35` under review, and `STATUS-RELEASED` names 0.7.129 at `a964e3b`, published 2026-11-23T22:38:06Z.
+
 ## [0.7.129] — 2026-11-23
 
 ### Added
