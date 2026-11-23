@@ -3229,6 +3229,32 @@ def test_cyanrip_eta_stripped_from_forwarded_log(
     assert worker._last_cyanrip_eta == "49m"
 
 
+def test_stripping_cyanrip_eta_keeps_the_error_count(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Only the ETA clause is scrubbed: a redraw's `, errors - N`, which
+    follows it, stays in the forwarded line. The pattern used to match to the
+    end of the line, so the log pane never showed the running error count
+    (the fork's round 42 lap 1 S25)."""
+    handle = _FakeHandle(
+        lines=[
+            "Disc tracks:    1",
+            "Ripping and encoding track 1, progress - 50.00%, ETA - 49m, errors - 2",
+        ],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    progress_lines = [ln for ln in sigs.log_lines if "progress - 50.00%" in ln]
+    assert progress_lines, "the progress line should be forwarded"
+    assert all("ETA" not in ln for ln in progress_lines)
+    assert all(ln.endswith(", errors - 2") for ln in progress_lines), progress_lines
+
+
 def test_progress_redraws_are_rate_limited_in_the_log(
     qapp: QApplication, tmp_path: Path
 ) -> None:
