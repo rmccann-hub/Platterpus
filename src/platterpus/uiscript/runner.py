@@ -467,6 +467,12 @@ class ScriptRunner(
         self._accuracies: dict[str, AccuracyRecord] = {}
         #: The values `keep` recorded, by setting, for `expect-kept` (TASKS R189).
         self._kept: dict[str, object] = {}
+        #: The test this run is and its blocks (`name_test`), the blocks its
+        #: `run-block` lines expanded, and each label's run count (TASKS R188).
+        self._test_name: str = ""
+        self._test_blocks: tuple[str, ...] = ()
+        self._expanded_blocks: tuple[str, ...] = ()
+        self._repeat_runs: dict[str, int] = {}
         self._artifact_dir: Path | None = None
         #: Set by :meth:`contain_in`: the folder this run writes into instead of
         #: its own stamped one, and whether it still builds a bundle of its own.
@@ -590,7 +596,9 @@ class ScriptRunner(
         if self.running:
             log.warning("script runner asked to start while already running; ignored")
             return
-        self._steps = list(steps)
+        # `run-block` lines become the steps they run (TASKS R188), first, so the
+        # preflight, the estimate and the run sizes below all see those steps.
+        self._steps = self._expand_blocks(steps)
         self._index = 0
         self._artifact_dir = None
         self._deadline = None
@@ -620,6 +628,8 @@ class ScriptRunner(
             script_source=source,
             preflight=_preflight(self._steps),
             run_size=self._run_size,
+            test_name=self._test_name,
+            blocks=self._test_blocks + self._expanded_blocks,
         )
         log.info("ui script run starting: %d step(s)", len(self._steps))
         # D6: how long it should take, before step 1, in the log and the record.

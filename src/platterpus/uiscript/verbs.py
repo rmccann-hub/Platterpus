@@ -1029,6 +1029,27 @@ _VERB_LIST: tuple[Verb, ...] = (
         "build, the rips came from more than one build, a rip lacks the track, "
         "only one condition is named, or AccurateRip gave no answer)",
     ),
+    # --- A block as a subroutine, and what must hold across its runs ----------
+    # TASKS R188, the owner's design: no general loops or variables, so a script
+    # stays a list read top to bottom. `run-block` is EXPANDED when a run starts
+    # (`uiscript/run_block.py`), so the preflight and the estimate see its steps.
+    Verb(
+        "run-block",
+        4,
+        4,
+        "run-block <name> ×<N> as <label> — run the built-in block <name> N times "
+        "(1 to 20), the runs labelled <label>1 to <label>N; expanded when the run "
+        "starts, so the estimate counts every step (xN is accepted for ×N)",
+    ),
+    Verb(
+        "expect-repeats",
+        2,
+        5,
+        "expect-repeats <label> same-crc|verified|at-least K of N — across the "
+        "runs of <label>: every track's CRC32 the same, every track verified in "
+        "every run, or verified in at least K of the N; a fail names the run and "
+        "the track, and a run with no record is not determined",
+    ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(
         "cyanrip",

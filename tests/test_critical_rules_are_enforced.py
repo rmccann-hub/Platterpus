@@ -1191,7 +1191,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **462 -> 489** (2026-10-05, TASKS "a run stopped by one step prints that step's whole text twice"): `StepRecord.headline`, the failed step's first line with the rest counted, which `abort-if-failed` quotes instead of the whole detail. It is a question about one step's record, so it lives on the record; most of it is the docstring giving the run that printed one failure three times.
     # **489 -> 536** (2026-10-06, TASKS "Permutations the acceptance test still does not run" (a), KDD-41 C4): `UNREACHABLE` made understood by the verdict surfaces now that a verb emits it. `ok` forgives it as it forgives a run size's declines, `unreachable` counts it, the RESULT line and the JSON (`unreachable_lines`) name it. It is the meaning of the run's own verdict, so it lives with the verdict; most of the growth is the docstring saying why a forgiven step is not a checked one.
     # **536 -> 543** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): `RunReport.estimate`, in the transcript's head and the JSON, beside the run size it depends on.
-    "uiscript/report.py": 543,
+    # **543 -> 561** (2026-11-23, TASKS R188): `RunReport.test_name` and `blocks`, the pre-built test a run is and the blocks it ran, in the transcript head and the JSON, and `counts_as_evidence` read from size AND test, so a Full-size run of the Quick check is never read as the Full run. It is the meaning of the run's own verdict, so it lives with the verdict.
+    "uiscript/report.py": 561,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     # **322 -> 339** (2026-10-21, TASKS P2 #6, the owner's known-fixes item 11): `lookup_entry` names the row a drive matched, and `lookup` delegates to it, so the offset the app applies and the offset the report checks come from one rule.
@@ -3225,7 +3226,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5038 -> 5068** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `set-drive-offset` / `expect-drive-offset` ask the window's `_selected_drive_offset`, and `set read_offset` goes to the offset writer, so it saves for the selected drive instead of changing a value no rip reads.
     # **5068 -> 5083** (2026-11-16, TASKS R24): the import and base class of `RipperBuildVerbsMixin` (its handler, `expect-ripper-bounds-overread`, lives in `ripper_build_verbs.py`, not here), and `expect-drive-offset <offset>`, which asserts the selected drive's own offset is a named number, beside the handler it extends; the parser is `script_values.parse_offset`.
     # **5083 -> 5092** (2026-11-23, TASKS R189): `keep` records the value it kept in `_kept`, declared and reset with the run's other per-run state, and the import and base class of `BlockVerbsMixin`; `expect-kept`, which reads it, lives in `block_verbs.py`, not here.
-    "uiscript/runner.py": 5092,
+    # **5092 -> 5102** (2026-11-23, TASKS R188): `start` expands `run-block` lines first (the expansion is `run_block.py`, its call `block_verbs._expand_blocks`), and the report carries the test's name and blocks; the four per-run fields are declared here with the rest of the run's state.
+    "uiscript/runner.py": 5102,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3288,7 +3290,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1172 -> 1191** (2026-11-16, TASKS R24): the `expect-ripper-bounds-overread` declaration, beside `expect-ripper-under-review`, and `expect-drive-offset`'s optional offset. The table is the vocabulary's security boundary, so a verb is an entry here.
     # **1191 -> 1194** (2026-11-16, TASKS R59 (a)): `expect-album-audit`'s help names the second warning it expects, a ripping-error tally placed on replaced reads.
     # **1194 -> 1205** (2026-11-23, TASKS R189): the `expect-kept` declaration, beside `keep`, whose value it checks. The table is the vocabulary's security boundary, so a verb is an entry here.
-    "uiscript/verbs.py": 1205,
+    # **1205 -> 1226** (2026-11-23, TASKS R188): the `run-block` and `expect-repeats` declarations, beside `compare-accuracy`, whose labels they share.
+    "uiscript/verbs.py": 1226,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

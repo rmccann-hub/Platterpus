@@ -125,6 +125,8 @@ text is taken verbatim as one value.
 | `record-accuracy` | 1–2 | ready | record-accuracy <label> [<folder>] — record the last rip's per-track AccurateRip result (verified at confidence N, frame 450 only, mismatch, not in database, no lookup), CRC32, extraction speed and FIXUP_ATOM, the log's Cache probe: line, and the build its log names, under <label>; with <folder>, the rip is the one cyanrip log a `cyanrip ... -D <folder>` step wrote this run in the rips folder (info; a log naming no build, or not exactly one log, is an error, not determined) |
 | `compare-accuracy` | 2–16 | ready | compare-accuracy <label> <label>… — per build and per track, right in N of M rips, with the distinct CRC32s each build read (info, a measurement; refused as not determined when a log names no build, the tracks differ, only one build is named, or AccurateRip gave no answer) |
 | `compare-conditions` | 3–17 | ready | compare-conditions <track> <label> <label>… — per condition (the label without its trailing digits: pair1 and pair2 are `pair`), right in N of M rips of that track, its CRC32s, FIXUP_ATOM and cache probe per rip (info, a measurement; refused as not determined when a log names no build, the rips came from more than one build, a rip lacks the track, only one condition is named, or AccurateRip gave no answer) |
+| `run-block` | 4 | ready | run-block <name> ×<N> as <label> — run the built-in block <name> N times (1 to 20), the runs labelled <label>1 to <label>N; expanded when the run starts, so the estimate counts every step (xN is accepted for ×N) |
+| `expect-repeats` | 2–5 | ready | expect-repeats <label> same-crc|verified|at-least K of N — across the runs of <label>: every track's CRC32 the same, every track verified in every run, or verified in at least K of the N; a fail names the run and the track, and a run with no record is not determined |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset, (device) to the selected drive (as -d, refused when none is selected), (lasttrack) to the loaded disc's last track number; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
 | `cyanrip-timeout` | 1 | ready | cyanrip-timeout <seconds> — how long each later `cyanrip` step in this run may take before it is killed (default 300; over the rip cap of 21600 is clamped to it and said); for a scripted rip, not a probe |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
@@ -1020,6 +1022,22 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "compare-conditions <track> <label> <label>\u2026 \u2014 per condition (the label without its trailing digits: pair1 and pair2 are `pair`), right in N of M rips of that track, its CRC32s, FIXUP_ATOM and cache probe per rip (info, a measurement; refused as not determined when a log names no build, the rips came from more than one build, a rip lacks the track, only one condition is named, or AccurateRip gave no answer)"
+    },
+    {
+      "name": "run-block",
+      "min_args": 4,
+      "max_args": 4,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "run-block <name> \u00d7<N> as <label> \u2014 run the built-in block <name> N times (1 to 20), the runs labelled <label>1 to <label>N; expanded when the run starts, so the estimate counts every step (xN is accepted for \u00d7N)"
+    },
+    {
+      "name": "expect-repeats",
+      "min_args": 2,
+      "max_args": 5,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-repeats <label> same-crc|verified|at-least K of N \u2014 across the runs of <label>: every track's CRC32 the same, every track verified in every run, or verified in at least K of the N; a fail names the run and the track, and a run with no record is not determined"
     },
     {
       "name": "cyanrip",
