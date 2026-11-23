@@ -588,10 +588,8 @@ _CYANRIP_ETA_VALUE = re.compile(
 # ("…, progress - 42%, ETA - 3m"). We distrust it (it printed "822h" at 0.01%)
 # and show our own smoothed album ETA instead — so strip cyanrip's trailing
 # ETA clause from the lines we forward to the log view, or the two would
-# contradict each other on screen (real-user report). Only the ETA clause
-# goes: `, errors - N` may follow it (`cyanrip@1280aa4:src/cyanrip_main.c:1423-1483`
-# builds the line), and matching to the end of the line hid the running error
-# count from the log pane (the fork's round 42 lap 1 S25 noticed).
+# contradict each other on screen (real-user report). Only the ETA clause goes:
+# `, errors - N` follows it (cyanrip@1280aa4:src/cyanrip_main.c:1423-1483).
 _CYANRIP_ETA_CLAUSE = re.compile(r",\s*ETA\s*-[^,]*")
 
 # How long to wait for the ripper to exit on its own once we have stopped reading
