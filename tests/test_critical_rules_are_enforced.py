@@ -2602,8 +2602,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **604 -> 608** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): the console shows the run's estimate before the first step's line; the estimate itself is `uiscript/run_estimate.py`.
     # **608 -> 569** (2026-11-23, TASKS R188): lowered: the Load… button, the start-up settings box and its refresh went to the Run tests screen; `name_next_run` came in, the test name a session hands the runner.
     "ui/dialogs/script_console.py": 569,
-    # **409** (2026-11-23, TASKS R188, new): ONE screen, the owner's design, and one job: choose a test and start it. Its three tabs share one choice, one summary box and one Run, so splitting a tab into a module would split that one state; the choice's logic (`uiscript/chosen_test.py`) and the start-up box (`script_settings_box.py`) are already out of it.
-    "ui/dialogs/run_tests_dialog.py": 409,
+    # **413** (2026-11-23, TASKS R188, new; 409 before its two pages were top-aligned): ONE screen, the owner's design, and one job: choose a test and start it. Its three tabs share one choice, one summary box and one Run, so splitting a tab into a module would split that one state; the choice's logic (`uiscript/chosen_test.py`) and the start-up box (`script_settings_box.py`) are already out of it.
+    "ui/dialogs/run_tests_dialog.py": 413,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).

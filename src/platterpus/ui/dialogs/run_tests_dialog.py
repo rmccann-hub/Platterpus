@@ -227,6 +227,9 @@ class RunTestsDialog(CenteredDialog):
         where.setWordWrap(True)
         where.setTextFormat(Qt.TextFormat.PlainText)
         box.addWidget(where)
+        # The tabs share the tallest page's height; this keeps the list at the
+        # top of a shorter page instead of spreading it.
+        box.addStretch(1)
         return page
 
     def _build_combination_tab(self) -> QWidget:
@@ -250,6 +253,7 @@ class RunTestsDialog(CenteredDialog):
             check.toggled.connect(lambda _on: self._refresh())
             outer.addWidget(check)
             self._block_checks[block.name] = check
+        outer.addStretch(1)
         c2 = QLabel(C2_NOTE, page)
         c2.setWordWrap(True)
         c2.setTextFormat(Qt.TextFormat.PlainText)
