@@ -19,6 +19,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Settings' dropdowns shrink in a narrow window** (user-facing; R180): a dropdown's shown choice is cut off rather than pushing the window sideways; its open list still shows every choice in full. In DejaVu Sans the Goal's longest choice needed 13 px more than a 560 px window had.
 - **TASKS records the owner's approval of the new uninstaller** (contributor-facing; R190, 2026-11-23).
 - **A checkbox a Goal sets carries its ◆ in its own text** (user-facing; R180): the mark leads the box's text instead of sitting alone in the label column, where a narrow window wrapped it onto a line of its own above the box.
 - **TASKS records the owner's decisions of 2026-11-23** (contributor-facing): the Settings and Run tests screenshots are approved; the C2 probe stays a rig script run by hand, which the Run tests screen points to; Full's five repeat rips stay one fixed block.

@@ -3053,7 +3053,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Both changes merged 2026-11-13: measured 1468 lines after the merge.
     # **1468 -> 1485** (2026-11-17, UX review L1): `changeEvent` re-chooses the validation banner's colour when the desktop's palette or theme changes with the dialog open.
     # **1485 -> 1629** (2026-11-23, TASKS R180, UX review S1, S2 and L3): the rows regrouped under Output, Accuracy, After a rip and Advanced, each with a comment heading; the line under the Goal and its refresh; `_goal_set_controls`, read off `GoalPreset` through the home table; the read offset row's **Set up drive…** button and `set_drive_offset`, which greys it with a reason when no drive is selected; a refused save scrolling to its field; and the module docstring saying why this door is not the 2026-09-23 one. The layout itself went to `settings_groups.py` rather than here.
-    "ui/settings_dialog.py": 1629,
+    "ui/settings_dialog.py": 1649,  # +20 2026-11-23: dropdowns shrink in a narrow window (DejaVu Sans measured 13 px of sideways scroll in CI), with why
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.

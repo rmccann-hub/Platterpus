@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from typing import Final
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QShowEvent
@@ -106,6 +107,10 @@ from platterpus.ui.status_colours import (
 from platterpus.user_settings import apply_user_edits, with_values
 
 log: logging.Logger = logging.getLogger(__name__)
+
+#: How many characters a dropdown keeps when the window is narrow; the rest of
+#: its shown choice is cut off, and its open list still shows it in full.
+_COMBO_MIN_CHARS: Final[int] = 18
 
 #: The tags a WAV from our transcode still holds, measured (2026-11-03, ffmpeg
 #: 6.1.1): ffmpeg copies the master's tags into the RIFF INFO chunk, which has a
@@ -895,6 +900,21 @@ class SettingsDialog(CenteredDialog):
         self._form_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._form_scroll.setAccessibleName("Settings")
         root.addWidget(self._form_scroll, stretch=1)
+        # A dropdown's minimum width is its longest choice, and the Goal's
+        # longest needs 553 px in DejaVu Sans, wider than a 560 px window can
+        # give it; CI's only font measured 13 px of sideways scroll where this
+        # session's Inter measured none. Let each dropdown shrink to a short
+        # minimum and cut its shown choice off; the open list still shows
+        # every choice in full. The minimum width is then set from the
+        # recomputed size hint, because PySide6 6.11's QComboBox keeps the
+        # minimum size hint it cached from its items when the policy changes
+        # after they are added (measured: 553 px before and after).
+        for combo in form_host.findChildren(QComboBox):
+            combo.setSizeAdjustPolicy(
+                QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+            )
+            combo.setMinimumContentsLength(_COMBO_MIN_CHARS)
+            combo.setMinimumWidth(combo.sizeHint().width())
 
         # A scroll gesture must never change a value. Qt's default is that a
         # spin box or combo under the pointer eats the wheel and increments

@@ -1548,7 +1548,14 @@ def test_a_560_px_window_wraps_rows_instead_of_scrolling_sideways(
 ) -> None:
     """L3: at 560 px the page scrolled 201 px sideways (measured on the code
     before R180, offscreen, PySide6 6.11.1). Now nothing is wider than the
-    viewport, so there is no horizontal range at all."""
+    viewport, so there is no horizontal range at all. Measured in DejaVu Sans,
+    CI's only font: in this session's Inter the Goal dropdown fitted, and in
+    DejaVu Sans it needed 13 px more than the window had, so a test run in the
+    wider font is the one that can fail."""
+    from PySide6.QtGui import QFont
+
+    before = qapp.font()
+    qapp.setFont(QFont("DejaVu Sans", 10))
     dialog = SettingsDialog(Config())
     try:
         _shown_at(dialog, 560, 700)
@@ -1562,6 +1569,7 @@ def test_a_560_px_window_wraps_rows_instead_of_scrolling_sideways(
         assert scroll.verticalScrollBar().maximum() > 0
     finally:
         dialog.close()
+        qapp.setFont(before)
 
 
 def test_a_save_refused_for_a_bad_value_scrolls_to_that_field(
