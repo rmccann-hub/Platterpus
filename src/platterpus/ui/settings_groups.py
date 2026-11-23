@@ -246,8 +246,7 @@ class SettingsGroups:
             old = item.widget() if item is not None else None
             if old is None and isinstance(widget, QCheckBox):
                 # No label column to mark: the mark leads the box's own text.
-                if not widget.text().startswith(GOAL_MARK):
-                    widget.setText(f"{GOAL_MARK} {widget.text()}")
+                _lead_with_goal_mark(widget)
                 widget.setAccessibleDescription("A goal sets this option.")
                 marked.append(widget)
                 continue
@@ -272,6 +271,17 @@ class SettingsGroups:
             widget.setAccessibleDescription("A goal sets this option.")
             marked.append(mark)
         return marked
+
+
+def _lead_with_goal_mark(box: QCheckBox) -> None:
+    """Put :data:`GOAL_MARK` at the start of a checkbox's own text, once.
+
+    A checkbox shows its text as written (it is not a label, so no format is
+    guessed), and its parameter is annotated so the label-format sweep can see
+    that. Safe to call twice: a box already marked is left as it is.
+    """
+    if not box.text().startswith(GOAL_MARK):
+        box.setText(f"{GOAL_MARK} {box.text()}")
 
 
 def _row_holding(form: QFormLayout, widget: QWidget) -> int | None:
