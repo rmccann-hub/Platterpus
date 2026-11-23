@@ -23,6 +23,7 @@ weakened — a skipped conformance row is a divergence nobody can see.
 from __future__ import annotations
 
 import ast
+import hashlib
 import importlib.util
 import re
 import sys
@@ -2087,3 +2088,34 @@ def test_no_narrow_row_id_pattern_survives_anywhere_in_this_file() -> None:
         "removed or this sweep has stopped matching — and a sweep that matches "
         "nothing reports a clean file."
     )
+
+
+# --- v10 (§18): the gate implements 10 and still reads 9 -----------------------------
+
+
+def test_the_gate_implements_10_and_still_reads_the_laps_that_declare_9(
+    hs: ModuleType,
+) -> None:
+    """v10 §18: neither gate implements 10 until the shared file is byte-identical
+    in both trees, which it is (the fork's round 42 lap 1 hashes it, `a8496960…`),
+    and v10 adds no field and no row, so implementing it is the version step alone.
+    **Pinned, not derived**: the C15 tests derive from `PROTOCOL_VERSION`, so they
+    pass with the gate one behind until a lap declares 10; this fails with the gate
+    at 9. Round 41's laps and the fork's round 42 lap 1 declare 9 and stay readable;
+    11, which no shared file defines, is refused."""
+    assert hs.PROTOCOL_VERSION == 10
+    for version in (9, 10):
+        assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": str(version)})) is (
+            None
+        ), version
+    assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "11"})) is not None
+    shared = hs.PROTOCOL_SPEC.read_bytes()
+    assert hashlib.sha256(shared).hexdigest().startswith("a8496960")
+    # The fork's opening lap of round 42, as filed, passes the gate's version check
+    # and declares 9; our laps declare no more than DECLARED_PROTOCOL, still 9.
+    opener = _REPO_ROOT / "docs" / "handshake" / "inbound" / "round-42-lap-01.md"
+    text = opener.read_text(encoding="utf-8")
+    assert hs.declared_protocol(text) == 9
+    assert hs.protocol_refusal(text) is None
+    assert hs.DECLARED_PROTOCOL == 9
+    assert hs.protocol_to_declare(42) == 9

@@ -1577,7 +1577,18 @@ def _fenced_lines(lines: list[str]) -> list[bool]:
 #: **9 since 2026-10-14** (v9, HR-2 and HR-2.1): the shared file byte-identical in
 #: both trees (``c0539096…``, ``cyanrip@8f847271``). v9 adds no gate row; its lap rule
 #: is the lap checker's, so 9 means reading a file that declares 9 (HR-2 order C).
-PROTOCOL_VERSION: int = 9
+#:
+#: **10 since 2026-11-23** (v10: K1 in §4a, the transport rule, the stale shared
+#: text corrected). v10 §18's condition for *implementing* it holds: the shared file
+#: is byte-identical in both trees (sha256 ``a8496960…``, the ``protocol(v10)`` hash
+#: of the fork's round 42 lap 1 ``HANDSHAKE-SHARED-HASHES``, recomputed here). v10
+#: adds no field and no conformance row (§18, *What v10 does not do*), so the step
+#: is this constant; a lap declaring 9, every lap of round 41 and the fork's round
+#: 42 lap 1 among them, stays readable, since the gate refuses only a version above
+#: its own. The fork's gate implements 10 from ``cyanrip@05b24623``, which their
+#: round 42 lap 1 S9 says. Implementing is not *declaring*: see
+#: :data:`DECLARED_PROTOCOL`.
+PROTOCOL_VERSION: int = 10
 
 #: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
 #:
@@ -1608,6 +1619,16 @@ PROTOCOL_VERSION: int = 9
 #: **9 since 2026-10-15**, by v9 §17's condition: both gates implement 9 and both
 #: have said so in a lap (their round 33 lap 1 S1, our round 33 lap 2 S6). Their lap
 #: 3 declares 9, so our lap 4 does, and under C29 it could not declare less.
+#:
+#: **Still 9 on 2026-11-23, with the gate at 10.** v10 §18: neither side declares
+#: 10 until both have said, in a lap, that their gate implements it. The fork said
+#: it in round 42 lap 1 S9, which declares 9 and says their next lap declares 10
+#: once ours says ours implements it; our round 42 lap 2 says it. So our lap 2
+#: declares 9, their lap 3 may declare 10, and from then :func:`protocol_to_declare`
+#: emits 10 for our next lap, the record holding a lap declaring it; this constant
+#: moves to 10 in that commit, or
+#: ``test_we_declare_no_protocol_we_have_not_told_the_fork_our_gate_implements``
+#: refuses our lap.
 DECLARED_PROTOCOL: int = 9
 
 #: Sentinel for a field declared more than once with conflicting values. A real

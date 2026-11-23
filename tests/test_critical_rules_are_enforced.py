@@ -3559,7 +3559,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4583 -> 4586** (2026-10-27, external review item 3.4): `--announce` dates a release in UTC, not the local day (ruff DTZ011).
     # **4586 -> 4587** (2026-10-27): encoding="utf-8" beside text=True (follow-up review item 5).
     # **4587 -> 4602** (2026-11-16, TASKS R171): `check_outbound_paths` calls `next_round_opener_problems`, a 13-line bridge that hands every declaration to `scripts/next_round_opener.py`, where the §1a rule and its narrowing live, rather than this number taking the whole check.
-    "scripts/handshake.py": 4602,
+    # **4602 -> 4623** (2026-11-23, protocol v10 §18): the gate implements 10 (`PROTOCOL_VERSION`) while our laps still declare 9 (`DECLARED_PROTOCOL`), each with the condition that moved it or holds it; the step is the constant, v10 adding no field and no row.
+    "scripts/handshake.py": 4623,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.
