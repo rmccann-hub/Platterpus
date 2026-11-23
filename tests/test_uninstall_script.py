@@ -204,3 +204,90 @@ def test_a_probe_that_cannot_tell_is_never_reported_as_not_present(
     assert "simulated listing failure" in out, "the tool's own words were dropped"
     unchecked = out.split("Could not check (left in place):")[1]
     assert "'ripping' container" in unchecked and "Picard" in unchecked
+
+
+# --- In process: the same CLI, measured by coverage --------------------------
+
+
+class _QuietRunner:
+    """No container tool, no Flatpak: only the files in the fake home count."""
+
+    def which(self, name: str) -> bool:
+        return False
+
+    def run(self, argv: list[str], timeout: float = 60.0) -> tuple[int, str]:
+        raise AssertionError(f"no command expected: {argv}")
+
+    def cancel(self) -> None:
+        pass
+
+
+@pytest.fixture()
+def cli_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    from platterpus.deps import uninstall_cli
+
+    home = _home(tmp_path, output_dir=str(tmp_path / "home" / "Music" / "rips"))
+    for key, value in _env(home).items():
+        if key in ("HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+            monkeypatch.setenv(key, value)
+    monkeypatch.setattr(uninstall_cli, "UninstallRunner", _QuietRunner)
+    monkeypatch.setattr(
+        uninstall_cli, "CONFIG_PATH", home / ".config/platterpus/config.toml"
+    )
+    monkeypatch.setattr(
+        "platterpus.deps.host_teardown._default_refresh_menu", lambda: None
+    )
+    return home
+
+
+def test_cli_dry_run_in_process_changes_nothing(
+    cli_home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from platterpus.deps import uninstall_cli
+
+    before = sorted(cli_home.rglob("*"))
+    assert uninstall_cli.main(["--dry-run", "--remove-rips"]) == 0
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out and "Will remove:" in out
+    assert (
+        f"{cli_home}/Music/rips" in out.split("Will remove:")[1].split("Will keep:")[0]
+    )
+    assert sorted(cli_home.rglob("*")) == before
+
+
+def test_cli_declined_question_removes_nothing(
+    cli_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from platterpus.deps import uninstall_cli
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
+    assert uninstall_cli.main([]) == 0
+    assert "Nothing was removed." in capsys.readouterr().out
+    assert (cli_home / ".cache/platterpus").exists()
+
+
+def test_cli_rips_need_the_word_delete(
+    cli_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from platterpus.deps import uninstall_cli
+
+    answers = iter(["y", "delete please"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert uninstall_cli.main(["--remove-rips"]) == 0
+    assert (cli_home / "Music/rips/Album/01.txt").exists()
+    assert "Nothing was removed." in capsys.readouterr().out
+
+
+def test_cli_yes_removes_and_reports_from_the_rescan(
+    cli_home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from platterpus.deps import uninstall_cli
+
+    assert uninstall_cli.main(["--yes", "--keep-picard", "--full"]) == 0
+    out = capsys.readouterr().out
+    assert "✓ Uninstalled, and a check afterwards found nothing" in out
+    assert "your rips in" in out.split("Not touched:")[1]
+    left = sorted(
+        str(p.relative_to(cli_home)) for p in (cli_home).rglob("*") if p.is_file()
+    )
+    assert left == ["Music/rips/Album/01.txt"], left
