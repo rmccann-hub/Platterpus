@@ -186,6 +186,7 @@ MEASURED: frozenset[str] = frozenset(
         "PendingInstallsDialog",
         "ReleasePickerDialog",
         "RipperPickerDialog",
+        "RunTestsDialog",
         "ScriptConsoleDialog",
         "SettingsDialog",
         "SetupCenterDialog",
@@ -215,6 +216,7 @@ def _factories() -> dict[str, object]:
     from platterpus.ui.dialogs.file_viewer import FileViewerDialog
     from platterpus.ui.dialogs.manual_install import ManualInstallDialog
     from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
+    from platterpus.ui.dialogs.run_tests_dialog import RunTestsDialog
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
     from platterpus.ui.dialogs.setup_center import SetupCenterDialog
     from platterpus.ui.drive_setup_dialog import DriveSetupDialog
@@ -249,6 +251,12 @@ def _factories() -> dict[str, object]:
             [_release(), _release(mbid="second")]
         ),
         "RipperPickerDialog": lambda: RipperPickerDialog(),
+        "RunTestsDialog": lambda: RunTestsDialog(
+            None,
+            config=Config(),
+            start=lambda _choice: False,
+            edit=lambda _choice: None,
+        ),
         "ScriptConsoleDialog": lambda: ScriptConsoleDialog(holder),
         "SettingsDialog": lambda: SettingsDialog(Config()),
         "SetupCenterDialog": lambda: SetupCenterDialog(

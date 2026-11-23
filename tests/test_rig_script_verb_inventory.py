@@ -72,6 +72,17 @@ def _verbs_used_by_rig_scripts() -> dict[str, set[str]]:
         for step in parse(path.read_text(encoding="utf-8")):
             if step.verb:
                 used.setdefault(step.verb, set()).add(path.name)
+    # The pre-built tests are committed scripts too (TASKS R188): each is an
+    # ordered list of committed blocks plus, for a repeat, its `run-block` and
+    # `expect-repeats` lines, which no single file carries.
+    from platterpus.uiscript.prebuilt import PREBUILT
+
+    for test in PREBUILT:
+        text, problem = test.text()
+        assert not problem, problem
+        for step in parse(text):
+            if step.verb:
+                used.setdefault(step.verb, set()).add(f"prebuilt:{test.name}")
     return used
 
 

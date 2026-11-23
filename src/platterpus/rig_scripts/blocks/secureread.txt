@@ -1,0 +1,98 @@
+# --- N. §T1: A SECURE RE-READ THAT GENUINELY RE-READS — THE LONG ONE -------
+# The fork's most-wanted test, and the one the whole round-13 paranoia argument
+# turned on. **This is the section to leave running overnight.**
+#
+# WHY IT NEEDS ITS OWN SECTION. Under `-Z`, a track's own paranoia counter is the
+# LAST pass while the disc block sums EVERY pass, so the two are equal exactly
+# when each track was read once — and a clean disc in DYNAMIC mode converges on
+# the first read, which is what every other rip in this file does. Every artifact
+# either project has ever checked that claim against had that property, which is
+# why a false invariant survived five handshake rounds: it is arithmetically
+# forced in the only case anyone ever measured.
+#
+# `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
+# read until three reads are identical (`-Z 2`), not only the tracks AccurateRip
+# could not confirm.
+# So `total_repeats > 1` on every track regardless of how clean the disc is, and
+# the fork's `Scope:` line is printed.
+#
+# WHAT THE INVARIANT IS, AND WHAT IT IS NOT. The property is an INEQUALITY:
+#
+#     sum(per-track counters)  <=  disc-level total
+#
+# with equality exactly when every track was read once. The tempting form —
+# `disc == passes x sum` — holds on the fork's synthetic fixture BY CONSTRUCTION,
+# because every pass there does identical work, and it will NOT hold on media,
+# where re-reads exist precisely when passes differ. `rig-check` grades the `<=`
+# and reports the multiple as an observation. Nothing here asserts the ratio.
+#
+# THE WHOLE DISC, not two tracks. The fork said two tracks is sufficient for the
+# inequality and they are right — but they also said the interesting case is *a
+# track that needed three or more reads*, and that is a property of the disc, not
+# of the selection. Ripping every track is the only way to give the disc a
+# chance to produce one. It costs about two hours and this run has all night.
+#
+# Six hours of timeout because uniform mode roughly doubles the read and this
+# rig has measured 2h45m for a single dynamic pass.
+
+log --- N. T1: uniform secure re-read, WHOLE DISC, so the counters actually move ---
+run-size full
+set rip_goal archival
+expect secure_rerip_dynamic off
+expect rerip_offset_variant on
+# THE FORMAT THIS RIP WRITES IN, ASSERTED HERE RATHER THAN ASSUMED UPSTREAM.
+# This is the accuracy claim itself, and until 2026-09-14 nothing in this file
+# pinned the format it lands in: the section inherits it from `rip_goal
+# archival`, section L checked that preset's effect on two OTHER settings and
+# skipped this one, and section M's comment asserted the protection in prose
+# ("the rip in section N runs on the restored default"). Section K4 looked like
+# the guard and is not — L reassigns the format twice after it. So the archival
+# accuracy test's output format rested on a preset field with no assertion
+# anywhere in the chain. Check the precondition where the thing HAPPENS.
+expect output_format flac
+set secure_rerip_matches 2
+expect secure_rerip_matches 2
+rescan
+pick-release 1 120
+expect-tracks 2+
+select-tracks all
+album secure reread (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot aftersecurereread
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+screenshot aftersecurereread
+# Same verb as section F, for the same reason, and THIS is the section that paid
+# for it: on 2026-09-03 `expect-status Done` failed here on a rip that had
+# completed cleanly, because three tracks on the disc will not converge and the
+# status line says so instead of saying "Done". See section F's note.
+#
+# T1's own pass criterion is `rig-check`'s paranoia row reporting "secure
+# re-read genuinely exercised: YES" -- which that run DID report. The section
+# substantively passed and failed on the wrong assertion.
+expect-rip-complete
+# AND THE CRITERION IS NOW GRADED. Until 2026-09-05 the sentence above named a
+# pass criterion that lives in an INFO row, and INFO never fails a run -- so a
+# rip in which -Z did nothing at all passed the section whose whole subject is
+# that -Z worked. This asserts it, off the same predicate the rig-check row
+# renders from. It grades whether the re-read RAN, never whether it converged:
+# convergence is a property of the disc and grading it here would fail the run
+# on an ordinary scratched CD, which is the mistake this section already paid
+# for once with `expect-status Done`.
+expect-secure-rerip
+# N is the accuracy claim itself, and its post-rip checks survived the
+# 2026-09-22 run only because nothing ripped after it. That is the same luck
+# K3 had on 2026-09-15, written down in its severity row and never turned into
+# an assertion. Graded here so it stops being luck.
+expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb whole
+# Round 39's G3 (2026-11-11): every track's record says how it was verified,
+# and none says Accurately ripped over a repair or OK over disagreeing reads.
+expect-track-records
+expect-read-offset
+expect-tags
+expect-cover-art
+rig-check
+

@@ -1,0 +1,278 @@
+# =============================================================================
+# FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
+# =============================================================================
+#
+#   How to run it:  Tools -> Advanced -> Run acceptance test...  (the app does
+#                   the rest: session folder, sleep lock, the run, one file)
+#   Where it lives: INSIDE the app, since v0.6.32 — there is nothing to download.
+#                   Source: src/platterpus/rig_scripts/fullacceptance.txt
+#   What it costs:  it depends on the RUN SIZE you pick when it starts:
+#                     Quick     about 15 minutes  (does it still work?)
+#                     Standard  about an hour     (is a normal rip right?)
+#                     Full      about 2.5 hours on a healthy disc in the
+#                               rig's drive while a round compares two
+#                               builds (P5 and P6 run), under 2 hours when
+#                               it does not (START IT AND LEAVE IT: a slower
+#                               drive, a damaged or an unknown disc can take
+#                               many hours more).
+#                               These are typical figures, not a record: the
+#                               run states its own estimate when it starts
+#                               and after section E (run-estimate), and the
+#                               real time of each run is in its script report.
+#                   Full rips the whole disc TWICE (once fast, once with every
+#                   track read at least three times) plus seven short partial
+#                   rips, four more of tracks 1-3 for P5's timed rip, and eight
+#                   of track 3 alone for P6's paired rips; P5 and P6 switch the
+#                   ripper between two builds (each says how long it takes).
+#                   P5 and P6 run only while a round reviews a build other than
+#                   the approved one; otherwise both are recorded N/A, cost
+#                   nothing, and the run is about an hour shorter.
+#                   ONLY FULL counts toward a version or a handshake close.
+#
+# RUN SIZES are cut from THIS ONE FILE. Each section's first line is
+# `run-size <size>`, naming the SMALLEST run that includes it, so Quick is
+# inside Standard is inside Full by construction and no section inherits its
+# size from the one before (docs/testing.md §5.bj). A smaller run records every
+# section it leaves out as declined, so its transcript still lists them.
+#
+# NOTHING IN THIS FILE NEEDS EDITING. No album name, no track count, no path,
+# and — as of this version — no cyanrip build tag either. Put any ordinary
+# audio CD in the drive, start it, and go to bed.
+#
+# AND IT IS RE-RUNNABLE, which it was not before. Every `album` line carries
+# `(run)`, expanding to this run's own timestamp, so a second run never lands on
+# the first run's folders. Before that, a re-run raised "Album already ripped"
+# on every rip; the file answers that prompt in exactly ONE place (§H, on
+# purpose), so the other seven rips were refused behind an unanswered modal and
+# the 2026-08-25 attempt lost sixteen of its seventeen failures — and all of T1 —
+# to it. **You no longer need to move the previous run's output aside.**
+#
+# §F and §H still name the SAME album deliberately: §H exists to raise that
+# prompt and answer it with `click=new`, and `(run)` is stable within one run so
+# that collision still happens exactly where it is wanted.
+#
+# -----------------------------------------------------------------------------
+# BEFORE YOU START — two things, and only two
+# -----------------------------------------------------------------------------
+# 1. Be on the newest Platterpus. Tools -> Setup & Updates... -> Check for updates, or download the
+#    AppImage from the releases page.
+# 2. Be on the cyanrip build THIS Platterpus expects — which is **not** always
+#    the newest one, and **not** always the one that installs without a warning.
+#    THE ROUTE THAT ALWAYS WORKS:
+#        Tools -> Setup & Updates... -> Choose a build...
+#    The build this run needs is already selected when it opens; click Install. Help -> About Platterpus... then shows the same commit on its
+#    "Installed" line and its "Build under test" line.
+#    (Tools -> Setup & Updates... -> Check for cyanrip updates works too when the
+#    build is published: TAKE WHATEVER OFFER IT MAKES, a plain one-click install
+#    or the warned "Install it anyway". It cannot offer a build the fork has not
+#    published, and Choose a build... can, which is why that one is first now.)
+#
+#    Read that twice if you remember the old wording, because it said the
+#    opposite. Until v0.6.36 this comment told you to take the offer ONLY if it
+#    was a plain one-click install, and to refuse a warned one. That is right
+#    BETWEEN handshake rounds and exactly wrong WHILE ONE IS OPEN — and a round
+#    being open is the only time anybody re-reads this. Section A asserts the
+#    build UNDER REVIEW, and a build under review is by definition one no closed
+#    round has approved, so its offer is the warned one. Refusing it is what
+#    ends the night at section A, four seconds in, having spent no drive time
+#    and produced no evidence. It has now done that twice.
+#
+#    Yes, the warned build makes every rip report `unapproved`. That is the
+#    record being honest about an open round, not a fault, and it is precisely
+#    what the run exists to produce evidence for.
+#
+#    Do not reach for a channel toggle to decide this, and do not look for a
+#    BUILD TAG in this comment: THIS FILE NAMES NO BUILD, on purpose. Which one
+#    is wanted changes every time a handshake round opens or closes, and this
+#    file ships inside a release — so anything written here freezes on the day
+#    it was built and cannot learn that the answer moved. Both previous attempts
+#    were wrong within days, and each one sent operators to a build section A
+#    refuses. The app holds that fact in one place and checks it — which is why
+#    step 2 above is the whole answer, and there is no second copy of it here.
+#
+#    The rule ABOVE was the same failure one level up: not a frozen build tag,
+#    but a frozen answer to "which offer is the right one", which moves for the
+#    same reason and just as often. "Take whichever one it offers" is the form
+#    that cannot go stale, because it delegates to the surface that knows.
+#
+#    WHY CHOOSE A BUILD... COMES FIRST (it was the second route until
+#    2026-11-03, and the reason is still the one below).
+#    The in-app check reads the fork's RELEASE MANIFEST, so it can only offer
+#    builds the fork has published. A handshake round may open on a commit they
+#    have nominated but never released — round 16 did — and then the dialog's
+#    best honest answer is "your build is current", which is true of the
+#    manifest and is not the build section A wants. Taking it ends the night at
+#    section A.
+#
+#    It lists every build THIS version can install, each with a marker and a
+#    reason: `✓ approved` is what a closed round verified, `⚠ under-review` is
+#    the build an open round is examining, `⚠ test-pin` is one both projects
+#    nominated for a joint hardware session. **The build this run needs is
+#    already selected when the dialog opens** — it is derived from the same
+#    constant section A checks, so the two cannot disagree. Click Install.
+#
+#    THIS FILE STILL NAMES NO BUILD, for the reason three paragraphs up, and
+#    that is exactly why the route is a MENU ITEM rather than a commit: the list
+#    and the pre-selection are generated from that constant, so neither can be
+#    the stale half of a pair. A `⚠` here is the record being honest about an
+#    open round, not a warning to heed — every rip will report `unapproved`,
+#    which is the evidence the run exists to produce.
+#
+#    (There is a terminal equivalent, `--install-ripper list` and
+#    `--install-ripper <commit>`, and it is the same function behind the same
+#    step engine. It is the older route: this paragraph used to send you there
+#    and admit in a parenthetical that the menu had no GUI caller. It has one as
+#    of 0.6.45 — an excuse written into operator instructions is still a manual
+#    step, and the whole point of this program is not to hand one back.)
+#
+#    Section A asserts the exact expected build and STOPS THE RUN in the first
+#    few seconds if you are not on it — before any drive time is spent.
+#
+#    That stop is real as of this version. It used to be a promise this file
+#    could not keep: nothing but `abort` ends a batch and this file never used
+#    it, so a wrong ripper produced a FAIL on line ~20 and then six hours of
+#    evidence about the wrong binary. The cyanrip fork read the old sentence and
+#    relayed it to the operator (round 14 lap 11 §J7). `abort-if-failed` below is
+#    what makes it true.
+#
+# AFTERWARDS your own settings come back: the app restores them on every way
+# the session ends, Overread included. The run forces Overread off for itself;
+# if yours was ticked and you did not mean it, untick it after the run. On the
+# BDR-209D `-O` once hung the drive for about 23 minutes, and the bound the fork
+# added in `.24` has not been tested on this drive (TASKS R106).
+#
+# Everything else is in this file.
+#
+# -----------------------------------------------------------------------------
+# WHY THE ORDER IS WHAT IT IS
+# -----------------------------------------------------------------------------
+# Maintainer directive: *"fresh start, rip, every test there is, all of them.
+# this needs to be a good pass fail test"* — the gate on 0.7.100. And KDD-35: a
+# version number is a claim about the field, not about CI. Every defect that
+# mattered in August was found on hardware with the suite green throughout.
+#
+# LEAST-LIKELY-TO-FAIL FIRST, deliberately, and it has a cost. Sections A-E are
+# near-certain passes that take about five minutes; the first rip is section F.
+# Putting the cheap checks first means a broken build or a wrong ripper is
+# caught before hours of drive time, and the transcript reads as a widening
+# cone — identity, then settings, then validation, then UI, then disc, then
+# audio, then the derived formats, then the long one.
+#
+# The cost: if section F fails, A-E having passed tells you almost nothing about
+# why. Accepted. The alternative spends the night before learning the ripper was
+# not installed.
+#
+# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a FINDING never stops the
+# batch. Only `abort-if-failed` does, at three preconditions (A the wrong ripper,
+# B an unknown offset, E the disc not identified). Every other check fails loudly
+# and the run continues. A run that stops at the first problem hides every
+# problem behind it, and a disc pass costs hours you do not get back.
+#
+# -----------------------------------------------------------------------------
+# WHAT THIS RUN IS FOR: the hardware close of whichever handshake round is open
+# -----------------------------------------------------------------------------
+# *One hardware acceptance pass on the RELEASED pair* — the cyanrip build the open
+# round is reviewing, against the current Platterpus release. The §T list below
+# began as round 14's close condition CC-2 (its lap 1); the sections still cover it.
+#
+# Round 13's CC-2 measured a mid-round TEST PIN, so satisfying it would have
+# closed a round on evidence about a build nobody installs. This tests what ships.
+#
+#   §T1  a `-Z` rip that GENUINELY re-reads, and keep the log     -> section N
+#   §T2  `-T unicode` end to end on a title carrying `<` and `:`  -> sections F, H
+#   §T3  `-x -I`, the probe-only cache invocation                 -> section P
+#   §T4  an interrupted rip, on hardware                          -> section I
+#   §T5  an Enhanced CD, if one turns up                          -> not scripted
+#
+# T5 is deliberately absent: it needs a disc we may not own, the fork says it is
+# not a blocker, and "no such disc available" is a different claim from "none".
+#
+# -----------------------------------------------------------------------------
+# WHAT THIS RUN CANNOT ASSERT — read the transcript and the bundle for these
+# -----------------------------------------------------------------------------
+# Stated up front rather than buried, because a verdict implying more than it
+# checked is worse than a shorter one.
+#
+#   * THAT THE AUDIO IS BIT-PERFECT. `wait-for-rip` waits for the worker to
+#     disappear; it does not grade the rip. The AccurateRip verdict is in the
+#     report and the log, CTDB's only in the report; `rig-check` judges neither.
+#     The bundle carries both files. Read them.
+#   * WHETHER DIALOG TEXT IS CLIPPED. A rendering fact at your font size and DPI
+#     that no assertion can see. Section D takes screenshots; a person must look.
+#   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
+#     minutes. Never enabled here; section Q asserts it is still off.
+#   * `-f` READ-OFFSET AUTODETECTION ON A DRIVE NOBODY HAS MEASURED. Section O
+#     runs cyanrip's own `-f` and grades its answer against this drive's known
+#     offset; where no offset is known, there is nothing to grade it against.
+#   * C2 ERROR REPORTING. This drive reports it unsupported, so a green run is
+#     not evidence about C2.
+#   * DAMAGED MEDIA, and therefore paranoia's actual error correction.
+#   * A NON-ZERO `Read stalls:` COUNT. A silent watchdog is not a working
+#     watchdog; healthy media cannot produce the other branch.
+#   * THE WELL-FORMED ENHANCED CD branch. Exercised by nothing, anywhere.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log FULL ACCEPTANCE RUN - end to end, one pass
+log order: cheapest and least likely to fail first
+log the first rip is section F; the long one is section N
+log =============================================================
+
+# THE BASELINE: every user setting, SET to its shipped default or KEPT on purpose.
+# Before this, the run borrowed whatever you had: thirteen of your settings rode
+# along into every rip, including the read speed and "Move finished rips to",
+# which change what a rip does. Your own settings come back when the session ends
+# (the app restores them, on every exit). `tests/test_rig_scripts.py` fails if a
+# user setting is missing from this block, so a setting added tomorrow has to be
+# decided here rather than inherited from the operator. Every size runs this.
+set rip_goal fast_verified
+set track_template %A/%d/%t - %n
+set disc_template %A/%d/%d
+set track_template_unknown Unknown Artist/Unknown Album/%t - Track %t
+set disc_template_unknown Unknown Artist/Unknown Album/Unknown Album
+set auto_launch_picard off
+set auto_eject_after_rip off
+set notify_on_completion on
+set cover_art embed
+set save_additional_art on
+set max_retries 5
+set force_overread off
+set prefer_disc_isrc on
+set secure_rerip_matches 2
+set secure_rerip_dynamic on
+set rerip_offset_variant on
+set second_read_without_accuraterip on
+set read_speed_mode auto_ladder
+set read_speed 0
+set ctdb_verify_after_rip on
+# The shipped default (TASKS R133, no button): a rip that differs from CTDB's
+# strongest entry is repaired after the read. `expect-ctdb` grades the READ either
+# way and names the repair as information, so this changes no step's grade.
+set ctdb_repair_after_rip on
+set verify_flac_after_rip on
+set write_eac_log_after_rip on
+set output_format flac
+set mp3_vbr_quality 0
+set update_channel stable
+set ripper_channel stable
+# The session points this at its own rips folder, inside the session folder.
+keep output_dir
+# The session turns this off, so no test album is moved into your library.
+keep library_dir
+# `set-drive-offset` in section B owns these two: the drive's offset, not a typed one.
+keep read_offset
+keep override_read_offset
+# This machine's own tool path, not a test value.
+keep metaflac_path
+# The run's own machinery: the script that is running, and how it was started.
+keep test_script_path
+keep test_script_autorun
+
+# Debug logging ON for the whole run: the one baseline value that is not the
+# shipped default, on purpose. A defect found at 4am is only as diagnosable as
+# the log, and this is the one setting that changes how much of the run is
+# recoverable afterwards. Restored in section Q.
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+

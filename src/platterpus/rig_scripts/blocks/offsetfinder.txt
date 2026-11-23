@@ -1,0 +1,29 @@
+# --- O. S24: CYANRIP'S OWN OFFSET FINDER, AGAINST A KNOWN OFFSET -----------
+# The fork asked for it (round 30 lap 3 S24) and the reason is ground truth:
+# this rig's drive is +667 by three independent sources (section B says which),
+# and nothing had ever run `cyanrip -f`, cyanrip's own offset finder, against
+# it. `-f` reads a few frames around sector 450 of each track AccurateRip knows,
+# searches them for AccurateRip's checksum, and rips nothing
+# (`cyanrip@174a134:src/cyanrip_main.c:594-692`).
+#
+# `-d (device)` IN O, P, P2 AND P3: the drive the window has selected, the one
+# `set-drive-offset` read the offset for and the app's own rips pass as `-d`.
+# Without it cyanrip opens its default drive, which on a machine with two drives
+# need not be that one. With no drive selected the step is refused, not guessed.
+#
+# NO `-s`, AND THAT IS RIGHT, not the refusal section P2 provokes: `-f` sets the
+# offset to 0 itself and is exempt from the unset-offset refusal (lines 2089-2096
+# and 2115-2116). `-N` for the sanitiser, as everywhere.
+#
+# `expect-found-offset` grades cyanrip's own summary line, `Drive offset of ±N
+# found (confidence: C)!`, against what `set-drive-offset` set in section B. Only
+# a FINISHED search passes: one stopped part-way, or one with no summary, has
+# not answered, whatever its last candidate was. The confidence is recorded,
+# not graded; cyanrip counts the tracks that agreed, so 1 means found once and
+# never confirmed.
+log --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
+run-size standard
+cyanrip -N -d (device) -f
+expect-exit 0
+expect-found-offset
+

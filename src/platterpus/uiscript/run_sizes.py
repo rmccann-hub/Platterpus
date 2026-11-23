@@ -52,6 +52,14 @@ DEFAULT: Final[str] = FULL
 #: close (`docs/testing.md` §5B).
 EVIDENCE: Final[str] = FULL
 
+#: The pre-built test whose Full-size run is evidence (`uiscript/prebuilt.py`).
+#: A run started from the Run tests screen names its test; a hand run in the
+#: console names none, and is judged by its size alone, as before (TASKS R188).
+FULL_TEST_NAME: Final[str] = "full"
+
+#: The test names whose Full-size run counts: the Full test, and an unnamed run.
+EVIDENCE_TESTS: Final[frozenset[str]] = frozenset({"", FULL_TEST_NAME})
+
 #: The chooser's wording, in ORDER. The time is the measured order of magnitude,
 #: not a promise; Full's is the figure the script's own header gives.
 CHOICES: Final[tuple[tuple[str, str], ...]] = (
@@ -82,6 +90,11 @@ def includes(chosen: str, declared: str | None) -> bool:
     return declared_rank <= chosen_rank
 
 
-def counts_as_evidence(chosen: str) -> bool:
-    """Only a Full run may be counted toward a version gate or a handshake close."""
-    return chosen == EVIDENCE
+def counts_as_evidence(chosen: str, test_name: str = "") -> bool:
+    """Only a Full run may be counted toward a version gate or a handshake close.
+
+    And only of the Full test, or of a run that names no test (a hand run in the
+    console, judged by its size as it always was). A Full-size run of the Quick
+    check or of a combination ran every step it HAS, which is not the Full run.
+    """
+    return chosen == EVIDENCE and test_name in EVIDENCE_TESTS

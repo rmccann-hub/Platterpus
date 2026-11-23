@@ -144,6 +144,10 @@ class ProvisioningMixin(MainWindowShared):
     _acceptance_script: Path | None = None
     #: The run size chosen for this session (Quick, Standard or Full).
     _acceptance_run_size: str = "full"
+    #: The test this session runs, and its blocks (TASKS R188): "" for the menu's
+    #: old full-run path, which the report reads as the Full test it always was.
+    _acceptance_test_name: str = ""
+    _acceptance_blocks: tuple[str, ...] = ()
     #: **The user's own settings, as they were when the session was armed.** The
     #: script writes settings as it tests them, and it used to end by resetting
     #: to the SHIPPED DEFAULTS — its own comment admitted it could do no better,
@@ -678,7 +682,7 @@ class ProvisioningMixin(MainWindowShared):
         return console
 
     # ----------------------------------------------------------------------
-    # The overnight acceptance session — Tools → Advanced → Run acceptance test…
+    # The overnight acceptance session — Tools → Advanced → Run tests…
     # ----------------------------------------------------------------------
     #
     # **What this replaces, and why it is in the app.** Running an acceptance
@@ -721,7 +725,14 @@ class ProvisioningMixin(MainWindowShared):
     # own facts. Three surfaces, none of them a dialog racing the script.
 
     def run_acceptance_session(
-        self, size: str | None = None, *, script_name: str = ""
+        self,
+        size: str | None = None,
+        *,
+        script_name: str = "",
+        script_path: Path | None = None,
+        script_text: str = "",
+        test_name: str = "",
+        blocks: tuple[str, ...] = (),
     ) -> bool:
         """Run the whole overnight acceptance session. Returns whether it started.
 
@@ -757,6 +768,11 @@ class ProvisioningMixin(MainWindowShared):
         that needs a disc MusicBrainz does not know. Everything else about the
         session (the folder, the sleep lock, the settings restore, the one file)
         is the same for both, because it is the same job.
+
+        The Run tests screen (TASKS R188) passes the test it chose: a file
+        (``script_path``) or, for a test made of blocks, its text
+        (``script_text``, written into the session folder so the run reads a
+        file like every other), with the test's name and blocks for the report.
         """
         from datetime import UTC, datetime
         from pathlib import Path
@@ -798,12 +814,19 @@ class ProvisioningMixin(MainWindowShared):
                 )
                 return False
 
-        script, explanation = (
-            builtin_acceptance_script(script_name)
-            if script_name
-            else builtin_acceptance_script()
-        )
-        if script is None:
+        if script_path is not None:
+            script, explanation = (
+                (script_path, "")
+                if script_path.is_file()
+                else (None, f"The chosen test's file is not there: {script_path}")
+            )
+        elif script_text:
+            script, explanation = None, ""
+        elif script_name:
+            script, explanation = builtin_acceptance_script(script_name)
+        else:
+            script, explanation = builtin_acceptance_script()
+        if script is None and not script_text:
             log.error("acceptance session refused: %s", explanation)
             self._acceptance_message(
                 QMessageBox.Icon.Critical,
@@ -817,6 +840,9 @@ class ProvisioningMixin(MainWindowShared):
         layout = plan_session(home=Path.home(), stamp=session_stamp(datetime.now(UTC)))
         try:
             prepare_session(layout)
+            if script is None:  # a test made of blocks: its text, as a file
+                script = layout.root / f"{test_name or 'test'}.txt"
+                script.write_text(script_text, encoding="utf-8")
         except OSError as exc:
             log.error("acceptance session could not create %s: %r", layout.root, exc)
             self._acceptance_message(
@@ -832,6 +858,8 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_started_at = time.time()
         self._acceptance_script = script
         self._acceptance_run_size = chosen
+        self._acceptance_test_name = test_name
+        self._acceptance_blocks = blocks
         self._acceptance_user_config = dataclasses.replace(self._config)
         # THE RIPS STAY IN THE SESSION FOLDER TOO, and out of the user's library.
         # After the snapshot above, so the restore puts both settings back on
@@ -1043,6 +1071,7 @@ class ProvisioningMixin(MainWindowShared):
         # and the runner builds no bundle of its own: the session builds the one.
         console.contain_next_run_in(layout.run_dir)
         console.size_next_run(self._acceptance_run_size)
+        console.name_next_run(self._acceptance_test_name, self._acceptance_blocks)
         # **The start is CHECKED, not assumed.** `run_now()` declines when a run
         # is already in flight — the operator started the acceptance test from
         # the menu twice, or left a console running from earlier — and until it
@@ -1159,6 +1188,7 @@ class ProvisioningMixin(MainWindowShared):
             facts["screen lock"] = self._acceptance_screen_note or "not determined"
             # Which size ran. Only `full` is evidence, so the archive says which.
             facts["run size"] = self._acceptance_run_size
+            facts["test"] = self._acceptance_test_name or "(not named)"
             script = self._acceptance_script
             facts["acceptance script"] = str(script) if script else "(not recorded)"
             console = self._acceptance_console
@@ -1860,24 +1890,6 @@ class ProvisioningMixin(MainWindowShared):
         if self._acceptance_overread_note:
             log.warning("acceptance session: %s", self._acceptance_overread_note)
         return changed
-
-    def _on_run_acceptance_action(self) -> None:
-        """Tools → Advanced → Run acceptance test…: ask the size, then run it."""
-        self.run_acceptance_session()
-
-    def _on_run_unknown_disc_acceptance_action(self) -> None:
-        """Tools → Advanced → Run acceptance test with an unknown disc….
-
-        No size question: the script is one short section set, so every size
-        would run the same steps, and asking would offer a choice that changes
-        nothing. It runs as Full, which declines nothing.
-        """
-        from platterpus.test_session import UNKNOWN_DISC_SCRIPT_NAME
-        from platterpus.uiscript import run_sizes
-
-        self.run_acceptance_session(
-            size=run_sizes.FULL, script_name=UNKNOWN_DISC_SCRIPT_NAME
-        )
 
     def _ask_acceptance_run_size(self) -> str | None:
         """Which run size? ``None`` when the operator cancels. PlainText.

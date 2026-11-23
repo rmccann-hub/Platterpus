@@ -74,7 +74,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     # Unattended testing. Documented, not exempted: it is a visible control in the
     # script console, and a setting a user can see and cannot look up is exactly
     # the noise this classification exists to prevent.
-    "test_script_path": "Startup script",
+    "test_script_path": "Start-up script",
     "test_script_autorun": "Run it automatically when Platterpus starts",
 }
 

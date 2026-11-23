@@ -169,15 +169,15 @@ class SettingsMixin(MainWindowShared):
 
         Setup & Updates shows the read offset beside Set up drive…, and its
         channel boxes must follow a change made by a script's ``set``; so must the
-        console's script options, which are homed in the console. Cheap: text
+        start-up settings, homed on the Run tests screen. Cheap: text
         from values already in memory, no probe.
         """
         center = self._setup_center
         if center is not None:
             center.refresh_settings(self._config)
-        console = self._script_console
-        if console is not None:
-            console.refresh_settings(self._config)
+        run_tests = getattr(self, "_run_tests_dialog", None)
+        if run_tests is not None:
+            run_tests.refresh_settings(self._config)
 
     def _on_offset_applied_changed(self, applied: bool) -> None:
         """The drive wizard's "Apply this read offset to every rip" tick-box."""

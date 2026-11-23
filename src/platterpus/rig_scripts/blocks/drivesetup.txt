@@ -1,0 +1,32 @@
+# --- DRIVE SETUP CHECK: the drive's offset and cache, once per drive --------
+# A block of its own (TASKS R188), for a drive that is new to this machine or
+# whose setup is in doubt. Three things a person asks of a drive once, not of
+# every disc (the owner, 2026-11-12: test the drive once, up front):
+#   1. its read offset is set, from its own setting or the AccurateRip list;
+#   2. cyanrip's own offset finder (`-f`) agrees with that offset, using the
+#      disc in the drive as AccurateRip's reference;
+#   3. the fork's cache probe says how the drive's cache behaves, probe-only.
+# Each reads the drive for a minute or two; nothing here rips audio or changes
+# a setting other than the offset the first step sets.
+#
+# NOT YET HERE (TASKS R188, each needs a verb first): the drive's declared
+# features, its read performance, and the answer the over-read probe gave on
+# this drive. Until then, `overreadprobe` and `drivespeed` are run on their own.
+log --- drive setup: the read offset ---
+set-drive-offset
+expect-drive-offset
+expect override_read_offset on
+abort-if-failed the read offset for this drive is not known; set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+
+log --- drive setup: cyanrip -f, its own offset finder, against that offset ---
+cyanrip -N -d (device) -f
+expect-exit 0
+expect-found-offset
+
+log --- drive setup: the fork's cache probe, probe-only ---
+cyanrip -N -d (device) --cache-probe -I
+expect-exit 0
+expect-cyanrip Cache probe
+cache-probe
+snapshot afterdrivesetup
+

@@ -1,0 +1,15 @@
+log --- 7. back to the shipped defaults ---
+set debug_logging off
+expect debug_logging off
+expect force_overread off
+expect-drive-offset
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
+log line in the app log - it is under
+log ~/.local/share/platterpus/bundles/
+log It carries this transcript (every result above), the
+log screenshot and the app log. No audio.
+log =============================================================

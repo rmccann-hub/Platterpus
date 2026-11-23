@@ -1198,7 +1198,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **462 -> 489** (2026-10-05, TASKS "a run stopped by one step prints that step's whole text twice"): `StepRecord.headline`, the failed step's first line with the rest counted, which `abort-if-failed` quotes instead of the whole detail. It is a question about one step's record, so it lives on the record; most of it is the docstring giving the run that printed one failure three times.
     # **489 -> 536** (2026-10-06, TASKS "Permutations the acceptance test still does not run" (a), KDD-41 C4): `UNREACHABLE` made understood by the verdict surfaces now that a verb emits it. `ok` forgives it as it forgives a run size's declines, `unreachable` counts it, the RESULT line and the JSON (`unreachable_lines`) name it. It is the meaning of the run's own verdict, so it lives with the verdict; most of the growth is the docstring saying why a forgiven step is not a checked one.
     # **536 -> 543** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): `RunReport.estimate`, in the transcript's head and the JSON, beside the run size it depends on.
-    "uiscript/report.py": 543,
+    # **543 -> 561** (2026-11-23, TASKS R188): `RunReport.test_name` and `blocks`, the pre-built test a run is and the blocks it ran, in the transcript head and the JSON, and `counts_as_evidence` read from size AND test, so a Full-size run of the Quick check is never read as the Full run. It is the meaning of the run's own verdict, so it lives with the verdict.
+    "uiscript/report.py": 561,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     # **322 -> 339** (2026-10-21, TASKS P2 #6, the owner's known-fixes item 11): `lookup_entry` names the row a drive matched, and `lookup` delegates to it, so the offset the app applies and the offset the report checks come from one rule.
@@ -2042,7 +2043,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **682 -> 694** (2026-11-23, TASKS R180, UX review S1 and S2): the User Guide's paragraph on Settings' four groups, the Read offset row's **Set up drive…** button and the ◆ on the rows a Goal sets.
     # **682 -> 699** (2026-11-23, UX review of 0.7.127, TASKS R179/R181): the User Guide describes the one track list and its Verified column, the hidden AccurateRip and CRC columns, the reconciled verdict line, the one progress bar and Disc details, in place of the Tracks tab it described.
     # **711** on the merge of R180 and R179/R181 (2026-11-23): both paragraphs, as above.
-    "help_content.py": 711,
+    # **711 -> 724** (2026-11-23, TASKS R188, merged onto the above): the acceptance section describes the Run tests screen's three tabs and the box under the choice, and the start-up settings' new home; the unknown-disc run is a pre-built test now, not a menu item.
+    "help_content.py": 724,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2598,7 +2600,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **571 -> 612** (2026-09-30): `close_for(reason)` and a `reject()` that refuses Esc during a run, plus where a close came from: the console's own close handling (the fork's round 30 S25).
     # **612 -> 604** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console's `allow_unsafe` and its read-only box went.
     # **604 -> 608** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): the console shows the run's estimate before the first step's line; the estimate itself is `uiscript/run_estimate.py`.
-    "ui/dialogs/script_console.py": 608,
+    # **608 -> 569** (2026-11-23, TASKS R188): lowered: the Load… button, the start-up settings box and its refresh went to the Run tests screen; `name_next_run` came in, the test name a session hands the runner.
+    "ui/dialogs/script_console.py": 569,
+    # **413** (2026-11-23, TASKS R188, new; 409 before its two pages were top-aligned): ONE screen, the owner's design, and one job: choose a test and start it. Its three tabs share one choice, one summary box and one Run, so splitting a tab into a module would split that one state; the choice's logic (`uiscript/chosen_test.py`) and the start-up box (`script_settings_box.py`) are already out of it.
+    "ui/dialogs/run_tests_dialog.py": 413,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
@@ -2688,7 +2693,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1883 -> 1887** (2026-11-17, UX review of 0.7.127 A2, TASKS R183): the Rip menu, which `_build_menus` has to build because `tests/test_help_documents_the_menu.py` reads the menu out of this file; its wiring lives in `RipControls.bind_start_action`, and the redundant local `QKeySequence` import went to pay for part of it.
     # **1887 -> 1941** (2026-11-23, UX review of 0.7.127 M1/M2, TASKS R179): `_PANE_SHARES` 0.20/0.30/0.50 -> 0.00/0.60/0.40 with its reasoning, the disc panel's floor read by height-for-width (`_panel_height`), `_on_disc_details_toggled` (the splitter gives the panel its new height from the track list), and the one connection that hands the rip pane's per-track cells to the one track table.
     # **1941 -> 1945** (2026-11-23, R181 follow-up): `_finished_line`, the finished rip's status line and its inputs, kept so a confirmed CTDB repair can rebuild it.
-    "ui/main_window.py": 1945,
+    # **1945 -> 1937** (2026-11-23, TASKS R188, merged onto the above): lowered: Tools → Advanced holds one Run tests… item where it held two acceptance items; the mixin it opens is `main_window_run_tests.py`.
+    "ui/main_window.py": 1937,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2811,7 +2817,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1935 -> 1936** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): Setup & Updates is handed `_selected_drive_offset` as its offset reader.
     # **1936 -> 1978** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the question is titled apart from the wizard, records its answer for the held launch report and, after No, shows the in-window notice; a finished setup run is counted and drops an automatic cyanrip offer worked out before it.
     # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
-    "ui/main_window_provision.py": 2008,
+    # **2008 -> 2020** (2026-11-23, TASKS R188): `run_acceptance_session` takes the chosen test (its file or its text, its name and blocks) and hands the name to the console; the two old menu slots went. The screen's opener is `main_window_run_tests.py`, not here.
+    "ui/main_window_provision.py": 2020,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -3247,7 +3254,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4981 -> 5038** (2026-11-05, the rig's in-container cyanrip left reading after a cancel): every path that kills the `cyanrip` verb's child (stop, timeout, unreapable) also frees its drive (`_free_the_jobs_drive`, `_argv_device`), and `cyanrip_in_flight` lets the window stand aside while one runs.
     # **5038 -> 5068** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `set-drive-offset` / `expect-drive-offset` ask the window's `_selected_drive_offset`, and `set read_offset` goes to the offset writer, so it saves for the selected drive instead of changing a value no rip reads.
     # **5068 -> 5083** (2026-11-16, TASKS R24): the import and base class of `RipperBuildVerbsMixin` (its handler, `expect-ripper-bounds-overread`, lives in `ripper_build_verbs.py`, not here), and `expect-drive-offset <offset>`, which asserts the selected drive's own offset is a named number, beside the handler it extends; the parser is `script_values.parse_offset`.
-    "uiscript/runner.py": 5083,
+    # **5083 -> 5092** (2026-11-23, TASKS R189): `keep` records the value it kept in `_kept`, declared and reset with the run's other per-run state, and the import and base class of `BlockVerbsMixin`; `expect-kept`, which reads it, lives in `block_verbs.py`, not here.
+    # **5092 -> 5102** (2026-11-23, TASKS R188): `start` expands `run-block` lines first (the expansion is `run_block.py`, its call `block_verbs._expand_blocks`), and the report carries the test's name and blocks; the four per-run fields are declared here with the rest of the run's state.
+    "uiscript/runner.py": 5102,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3309,7 +3318,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1170 -> 1172** (2026-11-11, round 39's G2, TASKS R138): `expect-track-records` names the AccurateRip v2 check of repaired tracks it now makes; the grading is `uiscript/repair_accuraterip_grading.py`.
     # **1172 -> 1191** (2026-11-16, TASKS R24): the `expect-ripper-bounds-overread` declaration, beside `expect-ripper-under-review`, and `expect-drive-offset`'s optional offset. The table is the vocabulary's security boundary, so a verb is an entry here.
     # **1191 -> 1194** (2026-11-16, TASKS R59 (a)): `expect-album-audit`'s help names the second warning it expects, a ripping-error tally placed on replaced reads.
-    "uiscript/verbs.py": 1194,
+    # **1194 -> 1205** (2026-11-23, TASKS R189): the `expect-kept` declaration, beside `keep`, whose value it checks. The table is the vocabulary's security boundary, so a verb is an entry here.
+    # **1205 -> 1226** (2026-11-23, TASKS R188): the `run-block` and `expect-repeats` declarations, beside `compare-accuracy`, whose labels they share.
+    "uiscript/verbs.py": 1226,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

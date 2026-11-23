@@ -1,0 +1,106 @@
+# --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
+# Cancel mid-track, not at a boundary — 90 seconds of reading gets us inside one.
+# Then give the escalation its full SIGTERM-to-SIGKILL window before asking
+# anything.
+#
+# A different album title here on purpose: this section is about the drive, and a
+# collision would add a dialog that has nothing to do with what is being tested.
+#
+# The `rig-check` after it is taken HERE and not later, because `rig-check` reads
+# the NEWEST rip and section J is about to make a newer one. `parser/interrupted`
+# reports cyanrip's own `Interrupted at:` line — the field the fork added at our
+# round-12 ask, which we parsed for a round and never put in an artifact anyone
+# sends. It is an INFO row, not a pass/fail: a cancel that lands between tracks
+# legitimately produces "between tracks, no read in progress", and grading that
+# would turn drive timing into a verdict.
+
+log --- I. cancel a rip in flight ---
+run-size standard
+select-tracks 1-3
+album cancel me (run) (ripper)
+rip
+log reading for 90s so the cancel lands mid-track
+wait 90
+snapshot beforecancel
+cancel-rip
+log cancel issued; giving the escalation its full window
+# The full window is the one the app itself waits for a cancelled rip's log:
+# the 5 s rescue, the read in hand when its SIGTERM lands (the grace, twice the
+# 54 s read the 2026-10-04 damaged disc took), and cyanrip's flush. 30 s ended
+# before a reader in such a read could sign its log, and the checks below would
+# then grade a log still being written. A healthy disc is done in seconds; the
+# wait is fixed so it never races the rip's own finish.
+wait 135
+# The cancelled line reads 'Rip cancelled by user. Partial files may remain.'
+expect-status cancelled
+# THE SECTION'S ACTUAL CLAIM, and until 2026-09-05 nothing asserted it.
+# This section is ARCHIVAL for "the log's completion footer" -- a cancel once
+# destroyed it (round 14 lap 10) -- and its only graded step was the substring
+# match above, on a widget label. `expect-rip-complete` cannot state the claim
+# either: measured from the 2026-09-03 bundle, this rip's log reads
+# `completed=True, 3 of 14`, so cyanrip signs off a cancelled rip with a
+# COMPLETED footer and that verb would pass while checking nothing §I is about.
+# What §I needs is that the RECORD survived: footer present with either verdict,
+# not truncated, and the FUN512 signature -- written from atexit, so a hard kill
+# destroys it -- present and the right shape.
+# A4, TASKS "S25 on hardware". The two steps below are the cancel half of S25:
+# cyanrip's footer, and its own -Y verdict (`ripper_log_integrity`) on the log
+# a cancel left, on the container path. The rescue and the window-close stop
+# signal the ripper through the same call with the same grace
+# (drive_control.term_unsignalled_holders, READER_TERM_GRACE_S). The other half,
+# closing the main window mid-rip, cannot be a step: closing the window ends the
+# app and this script with it, so no later step could run -Y on what it left.
+log A4 (TASKS "S25 on hardware"): the next two steps grade the footer and cyanrip -Y on a cancelled rip's log; the window-close trigger itself is not scriptable
+expect-log-well-formed
+# The fork's own verdict on the record a cancel left: `ripper_log_integrity` is
+# cyanrip -Y on this log. A cancelled rip's other checks are about a rip that
+# was not meant to finish, so only these two questions are asked here.
+expect-album-audit ripper_log_integrity argv_agreement
+# A4, TASKS "If a podman ever forwards the wrapper's SIGTERM into the container".
+# Nothing measured which world a rig is in. This cancel does: if the rescue,
+# 5 s after Cancel, still found the ripper holding the drive and the log was
+# signed afterwards, the cancel's own SIGTERM never reached it (one signal). If
+# the drive was already free, something stopped it sooner (forwarded). If the
+# rescue found it holding and the log has no footer, that is the second-signal
+# hazard. Recorded as info, never a failure, with the log lines it read.
+log A4 (TASKS "If a podman ever forwards the wrapper's SIGTERM"): which SIGTERM world this rig is in
+sigterm-world
+snapshot aftercancel
+screenshot aftercancel
+rig-check
+snapshot aftercancelrigcheck
+
+# --- J. THE DRIVE-OPEN PROOF: can we rip again? ----------------------------
+# If this succeeds, the cancel released the reader. If it hangs or cannot
+# identify the disc, it did not — and THAT is the finding, recorded here rather
+# than in somebody's memory of a session.
+#
+# THE TRAY SHOULD STILL BE CLOSED. Before v0.6.16 a cancel left a 5-second rescue
+# timer armed even when the reader had already stopped, so the drive was
+# force-ejected seconds after every successful cancel — which made this section
+# unanswerable in both directions. If the tray is open when you look, you are on
+# an older build and this section proves nothing.
+
+log --- J. drive-open proof: identify and rip again after the cancel ---
+run-size standard
+rescan
+pick-release 1 120
+expect-tracks 2+
+select-tracks 1-2
+album after cancel (run) (ripper)
+rip
+wait-for-rip 3600
+snapshot afterrecovery
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+screenshot afterrecovery
+expect-rip-complete
+# Same shape as F: K1 starts a rip. J's rip was the third of the three whose
+# CTDB and FLAC-integrity results the 2026-09-22 run dropped.
+expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
+rig-check
+

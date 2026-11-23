@@ -1167,8 +1167,23 @@ uiscript/verbs.py     VERBS, OPENABLE,             the single vocabulary table
                       verb_reference()
 uiscript/runner.py    ScriptRunner(window)          one step per event-loop tick
 uiscript/report.py    RunReport -> text / dict      the transcript
+uiscript/blocks.py    BLOCKS, combination()        the catalogue of test blocks
+uiscript/prebuilt.py  PREBUILT                     each pre-built test, once
+uiscript/run_block.py expand_run_blocks()          run-block, expect-repeats
 ui/dialogs/script_console.py                        the SURFACE (menu, buttons)
+ui/dialogs/run_tests_dialog.py                      Run tests…: choose, then run
 ```
+
+**Tests are built from blocks** (TASKS R188, the owner's design of 2026-11-17).
+`rig_scripts/blocks/` holds the Full acceptance run cut at its section headers
+and the Quick check cut the same way; `fullacceptance.txt` and `quickcheck.txt`
+are generated from them by `scripts/emit_rig_scripts.py`, so **edit a block, never
+the file**. A new pre-built test is a row in `uiscript/prebuilt.py` (blocks in
+order, a size, and any `Repeat` with its comparisons declared in advance); a new
+block is a file under `blocks/` plus a row in `uiscript/blocks.py` naming its
+title (a person reads the title, never the name) and the setup blocks it needs.
+`run-block` is expanded in `ScriptRunner.start`, before the preflight and the
+estimate, so nothing downstream ever sees an unexpanded block.
 
 Three entry points, **one method**: the Tools → Advanced menu item, `--run-script FILE`, and
 the config's `test_script_autorun` all call

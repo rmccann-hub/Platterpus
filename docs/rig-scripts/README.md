@@ -6,7 +6,7 @@ is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
 > **Read this first (v0.6.32).** The full acceptance run is now
-> **Tools → Advanced → Run acceptance test…** inside the app (directly under
+> **Tools → Advanced → Run tests…** inside the app (directly under
 > **Tools** on v0.6.61 and earlier), and that is the route to use. It makes the
 > session folder, holds off sleep, runs the batch, releases the lock and packs
 > one `.tar.gz` into the session's own folder under `~/platterpus-rig/` (it went to
@@ -44,7 +44,7 @@ product's gap invisible.
 >
 > **The overnight and morning shell wrappers are retired.** The former
 > `platterpusovernight.sh` and `platterpusmorning.sh` did, from a terminal, what
-> Tools → Advanced → Run acceptance test… now does inside the app — hold sleep off, run the
+> Tools → Advanced → Run tests… now does inside the app — hold sleep off, run the
 > batch, gather every rip folder into one file. Two routes to one bundle is two
 > answers to *"which file do I upload"*, so the app's route is the only one. A
 > build older than v0.6.32 has no menu item; both files are still in the source
@@ -82,7 +82,7 @@ at its section E when the disc is not identified, on purpose, so the
 unknown-album path never ran in an acceptance run. This second script takes it
 (ruled 2026-10-05, `PLANNING.md` KDD-41 C4). Use a disc MusicBrainz does not
 know with at least two tracks: a CD-R you burned from your own recordings is the
-reliable choice. **Tools → Advanced → Run acceptance test with an unknown disc…**
+reliable choice. **Tools → Advanced → Run tests…**, choosing *Unknown-disc acceptance*,
 runs it with the same session folder, sleep lock, settings restore and one file
 to send as the full run; `--run-script unknowndiscacceptance` reaches the same
 file.
@@ -217,7 +217,7 @@ rip**. Worth stating because the others look as if they do.
 
 | collector | app log | script transcript + screenshots | the run's rip folders |
 |---|---|---|---|
-| **Tools → Advanced → Run acceptance test…** (the one session bundle) | ✅ | ✅ | ✅ **every rip the session made** (capped at 40; any dropped are counted in the bundle) |
+| **Tools → Advanced → Run tests…** (the one session bundle) | ✅ | ✅ | ✅ **every rip the session made** (capped at 40; any dropped are counted in the bundle) |
 | a `--run-script` run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | from 0.7.121, **every folder a scripted `cyanrip … -D` wrote** (`scriptrips/<folder>`, capped at 64, any dropped named); the app's own rips are still not gathered (`build_bundle()` is called without `album_dir`, open in `TASKS.md`); before 0.7.121, ❌ |
 | `--rig-session` | ✅ | ❌ | the **newest** `.platterpus.json` only |
 | `platterpuscollect.sh` | ✅ | partial | **newest rip only** |
@@ -292,7 +292,7 @@ two lines below edited for your disc.
 ./platterpus-x86_64.AppImage --run-script police-rerip.txt
 ```
 
-or, in a running window: **Tools → Advanced → Run test script…** → **Load** → **Run**.
+or, in a running window: **Tools → Advanced → Run tests…** → **Script file**, choose this file, then **Run** (it is not in the pre-built list: TASKS R188 left it off, as a record of round 7).
 
 > **⚠ It is the round-7 script, unchanged since.** Its section 0 expects the build
 > `platterpus-fork-gddf7ac3` (`0.9.4-rc1+platterpus.5`), so on any current build those
@@ -501,4 +501,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.7.127.*
+*Last updated for Platterpus v0.7.128.*

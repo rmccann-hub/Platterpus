@@ -161,8 +161,9 @@ def test_the_menu_sweep_actually_finds_the_menu() -> None:
         f"only {len(labels)} Tools action(s) found in {MAIN_WINDOW.name}; the "
         "pattern has stopped matching and this file is measuring nothing"
     )
-    assert any("acceptance" in label.lower() for label in labels), (
-        f"the acceptance action is not in the swept menu: {labels}"
+    # The acceptance session's item is Run tests… from 2026-11-23 (TASKS R188).
+    assert any("run tests" in label.lower() for label in labels), (
+        f"the Run tests action is not in the swept menu: {labels}"
     )
     # The submenu half has its own floor, asserted here rather than inherited from
     # the count above: that count could be met by Tools' direct items alone while
@@ -262,7 +263,7 @@ def test_the_guide_does_not_send_a_user_to_the_terminal_for_the_session() -> Non
     from platterpus.help_content import user_guide
 
     guide = user_guide()
-    assert "Run acceptance test" in guide, "the menu action is undocumented"
+    assert "Run tests" in guide, "the menu action is undocumented"
     heading = guide.find("Running the full acceptance test")
     assert heading != -1, "the acceptance session has no section of its own"
     # Its own section must reach the deliverable without a command line: the
@@ -302,6 +303,26 @@ SETTINGS: Final[Path] = REPO_ROOT / "src" / "platterpus" / "ui" / "settings_dial
 SCRIPT_SETTINGS_BOX: Final[Path] = (
     REPO_ROOT / "src" / "platterpus" / "ui" / "dialogs" / "script_settings_box.py"
 )
+RUN_TESTS: Final[Path] = (
+    REPO_ROOT / "src" / "platterpus" / "ui" / "dialogs" / "run_tests_dialog.py"
+)
+
+#: Menu paths that stay stale ON PURPOSE in a file whose bytes are pinned, each
+#: with the file and the reason. `fullacceptance.txt` and `quickcheck.txt` are
+#: generated from their blocks and pinned byte for byte to their text at
+#: origin/main 93a45b62 (`tests/test_prebuilt_tests.py`, TASKS R188): the
+#: owner's proof that the blocks rebuild today's Full and Quick runs exactly.
+#: Their headers name the menu items Run tests… replaced; the fix is a header
+#: edit in their `fullstart` and `quickstart` blocks that re-pins both hashes,
+#: a change of its own. Each entry must still match something, or it goes.
+_PINNED_STALE_PATHS: Final[dict[str, tuple[str, ...]]] = {
+    "src/platterpus/rig_scripts/fullacceptance.txt": (
+        "'Tools → advanced → run acceptance test…",
+    ),
+    "src/platterpus/rig_scripts/quickcheck.txt": (
+        "'Tools → advanced → run test script… → load → run",
+    ),
+}
 
 #: User-facing documents scanned in full. The chronological records (the session
 #: log, the CHANGELOG's released sections, `docs/archive/`, the handshake laps) are
@@ -393,12 +414,18 @@ def _menu_model() -> dict[str, MenuTree]:
         _norm(_searchable(b)): {}
         for b in _SECTION_BUTTON.findall(SETUP_CENTER.read_text(encoding="utf-8"))
     }
-    # The console's buttons, and those of its script-settings box (the startup
-    # script's Choose / Use built-in / Clear), which is part of the same window.
+    # The console's buttons. Its Load…, Choose… and Use built-in went to the Run
+    # tests screen on 2026-11-23 (TASKS R188), whose buttons, tabs and start-up
+    # box (Use this test, Clear) are read as that window's.
     console: MenuTree = {
         _norm(_searchable(b)): {}
-        for source in (SCRIPT_CONSOLE, SCRIPT_SETTINGS_BOX)
+        for b in _CONSOLE_BUTTON.findall(SCRIPT_CONSOLE.read_text(encoding="utf-8"))
+    }
+    run_tests: MenuTree = {
+        _norm(_searchable(b)): {}
+        for source in (RUN_TESTS, SCRIPT_SETTINGS_BOX)
         for b in _CONSOLE_BUTTON.findall(source.read_text(encoding="utf-8"))
+        + re.findall(r'addTab\([^,]+,\s*"([^"]+)"', source.read_text(encoding="utf-8"))
     }
     settings: MenuTree = {
         _norm(_searchable(row)): {}
@@ -407,6 +434,7 @@ def _menu_model() -> dict[str, MenuTree]:
     for item, subs in (
         ("Setup & Updates", center),
         ("Run test script", console),
+        ("Run tests", run_tests),
         ("Settings", settings),
     ):
         placed = _attach(model["tools"], _norm(item), subs)
@@ -517,12 +545,33 @@ def test_every_menu_path_the_product_names_exists() -> None:
     offenders = {
         where: dead
         for where, text in _user_facing_texts().items()
-        if (dead := _dead_paths(text, model))
+        if (dead := _unpinned(where, _dead_paths(text, model)))
     }
     assert not offenders, (
         "menu paths that lead nowhere — a person following one finds nothing:\n"
         + "\n".join(f"  {where}: {d}" for where, ds in offenders.items() for d in ds)
     )
+
+
+def _unpinned(where: str, dead: list[str]) -> list[str]:
+    """``dead`` without the paths a pinned file keeps on purpose (`_PINNED_STALE_PATHS`)."""
+    kept = _PINNED_STALE_PATHS.get(where, ())
+    return [d for d in dead if not any(d.startswith(k) for k in kept)]
+
+
+def test_each_pinned_stale_path_is_still_there_and_still_pinned() -> None:
+    """The exemption is narrow and cannot outlive its reason."""
+    from test_prebuilt_tests import PINNED
+
+    model = _menu_model()
+    texts = _user_facing_texts()
+    for where, kept in _PINNED_STALE_PATHS.items():
+        assert Path(where).name in PINNED, f"{where} is no longer pinned: drop it"
+        dead = _dead_paths(texts[where], model)
+        for phrase in kept:
+            assert any(d.startswith(phrase) for d in dead), (
+                f"{where} no longer names {phrase!r}: drop the exemption"
+            )
 
 
 def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None:
@@ -544,15 +593,19 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
     # The submenu is expanded, and the console's buttons hang under it.
     advanced = model["tools"]["advanced"]
     assert len(advanced) >= 2, f"the Advanced submenu was not read: {advanced}"
-    assert len(advanced["run test script"]) >= 6, "the console's buttons were not read"
+    # 5 console buttons from 2026-11-23 (Run, Stop, Save transcript, Commands,
+    # Close): its Load… and the start-up box moved to Run tests (TASKS R188).
+    assert len(advanced["run test script"]) >= 5, "the console's buttons were not read"
+    assert len(advanced["run tests"]) >= 6, "the Run tests screen was not read"
     named = sum(
         len(_PATH_START.findall(_plain(text))) for text in _user_facing_texts().values()
     )
     assert named >= 30, f"only {named} menu paths found — the scan broke"
     for good in (
         "Tools → Setup & Updates… → Check dependencies.",
-        "**Tools → Advanced → Run acceptance test…**",
-        "Tools -> Advanced -> Run test script... -> Load",
+        "**Tools → Advanced → Run tests…**",
+        "Tools → Advanced → Run tests… → Edit script…",
+        "Tools -> Advanced -> Run test script... -> Commands",
         "Tools -> Setup & Updates... -> Check for cyanrip updates",
         "Help → About Platterpus…",
         # The Rip menu (2026-11-17): its own item, and the one it shares with
@@ -571,6 +624,10 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
         # The two paths the Advanced move retired, and a wrong submenu: the walk
         # has to reach the second and third levels to refuse the last two.
         "Tools → Run acceptance test…",
+        # The two items Run tests… replaced (TASKS R188), and the console's Load.
+        "Tools → Advanced → Run acceptance test…",
+        "Tools → Advanced → Run acceptance test with an unknown disc…",
+        "Tools → Advanced → Run test script… → Load",
         "Tools → Advanced → Uninstall Platterpus…",
         "Tools → Advanced → Run test script… → Reload",
         "Rip → Quit",

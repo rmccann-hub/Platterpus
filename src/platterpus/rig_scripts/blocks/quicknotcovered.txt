@@ -1,0 +1,5 @@
+log --- 6. what this check did not cover ---
+log not covered here, and covered by the Full run: a whole-disc rip, CTDB on a
+log whole disc, the secure re-read of every track, MP3/WavPack/WAV, the cancel
+log path and the overwrite prompt. A pass here means "worth starting the Full run".
+

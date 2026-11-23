@@ -218,6 +218,10 @@ class RunReport:
     #: DECLINED part of the script on purpose, so its result is not evidence toward
     #: a version gate or a handshake close, and the transcript says so at the top.
     run_size: str = "full"
+    #: The pre-built test this run is, and the blocks it ran (TASKS R188): "" and
+    #: () for a hand run in the console. Evidence needs the Full test, or none.
+    test_name: str = ""
+    blocks: tuple[str, ...] = ()
     #: Directory holding this run's screenshots, if any were taken.
     artifact_dir: str = ""
     #: Problems found by reading the whole script BEFORE step 1 ran — today, the
@@ -370,6 +374,11 @@ class RunReport:
         real = [step for step in self.steps if not step.structural]
         return bool(real) and all(is_sweep(step.tier) for step in real)
 
+    @property
+    def counts_as_evidence(self) -> bool:
+        """Full size, and the Full test or no named test (`run_sizes`)."""
+        return counts_as_evidence(self.run_size, self.test_name)
+
     def as_dict(self) -> dict[str, object]:
         """The shape embedded in the rip report's ``ui_script`` block."""
         return {
@@ -389,7 +398,9 @@ class RunReport:
             # A smaller run declined sections on purpose. Written beside `ok` so a
             # reader cannot count a green Quick run as the evidence a Full one is.
             "run_size": self.run_size,
-            "counts_as_evidence": counts_as_evidence(self.run_size),
+            "test": self.test_name or None,
+            "blocks": list(self.blocks),
+            "counts_as_evidence": self.counts_as_evidence,
             "artifact_dir": self.artifact_dir or None,
             "preflight": list(self.preflight),
             "estimate": self.estimate or None,
@@ -446,6 +457,8 @@ def render(report: RunReport) -> str:
         f"app: {report.app_version}",
     ]
     head.append(f"run size: {report.run_size}")
+    if report.test_name:
+        head.append(f"test: {report.test_name}; blocks: {', '.join(report.blocks)}")
     if report.estimate:
         head.append(report.estimate)
     if not counts_as_evidence(report.run_size):
@@ -455,6 +468,11 @@ def render(report: RunReport) -> str:
         head.append(
             f"*** A {report.run_size.upper()} RUN: it declines part of the script, "
             "so it is NOT evidence toward a version or a handshake close ***"
+        )
+    elif not report.counts_as_evidence:
+        head.append(
+            f"*** NOT THE FULL TEST ({report.test_name}): it is NOT evidence toward "
+            "a version or a handshake close ***"
         )
     if report.artifact_dir:
         # Named as the thing to upload, not as "where the screenshots went". The

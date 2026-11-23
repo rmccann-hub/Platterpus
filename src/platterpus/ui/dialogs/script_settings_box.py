@@ -1,23 +1,26 @@
-"""The two test-script settings, in their one home: the script console.
+"""The two test-script settings, in their one home: Run this at start-up.
 
-Which script loads at start-up, and whether it runs by itself when Platterpus
+Which script runs at start-up, and whether it runs by itself when Platterpus
 starts. Until 2026-09-24 they were edited in Settings as well: two editors of one
 setting, where the one a user last touched was not necessarily the one in force.
-(A third, "allow the unsafe script verbs", went on 2026-09-30 with the two verbs
-it would have allowed, which were never built.) `ui/setting_homes.py` records that
-they live here now, and `tests/test_setting_homes.py` holds every window to it.
+From 2026-11-23 (TASKS R188) their home is the **Run tests…** screen, under *Run
+this at start-up*, where tests are chosen: the script console lost its Choose…
+and Use built-in buttons with its Load…, because one screen now chooses every
+test. `ui/setting_homes.py` records the home, and `tests/test_setting_homes.py`
+holds every window to it.
+
+**Use this test** makes the test chosen above the start-up script. A test that
+is a file (a packaged script, one of yours, a file you chose) is saved as that
+file's path; a test made of blocks is first written to your scripts folder
+(`~/.config/platterpus/scripts/`), where the screen lists it as yours next time.
+The screen supplies that path through a callable, so this box needs to know
+nothing about tests.
 
 **Each change is saved as it is made**, through the window's single-setting
 writer (`MainWindow._save_user_setting`), which validates with the same
-predicate as the ``set`` script verb. The console has no OK button to wait for,
-and a change that took effect only on some later click would be one the user
-believed they had made and had not. A refused change is put back and the
+predicate as the ``set`` script verb. A refused change is put back and the
 validator's own sentence is shown, so a control never displays a value that is
 not in force.
-
-**Why a widget of its own.** The console's job is to run a batch and show its
-transcript; this box's job is two settings. Kept apart so neither file has to
-be read to understand the other (`CLAUDE.md`: one responsibility per module).
 
 Nothing here blocks: validation is pure, and a save writes a small TOML file.
 """
@@ -25,24 +28,20 @@ Nothing here blocks: validation is pure, and a save writes a small TOML file.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
-    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
 
 if TYPE_CHECKING:
@@ -57,8 +56,7 @@ log = logging.getLogger(__name__)
 class ScriptSettingsBox(QGroupBox):
     """Startup script and autorun, saved as they change."""
 
-    #: A startup script was saved (``""`` when it was cleared). The console
-    #: decides whether loading it now would discard anything.
+    #: A startup script was saved (``""`` when it was cleared).
     startup_script_saved = Signal(str)
 
     def __init__(
@@ -68,63 +66,57 @@ class ScriptSettingsBox(QGroupBox):
         script_path: str,
         autorun: bool,
         save_setting: Callable[[str, object], SettingWrite] | None,
+        chosen_path: Callable[[], tuple[str, str]] | None = None,
     ) -> None:
-        super().__init__("Script settings (saved as you change them)", parent)
-        #: Saves one setting through the window. ``None`` for a console built
+        super().__init__("Run this at start-up (saved as you change it)", parent)
+        #: Saves one setting through the window. ``None`` for a screen built
         #: with no window to save to (a test): the controls then change this
-        #: console only, and the log says so.
+        #: screen only, and the log says so.
         self._save_setting: Callable[[str, object], SettingWrite] | None = save_setting
+        #: ``(path, note)`` for the test chosen above, or ``("", why not)``.
+        self._chosen_path: Callable[[], tuple[str, str]] | None = chosen_path
         box = QVBoxLayout(self)
 
         row = QHBoxLayout()
-        label = QLabel("Startup script:", self)
+        label = QLabel("Start-up script:", self)
         row.addWidget(label)
         self.startup_script_edit: QLineEdit = QLineEdit(script_path, self)
         # Read-only: a path is chosen with a button, never typed, so there is no
         # half-typed value for the validator to refuse on every keystroke.
         self.startup_script_edit.setReadOnly(True)
-        self.startup_script_edit.setPlaceholderText("(none — the console starts blank)")
-        self.startup_script_edit.setAccessibleName("Startup script")
+        self.startup_script_edit.setPlaceholderText("(none)")
+        self.startup_script_edit.setAccessibleName("Start-up script")
         self.startup_script_edit.setToolTip(
-            "The script this console loads when it opens, and the one Platterpus "
+            "The script the console loads when it opens, and the one Platterpus "
             "runs at start-up if the box below is ticked. Leave empty for none."
-            "\n\nEach line is one step (open a dialog, check what is on screen, "
-            "take a screenshot, run the ripper and assert its exit code). A "
-            "failing step is recorded and the batch keeps going, so an unattended "
-            "run always comes back with a complete transcript."
         )
         label.setBuddy(self.startup_script_edit)
         row.addWidget(self.startup_script_edit, stretch=1)
-        choose = QPushButton("C&hoose…", self)
-        choose.setAccessibleName("Choose the startup script")
-        choose.clicked.connect(self._on_choose_startup_script)
-        row.addWidget(choose)
-        builtin = QPushButton("Use &built-in", self)
-        builtin.setAccessibleName("Use the built-in acceptance test script")
-        builtin.setToolTip(
-            "Use the full acceptance test that ships inside Platterpus as the "
-            "startup script. It does not start anything: press Run, or use "
-            "Tools → Advanced → Run acceptance test… for the whole session."
+        self.use_button: QPushButton = QPushButton("Use &this test", self)
+        self.use_button.setAccessibleName("Use the chosen test as the start-up script")
+        self.use_button.setToolTip(
+            "Make the test chosen above the start-up script. It does not start "
+            "anything: press Run for that."
         )
-        builtin.clicked.connect(self.use_builtin_acceptance_script)
-        row.addWidget(builtin)
-        clear = QPushButton("Cl&ear", self)
-        clear.setAccessibleName("Clear the startup script")
+        self.use_button.clicked.connect(self.use_chosen_test)
+        row.addWidget(self.use_button)
+        clear = QPushButton("C&lear", self)
+        clear.setAccessibleName("Clear the start-up script")
         clear.clicked.connect(lambda: self.set_startup_script(""))
         row.addWidget(clear)
         box.addLayout(row)
 
         self.autorun_check: QCheckBox = QCheckBox(
-            "Run it automatically when Platterpus starts", self
+            "Run it &automatically when Platterpus starts", self
         )
         self.autorun_check.setChecked(autorun)
         self.autorun_check.setToolTip(
             "ON: launching Platterpus is the test run — the console opens and the "
-            "startup script above starts, so a session needs nobody in front of "
+            "start-up script above starts, so a session needs nobody in front of "
             "it. OFF (default): the script only loads, and runs when you press "
-            "Run.\n\nIt does nothing without a startup script: BOTH have to be set "
-            "deliberately, because an app that runs a script at launch because a "
-            "file said so is a surprising thing to ship."
+            "Run.\n\nIt does nothing without a start-up script: BOTH have to be "
+            "set deliberately, because an app that runs a script at launch because "
+            "a file said so is a surprising thing to ship."
         )
         self.autorun_check.toggled.connect(
             lambda on: self._save_box("test_script_autorun", self.autorun_check, on)
@@ -134,7 +126,7 @@ class ScriptSettingsBox(QGroupBox):
         self._status: QLabel = QLabel("", self)
         self._status.setTextFormat(Qt.TextFormat.PlainText)
         self._status.setWordWrap(True)
-        self._status.setAccessibleName("Script settings status")
+        self._status.setAccessibleName("Start-up settings status")
         box.addWidget(self._status)
 
     def refresh_settings(self, config: Config) -> None:
@@ -162,7 +154,7 @@ class ScriptSettingsBox(QGroupBox):
     def _save(self, field: str, value: object) -> tuple[bool, str]:
         """Save one setting through the window; ``(applied, message)``."""
         if self._save_setting is None:
-            log.info("script console: %s = %r for this console only", field, value)
+            log.info("run tests: %s = %r for this screen only", field, value)
             return True, ""
         result = self._save_setting(field, value)
         return result.applied, result.message
@@ -185,43 +177,24 @@ class ScriptSettingsBox(QGroupBox):
             self.say(f"⚠ Not changed: {message}")
             return False
         self.startup_script_edit.setText(path)
-        if message:
-            self.say(f"✓ Saved. {message}")
+        if path:
+            self.say(f"✓ Saved: {path}" + (f" {message}" if message else ""))
+        else:
+            self.say("✓ Saved: no start-up script.")
         self.startup_script_saved.emit(path)
         return True
 
-    def _on_choose_startup_script(self) -> None:
-        start = self.startup_script_edit.text() or str(Path.home())
-        chosen, _ = QFileDialog.getOpenFileName(
-            self,
-            "Choose the startup script",
-            start,
-            "Scripts (*.txt *.pscript);;All files (*)",
-        )
-        if chosen:
-            self.set_startup_script(chosen)
-
-    def use_builtin_acceptance_script(self) -> None:
-        """Make the acceptance batch we ship the startup script.
-
-        **Says why when it cannot.** `builtin_acceptance_script` returns a
-        *reason* alongside the path precisely so a missing file produces a
-        sentence rather than a field that silently stays empty — a build whose
-        package data did not make it in is a real failure mode (it is one
-        `pyproject.toml` line), and "nothing happened when I clicked" is the
-        least diagnosable way to report it. PlainText, because the reason embeds
-        a filesystem path and Qt's default `AutoText` would swallow a path
-        containing `<` as markup (Critical rule #12, inbound half).
-        """
-        path, reason = builtin_acceptance_script()
-        if path is None:
-            log.error("the built-in acceptance script is unavailable: %s", reason)
-            box = QMessageBox(self)
-            box.setIcon(QMessageBox.Icon.Warning)
-            box.setWindowTitle("Built-in test script unavailable")
-            box.setTextFormat(Qt.TextFormat.PlainText)
-            box.setText(reason)
-            box.exec()
-            return
-        log.info("startup script set to the built-in acceptance batch: %s", path)
-        self.set_startup_script(str(path))
+    def use_chosen_test(self) -> bool:
+        """Save the test chosen above as the start-up script. Says why when not."""
+        if self._chosen_path is None:
+            self.say("⚠ Not changed: no test is chosen.")
+            return False
+        path, note = self._chosen_path()
+        if not path:
+            self.say(f"⚠ Not changed: {note}")
+            return False
+        if not self.set_startup_script(path):
+            return False
+        if note:
+            self.say(f"{self.status_text()} {note}")
+        return True

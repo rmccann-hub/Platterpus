@@ -27,7 +27,7 @@ S5); the run supplies G1 to G3, and G4 is protocol v10 landing in both trees.
 
 1. **Update to 0.7.127 and install `.34`** (*A Full run, in general* below):
    **Help → About Platterpus…** must show `commit fb28088` on its *Installed* line.
-2. **Tools → Advanced → Run acceptance test…**, **Full**, on the reference disc in
+2. **Tools → Advanced → Run tests…**, **Full acceptance**, on the reference disc in
    the BDR-209D. Its default whole-disc rip is the round's rip: G1 reads
    `drive_declared.read_performance` from its record, G2 its AccurateRip verdicts.
    Section P runs the cache probe, so no separate cache test is asked for. Upload the
@@ -90,7 +90,7 @@ When a handshake round asks for a Full run (phase 4 above is one), the steps are
 4's: update, install the build under test if the round names one (**Tools → Setup &
 Updates… → Choose a build…**, then check **Help → About Platterpus…** shows the same
 commit on its *Installed* line as on its *Build under test* line), then **Tools →
-Advanced → Run acceptance test…**, **Full**. Only a Full run counts as evidence; Quick
+Advanced → Run tests…**, **Full acceptance**. Only a Full run counts as evidence; Quick
 and Standard check the setup. The next version gate is **0.8.1**: two `full-green` rows
 on at least two machines and two distros (`docs/testing.md` §5B). `-Z` is on in dynamic
 mode, and the `[plan]` block at the top of each rip's live log names every flag it uses.

@@ -1,0 +1,45 @@
+# --- L. THE GOAL PRESETS: a label must mean what it says -------------------
+# A goal is not a setting; it is a NAME for a set of them. Selecting one applies
+# the whole preset, and this section proves the label and the settings agree —
+# because a goal that wrote only its own name would leave the app ripping with
+# exactly the settings the user was trying not to use, under a label promising
+# otherwise. "Archival Exact" was byte-identical to "Fast Verified" until
+# v0.6.24 for a related reason.
+#
+# No drive time: pure settings round-trips through the real preset code.
+
+log --- L. goal presets: selecting a goal applies all of it ---
+run-size quick
+set rip_goal archival
+expect rip_goal archival
+expect secure_rerip_dynamic off
+expect rerip_offset_variant on
+# One of three preset rows was missing its format assertion, and it was the row
+# section N depends on — `portable` and `fast_verified` below both had theirs.
+expect output_format flac
+set rip_goal portable
+expect rip_goal portable
+expect output_format mp3
+# Every goal re-reads offset-variant tracks since the release after 0.6.56: the
+# match rests on a one-frame checksum and passed wrong audio twice while off.
+expect rerip_offset_variant on
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect secure_rerip_dynamic on
+expect rerip_offset_variant on
+expect output_format flac
+snapshot goalsdone
+
+# --- M. NAMING TEMPLATES ----------------------------------------------------
+# The templates decide where every file lands, so a template that silently fails
+# to round-trip is a library-wide defect. Pure validation, no drive time — the
+# rip in section N runs on the restored default.
+
+log --- M. naming templates round-trip through the validator ---
+run-size quick
+set track_template %A/%d/%t - %n
+expect track_template %A/%d/%t - %n
+set disc_template %A/%d/%d
+expect disc_template %A/%d/%d
+snapshot templatesdone
+
