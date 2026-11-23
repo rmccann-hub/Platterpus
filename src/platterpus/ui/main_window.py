@@ -61,6 +61,7 @@ from platterpus.ui.main_window_ctdb_repair import CtdbRepairMixin
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_disc_return import DiscReturnMixin, ParkedDisc
 from platterpus.ui.main_window_drive import DriveMixin
+from platterpus.ui.main_window_helpers import FinishedLine
 
 # fidelity_summary / friendly_disc_scan_error / safe_path_segment are re-exported
 # for the test-facing API (`from ...main_window import _fidelity_summary`); their
@@ -525,6 +526,9 @@ class MainWindow(
         # finish because the debounced report re-writes happen after the rip params
         # are cleared. See `platterpus.verdict.expected_track_total`.
         self._last_expected_track_total: int | None = None
+        # The finished rip's status line and its inputs (R181): rebuilt when a
+        # confirmed CTDB repair lands, while it is still the line on screen.
+        self._finished_line: FinishedLine | None = None
         self._force_stop_done: bool = False
         # The device the pending rescue is FOR, captured when the timer is armed.
         # It must not be read at fire time: `_do_force_stop` used to ask the drive

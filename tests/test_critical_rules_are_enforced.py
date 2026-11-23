@@ -1083,7 +1083,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **418 -> 436** (2026-11-11, round 39's G3, the record): a REPAIRED outcome renders the EAC-layout log once more before the report write, with why (log, not trailer) at the call.
     # **436 -> 438** (2026-11-11, round 39's G2, TASKS R138): the worker is handed the AccurateRip client, and its import; the lookup runs on the worker (`ctdb/repair_accuraterip.py`).
     # **438 -> 441** (2026-11-23, TASKS R181): the repair's result goes to `set_ctdb_repair`, so the reconciled line and the Verified column name the repaired track.
-    "ui/main_window_ctdb_repair.py": 441,
+    # **441 -> 475** (2026-11-23, R181 follow-up): `_refresh_finished_line`, which rebuilds the finished status line once a repair is confirmed, only while that line is still on screen.
+    "ui/main_window_ctdb_repair.py": 475,
     "adapters/flac_rewrite.py": 329,
     # 383 (2026-10-26, TASKS R88, the owner's interim): born over 300. **Kept as one module deliberately**: one job,
     # predicting every name a rip needs and refusing one over 255 bytes. Most of
@@ -2661,7 +2662,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1878 -> 1883** (2026-11-12, TASKS R53, the cache check once per drive): `CacheCheckMixin` in the class list and its import, and the disc-read success slot telling an open Set up drive that a CD has been read.
     # **1883 -> 1887** (2026-11-17, UX review of 0.7.127 A2, TASKS R183): the Rip menu, which `_build_menus` has to build because `tests/test_help_documents_the_menu.py` reads the menu out of this file; its wiring lives in `RipControls.bind_start_action`, and the redundant local `QKeySequence` import went to pay for part of it.
     # **1887 -> 1941** (2026-11-23, UX review of 0.7.127 M1/M2, TASKS R179): `_PANE_SHARES` 0.20/0.30/0.50 -> 0.00/0.60/0.40 with its reasoning, the disc panel's floor read by height-for-width (`_panel_height`), `_on_disc_details_toggled` (the splitter gives the panel its new height from the track list), and the one connection that hands the rip pane's per-track cells to the one track table.
-    "ui/main_window.py": 1941,
+    # **1941 -> 1945** (2026-11-23, R181 follow-up): `_finished_line`, the finished rip's status line and its inputs, kept so a confirmed CTDB repair can rebuild it.
+    "ui/main_window.py": 1945,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2733,7 +2735,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **681 -> 685** (2026-11-03, TASKS R113): the status line counts a one-track rip in English ("1 of 1 track", "AccurateRip: 1 of 1 verified").
     # **685 -> 684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the status line takes its sentence from `verdict.accuraterip_contradictions` (lowered: one line fewer).
     # **684 -> 714** (2026-11-17, UX review V1): `fidelity_summary` takes the banner's `verdict_level` and leads the line through `finish_wording.finished_line` ("⚠ Finished — 2 tracks need attention", "✓ Finished" only over a verified rip), applied once to the whole line so every clause counts against "clean".
-    "ui/main_window_helpers.py": 714,
+    # **714 -> 765** (2026-11-23, R179/R181 follow-ups): the status line names the Live log tab (`finish_wording.LIVE_LOG_TAB`), not a "Rip log tab" that never existed; `fidelity_summary(repaired=)` names a CTDB-repaired, freshly verified track as repaired rather than WRONG and needing attention, from `reconciled_verdict.repaired_tracks`, the reconciled line's own source; and `FinishedLine`, what the line was built from. Beside the function it feeds.
+    "ui/main_window_helpers.py": 765,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2905,7 +2908,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5439 -> 5454** (2026-11-17, UX review of 0.7.127, TASKS R182): a cancel reveals Force stop (M4), the stall notice's next step follows the cancel, and a cancelled rip's status names its folder and offers it (E2); the wording is `finish_wording.py`'s.
     # **5454 -> 5464** (2026-11-17, the fork's round 41 lap 5 S18): `_merge_shipped_track` carries the shipped read's `Other read:` lines with its read count, so a record that counts agreeing reads from them counts the reads the file came from; the merge rule lives here.
     # **5464 -> 5474** (2026-11-23, UX review of 0.7.127 M2, TASKS R179): the rip's track numbers go to `begin_rip` and the worker's `current_track` to `set_current_track`, for the one bar's "Track 5 of 14".
-    "ui/main_window_rip.py": 5474,
+    # **5474 -> 5486** (2026-11-23, R181 follow-up): the finish handler keeps the status line's inputs (`FinishedLine`).
+    "ui/main_window_rip.py": 5486,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2944,7 +2948,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **563 -> 575** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the seam declares the first-run answer and notice methods, `_host_stack_ready`, the setup-run count and the held cyanrip offer, which the mixins now use across each other.
     # **575 -> 576** (2026-11-17, follow-up to UX review F1: No holds on later launches): the seam declares `_first_run_question_pending` and `_setup_tools_found`.
     # **576 -> 578** (2026-11-17, UX review of 0.7.127, TASKS R182): two cross-mixin stubs for the empty-state line, `_sync_no_drive_notice` and `_setup_notice_shown`.
-    "ui/main_window_shared.py": 578,
+    # **578 -> 581** (2026-11-23, R181 follow-up): `_finished_line` declared, which the CTDB-repair mixin reads.
+    "ui/main_window_shared.py": 581,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

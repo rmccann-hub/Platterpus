@@ -116,6 +116,7 @@ from platterpus.sibling_names import eac_log_name
 from platterpus.ui import message_boxes
 from platterpus.ui.main_window_ctdb_repair import CtdbRepairContext
 from platterpus.ui.main_window_helpers import (
+    FinishedLine,
     _dir_has_audio,
     ambiguous_overwrite_text,
     fidelity_summary,
@@ -2260,16 +2261,27 @@ class RipMixin(MainWindowShared):
                     disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
                 )
                 if success:
+                    replaced_reads = self._replaced_reads_of(rip_log)
                     status = fidelity_summary(
                         rip_log,
                         expected_track_total=expected_total,
                         cancelled=finished_status == "cancelled",
-                        replaced_reads=self._replaced_reads_of(rip_log),
+                        replaced_reads=replaced_reads,
                         # The banner's level, set by `set_rip_log` just above, so
                         # the line leads with the banner's own mark (V1).
                         verdict_level=self._rip_progress.verdict_level(),
                     )
                     self._rip_progress.set_status(status + record_says)
+                    # Kept so a confirmed CTDB repair can rebuild this line
+                    # (`_refresh_finished_line`, R181).
+                    self._finished_line = FinishedLine(
+                        rip_log,
+                        expected_total,
+                        finished_status == "cancelled",
+                        replaced_reads,
+                        record_says,
+                        status + record_says,
+                    )
                     # A rip that MATCHED AccurateRip confirms the applied read
                     # offset is correct on THIS drive (KDD-31 — our equal-or-
                     # stronger analogue of EAC's Key-Disc offset check). Record

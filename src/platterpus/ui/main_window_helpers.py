@@ -17,13 +17,15 @@ should be a method instead.
 from __future__ import annotations
 
 import logging
+from collections.abc import Collection
+from dataclasses import dataclass
 from pathlib import Path
 
 from platterpus import diagnostics, naming, written_whole
 from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.data_tracks import audio_track_totals, is_data_track
-from platterpus.finish_wording import finished_line
+from platterpus.finish_wording import LIVE_LOG_TAB, finished_line, tracks_phrase
 from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.replaced_read_errors import ErrorsInReplacedReads
 from platterpus.rip_health import (
@@ -461,8 +463,17 @@ def fidelity_summary(
     cancelled: bool = False,
     replaced_reads: ErrorsInReplacedReads | None = None,
     verdict_level: str | None = None,
+    repaired: Collection[object] = (),
 ) -> str:
     """One-line rip-quality verdict for the status label.
+
+    ``repaired`` is the tracks a CTDB repair replaced AND a fresh CTDB check
+    confirmed: ``reconciled_verdict.repaired_tracks``'s confirmed ones, the one
+    source the reconciled verdict line reads. Such a track is not listed as
+    needing attention or as WRONG (the line under the banner says CTDB decides
+    it); the line says it was repaired and that AccurateRip rejected the read it
+    replaced. Empty (the default, and every rip before the repair lands) changes
+    nothing.
 
     ``verdict_level`` is the verdict banner's level as the window shows it
     (``RipProgress.verdict_level()``), so the line's first words carry the same
@@ -527,8 +538,29 @@ def fidelity_summary(
     # cleanly" over track 5, which only matched frame 450).
     kinds = [(t, track_accuraterip_contradiction(t)) for t in tracks]
     contradicted = {id(t) for t, kind in kinds if kind}
-    contradictions = accuraterip_contradictions(rip_log)
+    # A track a confirmed CTDB repair replaced is no longer the read AccurateRip
+    # rejected: named as repaired, never as WRONG or as needing attention (R181,
+    # the reconciled line's own source). It still does not count as ripped clean.
+    replaced = set(repaired)
+    contradictions = [
+        (n, kind)
+        for n, kind in accuraterip_contradictions(rip_log)
+        if n not in replaced
+    ]
     wrong = contradicted_tracks_sentence(contradictions)
+    fixed = sorted(
+        n
+        for n in replaced
+        if any(getattr(t, "number", None) == n for t in tracks) and isinstance(n, int)
+    )
+    repaired_clause = (
+        f" {tracks_phrase(fixed).capitalize()} "
+        f"{'were' if len(fixed) > 1 else 'was'} repaired from CTDB and a fresh CTDB "
+        f"check verifies {'them' if len(fixed) > 1 else 'it'}; AccurateRip rejected "
+        "the read it replaced."
+        if fixed
+        else ""
+    )
     # The same tracks, by number, for the line's lead ("2 tracks need attention").
     attention = [number for number, _kind in contradictions]
     # The one-frame note names a subset of these tracks more softly ("the rest
@@ -582,7 +614,7 @@ def fidelity_summary(
             summary = (
                 f"{clean}/{total} {noun} ripped, but the ripper printed an error its "
                 f"own count of 0 errors leaves out: “{contradicting[0].strip()}”. "
-                "See the Rip log tab." + (f" ⚠ {wrong}." if wrong else "")
+                f"See the {LIVE_LOG_TAB} tab." + (f" ⚠ {wrong}." if wrong else "")
             )
         elif wrong:
             # The paranoia note is a second fact, kept even for a track named above.
@@ -594,14 +626,14 @@ def fidelity_summary(
             )
             summary = (
                 f"{clean}/{total} {noun} ripped cleanly. ⚠ {wrong}.{also} "
-                "See the Rip log tab."
+                f"See the {LIVE_LOG_TAB} tab."
             )
         elif skipped:
             listed = ", ".join(str(getattr(t, "number", "?")) for t in skipped)
             summary = (
                 f"{clean}/{total} {noun} ripped cleanly; on track(s) {listed} the "
                 "ripper could not verify every read and AccurateRip did not confirm "
-                "the audio. See the Rip log tab."
+                f"the audio. See the {LIVE_LOG_TAB} tab."
             )
         else:
             summary = (
@@ -609,7 +641,7 @@ def fidelity_summary(
                 # Name the TAB, not "the log". This means the rip's own log, which is
                 # on screen right now behind a button — naming the place beats naming
                 # a file the user would have to go find.
-                "see the Rip log tab for the rest."
+                f"see the {LIVE_LOG_TAB} tab for the rest."
             )
         clause = _accuraterip_clause(rip_log)
         if clause is None:  # no per-track AR data → legacy summary-string fallback
@@ -620,7 +652,7 @@ def fidelity_summary(
         # act on, and the log is the only other place it is said.
         damaged = written_whole.status_clause(rip_log)
         return lead(
-            summary + damaged + clause + partial,
+            summary + repaired_clause + damaged + clause + partial,
             clean=tally_clean and not damaged and not partial,
         )
     verified = sum(
@@ -635,7 +667,8 @@ def fidelity_summary(
         summary = f"{all_n} read consistently, Test/Copy CRCs match."
     else:
         summary = (
-            f"{verified}/{total} {noun} CRC-verified; see the Rip log tab for the rest."
+            f"{verified}/{total} {noun} CRC-verified; see the {LIVE_LOG_TAB} tab for the "
+            "rest."
         )
     clause = _accuraterip_clause(rip_log)
     if clause is None:  # no per-track AR data → legacy summary-string fallback
@@ -644,9 +677,27 @@ def fidelity_summary(
             " AccurateRip confirmed." if "exact match" in ar or "found" in ar else ""
         )
     return lead(
-        summary + clause + partial,
+        summary + repaired_clause + clause + partial,
         clean=verified == total and not wrong and not partial,
     )
+
+
+@dataclass(frozen=True)
+class FinishedLine:
+    """What the finished rip's status line was built from, and what it showed.
+
+    Kept by the window so the line can be built again when a CTDB repair lands
+    (`fidelity_summary`'s ``repaired``), and only while it is still the line on
+    screen: ``shown`` is the text as set, so a later status (a read-stability
+    summary, a disc-identity warning) is never overwritten by a stale rebuild.
+    """
+
+    rip_log: object
+    expected_track_total: int | None
+    cancelled: bool
+    replaced_reads: ErrorsInReplacedReads | None
+    suffix: str
+    shown: str
 
 
 def _partial_accurate_clause(rip_log: object) -> str:
