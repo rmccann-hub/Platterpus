@@ -7,26 +7,38 @@ prints it in the start report, which both a rip and ``-I`` print
 (``cyanrip_log_start_report``, called for either at
 ``cyanrip@13bec0a:src/cyanrip_main.c:4258``), between ``CDDB ID:`` and ``Album:``:
 
-* **today, every build:** ``Disc MCN:       %s``, through ``CLOG``, which prints
-  nothing when the value is unset (``cyanrip@13bec0a:src/cyanrip_log.c:1367``, the
-  macro at ``:41-43``). The fork sets it only when the drive declares it can read
-  an MCN and libcdio returned one that is not all zeroes
+* **every build to ``.34``:** ``Disc MCN:       %s``, through ``CLOG``, which
+  prints nothing when the value is unset (``cyanrip@13bec0a:src/cyanrip_log.c:1367``,
+  the macro at ``:41-43``). The fork set it only when the drive declared it could
+  read an MCN and libcdio returned one that is not all zeroes
   (``cyanrip@13bec0a:src/cyanrip_main.c:819-838``, ``crip_fill_mcn``); upstream
   prints an all-zero code as it came (the shape in
-  ``tests/test_parsers_cyanrip_info.py``'s report, ``0000000000000``). So today a
+  ``tests/test_parsers_cyanrip_info.py``'s report, ``0000000000000``). So there a
   disc with no MCN, a driver that cannot read one and a failed capabilities query
   all print NO line;
-* **the fork's PROPOSAL** (their round 38 lap 3 S17,
+* **the fork's proposal** (their round 38 lap 3 S17,
   ``docs/handshake/inbound/round-38-lap-03.md:130``, accepted in our round 38
-  lap 4 S11, and printed in the first build after a release of ours that reads
-  it, their round 41 lap 1 S18): the line ALWAYS, with the reason in
-  ``Disc ISRC:``'s shape, ``%s (%s)``:
+  lap 4 S11): the line ALWAYS, with the reason in ``Disc ISRC:``'s shape,
+  ``%s (%s)``, in three forms (:data:`PROPOSED_REASONS`):
 
   - ``none (libcdio returned none)``
   - ``unknown (the driver does not report reading MCN)``
   - ``unknown (capabilities query failed)``
 
-  Read here before any build prints them.
+* **``.35`` as built** (their round 42 lap 1 S3): the line always, the code at
+  ``cyanrip@1280aa4:src/cyanrip_log.c:1379-1380``, otherwise ``%s (%s)`` at
+  ``:1381-1384`` with ``none`` where libcdio answered and ``unknown`` where it was
+  not asked. The three proposed reasons, and four more
+  (:data:`REASONS_ADDED_IN_DOT35`), each set in ``crip_fill_mcn``
+  (``cyanrip@1280aa4:src/cyanrip_main.c:888-920``):
+
+  - ``none (libcdio returned an empty MCN)`` (``:911``)
+  - ``none (libcdio returned an all-zero MCN)`` (``:913``), where ``.34`` printed
+    no line; never presented as a code (state ``none``, not ``all_zero``, which is
+    upstream's bare ``0000000000000``)
+  - ``none (out of memory)`` (``:915``), the code read but not stored
+  - ``unknown (not read)``, the line's fallback should the read be skipped
+    (``cyanrip_log.c:1384``)
 
 **The states**, one field (:class:`DiscMcn`), tri-state at heart: a value, an
 absence with the ripper's reason, or no line at all:
@@ -38,14 +50,14 @@ absence with the ripper's reason, or no line at all:
   never write a reason the ripper did not give;
 * ``none`` / ``unknown``: the ripper's word, its reason verbatim in ``reason``.
   Any reason is taken (bounded, screened): a reworded reason is still the ripper
-  saying there is no MCN, or that it does not know. :data:`PROPOSED_REASONS`
-  lists the three the lap proposes; another is logged at INFO, not refused;
+  saying there is no MCN, or that it does not know. :data:`KNOWN_REASONS` lists
+  the seven ``.35`` prints; another is logged at INFO, not refused;
 * ``unrecognised``: anything else (a code of the wrong length, a letter, a
   control character, a value with a parenthetical the proposal has no shape
   for). The value is KEPT, bounded and screened (``inbound_text``), in
   ``value``, and a warning names it in the log file. Never dropped silently;
-* ``not_present``: no ``Disc MCN:`` line. On every build today, that is most
-  discs; after the proposal ships, it means an older build or a log cut short.
+* ``not_present``: no ``Disc MCN:`` line. On a build to ``.34`` that is most
+  discs; from ``.35`` on, it means an older build or a log cut short.
 
 A value is never validated by being a number: ``int("１２３")`` takes full-width
 digits and ``str.isdigit`` takes superscripts, so the check is
@@ -100,6 +112,27 @@ PROPOSED_REASONS: Final[dict[str, frozenset[str]]] = {
     ),
 }
 
+#: The four reasons ``.35`` prints beyond the three proposed (their round 42 lap 1
+#: S3), word for word from ``cyanrip@1280aa4:src/cyanrip_main.c:911``, ``:913``,
+#: ``:915`` and ``src/cyanrip_log.c:1384``, by state.
+REASONS_ADDED_IN_DOT35: Final[dict[str, frozenset[str]]] = {
+    MCN_NONE: frozenset(
+        {
+            "libcdio returned an empty MCN",
+            "libcdio returned an all-zero MCN",
+            "out of memory",
+        }
+    ),
+    MCN_UNKNOWN: frozenset({"not read"}),
+}
+
+#: Every reason a build we know prints, by state: the proposal's and ``.35``'s.
+#: A reason outside it is still kept as the ripper's own; it is only noted.
+KNOWN_REASONS: Final[dict[str, frozenset[str]]] = {
+    state: PROPOSED_REASONS[state] | REASONS_ADDED_IN_DOT35[state]
+    for state in (MCN_NONE, MCN_UNKNOWN)
+}
+
 #: The line, at column 0, the value everything after the label's padding. The
 #: idiom of the other header rows (``Accurate stream:``): a value of only blanks
 #: still matches, so it is read as ``unrecognised`` rather than left unclaimed.
@@ -151,7 +184,7 @@ def read_value(value: object) -> DiscMcn:
     See the module docstring for each state. A non-string is ``unrecognised``
     like any other shape we do not know. Pure and never raises (a parser of
     external output); logs a warning for ``unrecognised`` and an INFO line for a
-    reason the proposal does not list.
+    reason outside :data:`KNOWN_REASONS`.
     """
     text = value.strip() if isinstance(value, str) else ""
     if isinstance(value, str) and _CODE.match(text):
@@ -161,10 +194,11 @@ def read_value(value: object) -> DiscMcn:
     if absent is not None:
         state, reason = absent.group("state"), absent.group("reason")
         screened = inbound_text.screen_line(reason)
-        if reason not in PROPOSED_REASONS[state] or screened.flagged:
+        if reason not in KNOWN_REASONS[state] or screened.flagged:
             log.info(
-                "cyanrip's Disc MCN: line gives the reason %r, which the fork's "
-                "round 38 lap 3 S17 does not list; kept as the ripper's own",
+                "cyanrip's Disc MCN: line gives the reason %r, which no build we "
+                "know prints (the fork's round 38 lap 3 S17 and .35); kept as the "
+                "ripper's own",
                 screened.text,
             )
         return DiscMcn(state=state, reason=screened.text)

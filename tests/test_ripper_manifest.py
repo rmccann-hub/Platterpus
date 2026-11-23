@@ -1300,3 +1300,34 @@ def test_a_rig_on_dot33_is_offered_dot34_on_beta_and_dot34_is_current() -> None:
     on_34 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="fb28088")
     assert on_34.verdict == OFFER_UP_TO_DATE
     assert "fork release 46" in on_34.detail
+
+
+# --- `.35` on beta, round 42 from its lap 1 (2026-11-23) ----------------------------
+
+#: The fork's manifest as it stood when `.35` was published (2026-11-17, during
+#: round 41), the build their round 42 lap 1 opens on: `beta` at `.35` (`1280aa4`,
+#: release 47), `stable` at `.32` (`edb73dd`, release 44). Their file, filed byte
+#: for byte from `cyanrip@d7dfec93`.
+_MANIFEST_D7DFEC93 = (
+    Path(__file__).parent / "fixtures" / "fork_release_manifest_d7dfec93.json"
+)
+
+
+def test_a_rig_on_dot34_is_offered_dot35_on_beta_and_dot35_is_current() -> None:
+    """The release sequence recorded for `.35` is the one their manifest states,
+    so a beta rig on `.34` (46) is offered `.35` (47), and one on `.35` is told it
+    is current at release 47, not offered its own build."""
+    manifest = parse_manifest(_MANIFEST_D7DFEC93.read_text(encoding="utf-8"))
+    assert manifest is not None
+    beta = manifest.channel(CHANNEL_BETA)
+    assert beta is not None and fork_source.same_commit(beta.commit, "1280aa4")
+    assert beta.release_seq == fork_source.release_seq_for_commit("1280aa4") == 47
+
+    on_34 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="fb28088")
+    assert on_34.verdict == OFFER_AVAILABLE
+    assert on_34.release is not None
+    assert fork_source.same_commit(on_34.release.commit, "1280aa4")
+
+    on_35 = evaluate_offer(manifest, CHANNEL_BETA, installed_commit="1280aa4")
+    assert on_35.verdict == OFFER_UP_TO_DATE
+    assert "fork release 47" in on_35.detail

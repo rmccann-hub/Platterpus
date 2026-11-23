@@ -25,7 +25,8 @@ from platterpus.uiscript.runner import ScriptRunner
 @pytest.mark.parametrize(
     ("tag", "code"),
     [
-        ("platterpus-fork-gfb28088", 64),  # .34, under review in round 41 from lap 3
+        ("platterpus-fork-g1280aa4", 64),  # .35, under review in round 42
+        ("platterpus-fork-gfb28088", 64),  # .34, FORK_PIN from round 41's close
         ("platterpus-fork-g13bec0a", 64),  # .33, under review in round 41 until lap 3
         ("platterpus-fork-gedb73dd", 64),  # .32, FORK_PIN from round 40's close
         ("platterpus-fork-ge531a33", 64),  # .31, FORK_PIN from round 39's close

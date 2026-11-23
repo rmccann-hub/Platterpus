@@ -32,6 +32,7 @@ _TAG_31 = "platterpus-fork-ge531a33"
 _TAG_32 = "platterpus-fork-gedb73dd"
 _TAG_33 = "platterpus-fork-g13bec0a"
 _TAG_34 = "platterpus-fork-gfb28088"
+_TAG_35 = "platterpus-fork-g1280aa4"
 _ARTIFACTS = Path(__file__).resolve().parent.parent / "docs/handshake/inbound/artifacts"
 
 
@@ -50,9 +51,9 @@ def _argv(tag: str, **options: object) -> list[str]:
 # --- the gate --------------------------------------------------------------------
 
 
-def test_only_31_to_34_are_listed_each_on_its_own_contracts_p1() -> None:
+def test_only_31_to_35_are_listed_each_on_its_own_contracts_p1() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP == frozenset(
-        {_TAG_31, _TAG_32, _TAG_33, _TAG_34}
+        {_TAG_31, _TAG_32, _TAG_33, _TAG_34, _TAG_35}
     )
     row = f"| none | `{REREAD_UNTIL_ACCURATERIP_FLAG}` |"
     for name in (
@@ -60,6 +61,7 @@ def test_only_31_to_34_are_listed_each_on_its_own_contracts_p1() -> None:
         "round-40-lap-01-provider-contract-gbfe2766.md",  # .32
         "round-41-lap-01-provider-contract-g965ca8b.md",  # .33
         "round-41-lap-03-provider-contract-g3069c11.md",  # .34
+        "round-42-lap-01-provider-contract-g11c2d91.md",  # .35
     ):
         assert row in (_ARTIFACTS / name).read_text(encoding="utf-8"), name
     # `.30`'s contract does not list it, which is why `.30`, FORK_PIN until round
@@ -67,12 +69,12 @@ def test_only_31_to_34_are_listed_each_on_its_own_contracts_p1() -> None:
     assert row not in (
         _ARTIFACTS / "round-38-lap-12-provider-contract-g0c276fc.md"
     ).read_text(encoding="utf-8")
-    # `.34` is FORK_PIN from round 41's close (2026-11-18) and still the build
-    # under review until round 42 names the next; `.31` and `.32`, the pins
-    # before it, and `.33`, under review before `.34`, still run on rigs that
-    # installed them: all four send the option.
+    # `.34` is FORK_PIN from round 41's close (2026-11-18) and `.35` the build
+    # under review from round 42's lap 1; `.31` and `.32`, the pins before it,
+    # and `.33`, under review before `.34`, still run on rigs that installed
+    # them: all five send the option.
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_34
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_34
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_35
 
 
 @pytest.mark.parametrize(
@@ -82,6 +84,7 @@ def test_only_31_to_34_are_listed_each_on_its_own_contracts_p1() -> None:
         _TAG_32,
         _TAG_33,
         _TAG_34,
+        _TAG_35,
         _TAG_31 + "-dirty",
         "PLATTERPUS-FORK-GE531A33",
     ],

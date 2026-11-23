@@ -167,4 +167,4 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 ---
 
-*Last updated for Platterpus v0.7.128.*
+*Last updated for Platterpus v0.7.129.*

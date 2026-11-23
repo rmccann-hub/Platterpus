@@ -53,6 +53,7 @@ _CONTRACTS: dict[int, str] = {
     32: "round-40-lap-01-provider-contract-gbfe2766.md",
     33: "round-41-lap-01-provider-contract-g965ca8b.md",
     34: "round-41-lap-03-provider-contract-g3069c11.md",
+    35: "round-42-lap-01-provider-contract-g11c2d91.md",
 }
 #: One past the newest build whose source is read: derived, so a build joining
 #: the set does not turn the "not yet read" cases below into read ones.
@@ -191,8 +192,8 @@ def test_the_listed_builds_are_exactly_those_whose_contract_prints_the_line() ->
         if "`Other read:      %08X, read %i time%s, %s%s%s`"
         in (_ARTIFACTS / name).read_text(encoding="utf-8")
     }
-    assert len(_CONTRACTS) >= 9, "floor: the contracts compared"
-    assert printed == OTHER_READS_COMPLETE_BUILDS == frozenset({30, 31, 32, 33, 34})
+    assert len(_CONTRACTS) >= 10, "floor: the contracts compared"
+    assert printed == OTHER_READS_COMPLETE_BUILDS == frozenset({30, 31, 32, 33, 34, 35})
 
 
 @pytest.mark.parametrize(

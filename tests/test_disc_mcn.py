@@ -181,7 +181,7 @@ def test_a_reason_the_lap_does_not_list_is_kept_and_noted(
     with caplog.at_level(logging.INFO, logger="platterpus.disc_mcn"):
         parsed = read_value("unknown (image)")
     assert parsed == DiscMcn(MCN_UNKNOWN, "", "image")
-    assert any("does not list" in r.getMessage() for r in caplog.records)
+    assert any("no build we know" in r.getMessage() for r in caplog.records)
     caplog.clear()
     with caplog.at_level(logging.INFO, logger="platterpus.disc_mcn"):
         read_value("none (libcdio returned none)")
@@ -248,3 +248,62 @@ def test_the_report_says_not_present_without_a_row() -> None:
     # A stand-in that is not a DiscMcn never reads as a value.
     assert disc_mcn.report_block("0602547288769") == absent
     assert disc_mcn.report_block(DiscMcn("invented", "1", "")) == absent
+
+
+# --- `.35` as built: four reasons beyond the three agreed (their round 42 lap 1 S3) ---
+
+#: Their lap that reports `.35` as built, as filed here.
+_LAP_R42: Final[Path] = _ROOT / "docs" / "handshake" / "inbound" / "round-42-lap-01.md"
+
+#: The four new forms, as `.35` prints them (`cyanrip@1280aa4:src/cyanrip_main.c:911`,
+#: `:913`, `:915` and `src/cyanrip_log.c:1384`), and what each reads as.
+_DOT35_FORMS: Final[dict[str, tuple[str, DiscMcn]]] = {
+    "none, empty": (
+        "none (libcdio returned an empty MCN)",
+        DiscMcn(MCN_NONE, "", "libcdio returned an empty MCN"),
+    ),
+    "none, all zero": (
+        "none (libcdio returned an all-zero MCN)",
+        DiscMcn(MCN_NONE, "", "libcdio returned an all-zero MCN"),
+    ),
+    "none, out of memory": (
+        "none (out of memory)",
+        DiscMcn(MCN_NONE, "", "out of memory"),
+    ),
+    "unknown, not read": ("unknown (not read)", DiscMcn(MCN_UNKNOWN, "", "not read")),
+}
+
+
+def test_the_dot35_reasons_are_the_laps_own_words() -> None:
+    """Verify our copy against their S3, not our memory of it: each of the four
+    forms, backticked, is in the line, and the reader lists exactly them."""
+    s3 = next(
+        ln
+        for ln in _LAP_R42.read_text(encoding="utf-8").splitlines()
+        if ln.startswith("S3 DID:")
+    )
+    added = [r for rs in disc_mcn.REASONS_ADDED_IN_DOT35.values() for r in rs]
+    assert len(added) == 4
+    for value, expected in _DOT35_FORMS.values():
+        assert f"`{value}`" in s3, value
+        assert expected.reason in disc_mcn.REASONS_ADDED_IN_DOT35[expected.state]
+    # The three agreed forms are named in the same line, so `.35` prints seven.
+    for name in ("none", "unknown, driver", "unknown, capabilities"):
+        assert f"`{_FORMS[name][0]}`" in s3, name
+    assert sum(len(v) for v in disc_mcn.KNOWN_REASONS.values()) == 7
+
+
+@pytest.mark.parametrize("name", sorted(_DOT35_FORMS))
+def test_each_dot35_form_reads_alike_in_both_parsers_and_is_not_noted(
+    name: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A reason `.35` prints is a known one: kept as the ripper's, tri-state
+    (`none` or `unknown`, never a code), and not logged as unlisted. An all-zero
+    MCN named in a reason is `none`, never the bare code's `all_zero`."""
+    value, expected = _DOT35_FORMS[name]
+    with caplog.at_level(logging.INFO, logger="platterpus.disc_mcn"):
+        from_log = parse_cyanrip_log(_rip_log_with(value)).disc_mcn
+    assert from_log == expected
+    report = f"Disc tracks:    3\nCDDB ID:        14000603\nDisc MCN:       {value}\n"
+    assert parse_cyanrip_info(report).disc_mcn == expected
+    assert not [r for r in caplog.records if "no build we know" in r.getMessage()]

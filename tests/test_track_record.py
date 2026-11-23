@@ -375,13 +375,14 @@ def test_a_track_whose_reads_agreed_is_not_called_disagreeing() -> None:
 
 
 def test_the_31_seam_is_named_and_never_guessed() -> None:
-    """`.31`'s log text is read (2026-11-11, its contract filed), and `.32` to `.34`'s
-    (2026-11-17, their source the same for every line the record reads), so a re-read
+    """`.31`'s log text is read (2026-11-11, its contract filed), `.32` to `.34`'s
+    (2026-11-17, their source the same for every line the record reads) and `.35`'s
+    (2026-11-23, likewise), so a re-read
     from one of them the rule did not end says so plainly; a re-read from a LATER
     build we have not read says whether it applied is not determined. `.31`'s own
     lines are held in `tests/test_cyanrip_dot31_reread_until_accuraterip.py`, the
     sets against the pins in `tests/test_build_sets_cover_the_pin.py`."""
-    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31, 32, 33, 34})
+    assert AR_GUIDED_CONVERGENCE_BUILDS == frozenset({31, 32, 33, 34, 35})
     assert fork_build_number("cyanrip 0.9.4-rc3+platterpus.31") == 31
     assert fork_build_number("cyanrip 0.9.3") is None
     # One past the newest build read: derived, so a build joining does not stale it.

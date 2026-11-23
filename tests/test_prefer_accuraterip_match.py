@@ -23,9 +23,11 @@ their round 37 lap 4 S2), P1 of ITS filed contract listing the option
 (`round-41-lap-01-provider-contract-g965ca8b.md:61`). **`.34` joined on 2026-11-16**
 (`fb28088`, their round 41 lap 3 S9, accepted on our owner's word that day), P1 of
 ITS filed contract listing the option
-(`round-41-lap-03-provider-contract-g3069c11.md:61`). cyanrip refuses an option it
+(`round-41-lap-03-provider-contract-g3069c11.md:61`). **`.35` joined on 2026-11-23**
+(`1280aa4`, their round 42 lap 1), P1 of ITS filed contract listing the option
+(`round-42-lap-01-provider-contract-g11c2d91.md:61`). cyanrip refuses an option it
 does not know, and every availability probe reads a refused run as a missing ripper,
-so the gate is the whole safety of the flag: these tests hold that `.27` to `.34`
+so the gate is the whole safety of the flag: these tests hold that `.27` to `.35`
 get it on every rip and that no other build does, including `.26`,
 `.25` and the fork's unreleased lap-7 build of the same option.
 """
@@ -81,6 +83,11 @@ _TAG_33 = "platterpus-fork-g13bec0a"
 #: `platterpus-fork-gfb28088`.
 _TAG_34 = "platterpus-fork-gfb28088"
 
+#: `.35`'s build tag: `meson.build` line 21 at `1280aa4` declares
+#: `0.9.4-rc3+platterpus.35`, and their round 42 lap 1's RIPPER-VERSION names
+#: `platterpus-fork-g1280aa4`.
+_TAG_35 = "platterpus-fork-g1280aa4"
+
 #: The fork's lap-7 build (`platterpus-fork-g709337a`), which carries the option and
 #: was never released. Unlisted: a build joins on its own filed contract, not on
 #: having the code.
@@ -100,8 +107,18 @@ def _argv(tag: str, **options: object) -> list[str]:
 
 
 @pytest.fixture(
-    params=[_TAG_27, _TAG_28, _TAG_29, _TAG_30, _TAG_31, _TAG_32, _TAG_33, _TAG_34],
-    ids=[".27", ".28", ".29", ".30", ".31", ".32", ".33", ".34"],
+    params=[
+        _TAG_27,
+        _TAG_28,
+        _TAG_29,
+        _TAG_30,
+        _TAG_31,
+        _TAG_32,
+        _TAG_33,
+        _TAG_34,
+        _TAG_35,
+    ],
+    ids=[".27", ".28", ".29", ".30", ".31", ".32", ".33", ".34", ".35"],
 )
 def listed(request: pytest.FixtureRequest) -> str:
     """Each listed tag, asserted to be in the real set, not patched in."""
@@ -110,21 +127,31 @@ def listed(request: pytest.FixtureRequest) -> str:
     return tag
 
 
-# --- today: `.27` to `.34` accept it --------------------------------------------------
+# --- today: `.27` to `.35` accept it --------------------------------------------------
 
 
-def test_only_27_to_34_are_listed() -> None:
+def test_only_27_to_35_are_listed() -> None:
     assert fork_source.BUILD_TAGS_ACCEPTING_PREFER_ACCURATERIP_MATCH == frozenset(
-        {_TAG_27, _TAG_28, _TAG_29, _TAG_30, _TAG_31, _TAG_32, _TAG_33, _TAG_34}
+        {
+            _TAG_27,
+            _TAG_28,
+            _TAG_29,
+            _TAG_30,
+            _TAG_31,
+            _TAG_32,
+            _TAG_33,
+            _TAG_34,
+            _TAG_35,
+        }
     )
     # Non-triviality: the production pin IS `.34` from round 41's close
-    # (2026-11-18), and it is still the build under review until round 42 names
-    # the next, so a rig on it sends the flag; `.33`, under review before `.34`,
+    # (2026-11-18), and the build under review is `.35` from round 42's lap 1,
+    # so a rig on either sends the flag; `.33`, under review before `.34`,
     # `.27`, `.28`, `.30`, `.31` and `.32`, the pins before it, and `.29`, under
     # review before `.30`, still run on rigs that installed them and still take
     # the flag.
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_34
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_34
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_35
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_33)
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_32)
     assert fork_source.accepts_prefer_accuraterip_match(_TAG_27)

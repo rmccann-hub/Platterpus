@@ -1674,7 +1674,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3633 -> 3691** (2026-11-16, round 41 moves to `.34`, the fork's lap 3 S9 on the owner's word): `PIN_UNDER_REVIEW` `fb28088` and its record, its release sequence 46 (the row that makes `.34`'s exit 74 read by its class), its full commit and version, its consumer-flag, `--prefer-disc-isrc`, `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip` and bounded-overread rows, and `.33` named in the `--verify-log` set, each with the source it was read from.
     # **3691 -> 3763** (2026-11-17, the fork's round 41 lap 5 S18): `AR_GUIDED_CONVERGENCE_BUILDS` and `OTHER_READS_COMPLETE_BUILDS` moved here from `track_record_sources.py` (which re-exports them and shrank), beside the other per-build sets, so naming a build names it in them too; `.32` to `.34` added, each cited at its own source (`cyanrip@<sha>:src/cyanrip_main.c` and `cyanrip_log.c`).
     # **3763 -> 3778** (2026-11-18): round 41 closes; FORK_PIN rolls to fb28088 with its record.
-    "deps/fork_source.py": 3778,
+    # **3778 -> 3861** (2026-11-23, round 42 names `.35`, the fork's lap 1): `PIN_UNDER_REVIEW` `1280aa4` and its round, its release sequence 47 (and its second number, 49, after `.34` went to stable), its full commit and version, its consumer-flag, `--prefer-disc-isrc` (now a no-op in `.35`), `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip`, bounded-overread, AccurateRip-guided and complete-other-reads rows, and `.34` named in the `--verify-log` set, each with the source it was read from.
+    "deps/fork_source.py": 3861,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2145,7 +2146,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4866 -> 4857** (2026-11-12, the fork's round 39 lap 3 S14): the `C2 errors:` reading moved out to `c2_declaration.py`; `_take_c2` now only calls it.
     # **4857 -> 4864** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `_RIP_ERRORS` gains the `parts` group for the wording that names every part of the count, the comment saying why it cannot take `including`'s line, `_Disc.ripping_error_parts`, its hand-over, and the warning that names a part we do not know; `_ripping_error_skips` and every reading moved out to `ripping_error_parts.py`.
     # **4864 -> 4889** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the `disc_mcn` disc rule, held by the ONCE echo guard as `DiscID:` and `CDDB ID:` beside it are, with its handler, its clearer, `_Disc.disc_mcn` and the hand-over; every reading of the value lives in `disc_mcn.py`, shared with the `-I` parser.
-    "parsers/cyanrip_log.py": 4889,
+    # **4889 -> 4911** (2026-11-23, the fork's round 42 lap 1 S7): `.35`'s `Session gap:` track line, read by its own module (`session_gap.py`) and kept on the track with a warning for an unread wording; the rule, the builder field, the flush and the contract row stay here, beside `Appended:` and `Beyond disc:`, the block's other rows.
+    "parsers/cyanrip_log.py": 4911,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2185,7 +2187,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1258 -> 1270** (2026-11-16, TASKS R156, the fork's round 40 lap 3 S14): `TrackResult.kept_read_pass`, which pass's read the file holds, beside `first_pass_reread`, the other fact the merge writes, with what each value means.
     # **1270 -> 1275** (2026-11-16, TASKS R174, the fork's round 41 lap 1 S16): `RipLog.ripping_error_parts`, every part of the `Ripping errors:` count named, with its import and what None and `unknown` mean.
     # **1275 -> 1281** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipLog.disc_mcn`, the `Disc MCN:` row as a state, with its import and what it is (a pressing's identity, not a TOC fact).
-    "parsers/rip_log.py": 1281,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # 1281 -> 1288 (2026-11-23): `TrackResult.session_gap`, `.35`'s CD-Extra cut made by assumption, with its comment; the dataclass lives in `session_gap.py`.
+    "parsers/rip_log.py": 1288,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2487,7 +2490,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1625 -> 1649** (2026-11-05): regenerated from `.30`'s contract (`round-38-lap-12-provider-contract-g0c276fc.md`), 166 P5 and 14 P5a, generated: the four new rows, `Error saving read %08X of track %i: %s!`, the two `--keep-every-read` refusals and `--read-vendor-settings needs --diagnostics: ...`, six lines each.
     # **1649 -> 1699** (2026-11-11): regenerated from `.31`'s contract (`round-39-lap-01-provider-contract-g6eacb8b.md`), 167 P5 and 19 P5a, generated: the `--reread-until-accuraterip needs -Z` refusal added; its five new P5a rows (the AccurateRip-matched end and four limit lines with the overrule clause) decided in `P5A_NOT_RETAINED` as -Z verdicts, each with its source line, and the two time-limit rows' reason corrected now that the securing pass sends the limit.
     # **1699 -> 1705** (2026-11-16): regenerated from `.34`'s contract (`round-41-lap-03-provider-contract-g3069c11.md`), 168 P5 and 19 P5a, generated: the one new row, `Invalid TOC: track %i starts at LSN %i, not after track %i at LSN %i!` (exit 74), six lines.
-    "ripper_message_inventory.py": 1705,
+    # **1705 -> 1717** (2026-11-23): regenerated from `.35`'s contract (`round-42-lap-01-provider-contract-g11c2d91.md`), 170 P5 and 19 P5a, generated: the two new `Invalid pregap:` rows (exit 74, the fork's round 42 lap 1 S6), six lines each.
+    "ripper_message_inventory.py": 1717,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -3589,7 +3593,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4583 -> 4586** (2026-10-27, external review item 3.4): `--announce` dates a release in UTC, not the local day (ruff DTZ011).
     # **4586 -> 4587** (2026-10-27): encoding="utf-8" beside text=True (follow-up review item 5).
     # **4587 -> 4602** (2026-11-16, TASKS R171): `check_outbound_paths` calls `next_round_opener_problems`, a 13-line bridge that hands every declaration to `scripts/next_round_opener.py`, where the §1a rule and its narrowing live, rather than this number taking the whole check.
-    "scripts/handshake.py": 4602,
+    # **4602 -> 4623** (2026-11-23, protocol v10 §18): the gate implements 10 (`PROTOCOL_VERSION`) while our laps still declare 9 (`DECLARED_PROTOCOL`), each with the condition that moved it or holds it; the step is the constant, v10 adding no field and no row.
+    "scripts/handshake.py": 4623,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.

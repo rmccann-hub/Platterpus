@@ -79,6 +79,7 @@ from platterpus.record_track_v11 import parse_row as parse_record_v11_row
 from platterpus.reread_limit import STOPPED_BY as REREAD_STOPPED_BY
 from platterpus.reread_limit import TIME_LIMIT_STATES as REREAD_TIME_LIMIT_STATES
 from platterpus.reread_limit import time_limit_state as reread_time_limit_state
+from platterpus.session_gap import SESSION_GAP_NOT_DETERMINED, read_session_gap
 from platterpus.verified_read_chase import securing_pass_read_checksums
 
 # `deadline=None`: the parsers are fast, but CI runners are noisy and we
@@ -1050,3 +1051,33 @@ def test_the_record_v11_row_reader_never_raises(row: dict[str, object]) -> None:
     # A meaning only for a word we read, never for one we could not.
     meaning = isrc_disc_read_meaning(record)
     assert (meaning is not None) == (record.isrc_disc_read_state == "read")
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds("not determined ({})".format, st.text(max_size=320)),
+        st.builds(
+            "not determined (the last-session query failed; {} frames cut by "
+            "assumption)".format,
+            st.integers(min_value=-5, max_value=10**12),
+        ),
+    )
+)
+def test_the_session_gap_reader_never_raises(value: str) -> None:
+    """`.35`'s `Session gap:` value (the fork's round 42 lap 1 S7), alone and as
+    a line inside a track block: a state from the two, the value always kept, a
+    count only with the determined shape, and nothing raised."""
+    gap = read_session_gap(value)
+    assert gap.state in (SESSION_GAP_NOT_DETERMINED, "unrecognised")
+    assert gap.text
+    assert gap.frames_cut is None or (
+        gap.state == SESSION_GAP_NOT_DETERMINED and gap.frames_cut >= 0
+    )
+    log = (
+        "cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        f"    End LSN:     599\n    Session gap: {value}\n"
+    )
+    parse_cyanrip_log(log)

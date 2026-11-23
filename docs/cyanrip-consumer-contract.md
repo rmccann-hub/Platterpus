@@ -24,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.7.128` — the build that
+- **Platterpus:** `0.7.129` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc3+platterpus.34 (platterpus-fork-gfb28088)` — the build a
@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (90)
+## 1. Log lines we parse (91)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -133,6 +133,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_accurip_offset` | indented | `^\\s+Accurip 450:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_appended_silence` | indented | `^\\s+Appended:\\s+(?P<frames>\\d{1,9})\\s+frames? of silence` |
 | `track_beyond_disc` | indented | `^\\s+Beyond disc:\\s+(?P<refused>\\d{1,9})\\s+of\\s+(?P<frames>\\d{1,9})\\s+frames?\\s+refused\\b` |
+| `track_session_gap` | indented | `^\\s{1,8}Session gap:[ \\t]*(?P<value>[^\\n]*)$` |
 | `track_peak_kind_header` **(fork-only)** | indented | `^\\s+(?P<kind>True\|Sample) peak:\\s*$` |
 | `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |

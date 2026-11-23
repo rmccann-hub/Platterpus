@@ -1443,15 +1443,14 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = (
-    "v10 landed 2026-11-17 in both trees, byte-identical: the fork first, at "
-    "cyanrip@1989c762 (their round 41 lap 5 S6), then ours, copied from there with "
-    "every hash matching that lap's header. v10 §18: round 41's laps declare 9 and it "
-    "closes under v9; neither gate implements 10 until the file is byte-identical in "
-    "both trees, which it now is. Clear this in the commit that teaches the gate 10, "
-    "before our first lap of round 42."
-)
-#: History of this constant, newest first. **2026-11-17: non-empty**, the v10
+_BOOTSTRAP_REASON: str = ""
+#: History of this constant, newest first. **Empty again from 2026-11-23**: the gate
+#: implements 10 (v10 adds no field and no row, so the step is `PROTOCOL_VERSION`),
+#: cleared in that commit, before our round 42 lap 2, as the reason required. It
+#: had read: *"v10 landed 2026-11-17 in both trees, byte-identical: the fork first,
+#: at cyanrip@1989c762 (their round 41 lap 5 S6), then ours … Clear this in the
+#: commit that teaches the gate 10, before our first lap of round 42."*
+#: **2026-11-17: non-empty**, the v10
 #: bootstrap (v10 §18). **Empty again from 2026-10-14, the same
 #: day**: the gate implements 9, in the commit after the fork's round 33 lap 1 (HR-2
 #: order C), cleared there as the reason required. It had read: *"v9 (HR-2 and
