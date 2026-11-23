@@ -23,13 +23,13 @@ markup. A cyanrip line containing ``<`` would be swallowed as an unknown tag and
 the reader would never learn text went missing — ``CLAUDE.md``'s inbound-seam
 rule, applied at the one widget that displays dependency output here.
 
-**It is the home of the two test-script settings** (2026-09-24): which script
-loads at start-up, and whether it runs by itself. They used to be edited in
-Settings too — two editors of one setting, where the one a user last touched was
-not necessarily the one in force. Now they are edited only here, where scripts are
-loaded and run, and each saves as it is changed through the window's one
-single-setting writer, validated by the same predicate as the ``set`` verb
-(`ui/setting_homes.py`, `tests/test_setting_homes.py`).
+**Tests are chosen on the Run tests screen, not here** (TASKS R188, the owner's
+design of 2026-11-17). This console had a Load… file picker, and the two
+start-up settings with Choose… and Use built-in; none of them could reach the
+scripts packed inside the AppImage except the full acceptance test, so a script
+we named to the owner was one they could not pick. Tools → Advanced → Run tests…
+now chooses every test, and its *Edit script…* opens the chosen script here; the
+start-up settings moved there with the pickers (`ui/setting_homes.py`).
 
 **Why nothing here blocks.** The one verb that runs a subprocess does it on a
 helper thread (:class:`platterpus.uiscript.runner._CyanripJob`); this dialog only
@@ -47,11 +47,9 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent, QFont
 from PySide6.QtWidgets import (
-    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -62,7 +60,6 @@ from PySide6.QtWidgets import (
 from platterpus.ui import message_boxes
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
-from platterpus.ui.dialogs.script_settings_box import ScriptSettingsBox
 from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.runner import ScriptRunner
@@ -72,7 +69,6 @@ from platterpus.uiscript.verbs import verb_reference
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from platterpus.config import Config
     from platterpus.user_settings import SettingWrite
 
 log = logging.getLogger(__name__)
@@ -168,7 +164,9 @@ class ScriptConsoleDialog(CenteredDialog):
             "same actions a person would take, without a person.\n\n"
             "A failing step does NOT stop the batch: it is recorded and the run "
             "continues, because the point is to come back to a complete "
-            "transcript.",
+            "transcript.\n\n"
+            "To choose a test, built in or your own, use Tools → Advanced → Run "
+            "tests…; its Edit script… opens the test here.",
             self,
         )
         intro.setWordWrap(True)
@@ -196,21 +194,9 @@ class ScriptConsoleDialog(CenteredDialog):
         self._editor.setAccessibleName("Test script")
         layout.addWidget(self._editor, stretch=3)
 
-        # The two test-script settings, in their one home.
-        self._script_settings: ScriptSettingsBox = ScriptSettingsBox(
-            self,
-            script_path=script_path,
-            autorun=autorun,
-            save_setting=save_setting,
-        )
-        self._script_settings.startup_script_saved.connect(
-            self._on_startup_script_saved
-        )
-        #: The controls the home table names (`ui/setting_homes.py`), reachable
-        #: as the console's own so the run and the tests read one object.
-        self._startup_script_edit: QLineEdit = self._script_settings.startup_script_edit
-        self._autorun_check: QCheckBox = self._script_settings.autorun_check
-        top_layout.addWidget(self._script_settings)
+        # `autorun` and `save_setting` are accepted and unused since TASKS R188:
+        # the start-up settings live on the Run tests screen now.
+        del autorun, save_setting
         self._top_scroll.setWidget(top)
 
         buttons = QHBoxLayout()
@@ -223,10 +209,6 @@ class ScriptConsoleDialog(CenteredDialog):
         self._stop_button.setEnabled(False)
         self._stop_button.clicked.connect(self._on_stop)
         buttons.addWidget(self._stop_button)
-
-        load_button = QPushButton("&Load…", self)
-        load_button.clicked.connect(self._on_load)
-        buttons.addWidget(load_button)
 
         save_button = QPushButton("Sa&ve transcript…", self)
         save_button.clicked.connect(self._on_save_transcript)
@@ -267,34 +249,13 @@ class ScriptConsoleDialog(CenteredDialog):
         #: The run size for the next run only (`size_next_run`); ``None`` runs the
         #: whole script, which is every hand-driven run.
         self._size_next_run: str | None = None
+        #: The test the next run is, and its blocks (`name_next_run`); one-shot.
+        self._name_next_run: tuple[str, tuple[str, ...]] | None = None
 
         if script_path:
             # A saved path is a statement of intent: load it, but say so in the
             # transcript rather than silently replacing what the user sees.
             self._load_path(Path(script_path).expanduser(), announce=True)
-
-    def refresh_settings(self, config: Config) -> None:
-        """Show ``config``'s script options; the window calls it when they change."""
-        self._script_settings.refresh_settings(config)
-
-    def _on_startup_script_saved(self, path: str) -> None:
-        """A new startup script was saved: load it only if that discards nothing.
-
-        A batch typed into the editor is the user's work, and replacing it
-        because they changed a setting would lose it with no way back.
-        """
-        box = self._script_settings
-        if not path:
-            box.say("✓ Saved: no startup script.")
-            return
-        untouched = self._editor.toPlainText() in ("", STARTER_SCRIPT)
-        if untouched and self._load_path(Path(path).expanduser(), announce=True):
-            box.say(f"✓ Saved and loaded: {path}")
-        else:
-            box.say(
-                f"✓ Saved: {path} loads when this console next opens. The editor "
-                "was left as it is; press Load… to open it now."
-            )
 
     # --- Public surface, used by the autorun path ----------------------------
 
@@ -337,6 +298,14 @@ class ScriptConsoleDialog(CenteredDialog):
         must not quietly shrink the next hand-driven run.
         """
         self._size_next_run = size
+
+    def name_next_run(self, name: str, blocks: tuple[str, ...]) -> None:
+        """Record the next run as the pre-built test ``name`` (TASKS R188). One-shot.
+
+        See :meth:`ScriptRunner.name_test`; one-shot like :meth:`size_next_run`,
+        so a later hand-started run is not reported as a test it is not.
+        """
+        self._name_next_run = (name, blocks)
 
     def load_file(self, path: Path) -> bool:
         """Load a script file into the editor. Returns whether it loaded.
@@ -429,6 +398,9 @@ class ScriptConsoleDialog(CenteredDialog):
         if self._size_next_run is not None:
             runner.set_run_size(self._size_next_run)
             self._size_next_run = None
+        if self._name_next_run is not None:
+            runner.name_test(*self._name_next_run)
+            self._name_next_run = None
         runner.step_recorded.connect(self._on_step)
         runner.finished.connect(self._on_finished)
         self._runner = runner
@@ -480,17 +452,6 @@ class ScriptConsoleDialog(CenteredDialog):
         # path, because the unnarrowable payload is still the end of the run, and
         # whoever is holding something open for its duration has to hear about it.
         self.run_finished.emit(report)
-
-    def _on_load(self) -> None:
-        start = self._script_path or str(Path.home())
-        chosen, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open a test script",
-            start,
-            "Scripts (*.txt *.pscript);;All files (*)",
-        )
-        if chosen:
-            self._load_path(Path(chosen), announce=True)
 
     def _load_path(self, path: Path, *, announce: bool) -> bool:
         """Read a script file into the editor, reporting failure visibly.

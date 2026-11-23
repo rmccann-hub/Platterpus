@@ -51,28 +51,45 @@ produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
    **Rip?** column by default — untick any you don't want. Or right-click one or
    more highlighted rows for **Rip only these** / include / exclude. Start rips
    whatever's ticked (all ticked = the whole disc).
-5. Click **Start rip** (or **Rip → Start rip**, or **Ctrl+R**). Progress shows an
-   overall bar plus the current task, and the **Live log** tab comes forward.
+5. Click **Start rip** (or **Rip → Start rip**, or **Ctrl+R**). One progress
+   bar shows the whole rip ("Track 5 of 14 — 31% of the rip"), the status line
+   the current step, and the track list follows the rip row by row. The
+   ripper's own output is on the **Live log** tab, one click away.
 6. When it finishes, the status line reports a fidelity verdict, the verification
-   banner appears (see below), and the **Tracks** tab comes forward with the
-   per-track results. Files land under your output
-   folder (see Settings).
+   banner appears (see below), and the track list gains a **Verified** column
+   with each track's result. Files land under your output folder (see
+   Settings).
+
+The disc's MusicBrainz and CDDB IDs, the last rip's AccurateRip summary and the
+drive's cache-defeat verdict are folded into **Disc details** above the album
+fields (Alt+A opens it); a **⚠** on it means one of those rows holds a warning.
 
 ## Understanding the results — is my rip trustworthy?
 
-After a rip, a bold **verification banner** sits above the results and tells you
-at a glance whether the rip can be trusted. It stays put — it is never scrolled
-away or tucked behind a tab, so the answer to "is this rip good?" is always on
-screen. Below it, three tabs hold the detail:
+After a rip, a bold **verification banner** tells you at a glance whether the
+rip can be trusted. It stays put — it is never scrolled away or tucked behind a
+tab, so the answer to "is this rip good?" is always on screen. When CTDB has
+answered too, the line under the banner says **which check decides, and why**:
+AccurateRip for a track it rejects (a CTDB match does not clear it), CTDB for a
+track a CTDB repair replaced and a fresh CTDB check confirmed, and a note where
+CTDB questions a track AccurateRip found nothing wrong with.
 
-- **Tracks** — the per-track table, shown automatically when a rip finishes.
-- **Details** — the CTDB result, why CTDB and AccurateRip can look like they
-  disagree, and album loudness. When there is something in here worth reading,
-  the tab label itself shows a **⚠** so you don't have to go looking.
-- **Live log** — the ripper's own output, shown automatically *while* a rip runs.
+Each track's result is in the track list: **Status** (✓ Done, or ⚠ Wrong
+(AccurateRip) for a track AccurateRip contradicts) and **Verified** (✓ 200
+matching rips, ⚠ Mismatch, ⓘ Not in database, or ✓ CTDB where only CTDB has an
+answer). Point at a cell for the detail. Right-click a column heading and choose
+**Show AccurateRip and CRC columns** for the AccurateRip v1 and v2 results and
+each track's EAC CRC, the view an EAC user knows.
 
-Alt+T / Alt+D / Alt+L switch between them, as do the arrow keys once the tab
-strip has focus.
+Below the banner, two tabs hold the rest:
+
+- **Details** — the CTDB result, any CTDB repair, and album loudness. When there
+  is something in here worth reading, the tab label itself shows a **⚠** so you
+  don't have to go looking.
+- **Live log** — the ripper's own output.
+
+Alt+D / Alt+L switch between them, as do the arrow keys once the tab strip has
+focus.
 
 - 🟢 **Green — "Bit-perfect: all N tracks verified against AccurateRip"** —
   every track's audio matches the shared AccurateRip database. This is the
@@ -500,40 +517,51 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
 
 ## Running the full acceptance test
 
-**Tools → Advanced → Run acceptance test…** is the whole thing in one click. Put
-an ordinary audio CD in the drive, choose it, and walk away — Platterpus makes a
-session folder, holds off sleep, idle and lid-suspend for the duration, runs the
-built-in acceptance batch, drops the sleep lock again, and packs everything into
-**one** `.tar.gz`. **Everything the run makes stays in that one session folder**
-under `~/platterpus-rig/`: the test rips (not your music library, and your folder
-settings come back afterwards), the transcript, the screenshots and the bundle.
-When it finishes it names the file and offers to open the folder. There is
-nothing to download and nothing to run afterwards; send that one file.
+**Tools → Advanced → Run tests…** is the whole thing in one click. Choose a test
+and press **Run**: Platterpus makes a session folder, holds off sleep, idle and
+lid-suspend for the duration, runs the test, drops the sleep lock again, and
+packs everything into **one** `.tar.gz`. **Everything the run makes stays in
+that one session folder** under `~/platterpus-rig/`: the test rips (not your
+music library, and your folder settings come back afterwards), the transcript,
+the screenshots and the bundle. When it finishes it names the file and offers to
+open the folder. There is nothing to download and nothing to run afterwards;
+send that one file.
 
-**It asks one question first: which size of run.** All three come from the same
-script.
+**Three ways to choose**, one tab each:
 
-- **Quick**, about 15 minutes, answers "does it still work?": it checks the
-  ripper and the settings, identifies the disc, and rips two tracks with a
-  transcode.
-- **Standard**, about an hour, answers "is a normal rip right?": it adds the
-  whole-disc rip, the overwrite prompt, and a cancel and recovery.
-- **Full**, four to six hours, is everything. It rips the disc twice (once fast,
-  once reading every track at least twice) plus six shorter partial rips. Leave
-  it overnight.
+- **Pre-built and yours** lists the pre-built tests, then every script in your
+  own scripts folder (`~/.config/platterpus/scripts/`), each marked *(yours)*.
+  **Full acceptance**, four to six hours, is everything: it rips the disc twice
+  (once fast, once reading every track at least twice) plus shorter partial
+  rips and five repeat rips; leave it overnight. **Standard acceptance**, about
+  an hour, answers "is a normal rip right?". **Quick acceptance**, about 15
+  minutes, answers "does it still work?". All three are the same script at three
+  sizes. The **Quick check** rips one track in about five minutes before a Full
+  run; **Repeat rips ×5** rips the whole disc five times and checks every track
+  verified in every run with the same CRC each time; the **Drive setup check**
+  reads the drive's offset and cache once. The other tests, the **Over-read
+  probe** among them, are the ones we may ask you to run.
+- **Combination** runs the built-in tests you tick, in a fixed order, and adds
+  the setup they need (the ripper, the drive's offset, an identified disc) once.
+- **Script file** runs any file you choose, after checking it: plain text, not
+  too large, and every line a step the script language knows.
 
-**A disc MusicBrainz does not know has a run of its own.** The full run stops
+The box under the choice says what will run, roughly how long it takes, and
+whether it counts as evidence. **Edit script…** opens the chosen test in the
+test-script console instead, to read or change it first.
+
+**A disc MusicBrainz does not know has a test of its own.** The full run stops
 when it cannot identify the disc, because every rip after that would be about a
-release nobody chose. Use
-**Tools → Advanced → Run acceptance test with an unknown disc…** for that path:
-put in a disc MusicBrainz does not know, with at least two tracks (a CD-R of your
-own recordings is the reliable choice), and it accepts *Rip as unknown album*,
-rips two tracks, and checks the placeholder tags and the report. About 15
-minutes, the same session folder and the same one file to send. On a disc
-MusicBrainz knows, it stops in its first minutes and says so.
+release nobody chose. Choose **Unknown-disc acceptance** for that path: put in a
+disc MusicBrainz does not know, with at least two tracks (a CD-R of your own
+recordings is the reliable choice), and it accepts *Rip as unknown album*, rips
+two tracks, and checks the placeholder tags and the report. About 15 minutes,
+the same session folder and the same one file to send. On a disc MusicBrainz
+knows, it stops in its first minutes and says so.
 
-**Only Full counts as evidence** toward a version or a handshake close. A smaller
-run says so at the top of its transcript and marks every section it left out.
+**Only the whole Full acceptance run counts as evidence** toward a version or a
+handshake close. Any other test says so at the top of its transcript, and a
+smaller size marks every section it left out.
 Every size starts from the same baseline: each setting is set to its shipped
 default, or kept on purpose, and your own settings come back when the run ends.
 The read offset is your drive's own, not one typed into the script.
@@ -560,21 +588,23 @@ the text files, except in signed rip logs, which stay exactly as written.
 ## Running your own tests without being there
 
 Platterpus can drive its own interface. **Tools → Advanced → Run test script…**
-opens a console where you type (or load) a batch of steps — open a dialog, check
-what is on screen, take a screenshot, run the ripper and assert its exit code —
-and each step runs against the real window, one at a time, the way a person
-would. Press **Commands** in that console for the full list of steps.
+opens a console where you type a batch of steps — open a dialog, check what is
+on screen, take a screenshot, run the ripper and assert its exit code — and each
+step runs against the real window, one at a time, the way a person would. Press
+**Commands** in that console for the full list of steps. To open a script in it,
+choose the test on **Tools → Advanced → Run tests…** and press **Edit script…**.
 
-Two settings, both in the console under *Script settings* and both saved the
-moment you change them, make it usable when you are not at the machine:
+Two settings, both on the Run tests screen under *Run this at start-up* and both
+saved the moment you change them, make it usable when you are not at the
+machine:
 
-- **Startup script** — the batch the console loads when it opens. Pick one with
-  **Choose…**, or **Use built-in** for the acceptance test that ships inside
-  Platterpus. A file you keep in your own editor is re-read every time it runs,
-  so editing it needs no restart.
-- **Run it automatically when Platterpus starts** — with this on *and* a startup
-  script set, launching Platterpus **is** the test run. Both have to be set on
-  purpose; neither does anything alone.
+- **Start-up script** — the batch the console loads when it opens. Choose a test
+  and press **Use this test**; a test made of built-in blocks is written to your
+  scripts folder first. A file you keep in your own editor is re-read every time
+  it runs, so editing it needs no restart.
+- **Run it automatically when Platterpus starts** — with this on *and* a
+  start-up script set, launching Platterpus **is** the test run. Both have to be
+  set on purpose; neither does anything alone.
 
 A failing step does **not** stop the batch. Every step records pass, fail or
 error and the run continues, so you come back to a complete transcript rather

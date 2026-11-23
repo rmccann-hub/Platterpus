@@ -1,0 +1,96 @@
+# --- H. RE-RIP ONTO THE SAME FOLDER: the overwrite prompt ------------------
+# The title is BYTE-FOR-BYTE section F's, on purpose. Same string in, same folder
+# out, so this rip collides and the "Album already ripped" prompt actually fires
+# — which is the only way the PlainText fix gets exercised on hardware, and the
+# only test of the guard that resolves the predicted folder against what is on
+# disk. That guard exists because a two-track rip once silently overwrote a
+# finished 14-track archival rip.
+#
+# WHAT TO LOOK FOR if you are watching: the prompt must name the folder IN FULL.
+# The word after the '<' is the part that used to vanish.
+#
+# `click=new`, NOT `ok`. `ok` calls accept(), and accept() on a QMessageBox built
+# with addButton leaves clickedButton() as None — so the caller falls through to
+# its Cancel branch and the rip is CANCELLED while the transcript says
+# "accepted". "Rip to a new folder" rather than "Replace" so section F's audio
+# survives; it also exercises free_album_folder_templates, which nothing else
+# here reaches.
+
+# EVERY RIP IN THIS FILE NOW ASSERTS THAT IT FINISHED, and until 0.6.37 five of
+# the seven did not. H, J, K1, K2 and K3 ripped a disc and then asserted nothing
+# about completion at all: they snapshot, screenshot and run `rig-check`, whose
+# only completion-adjacent row (`parser/interrupted`) is INFO and deliberately
+# not graded. So a rip that stopped halfway through would have been recorded as
+# a passing ARCHIVAL section -- the same failure as section F's timeout, which
+# graded a still-running rip as a finished one, one section earlier in this same
+# file. `expect-rip-complete` reads the log's own tally, so it holds on these
+# two-track rips exactly as on a whole-disc one.
+log --- H. re-rip the same title: the overwrite prompt must fire ---
+run-size standard
+select-tracks 1-2
+album full acceptance: angle<bracket (run) (ripper)
+# THE PER-TRACK ESCAPING PERMUTATION (2026-09-30). The album title above has
+# carried a `:` and a `<` since round 16; no TRACK title ever carried the four
+# characters `-t` escaping exists for (`\ = ' :`, `cyanrip_backend` escapes
+# them). Real titles have them ("E=MC²", "Rock 'n' Roll", "Part 1: …"). The edit
+# goes through the table as a typed one would; `expect-tags` and the audit's
+# cue-title check below read it back out of the FLAC and the cue. J rescans, so
+# the edit does not follow this section.
+track-title 1 E=MC2: Rock 'n' Roll \ Part 2
+rip
+answer-dialog click=new 120 Album already ripped
+wait-for-rip 3600
+snapshot afteroverwrite
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
+screenshot afteroverwrite
+expect-rip-complete
+# Same shape as F: section I starts a rip, so H's post-rip checks are dropped
+# unless something waits for them. H's rip was one of the three the 2026-09-22
+# run lost.
+expect-verification
+expect-album-audit
+expect-ctdb partial
+expect-tags
+
+# --- H2. THE OVERWRITE PROMPT'S OTHER TWO ANSWERS: Cancel and Replace -------
+# Section H answers "Rip to a new folder", so a person's other two answers had
+# never been pressed by a run (the review of the 2026-11-03 Full run, C9).
+# Cancel must start nothing; Replace must rip into the existing folder and leave
+# a complete, consistent album there.
+#
+# ITS OWN ALBUM, not F's or H's: Replace overwrites the folder it is offered,
+# and F's and H's folders are evidence this run's bundle still has to carry.
+# One track, so the collision costs one short rip first. `click=cancel` presses
+# the Cancel button itself rather than closing the box, which is a different
+# path (a closed box is also read as Cancel, and is tested in the unit suite).
+#
+# NOT SCRIPTED HERE, and why (the same review): Force stop during a rip ejects
+# the disc, and no verb ejects (the vocabulary's own boundary, `uiscript/
+# verbs.py`), so everything after it would run on an empty tray; ejecting and
+# re-inserting a disc needs a person, and the language has no step that waits
+# for one; an unwritable rips folder needs the session's own rips folder put
+# back afterwards, which no verb can name, so it would strand every later rip.
+# Cancelling DURING THE SECURING PASS is scripted in `unknowndiscacceptance.txt`,
+# where a disc AccurateRip does not know is read twice every time; this disc
+# verifies on its first read, so its securing pass runs only by chance.
+log --- H2. the overwrite prompt: Cancel starts nothing, Replace rips in place ---
+run-size standard
+select-tracks 1
+album overwrite answers (run) (ripper)
+rip
+wait-for-rip 3600
+expect-rip-complete
+expect-verification
+log the same title again: Cancel must start nothing
+rip
+answer-dialog click=cancel 120 Album already ripped
+expect-no-rip
+log and again: Replace must rip into the same folder
+rip
+answer-dialog click=replace 120 Album already ripped
+wait-for-rip 3600
+expect-rip-complete
+expect-verification
+expect-album-audit
+expect-tags
+

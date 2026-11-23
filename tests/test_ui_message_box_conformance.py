@@ -102,9 +102,6 @@ _INLINE_DIALOG_CLASSES: Final[frozenset[str]] = frozenset(
 SITE_SCENARIOS: Final[dict[str, tuple[str, ...]]] = {
     "app.py::_show_fatal_dialog": ("crash dialog", "crash dialog[unattended]"),
     "ui/dialogs/script_console.py::_on_show_reference": ("Script commands",),
-    "ui/dialogs/script_settings_box.py::use_builtin_acceptance_script": (
-        "built-in acceptance script missing",
-    ),
     "ui/main_window_drive.py::_present_drive_diagnosis": ("drive access[no group]",),
     "ui/main_window_provision.py::_acceptance_message": ("acceptance message",),
     "ui/main_window_provision.py::_ask_acceptance_run_size": ("acceptance run size",),
@@ -462,27 +459,6 @@ def _scenarios(window: object, tmp: Path) -> dict[str, Callable[[], object]]:
         console.deleteLater()
 
     scenarios["Script commands"] = script_commands
-
-    def builtin_missing() -> None:
-        console = ScriptConsoleDialog(w)  # type: ignore[arg-type]  # a QWidget
-        from platterpus import test_session
-
-        # Where a pipx install would have put it, from the module's own names.
-        missing = (
-            Path(LONG_HOME)
-            / ".local/share/pipx/venvs/platterpus/lib/python3.14/site-packages"
-            / "platterpus"
-            / test_session.BUILTIN_SCRIPT_DIR_NAME
-            / test_session.ACCEPTANCE_SCRIPT_NAME
-        )
-        with mock.patch(
-            "platterpus.test_session.builtin_acceptance_script_path",
-            return_value=missing,
-        ):
-            console._script_settings.use_builtin_acceptance_script()
-        console.deleteLater()
-
-    scenarios["built-in acceptance script missing"] = builtin_missing
 
     scenarios["drive access[no group]"] = lambda: w._present_drive_diagnosis(  # type: ignore[attr-defined]  # a MainWindow
         diagnose_drive_access(

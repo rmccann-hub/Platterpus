@@ -1,7 +1,7 @@
 # Platterpus UI script — the disc's own ISRC, with --prefer-disc-isrc and without.
 #
 # Run it with:  ./platterpus-x86_64.AppImage --run-script isrcdisc
-#          or:  Tools → Advanced → Run test script…  → Load → Run
+#          or:  Tools → Advanced → Run tests…, choose Disc ISRC, press Run
 #
 # WHAT IT IS FOR. Round 35 (the fork's lap 3 S8): the drive's own ISRC read is
 # the one path no disc image reaches, and our app sends --prefer-disc-isrc by

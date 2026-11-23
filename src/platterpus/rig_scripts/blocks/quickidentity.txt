@@ -1,0 +1,11 @@
+log --- 1. the ripper: which build is installed, or stop ---
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+# The build the handshake record names, and the newest pair of releases: the
+# same two checks that stop a Full run in its first seconds.
+expect-ripper-under-review
+expect-newest-pair
+snapshot identity
+abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
+

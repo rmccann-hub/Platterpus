@@ -54,6 +54,7 @@ from platterpus.uiscript import run_sizes
 from platterpus.uiscript.accuracy_verbs import AccuracyVerbsMixin
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.block_verbs import BlockVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
 from platterpus.uiscript.control_verbs import ControlVerbsMixin
 from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
@@ -398,6 +399,7 @@ def _preflight(steps: list[Step]) -> list[str]:
 
 class ScriptRunner(
     ArtifactVerbsMixin,
+    BlockVerbsMixin,
     ProbeVerbsMixin,
     PermutationVerbsMixin,
     PregapVerbsMixin,
@@ -463,6 +465,14 @@ class ScriptRunner(
         #: `record-accuracy` results by label (`accuracy_verbs.py`, section P6);
         #: `start` resets them, as it does the timings.
         self._accuracies: dict[str, AccuracyRecord] = {}
+        #: The values `keep` recorded, by setting, for `expect-kept` (TASKS R189).
+        self._kept: dict[str, object] = {}
+        #: The test this run is and its blocks (`name_test`), the blocks its
+        #: `run-block` lines expanded, and each label's run count (TASKS R188).
+        self._test_name: str = ""
+        self._test_blocks: tuple[str, ...] = ()
+        self._expanded_blocks: tuple[str, ...] = ()
+        self._repeat_runs: dict[str, int] = {}
         self._artifact_dir: Path | None = None
         #: Set by :meth:`contain_in`: the folder this run writes into instead of
         #: its own stamped one, and whether it still builds a bundle of its own.
@@ -586,7 +596,9 @@ class ScriptRunner(
         if self.running:
             log.warning("script runner asked to start while already running; ignored")
             return
-        self._steps = list(steps)
+        # `run-block` lines become the steps they run (TASKS R188), first, so the
+        # preflight, the estimate and the run sizes below all see those steps.
+        self._steps = self._expand_blocks(steps)
         self._index = 0
         self._artifact_dir = None
         self._deadline = None
@@ -609,12 +621,15 @@ class ScriptRunner(
         self._timings = {}
         self._same_build_skip = ""
         self._accuracies = {}
+        self._kept = {}
         self._report = RunReport(
             started_at=datetime.now(UTC).isoformat(timespec="seconds"),
             app_version=__version__,
             script_source=source,
             preflight=_preflight(self._steps),
             run_size=self._run_size,
+            test_name=self._test_name,
+            blocks=self._test_blocks + self._expanded_blocks,
         )
         log.info("ui script run starting: %d step(s)", len(self._steps))
         # D6: how long it should take, before step 1, in the log and the record.
@@ -2509,7 +2524,7 @@ class ScriptRunner(
         pick one and silently mean only that. The objection is about *silence*, not
         about ambiguity: the fix is to pick the surface and say which, here, in the
         help text, and in every message this emits. It reads
-        `RipProgress.current_status()`, the label under the Overall bar, which is
+        `RipProgress.current_status()`, the label under the progress bar, which is
         also what the desktop notification reads — so the two cannot disagree about
         what the status is.
 
@@ -4306,7 +4321,11 @@ class ScriptRunner(
         if field not in user_setting_names() or config is None:
             self._record(step, Outcome.ERROR, f"no user setting called {field!r}")
             return
-        self._record(step, Outcome.PASS, f"kept: {field} = {getattr(config, field)!r}")
+        value = getattr(config, field)
+        # Remembered for `expect-kept` (TASKS R189): a step that checks a setting
+        # was put back compares with what was HERE, never with a typed value.
+        self._kept[field] = value
+        self._record(step, Outcome.PASS, f"kept: {field} = {value!r}")
 
     def _do_expect(self, step: Step) -> None:
         """``expect <config-field> <value>`` — assert a setting equals a value."""

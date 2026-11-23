@@ -588,9 +588,9 @@ _CYANRIP_ETA_VALUE = re.compile(
 # ("…, progress - 42%, ETA - 3m"). We distrust it (it printed "822h" at 0.01%)
 # and show our own smoothed album ETA instead — so strip cyanrip's trailing
 # ETA clause from the lines we forward to the log view, or the two would
-# contradict each other on screen (real-user report). It's always the last
-# field, so match to end of line.
-_CYANRIP_ETA_CLAUSE = re.compile(r",\s*ETA\s*-.*$")
+# contradict each other on screen (real-user report). Only the ETA clause goes:
+# `, errors - N` follows it (cyanrip@1280aa4:src/cyanrip_main.c:1423-1483).
+_CYANRIP_ETA_CLAUSE = re.compile(r",\s*ETA\s*-[^,]*")
 
 # How long to wait for the ripper to exit on its own once we have stopped reading
 # its output, before escalating to the SIGTERM→SIGKILL group kill.

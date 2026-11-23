@@ -1,0 +1,13 @@
+# --- SETUP: the disc, identified once --------------------------------------
+# A setup block (TASKS R188). Read the disc, choose the first release, and stop
+# unless it was identified: a rip of a disc MusicBrainz did not name would be a
+# rip of an unknown album, and every tag and folder check after it would grade
+# placeholders.
+log --- setup: the disc is read and identified ---
+rescan
+pick-release 1 120
+expect-dialog none
+expect-tracks 2+
+expect-identified
+abort-if-failed the disc was not identified, so a rip would be about an unknown album
+

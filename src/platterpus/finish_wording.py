@@ -46,6 +46,13 @@ RIP_ONLY_THESE: Final[str] = "Rip only these"
 #: of the next step reads the real button's text and compares it with this.
 START_RIP: Final[str] = "Start rip"
 
+#: The rip pane's tab that holds the ripper's own output, as its label reads
+#: without the ``&`` mnemonic marker. The status line sends the reader there for
+#: what the ripper printed; it said "the Rip log tab" for months, a tab that never
+#: existed. ``tests/test_one_track_table.py`` holds this equal to the
+#: label ``ui/rip_progress.py`` builds the tab with.
+LIVE_LOG_TAB: Final[str] = "Live log"
+
 #: The failure banner's sentence when nothing at all was captured. The path is
 #: appended by the caller, which knows which log it is.
 NO_DIAGNOSIS: Final[str] = "Rip failed — no diagnosis was captured. See"

@@ -1,0 +1,88 @@
+# --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
+# Restoring is not tidiness. Uniform secure re-read doubles every future rip on
+# this machine, MP3 would make the next rip lossy, and a setting a test left
+# behind is a setting nobody chose.
+#
+# The overread assertion is a GUARD, not a restore: this script never enables it,
+# so if `force_overread` is on here something else turned it on, and that is
+# worth knowing before the next disc — it reaches cyanrip's argv and on this
+# drive it hangs the read.
+#
+# The read offset is NOT restored, because it is this drive's offset (see
+# section B) and putting it back to 0 would be the mis-configuration.
+
+# WHAT THIS SECTION CAN AND CANNOT PROMISE. It used to be headed "restoring
+# what this run changed", which is a promise of completeness and was not one it
+# could keep: a script that writes a setting never captured the value it
+# overwrote, so there is nothing to put back. What it can do is end on the
+# SHIPPED DEFAULTS, which is a state it can name.
+#
+# Said out loud because the heading read as the stronger claim and two fields
+# quietly fell out of it -- `max_retries` (set to 3 in section B, left there)
+# and `ripper_channel` (switched to beta in section B, left there). Neither is
+# dangerous ON `.15` AND LATER, and that qualifier is the correction: on `.14`
+# a `-r` that is not a multiple of 5 could hang the read of an unreadable
+# sector (the fork's round 25 lap 2 §B1), and from `.15` it returns at the
+# paranoia level we run. Both are exactly the kind of thing nobody reviews a
+# file for, because a map is only ever wrong by omission. `tests/test_rig_scripts.py`
+# now derives the end state rather than trusting this list, with `read_offset`
+# and its override the two documented exceptions -- the offset is this drive's
+# calibration and resetting it to 0 would be the misconfiguration.
+#
+# YOUR OWN SETTINGS COME BACK AFTER THIS SECTION, and the script is not what
+# does it. From 0.6.55 the APP snapshots your settings when the session is armed
+# and restores them on every way it ends — finished, aborted, or the window
+# closed (`ProvisioningMixin._restore_settings_after_acceptance`). That is the
+# half this script could never do, for the reason above, and the half an aborted
+# run never reached at all: a run stopped in section K would have left you
+# ripping WAV. This section still ends on the shipped defaults, because its
+# `expect` lines are what prove each preset applies all of itself; the restore
+# runs after it. (0.6.54 and earlier left you on the defaults.)
+log --- Q. leaving the rig on the shipped defaults ---
+run-size quick
+set rip_goal fast_verified
+expect rip_goal fast_verified
+expect secure_rerip_dynamic on
+set output_format flac
+expect output_format flac
+set mp3_vbr_quality 0
+set write_eac_log_after_rip on
+# The two section B changed and this section used to walk past. Section B now
+# puts `max_retries` back itself, so F and N rip on the shipped ceiling; the
+# pair below stays as the guard that the run still ENDS there.
+set max_retries 5
+expect max_retries 5
+set ripper_channel stable
+expect ripper_channel stable
+set debug_logging off
+expect debug_logging off
+expect force_overread off
+expect-drive-offset
+# Both halves, for the reason section B gives: the number is inert without the
+# flag, so a run that ended with the override off would leave this rig set up to
+# rip the NEXT disc at offset 0 while this line reported the offset intact.
+expect override_read_offset on
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. There is nothing left for you to run.
+log Everything this run made is in ONE session folder under
+log ~/platterpus-rig/ - the rips, the transcript, the screenshots
+log and ONE .tar.gz, which a dialog names when the window comes
+log back, with a button that opens the folder. Send that file. It
+log carries the transcript, the app
+log log, the settings, the screenshots and every rip folder's text
+log artifacts (logs, cue sheets, reports, checksums). No audio.
+log If the dialog is gone, the same path is on the SEND THIS ONE FILE
+log line in the app log.
+log =============================================================
+# WHY THIS DOES NOT NAME A FOLDER. It used to say the bundle was under
+# `~/.local/share/platterpus/bundles/` and to then run `--rig-session`. Both were
+# wrong after v0.6.32 moved the session into the app, and wrong again when
+# everything a run makes moved into its one session folder (maintainer,
+# 2026-09-24) — there is no second command either. Two surfaces answering "where is my file?" with different
+# answers is `docs/testing.md` §5.al, and the one a tired operator reads at 7am
+# was the stale one. So this text now points at the surface that COMPUTES the
+# answer instead of restating it - the dialog cannot drift from the path it was
+# handed.

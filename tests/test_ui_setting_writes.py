@@ -20,15 +20,15 @@ from typing import Any
 
 import pytest
 from conftest import stop_window_threads
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QWidget
 from test_ui_drive_setup_dialog import _StubBackend
 from test_ui_main_window import _make_window, _pin_pioneer
 
 from platterpus.config import Config
 from platterpus.drive_profiles import Confidence, OffsetRecord, OffsetSource
 from platterpus.offset_config import offset_for_drive
-from platterpus.ui.dialogs.script_console import STARTER_SCRIPT, ScriptConsoleDialog
+from platterpus.ui.dialogs.run_tests_dialog import RunTestsDialog
+from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
 from platterpus.ui.dialogs.setup_center import SetupCenterDialog
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
@@ -363,150 +363,127 @@ def test_a_script_set_reaches_an_open_setup_and_updates(make_window: Any) -> Non
         center.close()
 
 
-def test_a_script_set_reaches_an_open_console(make_window: Any) -> None:
-    """The console's own options follow a `set`, which is the gap as first found."""
+def test_a_script_set_reaches_an_open_run_tests_screen(make_window: Any) -> None:
+    """The start-up options follow a `set`, on the screen that now owns them."""
     from platterpus.uiscript.report import Outcome
 
     window = make_window()
-    console = window.open_script_console()
+    screen = window.open_run_tests_dialog()
     try:
-        assert console._autorun_check.isChecked() is False
+        assert screen._autorun_check.isChecked() is False
         records = _run_script(window, "set test_script_autorun true")
         assert [r.outcome for r in records] == [Outcome.PASS], records
         assert window._config.test_script_autorun is True
-        assert console._autorun_check.isChecked() is True
+        assert screen._autorun_check.isChecked() is True
     finally:
-        console.close()
+        screen.close()
 
 
-# --- The script console -----------------------------------------------------
+# --- Run this at start-up, on the Run tests screen (TASKS R188) ---------------
 
 
-def _console(save: Any = None, **kwargs: Any) -> ScriptConsoleDialog:
-    return ScriptConsoleDialog(QWidget(), save_setting=save, **kwargs)
+def _screen(save: Any = None, scripts: Path | None = None) -> RunTestsDialog:
+    return RunTestsDialog(
+        None,
+        config=Config(),
+        start=lambda _choice: False,
+        edit=lambda _choice: None,
+        save_setting=save,
+        scripts_dir=scripts or Path("/nonexistent-platterpus-scripts"),
+    )
 
 
-def test_re_rendering_the_console_never_saves(qapp: QApplication) -> None:
+def test_re_rendering_the_start_up_settings_never_saves(qapp: QApplication) -> None:
     """A refresh must not look like a click: nothing is written back."""
     calls: list[tuple[str, object]] = []
-    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
-    console.refresh_settings(
-        Config(test_script_autorun=True, test_script_path="/x.txt")
-    )
-    assert console._autorun_check.isChecked() is True
-    assert console._startup_script_edit.text() == "/x.txt"
+    screen = _screen(lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    screen.refresh_settings(Config(test_script_autorun=True, test_script_path="/x.txt"))
+    assert screen._autorun_check.isChecked() is True
+    assert screen._startup_script_edit.text() == "/x.txt"
     assert calls == [], "re-rendering saved a setting"
 
 
-def test_the_console_has_no_unsafe_box_and_its_checkboxes_are_the_settings(
+def test_no_unsafe_box_anywhere_and_the_tick_box_is_the_setting(
     qapp: QApplication,
 ) -> None:
     """The "allow unsafe script verbs" box went with the verbs (maintainer,
-    2026-09-30), so it must not come back on either surface that carried it.
+    2026-09-30), so it must not come back on the screen that holds the options.
 
-    Floor: the console still HAS checkboxes, so an empty search cannot pass.
+    Floor: the screen still HAS checkboxes, so an empty search cannot pass.
     """
     from PySide6.QtWidgets import QCheckBox
 
     from platterpus.ui.dialogs.script_settings_box import ScriptSettingsBox
 
     calls: list[tuple[str, object]] = []
-    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
-    boxes = console.findChildren(QCheckBox)
-    assert boxes, "the console lost its checkboxes; this search proves nothing"
-    assert not [b for b in boxes if "unsafe" in b.text().lower()], [
-        b.text() for b in boxes
-    ]
-    assert not hasattr(console, "_unsafe_check")
+    screen = _screen(lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    boxes = screen.findChildren(QCheckBox)
+    assert boxes, "the screen lost its checkboxes; this search proves nothing"
+    assert not [b for b in boxes if "unsafe" in b.text().lower()]
     assert not hasattr(Config(), "test_script_allow_unsafe")
     assert "allow_unsafe" not in ScriptSettingsBox.__init__.__code__.co_varnames
-    console._autorun_check.setChecked(True)
+    screen._autorun_check.setChecked(True)
     assert calls == [("test_script_autorun", True)], calls
-    console.close()
+    screen.close()
 
 
-def test_choosing_a_startup_script_saves_and_loads_it(
-    qapp: QApplication, tmp_path: Path
-) -> None:
-    script = tmp_path / "mine.txt"
-    script.write_text("log hello\n", encoding="utf-8")
-    calls: list[tuple[str, object]] = []
-    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
-    assert console._script_settings.set_startup_script(str(script)) is True
-    assert calls == [("test_script_path", str(script))]
-    assert console._startup_script_edit.text() == str(script)
-    assert console.script_text() == "log hello\n"
-
-
-def test_a_new_startup_script_never_replaces_a_typed_batch(
-    qapp: QApplication, tmp_path: Path
-) -> None:
-    """The user's typed work outranks a setting change."""
-    script = tmp_path / "mine.txt"
-    script.write_text("log hello\n", encoding="utf-8")
-    console = _console(lambda _f, _v: SettingWrite(True))
-    console.set_script_text("log my own batch\n")
-    console._script_settings.set_startup_script(str(script))
-    assert console.script_text() == "log my own batch\n"
-    assert "loads when this console next opens" in (
-        console._script_settings.status_text()
-    )
-
-
-def test_a_refused_startup_script_leaves_everything_as_it_was(
+def test_the_console_no_longer_carries_the_start_up_settings_or_load(
     qapp: QApplication,
 ) -> None:
-    console = _console(lambda _f, _v: SettingWrite(False, "No file at: /x"))
-    assert console._script_settings.set_startup_script("/x") is False
-    assert console._startup_script_edit.text() == ""
-    assert console.script_text() == STARTER_SCRIPT
-    assert "Not changed: No file at: /x" in console._script_settings.status_text()
+    """R188: one screen chooses every test; the console runs and edits one."""
+    from PySide6.QtWidgets import QPushButton
+
+    console = ScriptConsoleDialog(QWidget())
+    labels = [b.text().replace("&", "") for b in console.findChildren(QPushButton)]
+    assert "Run" in labels, labels  # the floor: the buttons were found
+    assert not [t for t in labels if t.startswith(("Load", "Choose", "Use built"))]
+    assert not hasattr(console, "_autorun_check")
+    assert not hasattr(console, "_startup_script_edit")
 
 
-def test_use_built_in_sets_a_script_that_exists(qapp: QApplication) -> None:
-    """The whole point: no download, no path typed by hand (moved from Settings)."""
+def test_use_this_test_saves_a_packaged_test_s_own_file(qapp: QApplication) -> None:
+    """The whole point: no download, no path typed by hand."""
     calls: list[tuple[str, object]] = []
-    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
-    console._script_settings.use_builtin_acceptance_script()
-    chosen = Path(console._startup_script_edit.text())
+    screen = _screen(lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    assert screen.select_prebuilt("full")
+    assert screen._startup.use_chosen_test() is True
+    chosen = Path(screen._startup_script_edit.text())
     assert chosen.is_file(), f"the button set a path that does not exist: {chosen}"
     assert chosen.name == "fullacceptance.txt"
-    assert len(chosen.read_text(encoding="utf-8").splitlines()) > 100
     assert calls == [("test_script_path", str(chosen))]
 
 
-def test_use_built_in_says_why_when_the_script_is_missing(
-    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+def test_use_this_test_writes_a_block_test_to_the_scripts_folder(
+    qapp: QApplication, tmp_path: Path
 ) -> None:
-    """A missing branch surfaces a sentence, in PlainText, and sets nothing."""
-    import platterpus.ui.dialogs.script_settings_box as module
-
-    monkeypatch.setattr(
-        module,
-        "builtin_acceptance_script",
-        lambda: (None, "missing: /tmp/<odd>/fullacceptance.txt"),
-    )
-    shown: list[tuple[str, Qt.TextFormat]] = []
-    monkeypatch.setattr(
-        QMessageBox, "exec", lambda self: shown.append((self.text(), self.textFormat()))
-    )
-    calls: list[object] = []
-    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
-    console._script_settings.use_builtin_acceptance_script()
-    assert shown == [
-        ("missing: /tmp/<odd>/fullacceptance.txt", Qt.TextFormat.PlainText)
-    ]
-    assert calls == [] and console._startup_script_edit.text() == ""
+    calls: list[tuple[str, object]] = []
+    screen = _screen(lambda f, v: calls.append((f, v)) or SettingWrite(True), tmp_path)
+    assert screen.select_prebuilt("repeatrips")
+    assert screen._startup.use_chosen_test() is True
+    written = tmp_path / "repeatrips.txt"
+    assert written.is_file()
+    assert "run-block repeatrip ×5 as repeat" in written.read_text(encoding="utf-8")
+    assert calls == [("test_script_path", str(written))]
+    assert "listed as yours" in screen._startup.status_text()
 
 
-def test_the_window_hands_the_console_its_writer(make_window: Any) -> None:
+def test_a_refused_start_up_script_leaves_everything_as_it_was(
+    qapp: QApplication,
+) -> None:
+    screen = _screen(lambda _f, _v: SettingWrite(False, "No file at: /x"))
+    assert screen._startup.set_startup_script("/x") is False
+    assert screen._startup_script_edit.text() == ""
+    assert "Not changed: No file at: /x" in screen._startup.status_text()
+
+
+def test_the_window_hands_the_screen_its_writer(make_window: Any) -> None:
     window = make_window(config=Config(test_script_autorun=False))
-    console = window.open_script_console()
+    screen = window.open_run_tests_dialog()
     try:
-        console._autorun_check.setChecked(True)
+        screen._autorun_check.setChecked(True)
         assert window._config.test_script_autorun is True
     finally:
-        console.close()
+        screen.close()
 
 
 # --- A failed config write is reported, never raised (TASKS R107) -----------

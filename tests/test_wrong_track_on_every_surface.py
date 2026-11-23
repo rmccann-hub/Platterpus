@@ -316,10 +316,14 @@ def test_every_surface_the_finish_writes_agrees_track_5_is_not_clean(
             assert word not in text, text
         assert "track 5 is WRONG" in text, text
 
-    # The results table and the banner.
+    # The track table's Status cells (R179: the one track table shows the cells
+    # the rip pane renders, through `track_results_changed`) and the banner.
     progress = window._rip_progress
-    table = progress._ar_table
-    cells = {table.item(r, 0).text(): table.item(r, 2).text() for r in range(14)}
+    results = progress.track_results()
+    assert len(results) == 14, "floor: the pane rendered every track's cells"
+    shown = {n: window._track_table.result_for(n) for n in results}
+    assert shown == results, "the track table was not handed the pane's cells"
+    cells = {str(n): c.status.text for n, c in results.items()}
     marked_in_table = {int(n) for n, cell in cells.items() if cell.startswith("⚠")}
     banner = progress._verdict_banner.text()
     assert not banner.startswith("✓")

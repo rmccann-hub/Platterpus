@@ -221,6 +221,12 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_a_probe_step_never_falls_through_into_a_whole_disc_rip": (
         "test_there_are_scripts_to_check"
     ),
+    # TASKS R188: the two generated rig scripts, each pinned by hash. The floor is
+    # the nineteen-block order test beside it, which fails before an emptied
+    # `PINNED` could make this sweep examine nothing.
+    "test_prebuilt_tests.py::test_the_blocks_join_to_the_file_as_it_was_byte_for_byte": (
+        "test_the_full_run_has_its_nineteen_blocks_in_order"
+    ),
     # Each value is EITHER the name of the unparametrized test in the same module
     # that floors this population, OR "NO FLOOR NEEDED: <reason>".
     #

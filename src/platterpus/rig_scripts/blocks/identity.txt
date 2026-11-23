@@ -1,0 +1,76 @@
+# --- A. IDENTITY: which binary is about to be graded -----------------------
+# FIRST, always. Every claim below is about a specific build, and a result that
+# looks wrong must be attributable rather than guessed at. A build tag we do not
+# recognise reads as "not determined", never as a pass.
+#
+# This also arms the `(ripper)` placeholder used by the album titles further
+# down: it expands to the installed build tag, read from the banner captured
+# here. If this step is removed, those `album` steps FAIL and say so rather than
+# writing the literal text — an unexpanded placeholder would give two rips the
+# same folder while looking like it worked.
+#
+# `expect-ripper-under-review` TAKES NO ARGUMENT, and that is the fix for a
+# defect that recurred three times in two days. This file used to name an exact
+# build tag; the fork then published two more betas on the channel our own
+# installer resolves, so an operator who followed our instructions installed the
+# build we sent them to and was told here that it was wrong. The verb now reads
+# the constant the handshake record derives, so a pin move fails in CI instead
+# of at 2am on your rig.
+
+# AND THE PAIR MUST BE THE NEWEST ONE. Round 30's D3, agreed with the fork and
+# ruled by our operator (O1, option A): a run tests only the newest pair. The
+# step above proves the installed ripper is the build this app reviews; it
+# cannot see that the fork has since released a newer build, or that we have
+# released a newer app, and a run on either stale pair passes it and then spends
+# a night producing evidence about a pair nobody will ship (the fork's round 30
+# lap 3 S4). `expect-newest-pair` reads both projects' releases NOW, the fork's
+# manifest across both channels (a new build goes to beta until its run passes,
+# O3) and ours on the beta channel, where every `v0.*` tag of ours is.
+#
+# A pair it CANNOT show is newest fails too, and that is deliberate: the reads
+# need the network, and so does every MusicBrainz and AccurateRip step after
+# this, so a run that could not make them would not be evidence either.
+log --- A. identity: which ripper is installed ---
+run-size quick
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+expect-ripper-under-review
+expect-newest-pair
+snapshot identity
+
+# A4, TASKS "Cold-container start: two container entries at launch". The first
+# container command of a launch now runs alone (container_gate.FIRST_ENTRY), and
+# a probe that had to wait for it logs a line saying so. Whether it did is in
+# this launch's own log, from before this script started; `app-log` copies the
+# lines into the transcript (info, never a failure). No line means no probe
+# waited: the container was warm, or one command ran at a time.
+log A4 (TASKS "Cold-container start"): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+app-log for the first container command
+
+# WHICH LINK IN THE RIPPER CHAIN FAILS TO EXIT — gathered, never asserted.
+#
+# Two consecutive rig mornings (2026-08-26, 2026-08-27) produced ZERO rips and
+# neither failed at ripping: both ended mid-probe with `cyanrip --version`
+# printing its banner in full and then not returning, until a 60s timeout killed
+# it. The cyanrip fork showed three independent ways the hang is not cyanrip and
+# asked for three shell commands to be run by hand. This is those commands.
+#
+# It records `info` and moves on. A wrapper that hangs from an interactive shell
+# does not affect this run — the app pipes its I/O — so failing here would abort
+# a six-hour pass over something that changes no rip.
+probe-ripper-wrapper
+
+# THE FIRST OF THREE PLACES THIS FILE MAY STOP, and the distinction is the point.
+#
+# The rule above — "a failing step does NOT stop the batch" — is about FINDINGS,
+# and it is right: a run that halts on the first problem hides every problem
+# behind it. It is the wrong rule for a PRECONDITION. A wrong ripper does not
+# make the next six hours partially useful; it makes them evidence about a
+# different subject, which is exactly what the handshake exists to prevent
+# (two artifacts from the same ripper under different app versions are not
+# interchangeable evidence).
+#
+# So: preconditions abort, findings do not. The other two: B's offset, E's disc.
+abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
+

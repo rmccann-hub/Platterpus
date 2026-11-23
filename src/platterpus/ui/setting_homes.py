@@ -22,7 +22,7 @@ edits no setting must say so in that test's allowlist, with a reason.
 **The rule for choosing a home:** a setting lives beside the action it steers.
 The read offset is a property of the drive, so it lives with drive
 calibration; a channel decides what an update check offers, so it lives with
-the check; the startup script is chosen where scripts are loaded and run.
+the check; the startup script is chosen where tests are chosen and run.
 Everything else describes the rip itself and lives in Settings.
 
 Pure data: no Qt, so the Settings dialog, the tests and the guide can all read
@@ -40,8 +40,9 @@ SETTINGS: Final[str] = "settings"
 DRIVE_SETUP: Final[str] = "drive_setup"
 #: Tools → Setup & Updates…
 SETUP_CENTER: Final[str] = "setup_center"
-#: Tools → Advanced → Run test script…
-SCRIPT_CONSOLE: Final[str] = "script_console"
+#: Tools → Advanced → Run tests… (TASKS R188: the start-up script is chosen
+#: where tests are chosen; the console only runs and edits a script)
+RUN_TESTS: Final[str] = "run_tests"
 
 #: The menu path a person follows to reach each window. Every one is held to a
 #: real menu item and button by ``tests/test_help_documents_the_menu.py``'s
@@ -50,7 +51,7 @@ WINDOW_PATHS: Final[dict[str, str]] = {
     SETTINGS: "Tools → Settings…",
     DRIVE_SETUP: "Tools → Setup & Updates… → Set up drive…",
     SETUP_CENTER: "Tools → Setup & Updates…",
-    SCRIPT_CONSOLE: "Tools → Advanced → Run test script…",
+    RUN_TESTS: "Tools → Advanced → Run tests…",
 }
 
 
@@ -102,9 +103,9 @@ SETTING_HOMES: Final[dict[str, SettingHome]] = {
     # --- What the update checks offer: beside the checks --------------------
     "update_channel": SettingHome(SETUP_CENTER, "_app_beta_check"),
     "ripper_channel": SettingHome(SETUP_CENTER, "_ripper_beta_check"),
-    # --- Test scripts: where scripts are loaded and run ---------------------
-    "test_script_path": SettingHome(SCRIPT_CONSOLE, "_startup_script_edit"),
-    "test_script_autorun": SettingHome(SCRIPT_CONSOLE, "_autorun_check"),
+    # --- Test scripts: where tests are chosen (Run tests…, TASKS R188) -------
+    "test_script_path": SettingHome(RUN_TESTS, "_startup_script_edit"),
+    "test_script_autorun": SettingHome(RUN_TESTS, "_autorun_check"),
 }
 
 

@@ -55,6 +55,7 @@ from platterpus.sleep_inhibit import (
 )
 from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
 from platterpus.ui.main_window import MainWindow
+from platterpus.uiscript import blocks
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord
 
 #: The real `run_now`, captured at import time — BEFORE any fixture patches the
@@ -509,28 +510,83 @@ def test_the_action_runs_the_packaged_script_in_the_console(
     assert layout.root.is_dir() and layout.artifacts.is_dir()
 
 
+def _run_tests_choice(win: MainWindow, name: str) -> None:
+    """Open Tools → Advanced → Run tests…, choose ``name``, press Run."""
+    action = next(
+        a for a in win.menuBar().findChildren(QAction) if a.text() == "&Run tests…"
+    )
+    action.trigger()
+    dialog = win._run_tests_dialog
+    assert dialog is not None, "the menu item did not open the Run tests screen"
+    assert dialog.select_prebuilt(name), f"{name} is not on the Pre-built tab"
+    assert dialog._run_button.isEnabled(), dialog.summary_text()
+    dialog._run_button.click()
+
+
 def test_the_tools_menu_item_is_wired_to_the_session(
     window, session, process_until
 ) -> None:
     """The wiring, not the method. A capability nobody can invoke is not a
     capability — the exact lesson the script console itself was built from
-    (`docs/testing.md` §5.p), and `triggered` hands its slot a `checked` bool
-    that `run_acceptance_session` does not take, so the connection is worth
-    proving rather than assuming."""
+    (`docs/testing.md` §5.p). Tools → Advanced → Run tests… (TASKS R188) opens
+    the screen, and its Run starts the same session the old item did."""
     win = window()
-    actions = [
-        action
-        for action in win.menuBar().findChildren(QAction)
-        if "acceptance" in action.text().lower()
-    ]
-    assert actions, "Tools has no acceptance-test item"
-
-    actions[0].trigger()
+    _run_tests_choice(win, "full")
 
     assert process_until(lambda: bool(session.runs)), (
-        "triggering the menu item did not start the acceptance batch"
+        "pressing Run did not start the acceptance batch"
     )
     assert win._script_console is not None
+    assert win._acceptance_test_name == "full"
+    assert win._acceptance_script is not None
+    assert win._acceptance_script.name == "fullacceptance.txt"
+    console = win._script_console
+    assert console._name_next_run == ("full", blocks.FULL_ORDER)
+
+
+def test_a_smaller_size_is_chosen_on_the_screen_and_no_question_is_asked(
+    window, session, process_until
+) -> None:
+    """Standard acceptance is a choice on the list, so the size box never shows."""
+    win = window()
+    _run_tests_choice(win, "standard")
+    assert process_until(lambda: bool(session.runs))
+    assert session.sizes_asked == []
+    assert win._acceptance_run_size == "standard"
+    assert win._acceptance_script is not None
+    assert win._acceptance_script.name == "fullacceptance.txt"
+
+
+def test_the_unknown_disc_test_runs_its_own_script_without_a_size_question(
+    window, session, process_until
+) -> None:
+    """Unknown-disc acceptance (KDD-41 C4) is a pre-built test now: the SECOND
+    packaged script, through the same session, at Full, with no size asked."""
+    win = window()
+    _run_tests_choice(win, "unknowndisc")
+    assert process_until(lambda: bool(session.runs))
+    assert session.sizes_asked == [], "a size question that changes nothing was asked"
+    assert win._acceptance_script is not None
+    assert win._acceptance_script.name == "unknowndiscacceptance.txt"
+    assert win._acceptance_run_size == "full"
+
+
+def test_a_test_made_of_blocks_is_written_into_the_session_folder(
+    window, session, process_until
+) -> None:
+    """Repeat rips ×5 is not one file: its text is written where the run keeps
+    everything, and the run is named for the report."""
+    win = window()
+    _run_tests_choice(win, "repeatrips")
+    assert process_until(lambda: bool(session.runs))
+    layout = win._acceptance_layout
+    script = win._acceptance_script
+    assert layout is not None and script is not None
+    assert script.parent == layout.root
+    assert "run-block repeatrip ×5 as repeat" in script.read_text(encoding="utf-8")
+    assert win._script_console is not None
+    name, ran = win._script_console._name_next_run or ("", ())
+    assert name == "repeatrips" and ran[-1] == "repeatrip"
 
 
 def test_a_missing_packaged_script_says_why_and_starts_nothing(
@@ -2005,55 +2061,6 @@ def test_the_session_hands_its_run_size_to_the_console(
     assert sized == ["quick"]
     # Asked for explicitly, so the chooser was not shown.
     assert session.sizes_asked == []
-
-
-def test_the_menu_item_asks_for_the_size(window, session, process_until) -> None:
-    """`triggered` passes a `checked` bool, which must not land in `size`."""
-    win = window()
-    # By its exact label: a second item, "Run acceptance test with an unknown
-    # disc…", also contains the word, and a substring match picked either one.
-    action = next(
-        a
-        for a in win.menuBar().findChildren(QAction)
-        if a.text() == "Run &acceptance test…"
-    )
-    action.trigger()
-    assert process_until(lambda: bool(session.runs))
-    assert session.sizes_asked == [True]
-
-
-def test_the_unknown_disc_menu_item_runs_its_own_script_without_a_size_question(
-    window, session, process_until, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Tools → Advanced → Run acceptance test with an unknown disc… (KDD-41 C4).
-
-    It must run the SECOND packaged script, through the same session as the
-    full one, and ask no size: the script is one set of sections, so every size
-    would run the same steps.
-    """
-    from platterpus.test_session import UNKNOWN_DISC_SCRIPT_NAME
-
-    unknown = session.script.parent / UNKNOWN_DISC_SCRIPT_NAME
-    unknown.write_text("log a self-check\n", encoding="utf-8")
-    asked: list[str] = []
-
-    def builtin(name: str = "fullacceptance.txt") -> tuple[Path, str]:
-        asked.append(name)
-        return unknown, f"using the acceptance script shipped in the app: {unknown}"
-
-    monkeypatch.setattr("platterpus.test_session.builtin_acceptance_script", builtin)
-    win = window()
-    action = next(
-        a
-        for a in win.menuBar().findChildren(QAction)
-        if a.text() == "Run acceptance test with an &unknown disc…"
-    )
-    action.trigger()
-    assert process_until(lambda: bool(session.runs))
-    assert asked == [UNKNOWN_DISC_SCRIPT_NAME], asked
-    assert session.sizes_asked == [], "a size question that changes nothing was asked"
-    assert win._acceptance_script == unknown
-    assert win._acceptance_run_size == "full"
 
 
 def test_cancelling_the_size_choice_starts_nothing(

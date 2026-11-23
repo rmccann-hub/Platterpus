@@ -1,0 +1,49 @@
+# Platterpus UI script — a ten-minute check before a Full acceptance run.
+#
+# Run it with:  ./platterpus-x86_64.AppImage --run-script quickcheck
+#          or:  Tools → Advanced → Run test script…  → Load → Run
+#
+# WHAT IT IS FOR. A Full acceptance run takes four to six hours. If the ripper
+# is the wrong build, the drive has no offset, MusicBrainz cannot be reached, or
+# a rip no longer comes out right, you want to know in ten minutes, not at 2am.
+# This script does the cheapest version of each of those: it checks the ripper,
+# finds the disc, rips ONE track (track 2, about three minutes on the reference
+# disc), and grades that one track the same way the Full run grades its rips.
+# A pass here does not replace the Full run. A failure here saves you one.
+#
+# HOW LONG. About five minutes on the reference disc: a few seconds for the
+# ripper check, under a minute to read the disc and look it up, and about three
+# and a half minutes for the rip (track 2 is 3:01 long, and the rig's drive reads
+# at about its own playing time, plus a few seconds to start). If AccurateRip
+# does not confirm the track, the app reads it again three to five times, which
+# adds ten to sixteen minutes; that is itself worth knowing before a Full run.
+#
+# WHY TRACK 2. It is short, and it is neither the first track nor the last, so
+# the read never goes near the edges of the disc. Overread (reading past the
+# edge, cyanrip's -O) stays OFF: it once hung this rig's drive for 23 minutes.
+# The script turns it off, checks it is off, and checks the rip did not send it.
+#
+# WHAT IT RECORDS. The transcript keeps every step's result: the ripper's own
+# version line, the disc it found, and for the rip whether it finished, its
+# AccurateRip and CTDB answers, its self-audit, its tags and its cover art.
+# CTDB checks whole discs only, so for one track the right answer is that it
+# declines; the Full run checks CTDB properly. When the script ends the app
+# packs the transcript, the screenshot and the app log into ONE .tar.gz.
+#
+# WHAT IT CHANGES. It sets the rip settings it grades to the shipped defaults
+# (the Fast Verified goal, cover art embedded, overread off), turns debug logging
+# on for the run and off again at the end. If you set a library folder in
+# Settings, the one test track is filed there like any rip, under the artist
+# "Platterpus Quick Check"; delete it afterwards if you like.
+#
+# ONE THING TO DO BY HAND FIRST: put the reference disc in and let the drive
+# settle. Then run the line at the top, and send the file it names at the end.
+
+log =============================================================
+log QUICK CHECK - one track, about five minutes, before a Full run
+log =============================================================
+
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+

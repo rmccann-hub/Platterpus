@@ -100,8 +100,8 @@ ACCEPTANCE_SCRIPT_NAME: Final[str] = "fullacceptance.txt"
 #: The second acceptance run, for a disc MusicBrainz does not know (TASKS
 #: "Permutations the acceptance test still does not run", (b); KDD-41 C4). The
 #: full run stops at its section E on such a disc, so the unknown-album path has
-#: a script of its own, reached by Tools → Advanced → Run acceptance test with an
-#: unknown disc…. ASCII letters only, like every name an operator may type
+#: a script of its own, reached by Tools → Advanced → Run tests…, as the pre-built
+#: test *Unknown-disc acceptance*. ASCII letters only, like every name an operator may type
 #: (`CLAUDE.md`, artifact filenames).
 UNKNOWN_DISC_SCRIPT_NAME: Final[str] = "unknowndiscacceptance.txt"
 

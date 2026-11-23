@@ -1002,6 +1002,22 @@ A pane whose minimum is already honest needs no scroll area — `DiscInfoPanel` 
 a grid of short values and was measured clean at every size down to 300×80. Don't
 add one reflexively; measure.
 
+**Amended 2026-11-23 (TASKS R179): the fixed HEADER band reports its true
+height, and only it.** The rejection above was of making the *whole* pane honest,
+the tabs' paragraphs included. The header (the progress bar, the status line, the
+verdict banner, the reconciled verdict line and the warnings) is never scrolled by
+design, and with the rip pane's results table gone the splitter gave the pane
+less room: measured at 1000×860 after a rip, the reconciled line's last line was
+drawn under the tab strip. So `RipProgress._fit_minimum_height` sets the pane's
+minimum to the header items' height-for-width plus the tabs' and the footer's own
+minimums, recomputed on every `LayoutRequest` and `Resize`; the tabs keep their
+scroll surface and their small minimum. The splitter honours the minimum, so a
+long verdict takes its room from the track list (which has its own floor), and a
+window too short for both scrolls its page. `DiscInfoPanel` does the same since
+its share of the split became 0 (it takes exactly its rows' height): its fold
+changes that height, and a one-line minimum let a Steam Deck window squeeze its
+Disc details toggle (`tests/test_ui_conformance.py`, button_floor).
+
 #### The corollary: **never nest one scroll surface inside another**
 
 Wrapping the whole of `RipProgress` in one scroll area fixed the overlap and
@@ -1151,8 +1167,23 @@ uiscript/verbs.py     VERBS, OPENABLE,             the single vocabulary table
                       verb_reference()
 uiscript/runner.py    ScriptRunner(window)          one step per event-loop tick
 uiscript/report.py    RunReport -> text / dict      the transcript
+uiscript/blocks.py    BLOCKS, combination()        the catalogue of test blocks
+uiscript/prebuilt.py  PREBUILT                     each pre-built test, once
+uiscript/run_block.py expand_run_blocks()          run-block, expect-repeats
 ui/dialogs/script_console.py                        the SURFACE (menu, buttons)
+ui/dialogs/run_tests_dialog.py                      Run tests…: choose, then run
 ```
+
+**Tests are built from blocks** (TASKS R188, the owner's design of 2026-11-17).
+`rig_scripts/blocks/` holds the Full acceptance run cut at its section headers
+and the Quick check cut the same way; `fullacceptance.txt` and `quickcheck.txt`
+are generated from them by `scripts/emit_rig_scripts.py`, so **edit a block, never
+the file**. A new pre-built test is a row in `uiscript/prebuilt.py` (blocks in
+order, a size, and any `Repeat` with its comparisons declared in advance); a new
+block is a file under `blocks/` plus a row in `uiscript/blocks.py` naming its
+title (a person reads the title, never the name) and the setup blocks it needs.
+`run-block` is expanded in `ScriptRunner.start`, before the preflight and the
+estimate, so nothing downstream ever sees an unexpanded block.
 
 Three entry points, **one method**: the Tools → Advanced menu item, `--run-script FILE`, and
 the config's `test_script_autorun` all call
@@ -1615,7 +1646,7 @@ is doing an *extension*, and extensions are looked up in this section.
 It can only ever under-claim, never fabricate a match. The whole-disc verdict
 (`platterpus.verdict.accuraterip_verdict` → `(message, level)`) builds on it and
 lives in its own Qt-free module so every surface shares it: the colour-coded
-**verdict banner** above the results table (`ui/rip_progress` re-exports it), the
+**verdict banner** above the reconciled verdict line (`ui/rip_progress` re-exports it), the track list's Verified column (`ui/track_results`), the
 disc-info panel, the status-line `fidelity_summary`, the EAC-style log renderer,
 and the **JSON rip report** — so they can never disagree (a past bug had the disc
 panel string-match "exact match", which silently under-counted cyanrip rips).

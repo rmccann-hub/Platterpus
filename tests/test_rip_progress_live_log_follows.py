@@ -42,7 +42,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from platterpus.ui.rip_progress import _TAB_LOG, _TAB_TRACKS, RipProgress
+from platterpus.ui.rip_progress import _TAB_DETAILS, _TAB_LOG, RipProgress
 
 # Enough lines to make the difference unmistakable and to exceed any viewport.
 _LINES = 400
@@ -110,7 +110,7 @@ def test_the_pane_tracks_the_tail_while_its_tab_is_hidden(
     """
     pane = _pane(qapp)
     pane.show()
-    pane._tabs.setCurrentIndex(_TAB_TRACKS)  # the user is watching the track grid
+    pane._tabs.setCurrentIndex(_TAB_DETAILS)  # the default during a rip (UX review M3)
     qapp.processEvents()
 
     for i in range(_LINES):
@@ -143,7 +143,7 @@ def test_switching_to_the_tab_lands_on_the_newest_line(qapp: QApplication) -> No
     """
     pane = _pane(qapp)
     pane.show()
-    pane._tabs.setCurrentIndex(_TAB_TRACKS)
+    pane._tabs.setCurrentIndex(_TAB_DETAILS)
     qapp.processEvents()
     for i in range(_LINES):
         pane.append_log_line(f"line {i}")
@@ -217,7 +217,7 @@ def test_scrolling_back_to_the_bottom_resumes_the_follow(
     assert bar.value() == bar.maximum()
 
 
-@pytest.mark.parametrize("tab", [_TAB_TRACKS, _TAB_LOG])
+@pytest.mark.parametrize("tab", [_TAB_DETAILS, _TAB_LOG])
 def test_appending_never_raises_whatever_tab_is_current(
     qapp: QApplication, tab: int
 ) -> None:

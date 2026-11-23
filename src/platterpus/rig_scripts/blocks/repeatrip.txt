@@ -1,0 +1,30 @@
+# --- ONE DEFAULT WHOLE-DISC RIP, for `run-block repeatrip ×N as <label>` ----
+# A block meant to be repeated (TASKS R188). Each run is labelled `<label>1` to
+# `<label>N`: `(label)` below is replaced with that run's label when the run
+# starts, so the album name, the snapshot and the accuracy record differ per
+# run and the five rips never stop at the overwrite prompt. The record is what
+# `expect-repeats <label> same-crc | verified | at-least K of N` compares, and
+# `compare-accuracy` reads the same labels.
+#
+# The settings are the ones the Full run's section R grades: the shipped goal,
+# five retries, overread off, CTDB and the FLAC check on, the EAC-layout log on.
+log --- repeat rip (label): one default whole-disc rip ---
+set rip_goal fast_verified
+set max_retries 5
+set force_overread off
+set ctdb_verify_after_rip on
+set ctdb_repair_after_rip on
+set verify_flac_after_rip on
+set write_eac_log_after_rip on
+set output_format flac
+select-tracks all
+album repeat rip (label) (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot (label)
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+record-accuracy (label)
+

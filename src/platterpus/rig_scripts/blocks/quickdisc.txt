@@ -1,0 +1,9 @@
+log --- 4. the disc: read it and look it up, or stop ---
+rescan
+pick-release 1 120
+expect-dialog none
+expect-tracks 2+
+expect-identified
+snapshot discidentified
+abort-if-failed the disc was not identified — the release was not chosen or no tracks loaded, so a rip would be about an unknown album
+

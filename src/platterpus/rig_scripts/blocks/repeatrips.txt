@@ -1,0 +1,94 @@
+# --- R. FIVE DEFAULT WHOLE-DISC RIPS IN A ROW (G1, G2, G3) ---------------
+# The section and its rips carry no round number (2026-11-14): round 40's run
+# filed five rips named `round 39 repeat rip N`, a wrong statement about the run
+# in every record it wrote. The goal below is round 39's, where it began; round
+# 40's (the fork's lap 1 S10) grades the same five rips.
+# Round 39's goal (agreed in round 38, our lap 17 S7 and the fork's lap 16
+# S12): on the reference disc and the BDR-209D, five default whole-disc rips in
+# a row, each ending with all 14 tracks AccurateRip-verified and every track's
+# record saying how. G1: track 3 = 59D352DD from a drive read, no repair (parity:
+# EAC read it right in one session of three). G2: track 5 = C96464AB from the
+# drive or the labelled CTDB repair, AccurateRip v2 verifying it (the win: EAC
+# never has). G3: every track says how it was verified, and nothing says OK over
+# reads that disagree. Graded only on these five rips, because that is what a
+# user gets: the shipped settings, re-asserted below, with nothing canceled.
+#
+# Each rip gets its own album name so the five do not stop at the overwrite
+# prompt (section H tests that prompt); the name changes the folder and the
+# tags, never the read. `expect-track-records` grades G3 on every rip, and G2
+# where the record carries AccurateRip's answer for a repaired track (TASKS
+# R138). G1 is each record's line for track 3: a read verified by AccurateRip,
+# first read, re-read, chase attempt k, or, from `.31` on (these five run on the
+# round's pin: section P6 ends on `(pin)`), `re-read: matched
+# AccurateRip at confidence C after N reads, overruling an agreement on X`, its
+# --reread-until-accuraterip ending the securing pass's reads; both sides read it
+# from the bundle, which carries every rip's --diagnostics record for G4.
+# `expect-ctdb whole` is not repeated here: it grades the read of track 5, which
+# sections F and N already grade, and five more of the same failure would hide
+# the repair's result rather than show it.
+
+log --- R. five default whole-disc rips in a row ---
+run-size full
+set rip_goal fast_verified
+set max_retries 5
+set force_overread off
+set ctdb_verify_after_rip on
+set ctdb_repair_after_rip on
+set verify_flac_after_rip on
+# The EAC-layout log, so `expect-track-records` grades its track blocks too
+# (it says so when the log is absent, and grades less). The shipped default
+# since 2026-11-12; set anyway, so this section does not depend on it.
+set write_eac_log_after_rip on
+set output_format flac
+expect output_format flac
+
+select-tracks all
+album repeat rip 1 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot repeatrip1
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album repeat rip 2 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot repeatrip2
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album repeat rip 3 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot repeatrip3
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album repeat rip 4 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot repeatrip4
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+
+select-tracks all
+album repeat rip 5 (run) (ripper)
+rip
+wait-for-rip 21600
+snapshot repeatrip5
+expect-rip-complete
+expect-verification
+expect-accuraterip
+expect-track-records
+

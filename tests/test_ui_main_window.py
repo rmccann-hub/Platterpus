@@ -4768,22 +4768,17 @@ def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -
     submenus = [a.menu() for a in tools.actions() if a.menu() is not None]
     assert [m.title() for m in submenus] == ["&Advanced"], direct
     inside = [a.text().replace("&", "") for a in submenus[0].actions()]
-    assert inside == [
-        "Run test script…",
-        "Run acceptance test…",
-        # The second acceptance script, for a disc MusicBrainz does not know
-        # (KDD-41 C4 (b), 2026-10-06), beside the first.
-        "Run acceptance test with an unknown disc…",
-    ], inside
-    assert not {"Run test script…", "Run acceptance test…"} & set(direct), direct
+    # Run tests… replaced both acceptance items on 2026-11-23 (TASKS R188): the
+    # full run and the unknown-disc run are pre-built tests on its list.
+    assert inside == ["Run test script…", "Run tests…"], inside
+    assert not {"Run test script…", "Run tests…"} & set(direct), direct
     # Uninstall stays where a user can see it — the half of D4 A that is easy to
     # lose by sweeping "the rarely used items" into the submenu together.
     assert "Uninstall Platterpus…" in direct
 
     # Moving the acceptance item did not unhook it from the rip lock: it rips
     # discs itself, so starting one on top of a live rip is still refused.
-    # Both acceptance items, for the same reason.
-    for acceptance in submenus[0].actions()[1:3]:
+    for acceptance in submenus[0].actions()[1:2]:
         assert acceptance.isEnabled()
         window._set_rip_lock(True)
         try:
@@ -12617,12 +12612,9 @@ def test_the_taller_default_is_what_buys_the_extra_rows(
     preferred size, which Qt honours for an already-created widget regardless of the
     screen, and assert the taller one shows strictly more of the disc.
 
-    Counted across BOTH track tables since 2026-11-03: the 0.30/0.50 split gives the
-    extra height to the rip pane's Tracks table, and the upper list sits at its
-    four-row floor at either size, so counting the upper list alone would read the
-    floor, not the window. Before that change this asserted the upper list alone
-    showed six or more at the preferred size; it now shows four or more, the
-    owner's trade (`_PANE_SHARES`).
+    Counted on the ONE track list since R179 (UX review of 0.7.127, M2): the rip
+    pane's own Tracks table is gone, so the extra height reaches the list a person
+    reads. From 2026-11-03 to then this counted across both tables.
     """
     from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
 
@@ -12637,27 +12629,24 @@ def test_the_taller_default_is_what_buys_the_extra_rows(
         )
         qapp.processEvents()
         view = table._view
-        results = window._rip_progress._ar_table
+        assert table.has_results(), "floor: the rip's results reached the list"
 
-        def rows_at(width: int, height: int) -> tuple[int, int]:
+        def rows_at(width: int, height: int) -> int:
             window.resize(width, height)
             qapp.processEvents()
             window._apply_pane_shares()
             qapp.processEvents()
-            upper, lower = view.rowHeight(0), results.rowHeight(0)
-            assert upper > 0 and lower > 0, "nothing was laid out at this size"
-            return (
-                view.viewport().height() // upper,
-                results.viewport().height() // lower,
-            )
+            row = view.rowHeight(0)
+            assert row > 0, "nothing was laid out at this size"
+            return view.viewport().height() // row
 
         was = rows_at(960, 720)  # the geometry that shipped through v0.6.4b8
         now = rows_at(_DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H)
-        assert sum(now) > sum(was), (
-            f"the preferred window size shows {now} rows (track list, results) "
-            f"against {was} at the old 960x720 — the taller default buys nothing"
+        assert now > was, (
+            f"the preferred window size shows {now} track rows against {was} at "
+            "the old 960x720 — the taller default buys nothing"
         )
-        assert now[0] >= 4, f"only {now[0]} of 14 track-list rows at the preferred size"
+        assert now >= 7, f"only {now} of 14 track-list rows at the preferred size"
     finally:
         window.close()
 
@@ -12685,20 +12674,26 @@ def test_default_pane_sizes_lift_the_first_two_panes_from_the_rip_pane() -> None
     assert _default_pane_sizes(800, (0.2, 0.3, 0.5), (0, 0, 0)) == [160, 240, 400]
 
 
-def test_the_rip_panes_tracks_table_opens_showing_four_rows_after_a_rip(
+def test_the_one_track_list_opens_showing_seven_rows_after_a_rip(
     qapp: QApplication, teardown_threads: Any
 ) -> None:
-    """THE REGRESSION (the owner's screenshot on 0.7.117): about 1.5 rows.
+    """R179's measure (UX review of 0.7.127, M1/M2): the editable list gets room.
 
-    After a rip, the bars, the status line, the banner, the read-effort warning
-    and the tabs took ~240 of the rip pane's ~300 px. This drives the pane into
-    the state the hardware screenshot showed (`_populate_like_a_finished_rip`,
-    its strings verbatim), at the preferred window size, and measured 2 whole
-    rows at the 0.40/0.40 split against 4 at 0.30/0.50. The window is sized
-    BEFORE it is shown, so the split under test is the one `showEvent` applies,
-    as on a desktop, not a re-application.
+    Before R179, at the preferred size and after a rip, the upper track list sat
+    at its four-row floor and the rip pane's own Tracks table showed about four
+    more of the same tracks. With one table, the disc IDs folded into Disc
+    details and the split at 0/0.60/0.40, the one list shows at least seven,
+    with the finished-rip banner, status line and warnings all on screen (the
+    strings of the owner's 0.7.117 screenshot, `_populate_like_a_finished_rip`).
+
+    And the rip pane does not pay for it by drawing over itself: its header
+    (bar, status, banner, reconciled line, warnings) never overlaps the tabs,
+    because `RipProgress._fit_minimum_height` keeps its minimum honest.
     """
-    from test_ui_rip_progress import _populate_like_a_finished_rip
+    from test_ui_rip_progress import (
+        _overlapping_sibling_pairs,
+        _populate_like_a_finished_rip,
+    )
 
     from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
 
@@ -12714,28 +12709,28 @@ def test_the_rip_panes_tracks_table_opens_showing_four_rows_after_a_rip(
         )
         _populate_like_a_finished_rip(pane)
         qapp.processEvents()
-        results = pane._ar_table
         track_list = window._track_table._view
         # FLOORS, so this cannot pass by measuring nothing: the window is the
-        # preferred size, the table really has 14 rows with a height, and the
-        # banner whose height caused the report is really on screen.
+        # preferred size, the list really has 14 rows with a height and the
+        # Verified column, and the banner whose height caused the report is shown.
         assert (window.width(), window.height()) == (
             _DEFAULT_WINDOW_W,
             _DEFAULT_WINDOW_H,
         ), "the window is not at the preferred size, so this measures nothing"
-        assert results.rowCount() == 14, "the results table under test is not 14"
+        assert window._track_table._model.rowCount() == 14
+        assert window._track_table.has_results(), "the Verified column is missing"
         assert pane._verdict_banner.isVisible(), "the finished-rip banner is hidden"
-        row_height = results.rowHeight(0)
-        assert row_height > 0, "the results table reported no row height"
-        visible = results.viewport().height() // row_height
-        assert visible >= 4, (
-            f"only {visible} of 14 rows of the rip pane's Tracks table are visible "
-            f"after a rip at {window.width()}x{window.height()} (splitter "
+        row_height = track_list.rowHeight(0)
+        assert row_height > 0, "the track list reported no row height"
+        visible = track_list.viewport().height() // row_height
+        assert visible >= 7, (
+            f"only {visible} of 14 track rows are visible after a rip at "
+            f"{window.width()}x{window.height()} (splitter "
             f"{window._content_splitter.sizes()})"
         )
-        # The trade's other side: the upper list keeps four whole rows too.
-        upper = track_list.viewport().height() // track_list.rowHeight(0)
-        assert upper >= 4, f"the track list fell to {upper} rows to pay for it"
+        clashes, examined = _overlapping_sibling_pairs(pane)
+        assert examined >= 8, f"the overlap detector examined only {examined}"
+        assert not clashes, f"the rip pane draws over itself: {clashes}"
     finally:
         window.close()
 
