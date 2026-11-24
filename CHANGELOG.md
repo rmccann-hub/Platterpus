@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **The uninstaller no longer risks crashing the app when it is closed right after its scan** (user-facing; TASKS R196). The dialog let go of its scan thread as soon as the scan reported back, while the thread could still be ending, so a close at that moment could destroy a running thread, which aborts the program. It now keeps the thread until it has stopped it. Found by our CI, not by a user.
+
 ### Changed
 
 - **Our round 42 lap 4 is written and held, and our laps declare handshake protocol 10** (contributor-facing): the lap reads the fork's lap 3, accepts its two-part plan for `.36`, and explains the C2 probe's stop and the Full run's wait on a dialog (R195). `scripts/handshake.py`'s `DECLARED_PROTOCOL` moves from 9 to 10 in the same commit, as our lap 2 S6 said, now that both sides' laps say their gates implement it. The lap is released only on the owner's word, after the C2 probe has run.

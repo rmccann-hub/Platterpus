@@ -222,7 +222,7 @@ class UninstallDialog(CenteredDialog):
         self._refresh_preview()
 
     def _refresh_preview(self) -> None:
-        if not self._observations or self._thread is not None:
+        if not self._observations or self._worker is not None:
             return
         plan = build_plan(self._observations, self.choices())
         self._details.setPlainText("\n".join(preview_lines(plan)))
@@ -231,7 +231,7 @@ class UninstallDialog(CenteredDialog):
     # --- Run flow ------------------------------------------------------------
 
     def _on_uninstall_clicked(self) -> None:
-        if self._thread is not None:
+        if self._worker is not None:  # a job is running
             return
         choices = self.choices()
         text = (
@@ -260,6 +260,7 @@ class UninstallDialog(CenteredDialog):
         engine, runner = self._build_engine(self._rips_folder)
         worker = UninstallWorker(engine, runner, choices)
         self._worker = worker
+        stop_thread(self._thread)  # the last job's, ended: see `_stop`
         self._thread = QThread(self)
         self._progress.setVisible(True)
         if scan:
@@ -276,7 +277,6 @@ class UninstallDialog(CenteredDialog):
             return
         self._progress.setVisible(False)
         self._worker = None
-        self._thread = None
         self._refresh_preview()
 
     def _on_step(self, result: StepResult) -> None:
@@ -297,7 +297,6 @@ class UninstallDialog(CenteredDialog):
             return
         self._progress.setVisible(False)
         self._worker = None
-        self._thread = None
         complete = report is not None and report.complete
         if report is None:
             log.error("uninstall finished without a report")
@@ -334,6 +333,7 @@ class UninstallDialog(CenteredDialog):
     def _stop(self) -> None:
         # Cancel kills the command in flight; a thread that still does not stop
         # in time is ABANDONED with its reference kept (rule 9), never waited on.
+        # A finished job keeps `_thread` to here: dropped sooner, SIGABRT (R196).
         stop_thread(self._thread, self._worker)
         self._worker = None
         self._thread = None
