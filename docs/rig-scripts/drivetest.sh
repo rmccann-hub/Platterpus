@@ -208,6 +208,30 @@ install_tools() {
   inbox sudo dnf install -y sg3_utils cdrdao strace
 }
 
+# The Platterpus processes running now, one line, home folder shortened: pid,
+# how long it has run, and its command line, so a stop names WHICH copy is open.
+app_processes() {
+  local pids
+  pids="$(pgrep -d, -f "platterpus-x86_64.AppImage" 2>/dev/null)" || { echo "none"; return 0; }
+  ps -o pid=,etime=,args= -p "$pids" 2>/dev/null | sed "s|$HOME|~|g" | tr '\n' ';'
+}
+
+# Wait for Platterpus to close, up to DRIVETEST_APP_CLOSE_WAIT seconds (120).
+# Right after an unattended run the app is still shutting down for a few
+# seconds: on 2026-11-24 the probe ran 13 s after the Full run's last log line
+# and stopped on "Platterpus is open" when nobody had a window open. A copy
+# someone left open is still a stop after the wait, and the stop names it.
+wait_app_closed() {
+  local waited=0 limit="${DRIVETEST_APP_CLOSE_WAIT:-120}"
+  while pgrep -f "platterpus-x86_64.AppImage" >/dev/null 2>&1; do
+    [ "$waited" -ge "$limit" ] && return 1
+    [ "$waited" -eq 0 ] && say "Platterpus is still running; waiting up to ${limit} s for it to close"
+    sleep 5
+    waited=$((waited + 5))
+  done
+  return 0
+}
+
 # Wait until no cyanrip is running and the drive says the disc is ready (TEST
 # UNIT READY). A cyanrip left running by an earlier, stopped run still holds the
 # drive (2026-11-05: two survived the app closing), and a run started beside it
@@ -697,7 +721,7 @@ probe() {
   UPLOAD_NAME=probe; UPLOAD_SINCE="$STATE/probe.started"; UPLOAD_PIECES=(probe)
   date -u > "$STATE/probe.started"
   install_tools
-  pgrep -f "platterpus-x86_64.AppImage" >/dev/null 2>&1 && stop "Platterpus is open. Close it, then run this again: the probe needs the drive to itself."
+  wait_app_closed || stop "Platterpus is open. Close it, then run this again: the probe needs the drive to itself. Still running: $(app_processes)"
   wait_disc
   local c="$DM/probe" t0 rc secs
   mkdir -p "$c"

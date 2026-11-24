@@ -105,6 +105,7 @@ from platterpus.uiscript.scripted_rip_dirs import (
 )
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.timing_verbs import TimingVerbsMixin
+from platterpus.uiscript.unanswered_dialog_guard import UnansweredDialogGuardMixin
 from platterpus.uiscript.unknown_disc_verbs import UnknownDiscVerbsMixin
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 from platterpus.uiscript.walkthrough_verbs import WalkthroughVerbsMixin
@@ -417,6 +418,7 @@ class ScriptRunner(
     DeemphasisVerbsMixin,
     ControlVerbsMixin,
     RecordVerbsMixin,
+    UnansweredDialogGuardMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -645,6 +647,9 @@ class ScriptRunner(
             # WARNING, not debug: this is a finding about the batch about to run,
             # and it must be in the log file a bug report carries.
             log.warning("ui script preflight: %s", problem)
+        # Windows quiet and the unanswered-dialog guard armed for the run's
+        # length (`unanswered_dialog_guard.py`); every way out puts it back.
+        self._begin_quiet_run()
         self._timer.start()
 
     def stop(
@@ -751,6 +756,7 @@ class ScriptRunner(
             )
         self._report.ended_reason = reason
         log.info("ui script run ended: %s", reason)
+        self._end_quiet_run()
         self._persist()
         self.finished.emit(self._report)
 
@@ -817,6 +823,9 @@ class ScriptRunner(
         aborts. Any failure becomes an ERROR record instead.
         """
         try:
+            # Before anything else, every tick: a dialog nobody answers must not
+            # hold the run, whatever step is waiting (`unanswered_dialog_guard`).
+            self._close_dialog_nobody_answered()
             # An in-flight ripper call outranks everything: it holds this step
             # open, and advancing past it would record the NEXT step's outcome
             # against a command that had not finished.
@@ -835,6 +844,7 @@ class ScriptRunner(
             if self._index >= len(self._steps):
                 self._timer.stop()
                 log.info("ui script run finished: %s", self._report.counts())
+                self._end_quiet_run()
                 self._persist()
                 self.finished.emit(self._report)
                 return
@@ -1613,15 +1623,29 @@ class ScriptRunner(
             # being replaced means it has already landed.
             if getattr(window, "_dep_check_worker", None) is worker:
                 return False
+            # The deferral is asked FIRST: while the result is held, the dialog
+            # on top is the one holding it, and reading that as "the result is
+            # up" is exactly the mistake below.
+            if getattr(window, "_dep_resolve_deferrals", 0):
+                # NOT LANDED: the result is held behind another dialog, so the
+                # next step (`screenshot`, then `cancel`) would act on THAT one.
+                # On 2026-11-23 it did: `cancel` closed a release picker that had
+                # opened by itself, and the result box came up afterwards with
+                # no step left to close it, holding the run 3m29s until the
+                # owner clicked OK. So wait for the result to come up; the
+                # unanswered-dialog guard closes the one in the way if nobody
+                # does (`unanswered_dialog_guard.py`).
+                held_by = _active_dialog()
+                self._deadline_timeout_detail = (
+                    "the dependency check finished, but its result was still "
+                    f"waiting for another dialog to close after {seconds:.0f}s"
+                    + (f" ({held_by.windowTitle()!r})" if held_by is not None else "")
+                )
+                return False
             dialog = _active_dialog()
             if dialog is not None:
                 self._deadline_detail = (
                     f"the dependency check finished; {dialog.windowTitle()!r} is up"
-                )
-            elif getattr(window, "_dep_resolve_deferrals", 0):
-                self._deadline_detail = (
-                    "the dependency check finished; its result is waiting for "
-                    "another dialog to close"
                 )
             else:
                 self._deadline_detail = (

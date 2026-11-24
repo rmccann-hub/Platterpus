@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 
+from platterpus.ui.dialogs.centering import bring_to_front
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:
@@ -67,8 +68,7 @@ class RunTestsMixin(MainWindowShared):
 
         existing = self._run_tests_dialog
         if existing is not None and existing.isVisible():
-            existing.raise_()
-            existing.activateWindow()
+            bring_to_front(existing)
             return existing
         dialog = RunTestsDialog(
             self,

@@ -1345,6 +1345,21 @@ timer armed at launch fires seconds later, and the window may have been closed b
 then), **they are not busy** (no rip running, no script driving), and **they asked
 for this or it is important enough to ask anyway**.
 
+**And the backstop, for the dialog nobody predicted** (TASKS R195, 2026-11-24).
+Standing down is per-caller, so it cannot be complete; the owner's round 42 Full
+run sat 3m29s on a *Dependency check complete* box raised by the script's own
+`open dependencies`, whose `cancel` had closed a release picker instead. So every
+scripted run carries two guarantees that do not depend on the caller: a dialog of
+the app's left unanswered for 90 s is closed with **Cancel** and recorded as a
+**FAIL** naming it (`uiscript/unanswered_dialog_guard.py`; Cancel because it is
+the answer that changes nothing, FAIL because a silent click would hide the
+defect), and windows are shown **without taking focus or coming to the front**
+(`ui/dialogs/centering.py`: `present_quietly`; ask for the front only through
+`bring_to_front`, which `tests/test_scripted_runs_never_wait_or_steal_focus.py`
+holds every `activateWindow()` to). A step that waits for a result must wait for
+the result to be *on screen*, not for it to be *produced*: a result held behind
+another dialog has not landed.
+
 All three were learned the same afternoon, each from a different surface, each
 after the previous one looked like the whole fix. `_maybe_check_ripper_updates`
 carries them in that order with the incident behind each.

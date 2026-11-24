@@ -53,6 +53,7 @@ from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.parsers.rip_log import RereadAgreement
 from platterpus.read_speed_ladder import SpeedAttempt
 from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlock
+from platterpus.ui.dialogs.centering import bring_to_front
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.getting_started_dialog import GettingStartedDialog
@@ -1890,8 +1891,7 @@ class MainWindow(
         if self._getting_started is None:
             self._getting_started = GettingStartedDialog(self)
         self._getting_started.show()
-        self._getting_started.raise_()
-        self._getting_started.activateWindow()
+        bring_to_front(self._getting_started)
 
     def _on_show_about(self) -> None:
         """Help → About: version number and support-relevant info."""

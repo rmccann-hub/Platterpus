@@ -1386,6 +1386,17 @@ def main(argv: list[str] | None = None) -> int:
             ctdb_client=ctdb_client,
         )
 
+        # A scripted launch shows every window WITHOUT taking focus or coming to
+        # the front, from the main window on (the owner, 2026-11-24): the run
+        # takes hours, and the person at the computer is using something else.
+        # Decided here, before the first `show()`, from the same two inputs as
+        # `_autorun` below. `centering.present_quietly` says how.
+        from platterpus.ui.dialogs.centering import present_quietly
+
+        present_quietly(
+            args.run_script is not None
+            or (cfg.test_script_autorun and bool(cfg.test_script_path))
+        )
         window.show()
         # The launch dependency check shells out to cyanrip (whose wrapper enters
         # the Distrobox container — slow on a cold start), so run it OFF the GUI

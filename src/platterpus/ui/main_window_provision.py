@@ -37,6 +37,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from platterpus.ui import message_boxes
+from platterpus.ui.dialogs.centering import bring_to_front
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
@@ -547,8 +548,7 @@ class ProvisioningMixin(MainWindowShared):
                 "a setup/install wizard is already open — raising it instead of "
                 "starting a second install into the same container"
             )
-            existing.raise_()
-            existing.activateWindow()
+            bring_to_front(existing)
             return
         dialog = build()
         self._host_setup_dialog = dialog
@@ -594,8 +594,7 @@ class ProvisioningMixin(MainWindowShared):
 
         existing = self._setup_center
         if existing is not None and existing.isVisible():
-            existing.raise_()
-            existing.activateWindow()
+            bring_to_front(existing)
             return existing
 
         from platterpus import __version__
@@ -651,8 +650,7 @@ class ProvisioningMixin(MainWindowShared):
 
         existing = self._script_console
         if existing is not None and existing.isVisible():
-            existing.raise_()
-            existing.activateWindow()
+            bring_to_front(existing)
             if autorun and not existing.run_now():
                 # A refusal here is the likeliest one in the whole feature: the
                 # console was already open, so it may well already be running.
