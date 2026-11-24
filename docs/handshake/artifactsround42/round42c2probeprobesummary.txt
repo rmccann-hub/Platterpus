@@ -1,0 +1,29 @@
+one read alone: exit 137 after 305s
+two reads 2.4 s apart: A exit 124 after 300s; B exit 137 after 305s (124 or 137 = killed at 300s)
+pairA.strace: last call: 694162 18:54:22.050646 ioctl(3, CDROM_SEND_PACKET, 0x7fff345ec220
+pairB.strace: last call: 694275 18:54:22.345873 ioctl(3, CDROM_SEND_PACKET, 0x7ffdc63cdbc0
+a probe read was still running after both ended; stopped it
+C2 probe: 67 reads, each after a cache flush, in 110s
+control, LBA 5000 to 5025: C2 bits none in 3 read(s)
+track 1 second 162, LBA 12150 to 12175: C2 bits none in 3 read(s)
+track 1 second 162, LBA 12176 to 12201: C2 bits none in 3 read(s)
+track 1 second 162, LBA 12202 to 12227: C2 bits none in 3 read(s)
+track 3 second 240, LBA 46067 to 46092: C2 bits none in 3 read(s)
+track 3 second 240, LBA 46093 to 46118: C2 bits none in 3 read(s)
+track 3 second 240, LBA 46119 to 46144: C2 bits none in 3 read(s)
+track 3 second 244, LBA 46367 to 46392: C2 bits none in 3 read(s)
+track 3 second 244, LBA 46393 to 46418: C2 bits none in 3 read(s)
+track 3 second 244, LBA 46419 to 46444: C2 bits none in 3 read(s)
+track 3 second 245, LBA 46442 to 46467: C2 bits none in 3 read(s)
+track 3 second 245, LBA 46468 to 46493: C2 bits none in 3 read(s)
+track 3 second 245, LBA 46494 to 46519: C2 bits none in 3 read(s)
+track 3 second 251, LBA 46892 to 46917: C2 bits read 1: none; read 2: LBA 46913 (3 bits); read 3: LBA 46902 (11 bits), LBA 46913 (3 bits)
+track 3 second 251, LBA 46918 to 46943: C2 bits none in 3 read(s)
+track 3 second 251, LBA 46944 to 46969: C2 bits none in 3 read(s)
+track 3 second 252, LBA 46967 to 46992: C2 bits none in 3 read(s)
+track 3 second 252, LBA 46993 to 47018: C2 bits read 1: none; read 2: LBA 46995 (6 bits); read 3: none
+track 3 second 252, LBA 47019 to 47044: C2 bits none in 3 read(s)
+track 5 second 144, LBA 83370 to 83395: C2 bits none in 3 read(s)
+track 5 second 144, LBA 83396 to 83421: C2 bits none in 3 read(s)
+track 5 second 144, LBA 83422 to 83447: C2 bits read 1: LBA 83443 (3 bits); read 2: LBA 83430 (3 bits); read 3: LBA 83430 (3 bits)
+audio dropped from 67 read(s) before upload; one line each in probe/audio-dropped.txt

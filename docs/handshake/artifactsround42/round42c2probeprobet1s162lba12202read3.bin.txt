@@ -1,0 +1,3 @@
+SCSI Status: Good 
+
+Writing 68796 bytes of data to ~/platterpus-rig/drivetest42/probe/t1s162-12202-c2-3.bin
