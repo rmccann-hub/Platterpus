@@ -177,3 +177,58 @@ def test_the_read_count_the_script_states_is_the_count_it_makes() -> None:
     readme = (_SCRIPT.parent / "README.md").read_text(encoding="utf-8")
     assert f"{reads} flushes and reads" in script
     assert f"how long the {reads} reads took" in readme
+
+
+# --- The probe waits for the app to finish closing (2026-11-24) ----------------
+#
+# The owner's round 42 run started the probe the moment the Full run's Platterpus
+# quit; the probe looked 13 s after the app's last log line, saw it still
+# shutting down, and stopped on "Platterpus is open" with nobody's window open.
+
+
+def _run_wait(tmp_path: Path, *, running_for: int, limit: int) -> int:
+    """Run `wait_app_closed` against a fake `pgrep` that reports the app running
+    for its first `running_for` calls. `sleep` is a no-op, so this is instant."""
+    counter = tmp_path / "calls"
+    counter.write_text("0", encoding="utf-8")
+    fake = tmp_path / "pgrep"
+    fake.write_text(
+        "#!/usr/bin/env bash\n"
+        f'n=$(cat "{counter}"); echo $((n + 1)) > "{counter}"\n'
+        f'[ "$n" -lt {running_for} ]\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    program = (
+        "say() { :; }\nsleep() { :; }\n"
+        + _function("wait_app_closed")
+        + "wait_app_closed\n"
+    )
+    result = subprocess.run(
+        ["bash", "-c", program],
+        env={
+            "PATH": f"{tmp_path}:/usr/bin:/bin",
+            "DRIVETEST_APP_CLOSE_WAIT": str(limit),
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    return result.returncode
+
+
+def test_the_probe_waits_for_an_app_that_is_still_closing(tmp_path: Path) -> None:
+    assert _run_wait(tmp_path, running_for=3, limit=120) == 0
+
+
+def test_the_probe_still_stops_for_an_app_left_open(tmp_path: Path) -> None:
+    assert _run_wait(tmp_path, running_for=10_000, limit=20) == 1
+
+
+def test_the_probe_asks_through_the_wait_and_names_what_is_open() -> None:
+    probe = _function("probe")
+    assert "wait_app_closed ||" in probe
+    assert "$(app_processes)" in probe
+    # The old immediate refusal is gone: it is the line that stopped the run.
+    assert 'pgrep -f "platterpus-x86_64.AppImage" >/dev/null 2>&1 && stop' not in probe

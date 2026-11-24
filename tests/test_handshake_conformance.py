@@ -2112,10 +2112,13 @@ def test_the_gate_implements_10_and_still_reads_the_laps_that_declare_9(
     shared = hs.PROTOCOL_SPEC.read_bytes()
     assert hashlib.sha256(shared).hexdigest().startswith("a8496960")
     # The fork's opening lap of round 42, as filed, passes the gate's version check
-    # and declares 9; our laps declare no more than DECLARED_PROTOCOL, still 9.
+    # and declares 9, and stays readable. Since the fork's lap 3 declared 10 and
+    # our lap 4 does (our lap 2 S6), DECLARED_PROTOCOL is 10.
     opener = _REPO_ROOT / "docs" / "handshake" / "inbound" / "round-42-lap-01.md"
     text = opener.read_text(encoding="utf-8")
     assert hs.declared_protocol(text) == 9
     assert hs.protocol_refusal(text) is None
-    assert hs.DECLARED_PROTOCOL == 9
-    assert hs.protocol_to_declare(42) == 9
+    third = _REPO_ROOT / "docs" / "handshake" / "inbound" / "round-42-lap-03.md"
+    assert hs.declared_protocol(third.read_text(encoding="utf-8")) == 10
+    assert hs.DECLARED_PROTOCOL == 10
+    assert hs.protocol_to_declare(42) == 10

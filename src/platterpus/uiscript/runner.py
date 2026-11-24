@@ -58,6 +58,7 @@ from platterpus.uiscript.block_verbs import BlockVerbsMixin
 from platterpus.uiscript.burst_verbs import BurstVerbsMixin
 from platterpus.uiscript.control_verbs import ControlVerbsMixin
 from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
+from platterpus.uiscript.dependency_verbs import DependencyVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
 from platterpus.uiscript.install_verbs import InstallVerbsMixin
 from platterpus.uiscript.offset_grading import drive_in_offset_list, selected_device
@@ -105,6 +106,7 @@ from platterpus.uiscript.scripted_rip_dirs import (
 )
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.timing_verbs import TimingVerbsMixin
+from platterpus.uiscript.unanswered_dialog_guard import UnansweredDialogGuardMixin
 from platterpus.uiscript.unknown_disc_verbs import UnknownDiscVerbsMixin
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 from platterpus.uiscript.walkthrough_verbs import WalkthroughVerbsMixin
@@ -259,12 +261,6 @@ def _validation_error_for(candidate: object, field: str) -> str:
 #: in to compare a string.
 _RELEASE_PICKER_TITLE: Final[str] = "Pick a MusicBrainz release"
 
-#: How long past the dependency check's own deadline `open dependencies` waits for
-#: it to land. The check stops itself at `deps.manager.CHECK_DEADLINE_S` and kills
-#: the probe in flight; this covers the kill, the reap and the queued hand-back to
-#: the GUI thread. A check still out after that is reported, not waited on.
-_DEPENDENCY_LANDING_GRACE_S: Final[float] = 30.0
-
 
 @dataclass
 class _CyanripJob:
@@ -417,6 +413,8 @@ class ScriptRunner(
     DeemphasisVerbsMixin,
     ControlVerbsMixin,
     RecordVerbsMixin,
+    UnansweredDialogGuardMixin,
+    DependencyVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -645,6 +643,9 @@ class ScriptRunner(
             # WARNING, not debug: this is a finding about the batch about to run,
             # and it must be in the log file a bug report carries.
             log.warning("ui script preflight: %s", problem)
+        # Windows quiet and the unanswered-dialog guard armed for the run's
+        # length (`unanswered_dialog_guard.py`); every way out puts it back.
+        self._begin_quiet_run()
         self._timer.start()
 
     def stop(
@@ -751,6 +752,7 @@ class ScriptRunner(
             )
         self._report.ended_reason = reason
         log.info("ui script run ended: %s", reason)
+        self._end_quiet_run()
         self._persist()
         self.finished.emit(self._report)
 
@@ -817,6 +819,9 @@ class ScriptRunner(
         aborts. Any failure becomes an ERROR record instead.
         """
         try:
+            # Before anything else, every tick: a dialog nobody answers must not
+            # hold the run, whatever step is waiting (`unanswered_dialog_guard`).
+            self._close_dialog_nobody_answered()
             # An in-flight ripper call outranks everything: it holds this step
             # open, and advancing past it would record the NEXT step's outcome
             # against a command that had not finished.
@@ -835,6 +840,7 @@ class ScriptRunner(
             if self._index >= len(self._steps):
                 self._timer.stop()
                 log.info("ui script run finished: %s", self._report.counts())
+                self._end_quiet_run()
                 self._persist()
                 self.finished.emit(self._report)
                 return
@@ -1573,69 +1579,6 @@ class ScriptRunner(
         # stopped while the dialog is up.
         self._record(step, Outcome.PASS, f"opening {target}")
         QTimer.singleShot(0, method)
-
-    def _open_dependency_check(self, step: Step, start: Callable[[], None]) -> None:
-        """`open dependencies`: start the app's own check, then WAIT for it to land.
-
-        **This used to freeze the window** (fixed 2026-09-28). The target named
-        `run_dependency_check`, the synchronous form kept for tests, so a script's
-        `open dependencies` ran every probe on the GUI thread — the ripping
-        container's cold start included — and the window showed "Not Responding"
-        for as long as that took. The scripts never noticed, because they did not
-        need to: `open dependencies` → `screenshot` → `cancel` found the summary
-        up only because the freeze had held every later step back until it was.
-
-        Now the target is the Setup & Updates button's own entry point, which
-        probes on a worker and shows its summary when it lands, and the waiting
-        the freeze used to do by accident is done here on purpose: the step holds
-        until the check it started (or the one already running, which it adopts)
-        has landed, so the next step still finds its result on screen. It is
-        bounded by the check's own deadline plus a grace, and a check that has not
-        landed by then is reported as a FAIL rather than waited on.
-        """
-        from platterpus.deps import manager as dep_manager
-
-        window = self._window
-        start()  # returns at once: the probing happens on a worker thread
-        worker = getattr(window, "_dep_check_worker", None)
-        if worker is None:
-            self._record(
-                step,
-                Outcome.ERROR,
-                "the dependency check did not start, so there is no result to wait for",
-            )
-            return
-        seconds = dep_manager.CHECK_DEADLINE_S + _DEPENDENCY_LANDING_GRACE_S
-
-        def landed() -> bool:
-            # Identity, not "is there a worker": a check started after ours (by the
-            # next step, or by the user) must not keep this one waiting, and ours
-            # being replaced means it has already landed.
-            if getattr(window, "_dep_check_worker", None) is worker:
-                return False
-            dialog = _active_dialog()
-            if dialog is not None:
-                self._deadline_detail = (
-                    f"the dependency check finished; {dialog.windowTitle()!r} is up"
-                )
-            elif getattr(window, "_dep_resolve_deferrals", 0):
-                self._deadline_detail = (
-                    "the dependency check finished; its result is waiting for "
-                    "another dialog to close"
-                )
-            else:
-                self._deadline_detail = (
-                    "the dependency check finished with no dialog left on screen"
-                )
-            return True
-
-        self._arm_deadline(step, seconds, landed)
-        # After arming, which resets it.
-        self._deadline_timeout_detail = (
-            f"the dependency check had not finished after {seconds:.0f}s, past its "
-            f"own {dep_manager.CHECK_DEADLINE_S:.0f}s deadline; a probe is not "
-            f"honouring it"
-        )
 
     def _do_ok(self, step: Step) -> None:
         self._dismiss(step, accept=True)

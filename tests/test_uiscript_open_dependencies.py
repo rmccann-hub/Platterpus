@@ -95,13 +95,36 @@ def test_a_newer_check_does_not_hold_the_step_open() -> None:
     assert runner._report.steps[-1].outcome is Outcome.PASS
 
 
-def test_a_result_held_for_another_dialog_says_so() -> None:
+def test_a_result_held_for_another_dialog_is_not_landed() -> None:
+    """Held behind another dialog, the result is not on screen yet, so the step
+    keeps waiting. On 2026-11-23 it passed here instead, the next `cancel`
+    closed the dialog in the way, and the result box came up afterwards with no
+    step left to close it (3m29s until the owner clicked OK)."""
     window = _Window()
     runner = _open(window)
     window._dep_check_worker = None
     window._dep_resolve_deferrals = 1
     runner._service_deadline()
-    assert "waiting for another dialog to close" in runner._report.steps[-1].detail
+    assert runner._deadline is not None, "a held result was counted as landed"
+    assert not runner._report.steps
+    # Timed out while still held: the FAIL says what it was waiting behind.
+    runner._deadline = time.monotonic() - 1.0
+    runner._service_deadline()
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, record
+    assert "waiting for another dialog to close" in record.detail, record.detail
+
+
+def test_a_held_result_lands_once_it_is_delivered() -> None:
+    window = _Window()
+    runner = _open(window)
+    window._dep_check_worker = None
+    window._dep_resolve_deferrals = 1
+    runner._service_deadline()
+    window._dep_resolve_deferrals = 0  # the dialog in the way closed
+    runner._service_deadline()
+    assert runner._deadline is None
+    assert runner._report.steps[-1].outcome is Outcome.PASS
 
 
 def test_a_check_that_does_not_start_is_an_error_not_a_wait() -> None:

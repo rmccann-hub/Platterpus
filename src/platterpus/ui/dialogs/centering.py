@@ -23,6 +23,7 @@ from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX, fit_dialog_to_screen
+from platterpus.ui.dialogs.quiet_presentation import bring_to_front
 from platterpus.ui.dialogs.stacking import stack_above_window_it_blocks
 
 log = logging.getLogger(__name__)
@@ -109,9 +110,9 @@ def center_on_anchor(widget: QWidget) -> None:
         # window's monitor but BEHIND other windows, so it looked like nothing
         # happened until they clicked the main window to raise its child. raise_()
         # fixes the stacking; activateWindow() gives it keyboard focus. Best-effort
-        # — the compositor may override under focus-stealing prevention.
-        widget.raise_()
-        widget.activateWindow()
+        # — the compositor may override under focus-stealing prevention. Not
+        # in a scripted run: `bring_to_front` explains why.
+        bring_to_front(widget)
     except Exception:  # noqa: BLE001, S110 — placement is cosmetic, never fatal
         pass
 

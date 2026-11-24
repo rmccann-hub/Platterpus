@@ -1365,7 +1365,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1490 -> 1495** (2026-10-27, external review item 3.4): the default `--rig-session` folder is stamped in UTC, with the reason (ruff DTZ005).
     # **1495 -> 1532** (2026-11-04, TASKS R128 (a)): `_fatal_dialog_parent`, which refuses a hidden `activeWindow()` (activation is asynchronous, so a dialog hidden in one go becomes active after it is hidden, and the box died with it), and the `finally` surviving a box destroyed with its window, with the warning that says so. Both sit beside the box and the `finally` they change.
     # **1532 -> 1545** (same day): `_qt_object_alive`, the liveness check the `finally` asks, in place of `shiboken6.isValid` (not a declared dependency, `tests/test_imports_are_declared.py`).
-    "app.py": 1545,
+    "app.py": 1544,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -2822,7 +2822,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1936 -> 1978** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the question is titled apart from the wizard, records its answer for the held launch report and, after No, shows the in-window notice; a finished setup run is counted and drops an automatic cyanrip offer worked out before it.
     # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
     # **2008 -> 2020** (2026-11-23, TASKS R188): `run_acceptance_session` takes the chosen test (its file or its text, its name and blocks) and hands the name to the console; the two old menu slots went. The screen's opener is `main_window_run_tests.py`, not here.
-    "ui/main_window_provision.py": 2020,
+    "ui/main_window_provision.py": 2018,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -3260,7 +3260,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5068 -> 5083** (2026-11-16, TASKS R24): the import and base class of `RipperBuildVerbsMixin` (its handler, `expect-ripper-bounds-overread`, lives in `ripper_build_verbs.py`, not here), and `expect-drive-offset <offset>`, which asserts the selected drive's own offset is a named number, beside the handler it extends; the parser is `script_values.parse_offset`.
     # **5083 -> 5092** (2026-11-23, TASKS R189): `keep` records the value it kept in `_kept`, declared and reset with the run's other per-run state, and the import and base class of `BlockVerbsMixin`; `expect-kept`, which reads it, lives in `block_verbs.py`, not here.
     # **5092 -> 5102** (2026-11-23, TASKS R188): `start` expands `run-block` lines first (the expansion is `run_block.py`, its call `block_verbs._expand_blocks`), and the report carries the test's name and blocks; the four per-run fields are declared here with the rest of the run's state.
-    "uiscript/runner.py": 5102,
+    "uiscript/runner.py": 5045,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).

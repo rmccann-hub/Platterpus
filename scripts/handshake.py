@@ -1629,7 +1629,7 @@ PROTOCOL_VERSION: int = 10
 #: moves to 10 in that commit, or
 #: ``test_we_declare_no_protocol_we_have_not_told_the_fork_our_gate_implements``
 #: refuses our lap.
-DECLARED_PROTOCOL: int = 9
+DECLARED_PROTOCOL: int = 10
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".

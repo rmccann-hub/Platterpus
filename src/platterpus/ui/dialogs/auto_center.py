@@ -32,6 +32,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 from platterpus.ui.dialogs.centering import CenteredDialog, center_on_anchor
 from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
 from platterpus.ui.dialogs.message_box_fit import fit_message_box
+from platterpus.ui.dialogs.quiet_presentation import mark_show_without_activating
 from platterpus.ui.dialogs.stacking import stack_above_window_it_blocks
 
 log = logging.getLogger(__name__)
@@ -208,7 +209,14 @@ class DialogCenterFilter(QObject):
         # Cheapest check first: only Show events are interesting. This is also
         # what makes marking free — the DynamicPropertyChange event that
         # mark_as_centered triggers is rejected right here.
-        if event.type() == QEvent.Type.Show and isinstance(obj, QDialog):
+        if event.type() != QEvent.Type.Show:
+            return False
+        # Any window, dialog or not, in a scripted run: shown without taking
+        # focus (`quiet_presentation.mark_show_without_activating`; a no-op otherwise).
+        # A child widget has no window of its own to mark.
+        if isinstance(obj, QWidget) and obj.isWindow():
+            mark_show_without_activating(obj)
+        if isinstance(obj, QDialog):
             # Every dialog, every show: a question opened over another window
             # of ours is stacked above that window, not only above its parent
             # (TASKS R96, `stacking.py`). A `CenteredDialog` asks again in its
