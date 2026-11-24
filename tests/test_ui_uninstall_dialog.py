@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.deps.install_footprint import FootprintItem, Group, Kind
@@ -222,13 +221,13 @@ def test_steps_go_to_the_status_line_and_the_details(qapp: QApplication) -> None
 def test_a_click_while_running_is_ignored(qapp: QApplication, monkeypatch) -> None:
     built: list[object] = []
     dialog = _dialog(qapp, build=lambda rips: built.append(rips))
-    dialog._thread = QThread(dialog)
+    dialog._worker = object()  # type: ignore[assignment]  # a job is running
     monkeypatch.setattr(
         message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     dialog._on_uninstall_clicked()
     assert built == []
-    dialog._thread = None
+    dialog._worker = None
 
 
 def test_nothing_updates_while_closing(qapp: QApplication) -> None:
@@ -286,7 +285,45 @@ def test_the_scan_runs_on_a_worker_thread(qapp: QApplication, process_until) -> 
         scan_on_open=True,
     )
     assert dialog._thread is not None
-    assert process_until(lambda: dialog._thread is None)
+    assert process_until(lambda: dialog._worker is None)
     assert threads and threads[0] != threading.main_thread().name
     assert dialog._details.toPlainText().startswith("Will remove:")
     dialog.reject()
+
+
+def test_a_finished_scan_keeps_its_thread_until_the_dialog_stops_it(
+    qapp: QApplication, process_until, monkeypatch
+) -> None:
+    """A finished job's thread may still be quitting, so the dialog keeps it and
+    stops it on close. Dropping it at the worker's `finished` let a close destroy
+    the thread while it ran: SIGABRT, main's CI of 2026-11-24 (py3.12, this
+    file's worker-thread test)."""
+    from platterpus.ui import uninstall_dialog as module
+
+    class _Engine:
+        def scan(self):
+            return _observations()
+
+    class _Runner:
+        def cancel(self) -> None:
+            pass
+
+    dialog = UninstallDialog(
+        build_engine=lambda _rips: (_Engine(), _Runner()),
+        rips=(None, "not configured"),
+        scan_on_open=True,
+    )
+    scan_thread = dialog._thread
+    assert scan_thread is not None
+    assert process_until(lambda: dialog._worker is None)
+    assert dialog._thread is scan_thread, "the finished scan's thread was dropped"
+    stopped: list[object] = []
+    real_stop = module.stop_thread
+    monkeypatch.setattr(
+        module,
+        "stop_thread",
+        lambda thread, *a, **k: (stopped.append(thread), real_stop(thread, *a, **k)),
+    )
+    dialog.reject()
+    assert stopped == [scan_thread], "closing did not stop the scan's thread"
+    assert dialog._thread is None
