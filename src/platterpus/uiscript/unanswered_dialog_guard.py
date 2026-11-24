@@ -23,7 +23,7 @@ Two guarantees live here, both for the length of a scripted run:
   run that quietly clicked one away would hide it (`answer-dialog`'s docstring
   says why a silent click is worse than a hang).
 * **No window takes focus or comes to the front** while the run runs
-  (`ui.dialogs.centering.present_quietly`). A `--run-script` launch is quiet
+  (`ui.dialogs.quiet_presentation`). A `--run-script` launch is quiet
   from its first window (`app.py`); a run started from the menu turns it on when
   it starts and back off when it ends.
 
@@ -47,7 +47,10 @@ from typing import TYPE_CHECKING, Final
 
 from PySide6.QtWidgets import QDialog, QMessageBox
 
-from platterpus.ui.dialogs.centering import present_quietly, presenting_quietly
+from platterpus.ui.dialogs.quiet_presentation import (
+    present_quietly,
+    presenting_quietly,
+)
 from platterpus.uiscript.report import Outcome
 from platterpus.uiscript.script import Step
 

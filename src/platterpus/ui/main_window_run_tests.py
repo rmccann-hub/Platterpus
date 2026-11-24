@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 
-from platterpus.ui.dialogs.centering import bring_to_front
+from platterpus.ui.dialogs.quiet_presentation import bring_to_front
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:

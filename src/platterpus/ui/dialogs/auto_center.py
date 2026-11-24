@@ -29,13 +29,10 @@ import logging
 from PySide6.QtCore import QEvent, QObject, QSize
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 
-from platterpus.ui.dialogs.centering import (
-    CenteredDialog,
-    center_on_anchor,
-    mark_show_without_activating,
-)
+from platterpus.ui.dialogs.centering import CenteredDialog, center_on_anchor
 from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
 from platterpus.ui.dialogs.message_box_fit import fit_message_box
+from platterpus.ui.dialogs.quiet_presentation import mark_show_without_activating
 from platterpus.ui.dialogs.stacking import stack_above_window_it_blocks
 
 log = logging.getLogger(__name__)
@@ -215,7 +212,7 @@ class DialogCenterFilter(QObject):
         if event.type() != QEvent.Type.Show:
             return False
         # Any window, dialog or not, in a scripted run: shown without taking
-        # focus (`centering.mark_show_without_activating`; a no-op otherwise).
+        # focus (`quiet_presentation.mark_show_without_activating`; a no-op otherwise).
         # A child widget has no window of its own to mark.
         if isinstance(obj, QWidget) and obj.isWindow():
             mark_show_without_activating(obj)

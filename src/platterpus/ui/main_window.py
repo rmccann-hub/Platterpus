@@ -53,7 +53,7 @@ from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.parsers.rip_log import RereadAgreement
 from platterpus.read_speed_ladder import SpeedAttempt
 from platterpus.report_types import EtaSampleBlock, RetriedTrackBlock, TimingBlock
-from platterpus.ui.dialogs.centering import bring_to_front
+from platterpus.ui.dialogs.quiet_presentation import bring_to_front
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.getting_started_dialog import GettingStartedDialog

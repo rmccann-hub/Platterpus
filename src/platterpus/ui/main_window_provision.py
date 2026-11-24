@@ -37,7 +37,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from platterpus.ui import message_boxes
-from platterpus.ui.dialogs.centering import bring_to_front
+from platterpus.ui.dialogs.quiet_presentation import bring_to_front
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy

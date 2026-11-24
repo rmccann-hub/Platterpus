@@ -1365,6 +1365,7 @@ def main(argv: list[str] | None = None) -> int:
         from platterpus import composition
         from platterpus.adapters.ctdb_client import CtdbHttpImpl
         from platterpus.deps.manager import DependencyManager
+        from platterpus.ui.dialogs import quiet_presentation
         from platterpus.ui.main_window import MainWindow
 
         backend, _backend_name = composition.build_backend(cfg)
@@ -1386,17 +1387,15 @@ def main(argv: list[str] | None = None) -> int:
             ctdb_client=ctdb_client,
         )
 
-        # A scripted launch shows every window WITHOUT taking focus or coming to
-        # the front, from the main window on (the owner, 2026-11-24): the run
-        # takes hours, and the person at the computer is using something else.
-        # Decided here, before the first `show()`, from the same two inputs as
-        # `_autorun` below. `centering.present_quietly` says how.
-        from platterpus.ui.dialogs.centering import present_quietly
-
-        present_quietly(
-            args.run_script is not None
-            or (cfg.test_script_autorun and bool(cfg.test_script_path))
+        # Unattended testing, decided before the first `show()`: a scripted launch
+        # shows every window without taking focus (`quiet_presentation`, R195).
+        # `--run-script FILE` wins over the saved config (a flag typed for one
+        # launch is more specific); the config pair needs BOTH path and autorun.
+        _script = args.run_script
+        _autorun = _script is not None or (
+            cfg.test_script_autorun and bool(cfg.test_script_path)
         )
+        quiet_presentation.present_quietly(_autorun)
         window.show()
         # The launch dependency check shells out to cyanrip (whose wrapper enters
         # the Distrobox container — slow on a cold start), so run it OFF the GUI
@@ -1416,19 +1415,8 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:  # noqa: BLE001 — last-resort guard
             log.exception("initial drive refresh failed; continuing anyway")
 
-        # Unattended testing. `--run-script FILE` wins over the saved config,
-        # because a flag typed for one launch is a more specific statement of
-        # intent than a setting saved weeks ago; the config pair only fires when
-        # BOTH a path and the autorun flag were set deliberately.
-        #
-        # Guarded like the two probes above: a broken script must leave a usable
-        # window, not a failed startup. And it goes through the window's own
-        # `open_script_console`, so the menu, the flag and the config setting all
-        # reach the batch by one route.
-        _script = args.run_script
-        _autorun = _script is not None or (
-            cfg.test_script_autorun and bool(cfg.test_script_path)
-        )
+        # The unattended run is guarded like the probes above, so a broken script
+        # leaves a usable window; `open_script_console` is the menu's route too.
 
         # The automatic cyanrip check — armed HERE, from the launch path, and not
         # from `MainWindow.__init__`. Building a window is not the same event as

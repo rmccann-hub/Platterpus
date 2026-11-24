@@ -6,7 +6,7 @@ focus from whatever they were doing (their word, 2026-11-24: *"they should run
 on their own, not need acceptance by a user, and also not interrupt a user with
 bringing windows and things to the front"*). The guard, the quiet presentation
 and the `open dependencies` wait are `uiscript/unanswered_dialog_guard.py`,
-`ui/dialogs/centering.py` and `ScriptRunner._open_dependency_check`.
+`ui/dialogs/quiet_presentation.py` and `uiscript/dependency_verbs.py`.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ pytest.importorskip("PySide6.QtWidgets")
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 
-from platterpus.ui.dialogs import centering
+from platterpus.ui.dialogs import quiet_presentation as centering
 from platterpus.ui.dialogs.auto_center import DialogCenterFilter
 from platterpus.uiscript.report import Outcome
 from platterpus.uiscript.runner import ScriptRunner
@@ -222,7 +222,7 @@ def test_the_app_asks_for_the_front_in_one_place() -> None:
     one switch, not one per caller."""
     offenders = []
     for path in (_SRC / "ui").rglob("*.py"):
-        if path.name == "centering.py":
+        if path.name == "quiet_presentation.py":
             continue
         text = path.read_text(encoding="utf-8")
         if ".activateWindow()" in text:
