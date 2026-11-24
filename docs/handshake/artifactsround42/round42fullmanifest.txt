@@ -1,0 +1,204 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            2026-11-24T09:38:25+00:00
+platterpus         0.7.129
+build              a964e3b
+rip outcome        test script run
+ripper build wanted platterpus-fork-g1280aa4 ONLY — the build under review
+album folder       (none)
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  results                blocked=0, error=0, fail=1, info=23, pass=650, skipped=0, unreachable=1
+  run folder             ~/.local/share/platterpus/uiscript/20261124T093825+0000
+  steps                  675
+
+INCLUDED (63 file(s))
+----------------------------------------
+  applog/log.txt                                           792604 B
+  scriptrips/r16deemphoff/Unknown disc (PNTI).cue             284 B
+  scriptrips/r16deemphoff/Unknown disc (PNTI).log            7852 B
+  scriptrips/r16deemphon/Unknown disc (PNTI).cue              284 B
+  scriptrips/r16deemphon/Unknown disc (PNTI).log             7840 B
+  scriptrun/aftercancel-1-Run-test-script.png              123909 B
+  scriptrun/aftercancel.png                                156675 B
+  scriptrun/afterfullrip-1-Run-test-script.png             137106 B
+  scriptrun/afterfullrip.png                               181493 B
+  scriptrun/aftermp3-1-Run-test-script.png                 124012 B
+  scriptrun/aftermp3.png                                   138670 B
+  scriptrun/afteroverwrite-1-Run-test-script.png           134876 B
+  scriptrun/afteroverwrite.png                             159133 B
+  scriptrun/afterrecovery-1-Run-test-script.png            135017 B
+  scriptrun/afterrecovery.png                              142883 B
+  scriptrun/aftersecurereread-1-Run-test-script.png        137332 B
+  scriptrun/aftersecurereread.png                          181306 B
+  scriptrun/afterwav-1-Run-test-script.png                 134899 B
+  scriptrun/afterwav.png                                   143035 B
+  scriptrun/cacheprobe1484.txt                              17942 B
+  scriptrun/cacheprobe1484log.txt                           30849 B
+  scriptrun/dialogdependencies-1-Pick-a-MusicBrainz-release.png      53569 B
+  scriptrun/dialogdependencies-2-Run-test-script.png       125869 B
+  scriptrun/dialogdependencies.png                          77441 B
+  scriptrun/dialogdiagnostics-1-Diagnostics.png             92994 B
+  scriptrun/dialogdiagnostics-2-Run-test-script.png        109144 B
+  scriptrun/dialogdiagnostics.png                           77441 B
+  scriptrun/dialogdrive-1-Set-up-drive.png                  68752 B
+  scriptrun/dialogdrive-2-Run-test-script.png              120086 B
+  scriptrun/dialogdrive.png                                 69039 B
+  scriptrun/dialogsettings-1-Settings.png                  163218 B
+  scriptrun/dialogsettings-2-Run-test-script.png           122647 B
+  scriptrun/dialogsettings.png                              69039 B
+  scriptrun/dialogsettingsok-1-Settings.png                163225 B
+  scriptrun/dialogsettingsok-2-Dependency-check-complete.png      32554 B
+  scriptrun/dialogsettingsok-3-Run-test-script.png         112844 B
+  scriptrun/dialogsettingsok.png                            74522 B
+  scriptrun/installripper1692.txt                           18010 B
+  scriptrun/installripper1699.txt                           17999 B
+  scriptrun/installripper1706.txt                           18010 B
+  scriptrun/installripper1713.txt                           17999 B
+  scriptrun/installripper1721.txt                             939 B
+  scriptrun/installripper1798.txt                           18010 B
+  scriptrun/installripper1805.txt                           17999 B
+  scriptrun/installripper1818.txt                           18023 B
+  scriptrun/installripper1831.txt                           17999 B
+  scriptrun/installripper1844.txt                           18010 B
+  scriptrun/installripper1852.txt                           17999 B
+  scriptrun/report.json                                    480719 B
+  scriptrun/rig-check/MANIFEST.txt                          16306 B
+  scriptrun/rig-check/argv-probe-output.txt                   494 B
+  scriptrun/rig-check/argv-probe.json                        1718 B
+  scriptrun/rig-check/ripper-version.txt                       58 B
+  scriptrun/tags0791.txt                                      898 B
+  scriptrun/tags0867.txt                                      946 B
+  scriptrun/tags0909.txt                                      933 B
+  scriptrun/tags1013.txt                                      805 B
+  scriptrun/tags1169.txt                                      804 B
+  scriptrun/tags1197.txt                                      765 B
+  scriptrun/tags1225.txt                                      804 B
+  scriptrun/tags1394.txt                                      806 B
+  scriptrun/transcript.txt                                 214446 B
+  applog/log.txt.1                                        8362476 B
+
+NOT INCLUDED (2 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  scriptrips/r16deemphoff/01 - Unknown track.flac      excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  scriptrips/r16deemphon/01 - Unknown track.flac       excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+
+SHA-256 OF EVERY INCLUDED MEMBER (63), of the bytes written into this archive
+----------------------------------------
+  Each line is in sha256sum's format, so after extracting the archive:
+    grep -E '^\\?[0-9a-f]{64}  ' MANIFEST.txt | sha256sum -c
+  Computed from the bytes written, so a file kept head+tail is hashed
+  with its elision marker. MANIFEST.txt cannot hash itself; the
+  archive's own hash covers it.
+402e34d231b33a76ad0c503e174f158f80eddc147cf6200f37c5b533826afc33  applog/log.txt
+724acebd97f0d66884618218b1bd3b75a2dcf45f0950069e284d388679e9eb7b  scriptrips/r16deemphoff/Unknown disc (PNTI).cue
+e1cb6fe2e282d600d7735efe4c5981bea92bc1180b0d000a2ab261eb00e0dc1a  scriptrips/r16deemphoff/Unknown disc (PNTI).log
+724acebd97f0d66884618218b1bd3b75a2dcf45f0950069e284d388679e9eb7b  scriptrips/r16deemphon/Unknown disc (PNTI).cue
+7304a7e2fbb54b2d6788b1aafb8ce1ca56cfe2c2fcdad7e7921862dda0c1a85f  scriptrips/r16deemphon/Unknown disc (PNTI).log
+16af2860bd36f76b9599a79814d5a486041df90a1cb934b3885a185352bb32e5  scriptrun/aftercancel-1-Run-test-script.png
+9069d0c9e11c6bdbfcd86be356e8b5128596e9eb0a677b71f6ba7ae2b9fda04a  scriptrun/aftercancel.png
+3dbde13a52f260ec3af1556e5ab2cc9d77ed01ffa583b7a54321ce373fa721f5  scriptrun/afterfullrip-1-Run-test-script.png
+7f6bc551d4d5b0e4bdd9adf789daa96076eb399331dbf83270fb319c6274ee85  scriptrun/afterfullrip.png
+713e001face217c268c23651059841355f518e36adb85a8c05976ec5203ae8b5  scriptrun/aftermp3-1-Run-test-script.png
+2606bf51085ee5c4532fd6ddfe2ddf9d11ffb58357d21e210798a31a14f4b24f  scriptrun/aftermp3.png
+821572e46428f749eaf973d20bbf102654eca5b96e2f3ff16143f1c53b2c08c8  scriptrun/afteroverwrite-1-Run-test-script.png
+415856f1a578d9347c5d96d90bed77c4c7cf01e513ee1e86475c5ae7aa4ee23a  scriptrun/afteroverwrite.png
+b1de743fae3f8e9ccdbd64fa3f53d32931487234b573479b4aaf69ea3686d112  scriptrun/afterrecovery-1-Run-test-script.png
+6d1b67dbcfac7bd504365ee88ef3bd836771e961b2ad0f225eee0ac78fa4b6f3  scriptrun/afterrecovery.png
+a7ea83f4b48bb4e71e0640a3ce478fc415f207be95621a8d148658cbe867706a  scriptrun/aftersecurereread-1-Run-test-script.png
+e2be152a4d8e1438cd37727f936092c39d2936d38eca206cc64076b5d9c229d5  scriptrun/aftersecurereread.png
+efc013286e0933a095d8af2e5da48c909072b0a03965de84317ec6890fa05762  scriptrun/afterwav-1-Run-test-script.png
+d6777dd271a405450b28d11aef2e72483d926ec608236ff8bae92fbc01b519dc  scriptrun/afterwav.png
+8945b898526cc220990a0860d7113bf6b658a43820de2cc91a937c446316e8ae  scriptrun/cacheprobe1484.txt
+71b29ea4bff97733c3f80f594460875a3abceadce52fa532d76f4ba3345da1c5  scriptrun/cacheprobe1484log.txt
+136e435d6759ab3b2d69a0fd43acfff6629d5f5df4ce84af5b82f5a25780cfd1  scriptrun/dialogdependencies-1-Pick-a-MusicBrainz-release.png
+77955d0132eb79879c72b34438d96592a605eeb231daa5f04e35a717d9ec8686  scriptrun/dialogdependencies-2-Run-test-script.png
+7e352add1e0e4ddacf39627ebccb0cc16196eb5fbf86db8932ef256cd95e571b  scriptrun/dialogdependencies.png
+621c903fcb7432982fc358d6162816bebc9e665573b55b9f8a8438064acd0ea4  scriptrun/dialogdiagnostics-1-Diagnostics.png
+d2d495edd128e6eb891c910c898c93ad892cd041cd0e51005e25084137c0012b  scriptrun/dialogdiagnostics-2-Run-test-script.png
+7e352add1e0e4ddacf39627ebccb0cc16196eb5fbf86db8932ef256cd95e571b  scriptrun/dialogdiagnostics.png
+1100bcdd5d257d95f6ac821253c949eab50221904f4a553fec1cd7eaae7bd374  scriptrun/dialogdrive-1-Set-up-drive.png
+6e3851e4c808a9bfbd003964afcf5cdf2be4265b153c5771bc34728dc5d04075  scriptrun/dialogdrive-2-Run-test-script.png
+0d89c2b673ffff1aa8a2e2e620053cd02d528a62772d80c58591651687853715  scriptrun/dialogdrive.png
+6fde633009ee94e28c414b5e209d65fadbfe8ee1054cb8cf81c8c2a8ad982168  scriptrun/dialogsettings-1-Settings.png
+4839ab92845701edc64f1c4eeed414e13e7c0980935f0d3b5d7f4310fddff9ea  scriptrun/dialogsettings-2-Run-test-script.png
+0d89c2b673ffff1aa8a2e2e620053cd02d528a62772d80c58591651687853715  scriptrun/dialogsettings.png
+bac372b40d0e33e20896a8981cfad33072174c6fc6d91e7730bcf0d97b99e84e  scriptrun/dialogsettingsok-1-Settings.png
+bc0292c45350634b8f0e7ae2a8cdf35c16fef82b894b8c9e11522c05283a154c  scriptrun/dialogsettingsok-2-Dependency-check-complete.png
+235714aea6bfe8f7f6b76fad1fe9a0fe768fae39e782edeee7e19b6d5c5fca37  scriptrun/dialogsettingsok-3-Run-test-script.png
+324a08a9dcf87b65c8d577e957babdc839e40dab54320f21976ff905f8c83757  scriptrun/dialogsettingsok.png
+8d5fee6862ce073c3d993294b5f04392c613a95a5bceaaaa03641d26f82333e0  scriptrun/installripper1692.txt
+f761a88904483672f0373790d83481a43c49542fc0c8b385ffdc58c564c8df74  scriptrun/installripper1699.txt
+243c3cf7249c9994a2d4f030870e6a3fbf7adc2e23109ef85dff3f1434e0f6f1  scriptrun/installripper1706.txt
+f87df1e90d2b1eb89641c2a0e2f8254c19a3094d79a53fadea18b35486a57490  scriptrun/installripper1713.txt
+ec0b3cfdc361634a52bab5ee9a42777f20ee4e7b283fa466e9d827413a9bf24a  scriptrun/installripper1721.txt
+ce255a406cec48d38e77f54880aa47b4bbcc5122ceb4731ba5106d9bc5f2ea9c  scriptrun/installripper1798.txt
+b1d6fbcb4af4b04cb87385e5817783d140e9f4b1fcdbf642dca45732291343f4  scriptrun/installripper1805.txt
+940e230885ca34026f0a3192329e0c793b0b5a72cd4d3b63d8303d47b247c796  scriptrun/installripper1818.txt
+b47e4f73ede2f0932df7b10370a36c0b469912f292baca4d38f107c32f15468e  scriptrun/installripper1831.txt
+af354074eb24952e242adb1f5f8462b927002d262686edaf92118affc3b26209  scriptrun/installripper1844.txt
+9f33a44430cb53445a1c8e13dbb0780788c9abcf5f5c9c764386ae10bbd929f9  scriptrun/installripper1852.txt
+898e645e6b8ca9797971bb0f60cc6b46bfc073d04baeadbff879ef6e86d282dd  scriptrun/report.json
+36b6bd792132fabd87d115b0994891484daa5513c011eaf6884d619a67be7fdd  scriptrun/rig-check/MANIFEST.txt
+d58d21e6af0cf78ac854f71a86fa8ffacc6aab14e9f8e5b755ce60f92af445af  scriptrun/rig-check/argv-probe-output.txt
+82fde36cd65be1a3161484d3b1ba0ca35f29c1e757eb226196cf7a8fe259635c  scriptrun/rig-check/argv-probe.json
+022d9fc4876cd24d6deeee1a2b945f38443351f246f777dcb2af9c502d9a5779  scriptrun/rig-check/ripper-version.txt
+0130d97e1c5dee0ec192ebf0b5e2d964fd1ef3dbb26d07e2c0b31a4917daa88a  scriptrun/tags0791.txt
+3d9f11d64c080a1c0216a7aa92fa1a9a534b7f1c64a6993075bf7725b209c116  scriptrun/tags0867.txt
+090bace3997d4844969c7184e61be4eeeea0fd9da2f1b9cfe0e2908438cd81cb  scriptrun/tags0909.txt
+4865670754a432b1a664af1c756e377aeb4e287937404074904e8216a95b37e8  scriptrun/tags1013.txt
+e78992ccab5d81ac5e403228f8339c629fcdf270c23c115ed1119161faca1c3f  scriptrun/tags1169.txt
+5468816441e82c561748061313136e6d57e9ca13763009f7b0c890199c28f1fc  scriptrun/tags1197.txt
+293e82ae8d9482a70cd2dfc1951aba1d8f7eb49c14fc5509149d6893ece15255  scriptrun/tags1225.txt
+dfe62f16d9db5cd7859e184ab57b16faca763287db28cb3425bf3c0ff642a0b9  scriptrun/tags1394.txt
+5858c0cfe102bdda2d108848aeef61d5449e47a1c71f9243496b877aeb96f062  scriptrun/transcript.txt
+1326658eae6a9e64ae18cc99889dedf27d03a2dfe027c5794520c33899ea65e4  applog/log.txt.1
+
+HOME FOLDERS REPLACED WITH ~
+----------------------------------------
+  Home-folder paths (/home/<name>, /var/home/<name>, /Users/<name>,
+  C:\Users\<name>, and this machine's own home) in every text member
+  were replaced with ~ as it was written, so the hashes above are of the
+  replaced bytes. Hostnames (this machine's, and any a uname line or a
+  host: field names) became `host`; the owner's names, from a list kept
+  outside the repository, became `the owner` (TASKS R16).
+  replaced: 2538 home path(s), 0 hostname(s), names not checked (no list) in 18 member(s), and 1 in this manifest's own text
+  applog/log.txt                                       91 replaced, 0 hostname(s), 0 name(s); sha256 before replacement a51d77722c0056cd1dbe883df69397f1f8393132cc267c4e4ed8a585e2cbf9d9
+  scriptrun/installripper1692.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 2f4f2eb8b9284c70e048f11d9391f6d1b0efab4eab2aed1fc5c1a16fafc1b3a4
+  scriptrun/installripper1699.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 5edaee4f4c1e975b4f0aa99c87e042cd6fcf96737e6263139fe596112ac51cbb
+  scriptrun/installripper1706.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 60ef84652a5a32037a8840b6b0951235c7d76e4ecd1ec44548b22610a0a27083
+  scriptrun/installripper1713.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 9cebe3092bc9b3a827ea7537474a5051de97159d1f5d4d39e69ced5caf38abbb
+  scriptrun/installripper1721.txt                      3 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 682d528d3d5c3faddac7c5ea3b08e397c8ab48491b62146d304911f8be0d0a3a
+  scriptrun/installripper1798.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement a145cd8f7a61785b7c8da6406c56843933dd29728ab7da0c9d18a0d1558d8bc8
+  scriptrun/installripper1805.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 31b2711350eaee793648283fba90efce69249d5c0b95b327b1a73cf80ccaf2d1
+  scriptrun/installripper1818.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement b6970f6898bde703df47de20728b0b4f19cdf82cd69e9ff23ba76c6b38f58831
+  scriptrun/installripper1831.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 09ae924073f8a81528f9c60ec33a92d49363b795fdc893893e25dddd714b6aad
+  scriptrun/installripper1844.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 7eba2d69effc2f1259cff03b543a49b9672c16f124ff5550f3671f1f395fcb6b
+  scriptrun/installripper1852.txt                      11 replaced, 0 hostname(s), 0 name(s); sha256 before replacement aa4fcc95c3c70d5360f66a2de7fcbe20db8bbc6347a42e2b6d91a28a07d49929
+  scriptrun/report.json                                76 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 526da2cd08ac7772b94ec19ef2b1f6e44db38f3899a7849ab6e1a59c5f60c18a
+  scriptrun/rig-check/MANIFEST.txt                     7 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 7626d2a12a1d4680f520807c2eb613034a6bad1e3be4680509cf6c774f7c4c4b
+  scriptrun/rig-check/argv-probe-output.txt            2 replaced, 0 hostname(s), 0 name(s); sha256 before replacement f39e97267136ffdffd8c44f008cfeaa2311937981a0dbabc77f65330ac1ef57c
+  scriptrun/rig-check/argv-probe.json                  1 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 56f0446a81e6e5ef259d0f30eee1e4cec53e87f6e1dcc3bf433852d2509e3db0
+  scriptrun/transcript.txt                             76 replaced, 0 hostname(s), 0 name(s); sha256 before replacement b516ba155512eb7753add37790f7ad1cdb37f2aa264af6b3e4406639a1f6ca31
+  applog/log.txt.1                                     2172 replaced, 0 hostname(s), 0 name(s); sha256 before replacement 448f1b613804fcb0aa319eb5e5106004e27c4683e255d6aa389055abb9051983
+  kept as written: 0 member(s), 0 home path(s) left in them
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.
