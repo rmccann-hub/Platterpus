@@ -18,6 +18,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 42 closes, and `.35` becomes the approved ripper** (user-facing in our next release; the owner's word of 2026-11-25, "release lap 6"): our lap 6 `GO`, against the fork's lap 5 `GO`, closes round 42 on both gates. `FORK_PIN` rolls from `fb28088` (`.34`) to `1280aa4` (`0.9.4-rc3+platterpus.35`), the approval record to round 42 with 0.7.129, and the dependency map, bom and consumer contract are regenerated. Our next release, only on the owner's word, installs `.35` by default.
 - **Our round 42 lap 6, `GO`, is written and held, and the fork's lap 5, `GO`, is filed** (contributor-facing): with both, round 42 closes on `.35` when our owner releases our lap. TASKS R200 records the fork's finding that a run's named bundle can be pruned before it is sent.
 - **The drive test's comment on the probe's stop of 2026-11-24 now says what happened** (operator-facing; the fork's round 42 lap 5 S5): a window opened from the desktop was still open, not a Platterpus that was still closing.
 - **Our round 42 lap 4 is released to the fork** (contributor-facing; the owner's word of 2026-11-25): it reads round 42's run and C2 probe, G1, G2 and G4 met, and leaves G3, the fork's filing of the run, to their lap 5. Before it reached `main`, `handshake.py --check` found it lacked the pin-policy roll sentence and the `Confirmations` heading; both were added (TASKS R199 makes the check run on held laps too).

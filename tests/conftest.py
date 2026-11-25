@@ -1183,6 +1183,23 @@ def put_away_leftover_dialogs() -> list[str]:
 
 
 @pytest.fixture(autouse=True)
+def _windows_present_normally_after_each_test() -> Generator[None, None, None]:
+    """Put the quiet-presentation switch back after every test (TASKS R195).
+
+    ``ScriptRunner.start`` turns it on for the run's length and every way a run
+    ends turns it back off, but a test that starts a run and never ends it (a
+    stand-in window, a run left mid-wait) leaves it on, and every later test on
+    that xdist worker then sees ``bring_to_front`` do nothing. Found on
+    2026-11-25: `test_the_setup_wizard_cannot_be_opened_on_top_of_itself` passed
+    alone and failed in the full suite because its wizard was never raised.
+    """
+    yield
+    from platterpus.ui.dialogs import quiet_presentation
+
+    quiet_presentation.present_quietly(False)
+
+
+@pytest.fixture(autouse=True)
 def _no_test_leaves_a_dialog_behind() -> Generator[None, None, None]:
     """FAIL the test that leaves a dialog up, not the later test it ambushes.
 
