@@ -69,12 +69,13 @@ def test_only_31_to_35_are_listed_each_on_its_own_contracts_p1() -> None:
     assert row not in (
         _ARTIFACTS / "round-38-lap-12-provider-contract-g0c276fc.md"
     ).read_text(encoding="utf-8")
-    # `.34` is FORK_PIN from round 41's close (2026-11-18) and `.35` the build
-    # under review from round 42's lap 1; `.31` and `.32`, the pins before it,
-    # and `.33`, under review before `.34`, still run on rigs that installed
-    # them: all five send the option.
-    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_34
+    # `.35` is FORK_PIN from round 42's close (2026-11-25), and was the build
+    # under review before it; `.34`, `.31` and `.32`, the pins before it, and
+    # `.33`, under review before `.34`, still run on rigs that installed them:
+    # all five send the option.
+    assert f"{fork_source.FORK_BRANCH}-g{fork_source.FORK_PIN}" == _TAG_35
     assert f"{fork_source.FORK_BRANCH}-g{fork_source.PIN_UNDER_REVIEW}" == _TAG_35
+    assert _TAG_34 in fork_source.BUILD_TAGS_ACCEPTING_REREAD_UNTIL_ACCURATERIP
 
 
 @pytest.mark.parametrize(
