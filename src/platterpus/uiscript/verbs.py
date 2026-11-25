@@ -897,6 +897,19 @@ _VERB_LIST: tuple[Verb, ...] = (
     # --- What this launch logged (`applog_verbs.py`, 2026-10-06) --------------
     # For TASKS rows only a drive run settles (TASKS "Fold the hardware-only
     # checks into the closing run"): both gather, as INFO, and never fail a run.
+    # The owner, 2026-11-25: the Full run reports on the installation too
+    # (shortcuts, exported tools, the drive's saved facts, tracebacks, the
+    # diagnostics). `uiscript/health_verbs.py`.
+    Verb(
+        "expect-installed",
+        1,
+        1,
+        "expect-installed <shortcuts|tools|drive|log|diagnostics> — one fact "
+        "about the installation: the menu entry, uninstaller entry and Desktop "
+        "icon launch the installed app; the exported tools are there; the drive "
+        "has a saved offset and cache verdict; this launch logged no traceback; "
+        "or (info only) what the app recorded as errors and warnings",
+    ),
     Verb(
         "app-log",
         1,

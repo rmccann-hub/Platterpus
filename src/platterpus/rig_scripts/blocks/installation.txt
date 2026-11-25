@@ -1,0 +1,23 @@
+# --- S. THE INSTALLATION AND THE APP'S OWN HEALTH ---------------------------
+# The owner, 2026-11-25: the run "should include everything, not just how the
+# rip runs. now the priority might not be same, but it should be reported."
+# That day's reinstall left the menu entry and the Desktop icon pointing at a
+# file that had moved, and the uninstaller logged a traceback on close; no step
+# above could have seen either.
+#
+# WHY IT RUNS HERE, LAST BEFORE Q: the log step reads everything this launch
+# logged, so it comes after every rip, cancel and probe the run makes.
+#
+# UX, BY DECLARATION (docs/testing.md, Acceptance severity, S): a broken
+# shortcut or a traceback is a defect to fix and is reported, but it is not a
+# claim about a disc, so it does not block a version. Which ripper build made
+# the rips is section A's question and is not asked again here. `diagnostics`
+# is info only: the run provokes errors on purpose (a refused rip, a cancel).
+log --- S. the installation and the app's own health ---
+run-size quick
+expect-installed shortcuts
+expect-installed tools
+expect-installed drive
+expect-installed log
+expect-installed diagnostics
+

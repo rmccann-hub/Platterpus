@@ -3271,7 +3271,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5068 -> 5083** (2026-11-16, TASKS R24): the import and base class of `RipperBuildVerbsMixin` (its handler, `expect-ripper-bounds-overread`, lives in `ripper_build_verbs.py`, not here), and `expect-drive-offset <offset>`, which asserts the selected drive's own offset is a named number, beside the handler it extends; the parser is `script_values.parse_offset`.
     # **5083 -> 5092** (2026-11-23, TASKS R189): `keep` records the value it kept in `_kept`, declared and reset with the run's other per-run state, and the import and base class of `BlockVerbsMixin`; `expect-kept`, which reads it, lives in `block_verbs.py`, not here.
     # **5092 -> 5102** (2026-11-23, TASKS R188): `start` expands `run-block` lines first (the expansion is `run_block.py`, its call `block_verbs._expand_blocks`), and the report carries the test's name and blocks; the four per-run fields are declared here with the rest of the run's state.
-    "uiscript/runner.py": 5045,
+    # **5045 -> 5047** (2026-11-25): the runner mixes in `HealthVerbsMixin` (`expect-installed`, the owner's word of 2026-11-25).
+    "uiscript/runner.py": 5047,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
@@ -3335,7 +3336,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1191 -> 1194** (2026-11-16, TASKS R59 (a)): `expect-album-audit`'s help names the second warning it expects, a ripping-error tally placed on replaced reads.
     # **1194 -> 1205** (2026-11-23, TASKS R189): the `expect-kept` declaration, beside `keep`, whose value it checks. The table is the vocabulary's security boundary, so a verb is an entry here.
     # **1205 -> 1226** (2026-11-23, TASKS R188): the `run-block` and `expect-repeats` declarations, beside `compare-accuracy`, whose labels they share.
-    "uiscript/verbs.py": 1226,
+    # **1226 -> 1239** (2026-11-25): the `expect-installed` entry: the vocabulary is the security boundary, so every verb is one entry here.
+    "uiscript/verbs.py": 1239,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our

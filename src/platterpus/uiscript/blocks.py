@@ -110,6 +110,12 @@ BLOCKS: Final[tuple[Block, ...]] = (
     Block("buildcomparison", "Build comparison", KIND_FULL, _ALL, True),
     Block("repeatrips", "Five repeat rips", KIND_FULL, _ALL, combinable=True),
     Block("pregaps", "Pregap agreement", KIND_FULL, combinable=True),
+    Block(
+        "installation",
+        "The installation and the app's health",
+        KIND_FULL,
+        combinable=True,
+    ),
     Block("defaults", "Leave on defaults", KIND_FULL, _OFFSET, combinable=True),
     # --- The Quick check, cut the same way ---------------------------------
     Block("quickstart", "Quick check: header", KIND_QUICK),
