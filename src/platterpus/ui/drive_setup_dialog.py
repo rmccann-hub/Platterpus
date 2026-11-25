@@ -113,6 +113,10 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
     # change the user could believe they had made and had not.
     offset_applied_changed = Signal(bool)
 
+    # Emitted with the device when this window's check stops reading the drive,
+    # so a disc read the window held back can start (TASKS R245).
+    drive_released = Signal(str)
+
     def __init__(
         self,
         backend: RipBackend,
@@ -602,6 +606,16 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         # a run that produced neither has nothing to persist.
         if result.offset is not None or result.can_defeat_cache is not None:
             self.detection_recorded.emit(result)
+        self.drive_released.emit(self._device)
+
+    def check_holds_drive(self) -> str:
+        """The device this window's check is reading now, or "" when none runs.
+
+        The main window asks before it starts a disc read: a second reader on
+        the drive is how it wedges, and the read's timeout then frees the drive
+        by killing every process on it, this check included (TASKS R245).
+        """
+        return self._device if self._thread is not None else ""
 
     def _set_manual_controls_enabled(self, enabled: bool) -> None:
         """Enable/disable the manual read-offset controls as a unit.

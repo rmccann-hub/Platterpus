@@ -2644,7 +2644,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **720 -> 725** (2026-11-25, the owner's log): the `drive_busy_now` input, so
     # Analyze cache asks whether the drive is busy when pressed; the waiting itself
     # lives in `drive_setup_auto_check.py`.
-    "ui/drive_setup_dialog.py": 725,
+    # **725 -> 739** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): `drive_released` and `check_holds_drive`, which the window asks before it reads a disc.
+    "ui/drive_setup_dialog.py": 739,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
     # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
@@ -2717,7 +2718,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1941 -> 1945** (2026-11-23, R181 follow-up): `_finished_line`, the finished rip's status line and its inputs, kept so a confirmed CTDB repair can rebuild it.
     # **1945 -> 1937** (2026-11-23, TASKS R188, merged onto the above): lowered: Tools → Advanced holds one Run tests… item where it held two acceptance items; the mixin it opens is `main_window_run_tests.py`.
     # **1937 -> 1939** (2026-11-25, the owner's reinstall log): a disc read that failed for want of the ripper is remembered.
-    "ui/main_window.py": 1939,
+    # **1939 -> 1942** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): `_start_disc_info` asks first.
+    "ui/main_window.py": 1942,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2770,7 +2772,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Both changes merged 2026-11-13: measured 1009 lines after the merge.
     # **1013 -> 1033** (2026-11-17, UX review of 0.7.127, TASKS R182), E3: the empty-state line is built where an empty drive listing first lands (`_on_drives_unavailable`), and `_sync_no_drive_notice`; the line itself is `ui/no_drive_notice.py`.
     # **1034 -> 1050** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): `_selected_drive_setup_facts`, the one reader Setup & Updates' drive line and `expect-installed drive` both ask.
-    "ui/main_window_drive.py": 1050,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
+    # **1050 -> 1053** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): the dialog's release is wired, and a close reads a held-back disc.
+    "ui/main_window_drive.py": 1053,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -3009,7 +3012,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **578 -> 581** (2026-11-23, R181 follow-up): `_finished_line` declared, which the CTDB-repair mixin reads.
     # **581 -> 583** (2026-11-25, the owner's reinstall log): the seam declares `_disc_waits_for_ripper` and `_on_drive_changed`.
     # **583 -> 585** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): the seam declares `_selected_drive_setup_facts`.
-    "ui/main_window_shared.py": 585,
+    # **585 -> 587** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): the seam declares the two cache-check methods.
+    "ui/main_window_shared.py": 587,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

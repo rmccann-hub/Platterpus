@@ -1461,6 +1461,9 @@ class MainWindow(
         from platterpus.workers import start_worker_thread, stop_thread
         from platterpus.workers.disc_info_worker import DiscInfoWorker
 
+        # Set up drive's check is the drive's one reader while it runs (R245).
+        if self._disc_read_waits_for_setup_check(device):
+            return
         if not automatic_retry:
             self._begin_disc_request()
             self._close_superseded_picker()

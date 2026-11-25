@@ -514,8 +514,11 @@ class _RecordingDialog:
             "manual_offset_saved",
             "offset_applied_changed",
             "detection_recorded",
+            "drive_released",
         ):
             setattr(self, name, _Signal())
+        #: The device the stand-in's check reads; "" when none runs.
+        self.holding: str = ""
 
     def exec(self) -> int:
         self.open_during_exec = self.window._drive_setup_dialog
@@ -524,6 +527,9 @@ class _RecordingDialog:
     def notify_disc_ready(self, device: str) -> str:
         self.notified.append(device)
         return START
+
+    def check_holds_drive(self) -> str:
+        return self.holding
 
 
 class _Signal:
@@ -686,3 +692,98 @@ def test_a_note_that_changes_after_show_keeps_the_dialog_on_a_short_screen(
     limit = 600 - DriveSetupDialog.SCREEN_MARGIN_PX
     assert dialog.minimumHeight() <= limit, dialog.minimumHeight()
     assert dialog.height() <= limit, dialog.height()
+
+
+# --- TASKS R245: a disc read waits while Set up drive's check reads the drive ---
+
+
+def test_a_disc_read_waits_while_the_check_holds_its_drive_and_starts_after(
+    window: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """REGRESSION (the owner's log of 2026-11-25): a disc inserted while the
+    automatic check ran started a scan beside it; the scan timed out and freeing
+    the drive killed the check. Asked where the read starts, so no path reads."""
+    begun: list[bool] = []
+    monkeypatch.setattr(window, "_begin_disc_request", lambda: begun.append(True))
+    dialog = _RecordingDialog()
+    dialog.holding = "/dev/sr0"
+    window._drive_setup_dialog = dialog
+    try:
+        window._start_disc_info("/dev/sr0")
+        assert begun == [], "the read started beside the check"
+        assert window._disc_waits_for_setup_check == "/dev/sr0"
+        assert "when the check finishes" in window.statusBar().currentMessage()
+    finally:
+        window._drive_setup_dialog = None
+
+    started: list[str] = []
+    monkeypatch.setattr(window, "_start_disc_info", started.append)
+    window._on_setup_check_released("/dev/sr1")  # another drive: not this wait
+    assert started == []
+    window._on_setup_check_released("/dev/sr0")
+    assert started == ["/dev/sr0"]
+    assert window._disc_waits_for_setup_check == ""
+    window._on_setup_check_released("/dev/sr0")  # nothing waits now
+    assert started == ["/dev/sr0"]
+
+
+def test_a_read_of_another_drive_or_with_no_check_running_is_not_held(
+    window: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dialog = _RecordingDialog()
+    window._drive_setup_dialog = dialog
+    try:
+        assert not window._disc_read_waits_for_setup_check("/dev/sr0")
+        dialog.holding = "/dev/sr1"
+        assert not window._disc_read_waits_for_setup_check("/dev/sr0")
+    finally:
+        window._drive_setup_dialog = None
+    assert not window._disc_read_waits_for_setup_check("/dev/sr0")
+    assert window._disc_waits_for_setup_check == ""
+
+
+def test_closing_set_up_drive_reads_a_disc_held_back(
+    window: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Closed mid-check, the dialog reports no result, so the window reads the
+    held-back disc when `exec()` returns."""
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_drive.DriveSetupDialog",
+        lambda *a, **k: _bound(_RecordingDialog(*a, **k), window),
+    )
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
+    started: list[str] = []
+    monkeypatch.setattr(window, "_start_disc_info", started.append)
+    window._disc_waits_for_setup_check = "/dev/sr0"
+
+    window._on_drive_setup()
+
+    assert started == ["/dev/sr0"]
+
+
+def _bound(dialog: _RecordingDialog, window: Any) -> _RecordingDialog:
+    dialog.window = window  # type: ignore[attr-defined]
+    return dialog
+
+
+def test_the_dialog_holds_the_drive_while_its_check_runs_and_says_when_it_lets_go(
+    dialogs: Callable[..., DriveSetupDialog], process_until: Any, tmp_path: Path
+) -> None:
+    pid_file = tmp_path / "pid"
+    backend = _SlowProbeBackend(pid_file)
+    dialog = dialogs(backend, cache_verdict=NOT_MEASURED, audio_disc_present=True)
+    released: list[str] = []
+    dialog.drive_released.connect(released.append)
+    assert dialog.check_holds_drive() == ""
+    dialog.show()
+    assert process_until(
+        lambda: pid_file.exists() and pid_file.read_text() != "", timeout=10.0
+    ), "the stand-in probe never started"
+    assert dialog.check_holds_drive() == "/dev/sr0"
+    assert released == []
+
+    assert dialog._skip_button is not None
+    dialog._skip_button.click()
+
+    assert process_until(lambda: released == ["/dev/sr0"], timeout=10.0)
+    assert dialog.check_holds_drive() == ""

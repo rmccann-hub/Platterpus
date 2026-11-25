@@ -36,6 +36,35 @@ inbound/cyanripstatus<date>.md    theirs — filed under the name they used
                                          (TWO of these on disk: 20260821, 20260913)
 ```
 
+## Why `verified/` has held nothing since round 21
+
+`verified/` held our verification of a lap of theirs (protocol §2, step 5), and it
+did a second job: under protocol 4 and earlier, our gate closed a round only if we
+held a lap of our own numbered **after** the peer's first `GO`, and when a round
+ended before we had one, a `verified/` file was that lap (round 13, and the round 17
+remedy in [`../cyanrip-handshake.md`](../cyanrip-handshake.md), *"The remedy was a
+`verified/` file"*). Its newest file, `verified/round-21-lap-06.md`, closed round 21
+(commit `ac4167b6`, 2026-09-18).
+
+**Protocol 5 removed the need.** Its §5b (landed on `main` in `c7ced26d`,
+2026-09-22, closing round 23) lets a close resolve the peer verdict from the newer
+peer lap the gate holds and has read, so no lap of ours has to follow their `GO`
+(`../handshake-protocol.md` §5b; `resolve_peer_verdict` in `scripts/handshake.py`).
+Round 22 still closed under protocol 4, on our `outbound/round-22-lap-04.md`. Since
+then our acceptance of a lap travels in the next `outbound/` lap's
+`HANDSHAKE-PEER-VERDICT`, which every lap carries anyway.
+
+**The folder stays.** The gate still enumerates it beside `outbound/` and
+`inbound/` (`VERIFIED_DIR` in `scripts/handshake.py`), and its 50 files are the
+record of rounds 2 to 21. Nothing new is written to it.
+
+**`PROPOSAL-operator-seam-automation.md`**, beside this README, is not a round
+either. It is byte-identical in both repositories, and its open part became the
+standing statuses and `scripts/lap_turn.py`. Our audit of 2026-11-25 asked the fork
+whether both sides archive it unchanged in the same round (`F15` in
+[`../cyanrip-fork.md`](../cyanrip-fork.md)); until both move it, it stays here
+unchanged, since a one-sided edit would break the byte-identity.
+
 ## File naming — `round-NN-lap-LL.md`
 
 **Both projects use this.** Agreed 2026-08-04 on a maintainer directive (*"agree on a
