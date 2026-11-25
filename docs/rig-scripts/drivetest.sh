@@ -217,10 +217,12 @@ app_processes() {
 }
 
 # Wait for Platterpus to close, up to DRIVETEST_APP_CLOSE_WAIT seconds (120).
-# Right after an unattended run the app is still shutting down for a few
-# seconds: on 2026-11-24 the probe ran 13 s after the Full run's last log line
-# and stopped on "Platterpus is open" when nobody had a window open. A copy
-# someone left open is still a stop after the wait, and the stop names it.
+# Right after an unattended run the app may still be shutting down for a few
+# seconds. On 2026-11-24 the probe looked 13 s after the Full run's last log
+# line and stopped on "Platterpus is open": a window opened from the desktop the
+# evening before was still open (the app log has it closing at 09:38Z), and the
+# stop did not say which copy it saw. A copy someone left open is still a stop
+# after the wait, and the stop now names it.
 wait_app_closed() {
   local waited=0 limit="${DRIVETEST_APP_CLOSE_WAIT:-120}"
   while pgrep -f "platterpus-x86_64.AppImage" >/dev/null 2>&1; do
