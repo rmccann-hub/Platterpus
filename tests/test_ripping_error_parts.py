@@ -65,6 +65,7 @@ def test_the_laps_example_reads_every_part_and_the_total() -> None:
     # Parts not printed are zero: only non-zero parts are printed, and every
     # printed part was recognised.
     assert _values(parts) == {
+        **dict.fromkeys(PART_FIELDS, 0),
         "frame_reads_failed": 28,
         "sectors_failing_edc": 0,
         "paranoia_skips": 28,
@@ -114,6 +115,7 @@ def test_all_five_in_the_promised_order() -> None:
     )
     parts = _parts(line)
     assert _values(parts) == {
+        **dict.fromkeys(PART_FIELDS, 0),
         "frame_reads_failed": 1,
         "sectors_failing_edc": 2,
         "paranoia_skips": 3,

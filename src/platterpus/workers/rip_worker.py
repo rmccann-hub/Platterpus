@@ -236,12 +236,17 @@ _NAMED_PHASES: dict[str, str] = {
 # cyanrip redraws ONE progress line with `\r` (cyanrip_main.c):
 #   "Ripping track 5, progress - 42.37%, ETA - 3m, errors - 0"
 #   "Ripping and encoding track 5, progress - 42.37%"
+#   "Ripping and encoding track 3, progress - 42.00%, rest of rip read once - 3m, errors - 2"
+# The last is `.36`'s, saying what its ETA covers (the fork's round 42 lap 1 S25,
+# accepted in our lap 2 S14; TASKS R193): the same value, under a new name, read
+# into the same `eta` group, and `eta_clause` says which name it came under.
 # Popen(text=True) reads in universal-newlines mode, which translates every
 # bare `\r` to `\n` — so each redraw reaches log_lines() as its own line and
 # these regexes see them one at a time, no extra plumbing.
 _CYANRIP_TRACK_PROGRESS = re.compile(
     r"Ripping(?P<encoding> and encoding)? track (?P<track>\d{1,4}), progress - "
-    r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)%(?:, ETA - (?P<eta>[^,]+))?"
+    r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)%"
+    r"(?:, (?P<eta_clause>ETA|rest of rip read once) - (?P<eta>[^,]+))?"
 )
 # Per-track completion ("Track 5 ripped and encoded successfully!" / "with
 # errors.") — pegs that track's slice of the overall bar.
@@ -590,7 +595,8 @@ _CYANRIP_ETA_VALUE = re.compile(
 # ETA clause from the lines we forward to the log view, or the two would
 # contradict each other on screen (real-user report). Only the ETA clause goes:
 # `, errors - N` follows it (cyanrip@1280aa4:src/cyanrip_main.c:1423-1483).
-_CYANRIP_ETA_CLAUSE = re.compile(r",\s*ETA\s*-[^,]*")
+# `.36` names the same clause `rest of rip read once` (round 42 lap 1 S25).
+_CYANRIP_ETA_CLAUSE = re.compile(r",\s*(?:ETA|rest of rip read once)\s*-[^,]*")
 
 # How long to wait for the ripper to exit on its own once we have stopped reading
 # its output, before escalating to the SIGTERM→SIGKILL group kill.

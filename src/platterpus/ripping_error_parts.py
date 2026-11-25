@@ -88,6 +88,29 @@ _LABELS: Final[dict[str, str]] = {
     "track not finished": "tracks_not_finished",
     "disc lookups failed": "disc_lookups_failed",
     "disc lookup failed": "disc_lookups_failed",
+    # The fork's round 42 lap 1 S14: the same count as `frame reads failed`,
+    # renamed for what it is (a read libcdio reported an error on, whether or not
+    # data came back); our lap 2 S19 reads both names.
+    "frame reads with errors": "frame_reads_failed",
+    "frame read with errors": "frame_reads_failed",
+    # The fork's round 42 lap 1 S12: the complete list, eight parts beyond the
+    # first five, in the order a run reaches them (our lap 2 S19, TASKS R193).
+    "disc IDs not computed": "disc_ids_not_computed",
+    "disc ID not computed": "disc_ids_not_computed",
+    "arguments refused": "arguments_refused",
+    "argument refused": "arguments_refused",
+    "allocations failed": "allocations_failed",
+    "allocation failed": "allocations_failed",
+    "cover art loads failed": "cover_art_loads_failed",
+    "cover art load failed": "cover_art_loads_failed",
+    "cover art writes failed": "cover_art_writes_failed",
+    "cover art write failed": "cover_art_writes_failed",
+    "decoder setups failed": "decoder_setups_failed",
+    "decoder setup failed": "decoder_setups_failed",
+    "encoder setups failed": "encoder_setups_failed",
+    "encoder setup failed": "encoder_setups_failed",
+    "encoders failed": "encoders_failed",
+    "encoder failed": "encoders_failed",
 }
 
 #: The fields, in the order the lap promises to print them.
@@ -97,10 +120,32 @@ PART_FIELDS: Final[tuple[str, ...]] = (
     "paranoia_skips",
     "tracks_not_finished",
     "disc_lookups_failed",
+    "disc_ids_not_computed",
+    "arguments_refused",
+    "allocations_failed",
+    "cover_art_loads_failed",
+    "cover_art_writes_failed",
+    "decoder_setups_failed",
+    "encoder_setups_failed",
+    "encoders_failed",
 )
 
 #: One part: a count of at most a uint64's twenty digits, then a label of
 #: letters and single spaces. A part that does not fit is kept as unknown text.
+#: The parts no drive read caused, which the read-speed ladder must not count as
+#: the drive's (`RipLog.drive_read_errors`). The skips and `encoders_failed` are
+#: taken out there on their own, so they are not listed here.
+NOT_DRIVE_PARTS: Final[tuple[str, ...]] = (
+    "disc_lookups_failed",
+    "disc_ids_not_computed",
+    "arguments_refused",
+    "allocations_failed",
+    "cover_art_loads_failed",
+    "cover_art_writes_failed",
+    "decoder_setups_failed",
+    "encoder_setups_failed",
+)
+
 _PART: Final[re.Pattern[str]] = re.compile(
     r"^(?P<count>\d{1,20})\s{1,4}(?P<label>[A-Za-z](?:[A-Za-z ]{0,78}[A-Za-z])?)$"
 )
@@ -141,6 +186,15 @@ class RippingErrorParts:
     paranoia_skips: int | None = None
     tracks_not_finished: int | None = None
     disc_lookups_failed: int | None = None
+    # The fork's round 42 lap 1 S12: the rest of the complete list (`.36`).
+    disc_ids_not_computed: int | None = None
+    arguments_refused: int | None = None
+    allocations_failed: int | None = None
+    cover_art_loads_failed: int | None = None
+    cover_art_writes_failed: int | None = None
+    decoder_setups_failed: int | None = None
+    encoder_setups_failed: int | None = None
+    encoders_failed: int | None = None
     #: Parts we did not recognise, at most :data:`MAX_UNKNOWN_KEPT` of them.
     unknown: tuple[UnknownPart, ...] = ()
     #: Unknown parts left out of ``unknown`` because it was full; never silent.
@@ -194,13 +248,9 @@ def _read_named(parts_text: str) -> RippingErrorParts:
     values = {name: found.get(name, absent) for name in PART_FIELDS}
     return RippingErrorParts(
         form=FORM_NAMED,
-        frame_reads_failed=values["frame_reads_failed"],
-        sectors_failing_edc=values["sectors_failing_edc"],
-        paranoia_skips=values["paranoia_skips"],
-        tracks_not_finished=values["tracks_not_finished"],
-        disc_lookups_failed=values["disc_lookups_failed"],
         unknown=tuple(unknown),
         unknown_elided=elided,
+        **values,
     )
 
 
