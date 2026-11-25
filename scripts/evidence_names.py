@@ -86,8 +86,61 @@ def skip_reason(rel: str) -> str | None:
     return None
 
 
+#: A ``--run-script`` launch's own bundle (``uiscript/runner.py``) lays its
+#: members out differently from an acceptance session's: the run folder at
+#: ``scriptrun/``, the script's own rip folders at ``scriptrips/`` and the app's
+#: log at ``applog/``. Round 42's Full runs were filed from such a bundle
+#: (2026-11-25), so each prefix is read as the session member it stands for.
+RUN_SCRIPT_LAYOUT: tuple[tuple[str, str], ...] = (
+    ("scriptrun/", "session/run/"),
+    ("scriptrips/", "album/"),
+)
+
+
+def _as_session_member(rel: str) -> str:
+    """``rel`` from a ``--run-script`` bundle, as the session member it stands for."""
+    if rel == "applog/log.txt":
+        return "session/artifacts/0platterpus/log.txt"
+    if m := re.fullmatch(r"applog/log\.txt\.(\d)", rel):
+        return f"session/zz-applog-rotations/0platterpus/log.txt.{m[1]}"
+    for prefix, session in RUN_SCRIPT_LAYOUT:
+        if rel.startswith(prefix):
+            return session + rel[len(prefix) :]
+    return rel
+
+
+#: `drivetest.sh probe`'s upload (`docs/rig-scripts/drivetest.sh`): its log, its
+#: error record, the kernel's drive messages and its records note, first filed
+#: by us for round 42's C2 probe (2026-11-25).
+DRIVETEST_FIXED: dict[str, str] = {
+    "drivetest.log": "drivetest.log",
+    "errors.txt": "errors.txt",
+    "kernel.txt": "kernel.txt",
+    "records/RECORDS.txt": "records.txt",
+}
+
+
+def _probe_member_name(name: str) -> str | None:
+    """A file of the probe's `probe/` folder, in letters, digits and dots.
+
+    A C2 read `t3s251-46892-c2-1.bin.txt` (track 3, second 251, from LBA 46892,
+    read 1) files as `t3s251lba46892read1.bin.txt`, so the name still says what
+    was read; anything else keeps its own name with the other characters dropped.
+    """
+    if m := re.fullmatch(r"(t\d+s\d+|control)-(\d+)-c2-(\d+)(\..+)", name):
+        return f"{m[1]}lba{m[2]}read{m[3]}{m[4]}"
+    cleaned = re.sub(r"[^A-Za-z0-9.]", "", name).lower()
+    return cleaned or None
+
+
 def staged_name(rel: str) -> str | None:
     """The filed name of a bundle member (without prefix), or ``None``."""
+    if rel in DRIVETEST_FIXED:
+        return DRIVETEST_FIXED[rel]
+    if rel.startswith("probe/") and rel.count("/") == 1:
+        inner = _probe_member_name(rel.removeprefix("probe/"))
+        return f"probe{inner}" if inner else None
+    rel = _as_session_member(rel)
     if rel in FIXED:
         return FIXED[rel]
     if m := re.fullmatch(r"session/artifacts/\d+platterpus/log\.txt", rel):

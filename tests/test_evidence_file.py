@@ -378,3 +378,47 @@ def test_stage_leaves_a_skipped_host_in_place(tmp_path: Path) -> None:
     text = staged.read_text(encoding="utf-8")
     assert "vm:PIONEER" in text
     assert "rig1" not in text
+
+
+def test_a_run_script_bundles_members_have_filed_names() -> None:
+    """A `--run-script` launch writes its own bundle, with the run folder at
+    `scriptrun/`, its rip folders at `scriptrips/` and the app log at `applog/`;
+    round 42's Full run of 2026-11-24 was filed from one. Each member is named as
+    the session member it stands for, so the filed names do not depend on which
+    route made the bundle."""
+    from evidence_names import staged_name
+
+    assert staged_name("applog/log.txt") == "platterpusapplog.txt"
+    assert staged_name("applog/log.txt.1") == "platterpusapplog1.txt"
+    assert staged_name("scriptrun/report.json") == "scriptreport.json"
+    assert staged_name("scriptrun/transcript.txt") == "transcript.txt"
+    assert staged_name("scriptrun/tags0791.txt") == "tags0791.txt"
+    assert (
+        staged_name("scriptrun/rig-check/argv-probe.json") == "rigcheckargvprobe.json"
+    )
+    assert staged_name("scriptrips/r16deemphon/Unknown disc (PNTI).log") == (
+        "deemphon.log"
+    )
+    assert staged_name("MANIFEST.txt") == "manifest.txt"
+    # A session bundle's names are unchanged.
+    assert staged_name("session/run/report.json") == "scriptreport.json"
+
+
+def test_the_drive_tests_probe_upload_has_filed_names() -> None:
+    """`drivetest.sh probe`'s upload, filed for round 42's C2 probe: each C2 read
+    keeps track, second, LBA and read number in its name."""
+    from evidence_names import staged_name
+
+    assert staged_name("probe/t3s251-46892-c2-1.bin.txt") == (
+        "probet3s251lba46892read1.bin.txt"
+    )
+    assert staged_name("probe/t5s144-83422-c2-3.bin.noaudio") == (
+        "probet5s144lba83422read3.bin.noaudio"
+    )
+    assert staged_name("probe/control-5000-c2-2.bin.txt") == (
+        "probecontrollba5000read2.bin.txt"
+    )
+    assert staged_name("probe/pairA-strace.txt") == "probepairastrace.txt"
+    assert staged_name("probe/summary.txt") == "probesummary.txt"
+    assert staged_name("drivetest.log") == "drivetest.log"
+    assert staged_name("records/RECORDS.txt") == "records.txt"
