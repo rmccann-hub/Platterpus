@@ -16,6 +16,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 - **The Full acceptance run checks the installation, not only the rips** (user-facing for anyone running it; the owner's word of 2026-11-25: *"it should include everything, not just how the rip runs ... it should be reported"*). A new section S, before the run puts the settings back, asks with the new script verb `expect-installed`: whether the menu entry, the uninstaller's entry and the Desktop icon each launch the installed app (the defect of that day's reinstall); whether the tools setup exports are there; whether the drive has a saved read offset and a cache verdict for its firmware; whether this launch logged any Python traceback; and, as information, what the app recorded as errors and warnings. Its severity is declared in advance as UX: reported as failures, not blocking a version (`docs/testing.md` → *Acceptance severity*).
 
+### Changed
+
+- **`TASKS.md` holds live work only again** (contributor-facing; TASKS R233, the owner's word of 2026-11-25, *"clean up all you can"*). The R table's 142 closed rows, the 2026-11-16 and 2026-10-12 rankings and seven sections with no open row moved unchanged to `docs/archive/tasks-closed-to-2026-11-16.md`; the 103 open rows stay, in number order. The row-number check now reads both files, so a retired number is never reused.
+
 ### Fixed
 
 - **Add app shortcut no longer points the menu entry and Desktop icon at a file that has moved** (user-facing; the owner's reinstall log of 2026-11-25). When the first-run offer had already moved the app from Downloads to `~/Applications`, choosing *Add app shortcut* later in the same session tried to move it again from Downloads, failed, and rewrote both shortcuts to the old Downloads path, where nothing was left to launch. It now follows the file to where it went, and never writes a shortcut to a file that is not there.
