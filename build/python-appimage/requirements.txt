@@ -43,9 +43,7 @@
 PySide6~=6.11.1
 musicbrainzngs==0.7.1
 tomli-w~=1.0
-# The crypto library sigstore's attestation check runs on (update_attestation.py;
-# the minisign gate that imported it directly was removed 2026-11-25, TASKS R239);
-# pinned here to hold its floor on the patched release. Floor is the
+# Ed25519 release-signature verification (update_signing.py). Floor is the
 # CVE-2026-69247 fix (50.0.0); `~=50.0` (>=50.0,<51.0) resolves to the newest
 # patched 50.x. pyproject matches with >=50.0.0,<51 for dev/pipx. The exact
 # bundled version is the one requirements.lock records (see the reproducibility

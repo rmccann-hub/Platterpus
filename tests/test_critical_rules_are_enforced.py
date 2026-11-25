@@ -3344,9 +3344,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # built as. The rules live in the new `update_version_guard.py`; what stays here
     # is the fetch of the attested commit's version file and the refusal, which are
     # steps of this pipeline between the attestation and the swap, on its `.part`.
-    # **407 -> 371** (2026-11-25, TASKS R239): the dormant minisign gate and its
-    # sidecar cap removed, signing never having been armed (KDD-37 D9).
-    "update_install.py": 371,
+    "update_install.py": 407,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.

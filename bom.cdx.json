@@ -259,7 +259,7 @@
       "type": "library",
       "bom-ref": "pypi:cryptography",
       "name": "cryptography",
-      "description": "The crypto library sigstore verifies the update attestation with; pinned to hold its floor on the patched release.",
+      "description": "Ed25519 verification for the minisign path of the updater.",
       "scope": "required",
       "purl": "pkg:pypi/cryptography",
       "properties": [
@@ -269,7 +269,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "not imported directly"
+          "value": "src/platterpus/update_signing.py"
         },
         {
           "name": "platterpus:pin-enforced-in",
@@ -281,7 +281,7 @@
         },
         {
           "name": "platterpus:imported-by",
-          "value": "not imported directly"
+          "value": "src/platterpus/update_signing.py"
         },
         {
           "name": "platterpus:appimage-constraint",
