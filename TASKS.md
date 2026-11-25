@@ -57,9 +57,9 @@ history; this order replaces them.
 *Answered 2026-11-25 (PLANNING KDD-48): R217 yes, more derived formats; R215 no, one drive at
 a time; R52 stays deferred.*
 
-1. **R236** (one home for the `CLAUDE.md` snapshots, which touches locked pointers) and
-2. **R239** (archive the signing ritual; whether its dormant code goes too).
-3. **Rig time, one short session**: the fork's HW-20 (a trace of the lone `cyanrip -I -N` read
+*R236 and R239, answered 2026-11-25: "do it" to both; R239 is done, R236 below.*
+
+1. **Rig time, one short session**: the fork's HW-20 (a trace of the lone `cyanrip -I -N` read
    that hangs after `Opening drive...`), R53 (the automatic cache check), R96 (KWin dialog
    stacking); later, a drive AccurateRip does not list for R150 and R151, and a second
    machine and distro for 0.8.1's gate.
@@ -87,7 +87,7 @@ a time; R52 stays deferred.*
    old rip), R202 (say HDCD), R203 (a de-emphasised playback copy), R205 (hear the unsure
    positions).
 10. **File organization (the 2026-11-25 review):** R243 next; R233, R234, R235, R237, R238,
-    R240, R241, R232 planned, smallest first; R236 and R239 wait on the owner; R242 only if
+    R240, R241, R232 planned, smallest first; R239 done and R236 under way on the owner's word; R242 only if
     touched anyway. Safe fixes already made: the index's stale facts, the KDD-47 banners, a
     duplicated list here, `build/.gitkeep` removed, `tests/data/` folded into `tests/fixtures/`,
     the layer table in `docs/architecture.md` §2.
@@ -389,7 +389,7 @@ with the approval record moved to round 32. 0.7.105 is the first release that in
 | R236 | [?] **One home for the verbatim `CLAUDE.md` snapshots.** Two generations (2026-09-26 at `f5305a7`, 2026-11-16 at `3e2f194a`) sit in seven files, e.g. the threading rules in `docs/architecture.md` §3.2 and §3.14. Keep the text `CLAUDE.md` points to; delete an older block only after diffing it against its successor, since some carry incident text the successor lacks. **Needs the owner's confirmation**: `CLAUDE.md`'s locked pointers name §3.14, §6.5, PLANNING §9 and handshake §7.7n and §7.7o. Medium. Owner (the 2026-11-25 organization review) |
 | R237 | [ ] **Split `CHANGELOG.md`** (20,208 lines, 1.7 MB): 0.7.x stays, 0.1 to 0.6 move to `docs/archive/` with their compare links, as the fork did. Check every test and script that reads it for history (`test_no_stale_version_claims.py`, `test_no_previous_ripper_in_live_text.py`, the disc-writing word test, `test_documented_ripper_flags_are_real.py`, `test_handshake_tooling.py`, `scripts/handshake.py`); `release.yml` reads only `[Unreleased]` and the new version. Medium. Planned (the 2026-11-25 organization review) |
 | R238 | [ ] **`docs/testing.md` §5 in label order with an index table at its head; §5C to the archive.** About 3,600 lines of cases in no order, cited 321 times by label and spelled two ways (`§5.x` in 45 of 63); citations are by label, so reordering breaks none. §5C, the 2026-08-28 lesson-to-gate audit, moves to `docs/archive/` with a graduation-map row. Medium, text only. Planned (the 2026-11-25 organization review) |
-| R239 | [?] **Archive `docs/architecture.md` §6.2, the release-signing ritual, for signing that is never armed** (KDD-37 D9), leaving a short note; whether `update_signing.py` and its updater branch go too is the owner's call, being code. Small. Owner (the 2026-11-25 organization review) |
+| R239 | **[x] Done 2026-11-25 on the owner's word** (*"R239 ... do it"*, with the code left to our call): §6.2's ritual moved unchanged to `docs/archive/release-signing-ritual-2026-11-25.md`, §6.2 now says what protects an update; `update_signing.py`, the updater's dormant gate and their tests removed (one test kept: the updater never requests a `.minisig`); `cryptography` kept as a pinned constraint because `sigstore` runs on it (DEPENDENCIES.md log, 2026-11-25); KDD-26 and KDD-37 D9 amended. *Was:* [?] Archive §6.2, the release-signing ritual, for signing that is never armed (KDD-37 D9) (the 2026-11-25 organization review) |
 | R240 | [ ] **Decide `data/`**: its AppStream metainfo file is used by no build or test. Either move it beside the `.desktop` in `build/python-appimage/`, wire it into the AppImage and validate it with `appstreamcli validate` (build and inspect first: whether python-appimage picks it up on its own is unknown), or retire it. Small. Planned (the 2026-11-25 organization review) |
 | R241 | [ ] **Retire the superseded colon kit in `scripts/cyanrip/`** (`setup-fork.sh`, `apply-colon-fix.py`, `issue-colon.md`, `pr-colon.md`, `verify-meta-colon.c`; `build.sh` if the wizard replaced it). First move `UPSTREAM_URL`'s source out of `setup-fork.sh` (`scripts/bommap/ripper_entries.py:40` reads it) and rerun `scripts/emit_bom.py`; then `tests/test_cyanrip_colon_patcher.py`, `tests/test_audit_regressions.py`, the `docs/cyanrip-fork.md` Part B links, `docs/README.md` and `PLANNING.md`. Medium. Planned (the 2026-11-25 organization review) |
 | R242 | [ ] **Only if touched anyway:** `docs/rig-scripts/*.sh` to `scripts/rig/` (the operator's documented path changes, so announce it in a lap); split `tests/test_ui_main_window.py` (15,493 lines) along the mixins; `docs/test-plan.md` Part B links to `output_reference/README.md` for the per-track CRC table instead of restating it (check no test reads it there first). Low value. Planned (the 2026-11-25 organization review) |

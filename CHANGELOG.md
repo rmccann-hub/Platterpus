@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Removed
+
+- **The dormant update-signing code** (contributor-facing; no change for users; TASKS R239, on the owner's word). Signing was never armed (PLANNING.md KDD-37, D9), so `update_signing.py`, the updater's signature gate that never ran, and their tests are gone; a test keeps the one behaviour that matters, that the updater never asks for a `.minisig`. What protects an update is unchanged: the release's build attestation, checked fail-closed. The maintainer's signing ritual moved from `docs/architecture.md` §6.2 to `docs/archive/release-signing-ritual-2026-11-25.md`. `cryptography` still ships and stays pinned, because `sigstore` verifies the attestation with it.
+
 ### Changed
 
 - **The 2026-11-25 audit: EAC parity re-read against round 42, every open task, and seventeen other rippers** (contributor-facing; the owner's request of 2026-11-25). `docs/eac-parity.md` gains Part H: round 42's result (14 of 14 whole-disc rips shipped every track AccurateRip-verified), twelve claims the code or the logs contradict and their corrections, one label for each capability that had several, the EAC features the file had not graded, a survey of other rippers with its feature matrix and sources, and a decision with its reason for every feature found, including those we skip. Part F's yardstick has 13 rows corrected. `TASKS.md` closes 8 R rows and 31 older rows as done, stale or duplicated, adds R201 to R231, records the owner's answers to three of them (PLANNING KDD-48: more derived formats yes, two drives no, AccurateRip submission still deferred), and replaces the 2026-11-16 order with a new one; `docs/cyanrip-fork.md` Part C gains §7, the asks for the fork; `docs/ux-design-principles.md` records gap 6 shipped and gap 3's parser half, and links the open WCAG items to R224 and R225; the status block's open items are brought up to date.
