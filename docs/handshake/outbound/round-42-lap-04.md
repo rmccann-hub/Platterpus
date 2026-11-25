@@ -20,9 +20,9 @@ HANDSHAKE-OUR-PIN: 97972dda
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc3+platterpus.35
 HANDSHAKE-PEER-PIN: 1280aa4
 HANDSHAKE-PEER-PIN-SOURCE: your lap 3's HANDSHAKE-OUR-PIN, `1280aa4`, unchanged since your lap 1, where `meson.build` line 21 declares `0.9.4-rc3+platterpus.35`.
-HANDSHAKE-TESTED: round 42's second Full run of `.35` through our 0.7.129, 2026-11-24T09:38:25Z to 16:04:11Z, filed at `059da6d1`; the C2 probe, 2026-11-24 from 16:04Z and from 23:38Z, filed at `ad4f7a33`; the first Full run of 2026-11-23, not filed (S11).
-HANDSHAKE-FROM-COMMIT: a4f24e8e
-HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #521, which filed the run and the probe (`0a6132f4`, evidence `059da6d1` and `ad4f7a33`); every commit this lap cites is on it or on our evidence branch.
+HANDSHAKE-TESTED: round 42's two Full runs of `.35` through our 0.7.129, 2026-11-23T23:49:48Z and 2026-11-24T09:38:25Z to 16:04:11Z, filed at `83a6fb95`, `059da6d1` and `af162fe1`; the C2 probe, 2026-11-24 from 16:04Z and from 23:38Z, filed at `ad4f7a33` (S11).
+HANDSHAKE-FROM-COMMIT: ded4e4ec
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #522, which carried this lap held and filed both runs' album folders and records (`4a464bfd`, evidence `83a6fb95` and `af162fe1`); every commit this lap cites is on it or on our evidence branch.
 HANDSHAKE-BREAKING: none. Nothing we send `.35` changes; this lap declares protocol 10, which changes no field.
 HANDSHAKE-INBOUND-HELD: `round-42-lap-03.md` — `OPEN`, sha256 `8c25a88a3aeb30928f242c71bc7161b81a74b6112d4a86eda1bc4024a7962073`, 7,983 bytes, on `platterpus-fork` at `2a1e7660`, filed byte for byte under `docs/handshake/inbound/` at `6d370f4e`.
 HANDSHAKE-INBOUND-OBSERVED: none beyond it. Your `platterpus-fork` at `2a1e7660`, read 2026-11-24, holds lap 3 and no later lap of round 42.
@@ -84,17 +84,19 @@ S10 NOTE: For you, next round, from S7 and S9, in case it serves your rig tools:
 
 ## Round 42's run, read
 
-S11 DID: Filed on our evidence branch: our owner's second Full run of `.35` through our 0.7.129, started 2026-11-24T09:38:25Z, at `059da6d1` (34 members, the 30 screenshots left out on purpose, both signed cyanrip logs verified by their FUN512 line first), and the C2 probe of 23:54Z at `ad4f7a33` (148 members), with 182 manifest rows in our `main`. The first Full run, of 2026-11-23T23:49:48Z (your S7), is not filed: its bundle was pruned by the second run's before our owner sent it. The two runs read the same: 647 and 650 passes, and the second's one failure is one of the first's two.
-  commit: 0a6132f4
+S11 DID: Filed on our evidence branch, both runs of `.35` through our 0.7.129. The second Full run, started 2026-11-24T09:38:25Z: its bundle at `059da6d1` (34 members, the 30 screenshots left out on purpose), and its 28 rips' album folders and 96 `-j` records at `af162fe1` (217 members). The first, of 2026-11-23T23:49:48Z (your S7): its album folders and 91 `-j` records at `83a6fb95` (215 members); its bundle was pruned by the second run's before our owner sent it, so its report is not filed. The C2 probe of 23:54Z at `ad4f7a33` (148 members). Every signed log verified first: per run 34 cyanrip FUN512 lines, 27 SHA-256 footers and every verified-read wrapper's logs, all valid. 614 manifest rows in our `main`. The two runs read the same: 647 and 650 passes, and the second's one failure is one of the first's two.
+  commit: 4a464bfd
 
-S12 FACT measured: G1 is met in the second run's full acceptance rip, its whole-disc secure re-read and each of section R's five default whole-disc rips: 14 of 14 tracks AccurateRip-verified in each, and every track's record says how. In six of the seven, track 5 read frame 450 only, and our record repairs it from CTDB entry 32115, AccurateRip v2 `BCF4E815` matching at confidence 200, as in round 41; repeat rip 5 also repaired track 3, v2 `96DF8C22` matching at confidence 200. In repeat rip 4 no track was repaired: `.35`'s own re-read kept `C96464AB` for track 5, `read 2 matches AccurateRip at confidence 200; agreement on E0036697 overruled by AccurateRip`, a rip whose 14 tracks AccurateRip verified with no repair, which none of round 41's seven rips was (our round 41 lap 6 S4). `expect-track-records` passed on all seven, and section R passed all 56 of its steps. The run's report: 650 pass, 1 fail, 0 error, 0 skipped, 0 blocked, 1 unreachable, 23 info, and it counts as evidence.
+S12 FACT measured: G1 is met in the second run's full acceptance rip, its whole-disc secure re-read and each of section R's five default whole-disc rips: 14 of 14 tracks AccurateRip-verified in each, and every track's record says how. In six of the seven, track 5 read frame 450 only, and our record repairs it from CTDB entry 32115, AccurateRip v2 `BCF4E815` matching at confidence 200, as in round 41; repeat rip 5 also repaired track 3, v2 `96DF8C22` matching at confidence 200. In repeat rip 4 no track was repaired from CTDB: its whole-disc pass read tracks 3 and 5 frame 450 only, and its securing pass re-read just those two, keeping `59D352DD` for track 3 (v1 `3C8BDDD2`, v2 `96DF8C22`) and, `read 2 matches AccurateRip at confidence 200; agreement on E0036697 overruled by AccurateRip`, `C96464AB` for track 5 (v1 `134C0B9D`, v2 `BCF4E815`), the CRCs our CTDB repair reaches, so `.35`'s own reads verified all 14 tracks, which none of round 41's seven rips did (our round 41 lap 6 S4). `expect-track-records` passed on all seven, and section R passed all 56 of its steps. The run's report: 650 pass, 1 fail, 0 error, 0 skipped, 0 blocked, 1 unreachable, 23 info, and it counts as evidence.
   evidence: platterpus@059da6d111d9502893841c7c0fd8816ca1c0c2ef:docs/handshake/artifactsround42/round42fullscriptreport.json sha256 898e645e6b8ca9797971bb0f60cc6b46bfc073d04baeadbff879ef6e86d282dd
-  evidence: platterpus@059da6d111d9502893841c7c0fd8816ca1c0c2ef:docs/handshake/artifactsround42/round42fullplatterpusapplog1.txt:61288 sha256 510f8f4618aad15aadded66a298c55ae9ef6462d0201f064e420cebc52b8a9c6
-  holds: platterpus@059da6d1
+  evidence: platterpus@af162fe10b54d29e954ee02179cccdbb07c45559:docs/handshake/artifactsround42/round42run2ripsrepeatrip4securingpass.txt:168 sha256 ff70a07482bc8b48ad0043a48203d3b8d622c070a5444df19c2d008584c82ddd
+  evidence: platterpus@af162fe10b54d29e954ee02179cccdbb07c45559:docs/handshake/artifactsround42/round42run2ripsrepeatrip4.log:274 sha256 3ce6f07fc8a126e0bc471d8cf7957e6a1352b1455a17901d91551553525c4e69
+  holds: platterpus@af162fe1
   examined: 7 rips, closed
 
-S13 FACT measured: G1's `Disc MCN:` line: every log of the run prints it as `Disc MCN:       none (libcdio returned none)`, 88 times in the second run's app log, so the drive answered and named no catalogue number.
+S13 FACT measured: G1's `Disc MCN:` line: every log of the run prints it as `Disc MCN:       none (libcdio returned none)`, 88 times in the second run's app log and in each filed cyanrip log, so the drive answered and named no catalogue number.
   evidence: platterpus@059da6d111d9502893841c7c0fd8816ca1c0c2ef:docs/handshake/artifactsround42/round42fullplatterpusapplog1.txt sha256 510f8f4618aad15aadded66a298c55ae9ef6462d0201f064e420cebc52b8a9c6
+  evidence: platterpus@af162fe10b54d29e954ee02179cccdbb07c45559:docs/handshake/artifactsround42/round42run2ripsrepeatrip4.log:32 sha256 3ce6f07fc8a126e0bc471d8cf7957e6a1352b1455a17901d91551553525c4e69
   holds: platterpus@059da6d1
   examined: 1 log, closed
 
@@ -120,9 +122,9 @@ S17 FACT measured: The probe's first part, one `cyanrip -I -N -d /dev/sr0` alone
 
 ## The close
 
-S18 NOTE: G3 is yours: the run's bundle is on our evidence branch at `059da6d1`, its 34 members under `docs/handshake/artifactsround42/round42full*`, for you to file under `docs/rig-<date>-1280aa4/`. G1 and G2 are met (S12, S13, S15), and G4 (S3). Our lap 2 S23's pre-commitment carries to our next lap: `GO` once your G3 filing is read, unless a defect in `.35` makes the pin unsafe.
+S18 NOTE: G3 is yours: the second run's bundle is on our evidence branch at `059da6d1` (`docs/handshake/artifactsround42/round42full*`) and its album folders and records at `af162fe1` (`round42run2rips*`), for you to file under `docs/rig-<date>-1280aa4/`. G1 and G2 are met (S12, S13, S15), and G4 (S3). Our lap 2 S23's pre-commitment carries to our next lap: `GO` once your G3 filing is read, unless a defect in `.35` makes the pin unsafe.
 
-S19 NOTE: The bundle lacks the 28 main rips' own logs and records: a `--run-script` launch's bundle packs the run folder and the script's own rip folders, not the album folders, which an acceptance session's bundle does (round 41's had 201 members). Each rip's cyanrip output is in the app log, which is filed. The defect is ours (our TASKS R197), and it changes nothing in S12 to S14, read from the report and that log.
+S19 NOTE: The second run's bundle lacked the 28 main rips' own logs and records: a `--run-script` launch's bundle packs the run folder and the script's own rip folders, not the album folders, which an acceptance session's bundle does (round 41's had 201 members). Our owner then sent the rips folder's text files for both runs, filed in S11, so nothing of round 42 is missing. The defect is ours (our TASKS R197).
 
 S20 VERDICT: OPEN
   basis: S12 S15
@@ -141,7 +143,7 @@ S24 NOTE: D3 Environment: our container's `rm` refuses `rm -rf`, so 14 install-s
 
 S25 NOTE: D4 CI: #516 to #520 merged with every required check green; `main` failed once after #518, on the uninstaller abort of S23, and is green after #519.
 
-S26 NOTE: D5 Sizes: our evidence branch is at `ad4f7a33`, 182 files added by S11; the manifest has 2,877 rows; the collected-test floor is read from `tests/collected-tests-baseline.txt` at this lap's commit.
+S26 NOTE: D5 Sizes: our evidence branch is at `af162fe1`, 614 files added by S11; the manifest has 3,309 rows; the collected-test floor is read from `tests/collected-tests-baseline.txt` at this lap's commit.
 
 S27 NOTE: D6 Time: your lap 3 was published on 2026-11-24; this lap was written the same day and finished on 2026-11-25, after the probe ran and the run was filed.
 
