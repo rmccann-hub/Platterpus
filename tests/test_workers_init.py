@@ -296,3 +296,25 @@ def test_no_test_polls_a_self_deleting_thread_with_a_bare_is_running() -> None:
         "wired finished → deleteLater can be destroyed inside the pump:\n"
         + "\n".join(offenders)
     )
+
+
+def test_stopping_a_thread_qt_already_destroyed_is_quiet(
+    qapp: QApplication, caplog: pytest.LogCaptureFixture
+) -> None:
+    """REGRESSION (the owner's log, 2026-11-25): the uninstaller keeps its finished
+    job's thread until it stops it (R196), Qt has deleted it by then, and
+    `stop_thread` logged "stop_thread failed; ignored" with a traceback, twice. A
+    destroyed thread is a stopped one: nothing to do, and nothing at ERROR."""
+    import logging
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    thread = QThread()
+    thread.deleteLater()
+    QCoreApplication.sendPostedEvents(thread, QEvent.Type.DeferredDelete)
+    with pytest.raises(RuntimeError):
+        thread.isRunning()  # really destroyed, so the next line proves something
+
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers"):
+        stop_thread(thread)
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]

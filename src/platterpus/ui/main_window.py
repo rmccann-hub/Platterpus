@@ -1599,6 +1599,8 @@ class MainWindow(
                 "the tray — click “Rescan disc” to try again."
             )
             return
+        # No ripper installed yet: setup reads this disc again when it is.
+        self._disc_waits_for_ripper = device if "binary not found" in message else ""
         if "timed out" in message:
             # The reader may still be wedged inside the container — free it.
             self._free_drive_for_scan("auto")

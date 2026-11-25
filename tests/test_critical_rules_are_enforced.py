@@ -1375,7 +1375,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # app-id the file is named for. A guessed string here fails silently -- the
     # pin simply stays dark -- so the derivation is worth more than the line.
     # **349 -> 352** (2026-10-27, external review item 3.4): `gio` is launched by the path `which` found, not its bare name (ruff S607).
-    "appimage_integration.py": 352,
+    # **352 -> 364** (2026-11-25, the owner's reinstall log): a path the app already moved is followed, and no shortcut is written to a missing file.
+    "appimage_integration.py": 364,
     # **753 -> 784 on 2026-09-18**: the paired `integration_declined_version` field and the note recording why the path-only key reproduced the bug it replaced.
     # **784 -> 806 (2026-09-23)**: `APP_STATE_FIELDS`, the one list of fields the app
     # writes for itself, which Settings carries over and the acceptance restore
@@ -2705,7 +2706,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1887 -> 1941** (2026-11-23, UX review of 0.7.127 M1/M2, TASKS R179): `_PANE_SHARES` 0.20/0.30/0.50 -> 0.00/0.60/0.40 with its reasoning, the disc panel's floor read by height-for-width (`_panel_height`), `_on_disc_details_toggled` (the splitter gives the panel its new height from the track list), and the one connection that hands the rip pane's per-track cells to the one track table.
     # **1941 -> 1945** (2026-11-23, R181 follow-up): `_finished_line`, the finished rip's status line and its inputs, kept so a confirmed CTDB repair can rebuild it.
     # **1945 -> 1937** (2026-11-23, TASKS R188, merged onto the above): lowered: Tools → Advanced holds one Run tests… item where it held two acceptance items; the mixin it opens is `main_window_run_tests.py`.
-    "ui/main_window.py": 1937,
+    # **1937 -> 1939** (2026-11-25, the owner's reinstall log): a disc read that failed for want of the ripper is remembered.
+    "ui/main_window.py": 1939,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2829,7 +2831,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1936 -> 1978** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the question is titled apart from the wizard, records its answer for the held launch report and, after No, shows the in-window notice; a finished setup run is counted and drops an automatic cyanrip offer worked out before it.
     # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
     # **2008 -> 2020** (2026-11-23, TASKS R188): `run_acceptance_session` takes the chosen test (its file or its text, its name and blocks) and hands the name to the console; the two old menu slots went. The screen's opener is `main_window_run_tests.py`, not here.
-    "ui/main_window_provision.py": 2018,
+    # **2018 -> 2030** (2026-11-25, the owner's reinstall log): setup reads that disc again once the ripper is installed.
+    "ui/main_window_provision.py": 2030,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2992,7 +2995,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **575 -> 576** (2026-11-17, follow-up to UX review F1: No holds on later launches): the seam declares `_first_run_question_pending` and `_setup_tools_found`.
     # **576 -> 578** (2026-11-17, UX review of 0.7.127, TASKS R182): two cross-mixin stubs for the empty-state line, `_sync_no_drive_notice` and `_setup_notice_shown`.
     # **578 -> 581** (2026-11-23, R181 follow-up): `_finished_line` declared, which the CTDB-repair mixin reads.
-    "ui/main_window_shared.py": 581,
+    # **581 -> 583** (2026-11-25, the owner's reinstall log): the seam declares `_disc_waits_for_ripper` and `_on_drive_changed`.
+    "ui/main_window_shared.py": 583,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

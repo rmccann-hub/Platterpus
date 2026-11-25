@@ -88,6 +88,14 @@ def relocate_to_applications(
     except OSError:
         return appimage
     target = applications_dir / appimage.name
+    if not appimage.exists() and target.exists():
+        # Already moved, earlier in this session: ``$APPIMAGE`` keeps naming
+        # the path the app was launched from. Returning the old path here wrote
+        # a menu entry and a Desktop icon pointing at a file that was gone (the
+        # owner's log, 2026-11-25: the first-run offer moved it at 14:27, and
+        # *Add app shortcut* at 14:30 pointed both shortcuts back at Downloads).
+        log.info("AppImage already moved to %s earlier; using that", target)
+        return target
     try:
         applications_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(str(appimage), str(target))
@@ -264,6 +272,10 @@ def integrate(
     icon dir when found, drops a clickable icon in the Desktop folder (when one
     exists), and refreshes the menu caches.
     """
+    if not appimage.is_file():
+        # Never write a shortcut to a file that is not there: the menu entry and
+        # Desktop icon would launch nothing. The callers show "couldn't add".
+        raise FileNotFoundError(f"no AppImage at {appimage}; no shortcut written")
     desktop_dir.mkdir(parents=True, exist_ok=True)
     icon_dir.mkdir(parents=True, exist_ok=True)
 

@@ -14,6 +14,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Add app shortcut no longer points the menu entry and Desktop icon at a file that has moved** (user-facing; the owner's reinstall log of 2026-11-25). When the first-run offer had already moved the app from Downloads to `~/Applications`, choosing *Add app shortcut* later in the same session tried to move it again from Downloads, failed, and rewrote both shortcuts to the old Downloads path, where nothing was left to launch. It now follows the file to where it went, and never writes a shortcut to a file that is not there.
+- **After setup installs the ripper, a disc that could not be read for lack of it is read again** (user-facing; same log). On a first start after an uninstall, the disc read failed because cyanrip was not installed yet, and the window kept that failure after setup finished. Other discs are still left alone after a setup run, as before.
+- **Closing the uninstaller no longer logs "stop_thread failed" with a traceback** (contributor-facing; same log). A finished job's thread has already been deleted by Qt when the dialog stops it, and a deleted thread is a stopped one.
 - **Analyze cache no longer starts while the disc is still being read, and a cut-off cache check says so** (user-facing; the owner's log of 2026-11-25). Pressed during a disc read, the cache check ran as a second program reading the drive; the read slowed past its five-minute limit, and freeing the drive afterwards killed the cache check too, after which the window said cd-paranoia "didn't report a cache verdict we recognise". Now a press while the drive is busy waits and starts by itself when the read finishes, and a check that is killed before it finishes says it was stopped, that nothing was measured, and that the drive's saved result is unchanged (it always was: an unknown result never overwrites a saved one).
 
 ### Changed
