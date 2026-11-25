@@ -12,6 +12,7 @@ from platterpus.cancel_cause import CancelledByBlock
 from platterpus.disc_identity import DiscIdentityBlock
 from platterpus.disc_mcn import DiscMcnBlock
 from platterpus.other_reads import OtherReadsBlock
+from platterpus.parsers.pregap_peak import PregapPeakBlock
 from platterpus.pregap_search import PregapSearchBlock
 from platterpus.read_offset_check import ReadOffsetCheckBlock
 from platterpus.record_drive_declared import DriveDeclaredBlock
@@ -820,6 +821,9 @@ class TrackBlock(TypedDict):
     #: state is `read`, `unrecognised` or `not_present` (`kept_read.STATES`).
     kept_read_began: str | None
     kept_read_began_state: str
+    #: v48: the fork's proposed `Pregap sample peak:` row (`parsers/pregap_peak.py`,
+    #: TASKS R227), on track 1; `state` is `not_present` on every build so far.
+    pregap_peak: PregapPeakBlock
     appended_silence_frames: int | None
     #: v34: a data track's CRC32 and `Sector EDC:` verdict, verbatim (`.23`+).
     #: Kept apart from `copy_crc`, which is an audio track's EAC CRC.
