@@ -57,10 +57,10 @@ pieces independently testable and replaceable.
 | **UI** | `ui/` | Qt widgets, dialogs, the main window. *No business logic, no blocking I/O.* | workers, adapters, parsers, deps, config |
 | **Workers** | `workers/` | `QObject`s that run slow work (network, subprocess) off the GUI thread and emit results as signals. | adapters, parsers |
 | **Adapters** | `adapters/` | The *only* code that talks to an external tool/service (cyanrip, metaflac, MusicBrainz, Cover Art Archive, CTDB, AccurateRip). Thin, swappable. | parsers, stdlib |
-| **Parsers** | `parsers/` | Turn external tool output (rip logs, disc info) into typed dataclasses. Pure, never raise. | stdlib only |
+| **Parsers** | `parsers/` | Turn external tool output (rip logs, disc info) into typed dataclasses. Pure, never raise. | stdlib, and the Qt-free line readers and value types at the top level (`safe_int`, `disc_mcn`, `pregap_search`, …); never Qt. *2026-11-25 audit: those line readers belong in `parsers/`, TASKS R232* |
 | **Deps** | `deps/` | The single dependency self-management subsystem (detect → install → guide) and the host bootstrap/teardown engines. | adapters, stdlib |
 | **Domain** | `ctdb/` | Backend-independent CTDB verify (TOC math, PCM decode, CRC). | adapters, stdlib |
-| **Qt-free domain modules** | ~80 top-level modules (`verdict.py`, `rip_report.py`, `parity.py`, `rip_compare.py`, `naming.py`, `settings_validation.py`, …) | One pure, Qt-free concern each (verdicts, reports, parity, naming, validation, timing, …). **The canonical per-module map is PLANNING.md §2** — look there, not here, for what each does. | parsers, adapters, stdlib |
+| **Qt-free domain modules** | The flat top level, 148 modules on 2026-11-25 (`verdict.py`, `rip_report.py`, `parity.py`, `rip_compare.py`, `naming.py`, `settings_validation.py`, …) | One pure, Qt-free concern each (verdicts, reports, parity, naming, validation, timing, …). **The canonical per-module map is PLANNING.md §2** — look there, not here, for what each does. | parsers, adapters, stdlib |
 | **Core** | `config.py`, `paths.py`, `logging_setup.py`, `app.py`, `composition.py` | Config schema, well-known paths, app entry, and the composition root. | everything (composition) |
 
 `app.py` is the **composition root**, with the reusable construction logic in

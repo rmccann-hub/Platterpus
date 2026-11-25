@@ -87,8 +87,11 @@ _LITERALS: Final[dict[str, tuple[int, str]]] = {
         " quoted verbatim",
     ),
     "docs/eac-parity.md": (
-        5,
-        "third-party logchecker file names, a verbatim code quote, a citation URL",
+        20,
+        "third-party logchecker file names, a verbatim code quote, a citation URL;"
+        " and from 2026-11-25 (+15), Part H's survey of other rippers, which"
+        " compares that program as a third-party ripper among seventeen (its"
+        " matrix rows and the features it has), not as our backend",
     ),
     # --- Real artifacts, kept verbatim --------------------------------------
     "tests/fixtures/rip_log_legacy_format.log": (

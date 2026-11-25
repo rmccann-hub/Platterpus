@@ -23,7 +23,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Manual & release testing (acceptance run + gated cases + tester matrices) | `docs/test-plan.md` |
 | Every hardware test still outstanding, as a fillable run sheet | `docs/test-plan.md` → *Hardware test checklist* |
 | The current rig session — what to WATCH on screen, plus one script | `docs/rig-session.md` |
-| What ships in the next release, and what is gated on hardware | `TASKS.md` → its top section, *every open row, ranked*, whose R rows carry the open round, if any (`scripts/handshake.py --status` is the authority, and none is open from round 40's close on 2026-11-16) |
+| What ships in the next release, and what is gated on hardware | `TASKS.md` → its top section, *every open row, ranked*, whose R rows carry the open round, if any (`scripts/handshake.py --status` is the authority; none is open from round 42's close on 2026-11-25 until the fork opens round 43) |
 | How a failure becomes something a person can act on (error reporting) | `docs/architecture.md` §3.7 + §3.7a; the recipe is §4 *Add a failure path* |
 | AppImage build/test procedure, and the release-signing ritual | `docs/architecture.md` §6.1 / §6.2 |
 | Withdrawing a bad release: GitHub, PyPI, `install.sh`, the ripper pin | `docs/architecture.md` §6.4 |
@@ -85,7 +85,7 @@ These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.
 | [`archive/mp3-wav-support-2026-06.md`](archive/mp3-wav-support-2026-06.md) | **Design-of-record for multi-format output (SHIPPED 2026-06-26, KDD-22; archived 2026-08-06):** the FLAC-master + WavPack/MP3/WAV-derived model, per-format parity semantics, the verified encoder args (FLAC `-8 -e -p`, MP3 VBR `-V0`, WavPack lossless) and the transcode-always decision. Flipped Critical Rule #4 (FLAC is now the default/master, not the only format). Indexed here rather than only in `archive/README.md` because `src/platterpus/adapters/transcode.py`, `config.py` and the user README all cite it by name for the encoder-argument rationale. Its **one open item** — embedding cover art inside a `.wv`, which needs the standalone `wavpack` tool — was graduated to `TASKS.md` P2 when it was archived. |
 | [`archive/audit-2026-07-21.md`](archive/audit-2026-07-21.md) | **Point-in-time documentation-audit record (2026-07-21):** the full-docs audit (239 findings) — the systemic patterns, the before→after doc map, and the open questions; its consolidation plan was carried out under `TASKS.md` → *P1 — Documentation backlog*, every item of which is `[x]` (found finished 2026-10-12). |
 | [`archive/ux-review-2026-11-17.md`](archive/ux-review-2026-11-17.md) | **Point-in-time UX review (2026-11-17):** the end-user review of 0.7.127 the claude-code-skills session ran, filed verbatim; its findings are `TASKS.md` R178 to R187. |
-| [`archive/`](archive/README.md) | Retired point-in-time investigations (ecosystem audit, read-offset, upstream-modification/CTDB spec, the 2026-07-02, 2026-07-08 trust, 2026-07-21 and 2026-09-28 config audits, the multi-format design), the five **superseded rig-session sheets**, **plus external reference material** (the EAC archival master guide). Their durable conclusions have graduated into KDDs / DEPENDENCIES / adapter comments — see `archive/README.md` for the map. |
+| [`archive/`](archive/README.md) | Retired point-in-time investigations (ecosystem audit, read-offset, upstream-modification/CTDB spec, the 2026-07-02, 2026-07-08 trust, 2026-07-21 and 2026-09-28 config audits, the multi-format design), the seven **superseded rig-session sheets**, **plus external reference material** (the EAC archival master guide). Their durable conclusions have graduated into KDDs / DEPENDENCIES / adapter comments — see `archive/README.md` for the map. |
 
 ## Where the rest of the project context lives
 
@@ -94,7 +94,7 @@ Outside this directory:
 | File | What it covers |
 |---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
-| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-47) |
+| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-48) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist, live work only — opens with the 2026-11-16 ranking of every open row and the R-table, then every dated section that still holds an open row, the open part of P1, P2 (future), Out of scope. Every closed section and row up to 2026-11-16 (the closed rounds, dated runs, superseded rankings, P0 T01-T32) is in [`archive/tasks-closed-to-2026-11-16.md`](archive/tasks-closed-to-2026-11-16.md) |
 | [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log, and *The full map*: the generated human-readable copy of [`../bom.cdx.json`](../bom.cdx.json), the CycloneDX bill of materials of everything the project has or relies on (`python3 scripts/emit_bom.py`) |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |
@@ -167,4 +167,4 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 ---
 
-*Last updated for Platterpus v0.7.129.*
+*Last updated for Platterpus v0.7.130.*

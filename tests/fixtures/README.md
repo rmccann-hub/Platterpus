@@ -30,7 +30,7 @@ regenerate the affected tests (as the T32 smoke test did in 2026-05).
 
 **The hardware parity baseline** (a real EAC V1.8 rip of the maintainer's
 Police disc) lives in `output_reference/EAC_flac/`; `output_reference/README.md`
-+ that directory's own README are the canonical account (provenance, rip
+(that directory has no README of its own) is the canonical account (provenance, rip
 settings, and the disc's known track-3/track-5 quirks). One warning repeated
 here because it bites tests directly: the log is stored in EAC's **native
 UTF-16/CRLF** — read it via `platterpus.parity.decode_log_bytes`, never
@@ -166,7 +166,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.7.129.*
+*Last updated for Platterpus v0.7.130.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 
