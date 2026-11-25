@@ -52,6 +52,7 @@ from platterpus.handshake_approval import (
 from platterpus.isrc_provenance import findings as isrc_findings
 from platterpus.kept_read import NOT_PRESENT as KEPT_READ_NOT_PRESENT
 from platterpus.paranoia_scope import counts_block
+from platterpus.parsers import pregap_peak
 from platterpus.parsers.rip_log import (
     DRIVE_FACT_NOT_PRESENT,
     RECORDABLE_CDRW,
@@ -805,7 +806,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      line), with `value` and `reason` null where empty. Today's builds print
 #      the row only when the disc has an MCN; the fork prints it always, with a
 #      reason, from the first build after a release of ours that reads it.
-REPORT_SCHEMA_VERSION: int = 47
+# v48: `tracks[].pregap_peak` (TASKS R227; the fork's round 36 lap 1 S17, its
+#      wording offered again in its round 43 lap 1 S43). v47 shipped in 0.7.130,
+#      so this is a new number. Additions only. How loud the span before track 1
+#      is, which cyanrip does not rip (`parsers/pregap_peak.py`): `state` (`read`, with
+#      `percent` 0 to 100, `dbfs` where it is a number and `dbfs_text` as given,
+#      `note` such as `not ripped`; `unknown`, the ripper's `reason`;
+#      `unrecognised`, the kept `value`; `not_present`, no row, every build so
+#      far), nulls where empty. Present on every track; only track 1 can carry it.
+REPORT_SCHEMA_VERSION: int = 48
 
 
 def _limit_stop_block(stop: object) -> LimitStopBlock | None:
@@ -2566,6 +2575,9 @@ def _track(
         "kept_read_began_state": (
             getattr(track, "kept_read_began_state", "") or KEPT_READ_NOT_PRESENT
         ),
+        # v48 (TASKS R227): the fork's proposed `Pregap sample peak:` row, how
+        # loud the span before track 1 is; `not_present` on every build so far.
+        "pregap_peak": pregap_peak.report_block(getattr(track, "pregap_peak", None)),
         # Frames of SILENCE the ripper appended because it could not read the
         # disc that far. This one is NOT fork-only — 0.9.3 prints it, on the last
         # track, whenever overread is off, and both committed reference rips

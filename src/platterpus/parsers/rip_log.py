@@ -86,6 +86,7 @@ from platterpus.disc_mcn import DiscMcn
 from platterpus.first_pass_reread import FirstPassReread, did_not_converge
 from platterpus.other_reads import OtherRead
 from platterpus.parsers.cyanrip_disc_blocks import ShortenedName
+from platterpus.parsers.pregap_peak import PregapPeak
 from platterpus.pregap_search import PregapSearch
 from platterpus.reread_ar_overrule import AccurateRipOverrule
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
@@ -535,6 +536,10 @@ class TrackResult:
     # "" is "not stated", never "no read", as everywhere in this dataclass.
     kept_read_began: str = ""
     kept_read_began_state: str = ""
+    # The fork's proposed `Pregap sample peak:` row in track 1's block (TASKS
+    # R227, `parsers/pregap_peak.py`): how loud the span before track 1 is, never ripped.
+    # None when the row is absent, which is every build released so far.
+    pregap_peak: PregapPeak | None = None
     # Frames of SILENCE the ripper appended to this track because it could not
     # read the disc that far ("Appended:    2 frames of silence"). cyanrip 0.9.3
     # DOES print this — on the last track, when overread is off — and we simply

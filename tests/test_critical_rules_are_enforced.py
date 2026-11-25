@@ -2153,7 +2153,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4864 -> 4889** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the `disc_mcn` disc rule, held by the ONCE echo guard as `DiscID:` and `CDDB ID:` beside it are, with its handler, its clearer, `_Disc.disc_mcn` and the hand-over; every reading of the value lives in `disc_mcn.py`, shared with the `-I` parser.
     # **4889 -> 4911** (2026-11-23, the fork's round 42 lap 1 S7): `.35`'s `Session gap:` track line, read by its own module (`session_gap.py`) and kept on the track with a warning for an unread wording; the rule, the builder field, the flush and the contract row stay here, beside `Appended:` and `Beyond disc:`, the block's other rows.
     # **4911 -> 4975** (2026-11-25): TASKS R193, `.36`'s readers ahead of the build: the four album rows' `unknown (…)` form, the `Drive speed:` row and its range, each a rule in this file's own tables; the split of this file is R232.
-    "parsers/cyanrip_log.py": 4975,
+    # **4975 -> 4987** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): the track field, its hand-over, its rule in the track loop and its place in the enumerated track patterns.
+    "parsers/cyanrip_log.py": 4987,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2195,7 +2196,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1275 -> 1281** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipLog.disc_mcn`, the `Disc MCN:` row as a state, with its import and what it is (a pressing's identity, not a TOC fact).
     # 1281 -> 1288 (2026-11-23): `TrackResult.session_gap`, `.35`'s CD-Extra cut made by assumption, with its comment; the dataclass lives in `session_gap.py`.
     # **1288 -> 1322** (2026-11-25): R193: `RipLog.album_loudness_unknown` and the three `drive_speed_*` fields, documented; and `drive_read_errors` takes `.36`'s named parts that no drive read caused out of the count the read-speed ladder steps on.
-    "parsers/rip_log.py": 1322,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1322 -> 1327** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): `TrackResult.pregap_peak` and its comment.
+    "parsers/rip_log.py": 1327,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2289,7 +2291,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1328 -> 1351** (2026-11-11, round 39's G2, TASKS R138): `AccurateRipDatabaseAnswerBlock`, `AccurateRipLookupBlock` and their keys on the repair's blocks, beside the blocks they extend.
     # **1351 -> 1355** (2026-11-12, the fork's round 39 lap 3 S14): `RipBlock.c2_declared` and `c2_declared_reason` (schema 46), beside `c2_pointers`.
     # **1355 -> 1359** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipBlock.disc_mcn` (schema 47), beside the disc IDs; its block type lives in `disc_mcn.py`.
-    "report_types.py": 1359,
+    # **1359 -> 1363** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): the track block's `pregap_peak` key, typed.
+    "report_types.py": 1363,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2321,7 +2324,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **536 -> 562** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `SupersededTrack.contradiction`, and a reproduced read AccurateRip contradicts is never called CONFIRMED; the row is `track_proof.contradicted_tracks_sentence`.
     # **562 -> 593** (2026-11-11, round 39 G1): `merged_rows` and `TRIGGER_MIXED`, so a rip that swaps twice (Archival Exact's securing pass, then its album-pass chase) keeps both swaps' rows in its one sidecar.
     # **593 -> 595** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: its two suffixes are re-exported from there, with the reason.
-    "rip_addendum.py": 595,
+    # **595 -> 614** (2026-11-25, TASKS R226, the fork's PP-14: the addendum carries a time): `SupersededTrack.read_began`, the `Written:` line and its reason, the `Read began:` row, the stamp in `write_addendum`, and the rebuild's read start.
+    "rip_addendum.py": 614,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -2452,7 +2456,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4000 -> 4026** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `build_settings` takes the rip's DRIVE's configured offset (`read_offset_configured`), since `Config.read_offset` no longer decides a rip's offset.
     # **4026 -> 4027** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
     # **4027 -> 4040** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the schema-47 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, its import, and `rip.disc_mcn` beside the disc IDs; the block is built in `disc_mcn.py`.
-    "rip_report.py": 4040,
+    # **4040 -> 4052** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): schema 48's history entry and the track key.
+    "rip_report.py": 4052,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -3450,7 +3455,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4490 -> 4484** (2026-11-12, the fork's round 39 lap 3 S15): down: `_rip_once` asks `confidence_for_pass` for every `-Z` pass in one line, where it computed the securing pass's case in five.
     # **4484 -> 4485** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
     # **4485 -> 4491** (2026-11-25): R193: the progress line's `rest of rip read once` clause, read into the same `eta` group.
-    "workers/rip_worker.py": 4491,
+    # **4491 -> 4498** (2026-11-25, TASKS R226, the fork's PP-14: the addendum carries a time): the swap row takes the re-rip log's `Kept read began:` when the parser read it as an instant.
+    "workers/rip_worker.py": 4498,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

@@ -91,6 +91,7 @@ from platterpus.data_tracks import DATA_TRACK_MARKER
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers import cyanrip_disc_blocks as _blocks
 from platterpus.parsers import cyanrip_echo_guard as _echo
+from platterpus.parsers import pregap_peak as _pregap_peak
 from platterpus.parsers.cyanrip_preemphasis import PREEMPHASIS_LABEL, preemphasis_text
 from platterpus.parsers.rip_log import (
     ACCURATE_STREAM_DECLARED_SUPPORTED,
@@ -2265,6 +2266,8 @@ class _TrackAcc:
     # `.27`'s `Kept read began:` (see TrackResult): "" with state "" = no line.
     kept_read_began: str = ""
     kept_read_began_state: str = ""
+    # The proposed `Pregap sample peak:` row (TASKS R227); None = no row.
+    pregap_peak: _pregap_peak.PregapPeak | None = None
     # `.30`'s `Other read:` lines (`other_reads`): each `-Z` value not kept, with its count.
     other_reads: _other.OtherReadsAcc = field(default_factory=_other.OtherReadsAcc)
     appended_silence_frames: int | None = None
@@ -3491,6 +3494,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
     # `.27`: when the read the track's files carry began, below `Elapsed:`.
     ("track_kept_read_began", _KEPT_READ_BEGAN),
+    # The fork's proposed `Pregap sample peak:` (round 36 lap 1 S17; TASKS R227).
+    ("track_pregap_sample_peak", _pregap_peak.LINE),
     # `.30`: each `-Z` read not kept, after `Secure re-read:` (`other_reads`).
     ("track_other_read", _other.OTHER_READ_LINE),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
@@ -4077,6 +4082,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 extraction_elapsed_seconds=current.extraction_elapsed_seconds,
                 kept_read_began=current.kept_read_began,
                 kept_read_began_state=current.kept_read_began_state,
+                pregap_peak=current.pregap_peak,
                 other_reads=other_reads,
                 other_reads_not_kept=other_reads_not_kept,
                 appended_silence_frames=current.appended_silence_frames,
@@ -4702,6 +4708,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
                         current.secure_rerip_limit_stop = reread_limit.combined(
                             current.secure_rerip_limit_stop, stop
                         )
+                continue
+
+            # The proposed `Pregap sample peak:` row (TASKS R227), track 1's.
+            pregap = _pregap_peak.read_line(line)
+            if pregap is not None:
+                current.pregap_peak = pregap
                 continue
 
             preemphasis = preemphasis_text(line)

@@ -1417,7 +1417,9 @@ def test_schema_version_is_27() -> None:
     # v45 had shipped in 0.7.122.
     # v47 added `rip.disc_mcn`, cyanrip's `Disc MCN:` row as a state (TASKS R176;
     # `tests/test_disc_mcn.py`). v46 had shipped in 0.7.126.
-    assert REPORT_SCHEMA_VERSION == 47
+    # v48 added per track `pregap_peak`, the fork's proposed `Pregap sample peak:`
+    # row (TASKS R227; `tests/test_pregap_peak.py`). v47 had shipped in 0.7.130.
+    assert REPORT_SCHEMA_VERSION == 48
 
 
 def _issue_codes(report: dict) -> set[str]:
