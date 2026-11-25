@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.130] — 2026-11-25
+
 ### Fixed
 
 - **The uninstaller no longer risks crashing the app when it is closed right after its scan** (user-facing; TASKS R196). The dialog let go of its scan thread as soon as the scan reported back, while the thread could still be ending, so a close at that moment could destroy a running thread, which aborts the program. It now keeps the thread until it has stopped it. Found by our CI, not by a user.
@@ -20098,7 +20100,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.129...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.130...HEAD
+[0.7.130]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.129...v0.7.130
 [0.7.129]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.128...v0.7.129
 [0.7.128]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.127...v0.7.128
 [0.7.127]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.126...v0.7.127
@@ -20198,4 +20201,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.129.*
+*Last updated for Platterpus v0.7.130.*
