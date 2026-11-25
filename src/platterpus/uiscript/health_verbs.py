@@ -123,36 +123,16 @@ class HealthVerbsMixin:
             return [install_health.Finding(False, f"the check could not run: {exc!r}")]
 
     def _drive_findings(self) -> list[install_health.Finding]:
-        """The selected drive's saved offset and cache verdict, read off the window."""
-        from platterpus import cache_check_plan
+        """The selected drive's saved offset and cache verdict, read off the window.
 
-        window = self._window
-        picker = getattr(window, "_drive_picker", None)
-        drive = picker.current_drive() if picker is not None else None
-        if drive is None:
-            return install_health.check_drive_facts(
-                "", None, cache_check_plan.MEASURED, False
-            )
-        # The drive mixin's own readers, the ones drive setup uses.
-        profiles = getattr(window, "_drive_profiles", None)
-        fingerprint_for = getattr(window, "_fingerprint_for", None)
-        selected_offset = getattr(window, "_selected_drive_offset", None)
-        if profiles is None or fingerprint_for is None or selected_offset is None:
+        Through the window's one reader (`_selected_drive_setup_facts`), the one
+        Setup & Updates' drive line reads too, so the two cannot disagree.
+        """
+        read = getattr(self._window, "_selected_drive_setup_facts", None)
+        if read is None:
             return [install_health.Finding(False, "the window has no drive profiles")]
-        profile = profiles.get(fingerprint_for(drive)[0])
-        state = cache_check_plan.verdict_state(profile, getattr(drive, "release", ""))
-        saved = selected_offset().record is not None
-        label = (
-            " ".join(
-                part
-                for part in (getattr(drive, "vendor", ""), getattr(drive, "model", ""))
-                if part
-            )
-            or "the selected drive"
-        )
-        return install_health.check_drive_facts(
-            label, state, cache_check_plan.MEASURED, saved
-        )
+        facts: install_health.DriveSetupFacts | None = read()
+        return install_health.check_drive_facts(facts)
 
     def _record_findings(
         self, step: Step, aspect: str, findings: list[install_health.Finding]

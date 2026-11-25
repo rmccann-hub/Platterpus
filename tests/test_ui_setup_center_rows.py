@@ -172,3 +172,26 @@ def test_a_report_landing_as_the_window_opens_does_not_scroll(
         window._setup_center = None
         stop_window_threads(window)
         window.deleteLater()
+
+
+def test_the_drive_and_setup_rows_say_whether_anything_is_left_to_do(
+    center: Any,
+) -> None:
+    """TASKS R248 (the owner, 2026-11-25, after reinstalling): the rows say,
+    checked now, whether drive setup and setup have anything left to do, instead
+    of leaving the user to rerun both to find out."""
+    from platterpus import install_health
+
+    window = center.parent()
+    expected_drive = install_health.drive_setup_line(
+        window._selected_drive_setup_facts()
+    )
+    assert center._offset_label.text().splitlines()[0] == expected_drive
+    assert "Read offset:" in center._offset_label.text()
+    assert center._setup_label.text()[:1] in {"✓", "⚠", "ⓘ"}
+    assert "Installs the ripping tools" not in center._setup_label.text()
+
+    # The Setup line moves with each dependency check that lands.
+    center._setup_standing = lambda report: f"standing for {report!r}"
+    center.refresh_dependencies("a report")
+    assert center._setup_label.text() == "standing for 'a report'"

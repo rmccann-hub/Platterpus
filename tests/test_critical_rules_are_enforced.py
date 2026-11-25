@@ -2590,7 +2590,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **492 -> 506** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): the read-offset line reads the selected drive's offset through a reader the window passes, since each drive keeps its own.
     # **506 -> 522** (2026-11-17, UX review of 0.7.127), W2: the ripper line reads "Tested build: … approved for this version of Platterpus" and keeps the handshake round in a tooltip, so it builds its own status label rather than passing a string.
     # **522 -> 577** (2026-11-17, UX review of 0.7.127 L2, TASKS R183): each item is a row, its status on the left and a normal-size button on the right, with `_COMMITS` naming the one button held to the commit size; and `_grow_to_fit`, which gives the window the height a status line needs when it changes while open (a long dependency report otherwise scrolled the narrower status column).
-    "ui/dialogs/setup_center.py": 577,
+    # **577 -> 603** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): the Drive row leads with whether drive setup has anything left to do and the Setup row says whether setup has, each through a reader the window passes; the Setup line re-renders with each dependency check.
+    "ui/dialogs/setup_center.py": 603,
+    # **0 -> 340** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): one job, whether the installation is whole. The acceptance run's checks and the two lines Setup & Updates shows read the same `DriveSetupFacts`, so moving the lines to a module of their own would put two answers to one question in two files.
+    "install_health.py": 340,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -2761,7 +2764,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **853 -> 982** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `_selected_drive_offset`, the window's one answer to which offset the next rip on the selected drive applies, and `_move_global_offset_once`; `_set_read_offset_override` saves into the selected drive's profile and refuses with no drive selected. The pure rule and the move itself went to `offset_config.py` (`offset_for_drive`, `plan_global_offset_move`, `move_global_offset`); what is here is the window's wiring to them and its reasons.
     # Both changes merged 2026-11-13: measured 1009 lines after the merge.
     # **1013 -> 1033** (2026-11-17, UX review of 0.7.127, TASKS R182), E3: the empty-state line is built where an empty drive listing first lands (`_on_drives_unavailable`), and `_sync_no_drive_notice`; the line itself is `ui/no_drive_notice.py`.
-    "ui/main_window_drive.py": 1034,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
+    # **1034 -> 1050** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): `_selected_drive_setup_facts`, the one reader Setup & Updates' drive line and `expect-installed drive` both ask.
+    "ui/main_window_drive.py": 1050,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2834,7 +2838,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1978 -> 2008** (2026-11-17, follow-up to UX review F1: No holds on later launches): No is saved; a ready setup run forgets it; `_first_run_question_pending` says the question is still to come, so a launch report that lands first leaves the wizard to it.
     # **2008 -> 2020** (2026-11-23, TASKS R188): `run_acceptance_session` takes the chosen test (its file or its text, its name and blocks) and hands the name to the console; the two old menu slots went. The screen's opener is `main_window_run_tests.py`, not here.
     # **2018 -> 2030** (2026-11-25, the owner's reinstall log): setup reads that disc again once the ripper is installed.
-    "ui/main_window_provision.py": 2030,
+    # **2030 -> 2039** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): `open_setup_center` hands the dialog its two standing readers.
+    "ui/main_window_provision.py": 2039,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2998,7 +3003,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **576 -> 578** (2026-11-17, UX review of 0.7.127, TASKS R182): two cross-mixin stubs for the empty-state line, `_sync_no_drive_notice` and `_setup_notice_shown`.
     # **578 -> 581** (2026-11-23, R181 follow-up): `_finished_line` declared, which the CTDB-repair mixin reads.
     # **581 -> 583** (2026-11-25, the owner's reinstall log): the seam declares `_disc_waits_for_ripper` and `_on_drive_changed`.
-    "ui/main_window_shared.py": 583,
+    # **583 -> 585** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): the seam declares `_selected_drive_setup_facts`.
+    "ui/main_window_shared.py": 585,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is

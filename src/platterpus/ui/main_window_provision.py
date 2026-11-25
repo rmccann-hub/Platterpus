@@ -600,7 +600,9 @@ class ProvisioningMixin(MainWindowShared):
             bring_to_front(existing)
             return existing
 
-        from platterpus import __version__
+        from pathlib import Path
+
+        from platterpus import __version__, install_health, tool_paths
         from platterpus.deps import fork_source
         from platterpus.handshake_approval import APPROVED_BY_ROUND
 
@@ -624,6 +626,13 @@ class ProvisioningMixin(MainWindowShared):
             config=self._config,
             save_setting=self._save_user_setting,
             drive_offset=self._selected_drive_offset,
+            drive_standing=lambda: install_health.drive_setup_line(
+                self._selected_drive_setup_facts()
+            ),
+            setup_standing=lambda report: install_health.host_setup_line(
+                report,
+                install_health.check_tools(Path(tool_paths.exported_tools_dir())),
+            ),
         )
         self._setup_center = dialog
         # A check already in flight is shown as running, not as the last result.

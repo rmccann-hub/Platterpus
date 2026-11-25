@@ -25,6 +25,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from platterpus import cache_check_plan
+from platterpus.drive_profiles import DriveProfile
+
 #: The tools setup exports to ``~/.local/bin``: a rip cannot run without these.
 REQUIRED_TOOLS: Final[tuple[str, ...]] = ("cyanrip", "flac", "metaflac")
 #: Exported too, but a rip runs without it (the cache check is optional).
@@ -153,35 +156,168 @@ def check_tools(
     return found
 
 
-def check_drive_facts(
-    drive_label: str, cache_state: str | None, measured: str, offset_saved: bool
-) -> list[Finding]:
+@dataclass(frozen=True)
+class DriveSetupFacts:
+    """What drive setup saved for the selected drive, and whether it still holds.
+
+    Built by `drive_setup_facts` from the drive's saved profile, so the acceptance
+    run (`check_drive_facts`) and Setup & Updates (`drive_setup_line`) read one
+    answer from one key rather than two answers from two (TASKS R248).
+    """
+
+    label: str
+    #: The firmware revision the drive reports now ("" when it reports none).
+    firmware_now: str
+    #: `cache_check_plan.verdict_state`: MEASURED, NOT_MEASURED or FIRMWARE_CHANGED.
+    cache_state: str
+    #: The firmware the cache verdict was measured under ("" when unrecorded).
+    cache_measured_under: str
+    offset_saved: bool
+    #: When the read offset was saved, ISO-8601 UTC ("" when unrecorded).
+    offset_saved_at: str
+
+
+def drive_setup_facts(drive: object, profile: DriveProfile | None) -> DriveSetupFacts:
+    """The facts for ``drive`` (a DriveDescriptor) from its saved ``profile``.
+
+    The profile is looked up by the drive's fingerprint (vendor, model, and the
+    serial or WWN where the drive exposes one), so a profile found here is this
+    drive's, not another of the same model's where the drive tells them apart.
+    Never raises.
+    """
+    firmware = str(getattr(drive, "release", "") or "")
+    label = (
+        " ".join(
+            part
+            for part in (getattr(drive, "vendor", ""), getattr(drive, "model", ""))
+            if part
+        )
+        or "the selected drive"
+    )
+    offset = profile.offset if profile is not None else None
+    return DriveSetupFacts(
+        label=label,
+        firmware_now=firmware.strip(),
+        cache_state=cache_check_plan.verdict_state(profile, firmware),
+        cache_measured_under=(
+            profile.cache_defeat_release.strip() if profile is not None else ""
+        ),
+        offset_saved=offset is not None,
+        offset_saved_at=offset.detected_at if offset is not None else "",
+    )
+
+
+def check_drive_facts(facts: DriveSetupFacts | None) -> list[Finding]:
     """The selected drive's saved read offset and cache verdict.
 
-    ``cache_state`` is `cache_check_plan.verdict_state` for this drive, compared
-    with ``measured`` (that module's MEASURED), so this module needs no import of
-    it. ``None`` means no drive is selected.
+    ``None`` means no drive is selected.
     """
-    if cache_state is None:
+    if facts is None:
         return [Finding(False, "no drive is selected, so its saved facts are unread")]
+    label = facts.label
     found = [
-        Finding(True, f"{drive_label} has a saved read offset")
-        if offset_saved
-        else Finding(False, f"{drive_label} has no saved read offset")
+        Finding(True, f"{label} has a saved read offset")
+        if facts.offset_saved
+        else Finding(False, f"{label} has no saved read offset")
     ]
-    if cache_state == measured:
+    if facts.cache_state == cache_check_plan.MEASURED:
+        found.append(Finding(True, f"{label} has a cache verdict for its firmware"))
+    elif facts.cache_state == cache_check_plan.FIRMWARE_CHANGED:
         found.append(
-            Finding(True, f"{drive_label} has a cache verdict for its firmware")
+            Finding(
+                False,
+                f"{label}'s firmware changed since its cache verdict was measured "
+                f"(then {facts.cache_measured_under}, now {facts.firmware_now}); "
+                "drive setup measures it again",
+            )
         )
     else:
         found.append(
             Finding(
                 False,
-                f"{drive_label} has no cache verdict for its current firmware "
-                f"({cache_state}); drive setup measures it",
+                f"{label} has no cache verdict for its current firmware "
+                f"({facts.cache_state}); drive setup measures it",
             )
         )
     return found
+
+
+def drive_setup_line(facts: DriveSetupFacts | None) -> str:
+    """Setup & Updates' line: is there anything for drive setup to do?
+
+    **Why (the owner, 2026-11-25, after reinstalling):** *"let users know if the
+    hardware is the same as the last setup not need to run (and check if it
+    is)"*. Drive facts are measured once and saved per drive and firmware (the
+    owner's rule of 2026-11-12), so on the same drive and firmware there is
+    nothing to redo; the line says so, checked against the drive connected now.
+    The button stays for anyone who wants to run it anyway. Marked ✓, ⚠ or ⓘ,
+    never colour alone.
+    """
+    if facts is None:
+        return "ⓘ Drive setup: no drive is selected, so there is nothing to check."
+    found = check_drive_facts(facts)
+    failed = [f.text for f in found if f.ok is False]
+    if not failed:
+        firmware = f", firmware {facts.firmware_now}" if facts.firmware_now else ""
+        when = facts.offset_saved_at[:10]
+        on = f" on {when}" if when else ""
+        return (
+            f"✓ Drive setup was done for {facts.label}{firmware}{on}. This is the "
+            "same drive and firmware, so there is nothing to redo."
+        )
+    if facts.cache_state == cache_check_plan.FIRMWARE_CHANGED:
+        return (
+            f"⚠ {facts.label}'s firmware changed since drive setup (then "
+            f"{facts.cache_measured_under}, now {facts.firmware_now}), so run drive "
+            "setup again: what it measured may no longer hold."
+        )
+    if not facts.offset_saved and facts.cache_state == cache_check_plan.NOT_MEASURED:
+        return (
+            f"⚠ Drive setup has not been run for {facts.label}. Run it once; what "
+            "it measures is saved for this drive."
+        )
+    missing = "read offset" if not facts.offset_saved else "cache verdict"
+    return (
+        f"⚠ Drive setup is not finished for {facts.label}: it has no saved "
+        f"{missing}. Run drive setup to measure it."
+    )
+
+
+def host_setup_line(report: object | None, tools: list[Finding]) -> str:
+    """Setup & Updates' line: is there anything for setup to do?
+
+    ``report`` is the last dependency check (`deps.manager.DependencyReport`, or
+    ``None`` when none ran this session); ``tools`` is `check_tools`, which reads
+    files only. Setup's work is done when the tools it exports are in place and
+    the last complete check found nothing required missing; otherwise the line
+    says which, and ``None`` is "not checked yet", never "done" (TASKS R248).
+    """
+    absent = [f.text.split()[0] for f in tools if f.ok is False]
+    if absent:
+        return (
+            f"⚠ Setup is not finished: {', '.join(absent)} not in place. Run setup "
+            "to install them."
+        )
+    if report is None:
+        return (
+            "ⓘ The tools setup exports are in place; the ripping container has not "
+            "been checked yet in this session (Check dependencies does it)."
+        )
+    missing = [
+        m
+        for m in (getattr(report, "missing", []) or [])
+        if not getattr(getattr(m, "spec", None), "optional", False)
+    ]
+    if missing or getattr(report, "unchecked", None):
+        return (
+            "⚠ The last dependency check did not find everything setup installs "
+            "(see Dependencies above). Run setup to repair it."
+        )
+    return (
+        "✓ Setup is done: the tools it installs are in place and the last check "
+        "found every required one, so there is nothing to redo. Run it again only "
+        "to repair an installation."
+    )
 
 
 def find_tracebacks(lines: Iterable[str], limit: int = 5) -> list[str]:
