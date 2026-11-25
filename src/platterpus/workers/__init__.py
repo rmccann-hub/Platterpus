@@ -193,7 +193,20 @@ def stop_thread(
             except Exception:  # noqa: BLE001 — cancel is best-effort
                 log.exception("worker cancel() during stop_thread raised; ignored")
     try:
-        if not thread.isRunning():
+        running = thread.isRunning()
+    except RuntimeError:
+        # Qt already destroyed it: every worker thread is wired
+        # `finished → deleteLater`, so a holder that kept its reference past the
+        # finish (the uninstaller does, on purpose, TASKS R196) finds a husk. A
+        # destroyed thread is a stopped one. Logged as an ERROR with a traceback
+        # until 2026-11-25 (the owner's log), which read as a crash.
+        log.debug("stop_thread: the thread was already destroyed; nothing to stop")
+        return
+    except Exception:  # noqa: BLE001 — teardown must never crash close
+        log.exception("stop_thread failed; ignored")
+        return
+    try:
+        if not running:
             return
         thread.quit()
         if thread.wait(effective_wait_ms):

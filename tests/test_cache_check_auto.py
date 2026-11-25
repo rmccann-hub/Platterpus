@@ -364,6 +364,58 @@ def test_an_inconclusive_automatic_run_is_not_repeated_in_the_same_window(
     assert process_until(lambda: len(backend.devices) == 2, timeout=5.0)
 
 
+def test_analyze_pressed_while_the_drive_is_busy_waits_for_the_read(
+    dialogs: Callable[..., DriveSetupDialog], process_until: Any
+) -> None:
+    """REGRESSION (the owner's log, 2026-11-25): *Analyze cache* pressed while the
+    main window was still reading the disc started a second reader at once; the
+    read slowed past its 300 s limit, and freeing the drive killed the probe too,
+    so neither finished. A press while the drive is busy now waits for the read."""
+    backend = _CacheBackend(verdict=True)
+    busy = [True]
+    dialog = dialogs(
+        backend,
+        cache_verdict=MEASURED,
+        audio_disc_present=True,
+        drive_busy_now=lambda: busy[0],
+    )
+    dialog.show()
+    assert dialog._detect_button is not None
+
+    dialog._detect_button.click()
+    process_until(lambda: False, timeout=0.2)
+    assert backend.devices == [], "a second reader started while the drive was busy"
+    assert dialog._thread is None
+    assert "reading the disc right now" in dialog._status_label.text()
+
+    busy[0] = False
+    assert dialog.notify_disc_ready("/dev/sr0") == START
+    assert process_until(lambda: dialog._thread is None, timeout=5.0)
+    assert backend.devices == ["/dev/sr0"]
+    # Started once: a later disc read does not run it again.
+    assert dialog.notify_disc_ready("/dev/sr0") == NOTHING
+    assert backend.devices == ["/dev/sr0"]
+
+
+def test_analyze_pressed_while_the_drive_is_free_starts_at_once(
+    dialogs: Callable[..., DriveSetupDialog], process_until: Any
+) -> None:
+    """The busy question is asked when the button is pressed, not when the window
+    opened: a drive busy at opening and free since starts at once."""
+    backend = _CacheBackend(verdict=True)
+    dialog = dialogs(
+        backend,
+        cache_verdict=MEASURED,
+        audio_disc_present=True,
+        drive_busy=True,
+        drive_busy_now=lambda: False,
+    )
+    dialog.show()
+    assert dialog._detect_button is not None
+    dialog._detect_button.click()
+    assert process_until(lambda: bool(backend.devices), timeout=5.0)
+
+
 def test_the_offset_can_still_be_saved_while_the_cache_check_runs(
     dialogs: Callable[..., DriveSetupDialog], process_until: Any, tmp_path: Path
 ) -> None:
@@ -498,6 +550,8 @@ def test_the_window_hands_the_dialog_the_drives_state(
     assert made[-1].kwargs["cache_verdict"] == NOT_MEASURED
     assert made[-1].kwargs["audio_disc_present"] is True
     assert made[-1].kwargs["drive_busy"] is False
+    # Asked again when Analyze cache is pressed (the owner's log, 2026-11-25).
+    assert made[-1].kwargs["drive_busy_now"] == window._drive_is_busy_for_setup
     # The window knows the dialog while it is open, and forgets it after.
     assert made[-1].open_during_exec is made[-1]
     assert window._drive_setup_dialog is None

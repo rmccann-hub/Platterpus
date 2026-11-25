@@ -420,3 +420,42 @@ def test_startup_wm_class_matches_the_name_the_app_actually_sets() -> None:
     assert f"StartupWMClass={APP_NAME}\n" in ai._desktop_contents(
         Path("/tmp/x.AppImage"), "icon"
     )
+
+
+def test_relocate_again_after_an_earlier_move_returns_the_new_home(
+    tmp_path: Path,
+) -> None:
+    """REGRESSION (the owner's log, 2026-11-25): the first-run offer moved the
+    file out of Downloads; *Add app shortcut* later in the same session asked to
+    move the path the app was launched from (``$APPIMAGE``) again, the move failed,
+    the old path came back, and both shortcuts were rewritten to point at it."""
+    downloads = tmp_path / "Downloads"
+    downloads.mkdir()
+    launched_from = downloads / "platterpus-x86_64.AppImage"
+    launched_from.write_bytes(b"ELF")
+    applications = tmp_path / "Applications"
+    first = ai.relocate_to_applications(launched_from, applications_dir=applications)
+    assert not launched_from.exists()
+
+    again = ai.relocate_to_applications(launched_from, applications_dir=applications)
+
+    assert again == first == applications / "platterpus-x86_64.AppImage"
+    assert again.is_file()
+
+
+def test_integrate_refuses_a_missing_appimage_and_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """A shortcut to a file that is not there launches nothing; no entry is
+    written, and the error reaches the caller's "couldn't add" box."""
+    desktop_dir = tmp_path / "applications"
+    gone = tmp_path / "Downloads" / "platterpus-x86_64.AppImage"
+    with pytest.raises(FileNotFoundError):
+        ai.integrate(
+            gone,
+            desktop_dir=desktop_dir,
+            icon_dir=tmp_path / "icons",
+            desktop_folder=None,
+            refresh=lambda: None,
+        )
+    assert not desktop_dir.exists() or not any(desktop_dir.iterdir())

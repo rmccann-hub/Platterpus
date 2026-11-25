@@ -98,6 +98,9 @@ class ProvisioningMixin(MainWindowShared):
     #: wizard closed without running is reported as "not installed yet", not as
     #: a failed install.
     _host_setup_runs: int = 0
+    #: The drive whose disc read failed because the ripper was not installed yet
+    #: (`_on_disc_info_failed`); read again when setup reports ready. "" if none.
+    _disc_waits_for_ripper: str = ""
 
     #: The first-run offers were scheduled and are waiting for the main window
     #: (`hold_until_free`). With the window's start-up timer, it is how the launch
@@ -2014,5 +2017,14 @@ class ProvisioningMixin(MainWindowShared):
                     self.refresh_drives()
                 # Off the GUI thread: the re-probe shells into the container.
                 self.run_dependency_check_async(show_summary=False)
+                # A disc read that failed only because no ripper was installed
+                # is read again now (the owner's log, 2026-11-25: after a
+                # reinstall the window kept the failed read). Any other disc
+                # is left alone (the 2026-06-27 report above).
+                waiting = self._disc_waits_for_ripper
+                self._disc_waits_for_ripper = ""
+                if waiting and waiting == self._drive_picker.current_device():
+                    log.info("setup installed the ripper: reading %s again", waiting)
+                    self._on_drive_changed(waiting)
             except Exception:  # noqa: BLE001 — best-effort refresh
                 log.exception("post-host-setup refresh failed")

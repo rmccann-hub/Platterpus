@@ -5365,6 +5365,35 @@ def test_host_setup_finished_skips_drive_refresh_when_drive_selected(
     assert checked == [True]  # dep re-check still runs (off-thread now)
 
 
+def test_host_setup_rereads_only_a_disc_that_failed_for_want_of_the_ripper(
+    teardown_threads, monkeypatch
+) -> None:
+    """REGRESSION (the owner's log, 2026-11-25): after an uninstall and a fresh
+    start, the disc read failed because cyanrip was not installed yet, and once
+    setup installed it the window kept the failed read. That disc is read again;
+    a disc whose read failed for any other reason, or none, is left alone, which
+    is the 2026-06-27 report the test above holds."""
+    window = teardown_threads()
+    reread: list[str] = []
+    monkeypatch.setattr(window, "run_dependency_check_async", lambda **k: None)
+    monkeypatch.setattr(window, "_on_drive_changed", reread.append)
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
+    monkeypatch.setattr(window, "_handle_disc_probe_failure", lambda d, m: None)
+
+    window._on_disc_info_failed("/dev/sr0", "cyanrip binary not found at cyanrip")
+    window._on_host_setup_finished(True)
+    assert reread == ["/dev/sr0"]
+
+    # Once: a second ready setup does not read it again.
+    window._on_host_setup_finished(True)
+    assert reread == ["/dev/sr0"]
+
+    # Another failure is not the ripper's absence: no re-read.
+    window._on_disc_info_failed("/dev/sr0", "no disc in the drive")
+    window._on_host_setup_finished(True)
+    assert reread == ["/dev/sr0"]
+
+
 def test_host_setup_finished_refreshes_drives_on_first_setup(
     teardown_threads, monkeypatch
 ) -> None:

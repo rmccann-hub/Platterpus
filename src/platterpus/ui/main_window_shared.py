@@ -242,6 +242,7 @@ class MainWindowShared(_SeamBase):
     #: Setup runs finished this launch (ProvisioningMixin's class default); the
     #: dependency resolver reads it to tell a run from a wizard closed unused.
     _host_setup_runs: int
+    _disc_waits_for_ripper: str
     _install_worker: UpdateInstallWorker | None
     _install_thread: QThread | None
     _install_dialog: QProgressDialog | None
@@ -453,6 +454,7 @@ class MainWindowShared(_SeamBase):
 
         # Defined in DriveMixin (main_window_drive.py):
         def _reset_disc_view(self) -> None: ...
+        def _on_drive_changed(self, device: str) -> None: ...
         def _sync_no_drive_notice(self) -> None: ...
 
         # Defined in ProvisioningMixin (main_window_provision.py):

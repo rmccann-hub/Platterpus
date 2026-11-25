@@ -30,6 +30,8 @@ from platterpus import cache_check_plan
 from platterpus.ui.accessibility import announce
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from PySide6.QtCore import QThread
 
     from platterpus.ui.dialogs.centering import CenteredDialog
@@ -54,6 +56,12 @@ class AutoCacheCheckMixin(_DialogBase):
     _cache_verdict: str | None
     _audio_disc_present: bool
     _drive_busy: bool
+    #: Asks the main window, at the moment it matters, whether something reads
+    #: the drive; ``None`` falls back to the snapshot taken when the window opened.
+    _drive_busy_now: Callable[[], bool] | None
+    #: True after *Analyze cache* was pressed while the drive was busy: the run
+    #: starts when the read that held the drive reports (`notify_disc_ready`).
+    _manual_waiting: bool
     _auto_check_attempted: bool
     _skip_requested: bool
     _closing: bool
@@ -72,7 +80,11 @@ class AutoCacheCheckMixin(_DialogBase):
         def _apply_content_derived_minimum_size(self, root: QVBoxLayout) -> None: ...
 
     def _init_auto_check(
-        self, cache_verdict: str | None, audio_disc_present: bool, drive_busy: bool
+        self,
+        cache_verdict: str | None,
+        audio_disc_present: bool,
+        drive_busy: bool,
+        drive_busy_now: Callable[[], bool] | None = None,
     ) -> None:
         """The automatic check's inputs and its once-per-window latch.
 
@@ -82,6 +94,8 @@ class AutoCacheCheckMixin(_DialogBase):
         self._cache_verdict = cache_verdict
         self._audio_disc_present = audio_disc_present
         self._drive_busy = drive_busy
+        self._drive_busy_now = drive_busy_now
+        self._manual_waiting = False
         self._auto_check_attempted = False
         self._shown_once = False
         # True after Skip check, so the finish slot can say "stopped" rather than
@@ -178,6 +192,37 @@ class AutoCacheCheckMixin(_DialogBase):
             announce(self._auto_note_label, decision.message)
         return decision.action
 
+    def _request_calibration(self) -> None:
+        """*Analyze cache* was pressed: start now, or once the drive is free.
+
+        The owner's log of 2026-11-25: pressed while the main window was still
+        reading the disc, the probe ran as a second reader, the read slowed past
+        its 300 s limit, and freeing the drive afterwards SIGKILLed the probe
+        too, so neither finished. A second reader is how a drive wedges
+        (`_drive_is_busy_for_setup`), so a press while it is busy waits.
+        """
+        busy = (
+            self._drive_busy_now()
+            if self._drive_busy_now is not None
+            else self._drive_busy
+        )
+        if not busy:
+            self._start_calibration()
+            return
+        self._manual_waiting = True
+        message = (
+            "ⓘ The drive is reading the disc right now, and a second reader can "
+            "wedge it, so the analysis starts by itself as soon as that read "
+            "finishes. If the read fails, press Analyze cache again."
+        )
+        self._status_label.setText(message)
+        announce(self._status_label, message)
+        log.info(
+            "cache analysis for %s held: the drive is busy; it starts when the "
+            "disc read finishes",
+            self._device or "(auto-detected drive)",
+        )
+
     def notify_disc_ready(self, device: str) -> str:
         """The main window read an audio CD in ``device``: start if waiting.
 
@@ -190,6 +235,11 @@ class AutoCacheCheckMixin(_DialogBase):
         self._audio_disc_present = True
         # The read that reported this disc has finished, so the drive is free.
         self._drive_busy = False
+        if self._manual_waiting and not self._closing and self._thread is None:
+            # The user asked for this run while the drive was busy.
+            self._manual_waiting = False
+            self._start_calibration()
+            return cache_check_plan.START
         return self._maybe_auto_start()
 
     def _on_skip_clicked(self) -> None:

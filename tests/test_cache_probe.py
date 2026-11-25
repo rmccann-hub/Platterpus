@@ -406,3 +406,71 @@ def test_a_probe_with_no_exit_status_reports_none_not_zero() -> None:
     assert result.exit_code is None
     assert diagnostics.default_log().items()[0].exit_code is None
     diagnostics.clear()
+
+
+# --- A probe killed from outside (the owner's log, 2026-11-25) ----------------
+#
+# Pressed while the main window was still reading the disc, the probe ran as a
+# second reader; the read timed out and freeing the drive (`fuser -k`) SIGKILLed
+# the probe too. It exited 137 through the Distrobox wrapper, and the window told
+# the owner "cd-paranoia ran but didn't report a cache verdict we recognise",
+# which was wrong: it never got to the verdict.
+
+#: The probe's output as the owner's log recorded it, cut off where the kill landed.
+_KILLED_OUTPUT: str = (
+    "cdparanoia III release 10.2 libcdio 2.3.0\n"
+    "Checking /dev/sr0 for cdrom...\n"
+    "\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n"
+    "Verifying drive can read CDDA...\n\tExpected command set reads OK.\n\n"
+    "=================== Checking drive cache/timing behavior ===================\n\n"
+    "Seek/read timing:\n\n"
+    "\t[59:29.30]:  524ms seek, 18.11ms/sec read [0.7x] spinning up...  \n"
+    "\t[50:00.00]:  438ms seek, 11.71ms/sec read [1.1x]                 \n"
+    "\t[40:00.00]:"
+)
+
+
+@pytest.mark.parametrize("code", [137, -9])
+def test_a_probe_killed_from_outside_says_it_was_stopped_not_unrecognised(
+    code: int,
+) -> None:
+    diagnostics.clear()
+
+    def killed(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, code, stdout=_KILLED_OUTPUT, stderr="")
+
+    result = probe_cache_defeat("/dev/sr0", runner=killed)
+
+    assert result.defeat is None  # never a forged verdict
+    assert result.exit_code == code
+    assert result.error == "killed by signal 9"
+    said = describe(result)
+    assert "stopped before it finished" in said
+    assert "saved result is unchanged" in said
+    assert "didn't report a cache verdict we recognise" not in said
+    recorded = diagnostics.default_log().items()[0]
+    assert "killed by signal 9" in recorded.message
+    assert "tool failure" not in recorded.message
+    diagnostics.clear()
+
+
+def test_a_verdict_printed_before_a_kill_is_kept() -> None:
+    """The kill names the cause of an unknown; it never throws away an answer."""
+    diagnostics.clear()
+
+    def late_kill(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            argv, -9, stdout="Backseek flushes the cache. Drive tests OK.\n", stderr=""
+        )
+
+    result = probe_cache_defeat("/dev/sr0", runner=late_kill)
+    assert result.defeat is True
+    assert result.error == ""
+    diagnostics.clear()
+
+
+def test_an_ordinary_failure_is_still_a_tool_failure() -> None:
+    assert cache_probe._killing_signal(1) is None
+    assert cache_probe._killing_signal(0) is None
+    assert cache_probe._killing_signal(None) is None
+    assert cache_probe._killing_signal(143) == 15

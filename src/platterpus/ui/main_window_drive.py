@@ -144,6 +144,7 @@ class DriveMixin(MainWindowShared):
             cache_verdict=cache_verdict,
             audio_disc_present=self._current_num_tracks > 0,
             drive_busy=self._drive_is_busy_for_setup(),
+            drive_busy_now=self._drive_is_busy_for_setup,
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
         # The Apply tick-box moved here from Settings (2026-09-24): the offset
