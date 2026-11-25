@@ -8,6 +8,8 @@ methods stay reachable as ``window._x``. What it does:
   that was waiting for a CD starts (`_tell_drive_setup_disc_ready`);
 * answers "is something already reading this drive?" for that window, because a
   second reader is how a drive wedges (`_drive_is_busy_for_setup`);
+* holds a disc read back while that window's check reads the drive, and reads
+  it when the check lets go (`_disc_read_waits_for_setup_check`, TASKS R245);
 * at rip start, on a drive with no cache verdict, shows a status-bar note with a
   Dismiss button, and never a box and never the probe: the rip goes ahead
   (`_note_cache_check_at_rip_start`).
@@ -51,6 +53,43 @@ class CacheCheckMixin(MainWindowShared):
     #: verdict (`_note_cache_check_at_rip_start`), built on first use.
     _cache_check_note: QWidget | None = None
     _cache_check_note_label: QLabel | None = None
+    #: The device whose disc read waits for the Set up drive window's check to
+    #: let go of it (`_disc_read_waits_for_setup_check`); "" when none waits.
+    _disc_waits_for_setup_check: str = ""
+
+    def _disc_read_waits_for_setup_check(self, device: str) -> bool:
+        """Hold a disc read back while Set up drive's check reads ``device``.
+
+        **Why (TASKS R245, the owner's log of 2026-11-25).** A disc inserted
+        while the window's automatic check ran started a scan beside it; the
+        scan timed out, and freeing the drive (`drive_control.free_drive`,
+        `fuser -k` on the device) killed the check with it. The check is the
+        drive's one reader while it runs, so the read waits and starts when the
+        check lets go (`_on_setup_check_released`), or the window closes. Asked
+        where the read STARTS (`_start_disc_info`), so no path around it reads.
+        """
+        dialog = self._drive_setup_dialog
+        held = dialog.check_holds_drive() if dialog is not None else ""
+        if not device or held != device:
+            return False
+        self._disc_waits_for_setup_check = device
+        text = (
+            "ⓘ Drive setup is checking this drive, so the disc is read when the "
+            "check finishes."
+        )
+        log.info("disc read on %s waits for drive setup's check", device)
+        if isinstance(self, QMainWindow):
+            self.statusBar().showMessage(text)
+        return True
+
+    def _on_setup_check_released(self, device: str) -> None:
+        """Set up drive's check let go of ``device``: read the disc held back."""
+        waiting = self._disc_waits_for_setup_check
+        if not waiting or (device and device != waiting):
+            return
+        self._disc_waits_for_setup_check = ""
+        log.info("drive setup's check let go of %s; reading the disc", waiting)
+        self._start_disc_info(waiting)
 
     def _drive_is_busy_for_setup(self) -> bool:
         """Whether something already reads the drive: a rip, a disc read, or the

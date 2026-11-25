@@ -155,11 +155,14 @@ class DriveMixin(MainWindowShared):
         # high confidence). Provenance only — the offset itself is saved to
         # Platterpus config by the manual-save path.
         dialog.detection_recorded.connect(self._on_detection_recorded)
+        dialog.drive_released.connect(self._on_setup_check_released)
         self._drive_setup_dialog = dialog
         try:
             dialog.exec()
         finally:
             self._drive_setup_dialog = None
+            # Closed mid-check: no result arrives, so read a disc held back now.
+            self._on_setup_check_released("")
 
     def _should_offer_drive_setup(self) -> bool:
         """True when we should auto-offer calibration on first run.
