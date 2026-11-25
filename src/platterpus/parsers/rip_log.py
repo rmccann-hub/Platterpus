@@ -90,7 +90,11 @@ from platterpus.pregap_search import PregapSearch
 from platterpus.reread_ar_overrule import AccurateRipOverrule
 from platterpus.reread_limit import TIME_LIMIT_NOT_PRESENT, RereadLimitStop
 from platterpus.ripper_track_notes import RipperCoverArt, TrackFilter
-from platterpus.ripping_error_parts import RippingErrorParts
+from platterpus.ripping_error_parts import (
+    FORM_NAMED,
+    NOT_DRIVE_PARTS,
+    RippingErrorParts,
+)
 from platterpus.safe_int import int_or_none
 from platterpus.secure_rereads_footer import SecureRereads
 from platterpus.session_gap import SessionGap
@@ -188,6 +192,15 @@ class RippingInfo:
     # (real-hardware finding, 2026-07-01: the BDR-209D reports unchangeable).
     # True = a speed was set or reported "changeable"; None = unknown/legacy log.
     speed_changeable: bool | None = None
+    # The read speed the drive DECLARES (GET PERFORMANCE), from `.36`'s
+    # `Drive speed:` line under `Speed:` (the fork's round 42 lap 1 S29, accepted
+    # in our lap 2 S17; TASKS R193). Verbatim, screened, "" with no line. The two
+    # numbers are its range in units of 1x (176.4 kB/s): both equal for a single
+    # value, both None for `not declared (…)` or a line we cannot read. Declared,
+    # never measured: not evidence of the speed a read achieved.
+    drive_speed_declared: str = ""
+    drive_speed_low_x: float | None = None
+    drive_speed_high_x: float | None = None
     # --- fields EAC prints in its archival header, which cyanrip also reports
     # under different names. Captured so the EAC-layout export can fill EAC's
     # own rows from measured data instead of omitting them (2026-07-27).
@@ -703,6 +716,10 @@ class RipLog:
     # cyanrip's "Album Loudness Summary" block (integrated LUFS, LRA, true peak)
     # — the whole-disc loudness, as a dict of strings. Empty when absent.
     album_loudness: dict[str, str] = field(default_factory=dict)
+    #: Why the album loudness rows hold no value: their `unknown (…)` reason (the
+    #: fork's round 42 lap 1 S23, a run in which no audio track finished); "" if
+    #: they hold values or are absent.
+    album_loudness_unknown: str = ""
     # cyanrip's own log signature ("Log FUN512: <base64>") — its analogue to
     # EAC's signed log checksum. A different algorithm from `sha256_hash`, so
     # kept as its own field. Empty for legacy-format logs.
@@ -806,6 +823,23 @@ class RipLog:
         if self.ripping_errors is None or self.ripping_errors_paranoia_skips is None:
             return None
         encoder = self.encoder_failed_tracks or 0
+        parts = self.ripping_error_parts
+        if parts is not None and parts.form == FORM_NAMED and parts.unknown_total == 0:
+            # `.36` names every part (the fork's round 42 lap 1 S12), and most are
+            # not the drive's: a cover-art write, a refused argument, an encoder.
+            # Counted as drive errors they would step the read-speed ladder down
+            # and re-rip a disc slower for a fault no read caused (TASKS R193).
+            # The encoder failure is named once in the parts and once on the
+            # `Encoder errors:` line, so the larger of the two is taken, never both.
+            not_drive = sum(getattr(parts, name) or 0 for name in NOT_DRIVE_PARTS)
+            encoder = max(encoder, parts.encoders_failed or 0)
+            return max(
+                0,
+                self.ripping_errors
+                - self.ripping_errors_paranoia_skips
+                - not_drive
+                - encoder,
+            )
         return max(
             0, self.ripping_errors - self.ripping_errors_paranoia_skips - encoder
         )

@@ -75,6 +75,7 @@ from platterpus import (
     c2_declaration,
     diagnostics,
     disc_mcn,
+    inbound_text,
     kept_read,
     pregap_search,
     reread_limit,
@@ -377,6 +378,18 @@ _ACCURATERIP_DISC_STATUS = re.compile(r"^AccurateRip:\s+(?P<value>\S(?:.*\S)?)\s
 # that may refuse it and abort the pass (`Device does not support changing
 # speeds!`, their P5). Pinned by `tests/test_cyanrip_rc3_readiness.py`.
 _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
+# `.36`'s `Drive speed:` line, under `Speed:` (the fork's round 42 lap 1 S29,
+# accepted in our lap 2 S17; TASKS R193): what the drive DECLARES through GET
+# PERFORMANCE, never a measurement.
+#     Drive speed:    5.7x to 14.0x declared by drive (GET PERFORMANCE), not measured
+#     Drive speed:    8x declared by drive (GET PERFORMANCE), not measured
+#     Drive speed:    not declared (GET PERFORMANCE not answered)
+# The whole value is kept (bounded); the range is read by `_DRIVE_SPEED_RANGE`.
+_DRIVE_SPEED = re.compile(r"^Drive speed:\s+(?P<text>\S(?:.{0,240}\S)?)\s*$")
+_DRIVE_SPEED_RANGE = re.compile(
+    r"^(?P<lo>\d{1,3}(?:\.\d{1,3})?)x(?:\s{1,4}to\s{1,4}(?P<hi>\d{1,3}(?:\.\d{1,3})?)x)?"
+    r"\s{1,4}declared by drive\b"
+)
 # A track block opens with its outcome line.
 #
 # **BOTH WORDINGS, AND THAT IS THE WHOLE POINT OF THIS PATTERN.** This line is the
@@ -1341,24 +1354,37 @@ _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
 # Named groups, never column splits (CLAUDE.md): the label's internal run of
 # spaces is cyanrip's alignment padding and is not a field separator.
 _ALBUM_INTEGRATED_LOUDNESS = re.compile(
-    r"^Album integrated loudness \(R128\):\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+LUFS"
+    r"^Album integrated loudness \(R128\):\s+"
+    r"(?:(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+LUFS|unknown\s{1,4}\((?P<why>[^()\n]{1,160})\)"
+    r")"
 )
+# `unknown (no audio track finished)` in each of the four rows: the fork's round
+# 42 lap 1 S23, accepted in our lap 2 S13, for a run in which no audio track
+# finished (then neither the `Album Loudness` header nor libavfilter's block
+# prints). Read as the reason, kept in `_Disc.album_loudness_unknown`, and no
+# value: the four keys stay absent rather than hold a word where a number goes.
 # Only the range itself is captured. The trailing `(low to high LUFS)` is real and
 # is deliberately NOT folded in: `album_loudness` has exactly the four keys the
 # report schema and the results-pane label already read, and inventing two more
 # here would change what the JSON carries for a reason nothing asked for.
 _ALBUM_LOUDNESS_RANGE = re.compile(
-    r"^Album loudness range \(R128\):\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+LU\b"
+    r"^Album loudness range \(R128\):\s+"
+    r"(?:(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+LU\b|unknown\s{1,4}\((?P<why>[^()\n]{1,160})\)"
+    r")"
 )
 # Two peaks, two rows, two keys — the row says which peak it reports, so unlike
 # the sub-header form there is no state to arm and nothing to get out of sync.
 # That ambiguity (a true peak landing in EAC's sample-peak row) is a whole comment
 # block further up this file; these rows make it unrepresentable.
 _ALBUM_SAMPLE_PEAK_LEVEL = re.compile(
-    r"^Album sample peak level:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
+    r"^Album sample peak level:\s+"
+    r"(?:(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS|unknown\s{1,4}\((?P<why>[^()\n]{1,160})\)"
+    r")"
 )
 _ALBUM_TRUE_PEAK_LEVEL = re.compile(
-    r"^Album true peak level:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
+    r"^Album true peak level:\s+"
+    r"(?:(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS|unknown\s{1,4}\((?P<why>[^()\n]{1,160})\)"
+    r")"
 )
 
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
@@ -1963,6 +1989,9 @@ class _Disc:
     overread_lead_out: bool | None = None
     overread_mode: str = ""
     speed_changeable: bool | None = None
+    drive_speed_declared: str = ""
+    drive_speed_low_x: float | None = None
+    drive_speed_high_x: float | None = None
     pregap_searches: list[tuple[int, str]] = field(default_factory=list)
     names_shortened: list[_blocks.ShortenedName] = field(default_factory=list)
     album: str = ""
@@ -2102,6 +2131,9 @@ class _Disc:
     #: is a rule that must not silently depend on which block the binary printed
     #: first. See `record_album_loudness`.
     album_loudness_stable: set[str] = field(default_factory=set)
+    #: Why the album rows carry no value, when they say `unknown (…)` (the fork's
+    #: round 42 lap 1 S23: no audio track finished); "" otherwise.
+    album_loudness_unknown: str = ""
     tracks: list[TrackResult] = field(default_factory=list)
 
     def record_album_loudness(self, key: str, value: str, *, stable: bool) -> None:
@@ -2601,6 +2633,21 @@ def _take_speed_cap(disc: _Disc, match: re.Match[str]) -> bool:
         disc.speed_changeable = False
     elif "changeable" in text or (text and text[0].isdigit()):
         disc.speed_changeable = True
+    return True
+
+
+def _take_drive_speed(disc: _Disc, match: re.Match[str]) -> bool:
+    """The speed the drive declares (`.36`, S29): verbatim, and its range in x."""
+    text = inbound_text.screen_line(match.group("text")).text
+    disc.drive_speed_declared = text
+    found = _DRIVE_SPEED_RANGE.match(text)
+    if found is None:
+        # `not declared (…)`, or a wording we do not know: no numbers, never 0.
+        return True
+    low = float(found.group("lo"))
+    high = float(found.group("hi")) if found.group("hi") else low
+    if 0 < low <= high <= 100:
+        disc.drive_speed_low_x, disc.drive_speed_high_x = low, high
     return True
 
 
@@ -3104,22 +3151,28 @@ def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
 # values the `ebur128` fallback writes, so nothing downstream sees a new shape —
 # only a source that cannot be reworded out from under us. See the pattern block.
 def _take_album_integrated_loudness(disc: _Disc, match: re.Match[str]) -> bool:
-    disc.record_album_loudness("integrated_lufs", match.group("v"), stable=True)
-    return True
+    return _record_album_row(disc, "integrated_lufs", match)
 
 
 def _take_album_loudness_range(disc: _Disc, match: re.Match[str]) -> bool:
-    disc.record_album_loudness("lra_lu", match.group("v"), stable=True)
-    return True
+    return _record_album_row(disc, "lra_lu", match)
 
 
 def _take_album_sample_peak_level(disc: _Disc, match: re.Match[str]) -> bool:
-    disc.record_album_loudness("sample_peak_dbfs", match.group("v"), stable=True)
-    return True
+    return _record_album_row(disc, "sample_peak_dbfs", match)
 
 
 def _take_album_true_peak_level(disc: _Disc, match: re.Match[str]) -> bool:
-    disc.record_album_loudness("true_peak_dbfs", match.group("v"), stable=True)
+    return _record_album_row(disc, "true_peak_dbfs", match)
+
+
+def _record_album_row(disc: _Disc, key: str, match: re.Match[str]) -> bool:
+    """One album row: its value, or the reason it has none (S23, `.36`)."""
+    value = match.group("v")
+    if value is None:
+        disc.album_loudness_unknown = match.group("why") or "unknown"
+        return True
+    disc.record_album_loudness(key, value, stable=True)
     return True
 
 
@@ -3232,6 +3285,11 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule(
         "speed_capability", _SPEED_CAP, _take_speed_cap, echo_latch=_BEFORE_CDTEXT
     ),
+    # No echo latch yet: the forgery guard's tests read each guarded row in a
+    # committed log, and no committed log prints this row before `.36`. The value
+    # is declared, never measured, and nothing decides on it. Add the latch when a
+    # `.36` log is committed (TASKS R193).
+    _LineRule("drive_speed", _DRIVE_SPEED, _take_drive_speed),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
 )
 
@@ -3336,6 +3394,8 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 #: Membership is a real, checkable property — these are `search`ed or `match`ed against
 #: a substring a line rule already extracted — not a convenience category.
 _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # `.36`: the declared range inside the `Drive speed:` row's value (S29).
+    ("drive_speed_range", _DRIVE_SPEED_RANGE),
     # The confidence number inside an already-matched AccurateRip result fragment.
     ("accurip_confidence", _ACCURIP_CONFIDENCE),
     # The count, and the "none" case, inside a `Read stalls:` value (see
@@ -4847,6 +4907,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
             read_offset_correction=disc.read_offset,
             overread_lead_out=disc.overread_lead_out,
             speed_changeable=disc.speed_changeable,
+            drive_speed_declared=disc.drive_speed_declared,
+            drive_speed_low_x=disc.drive_speed_low_x,
+            drive_speed_high_x=disc.drive_speed_high_x,
             album=disc.album,
             album_artist=disc.album_artist,
             c2_pointers=disc.c2_pointers,
@@ -4894,6 +4957,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         read_stalls_count=disc.read_stalls_count,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
+        album_loudness_unknown=disc.album_loudness_unknown,
         log_checksum=disc.log_checksum,
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,

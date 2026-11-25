@@ -1186,7 +1186,9 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
     # kept-read clause, searched only in a line `_SECURE_DONE_FAIL` matched.
     # 10 -> 12 when both halves above landed on one branch (2026-10-21): the two
     # `.26` value shapes and the two R7 read-checksum fragments.
-    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 12, (
+    # 12 -> 13 (2026-11-25, TASKS R193): `.36`'s declared range, matched only
+    # against the value the `drive_speed` rule already captured.
+    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 13, (
         "the fragment group is growing; check each entry really is matched against a "
         "captured fragment rather than a whole line"
     )

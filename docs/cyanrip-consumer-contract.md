@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (91)
+## 1. Log lines we parse (92)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -73,14 +73,15 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_disc_status` | disc | `^AccurateRip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `drive_speed` | disc | `^Drive speed:\\s+(?P<text>\\S(?:.{0,240}\\S)?)\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
 | `handshake_note` **(fork-only)** | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
 | `consumer` **(fork-only)** | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
-| `album_integrated_loudness` **(fork-only)** | disc | `^Album integrated loudness \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LUFS` |
-| `album_loudness_range` **(fork-only)** | disc | `^Album loudness range \\(R128\\):\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LU\\b` |
-| `album_sample_peak_level` **(fork-only)** | disc | `^Album sample peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
-| `album_true_peak_level` **(fork-only)** | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
+| `album_integrated_loudness` **(fork-only)** | disc | `^Album integrated loudness \\(R128\\):\\s+(?:(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LUFS\|unknown\\s{1,4}\\((?P<why>[^()\\n]{1,160})\\))` |
+| `album_loudness_range` **(fork-only)** | disc | `^Album loudness range \\(R128\\):\\s+(?:(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+LU\\b\|unknown\\s{1,4}\\((?P<why>[^()\\n]{1,160})\\))` |
+| `album_sample_peak_level` **(fork-only)** | disc | `^Album sample peak level:\\s+(?:(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS\|unknown\\s{1,4}\\((?P<why>[^()\\n]{1,160})\\))` |
+| `album_true_peak_level` **(fork-only)** | disc | `^Album true peak level:\\s+(?:(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS\|unknown\\s{1,4}\\((?P<why>[^()\\n]{1,160})\\))` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^(?:Tracks ripped partially accurately\|Tracks matched on one frame only):\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `secure_rereads` **(fork-only)** | disc | `^Secure re-reads:\\s+(?P<value>\\S(?:.{0,398}\\S)?)\\s*$` |
