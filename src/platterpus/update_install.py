@@ -41,7 +41,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from platterpus import __version__, update_attestation, update_signing
+from platterpus import __version__, update_attestation
 from platterpus.appimage_integration import (
     APPLICATIONS_DIR,
     CANONICAL_APPIMAGE_NAME,
@@ -71,11 +71,6 @@ _MAX_DOWNLOAD_BYTES: int = 1024 * 1024 * 1024
 # 4 KiB is generous for the real content; anything past it is already malformed.
 _MAX_SHA256_BYTES: int = 4096
 
-# Cap on the `.minisig` sidecar read. A real minisign signature is ~200 bytes
-# (two comment lines + two base64 lines); 4 KiB is generous, and bounding it
-# stops a hostile mirror streaming a huge body before we parse it.
-_MAX_SIG_BYTES: int = 4096
-
 
 class UpdateInstallError(Exception):
     """Any failure installing an update. The message is user-presentable."""
@@ -100,13 +95,14 @@ class _HttpsOnlyRedirects(urllib.request.HTTPRedirectHandler):
     in the clear, forgeable by anyone on the path.
 
     That matters more here than it would in most places, because of what the
-    update pipeline installs: an executable the user then runs. And it matters
-    *right now* specifically, because the signature gate below is **dormant** —
-    `update_signing.PUBLIC_KEY_B64` ships empty, so SHA-256 is the only check, and
-    the checksum is fetched over the *same* channel as the payload. An attacker
-    who can rewrite the transport can rewrite both and the install succeeds. TLS
-    is what stops that today, which makes "did we actually stay on TLS?" a
-    load-bearing question rather than a formality.
+    update pipeline installs: an executable the user then runs. The checksum is
+    fetched over the *same* channel as the payload, so an attacker who can rewrite
+    the transport can rewrite both. The build attestation (checked fail-closed
+    below, KDD-37 D9) is the authenticity check; TLS is still the first line, so
+    "did we actually stay on TLS?" is a load-bearing question rather than a
+    formality. (When this class was written, 2026-08-20, a dormant minisign
+    signature gate was the planned authenticity check; it was never armed and was
+    removed on 2026-11-25, TASKS R239.)
 
     Found by audit, 2026-08-20. Not known to be exploitable against GitHub, which
     does not downgrade — but "our dependency happens not to do the dangerous
@@ -355,38 +351,6 @@ def download_and_install(
         part.unlink(missing_ok=True)
         log.warning("update refused after download: %s", refusal)
         raise UpdateInstallError(refusal)
-
-    # 3b. Authenticity gate (fail-closed) — armed only once a maintainer signing
-    # key is baked into update_signing.PUBLIC_KEY_B64. SHA-256 above proves the
-    # bytes match what was published; the signature proves WHO published them,
-    # which a compromised release channel (able to swap both AppImage and
-    # .sha256) can't forge without the maintainer's offline key. While no key is
-    # configured this whole block is skipped and behaviour is unchanged.
-    if update_signing.signing_configured():
-        _status("Verifying the signature…")
-        try:
-            with open_url(url + ".minisig") as response:
-                signature_text = response.read(_MAX_SIG_BYTES).decode(
-                    "utf-8", "replace"
-                )
-        except Exception as exc:  # noqa: BLE001 — network/shape errors alike
-            # Fail-closed: a missing/unfetchable signature is a REFUSAL, not a
-            # fall-through to installing unverified bytes. (Every release cut
-            # after signing is armed must carry a .minisig — see
-            # docs/architecture.md §6.2.)
-            part.unlink(missing_ok=True)
-            raise UpdateInstallError(
-                "this release has no verifiable signature (.minisig) — refusing "
-                f"to install, because signature verification is required: {exc}"
-            ) from exc
-        if not update_signing.verify_minisign_file(
-            part, signature_text, update_signing.PUBLIC_KEY_B64
-        ):
-            part.unlink(missing_ok=True)
-            raise UpdateInstallError(
-                "the downloaded update failed signature verification — not "
-                "installed (its signature doesn't match the trusted key)"
-            )
 
     # 4. Make it launchable and atomically swap it in. Replacing the file
     # the app is running from is safe — the old session keeps its inode.
