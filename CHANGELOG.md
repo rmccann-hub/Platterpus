@@ -12,6 +12,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Analyze cache no longer starts while the disc is still being read, and a cut-off cache check says so** (user-facing; the owner's log of 2026-11-25). Pressed during a disc read, the cache check ran as a second program reading the drive; the read slowed past its five-minute limit, and freeing the drive afterwards killed the cache check too, after which the window said cd-paranoia "didn't report a cache verdict we recognise". Now a press while the drive is busy waits and starts by itself when the read finishes, and a check that is killed before it finishes says it was stopped, that nothing was measured, and that the drive's saved result is unchanged (it always was: an unknown result never overwrites a saved one).
+
 ### Changed
 
 - **The 2026-11-25 audit: EAC parity re-read against round 42, every open task, and seventeen other rippers** (contributor-facing; the owner's request of 2026-11-25). `docs/eac-parity.md` gains Part H: round 42's result (14 of 14 whole-disc rips shipped every track AccurateRip-verified), twelve claims the code or the logs contradict and their corrections, one label for each capability that had several, the EAC features the file had not graded, a survey of other rippers with its feature matrix and sources, and a decision with its reason for every feature found, including those we skip. Part F's yardstick has 13 rows corrected. `TASKS.md` closes 8 R rows and 31 older rows as done, stale or duplicated, adds R201 to R231, records the owner's answers to three of them (PLANNING KDD-48: more derived formats yes, two drives no, AccurateRip submission still deferred), and replaces the 2026-11-16 order with a new one; `docs/cyanrip-fork.md` Part C gains §7, the asks for the fork; `docs/ux-design-principles.md` records gap 6 shipped and gap 3's parser half, and links the open WCAG items to R224 and R225; the status block's open items are brought up to date.

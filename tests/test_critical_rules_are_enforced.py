@@ -1209,7 +1209,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and records no tool failure (`killable.was_cancelled`).
     # **378 -> 388** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the saved cd-paranoia output keeps head and tail (`diagnostics.bounded_output`), and the comment says why: the verdict is the last thing it prints, and the 2,000-character cut dropped it.
     # **388 -> 409** (2026-10-29, TASKS R97): the probe runs in a folder of its own, so `probe_cache_defeat` wraps the old body (`_probe`) and returns the tool's log; the folder handling itself lives in `adapters/cache_probe_folder.py`.
-    "adapters/cache_probe.py": 409,
+    # **409 -> 446** (2026-11-25, the owner's log): a probe killed from outside
+    # (exit 137, SIGKILL through the wrapper) says it was stopped, not that its
+    # report was unrecognised; `_killing_signal` and its wording.
+    "adapters/cache_probe.py": 446,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **567 -> 635** (2026-10-26, peer review 2.8): the manifest is a server's answer: `_manifest_images` (any shape is no images, never an exception), `image_url_is_ours` (only the archive's own http(s) hosts are fetched) and `MAX_EXTRA_IMAGES`; all three belong beside the one function that reads the manifest.
     "adapters/cover_art.py": 635,
@@ -2627,7 +2630,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **581 -> 665** (2026-11-12, TASKS R53, the cache check once per drive): the decisions are in `cache_check_plan.py` and the starting, describing and stopping in `drive_setup_auto_check.py` (a mixin); what stays is what only the dialog can hold: the three constructor inputs, the Skip button's place in the button row, the first-show hook, the worker start shared by the button and the automatic run, and the finish slot's "stopped" wording.
     # **665 -> 666** (same day): `showEvent` takes a typed `QShowEvent`, so it needs no reason-less `type: ignore`.
     # **666 -> 720** (2026-11-17, UX review of 0.7.127), F5: the empty results box is hidden when there is no offset finder and revealed (with the minimum re-derived) when a cache check reports; Save offset is the default button; "✓ Offset applied" beside the field, cleared when the field or the tick-box stops matching; "the ripper", not "this backend".
-    "ui/drive_setup_dialog.py": 720,
+    # **720 -> 725** (2026-11-25, the owner's log): the `drive_busy_now` input, so
+    # Analyze cache asks whether the drive is busy when pressed; the waiting itself
+    # lives in `drive_setup_auto_check.py`.
+    "ui/drive_setup_dialog.py": 725,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
     # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
@@ -2751,7 +2757,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **853 -> 982** (2026-11-13, each drive rips at its own read offset, the owner's rule of 2026-11-12): `_selected_drive_offset`, the window's one answer to which offset the next rip on the selected drive applies, and `_move_global_offset_once`; `_set_read_offset_override` saves into the selected drive's profile and refuses with no drive selected. The pure rule and the move itself went to `offset_config.py` (`offset_for_drive`, `plan_global_offset_move`, `move_global_offset`); what is here is the window's wiring to them and its reasons.
     # Both changes merged 2026-11-13: measured 1009 lines after the merge.
     # **1013 -> 1033** (2026-11-17, UX review of 0.7.127, TASKS R182), E3: the empty-state line is built where an empty drive listing first lands (`_on_drives_unavailable`), and `_sync_no_drive_notice`; the line itself is `ui/no_drive_notice.py`.
-    "ui/main_window_drive.py": 1033,  # +4 2026-11-13: the first-run offer says what setup does (R150)
+    "ui/main_window_drive.py": 1034,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.

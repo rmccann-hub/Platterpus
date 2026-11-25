@@ -259,6 +259,16 @@ def describe(result: CacheProbeResult) -> str:
                 "cd-paranoia isn't installed, so the cache couldn't be measured. "
                 "Run Tools → Setup & Updates… → Run setup… to install it, then try again."
             )
+        if "killed by signal" in low:
+            # Killed from outside (the owner's log, 2026-11-25: a disc read timed
+            # out and freeing the drive SIGKILLed this probe too). Not a tool
+            # failure and not an odd report: it never got to the verdict.
+            return (
+                f"the cache analysis was stopped before it finished ({result.error}), "
+                "so nothing was measured and the drive's saved result is unchanged. "
+                "Platterpus stops whatever holds the drive when a disc read times "
+                "out, which is the usual cause. Run it again once the drive is idle."
+            )
         if "timed out" in low:
             return (
                 "the cache analysis ran too long and was stopped. It reads the disc "
@@ -342,6 +352,22 @@ def probe_cache_defeat(
         return replace(result, analysis_log=take_analysis_log(folder))
 
 
+def _killing_signal(exit_code: int | None) -> int | None:
+    """The signal that killed the probe, or ``None`` if it exited on its own.
+
+    ``Popen`` reports a signal as a negative code; through the Distrobox wrapper
+    a shell reports it as 128 + the signal (``137`` for SIGKILL, as in the
+    owner's log of 2026-11-25). cd-paranoia's own exits are small numbers.
+    """
+    if exit_code is None:
+        return None
+    if exit_code < 0:
+        return -exit_code
+    if 128 < exit_code <= 128 + 64:
+        return exit_code - 128
+    return None
+
+
 def _probe(device: str, binary: Path, run: Runner) -> CacheProbeResult:
     """`probe_cache_defeat` once its folder is made. NEVER raises.
 
@@ -380,6 +406,11 @@ def _probe(device: str, binary: Path, run: Runner) -> CacheProbeResult:
     if not isinstance(exit_code, int):
         exit_code = None
     result = replace(result, exit_code=exit_code)
+    signal_number = _killing_signal(exit_code)
+    if signal_number is not None and result.defeat is None:
+        # It was cut off, so the reason is "killed", not "an answer we did not
+        # recognise". A verdict printed before the kill is still kept.
+        result = replace(result, error=f"killed by signal {signal_number}")
     if exit_code != 0:
         # A warning, not an error: the honest "unknown" verdict is still correct and
         # the rip is unaffected — but the reader must be told the measurement did
@@ -393,8 +424,14 @@ def _probe(device: str, binary: Path, run: Runner) -> CacheProbeResult:
             message=(
                 f"cache-defeat probe on {device or '(default drive)'}: cd-paranoia "
                 f"-A {'exited ' + str(exit_code) if exit_code is not None else 'returned no exit status'}"
-                f" — the archival 'Defeat audio cache' field stays unknown, and that "
-                f"is a tool failure rather than an inconclusive measurement"
+                + (
+                    f" (killed by signal {signal_number} before it finished) — the "
+                    f"archival 'Defeat audio cache' field stays unknown, and the saved "
+                    f"verdict, if any, is unchanged"
+                    if signal_number is not None
+                    else " — the archival 'Defeat audio cache' field stays unknown, "
+                    "and that is a tool failure rather than an inconclusive measurement"
+                )
             ),
             severity=diagnostics.WARNING,
             where="adapters.cache_probe.probe_cache_defeat",

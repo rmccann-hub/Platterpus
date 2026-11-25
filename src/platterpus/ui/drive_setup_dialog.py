@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import html
 import logging
+from collections.abc import Callable
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QShowEvent
@@ -124,6 +125,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         cache_verdict: str | None = None,
         audio_disc_present: bool = False,
         drive_busy: bool = False,
+        drive_busy_now: Callable[[], bool] | None = None,
     ) -> None:
         """`known_offset`, when provided, is the AccurateRip read offset
         looked up by drive model (the primary, disc-free path). We prefill
@@ -136,7 +138,8 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         ``cache_verdict`` is this drive's `verdict_state` (``None``, the default,
         means the caller did not say, and nothing starts by itself);
         ``audio_disc_present`` is whether an audio CD has been read in the drive;
-        ``drive_busy`` is whether something else is reading it right now.
+        ``drive_busy`` is whether something else is reading it right now, and
+        ``drive_busy_now`` asks that again when *Analyze cache* is pressed.
         """
         super().__init__(parent)
         self._backend: RipBackend = backend
@@ -157,7 +160,9 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         # Set true once the dialog is closing, so a late worker result
         # doesn't poke widgets that are being torn down.
         self._closing: bool = False
-        self._init_auto_check(cache_verdict, audio_disc_present, drive_busy)
+        self._init_auto_check(
+            cache_verdict, audio_disc_present, drive_busy, drive_busy_now
+        )
 
         self.setWindowTitle("Set up drive")
         # Open at a readable size (the default was cramped — labels and the
@@ -514,8 +519,8 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
     # --- Detection flow -----------------------------------------------------
 
     def _on_detect_clicked(self) -> None:
-        """Kick off calibration on a worker thread (the button's slot)."""
-        self._start_calibration()
+        """The button's slot: start now, or once the drive is free."""
+        self._request_calibration()
 
     def _start_calibration(self) -> None:
         """Start the worker: the button's run and the automatic one alike."""
