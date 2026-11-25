@@ -422,3 +422,14 @@ def test_the_drive_tests_probe_upload_has_filed_names() -> None:
     assert staged_name("probe/summary.txt") == "probesummary.txt"
     assert staged_name("drivetest.log") == "drivetest.log"
     assert staged_name("records/RECORDS.txt") == "records.txt"
+
+
+def test_the_overwrite_steps_second_folder_is_named_either_way() -> None:
+    """The rips folder names the overwrite step's second album ` (2)`; an older
+    bundle wrote it `_2_`. Both file as `overwrite`, never over `wholedisc`."""
+    from evidence_names import album_key
+
+    base = "full acceptance\u2236 angle\u2039bracket 20261124t093825 platterpus-fork-g1280aa4"
+    assert album_key(base) == "wholedisc"
+    assert album_key(base + " (2)") == "overwrite"
+    assert album_key(base + "_2_") == "overwrite"
