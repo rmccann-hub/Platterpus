@@ -806,6 +806,8 @@ pursued. No code ever proceeds on the signing path.
 
 ### Part C §2 — In-app CUETools / CTDB *repair*
 
+> **Status 2026-11-25: runs automatically after every rip and is proven on hardware** (2026-11-10, and all 14 round 42 whole-disc rips; Part H.1). The note below is the 2026-11-04 record.
+>
 > **Status 2026-11-04: built natively, no new dependency; not yet a button.** On
 > the owner's word (*"Start building CTDB repair now? yes"*), the repair was
 > built in Python as the step after the localisation (TASKS R43), which had
@@ -2019,7 +2021,7 @@ The owner's rule of 2026-11-04 decides: a gap where EAC succeeds and we do not i
 | CD-TEXT as a metadata source | The fork prints `CD-TEXT:`; we leave it unparsed | **Parity.** R206. Writing CD-TEXT is writing a disc: out of scope |
 | Metadata providers besides MusicBrainz | MusicBrainz, then Picard for an unknown disc | **Parity, partial.** R206, R207 and R209; GD3 skipped (paid), gnudb skipped (low value) |
 | `Track quality` and `Range quality` | `(not reported by the ripper)`; EAC's 99.8 % flagged its own wrong track 3 on 2026-11-12 | **Parity, small.** R221 decides a substitute from paranoia's counts or keeps the honest absence |
-| Encoder choice, any command line | FLAC, MP3, WavPack, WAV | **Parity, partial.** R217 waits on the owner (Critical rule #4); a user-supplied command line is skipped (it bypasses the one transcode adapter) |
+| Encoder choice, any command line | FLAC, MP3, WavPack, WAV | **Parity, partial.** More formats approved by the owner 2026-11-25 (R217, KDD-48); a user-supplied command line is skipped (it bypasses the one transcode adapter) |
 | Detect TOC manipulation | Absent | **Parity, low.** R222 |
 | M3U playlist | Absent | **Parity, trivial.** R218 |
 | Lock the tray during a rip | Absent | **Parity, low.** R223; asked of the fork as the cheaper side |
@@ -2099,7 +2101,7 @@ file; **Skip** is recorded and not done, with the reason; **Done** is already ou
 | 1 | Offset from a disc for a drive AccurateRip does not list | EAC ([AR][h-eacorg-ar]), dBpoweramp ([advanced][h-dbp-adv]), whipper ([README][h-whip]), morituri ([README][h-mor]), cyanrip `-f` ([README][h-cy]), XLD ([notes][h-xld-rn]) | Parity | **Next** | Without it a user with an unlisted drive rips offset-wrong; `-f` is wrapped and not wired | R150 |
 | 2 | Single-file image with its cue, and a choice of cue style | EAC, CUERipper ([CUETools][h-cuet]), dBpoweramp ([advanced][h-dbp-adv]), XLD ([site][h-xld]), EZ CD ([ripper][h-ez-rip]), fre:ac, foobar2000 ([converter][h-fb-conv]), K3b, Rubyripper ([fork][h-rr]), abcde ([wiki][h-abcde]) | Parity | **Next** (larger) | The standard archive layout; derived from the verified per-track FLACs through the transcode adapter, no second read | R201 |
 | 3 | CTDB submission | CUERipper, CUETools, EAC's plugin ([CTDB][h-ctdb]) | Parity | **Plan** | Gives back to the database; CUETools' rule: only with AccurateRip confidence above 1, never a track AccurateRip rejects. Unsure whether the server accepts an unlisted client | R43 |
-| 4 | AccurateRip submission | EAC ([AR][h-eacorg-ar]), dBpoweramp ([help][h-dbp-help]) | Parity | **Owner** (deferred, "not right now") | Proprietary; no public submission interface found | R52 |
+| 4 | AccurateRip submission | EAC ([AR][h-eacorg-ar]), dBpoweramp ([help][h-dbp-help]) | Parity | **Deferred** on the owner's word ("not right now", 2026-11-16; "keep it deferred", 2026-11-25) | Proprietary; no public submission interface found | R52 |
 | 5 | Re-read only the frames in doubt, voted per sector or chunk | dBpoweramp ([advanced][h-dbp-adv]), EAC (G.3), Rubyripper ([fork][h-rr]), XLD ([notes][h-xld-rn]) | Win (speed on a damaged disc) | **Fork**, then ours | It lives in the read engine; our half is R134 (rebuild a disputed second) | R134 |
 | 6 | C2 pointers as evidence, after testing how far the drive's C2 can be trusted | dBpoweramp ([advanced][h-dbp-adv]), CUERipper, XLD, EAC (option) | Speed | **Skip** for now | It speeds a rip more than it makes one right, and drives often report C2 badly; the round 42 C2 probe is the record | — |
 | 7 | FUA cache invalidation | dBpoweramp ([advanced][h-dbp-adv]) | Speed | **Skip** for now; offered to the fork | Speed only, and only the fork could do it | — |
@@ -2121,9 +2123,9 @@ file; **Skip** is recorded and not done, with the reason; **Done** is already ou
 | 23 | Tag-tidying rules ("The X" to "X, The", one genre, split "feat.") | dBpoweramp ([advanced][h-dbp-adv]) | Convenience | **Skip** | Low value, a matter of taste, and MusicBrainz's own style already decides these | — |
 | 24 | Classical work and movement tags | dBpoweramp ([help][h-dbp-help]) | Metadata | **Plan** | MusicBrainz has the work relationships; check what we write first | R213 |
 | 25 | Rip on insert, off by default | fre:ac ([discussion][h-freac-auto]), Sound Juicer ([NEWS][h-sj-news]), dBpoweramp Batch Ripper ([batch][h-dbp-batch]) | Convenience | **Plan** | A media-change signal on a worker | R214 |
-| 26 | Several drives at once; auto-loaders | fre:ac ([HA][h-freac-ha]), dBpoweramp ([batch][h-dbp-batch]) | Convenience | **Owner** for two drives; robots **Skip** | One rip worker per drive, with its own profile; robots are out of scope | R215 |
+| 26 | Several drives at once; auto-loaders | fre:ac ([HA][h-freac-ha]), dBpoweramp ([batch][h-dbp-batch]) | Convenience | **Skip**: two drives declined on the owner's word, 2026-11-25; robots out of scope | *"whether to rip from two drives at once (R215) no."* (PLANNING KDD-48) | R215 (closed) |
 | 27 | Several output formats in one rip | dBpoweramp, cyanrip `-o` ([README][h-cy]), Rubyripper, abcde, Asunder ([site][h-asu]) | Convenience | **Next** | The transcode adapter loops over the chosen formats | R216 |
-| 28 | More formats: ALAC, Opus, Vorbis, AIFF; AAC | dBpoweramp, XLD, EZ CD, fre:ac, cyanrip, Asunder | Convenience | **Owner** | Critical rule #4 names the derived formats; adding one is the owner's word | R217 |
+| 28 | More formats: ALAC, Opus, Vorbis, AIFF; AAC | dBpoweramp, XLD, EZ CD, fre:ac, cyanrip, Asunder | Convenience | **Next**, approved by the owner 2026-11-25 | *"we can do this"* (PLANNING KDD-48); each derived from the FLAC master through the one transcode adapter, and rule #4's list amended when the first ships | R217 |
 | 29 | M3U playlist | whipper ([HA][h-whip-ha]), Rubyripper, Asunder, K3b ([blog][h-k3b-blog]) | Parity | **Next** | Trivial | R218 |
 | 30 | Shut down after ripping; eject only when secure; stop after an insecure track | dBpoweramp ([advanced][h-dbp-adv]) | Convenience | **Done** in part; the rest **Skip** | Auto-eject already waits for a successful rip and never ejects a failed or cancelled one (`ui/main_window_rip.py:2564`); whether a rip with an unverified track counts as successful was not checked. Shutting the machine down is the desktop's job | — |
 | 31 | Writing a disc with offset-corrected audio and CD-TEXT | EAC ([features][h-eacorg-feat]), EZ CD, K3b | — | **Skip**, out of scope | Writing a disc is not this project | — |

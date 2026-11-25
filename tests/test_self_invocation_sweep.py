@@ -26,7 +26,7 @@ string I chose to write.
 The corpus is a committed fixture rather than a `git show HEAD~1`, because CI's
 `test` job checks out at depth 1 and a history-reading revert-proof would
 silently `skip` there — a skip in the one job that gates every merge. It is not a
-hand-made stand-in: `tests/data/hardcoded_invocations_prefix.json` was *generated*
+hand-made stand-in: `tests/fixtures/hardcoded_invocations_prefix.json` was *generated*
 from the pre-fix blobs, records the commit it came from, and holds the excerpts
 verbatim.
 
@@ -57,7 +57,7 @@ HARDCODED = re.compile(r"(?<![\w./-])(?:\./)?platterpus(?:-x86_64\.AppImage)?\s+
 #: Verbatim excerpts of every string the fix removed, generated from the pre-fix
 #: blobs. Five files, seven instances — the guide held three of them.
 PREFIX_CORPUS = (
-    Path(__file__).resolve().parent / "data" / "hardcoded_invocations_prefix.json"
+    Path(__file__).resolve().parent / "fixtures" / "hardcoded_invocations_prefix.json"
 )
 
 

@@ -186,11 +186,10 @@ Platterpus/
 │   ├── conftest.py                      # session-scoped QApplication fixture; QT_QPA_PLATFORM=offscreen
 │   ├── evidence_paths.py                # the one way a test reads run evidence (a fixture), held by test_no_new_evidence_readers.py
 │   ├── evidence_guard.py / evidence_population.py   # fail a test that opens an evidence original; keep a sweep's population when evidence moves
-│   ├── data/                            # small JSON data a test reads (hardcoded_invocations_prefix.json)
 │   ├── test_*.py                        # one suite per module (run `ls tests/`), incl.
 │   │                                    #   test_ctdb_{toc,decode,client,verify,calibrate,diagnose}.py, the deps/parsers/
 │   │                                    #   ui/workers suites, and *_script.py smoke tests for the installers
-│   └── fixtures/                        # legacy-format cd-info / drive-list / rip-log samples, cyanrip + EAC logs (+ README)
+│   └── fixtures/                        # legacy-format cd-info / drive-list / rip-log samples, cyanrip + EAC logs, and small JSON a test reads (+ README)
 │
 └── src/
     └── platterpus/
@@ -2580,6 +2579,28 @@ our log, never the ripper's*.
 **Licence, corrected.** CUETools is GPL-2.0-or-later (its root `License.txt`), not
 LGPL as KDD-16 said; either permits a GPL-3.0-only reimplementation, and the clean-room
 rule KDD-16 set remains the practice.
+
+
+### KDD-48 — Derived formats may grow beyond MP3, WavPack and WAV; one drive at a time; AccurateRip submission stays deferred (decided 2026-11-25)
+
+**Context.** The audit of 2026-11-25 surveyed seventeen other rippers (`docs/eac-parity.md`
+Part H). Three of its findings needed the owner's word: more derived formats (dBpoweramp,
+XLD, EZ CD, fre:ac and cyanrip offer ALAC, Opus, Vorbis, AIFF and AAC), ripping on two
+drives at once (fre:ac, dBpoweramp), and AccurateRip submission (EAC, dBpoweramp).
+
+**Decision (the owner's words, 2026-11-25).**
+- *"whether to add more output formats, such as ALAC or Opus (R217) we can do this."*
+  Derived formats may grow. Critical rule #4 is unchanged in substance: FLAC is ripped
+  first and kept, and every other format is derived from it through the single transcode
+  adapter, with tags, cover art and a decode-and-compare check against the master. The
+  rule's list of formats ("MP3, WavPack, and WAV") is amended in the same change that
+  ships the first new one (TASKS R217).
+- *"whether to rip from two drives at once (R215) no."* One drive at a time. R215 is
+  closed as declined.
+- *"AccurateRip submission ... keep it deferred."* R52 stays deferred.
+
+**Consequence.** R217 moves from waiting on the owner to planned work; Part H.6 items 26
+and 28 record the decisions.
 
 
 ## 9. Working with the maintainer, and the deviation policy — moved from `CLAUDE.md` (2026-11-16)

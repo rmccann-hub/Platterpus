@@ -1930,6 +1930,19 @@ from the fork's `docs/OPEN-ITEMS.md` is named, read at `cyanrip@e665c9b4`.
 | F9 | **Refresh the fork's parity rows 6, 21 and 23 with round 42**, and read our corrections in Part H.2 so the two parity files agree | Round 42: track 3 read right in 13 of 14 whole-disc rips, track 9 undecided in 14 of 14, `Recordable:` printed | — |
 | F10 | *For the record, not asked now:* FUA cache invalidation (dBpoweramp; speed only), C2 pointers as evidence after a trust test (speed more than accuracy; the round 42 C2 probe is the record), and flagging a manipulated TOC (EAC; low, our R222) | Recorded so they are not found again as new | — |
 
+**From the review of both repositories' file layout (2026-11-25).** Each is a cheap move on
+your side; our cost is none unless it says so. Read at `cyanrip@a06c8de`.
+
+| # | Ask | Why |
+|---|---|---|
+| F11 | **Move `JOINT-SCRIPT-RUNBOOK.md`, `ROUND-22-PLAN.md` and `DEPENDENCY-PLAN.md` into `docs/history/`**, with rows in its README | Your `docs/README.md` already classes all three as history and their banners say finished or superseded; your cost is one comment in `src/cyanrip_main.c`, three tool and test references, and the living docs that name them |
+| F12 | **Move `cyanrip@a06c8de:docs/upstream-cachemodel-report.md` into your upstream folder** | Every other upstream filing is there, and it was filed as upstream issue 167 |
+| F13 | **Move `docs/research/` (three files) into `docs/history/`** | It fixes three broken links in `cyanrip@a06c8de:docs/history/2026-11-04-misreads-and-pregaps.md:11-14`, which point at siblings that are not there, without editing a history file |
+| F14 | **Consider grouping the 61 `docs/rig-*/` folders under one parent** | 61 of about 89 entries in your `docs/`. The cost is real on both sides (your tools, `SOURCES.tsv`, the evidence manifest keyed by path, and 94 of our files with unpinned citations), so we accept "no"; half the runs moved and half not would be worse than either |
+| F15 | **`PROPOSAL-operator-seam-automation.md`, byte-identical in both trees: archive it unchanged on both sides in one round, or confirm it stays** | Its open part became your `upstream/carried-patches.md`; our half is R243 |
+| F16 | **At the next protocol version, move `PROTOCOL.md`'s change history (§10 to §18, about 550 of 1,815 lines) to an appendix**, the §8 conformance table unmoved | Readers of the binding text page through history; shared file, so it rides a version both sides ship |
+| F17 | **EAC parity: one authority per row.** Your file keeps the facts the fork owns (what `-r` bounds, accurate stream, CD-R detection, extraction speed) and for rows 6 and 21 cites `OPEN-ITEMS.md` HW-6 and the rig READMEs; we cite your rows by `cyanrip@<sha>` instead of restating them | The two files have drifted on row 6; this goes with F9 |
+
 **Already on round 43's list, not repeated here:** our answer to US-21 (we will read
 `Pregap sample peak:`, R227), the `?` cell at `docs/seam-commands.md:261` (PP-12, our
 R228), the two proposed seam rules (R229), and the addendum's time (PP-14, our R226).

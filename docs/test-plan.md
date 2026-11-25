@@ -469,6 +469,12 @@ now read "verified ✓". (Host `flac` export in the wizard is tracked separately
 
 ## Test 2 — [ ] CTDB repair direction (Phase 2, KDD-14)
 
+> **Overtaken, 2026-11-25 (the audit).** The decision below was made the other way:
+> CTDB repair was built natively in Python with no .NET dependency (PLANNING.md KDD-47,
+> 2026-11-04), runs automatically after a rip from 2026-11-05, and was proven on hardware
+> on 2026-11-10 and in every round 42 whole-disc rip (`docs/eac-parity.md` Part H.1). The
+> text below is kept as the record of the question.
+
 **Goal:** decide and prototype parity repair. **Depends on Test 1 passing.**
 
 **Open decision (needs your call):** `ctdb-cli` is **C#/.NET 10**, so bundling
@@ -2189,4 +2195,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.7.129.*
+*Last updated for Platterpus v0.7.130.*
