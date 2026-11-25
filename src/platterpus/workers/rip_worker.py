@@ -39,6 +39,7 @@ from platterpus import (
     disk_space,
     drive_control,
     inbound_text,
+    kept_read,
     output_writable,
     record_fate,
     rip_estimate,
@@ -3826,6 +3827,12 @@ class RipWorker(QObject):
             previous_crc=previous_crc,
             # The verdict's one predicate, on the read that shipped (TASKS R112).
             contradiction=track_accuraterip_contradiction(track) or "",
+            # `.27`'s `Kept read began:` on the re-rip's log (TASKS R226).
+            read_began=(
+                str(getattr(track, "kept_read_began", "") or "")
+                if getattr(track, "kept_read_began_state", "") == kept_read.READ
+                else ""
+            ),
         )
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:

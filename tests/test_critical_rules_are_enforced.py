@@ -2324,7 +2324,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **536 -> 562** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): `SupersededTrack.contradiction`, and a reproduced read AccurateRip contradicts is never called CONFIRMED; the row is `track_proof.contradicted_tracks_sentence`.
     # **562 -> 593** (2026-11-11, round 39 G1): `merged_rows` and `TRIGGER_MIXED`, so a rip that swaps twice (Archival Exact's securing pass, then its album-pass chase) keeps both swaps' rows in its one sidecar.
     # **593 -> 595** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: its two suffixes are re-exported from there, with the reason.
-    "rip_addendum.py": 595,
+    # **595 -> 614** (2026-11-25, TASKS R226, the fork's PP-14: the addendum carries a time): `SupersededTrack.read_began`, the `Written:` line and its reason, the `Read began:` row, the stamp in `write_addendum`, and the rebuild's read start.
+    "rip_addendum.py": 614,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -3454,7 +3455,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4490 -> 4484** (2026-11-12, the fork's round 39 lap 3 S15): down: `_rip_once` asks `confidence_for_pass` for every `-Z` pass in one line, where it computed the securing pass's case in five.
     # **4484 -> 4485** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
     # **4485 -> 4491** (2026-11-25): R193: the progress line's `rest of rip read once` clause, read into the same `eta` group.
-    "workers/rip_worker.py": 4491,
+    # **4491 -> 4498** (2026-11-25, TASKS R226, the fork's PP-14: the addendum carries a time): the swap row takes the re-rip log's `Kept read began:` when the parser read it as an instant.
+    "workers/rip_worker.py": 4498,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

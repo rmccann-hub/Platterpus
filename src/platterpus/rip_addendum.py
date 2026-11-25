@@ -154,6 +154,10 @@ class SupersededTrack:
     #: return the same wrong audio twice (TASKS R112, review A2 of the 2026-11-03
     #: Full run, whose addendum called track 5 "CONFIRMED").
     contradiction: str = ""
+    #: When the shipped read began, UTC, from the re-rip log's `Kept read began:`
+    #: (`.27` and later; TASKS R226, the fork's PP-14). "" when the ripper did not
+    #: print it, which renders as "not recorded by the ripper", never a guess.
+    read_began: str = ""
 
     @property
     def outcome(self) -> str:
@@ -231,8 +235,15 @@ def merged_rows(
     return joined, TRIGGER_MIXED
 
 
-def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
+def render_addendum(
+    trigger: str, swapped: list[SupersededTrack], *, written_at: str = ""
+) -> str:
     """The sidecar's full text. Pure — no I/O — so it is testable as text.
+
+    ``written_at`` is when the sidecar was written, UTC (TASKS R226: the fork's
+    PP-14 found the addendum carried no time, so nothing in it said when the
+    supersede happened). "" leaves the line out: a rebuild from the report does
+    not know when the file was first written, and does not invent it.
 
     ``trigger`` is why the re-rip happened: ``"accuraterip"``, ``""`` when the
     reason is not known, or anything else, which means read instability. The
@@ -259,6 +270,7 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         _RULE,
         ADDENDUM_MARKER,
         _RULE,
+        *([f"Written: {written_at}", ""] if written_at else []),
         "This file accompanies the ripper's whole-disc log in this folder and",
         "supersedes part of it. The ripper's log is left BYTE-EXACT so that",
         "`cyanrip --verify-log` still verifies it; that is why this is a separate",
@@ -314,6 +326,9 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         # it, and `test_rip_addendum` compares the value under either label.
         lines.append(_row(ONE_FRAME_LABEL, entry.accuraterip_offset))
         lines.append(_row("Secure re-read:", entry.secure_reread))
+        lines.append(
+            _row("Read began:", entry.read_began or "not recorded by the ripper")
+        )
         lines.append("")
     lines.append(_RULE)
     return "\n".join(lines) + "\n"
@@ -329,7 +344,10 @@ def write_addendum(
     losing the addendum must never abort a rip whose audio is already correct.
     The report's ``retried_tracks`` is the structured record either way.
     """
-    text = render_addendum(trigger, swapped)
+    from datetime import UTC, datetime
+
+    written_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    text = render_addendum(trigger, swapped, written_at=written_at)
     if not text:
         return None
     target = addendum_path_for(log_path)
@@ -517,6 +535,7 @@ def _addendum_from_report(log_path: str | Path) -> str:
                 accuraterip_offset=offset,
                 secure_reread=reread,
                 contradiction=_text(track, "accuraterip_contradiction"),
+                read_began=_text(track, "kept_read_began"),
             )
         )
     trigger = ""

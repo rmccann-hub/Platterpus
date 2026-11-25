@@ -741,3 +741,66 @@ def test_the_first_swap_of_a_rip_keeps_its_own_trigger() -> None:
         rows, "accuraterip", [ra.SupersededTrack(5)], "accuraterip"
     )
     assert same == "accuraterip"
+
+
+# --- TASKS R226: the addendum carries a time (the fork's PP-14) -------------------
+
+
+def test_the_sidecar_says_when_it_was_written_and_when_each_read_began(
+    tmp_path: Path,
+) -> None:
+    """The fork's PP-14: nothing in the addendum said when the supersede
+    happened. It now says when it was written, UTC, and per track when the read
+    that shipped began (`.27`'s `Kept read began:`)."""
+    log = tmp_path / "Album.log"
+    log.write_text("cyanrip 0.9.3 (release)\nLog FUN512: abc\n", encoding="utf-8")
+
+    written = ra.write_addendum(
+        log, "accuraterip", [_record(read_began="2026-11-25T20:01:02Z")]
+    )
+
+    assert written is not None
+    text = written.read_text(encoding="utf-8")
+    stamp = re.search(r"^Written: (\S+)$", text, re.MULTILINE)
+    assert stamp is not None, text
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", stamp.group(1))
+    assert re.search(r"Read began:\s+2026-11-25T20:01:02Z", text)
+    # The supersede still folds back in with the new rows present.
+    assert "E0036697" in ra.read_log_with_addendum(log)
+
+
+def test_a_read_with_no_recorded_start_says_so_and_a_rebuild_invents_no_time() -> None:
+    text = ra.render_addendum("accuraterip", [_record()])
+    assert re.search(r"Read began:\s+not recorded by the ripper", text)
+    assert "Written:" not in text
+
+
+def test_the_rebuilt_block_carries_the_report_s_read_start(tmp_path: Path) -> None:
+    report = _report_with_replaced_track_5()
+    report["tracks"][0]["kept_read_began"] = "2026-11-25T20:01:02Z"
+    log = tmp_path / "Album.log"
+    log.write_text("Track 5\n", encoding="utf-8")
+    (tmp_path / "Album.platterpus.json").write_text(
+        json.dumps(report), encoding="utf-8"
+    )
+    assert "2026-11-25T20:01:02Z" in ra.addendum_text(log)
+
+
+def test_the_worker_takes_the_read_start_only_when_the_log_read_it() -> None:
+    """A `Kept read began:` value the parser could not read as an instant
+    (`unrecognised`) is not a time, and is not shown as one."""
+    from types import SimpleNamespace
+
+    pytest.importorskip("PySide6")
+    from platterpus.workers.rip_worker import RipWorker
+
+    read = SimpleNamespace(
+        number=5,
+        kept_read_began="2026-11-25T20:01:02Z",
+        kept_read_began_state="read",
+    )
+    odd = SimpleNamespace(
+        number=5, kept_read_began="yesterday", kept_read_began_state="unrecognised"
+    )
+    assert RipWorker._superseded_record(read).read_began == "2026-11-25T20:01:02Z"
+    assert RipWorker._superseded_record(odd).read_began == ""
