@@ -71,6 +71,7 @@ from platterpus.drive_profiles import (
     read_drive_identity,
     reconcile_offset,
 )
+from platterpus.install_health import DriveSetupFacts, drive_setup_facts
 from platterpus.offset_config import (
     MOVE_WAIT,
     DriveOffset,
@@ -337,6 +338,21 @@ class DriveMixin(MainWindowShared):
             profile.offset if profile is not None else None,
             apply_offsets=self._config.override_read_offset,
         )
+
+    def _selected_drive_setup_facts(self) -> DriveSetupFacts | None:
+        """What drive setup saved for the selected drive, or None with none selected.
+
+        Setup & Updates' drive line and the acceptance run's ``expect-installed
+        drive`` both read this (TASKS R248). It asks `_selected_drive_offset`
+        first, so an older version's global offset has moved to its drive before
+        the profile is read, as it has for the rip.
+        """
+        drive = self._drive_picker.current_drive()
+        if drive is None:
+            return None
+        self._selected_drive_offset()
+        profile = self._drive_profiles.get(self._fingerprint_for(drive)[0])
+        return drive_setup_facts(drive, profile)
 
     def _move_global_offset_once(self, fingerprint: str) -> None:
         """Hand the single global offset of older versions to its drive, once.

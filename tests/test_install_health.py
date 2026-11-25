@@ -10,11 +10,18 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from platterpus import install_health
+from platterpus.drive_profiles import (
+    Confidence,
+    DriveProfile,
+    OffsetRecord,
+    OffsetSource,
+)
 from platterpus.install_health import Finding
 from platterpus.uiscript import health_verbs
 from platterpus.uiscript.report import Outcome
@@ -137,16 +144,128 @@ def test_tools_required_fail_and_optional_are_reported(tmp_path: Path) -> None:
     }
 
 
+def _facts(
+    *,
+    offset: bool = True,
+    cache: str = "measured",
+    then: str = "1.51",
+    now: str = "1.51",
+    saved_at: str = "2026-11-20T15:04:05+00:00",
+) -> install_health.DriveSetupFacts:
+    return install_health.DriveSetupFacts(
+        label="PIONEER BDR",
+        firmware_now=now,
+        cache_state=cache,
+        cache_measured_under=then,
+        offset_saved=offset,
+        offset_saved_at=saved_at if offset else "",
+    )
+
+
 def test_drive_facts() -> None:
-    held = install_health.check_drive_facts("PIONEER BDR", "measured", "measured", True)
+    held = install_health.check_drive_facts(_facts())
     assert [f.ok for f in held] == [True, True]
     missing = install_health.check_drive_facts(
-        "PIONEER BDR", "not_measured", "measured", False
+        _facts(offset=False, cache="not_measured")
     )
     assert [f.ok for f in missing] == [False, False]
-    assert [
-        f.ok for f in install_health.check_drive_facts("", None, "measured", True)
-    ] == [False]
+    changed = install_health.check_drive_facts(
+        _facts(cache="firmware_changed", then="1.50")
+    )
+    assert changed[1].ok is False and "then 1.50, now 1.51" in changed[1].text
+    assert [f.ok for f in install_health.check_drive_facts(None)] == [False]
+
+
+def test_drive_setup_facts_read_the_profile_by_its_own_fields() -> None:
+    """The firmware the cache verdict was measured under is its own field, not the
+    profile's ``release``, which every sighting rewrites (`cache_check_plan`)."""
+    drive = SimpleNamespace(vendor="PIONEER", model="BDR", release="1.51")
+    record = OffsetRecord(
+        667, OffsetSource.OFFSET_FIND, Confidence.HIGH, "2026-11-20T15:04:05+00:00"
+    )
+    profile = DriveProfile(
+        fingerprint="fp",
+        vendor="PIONEER",
+        model="BDR",
+        release="1.51",
+        offset=record,
+        cache_defeat=True,
+        cache_defeat_release="1.50",
+    )
+
+    facts = install_health.drive_setup_facts(drive, profile)
+
+    assert facts.label == "PIONEER BDR"
+    assert facts.offset_saved and facts.offset_saved_at.startswith("2026-11-20")
+    assert facts.cache_state == "firmware_changed"
+    assert facts.cache_measured_under == "1.50"
+    unknown = install_health.drive_setup_facts(drive, None)
+    assert not unknown.offset_saved and unknown.cache_state == "not_measured"
+
+
+def test_drive_setup_line_says_nothing_to_redo_only_when_everything_holds() -> None:
+    """REGRESSION for the owner's question of 2026-11-25 (TASKS R248): after a
+    reinstall, should drive setup be run again? On the same drive and firmware,
+    the window now says no; on any other answer it says what to do."""
+    done = install_health.drive_setup_line(_facts())
+    assert done.startswith("✓") and "nothing to redo" in done
+    assert "firmware 1.51" in done and "2026-11-20" in done
+
+    changed = install_health.drive_setup_line(
+        _facts(cache="firmware_changed", then="1.50")
+    )
+    assert changed.startswith("⚠") and "run drive setup again" in changed
+    assert "then 1.50, now 1.51" in changed
+
+    never = install_health.drive_setup_line(_facts(offset=False, cache="not_measured"))
+    assert never.startswith("⚠") and "has not been run" in never
+
+    half = install_health.drive_setup_line(_facts(cache="not_measured"))
+    assert half.startswith("⚠") and "no saved cache verdict" in half
+    no_offset = install_health.drive_setup_line(_facts(offset=False))
+    assert "no saved read offset" in no_offset
+
+    assert install_health.drive_setup_line(None).startswith("ⓘ")
+    for line in (done, changed, never, half, no_offset):
+        assert "nothing to redo" not in line or line is done
+
+
+def _report(*, missing: list[object] | None = None, unchecked: bool = False) -> Any:
+    return SimpleNamespace(
+        missing=missing or [], unchecked=[object()] if unchecked else []
+    )
+
+
+def test_host_setup_line_is_done_only_after_a_complete_clean_check(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in install_health.REQUIRED_TOOLS:
+        (bin_dir / name).write_text("#!/bin/sh\n")
+        os.chmod(bin_dir / name, 0o700)
+    tools = install_health.check_tools(bin_dir)
+
+    assert install_health.host_setup_line(_report(), tools).startswith("✓")
+    # Not checked this session: never "done".
+    assert install_health.host_setup_line(None, tools).startswith("ⓘ")
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    optional = SimpleNamespace(spec=SimpleNamespace(optional=True))
+    assert install_health.host_setup_line(
+        _report(missing=[required]), tools
+    ).startswith("⚠")
+    assert install_health.host_setup_line(
+        _report(missing=[optional]), tools
+    ).startswith("✓")
+    assert install_health.host_setup_line(_report(unchecked=True), tools).startswith(
+        "⚠"
+    )
+
+    os.remove(bin_dir / "metaflac")
+    gone = install_health.host_setup_line(
+        _report(), install_health.check_tools(bin_dir)
+    )
+    assert gone.startswith("⚠") and "metaflac" in gone
 
 
 def test_tracebacks_are_found_and_counted() -> None:

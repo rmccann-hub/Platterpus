@@ -147,6 +147,8 @@ class SetupCenterDialog(CenteredDialog):
         config: Config,
         save_setting: Callable[[str, object], SettingWrite],
         drive_offset: Callable[[], offset_config.DriveOffset] | None = None,
+        drive_standing: Callable[[], str] | None = None,
+        setup_standing: Callable[[object | None], str] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Setup & Updates")
@@ -156,6 +158,15 @@ class SetupCenterDialog(CenteredDialog):
         self._drive_offset: Callable[[], offset_config.DriveOffset] | None = (
             drive_offset
         )
+        # Whether drive setup and setup have anything left to do, checked against
+        # the drive and the tools there now (the owner, 2026-11-25, TASKS R248:
+        # "let users know if the hardware is the same as the last setup not need
+        # to run (and check if it is)"). Readers, asked on every refresh.
+        self._drive_standing: Callable[[], str] | None = drive_standing
+        self._setup_standing: Callable[[object | None], str] | None = setup_standing
+        self._setup_label: QLabel = QLabel("")
+        self._setup_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._setup_label.setWordWrap(True)
         # NOT modal — see the module docstring. Its buttons open modal dialogs,
         # and a modal parent would nest every one of them inside this window's
         # event loop.
@@ -235,6 +246,7 @@ class SetupCenterDialog(CenteredDialog):
         self._offset_label: QLabel = QLabel("")
         self._offset_label.setTextFormat(Qt.TextFormat.PlainText)
         self._offset_label.setWordWrap(True)
+        self._render_setup_standing(dependency_report)
         self.refresh_settings(config)
         self._app_beta_check.toggled.connect(
             lambda on: self._on_channel_toggled(
@@ -323,10 +335,7 @@ class SetupCenterDialog(CenteredDialog):
             grid,
             row,
             title="Setup",
-            status=(
-                f"{_INFO} Installs the ripping tools in their container, adds the "
-                "menu entry, and calibrates the drive."
-            ),
+            status_widget=self._setup_label,
             buttons=[
                 ("Run &setup…", "host_setup"),
                 # Alt+T: Alt+S is "Run setup" beside it.
@@ -466,8 +475,23 @@ class SetupCenterDialog(CenteredDialog):
         )
         applied = offset_config.describe_applied_offset(decision)
         marker = _INFO if offset_config.is_offset_configured(decision) else _WARN
-        self._offset_label.setText(f"{marker} Read offset: {applied}")
+        offset_line = f"{marker} Read offset: {applied}"
+        standing = self._drive_standing() if self._drive_standing is not None else ""
+        self._offset_label.setText(
+            f"{standing}\n{offset_line}" if standing else offset_line
+        )
         self._grow_to_fit()
+
+    def _render_setup_standing(self, report: object | None) -> None:
+        """The Setup row: what setup does, or whether it has anything left to do."""
+        what = (
+            f"{_INFO} Installs the ripping tools in their container, adds the "
+            "menu entry, and calibrates the drive."
+        )
+        if self._setup_standing is None:
+            self._setup_label.setText(what)
+            return
+        self._setup_label.setText(self._setup_standing(report))
 
     def _on_channel_toggled(self, field: str, box: QCheckBox, beta: bool) -> None:
         """Save a channel tick-box through the window, and say what happened."""
@@ -501,6 +525,8 @@ class SetupCenterDialog(CenteredDialog):
             text = dependency_summary_line(report)
             self._dependency_label.setText(text)
             announce(self._dependency_label, text)
+        # Setup's line reads the same check, so it moves with it.
+        self._render_setup_standing(report)
         self._grow_to_fit()
 
     def show_dependency_check_running(self, message: str, *, busy: bool) -> None:
