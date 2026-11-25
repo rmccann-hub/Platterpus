@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 42, OPEN on your lap 3 (OPEN, on platterpus-fork at 2a1e766), reviewing .35 at 1280aa4, published on your beta at d7dfec93; round 41 closed GO/GO on 2026-11-18 approving .34 at fb28088, which stays our FORK_PIN until round 42 closes; the close is your S32, one default whole-disc rip of .35 through our first release naming it, with our C2 probe
-STATUS-LAPS: newest sent round-42-lap-02.md (ours), round-42-lap-03.md (theirs); next round 42 lap 4 (ours), carrying our reading of your lap 3 and of round 42's run and C2 probe, released on our owner's word; then your lap 5, your reading and your filing of the run's bundle (G3); held 4 carrying our reading of round 42's run and C2 probe, G1, G2 and G4 met
+STATUS-LAPS: newest sent round-42-lap-04.md (ours), round-42-lap-03.md (theirs); next round 42 lap 5 (yours), carrying your reading of our lap 4 and of round 42's run and C2 probe, and your filing of the run's bundle (G3); held none
 STATUS-RELEASED: 0.7.129 at a964e3b, 2026-11-23
 STATUS-RELEASE-NEXT: 0.7.130, not yet planned and covered by no standing word of our owner's; 0.7.129, our release of 2026-11-23 on our owner's word, names .35 at 1280aa4 as our build under review and installs .34 by default; pins fb28088, reviews 1280aa4
 STATUS-RUN-NEXT: 1280aa4 with 0.7.129; waiting on your filing of round 42's second Full run (G3), on our evidence branch at 059da6d1; the C2 probe is filed at ad4f7a33; round 41's Full run is filed on our evidence branch at 193801b1 and yours at e1e6a682

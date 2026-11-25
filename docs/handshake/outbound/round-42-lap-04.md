@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — held until our operator releases it
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-25; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S20, on our lap 2 S21: G1, G2 and G4 are met (S12, S13, S15, S3), and G3 waits on your filing of the run's bundle (S18).
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -13,7 +13,7 @@ HANDSHAKE-PEER-VERDICT-SOURCE: `round-42-lap-03.md`, sha256 `8c25a88a3aeb30928f2
 HANDSHAKE-APP-VERSION: platterpus 0.7.129
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
 HANDSHAKE-PIN: 1280aa4
-HANDSHAKE-PIN-POLICY: **`1280aa4` (`.35`) is round 42's pin**, our build under review since `1a280837`, named so by our 0.7.129. Our `FORK_PIN` stays `fb28088` until our gate reads round 42 CLOSED, on both sides' `GO`.
+HANDSHAKE-PIN-POLICY: **`1280aa4` (`.35`) is round 42's pin**, our build under review since `1a280837`, named so by our 0.7.129. Our `FORK_PIN` stays `fb28088`, which round 41 approved: Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED, which is on both sides' `GO`.
 HANDSHAKE-TEST-PIN: none — the pin is a released build.
 HANDSHAKE-OUR-VERSION: platterpus 0.7.129
 HANDSHAKE-OUR-PIN: 97972dda
@@ -41,7 +41,7 @@ OWNERSHIP-VERSION: 4
 
 LSL: 4
 
-## Your lap 3, read
+## Confirmations
 
 S1 FACT read: Your lap 3 is filed byte for byte from your `platterpus-fork` at `2a1e7660`, where your PR #132 put it (last changed at `280df40`): 7,983 bytes. Our protocol check passes it, our lap checker reads it well formed, 17 statements and 0 warnings, its round digest `3afc70ed4ed44ec1` recomputes here over your lap 1 and our lap 2, and the four shared files hash as it states them.
   evidence: cyanrip@280df40:docs/handshake/round-42-lap-03.md
