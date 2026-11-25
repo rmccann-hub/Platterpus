@@ -87,7 +87,7 @@ _PYTHON_PURPOSE: Final[dict[str, str]] = {
         "rule #1; unmaintained upstream)."
     ),
     "tomli-w": "Writes config.toml (the standard library reads TOML but cannot write it).",
-    "cryptography": "Ed25519 verification for the minisign path of the updater.",
+    "cryptography": "The crypto library sigstore verifies the update attestation with; pinned to hold its floor on the patched release.",
     "sigstore": "Verifies each release's build-provenance attestation before an update installs.",
     "numpy": (
         "Reed-Solomon syndromes over GF(2^16) that locate where a rip differs from "

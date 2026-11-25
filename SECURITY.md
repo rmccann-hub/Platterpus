@@ -54,9 +54,10 @@ reproduce on the newest release before reporting.
   repository rulesets decided on 2026-10-12 make every change to `main` arrive through a
   pull request that passes CI, but they require no approval, so the attestation proves a
   build is traceable to a public commit here, not that anyone reviewed it. **Offline-key signing**
-  (Ed25519, via `minisign`) is implemented but will not be armed (maintainer
-  decision, 2026-09-25, `PLANNING.md` KDD-37); see
-  [`docs/architecture.md` §6.2 *Release signing*](docs/architecture.md).
+  (Ed25519, via `minisign`) was implemented but never armed (maintainer
+  decision, 2026-09-25, `PLANNING.md` KDD-37), and the dormant code was removed
+  on 2026-11-25; see
+  [`docs/architecture.md` §6.2](docs/architecture.md).
 - **Workflow supply chain.** CI runs least-privilege (`contents: read`), a
   server-side guard rejects committed audio, every GitHub Action is pinned to a
   full commit SHA, a gating `pip-audit` job scans the dependency graph, and
