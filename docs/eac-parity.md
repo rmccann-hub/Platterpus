@@ -1,8 +1,8 @@
 # EAC parity — how close we are, and what is left
 
-The single home for *"can Platterpus output stand in for an EAC rip?"*. Four investigations that each answered one part of that question, kept whole and put in one place: what deviates and why, whether a tracker would accept our log, how the two log formats compare field by field, and what the actual logcheckers deduct for. A fifth, Part E, is an independent audit of the whole comparison that re-derives its numbers from the raw logs and grades each area better, equal or worse.
+The single home for *"can Platterpus output stand in for an EAC rip?"*. Four investigations that each answered one part of that question, kept whole and put in one place: what deviates and why, whether a tracker would accept our log, how the two log formats compare field by field, and what the actual logcheckers deduct for. A fifth, Part E, is an independent audit of the whole comparison that re-derives its numbers from the raw logs and grades each area better, equal or worse. Part F is the yardstick every Full run is scored by, Part G the reference rig's two hard tracks, and Part H the 2026-11-25 audit, which re-reads everything against round 42 and **reaches beyond EAC**: seventeen other rippers, every feature they have that we lack, and what we decided about each.
 
-**For the verdict, read Part E first; for the framing, Part A**, which carries the framing the other parts assume — that *bit-identical audio* and *tracker-accepted log* are different goals with different answers, and conflating them is how this subject goes wrong.
+**For the current verdict, read Part H first, then Part F; for the 2026-10 verdict, Part E; for the framing, Part A**, which carries the framing the other parts assume — that *bit-identical audio* and *tracker-accepted log* are different goals with different answers, and conflating them is how this subject goes wrong.
 
 ## Standing direction (KDD-36, 2026-09-21)
 
@@ -46,6 +46,9 @@ Consolidated from four separate documents so the subject has one home. Each part
 | C | the former `eac-log-and-repair-feasibility.md` | 2026-06-28 |
 | D | the former `eac-tracker-requirements-2026-07.md` | 2026-07-29 |
 | E | written here: the independent audit against EAC | 2026-10-19 |
+| F | written here: the yardstick, and every Full run scored by it | 2026-10-26 |
+| G | written here: tracks 3 and 5 on the reference rig | 2026-11-04 |
+| H | written here: the audit of round 42, other rippers, and every decision | 2026-11-25 |
 
 ---
 
@@ -1596,33 +1599,35 @@ Grades: **Better** and **Equal** are the goal reached; **Behind** can be reached
 the last column says how; **Not possible** gives the reason. TASKS rows name these by
 number ("Part F row N").
 
-| # | Regard | EAC | Us on 2026-10-26 | Grade | To reach equal or better | Whose |
+**2026-11-25:** rows 1, 2, 6, 7, 8, 11, 12, 13, 16, 21, 23, 25 and 33 were corrected against round 42's logs and the code by the audit in Part H; each grade says what it was. The other rows were re-read and hold.
+
+| # | Regard | EAC | Us on 2026-10-26, rows marked **2026-11-25** re-read (Part H) | Grade | To reach equal or better | Whose |
 |---|---|---|---|---|---|---|
-| 1 | Reading the audio right | 12.0 of 14 a rip, one disc | 12.4 of 14, one disc | Equal | Rows 2 to 6, then more discs and drives (row 29) | Both |
-| 2 | Keeping a right read once found | Keeps its Test/Copy pair whatever AccurateRip says | The chase keeps the read that verifies, but `-Z` shipped a wrong read over a right one, and a cancel threw a right one away (E4). From 2026-11-11 the chase also follows Archival Exact's `-Z` album pass (round 39, not yet on hardware) | Behind | Ship any read that verifies, whichever path read it; keep finished tracks through a cancel | Platterpus (R7) |
+| 1 | Reading the audio right | 12.0 of 14 a rip, one disc | **2026-11-25:** round 42, all 14 whole-disc rips shipped 14 of 14 AccurateRip-verified: track 3 read right in 13 and repaired in 1, track 5 repaired from CTDB in 13 and read right once (Part H.1) | Better on this disc and drive (was Equal) | More discs and drives (row 29) | Both |
+| 2 | Keeping a right read once found | Keeps its Test/Copy pair whatever AccurateRip says | **2026-11-25:** R7 done: every `-Z` pass sends `--reread-until-accuraterip` (`.31` and later) and a stopped pass keeps its verified re-reads; round 42's repeat rip 4 overruled an agreement on `E0036697` and kept the verified `C96464AB` (Part H.2, C4 and C11) | Equal or better (was Behind) | Keep; a cancel on a damaged disc has not run on hardware | — |
 | 3 | Re-reading a failed track | Leaves it to the user | Automatic, until a read verifies | Better | Keep | — |
 | 4 | A disc AccurateRip does not know | Test & Copy on every track | Every track read until reads agree, from 0.7.111 (E3) | Equal | Rip one such disc end to end on the drive | The owner's disc |
 | 5 | A damaged disc | Reads a bad sector up to 82 times, then flags it | Track 18 took 5 h 18 min; no time bound (E4). From 2026-11-11 a per-track time budget on the securing pass and the chase (round 39, not yet on hardware) | Behind | A per-track time budget; record a track whose every read skips as unreadable on this drive, with positions. Say what `-r 5` means beside EAC's 82 | Platterpus (R49); the fork for `-r` |
-| 6 | Track 3 on this drive | Right 1 in 3 | Right in some rips, both builds (E2) | Equal | Pair `.25` and `.26` over more rips before naming a cause; the chase is the fix that works | The fork |
-| 7 | Track 5 on this drive | Never | Once | **Not possible** on this drive | The drive returns the same wrong bytes to every program. Another drive can | — |
-| 8 | Saying a wrong track is wrong | `Copy OK` over it | From 2026-10-26, a track AccurateRip contradicts reads `Proof: none — WRONG: …` (or `differs`) and `Copy finished`, never `Copy OK` or "confirmed", and the disc reads `There were errors`; the report and the results table say the same (E5). From 2026-11-11 (G3), no `OK` over reads that disagree at all, and a track a CTDB repair rewrote says so in its `Record:` row and verdict, never `Accurately ripped` (Part B, *The record row*; `expect-track-records` grades both). The fork's `read successfully!` is unchanged | Better (was Equal, both bad) | Send the wording to the fork in our next lap; `read successfully!` over such a track | Platterpus (R50, built); the fork for `read successfully!` |
+| 6 | Track 3 on this drive | Right 1 in 3; 1 session in 4 by 2026-11-12 (G.7) | **2026-11-25:** first read right in 13 of 14 round 42 whole-disc rips; the fourteenth repaired from CTDB | Better on this rig (was Equal) | Keep; why the drive returns two values stays open (G.4 items 2 to 4) | The fork |
+| 7 | Track 5 on this drive | Never | **2026-11-25:** read right in three sessions (G.2) and once in round 42, where the chase kept it; repaired from CTDB every other time | Better (was **Not possible**; G.2 and round 42 contradict that) | Keep | — |
+| 8 | Saying a wrong track is wrong | `Copy OK` over it | From 2026-10-26, a track AccurateRip contradicts reads `Proof: none — WRONG: …` (or `differs`) and `Copy finished`, never `Copy OK` or "confirmed", and the disc reads `There were errors`; the report and the results table say the same (E5). From 2026-11-11 (G3), no `OK` over reads that disagree at all, and a track a CTDB repair rewrote says so in its `Record:` row and verdict, never `Accurately ripped` (Part B, *The record row*; `expect-track-records` grades both). The fork's `read successfully!` became `read with no error reported.` in `.27` (2026-11-25 audit) | Better (was Equal, both bad) | Keep | Platterpus (R50, built); the fork's half closed in `.27` |
 | 9 | The proof each track has | Test & Copy CRCs | From 2026-10-26, a `Proof:` row per track naming AccurateRip at confidence N, a verified single re-read, reads that agree, or none and why; the report adds CTDB per track (E5) | Better (was Better once shown) | Name CTDB in the log's row too, by re-rendering it when CTDB answers (done 2026-11-03) | Platterpus (R51, built) |
 | 10 | Where a read was unsure | Suspicious positions | Counts in released builds; positions in `.25`'s record, not yet in the log | Behind | Agree the log wording and print them | Both (R44) |
-| 11 | CTDB check | Per track; names the bad samples | Per track and across offsets, matches weighed | Behind on naming samples | The syndrome pass, on the owner's word on `numpy` or a native extension | Platterpus (R43, R34) |
-| 12 | CTDB repair | Not in EAC; CUETools does it | Deferred (KDD-14) | Equal | Building it would be better than EAC | Platterpus, later |
-| 13 | CTDB submission | Yes | Not built | Behind | Build it. Never submit a track AccurateRip rejects, which EAC did with track 5 | Platterpus (R43) |
+| 11 | CTDB check | Per track; names the bad samples | **2026-11-25:** per track and across offsets, matches weighed, and the bad samples localised (`ctdb/localise.py`, numpy) | Equal (was Behind) | Keep | — |
+| 12 | CTDB repair | Not in EAC; CUETools does it | **2026-11-25:** built, on by default (`config.py:391`, *Repair from CTDB after a rip*), proven on hardware 2026-11-10 and in all 14 round 42 whole-disc rips, each repair re-checked against CTDB and AccurateRip v1 and v2 | **Better**, a win (was Equal) | Keep | — |
+| 13 | CTDB submission | Yes | Not built | Behind; parity, since EAC's plugin submits (Part H.3) | Build it. Never submit a track AccurateRip rejects, which EAC did with track 5 | Platterpus (R43) |
 | 14 | AccurateRip submission | Yes | None | Behind, may be **not possible** | "Impossible from Linux" had no source and is unverified (KDD-12's correction). Find out whether AccurateRip accepts submissions from programs it has not listed; if not, it is not ours to change | Platterpus (R52) |
 | 15 | Secure reading | Secure mode | libcdio-paranoia, full mode | Equal | — | — |
-| 16 | Accurate stream | Setting, logged | The drive's declaration read and shown, "not measured" (`59f4e331`) | Equal on what can be known | Say whether paranoia's read path depends on it; if so, refuse a drive that declares it unsupported | The fork |
+| 16 | Accurate stream | Setting, logged | The drive's declaration read and shown, "not measured" (`59f4e331`). **2026-11-25:** the fork answered: libcdio-paranoia neither reads it nor depends on it (`cyanrip@a06c8de:docs/eac-parity.md`, row 16) | Equal on what can be known | — | — |
 | 17 | Cache defeat | Setting, logged | Measured once per drive, by itself, when *Set up drive* opens with an audio CD in (built 2026-11-12); before, only when the user ran *Analyze cache* | Equal once measured, in code; the rig has not confirmed it | Confirm on the rig that it starts and that *Skip check* and Close kill it | Platterpus (R53) |
 | 18 | C2 | Off by the guides | Not used; logged where the drive reports | Equal | — | — |
 | 19 | Read offset | Set by the user | From AccurateRip's list, checked every rip | Better | — | — |
 | 20 | Read speed | "Allow speed reduction" | This drive takes no speed setting; the ladder re-reads | Equal on this drive | Test on a drive that takes `-S` | The owner's hardware |
-| 21 | Pregaps and gaps | Detect Gaps; appended to the previous track | Matches EAC in 23 of 26 rips; `.26` never reads track 9 as 94 | Behind on `.26` | The fork's lap 8 S5 record, then the fix in `.27` | The fork (R10) |
+| 21 | Pregaps and gaps | Detect Gaps; appended to the previous track | **2026-11-25:** `.35` reports track 9 as `94 or 95 frames (undecided)` in all 14 whole-disc rips; our cue writes 95 frames where all four EAC sessions read 94, and the EAC-layout `Gap handling` row reads undetermined in 50 of 54 logs (Part H.2, C1 and C2) | Behind | Name the undecided track in `Gap handling`, and stop the cue committing to a value the log calls undecided (R219); the measurement is the fork's | Both (R219; the fork) |
 | 22 | The disc's ISRCs | Read for the cue | `.26` reads them, 14 of 14 matching EAC | Equal | Our cue check compares with the code it sent; compare with the disc's (the fork's lap 8 S10) | Platterpus (R20) |
-| 23 | CD-R detection | — | `.26`'s `Recordable:` prints a placeholder | Behind | The fork's lap 8 S4 fix in `.27` | The fork |
+| 23 | CD-R detection | — | **2026-11-25:** `.35` prints `Recordable: no, CD-ROM (drive's current profile)`; parsed and reported | Better (was Behind; EAC logs nothing on this) | Keep | — |
 | 24 | Pre-emphasis | Kept, flagged | Kept, `FLAGS PRE` | Equal, untested | Rip a pre-emphasised disc | The owner's disc |
-| 25 | HTOA, image + cue, data tracks | Supported | Not, or data copied by default | Behind | Build them; HTOA and image + cue low (E7) | Both (R12) |
+| 25 | HTOA, image + cue, data tracks | Supported | **2026-11-25:** data tracks decided, a data track is copied to its `.bin` (R12 closed; R13 handles it on our side). HTOA: out of scope on the owner's word. Image + cue: not built | Behind on image + cue; HTOA behind and out of scope by the owner (Part H.3) | Image + single-file cue (R201); HTOA only on the owner's word | Platterpus (R201) |
 | 26 | Checking the finished files | `flac -V` at encode | `flac --test` after tagging, SHA-256, derived formats checked | Better | — | — |
 | 27 | A tracker accepting the log | Accepted by name | Refused by name, before any setting is read (Part D §1) | **Not possible** by our own work | The checkers allow-list rippers; copying EAC's identity is forgery (KDD-24). The honest route is to ask OPS to add Platterpus, as it added our previous backend's format; that is OPS's decision | — |
 | 28 | A log anyone can check | Obfuscated, but public: its key was reverse-engineered (`eac_logsigner`) and ships in OPS's open logchecker, so it catches only casual edits (corrected 2026-11-03; row 1355 above already said so) | Open SHA-256 over our own log | Better on openness | Keep our own log the goal (KDD-36) | — |
@@ -1630,10 +1635,10 @@ number ("Part F row N").
 | 30 | Setup | Needs a guide | Settings chosen for the user | Better | — | — |
 | 31 | Openness, cost, extras | Closed source, freeware, paid plugin | Open source, free, nothing bundled | Better | — | — |
 | 32 | Platform | Windows | Linux | Equal for Linux users | A Windows build is the owner's long-term goal; no work now | Both, later |
-| 33 | A drive blip mid-rip | — | One tray-open blip cleared the disc view and cost 57 steps (E4) | Behind | Confirm a removal before acting on it | Platterpus (R54) |
+| 33 | A drive blip mid-rip | — | **2026-11-25:** fixed 2026-10-26 (`9d2db6fd`): a removal is confirmed before the disc view clears | Equal once the rig confirms it (was Behind) | A rig re-check | Platterpus (R54, done) |
 | 34 | Speed of a clean rip | 1.6× to 9.1× with Test & Copy | `.26` is 2.8× to 5.1× faster than `.25` | No data against EAC | Time one EAC rip and one Platterpus rip of the same disc | The owner, at the drive (R55) |
 
-**What waits on the owner** (the plan's §8): how round 36 goes on after the fork's lap
+**What waits on the owner** (the plan's §8; *2026-11-25: history, replaced by `TASKS.md` → the 2026-11-25 audit*): how round 36 goes on after the fork's lap
 8 S4 and S5; keeping Fast Verified as the default with each track's proof printed (row
 9); `numpy` or a native extension (row 11); EAC rips of the damaged disc and disc 3, set
 up as F4 says, timed (row 34); and a second drive, a pre-emphasised disc and a disc
@@ -1915,6 +1920,278 @@ one run of five, so the claim is for this drive and this disc; items 2 to 4 of G
 stay open for what they can still teach about why the drive returns two values.
 
 
+
 ---
 
-*Last updated for Platterpus v0.7.126.*
+## Part H — The 2026-11-25 audit: round 42, corrections, other rippers, and every decision
+
+**The answer first.** On the reference disc and drive, Platterpus now does better than EAC
+on the audio: in round 42 all 14 whole-disc rips of 0.7.129 with `.35` shipped 14 of 14
+tracks AccurateRip-verified, where EAC's four sessions on the same drive never verified
+track 5. The biggest gap the audit found is new and in our own record: the EAC-layout
+`Gap handling` row reads undetermined in 50 of 54 round 42 logs, and our cue commits to
+95 frames for track 9 where all four EAC sessions read 94 (R219). Seventeen other rippers
+were surveyed; the useful features they have and we do not are an offset found from a disc,
+a single-file image with its cue, CTDB submission, metadata routes besides MusicBrainz,
+HDCD flagging, more output formats, and conveniences such as an M3U playlist. Every one is
+recorded below with a decision and its reason, including the ones we skip.
+
+The owner asked for it on 2026-11-25: *"another EAC parity audit, and open tasks audit ...
+expand beyond just EAC, look for other flagship, common, open sourced, and community
+liked/preferred CD rippers for Windows, Linux, and Mac ... see what is feasible for us to
+do, what to skip, what to add to a plan for the future. Keep all as a record even if we
+decide not to do it."* Read at `main` `4b730c1b` (0.7.130, `FORK_PIN` `1280aa4`). The
+order of work that follows from it is `TASKS.md` → *2026-11-25 — the audit*; what we ask
+the fork is `docs/cyanrip-fork.md` → *Asks from the 2026-11-25 audit*.
+
+**Why this lives here, not in a new file.** This file is the single home for parity, and
+the owner's direction makes EAC the bar (*Standing direction*); the other rippers are
+measured against the same yardstick, so they join it as one Part rather than a sibling
+document (Critical rule #7). `docs/ux-design-principles.md` was the other candidate and
+was rejected: it holds the interface's principles, not feature coverage.
+
+### H.1 Round 42 against EAC
+
+Counted from the 14 whole-disc EAC-layout logs of the two round 42 Full runs (0.7.129 with
+`.35`, 2026-11-24; `wholedisc`, `securereread` and repeat rips 1 to 5 in each run), filed
+on `evidence` under `docs/handshake/artifactsround42/`.
+
+| Track | Round 42, 14 whole-disc rips | EAC on this drive, four sessions (G.7) |
+|---|---|---|
+| 3 | Read right from the drive in 13; in the fourteenth (run 2, repeat rip 5) read `029BB984` and repaired from CTDB to `59D352DD` | Right once, wrong three times |
+| 5 | Read wrong in 13 (`E0036697` eight times, `6902BCF0` five) and repaired from CTDB to `C96464AB` each time; read right once (run 2, repeat rip 4), where the chase overruled an agreement on `E0036697` and kept the verified read | Never verified; `Copy OK` printed over it on 2026-11-12 |
+| Album | 14 of 14 AccurateRip-verified in every rip; each repair re-checked against CTDB and AccurateRip v1 and v2 | 13 of 14 at best (track 5 never verified) |
+
+Single-track scripted rips are weaker and say so: the `accuracy` steps read track 3 right
+in 5 of 8 (run 1) and 8 of 8 (run 2), the `timing` steps in 1 of 4 and 2 of 4, and a wrong
+one shipped as a first read flagged `WRONG`. Whether those steps turn off the securing
+pass, which would explain it, was not checked.
+
+### H.2 What the audit corrected
+
+Each claim below was in this file and is contradicted by the code or by round 42's logs.
+Part F's rows are corrected in place; the older Parts are dated records and keep their
+text, so this table is where their corrections live.
+
+| # | The claim, and where | What is true on 2026-11-25 |
+|---|---|---|
+| C1 | `Gap handling` "met on the fork" (Part D §3); Part B says gap detection "renders it into EAC's Gap handling row" | `.35` reports track 9 as `94 or 95 frames (undecided)`, and `_gap_handling` returns undetermined for the whole disc when any track after 1 is undecided (`eac_log_export.py:805`, `:897-915`): 50 of 54 round 42 logs. The rule is honest; the claim of parity is not (R219) |
+| C2 | Part A: every pregap EAC finds, to the hundredth; E4: equal in 23 of 26 | All 14 round 42 cues write track 9 `INDEX 00 03:44:10` (95 frames); EAC's cue has `03:44:11` (94). The log calls the value undecided while the cue commits to 95 (R219, and the asks file) |
+| C3 | Part B: pregap searches not rendered in the EAC-layout log | Rendered inside `Pre-gap length` for an undecided track (`eac_log_export.py:1092-1101`) |
+| C4 | Part B: `AR_GUIDED_CONVERGENCE_BUILDS` empty, the `.31` rule's log text unknown | `frozenset({31, 32, 33, 34, 35})` (`deps/fork_source.py:2413`); round 42 prints the `Record:` row for it |
+| C5 | Part F row 7: track 5 not possible on this drive | Read right in G.2's three sessions and once in round 42; corrected to Better |
+| C6 | Part F rows 11 and 12, E5, E7 item 4, Part C §2: CTDB repair deferred, localisation waits on numpy | Both built; repair on by default (`config.py:391`) and proven on hardware; rows 11 and 12 corrected |
+| C7 | Part B and row 8: the fork prints `read successfully!` | `.27` and later print `Track N read with no error reported.`; the fork's half is closed |
+| C8 | Row 23: `Recordable:` is a placeholder | `.35` prints `Recordable: no, CD-ROM (drive's current profile)`, parsed and reported; corrected to Better |
+| C9 | E5 and E1: cue ISRCs worse; Part A: the ISRCs are MusicBrainz's | `--prefer-disc-isrc` is on by default (`config.py:305`); all 14 round 42 cue ISRCs equal EAC's. Row 22's Equal stands |
+| C10 | Row 33: confirm a removal before acting on it | Fixed 2026-10-26 (`9d2db6fd`); corrected |
+| C11 | Row 2 and E4: keeping a right read is behind | R7 done and seen on hardware in round 42; corrected to Equal or better |
+| C12 | A comment in `eac_log_export.py:1049-1054` says the encoder that ran is named in the header | The header names host `flac 1.5.0`, but cyanrip's libavcodec encoded every track that was not repaired; host `flac` encodes only a repaired track (R220) |
+
+**Stale, not wrong.** Error positions are in the report since `.25` (R44 keeps the log
+half). The fork answered row 16. cyanrip's `-f` offset finder exists and is ours to wire
+(R150). The C2 rewording shipped. The CTDB repair button became an automatic pass with its
+hardware proof. Part D §4 items 3 and 4 are half done and superseded. Two reads without
+AccurateRip shipped in 0.7.111 (unproven on a disc AccurateRip does not know). The speed
+line now reads `Speed: default (drive not asked whether it can change speed)`. F2 was
+never given rows for rounds 37 to 42, and E3 and E5 cite line numbers that have drifted.
+
+### H.3 One label for each capability
+
+The owner's rule of 2026-11-04 decides: a gap where EAC succeeds and we do not is
+**parity**; doing what EAC cannot is a **win**.
+
+| Capability | It was labelled | Settled as |
+|---|---|---|
+| HTOA | Out of scope (Part A, `TASKS.md`); Worse (E4); Behind (row 25) | **Parity, out of scope on the owner's word.** EAC rips it; we choose not to. It reopens only on the owner's word |
+| CTDB submission | Behind (row 13); a win (`TASKS.md`); out of scope (R43) | **Parity**, since EAC's plugin submits. Low user impact, so it is ordered after the parity items that change a rip (R43) |
+| Accurate stream | Open (Part D §3); Equal on what can be known (E4, row 16) | **Equal on what can be known**: the fork answered that paranoia does not depend on it |
+| Read offset | Partial (Part D §3); Better (row 19) | **Better** for a listed drive (checked every rip); **parity** for an unlisted one (R150) |
+| Test & Copy | Five grades in five Parts | **Equal**: *Archival Exact* reads every track twice; the default's proof per track is stronger where AccurateRip knows the disc |
+| A wrong track called fine | Equal (E5 *Verdict wording*); Better (E5 row 8, row 8) | **Better**: `Proof: none — WRONG` and `Copy finished`, never `Copy OK` |
+
+### H.4 EAC features this file had not graded
+
+| EAC feature | Us | Label and decision |
+|---|---|---|
+| Gap detection methods A, B and C, and a retry with another method | One method, the fork's sub-channel search, with no second try when it is undecided, which is track 9's case | **Parity.** Asked of the fork (asks file); our half is R219 |
+| Detect Read Features, per drive | Cache measured at setup (R53, rig pending); accurate stream and C2 declarations read only during a rip | **Parity, partial.** R152 and R137 measure the rest at drive setup, under *test the drive once, up front* |
+| CD-TEXT as a metadata source | The fork prints `CD-TEXT:`; we leave it unparsed | **Parity.** R206. Writing CD-TEXT is writing a disc: out of scope |
+| Metadata providers besides MusicBrainz | MusicBrainz, then Picard for an unknown disc | **Parity, partial.** R206, R207 and R209; GD3 skipped (paid), gnudb skipped (low value) |
+| `Track quality` and `Range quality` | `(not reported by the ripper)`; EAC's 99.8 % flagged its own wrong track 3 on 2026-11-12 | **Parity, small.** R221 decides a substitute from paranoia's counts or keeps the honest absence |
+| Encoder choice, any command line | FLAC, MP3, WavPack, WAV | **Parity, partial.** R217 waits on the owner (Critical rule #4); a user-supplied command line is skipped (it bypasses the one transcode adapter) |
+| Detect TOC manipulation | Absent | **Parity, low.** R222 |
+| M3U playlist | Absent | **Parity, trivial.** R218 |
+| Lock the tray during a rip | Absent | **Parity, low.** R223; asked of the fork as the cheaper side |
+| `CATALOG` cue line from the disc's MCN | cyanrip writes `CATALOG` from the disc's MCN when there is one (`cyanrip@e665c9b4:src/cue_writer.c:149`); the reference disc has none, so no rip of ours has shown it | **Equal in the code**, unproven on a disc with an MCN |
+| Burst mode | Never; always paranoia | **Skip**: deliberate, it trades accuracy for speed |
+| Copy range | Absent | **Skip**: logcheckers deduct for it, and it is an archival anti-pattern |
+| Normalize | Absent | **Skip**: it alters samples; OPS deducts 100 |
+| Detect or delete silent blocks | Silence never trimmed | **Skip**: by design |
+| WAV editor | Absent | **Skip**: not ripping |
+| AcoustID fingerprint submission | Not done | **Skip**: privacy; F4 already tells EAC users to untick it |
+| Write offset, CD writing, CD-TEXT writing | — | **Out of scope**: writing a disc |
+| ReplayGain, loudness | Present | **Win** |
+
+### H.5 Beyond EAC: the other rippers
+
+Seventeen rippers were read from their own pages, changelogs and the Hydrogenaudio
+comparison ([HA comparison][h-ha-cmp]): EAC, dBpoweramp, CUERipper and CUETools,
+foobar2000, fre:ac, EZ CD Audio Converter, XLD, Max, whipper, morituri, Rubyripper, abcde,
+upstream cyanrip, Asunder, Sound Juicer and K3b. Key: **Y** yes, **P** partial, **N** no,
+**?** unknown, **plug** through a plugin. "Unsure" in a decision marks a place where the
+sources disagree or say nothing.
+
+| Ripper | OS | Open | Last release | Re-read method | C2 | AR v1+v2 / other pressings | CTDB check / repair / submit | Offset from a disc | Gaps and index | HTOA | Image + cue | Pre-emphasis | HDCD | ISRC / MCN / CD-Text | Metadata | Test & Copy | Log checksum |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Platterpus** | Linux | Y | 0.7.130 (2026) | paranoia, then whole-track re-reads until verified | N (by choice) | Y / Y | Y / **Y (automatic)** / N | **N** (drive list only, R150) | Y (sub-channel) | N (scoped out) | **N** | TOC and sub-code, kept and flagged | **N** | Y / Y / Y | MusicBrainz (+ Picard) | Y (equivalent) | Y (SHA-256) |
+| EAC | Win | N | 1.8 (2024) | sector re-reads, 8 of 16 | optional | Y / plug | plug / N / plug | Y | Y (A/B/C) | Y | Y | TOC only | ? | Y / Y / Y | freedb, GD3, MusicBrainz; Discogs via CTDB | Y | Y (obfuscated) |
+| dBpoweramp | Win, mac | N | R2025 | passes and frame re-reads | Y | Y / Y | N | Y (auto) | Y | P | Y | ? + de-emphasis option | Y | Y / UPC / Y | PerfectMeta: six sources and barcode | multi-pass | ? |
+| CUERipper / CUETools | Win | Y | 2.2.6 (2024) | secure + C2 | Y | Y / Y | Y / Y (CUETools) / Y | ? (AR drive list) | Y | Y | Y (every cue style) | TOC and sub-code | Y (CUETools) | Y / ? / N | MusicBrainz, freedb, Discogs | ? | ? |
+| foobar2000 | Win | N | ? | 2 or 4 CRCs a block | N | Y / Y | N | auto from the list | N | Y | Y | ? | plug | ? / ? / Y | MusicBrainz, freedb (+ Discogs plug) | N | no log |
+| fre:ac | Win, mac, Linux | Y | 1.1.8 (2026) | cdparanoia | N | Y / N | N | auto from the list | N | Y | Y | TOC only | Y | Y / ? / Y | CDDB, gnudb | N | ? |
+| EZ CD | Win | N | 14.0 (2026) | two passes by CRC, flags only | detect only | **N** | N | ? | Y | Y | Y | TOC and sub-code + de-emphasis | Y | Y / UPC / Y | GD3, MusicBrainz, Discogs, Deezer, Amazon | Y (two passes) | N? |
+| XLD | mac | Y | 20250302 | statistical, verify the suspect | Y | Y / Y | N? | auto, and fixes old rips | Y | Y | Y | TOC and sub-code | ? | Y / Y / N | freedb, gnudb, MusicBrainz, Discogs URL | Y | Y |
+| Max | mac | Y | 0.9.2b4 (?) | comparison or paranoia | Y? | N? | N | ? | ? | ? | split only | ? | ? | ? | MusicBrainz | ? | ? |
+| whipper | Linux | Y | 0.10.0 (2021) | paranoia + T&C | N | Y / N | N | Y (brute force) | Y | Y | N | TOC only | N | Y / ? / N | MusicBrainz (+ freedb shown) | Y | Y (SHA-256) |
+| morituri | Linux | Y | dormant | paranoia + T&C | N | v1 only | N | Y | Y | Y | ? | TOC only | N | Y / ? / N | MusicBrainz | Y | ? |
+| Rubyripper | Linux | Y | no releases | chunk voting | N | N | N | N | Y | ? | Y | Y + sox de-emphasis | N | ? | gnudb, MusicBrainz | votes | MD5 a track |
+| abcde | Unix | Y | 2.9.3 (2019) | paranoia | N | N | N | N | ? | N | Y (embedded cue) | ? | N | ? / ? / Y | CDDB, MusicBrainz, CD-TEXT | N | N |
+| cyanrip upstream | Linux, mac, Win | Y | 0.9.3.1 (2024) | paranoia + `-Z` | N | Y / Y | N | Y (`-f`) | Y | Y (track 0) | N | TOC and sub-code + automatic de-emphasis | Y | Y / Y / ? | MusicBrainz | `-Z` | Y |
+| Asunder | Linux | Y | 3.0.2 | paranoia | N | N | N | N | N | N | N | N | N | N | CDDB | N | N |
+| Sound Juicer | Linux | Y | 3.40 (2023) | paranoia (GStreamer) | N | N | N | N | N | N | N | N | N | ? / Y (MCN) / ? | MusicBrainz | N | N |
+| K3b | Linux | Y | 26.08.3 (2026) | paranoia + retries | N | N | N | N | ? | N | Y | ? | N | ? / ? / Y | CDDB, CD-TEXT | N | N |
+
+| Ripper | Rip on insert | Several drives | Auto-eject | Several formats a rip | Playlist | ReplayGain | Fix an old rip's offset | Hear error positions |
+|---|---|---|---|---|---|---|---|---|
+| Platterpus | **N** | **N** | Y | P (FLAC + 1) | **N** | Y | **N** | **N** |
+| EAC | ? | N | ? | ? | ? | ? | N | **Y** |
+| dBpoweramp | Batch Ripper | **Y** | Y (only if secure) | **Y** | ? | Y | N | error bar shown |
+| CUETools | N | N | ? | N | ? | ? | **Y** | N |
+| fre:ac | **Y** | **Y** | Y | ? | ? | ? | N | N |
+| XLD | ? | ? | ? | N? | ? | Y (scan) | **Y** | N |
+| whipper | N | N | Y | N | Y | N | N | N |
+| cyanrip | N | N | Y | **Y (parallel)** | N | Y | N | N |
+| Asunder, K3b, Rubyripper | N | N | ? | Y | **Y** | P | N | N |
+| Sound Juicer | Y (`--autostart`) | N | Y | N | N | N | N | N |
+
+**What we already do better than all of them**, each with its evidence in this file:
+re-reading until a read verifies, automatically (row 3); CTDB repair inside the rip and
+recorded as a repair, where CUETools repairs only as a separate step ([CUETools][h-cuet]);
+the offset re-confirmed by every matching rip (KDD-31; only XLD's real-time check is close,
+[XLD notes][h-xld-rn]); honest verdicts (row 8); an open SHA-256 log (row 28; whipper's
+scheme is the same, [whipper][h-whip]); the finished files checked, not only the read (row
+26; foobar2000 writes no log, [HA][h-fb-rip]); pre-emphasis read from TOC and sub-code and
+never applied to the master; cache defeat measured per drive; setup with no terminal, where
+one 2025 user stayed on whipper because cyanrip lacked guidance ([Level1Techs][h-l1t]);
+accessibility as a tested standard, where CUERipper is reported as not working with screen
+readers ([HA thread][h-ha-2025]); and the library audit, rip comparison, a machine-readable
+report and scripted acceptance runs as one set.
+
+### H.6 Every feature found, and what we decided
+
+**Decisions:** **Next** is in `TASKS.md`'s ordered list now; **Plan** has a row and waits
+its turn; **Owner** waits on the owner's word; **Fork** is asked of the fork in the asks
+file; **Skip** is recorded and not done, with the reason; **Done** is already ours.
+
+| # | Feature | Who has it | Kind | Decision | Why | Row |
+|---|---|---|---|---|---|---|
+| 1 | Offset from a disc for a drive AccurateRip does not list | EAC ([AR][h-eacorg-ar]), dBpoweramp ([advanced][h-dbp-adv]), whipper ([README][h-whip]), morituri ([README][h-mor]), cyanrip `-f` ([README][h-cy]), XLD ([notes][h-xld-rn]) | Parity | **Next** | Without it a user with an unlisted drive rips offset-wrong; `-f` is wrapped and not wired | R150 |
+| 2 | Single-file image with its cue, and a choice of cue style | EAC, CUERipper ([CUETools][h-cuet]), dBpoweramp ([advanced][h-dbp-adv]), XLD ([site][h-xld]), EZ CD ([ripper][h-ez-rip]), fre:ac, foobar2000 ([converter][h-fb-conv]), K3b, Rubyripper ([fork][h-rr]), abcde ([wiki][h-abcde]) | Parity | **Next** (larger) | The standard archive layout; derived from the verified per-track FLACs through the transcode adapter, no second read | R201 |
+| 3 | CTDB submission | CUERipper, CUETools, EAC's plugin ([CTDB][h-ctdb]) | Parity | **Plan** | Gives back to the database; CUETools' rule: only with AccurateRip confidence above 1, never a track AccurateRip rejects. Unsure whether the server accepts an unlisted client | R43 |
+| 4 | AccurateRip submission | EAC ([AR][h-eacorg-ar]), dBpoweramp ([help][h-dbp-help]) | Parity | **Owner** (deferred, "not right now") | Proprietary; no public submission interface found | R52 |
+| 5 | Re-read only the frames in doubt, voted per sector or chunk | dBpoweramp ([advanced][h-dbp-adv]), EAC (G.3), Rubyripper ([fork][h-rr]), XLD ([notes][h-xld-rn]) | Win (speed on a damaged disc) | **Fork**, then ours | It lives in the read engine; our half is R134 (rebuild a disputed second) | R134 |
+| 6 | C2 pointers as evidence, after testing how far the drive's C2 can be trusted | dBpoweramp ([advanced][h-dbp-adv]), CUERipper, XLD, EAC (option) | Speed | **Skip** for now | It speeds a rip more than it makes one right, and drives often report C2 badly; the round 42 C2 probe is the record | — |
+| 7 | FUA cache invalidation | dBpoweramp ([advanced][h-dbp-adv]) | Speed | **Skip** for now; offered to the fork | Speed only, and only the fork could do it | — |
+| 8 | Flag HDCD, never decode it into the master | dBpoweramp ([help][h-dbp-help]), EZ CD ([ripper][h-ez-rip]), fre:ac, CUETools ([CUETools][h-cuet]), cyanrip `-H` ([README][h-cy]) | Win | **Plan** | ffmpeg's `hdcd` filter over the finished FLAC, kept as a flag; `-H` alters samples and never reaches the master | R202 |
+| 9 | A de-emphasised playback copy of a pre-emphasised disc | dBpoweramp, EZ CD, Rubyripper, cyanrip by default | Win | **Plan** | A derived output (ffmpeg `aemphasis`); the master stays flagged | R203 |
+| 10 | Report when TOC and sub-code pre-emphasis flags disagree | Wanted on Hydrogenaudio ([HA thread][h-ha-2025]) | Win | **Fork** | The fork's log names one source, `present (subcode)` or `present (TOC)` (`cyanrip@e665c9b4:src/cyanrip_log.c:699-715`), so a disagreement cannot be seen; asked | — |
+| 11 | HTOA | EAC, dBpoweramp, XLD ([guide][h-xld-guide]), CUERipper, whipper, morituri, fre:ac, cyanrip `-p` | Parity | **Skip** on the owner's word | Scoped out; it needs the AccurateRip and CTDB TOC to account for it | — |
+| 12 | Data tracks and Enhanced CDs | cyanrip ([README][h-cy]), EAC ([features][h-eacorg-feat]) | Parity | **Done** | Decided 2026-11-25: a data track is copied to its `.bin` and handled on our side | R12, R13 |
+| 13 | Check and fix an old rip: AccurateRip and CTDB on files on disk, a wrong offset corrected | CUETools ([CUETools][h-cuet]), XLD ([notes][h-xld-rn]), whipper `image verify` ([HA][h-whip-ha]) | Win | **Plan** | `--ctdb-calibrate` already sweeps offsets; apply the found offset through the FLAC rewrite path | R204 |
+| 14 | Show the positions a rip was unsure of, and play them | EAC ([features][h-eacorg-feat]), dBpoweramp ([help][h-dbp-help]), EZ CD, Rubyripper | Parity (EAC lists and plays them) | **Plan**, after R44 | Positions are in the report; the log wording first | R44, R205 |
+| 15 | CD-TEXT as fallback tags | abcde ([wiki][h-abcde]), dBpoweramp, EAC, EZ CD, fre:ac, foobar2000, K3b ([UserBase][h-k3b-ub]) | Parity | **Next** | The fork already prints it on the `-I` run we make | R206 |
+| 16 | Find the release by hand: text search, a pasted URL, a barcode | dBpoweramp ([advanced][h-dbp-adv]), XLD ([site][h-xld]), Sound Juicer ([NEWS][h-sj-news]) | Parity, partial | **Next** for MusicBrainz; Discogs **Owner** | Through the `MusicBrainzClient` adapter; Discogs is a new dependency (deviation policy) | R207 |
+| 17 | The disc's MCN ranks the candidates | Sound Juicer ([NEWS][h-sj-news]) | Win | **Next** | We read the MCN already (`disc_mcn.py`) | R208 |
+| 18 | More metadata sources | dBpoweramp ([product][h-dbp-main]), CUERipper through CTDB, EZ CD | Parity, partial | **Plan** through CTDB; GD3 and gnudb **Skip** | CTDB's answer is a call we already make; GD3 is paid; CDDB is obsolete ([LWN][h-lwn]) | R209 |
+| 19 | Cover art from several sources, with a size limit | dBpoweramp ([help][h-dbp-help]), EZ CD ([ripper][h-ez-rip]), CUERipper | Convenience | **Plan** | The size limit is easy; more sources follow R209 | R210 |
+| 20 | "Submit this disc ID to MusicBrainz" for an unknown disc | Sound Juicer ([NEWS][h-sj-news]), Picard ([attach][h-picard-attach]) | Convenience | **Next** | `cd_info.musicbrainz_submit_url` is parsed and nothing calls it | R211 |
+| 21 | Logs Picard can read | Picard reads EAC, XLD and whipper logs ([Picard][h-picard-log]) | Convenience | **Plan** | Untested whether it reads ours; handing Picard the disc ID may be simpler | R212 |
+| 22 | AcoustID fingerprints | cyanrip `-k`, dBpoweramp, EAC 1.x by default | — | **Skip** | Privacy, an API key, and chromaprint in the fork build, for no gain to the rip | — |
+| 23 | Tag-tidying rules ("The X" to "X, The", one genre, split "feat.") | dBpoweramp ([advanced][h-dbp-adv]) | Convenience | **Skip** | Low value, a matter of taste, and MusicBrainz's own style already decides these | — |
+| 24 | Classical work and movement tags | dBpoweramp ([help][h-dbp-help]) | Metadata | **Plan** | MusicBrainz has the work relationships; check what we write first | R213 |
+| 25 | Rip on insert, off by default | fre:ac ([discussion][h-freac-auto]), Sound Juicer ([NEWS][h-sj-news]), dBpoweramp Batch Ripper ([batch][h-dbp-batch]) | Convenience | **Plan** | A media-change signal on a worker | R214 |
+| 26 | Several drives at once; auto-loaders | fre:ac ([HA][h-freac-ha]), dBpoweramp ([batch][h-dbp-batch]) | Convenience | **Owner** for two drives; robots **Skip** | One rip worker per drive, with its own profile; robots are out of scope | R215 |
+| 27 | Several output formats in one rip | dBpoweramp, cyanrip `-o` ([README][h-cy]), Rubyripper, abcde, Asunder ([site][h-asu]) | Convenience | **Next** | The transcode adapter loops over the chosen formats | R216 |
+| 28 | More formats: ALAC, Opus, Vorbis, AIFF; AAC | dBpoweramp, XLD, EZ CD, fre:ac, cyanrip, Asunder | Convenience | **Owner** | Critical rule #4 names the derived formats; adding one is the owner's word | R217 |
+| 29 | M3U playlist | whipper ([HA][h-whip-ha]), Rubyripper, Asunder, K3b ([blog][h-k3b-blog]) | Parity | **Next** | Trivial | R218 |
+| 30 | Shut down after ripping; eject only when secure; stop after an insecure track | dBpoweramp ([advanced][h-dbp-adv]) | Convenience | **Done** in part; the rest **Skip** | Auto-eject already waits for a successful rip and never ejects a failed or cancelled one (`ui/main_window_rip.py:2564`); whether a rip with an unverified track counts as successful was not checked. Shutting the machine down is the desktop's job | — |
+| 31 | Writing a disc with offset-corrected audio and CD-TEXT | EAC ([features][h-eacorg-feat]), EZ CD, K3b | — | **Skip**, out of scope | Writing a disc is not this project | — |
+| 32 | A translated interface | fre:ac, 43 languages ([site][h-freac]) | Convenience | **Skip** for now | Not requested; Qt's translation tools make it possible later | — |
+
+Found by the EAC re-read rather than the survey, and decided in H.4: the `Track quality`
+row (R221), TOC manipulation (R222) and the tray lock (R223).
+
+### H.7 The order this gives
+
+**Parity, by what a user meets:** the offset for an unlisted drive (R150); a damaged
+disc's *unreadable on this drive* verdict (R49); the pregap record (R219); image and
+single-file cue (R201); drive features measured at setup (R152, R137, R53); error
+positions in the log (R44); a metadata route when MusicBrainz lacks the disc (R206, R207);
+CTDB submission (R43); AccurateRip submission (R52, deferred). Then HTOA (out of scope),
+`Track quality`, more encoders, a second gap method, the tray lock, TOC manipulation and
+M3U.
+
+**Wins we have:** automatic CTDB repair, proven 14 of 14 in round 42; re-reading guided by
+AccurateRip, which overruled an agreeing wrong pair; honest verdicts; the finished files
+checked after they are written; the offset checked every rip, with settings chosen for the
+user, an open log, and drive facts EAC never logs.
+
+### H.8 Not verified
+
+- Rounds 40 and 41's rips were not staged; they are cited through the fork's own parity file.
+- Whether round 42's single-track `accuracy` and `timing` steps turn off the securing pass.
+- A `CATALOG` line on a real disc with an MCN; the code writes one, the reference disc has none.
+- How OPS's logchecker scores `Gap handling : (undetermined …)`.
+- `--reread-time-limit` and keeping verified reads through a cancel, on a damaged disc.
+- EAC's pages were read from exactaudiocopy.org, a mirror, because the .de pages could not
+  be fetched; dBpoweramp's current CD Ripper version and its log checksum were not confirmed.
+- Every cell marked **?** in H.5.
+
+[h-ha-cmp]: https://wiki.hydrogenaudio.org/index.php?title=Comparison_of_CD_rippers
+[h-eacorg-feat]: https://exactaudiocopy.org/features-of-eac/
+[h-eacorg-ar]: https://www.exactaudiocopy.org/accurate-rip/
+[h-dbp-main]: https://www.dbpoweramp.com/cd-ripper.htm
+[h-dbp-help]: https://www.dbpoweramp.com/Help/dMC/CDhelp
+[h-dbp-adv]: https://www.dbpoweramp.com/Help/dMC/CDadvanced
+[h-dbp-batch]: https://www.dbpoweramp.com/batch-ripper.htm
+[h-cuet]: https://cue.tools/wiki/CUETools
+[h-ctdb]: https://cue.tools/wiki/CUETools_Database
+[h-ha-2025]: https://hydrogenaudio.org/index.php/topic,127761.msg1062237.html
+[h-fb-rip]: https://wiki.hydrogenaudio.org/index.php?title=Foobar2000%3ARipping_CDs_with_foobar2000
+[h-fb-conv]: https://wiki.hydrogenaudio.org/index.php?title=Foobar2000:Converter
+[h-freac]: https://www.freac.org/
+[h-freac-ha]: https://wiki.hydrogenaudio.org/index.php?title=Fre%3Aac
+[h-freac-auto]: https://github.com/enzo1982/freac/discussions/595
+[h-lwn]: https://lwn.net/Articles/1066875/
+[h-ez-rip]: https://www.poikosoft.com/cd-ripper
+[h-xld]: https://tmkk.undo.jp/xld/index_e.html
+[h-xld-rn]: https://tmkk.undo.jp/xld/releasenotes2_e.html
+[h-xld-guide]: https://zexwoo.blog/en/posts/tutorials/xld-ripping/
+[h-whip]: https://github.com/whipper-team/whipper
+[h-whip-ha]: https://wiki.hydrogenaudio.org/index.php?title=Whipper
+[h-picard-log]: https://picard-docs.musicbrainz.org/en/latest/workflows/workflow_extractor_log.html
+[h-picard-attach]: https://picard-docs.musicbrainz.org/en/v3.0/usage/attach_disc_id.html
+[h-mor]: https://github.com/thomasvs/morituri
+[h-rr]: https://github.com/bleskodev/rubyripper
+[h-abcde]: https://abcde.einval.com/wiki/
+[h-cy]: https://github.com/cyanreg/cyanrip
+[h-asu]: https://littlesvr.ca/asunder/
+[h-sj-news]: https://github.com/GNOME/sound-juicer/blob/master/NEWS
+[h-k3b-blog]: https://www.ryananddebi.com/2020/07/25/kubuntu-audio-cd-ripping/
+[h-k3b-ub]: https://userbase.kde.org/K3b/en
+[h-l1t]: https://forum.level1techs.com/t/bedhedds-whipper-adventure/237036
+
+---
+
+*Last updated for Platterpus v0.7.130.*

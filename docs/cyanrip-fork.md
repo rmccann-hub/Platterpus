@@ -6,7 +6,7 @@ Why Platterpus maintains a fork of cyanrip at all, what the alternatives were, h
 
 - **[Part A — Engine strategy](#part-a--engine-strategy--fork--combine--upgrade-feasibility)** — long-horizon *research*: a menu of options, explicitly not a commitment, including the licensing analysis that gates all of it and the §10 per-gap option menu.
 - **[Part B — Soft-fork mechanics](#part-b--soft-fork-mechanics--setup-patches-re-merge-discipline)** — the concrete, executable half: branch layout, the patches we carry, how the container builds it, and the re-merge discipline that keeps the diff small.
-- **[Part C — What we want from upstream](#part-c--what-we-want-from-upstream--the-ranked-ask-list)** — the ranked ask list: every improvement we want from cyanrip, each with the evidence that motivates it, and an explicit list of asks we decided **not** to make. **Part C §6 is worth reading on its own:** corrections to our **own** record found while assembling the list.
+- **[Part C — What we want from upstream](#part-c--what-we-want-from-upstream--the-ranked-ask-list)** — the ranked ask list: every improvement we want from cyanrip, each with the evidence that motivates it, and an explicit list of asks we decided **not** to make. **Part C §6 is worth reading on its own:** corrections to our **own** record found while assembling the list. **Part C §7** holds the asks from the 2026-11-25 audit.
 - **[Part D — The upstream PR roadmap](#part-d--the-upstream-pr-roadmap-contributor-instructions)** — *how* an ask becomes a merged pull request: the contributor-facing roadmap, in priority order, with the uncertainties flagged rather than smoothed over. The `scripts/cyanrip/` kit executes it.
 - **[Part E — Known issues](#part-e--known-issues-handed-to-the-fork-outside-the-handshake-closed-2026-08-15)** — **CLOSED 2026-08-15, a record, not a live list:** the ten evidence-backed issues handed to the fork on 2026-08-14 (not a handshake lap), how each was dispositioned, and what we checked and dropped.
 
@@ -945,6 +945,14 @@ cyanrip built it.
 ## Part C — What we want from upstream — the ranked ask list
 
 ## cyanrip improvements wanted — the ranked ask list (2026-07-31)
+
+> **Status, 2026-11-25 (the audit).** Most of §2 has been delivered by the fork since this
+> list was written: the sample peak (§2.1, rendered as our `Peak level`), pregaps from the
+> fork's own sub-channel search rather than PR #115 (§2.2), per-track `Extraction speed:`
+> and `Kept read began:` (§2.3), the `-Z` convergence line (§2.4), and the C2 line's
+> wording (§2.5). The text below is the record of what was asked. **New asks are §7**, and
+> the fork's own upstream items (24 to 33, drafted and not yet filed) are in the fork's
+> upstream issues list, `cyanrip@e665c9b4:docs/upstream/issues-to-file.md`.
 
 > **What this is.** The maintainer's request, verbatim: *"if we need to improve
 > cyanrip, make a file for that and we can start that too."* So this is the
@@ -1897,6 +1905,34 @@ absence of any real `-Z` rip log in the repository.
 [`eac-parity.md`](eac-parity.md)
 (the external standard these rows are measured against). PR-first, adaptable to
 the upstream maintainer's call, and we never fake provenance.*
+
+---
+
+### 7. Asks from the 2026-11-25 audit
+
+**What this is.** The audit of 2026-11-25 (`docs/eac-parity.md` Part H) re-read EAC parity
+against round 42 and surveyed seventeen other rippers. These are the items it found that
+are the fork's to do or to answer, each with the reason. The fork is its own repository,
+so this list is handed over as a file and the fork decides what to take; nothing here is a
+handshake statement until a lap carries it. Where the fork already tracks the item, its id
+from the fork's `docs/OPEN-ITEMS.md` is named, read at `cyanrip@e665c9b4`.
+
+| # | Ask | Why | The fork's id |
+|---|---|---|---|
+| F1 | **When a pregap is undecided, make the cue agree with the log.** All 14 round 42 whole-disc rips print track 9 as `94 or 95 frames (undecided)`, and every cue writes `INDEX 00 03:44:10`, 95 frames. All four EAC sessions read 94, and the fork's own count puts 94 in the majority (200 of 237 filed logs). Either write the value the record can stand behind with a `REM` saying it is undecided, or leave the `INDEX 00` out and say so, and name the rule that picks it | A cue that commits to a value the log calls undecided asserts what the record refuses, and it is the one cue line that differs from EAC's on this disc. Our half, the `Gap handling` row, is R219 | HW-6, US-12 |
+| F2 | **A second try, by another method, when the sub-channel search is undecided** (EAC's gap detection methods A, B and C, retried on failure) | Track 9 is undecided in nearly every rip on this drive; a second method is how EAC reaches one answer | US-12 |
+| F3 | **Print both pre-emphasis sources, and say when they disagree.** The track block names one, `present (subcode)` or `present (TOC)` (`cyanrip@e665c9b4:src/cyanrip_log.c:699-715`) | Hydrogenaudio users ask for it and say CUERipper lacks it ([HA thread](https://hydrogenaudio.org/index.php/topic,127761.msg1062237.html)); a disagreement is a fact about the disc an archive should keep | new |
+| F4 | **Detect HDCD without decoding it**, as a reported flag with no sample change | dBpoweramp, EZ CD, fre:ac and CUETools flag HDCD; `-H` decodes, and the fork's own record shows it delivers a file 6.02 dB quieter on a disc without HDCD. We plan to run ffmpeg's `hdcd` filter over the finished FLAC (R202); a flag from the read would be simpler and would come from the source | new |
+| F5 | **Lock the tray while a rip runs** (SCSI PREVENT ALLOW MEDIUM REMOVAL), released on every exit path | EAC does it; a tray opened mid-rip cost a Full run 57 steps once (our Part F row 33). No lock was found in the fork's source; the fork holds the drive, so it is the cheaper side (our R223) | new |
+| F6 | **Fix `-f`'s two defects before we wire it** (it never tries an offset of 0, and it numbers tracks by position) | We are about to make `-f` the drive-setup offset for any drive AccurateRip does not list (R150, parity with the key-disc calibration of EAC, dBpoweramp and two Linux rippers). A drive whose true offset is 0 would get a wrong one | UP-4, HW-2 |
+| F7 | **A provider-contract row for the `CD-TEXT:` lines: their fields, their character set, and their stable form** | We will use CD-TEXT as fallback tags when MusicBrainz has no match (R206, parity with EAC, abcde, dBpoweramp, fre:ac, K3b). The fork has not read CD-TEXT from a disc on a drive yet | HW-4 |
+| F8 | **Re-reading only the sectors in doubt, voted per sector**, kept on the long list | dBpoweramp, EAC, XLD and Rubyripper do it, and it finishes a damaged disc sooner; our side is R134 (rebuild a disputed second) | US-13 (R5) |
+| F9 | **Refresh the fork's parity rows 6, 21 and 23 with round 42**, and read our corrections in Part H.2 so the two parity files agree | Round 42: track 3 read right in 13 of 14 whole-disc rips, track 9 undecided in 14 of 14, `Recordable:` printed | — |
+| F10 | *For the record, not asked now:* FUA cache invalidation (dBpoweramp; speed only), C2 pointers as evidence after a trust test (speed more than accuracy; the round 42 C2 probe is the record), and flagging a manipulated TOC (EAC; low, our R222) | Recorded so they are not found again as new | — |
+
+**Already on round 43's list, not repeated here:** our answer to US-21 (we will read
+`Pregap sample peak:`, R227), the `?` cell at `docs/seam-commands.md:261` (PP-12, our
+R228), the two proposed seam rules (R229), and the addendum's time (PP-14, our R226).
 
 ---
 
@@ -3309,4 +3345,4 @@ The one thing worth asking of you, and it is §4 and §5 rather than a new item:
 
 ---
 
-*Last updated for Platterpus v0.7.126.*
+*Last updated for Platterpus v0.7.130.*

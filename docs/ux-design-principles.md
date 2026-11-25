@@ -127,6 +127,14 @@ screen-reader session on real hardware, which only the rig can prove). Only #3
 hardware-gated (needs real anomaly-bearing rip output to write a position-level
 parser against, and a real FLAC + CC0 sample to validate playback).
 
+**2026-11-25 (the audit, `docs/eac-parity.md` Part H).** #6's deferred half shipped: the
+read offset is applied per drive and checked every rip (`read_offset_check.py`). #3's parser
+half is done: since the fork's `.25`, positions are read into the report's
+`disc.error_positions` (`error_positions.py`). What is left of #3 is the log wording (TASKS
+R44) and showing and playing the positions (R205). Other rippers' interface features the
+survey found (rip on insert, a manual release search, a disc-ID submit link, two drives)
+are decided in Part H.6 and ordered in `TASKS.md`.
+
 ## Conformance target: WCAG 2.2 AA — audited 2026-08-14
 
 **Why this doc and not a new one.** The maintainer commissioned a UI/UX &
@@ -202,7 +210,9 @@ first time someone reaches for `setShortcut("R")`.
    Updates are held at ≥ 44 px (`_COMMIT_HEIGHT`, swept by
    `tests/test_accessibility_standards.py::…::test_a_COMMIT_size_is_at_least_44px`).
    **Start rip**, **Cancel** and **Force stop** (`ui/rip_controls.py`) are still
-   left to the style.
+   left to the style. Tracked as TASKS R224 (2026-11-25).
+
+Items 1 to 3 are tracked together as TASKS R225 (2026-11-25).
 5. ~~**The remaining scroll areas**~~ — **closed 2026-08-14.** Both rules are now
    applied by *sweep* rather than per widget, and the sweep is a test
    (`tests/test_scroll_guards.py::TestTheRuleIsAppliedEverywhere`) with two
@@ -230,4 +240,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.130.*
