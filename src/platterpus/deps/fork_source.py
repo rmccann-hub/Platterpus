@@ -334,7 +334,17 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: `e1e6a682`), read by both sides against G1 to G4, and the over-read probe of the
 #: same day (our evidence `977d78fa`, `f63869fe`). Neither side names a defect of
 #: `.34` that makes the pin unsafe.
-FORK_PIN: Final[str] = "fb28088"
+#: **Rolled to `1280aa4` (`+platterpus.35`, upstream rc3) on round 42's close
+#: (2026-11-25)**: our lap 6 `GO` (released on our owner's word *"release lap 6"*)
+#: against their lap 5 `GO` (`docs/handshake/inbound/round-42-lap-05.md`, sha256
+#: `84906f9c…`, 14,909 bytes, on `platterpus-fork` at `cyanrip@a06c8de`); both
+#: gates read the round CLOSED. `1280aa4` is round 42's pin from their lap 1. Its
+#: evidence is the owner's two Full runs of 2026-11-23 and 2026-11-24 on 0.7.129
+#: (filed on our evidence branch at `83a6fb95`, `059da6d1` and `af162fe1`, and on
+#: the fork's at `fa045e5` and `c55c217`), read by both sides against G1 to G4, and
+#: the C2 probe of 2026-11-24 (ours `ad4f7a33`, theirs `b263e0e`). Neither side
+#: names a defect of `.35` that makes the pin unsafe.
+FORK_PIN: Final[str] = "1280aa4"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -803,7 +813,9 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: `meson.build:21` at `edb73dd`, which declares the same string.
 #: **Rolled to `0.9.4-rc3+platterpus.34` on 2026-11-18, with `FORK_PIN`**, read off
 #: `meson.build:21` at `fb28088`, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.34"
+#: **Rolled to `0.9.4-rc3+platterpus.35` on 2026-11-25, with `FORK_PIN`**, read off
+#: `meson.build:21` at `1280aa4`, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc3+platterpus.35"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -2459,7 +2471,7 @@ NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 # full commit fails the suite rather than silently weakening the build check.
 
 #: :data:`FORK_PIN` in full.
-FORK_PIN_FULL: Final[str] = "fb2808836827a8407996052b82f9b42e1d400036"
+FORK_PIN_FULL: Final[str] = "1280aa49bf11e2540258ee8757a352aac03381a2"
 #: :data:`PIN_UNDER_REVIEW` in full.
 PIN_UNDER_REVIEW_FULL: Final[str] = "1280aa49bf11e2540258ee8757a352aac03381a2"
 #: :data:`FORK_TEST_PIN` in full.
@@ -2877,20 +2889,19 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 41 approved, GO on both sides: the round's pin from its "
-        "move at the fork's lap 3, held fixed by rule R4 for the rest of the round "
-        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 46, read from their "
+        "the build round 42 approved, GO on both sides: the round's pin from the "
+        "fork's lap 1, held fixed by rule R4 for the whole round "
+        f"(cyanrip {FORK_EXPECTED_VERSION}, release_seq 47, read from their "
         "release-manifest.json, and the version cross-checked against meson.build "
-        "at the pin itself rather than taken from the lap). Over +platterpus.32 it "
-        "records the read speed the drive declares, says what HDCD decoding does "
-        "to a disc without HDCD, and refuses a table of contents whose tracks run "
-        "out of order instead of ripping an empty track; what a rip of a good "
-        "disc delivers is unchanged. Round "
-        "41's evidence on it is the Full acceptance run on a drive, installed "
-        "through Platterpus 0.7.127, with all 14 tracks AccurateRip-verified in "
-        "each of seven whole-disc rips, and a bounded overread probe at both "
-        "edges of the disc that ended cleanly. "
-        "See docs/handshake/inbound/round-41-lap-05.md"
+        "at the pin itself rather than taken from the lap). Over +platterpus.34 it "
+        "always says why a disc has no catalogue number, refuses a disc whose "
+        "pregap cannot be right, notes a session gap where it cannot measure it, "
+        "and uses the disc's own ISRCs by default; what a rip of a good disc "
+        "delivers is unchanged. Round 42's evidence on it is two Full acceptance "
+        "runs on a drive, installed through Platterpus 0.7.129, with all 14 "
+        "tracks AccurateRip-verified in each whole-disc rip, one of them from its "
+        "own reads with no repair, and a C2 probe at the disc's hard seconds. "
+        "See docs/handshake/inbound/round-42-lap-05.md"
     ),
 )
 

@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — held until our operator releases it
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-25; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: this lap's S14, on S2, S3 and S11 to S13: your G3 filing is on your evidence branch and holds what our lap 4 read, G1, G2 and G4 are met by both sides' reading, and neither run shows a defect in `.35` that makes the pin unsafe, as our lap 2 S23 pre-committed.
 HANDSHAKE-PEER-VERDICT: GO
