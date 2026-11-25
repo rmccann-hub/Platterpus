@@ -409,4 +409,4 @@ Entries dated before 2026-10-16 are in [`archive/session-log-to-2026-10-15.md`](
 
 ---
 
-*Last updated for Platterpus v0.7.129.*
+*Last updated for Platterpus v0.7.130.*
