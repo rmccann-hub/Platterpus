@@ -225,7 +225,7 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     # the nineteen-block order test beside it, which fails before an emptied
     # `PINNED` could make this sweep examine nothing.
     "test_prebuilt_tests.py::test_the_blocks_join_to_the_file_as_it_was_byte_for_byte": (
-        "test_the_full_run_has_its_nineteen_blocks_in_order"
+        "test_the_full_run_has_its_twenty_blocks_in_order"
     ),
     # Each value is EITHER the name of the unparametrized test in the same module
     # that floors this population, OR "NO FLOOR NEEDED: <reason>".

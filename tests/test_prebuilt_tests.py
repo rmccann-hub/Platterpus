@@ -28,11 +28,13 @@ from platterpus.uiscript.script import parse
 _REPO: Final[Path] = Path(__file__).resolve().parents[1]
 
 #: SHA-256 of each file at origin/main 93a45b62, the day it was cut (2026-11-23),
-#: and its step count there.
+#: and its step count there. Re-pinned 2026-11-25 for the full run's new section
+#: S, the installation and the app's own health (the owner's word that day; 675
+#: steps to 682, the seven of `installation.txt`).
 PINNED: Final[dict[str, tuple[str, int]]] = {
     "fullacceptance.txt": (
-        "dc1196a79431928fabc97b0590c1c1caaf1acf5b177659bee7e51336fe5f4139",
-        675,
+        "44e56cea55270d36f8f6067ebef7f7c930fc109e6ad69fb31a6fcbe57d18c0ee",
+        682,
     ),
     "quickcheck.txt": (
         "8869d1b3a6003948d995b832e50e3159b24d2db33c52690eb45e94b72069c65b",
@@ -45,7 +47,7 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def test_the_full_run_has_its_nineteen_blocks_in_order() -> None:
+def test_the_full_run_has_its_twenty_blocks_in_order() -> None:
     assert blocks.FULL_ORDER == (
         "fullstart",
         "identity",
@@ -65,6 +67,7 @@ def test_the_full_run_has_its_nineteen_blocks_in_order() -> None:
         "buildcomparison",
         "repeatrips",
         "pregaps",
+        "installation",
         "defaults",
     )
     assert len(blocks.QUICK_ORDER) == 8
@@ -178,7 +181,7 @@ def test_the_prebuilt_list_has_its_tests_in_order() -> None:
 
 @pytest.mark.parametrize(
     ("name", "file", "steps"),
-    [("full", "fullacceptance.txt", 675), ("quickcheck", "quickcheck.txt", 78)],
+    [("full", "fullacceptance.txt", 682), ("quickcheck", "quickcheck.txt", 78)],
 )
 def test_full_and_quick_expand_to_their_files_byte_for_byte(
     name: str, file: str, steps: int

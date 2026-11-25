@@ -112,6 +112,7 @@ text is taken verbatim as one value.
 | `expect-ripper-bounds-overread` | 0 | ready | expect-ripper-bounds-overread — assert the installed cyanrip bounds -O (reads each frame outside the disc once and says so in a `Beyond disc:` line): fails on a build known not to, and is not determined (an error) on one Platterpus cannot place (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
+| `expect-installed` | 1 | ready | expect-installed <shortcuts|tools|drive|log|diagnostics> — one fact about the installation: the menu entry, uninstaller entry and Desktop icon launch the installed app; the exported tools are there; the drive has a saved offset and cache verdict; this launch logged no traceback; or (info only) what the app recorded as errors and warnings |
 | `app-log` | 1+ (rest of line) | ready | app-log <text> — record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept |
 | `sigterm-world` | 0 | ready | sigterm-world — after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails) |
 | `run-estimate` | 0 | ready | run-estimate — record how long the rest of this run should take: each rip from this drive's measured speed and the disc's track lengths, the other steps as measured on a filed Full run; anything unknown is named, never counted as zero (info) |
@@ -918,6 +919,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-tracks <count|count+> \u2014 assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants"
+    },
+    {
+      "name": "expect-installed",
+      "min_args": 1,
+      "max_args": 1,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-installed <shortcuts|tools|drive|log|diagnostics> \u2014 one fact about the installation: the menu entry, uninstaller entry and Desktop icon launch the installed app; the exported tools are there; the drive has a saved offset and cache verdict; this launch logged no traceback; or (info only) what the app recorded as errors and warnings"
     },
     {
       "name": "app-log",

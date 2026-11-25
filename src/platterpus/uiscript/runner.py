@@ -60,6 +60,7 @@ from platterpus.uiscript.control_verbs import ControlVerbsMixin
 from platterpus.uiscript.deemphasis_verbs import DeemphasisVerbsMixin
 from platterpus.uiscript.dependency_verbs import DependencyVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
+from platterpus.uiscript.health_verbs import HealthVerbsMixin
 from platterpus.uiscript.install_verbs import InstallVerbsMixin
 from platterpus.uiscript.offset_grading import drive_in_offset_list, selected_device
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
@@ -402,6 +403,7 @@ class ScriptRunner(
     OffsetVerbsMixin,
     UnknownDiscVerbsMixin,
     AppLogVerbsMixin,
+    HealthVerbsMixin,
     EstimateVerbsMixin,
     WalkthroughVerbsMixin,
     BurstVerbsMixin,
