@@ -665,11 +665,19 @@ So, the obligations:
 
 **And a failure is evidence only if the same test passed a moment earlier.** Measured 2026-09-30: a new check of the runner's docstring failed on comment markers in `verbs.py`, a file the revert never touched, so the reverted run failed for its own reason and the probe reported `detected`. It was caught only because the test was also run unreverted by hand. `revert_probe.py` now runs each revert's tests **before** applying it, through the same runner, and refuses the probe when that baseline does not pass (`tests/test_revert_probe.py::test_a_test_that_already_fails_is_refused_not_reported_detected`, itself probed).
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Would this test fail if I reverted the fix?** Check by actually reverting it. **And prove the revert landed before believing the run**: assert the file changed (hash or re-read), assert the build/collection succeeded, and assert the reverted thing actually behaves differently. **The RESTORE step is the dangerous half:** `git checkout -- <file>` restores to **HEAD**, so on uncommitted work it deletes the feature — copy the file aside, restore from the copy, verify the restore by hash. Use `scripts/revert_probe.py` rather than hand-rolling it. (`docs/testing.md` §5.t.)
+
 #### Moved from `CLAUDE.md` (2026-09-26): Can this check be satisfied by finding nothing?
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **Can this check be satisfied by finding nothing?** Then give it a floor: "examined ≥ N", "found ≥ 2 to compare". A detector that cannot fail is decoration. **And ask it of the check you are writing to fix a check** — that is where it hides, because the new one arrives wearing the authority of having been added on purpose. v0.6.12 shipped six entries under `[Unreleased]`; the gate added the next day asserted `[Unreleased]` was empty and then printed *"entries were moved"*, so **deleting** them passed identically. The success message named the one thing it had not checked. A *move* is a claim about two places; check both, or you have replaced a silent failure with a confident one.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Can this check be satisfied by finding nothing?** Then give it a floor: "examined ≥ N", "found ≥ 2 to compare". A detector that cannot fail is decoration. **And ask it of the check you are writing to fix a check** — that is where it hides; a *move* is a claim about two places, so check both. (`docs/testing.md` §5.t.)
 
 ### 5.s — A fix is a change, and changes have their own failure modes (added 2026-07-29)
 
@@ -1007,6 +1015,10 @@ number was never the problem — the *population* was.
 
 **Am I verifying the behaviour, or the other side's *description* of the behaviour?** Different claims, and the second is easy to mistake for the first. Round 4 of the cyanrip handshake reported their 88-string fatal inventory as "VERIFIED INDEPENDENTLY" — what was verified was *the 88 strings they sent*, run through our real pattern. Re-deriving the inventory from their source in round 5 found **16** more, hidden by a hand-maintained prefix allowlist in their generator — and our own surfacing pattern missed 13 of them, two being ordinary hardware failures that rendered to the user as a bare "Rip failed." **The test asserting we surfaced everything was green the whole time, because the fixture it asserted against had inherited their filter's blind spot: it was measuring their allowlist, not the ripper.** A list checked against itself is consistent, not verified. **Where the underlying source is reachable, derive from it** — and prefer a mechanism derived from the dependency's own emitted text over any list of shapes either side maintains by hand (`ripper_messages.py` builds the matcher from the published format strings for exactly this reason).
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Am I verifying the behaviour, or the other side's *description* of the behaviour?** A list checked against itself is consistent, not verified. **Where the underlying source is reachable, derive from it** — and prefer a mechanism derived from the dependency's own emitted text over any list of shapes either side maintains by hand. (`docs/testing.md` §5.ab.)
+
 ### 5.aa — A gate in the wrong place is not a gate (added 2026-08-03)
 
 The rule *"neither project releases while a handshake round is open"* was written
@@ -1157,6 +1169,10 @@ parsing perfectly and meaning nothing.
 
 **Two implementations agreeing is not either one being correct** — if they share an ancestor, they share its bugs, and equality tests between them pass with flying colours. The cyanrip fork's audio-safety harness compared the fork against upstream across 55 checksum lines and 11 decoded-PCM hashes and found them identical, all session, **truthfully**: both carried an inherited defect that zeroed 99.7% of the samples of any disc-image rip above `-P 0`, and reported `Ripping errors: 0` doing it. One `cmp` against the source `.bin` found in a second what a session of cross-build diffing could not. So: **assert against the source artifact, not against another run** — the input file, the pressed disc, the upstream document — and add a *non-triviality* assertion, because silence compares equal to silence and an empty result compares equal to an empty result. This is the same defect as the fixture-and-matcher shared ancestor above, arriving from a third direction; the shape is "my two witnesses are related".
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Two implementations agreeing is not either one being correct** — if they share an ancestor, they share its bugs. **Assert against the source artifact, not against another run**, and add a *non-triviality* assertion, because silence compares equal to silence. (`docs/testing.md` §5.ac.)
+
 ### §5.ad — A check that passes for the wrong reason
 
 *Handshake round 6, 2026-08-03. Found in `scripts/handshake.py`, the gate that
@@ -1207,6 +1223,10 @@ that filler counts.** It now pads with each section's own subject.
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **Can it be satisfied by the *wrong* thing?** The companion question, and the one never asked of the gate that guards the cyanrip handshake until round 6 found it twice in one file. `handshake.py --check` keyed required sections on a single letter at the start of a line, so §I ("Provider contract") was satisfied by the sentence *"I wrote, of your continuation-line sweep:"* — the contract really was in the file, so the verdict was right and the reason was not; it would have passed with the contract deleted. And §G ("Revert-proof") was satisfied by a section they had lettered `## G. Asks back`, while the word "revert" appeared **zero** times in the document. It reported one problem; there were three. **A check that passes for the wrong reason is worse than one that fails**, because a failure gets investigated and a pass gets cited. Where a check matches on a *label*, make it also require the *subject* — the label answers "did they name it", the content answers "did they write it", and only the pair is a check.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Can it be satisfied by the *wrong* thing?** **A check that passes for the wrong reason is worse than one that fails**, because a failure gets investigated and a pass gets cited. Where a check matches on a *label*, make it also require the *subject* — only the pair is a check. (`docs/testing.md` §5.ad.)
 
 #### A value a citation states that the checker never reads (2026-10-15)
 
@@ -1327,6 +1347,10 @@ reusing that filter in the *phantom* check made the test report `PLANNING.md`'s
 
 **Does this document promise completeness? Then it needs a sweep, not a comment.** *"The canonical annotated index"*, *"one paragraph per module"* — a promise like that decays at exactly the rate the codebase grows, and it decays **invisibly**, because a map is only ever wrong by omission and nobody reviews a file for what is not in it. Three such maps were found expired in one sweep (2026-08-03): `docs/README.md` was missing the generated consumer contract *and* the entire 24-file handshake correspondence directory; `PLANNING.md` §2 was missing **19 of 122** modules including two this file's own rules name by name; `docs/handshake/README.md` named one round out of seven and taught a closing rule that had been superseded. The instructive part: `CLAUDE.md` had *already* tried to fix the first one — with a parenthetical saying the list *"can't drift from it again."* **A comment where a check belongs is not a fix.** Derive the expected set from the filesystem, require the unit the promise makes (an *annotated row*, not a mention — a document named once in passing prose has a resolving link and is still lost), and scope the converse narrowly so it does not fire on correct prose. `docs/testing.md` §5.af.
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Does this document promise completeness? Then it needs a sweep, not a comment.** A map is only ever wrong by omission, so it decays invisibly. Derive the expected set from the filesystem, require the unit the promise makes (an *annotated row*, not a mention), and scope the converse narrowly so it does not fire on correct prose. **A comment where a check belongs is not a fix.** (`docs/testing.md` §5.af.)
+
 ### §5.am — A conformance table is run, not read
 
 *Handshake round 7 lap 5, 2026-08-04.*
@@ -1437,6 +1461,10 @@ to not be vacuous.
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **What pins my input?** Different question from "is my logic right", and the one nobody asked of two correct detectors. The stall detector and the ETA both read the album progress fraction; a secure re-read replays a track the bar has already counted and `_bump_overall` refuses to regress, so that fraction is **frozen for the whole re-read by design**. Both then described the design: a healthy disc reported as *"stuck on a hard-to-read spot (a scratch or smudge)"*, twice in one rip, in the same seconds its own log shows a steady 1× read — and an ETA that went 54m → 5h40m in 70 seconds with 22 minutes left (2026-08-05, b8; `docs/testing.md` §5.ah). Two corollaries: **a monotonic display value is not a measurement** (the clamp is there so a bar never goes backwards — the moment it became the input to an inference it stopped being cosmetic), and **the fix for a signal going quiet is a second signal, not an exemption** — suppressing the detector during re-reads passes the false-alarm test and silently restores the hours-long undetected hang it was written for.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **What pins my input?** Different question from "is my logic right": a correct detector fed an input that is frozen *by design* reports the design. **A monotonic display value is not a measurement**, and **the fix for a signal going quiet is a second signal, not an exemption.** (`docs/testing.md` §5.ah.)
 
 ### §5.ai — A convention is a checker, and the checker sweeps the surface
 
@@ -1744,6 +1772,10 @@ What to do instead:
 
 **Is the population I measured closed?** A number read from a run still in flight is its **fast tail**, not its range — jobs that finish first finish first *because* they are fast, so the observations still missing are systematically the extreme ones, and the sample looks tighter than the truth in one predictable direction. A CI timeout was set to 75s against the two matrix legs that had finished (13s, 32s); the completed run measured 13/32/**73/103**s, all successes, so the bound written to stop a stall sat inside the healthy range and would have killed a slow-but-working step (2026-08-18, `docs/testing.md` §5.ao). Close the population before quoting it, or put the qualifier *in* the number — *"≥73s across 2 of 4 legs"* is honest and unusable as a bound, which is the point. And record the count beside the value, or the qualifier is dropped the first time it is quoted onward. **And it applies to DELEGATION, which is the form that looks immune to it.** *"Ask the surface that knows"* is the standard fix here for a value that goes stale — but a delegate can only answer over its own population, so if the answer is outside that population the delegation is confidently wrong instead of merely old. The acceptance script's header sent an operator to the in-app ripper check with *"take whatever offer it makes"*, having argued in its own comment that this *"cannot go stale, because it delegates to the surface that knows"*; that surface computes its offer from the **fork's release manifest**, so it can only propose builds the fork has *published*, and round 16 opened on a commit they nominated and never released. Its most honest answer became *"your build is current"* — true of the manifest, and not the build the run demands — which ends an overnight run four seconds in. Third time that same abort was reached, and the first two were values going out of date while this one never held the value (2026-09-07, `docs/archive/session-log-to-2026-10-15.md`). So of any delegation ask: *what is this surface's population, and is the answer I need inside it?*
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Is the population I measured closed?** A number read from a run still in flight is its **fast tail**, not its range. Close the population before quoting it, or put the qualifier *in* the number and record the count beside it. **It applies to DELEGATION too:** *what is this surface's population, and is the answer I need inside it?* (`docs/testing.md` §5.ao.)
+
 ### §5.ap — Asking for a thing is not having it: the asynchronous seam a step can outrun
 
 *The rig run of 2026-08-18, app 0.6.16. `pass=50 fail=8`, and all eight are one line.*
@@ -2049,6 +2081,10 @@ costs — nothing. The retraction in lap 4 is shorter than the excuse in lap 2.
 
 **Never state a mechanism in the other side's code without citing where you read it.** A claim about a peer's implementation carries a file and a line, or it is not made. (Adopted verbatim from the cyanrip fork, round 12 lap 3, after they declared at column 0 that a `HANDSHAKE-BREAKING` notice of theirs was about the wrong document: they had asserted that our `SUPPORTED_SCHEMAS` gated their diagnostics record, when it is a `frozenset[int]` over their *release manifest*. Two artifacts **in their own repository** contradicted the claim before they made it — our round-10 lap 4 saying we consume none of that JSON, and our round-11 lap 2 printing `{1, 2}` under a `[MEASURED]` heading. The cost was a whole round, and a question promoted to `BLOCKING` on it.)
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Never state a mechanism in the other side's code without citing where you read it.** A claim about a peer's implementation carries a file and a line, or it is not made. (Adopted verbatim from the cyanrip fork, round 12 lap 3; `docs/testing.md` §5.ax, and row 8 of the challenge ledger in `docs/cyanrip-handshake.md` §9.)
+
 ### §5.aw — A gate's POPULATION is part of the gate: four green checks that could not reach the bug
 
 *2026-08-21, v0.6.22. Four defects shipped or nearly shipped in one session, each
@@ -2233,6 +2269,10 @@ the drive and the shutdown, not the log (§5.bw: say which failure the safe
 direction avoids). Hardware still has to show the footer lands inside the grace on
 the container path (TASKS, "S25 on hardware").
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **"Idempotent", "free", "harmless to repeat" — properties of the CALLEE, and I cannot establish them by reading my own call site.** The question is never *"is calling this twice harmless?"* but *"harmless **to whom** — me, or the thing on the other end?"* — so read the callee. **A loosened assertion with a confident comment is worse than no assertion**; when a flag needs a reset, ask whether it wanted to be an identity comparison; and a refactor that trips a correctness sweep is a prompt to teach the sweep, not to exempt the subject. (`docs/testing.md` §5.ay.)
+
 ### §5.az — We deleted the ripper's dying words, then reasoned from the gap
 
 **2026-08-25, found while answering the above.** The cyanrip fork examined the
@@ -2296,6 +2336,10 @@ captures kept head and tail too and the allowance holds no capture at all.
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** Before inferring anything from a line that is not there, establish that the capture *would have kept it*. Our read loop's cancel `break` sat above the retention code, so the first line the ripper emitted after our signal — its own account of why it was stopping — was dropped silently on every cancel. The cyanrip fork then examined 51,492 captured ripper lines, found **zero** occurrences of their handler's `"Trying to quit"`, and concluded, carefully and marked `[MEASURED]`, that their signal handler *"did not run at all."* True premise, wrong conclusion, and the hole was ours. **The worst artifact is not a missing diagnostic; it is one that looks complete** — we handed a peer a censored capture, they reasoned correctly from it, and it pointed away from the real cause. This is the third violation of *"a silent truncation reads as completeness"* by code written after that rule; the obligation is not "log more" but that **any deliberate drop is counted and marked**. And check the shape before believing a fix: cyanrip writes `"\r\nTrying to quit\n"` in one `write(2)`, so the first line after the signal is the blank terminator of the progress redraw and the message is the *next* one — retaining "one more line" keeps a bare `\r`, loses the sentence, and passes a weaker version of the test.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** Before inferring anything from a line that is not there, establish that the capture *would have kept it*. **The worst artifact is not a missing diagnostic; it is one that looks complete** — so any deliberate drop is counted and marked. (`docs/testing.md` §5.az.)
 
 #### The next instance (2026-10-05): a question's answer reused for another question
 
@@ -2921,17 +2965,29 @@ grade on it.
 
 **A GREEN RUN IS EVIDENCE ONLY ABOUT THE THINGS ITS CHECKS COULD HAVE FAILED OVER — so before believing one, name the artifact whose absence would turn its most important step red.** If the answer is *"nothing"*, that step is a decoration with a severity grade on it, and counting it measured the script rather than the product. The 2026-09-15 acceptance run reported **241 pass, 0 fail, 0 error**, every ARCHIVAL section green, and **wrote no `.mp3` and no `.wv` file at all** (`docs/testing.md` §5.bi). Section K1 is graded ARCHIVAL with the reason *"when a user selects MP3 the MP3 **is** their library entry"*, and its assertions were: the setting round-trips (a setting checked against itself), `expect-rip-complete`, and `rig-check`. **`expect-rip-complete` reads cyanrip's own log, and we always invoke cyanrip `-o flac`** — FLAC is the archival master and every other format is derived afterwards *by us* — so that witness is byte-identical whether the transcode ran or never happened, and `rig_check.py` mentions no derived format at all. Both sections would pass with `adapters/transcode.py` deleted. Three things to carry. **(1) A severity grade is a claim about CONSEQUENCE; it is never evidence that the check exists** — *"zero failures in the ARCHIVAL sections"* presupposes those sections can fail, and that presupposition is the thing nothing checked. **(2) Ask it of a section's WITNESS, not its title** — this is the K4 finding from the opposite direction, one day later: there a step was graded on its title with nothing resting on it, here two steps were graded on their subject with no assertion that could reach it, and both came from reading the name instead of the witness. **(3) Two green runs from one script are not two witnesses** — the 2026-09-12 `full-green` ledger row has the same two inert sections and the same abandonment in its log, which is *my two witnesses are related* arriving through the evidence ledger that gates a version bump.
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **A GREEN RUN IS EVIDENCE ONLY ABOUT THE THINGS ITS CHECKS COULD HAVE FAILED OVER — so before believing one, name the artifact whose absence would turn its most important step red.** If the answer is *"nothing"*, that step is a decoration with a severity grade on it. A severity grade is a claim about consequence, never evidence that the check exists; ask it of a section's *witness*, not its title; and two green runs from one script are not two witnesses. (`docs/testing.md` §5.bi.)
+
 #### Moved from `CLAUDE.md` (2026-09-26): A COMPLETENESS FIELD DERIVED FROM CONFIG DESCRIBES WHAT WAS REQUESTED, AND WILL BE READ AS WHAT HAPPENED
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **A COMPLETENESS FIELD DERIVED FROM CONFIG DESCRIBES WHAT WAS REQUESTED, AND WILL BE READ AS WHAT HAPPENED.** `verification.gates` exists so a null result is never ambiguous — its own docstring promises *"a missing check is never confused with a failed one"* — and every state it can emit (`"ran"`, `"disabled"`, `"flac-only"`) is computed from settings. So work that was requested, begun, and then abandoned rendered as `"ran"` beside a null block: the single reading the vocabulary was invented to prevent, on five of eight rips. And the guard written for exactly this could not fire — `if block is not None and not block.get("ran")` — because abandonment leaves the block **absent**, not `{"ran": false}`, so it swept a population its own subject could not be in. That is *can this be satisfied by finding nothing?* asked of **a check that was itself a fix**, which is where it hides: the new check arrives wearing the authority of having been added on purpose. Two questions, of any field asserting that something was verified: *is this computed from the request or from the result?*, and *what does this say when the work was started and then dropped?* — the third state is the one nobody enumerates.
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **A COMPLETENESS FIELD DERIVED FROM CONFIG DESCRIBES WHAT WAS REQUESTED, AND WILL BE READ AS WHAT HAPPENED.** Of any field asserting that something was verified, ask *is this computed from the request or from the result?* and *what does this say when the work was started and then dropped?* — the third state is the one nobody enumerates. (`docs/testing.md` §5.bi.)
+
 #### Moved from `CLAUDE.md` (2026-09-26): A GUARD THAT DROPS A RESULT MUST NOT ALSO DROP THE WORK, AND THE TWO LOOK IDENTICAL AT THE CALL SITE
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **A GUARD THAT DROPS A RESULT MUST NOT ALSO DROP THE WORK, AND THE TWO LOOK IDENTICAL AT THE CALL SITE.** A post-rip daemon ran tagging, cover art, re-compress and the transcode on one thread, and each step ended `if self._rip_generation != gen: return`. The requirement is that album A's *result* never lands in album B's record; the code expressed it as *stop doing album A's work*, and those diverge the moment a step is doing something for the user rather than computing a verdict about them. The transcode was last of the chain, so it was the first casualty and the least visible: a user who picks MP3 and starts the next disc got a folder with no MP3 in it and a report saying `✓ Bit-perfect`. **Ask of any staleness guard: is the thing being discarded a CLAIM or a DELIVERABLE?** Discarding a stale claim is the point; discarding a deliverable is a silent data loss wearing a correctness guard's clothes. And an existing test had pinned the wrong half — its docstring stated the real requirement ("a result from album A must never be recorded against album B") while its assertion pinned the implementation and a comment approved of it, which is how the bug survived a rewrite of the very file it lived in.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **A GUARD THAT DROPS A RESULT MUST NOT ALSO DROP THE WORK, AND THE TWO LOOK IDENTICAL AT THE CALL SITE.** Ask of any staleness guard: **is the thing being discarded a CLAIM or a DELIVERABLE?** Discarding a stale claim is the point; discarding a deliverable is a silent data loss wearing a correctness guard's clothes. (`docs/testing.md` §5.bi.)
 
 ### §5.bj — The fix worked, and the re-run found the two things it could not have
 
@@ -2995,6 +3051,10 @@ fix's clothes.
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **OF ANY EARLY RETURN, ASK WHICH CASE IT SKIPS AND WHETHER THAT CASE IS THE EXPENSIVE ONE.** `_seal_superseded_post_rip_work` returned before flushing the outgoing rip's report whenever nothing had been superseded — which is exactly backwards. A check still *in flight* is one the generation guard drops anyway; a check that has just *finished* is the one holding a 750 ms debounced write and nothing on disk, and the Start path wipes the fields it would have written. Measured: the MP3 rip's whole chain succeeded and the next rip began **655 ms** after its last result landed, so every value was computed correctly, on time, and discarded. The guard keyed on the wrong half of its own subject. **And the thing that caught it was the backstop added in the same change as the bug** — `verification_result_missing` fires on any gate claiming `"ran"` over a missing result, needing no cooperation from whatever dropped the work, which is the whole argument for writing the check that cannot be talked out of firing.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **OF ANY EARLY RETURN, ASK WHICH CASE IT SKIPS AND WHETHER THAT CASE IS THE EXPENSIVE ONE.** And write the backstop that needs no cooperation from whatever dropped the work — the check that cannot be talked out of firing. (`docs/testing.md` §5.bj.)
 
 ### §5.bk — Three defects, one shape: an album's facts stored on an object that is about to describe a different album
 
@@ -3754,11 +3814,19 @@ Two things to carry:
 
 **"Fail-safe" is defined against the thing being protected, not against the user's convenience — say WHICH failure the safe direction avoids.** A guard's docstring can argue itself into exactly the wrong default while sounding careful. `known_album_folder` predicted where a rip would land so the overwrite prompt could fire, and documented its own imprecision as *"it can only ever **miss** a collision, never invent one (fail-safe toward not blocking the user)"*. Both halves are true and the conclusion is inverted: **missing the collision destroys the user's music; inventing one costs a dialog.** "Fail-safe" had been silently redefined as "never interrupt", for a guard whose entire job is to interrupt before an archival master is overwritten. It cost a finished 14-track rip on 2026-08-23 — one character, `<` → `‹` (U+2039), absent from a two-entry substitution table whose comment said *"we reproduce the two the user will actually hit"*. Two questions to ask of any guard: *what does a false negative cost, what does a false positive cost* — and, when they are that asymmetric, *why am I predicting this at all when I could read it?* The real fix was not a better table: it was resolving the prediction against what is on disk, so completeness of the table stopped being load-bearing (same move as `uiscript/find_script.py` — legislate the name **and** stop depending on it). And the root cause was upstream of both: cyanrip takes `-T`/`--sanitize` and **we had never passed it**, so we were predicting a *default* — while their flag table had listed the flag and its four modes since **round 4**, in a file committed to this repository. A default is not a contract, and *"nobody told us"* is not available when the artifact is in `git log`.
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **"Fail-safe" is defined against the thing being protected, not against the user's convenience — say WHICH failure the safe direction avoids.** Ask of any guard *what does a false negative cost, what does a false positive cost* — and, when they are that asymmetric, *why am I predicting this at all when I could read it?* A default is not a contract. (`docs/testing.md` §5.bw.)
+
 #### When a change moves who plays which ROLE, every validator built around the old roles is wrong — in BOTH directions — and fixing the half you noticed leaves the other half wrong and harder to see
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **When a change moves who plays which ROLE, every validator built around the old roles is wrong — in BOTH directions — and fixing the half you noticed leaves the other half wrong and harder to see.** A checker's section table encodes a *role*, not a *direction*, and a direction is what an inbox is. `handshake.py --check` swept every inbound file for the §A–§J **return-file** table; since `docs/handshake-protocol.md` §1a went normative *the provider opens*, so the fork's lap 1 is an **opener** and owes none of it — **nine of the thirteen inbound lap-1 files failed our own checker**, every opener from round 15 on except the one that happened to letter its sections `## A`…`## J` (2026-09-14). Running that fix on our own next lap found the mirror in the same file: `check_outbound` demanded a *return-file spec*, *Requirements* and a *shared rigour bar* — an opener's work, which since §1a we never do — and **9 of our 32 committed outbound laps failed**. Two of those three sections were not merely misplaced but **false** (*"they do not have this repo"* had been wrong for the protocol's whole life). Three consequences: **(1)** when a rule changes who does what, grep for every checker that encodes the old arrangement *before* the next artifact arrives; **(2)** run the fixed tool on your OWN output — the mirror is invisible from the side you fixed; and **(3)** a narrowing is written down, never quietly scoped: re-adding the §D floor by keyword was tried and refused, because round 17 lap 1 carries the log-format delta in full as a cited three-row table and the phrase *"log format"* appears nowhere in it, so the floor would have reported ABSENT on a **model** section — the expensive direction, since its output is an instruction to rewrite a file that was already right.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **When a change moves who plays which ROLE, every validator built around the old roles is wrong — in BOTH directions — and fixing the half you noticed leaves the other half wrong and harder to see.** Grep for every checker that encodes the old arrangement *before* the next artifact arrives, run the fixed tool on your OWN output, and write a narrowing down rather than quietly scoping it. (`docs/testing.md` §5.bw.)
 
 #### Did I verify this where it could have failed?
 
@@ -3766,11 +3834,19 @@ Two things to carry:
 
 **Did I verify this where it could have failed?** An invariant confirmed under conditions that guarantee it has not been tested. Round 5 of the handshake told us cyanrip's per-track paranoia counters "sum exactly to the disc totals" and we verified it — on an artifact ripped without `-Z`, where the sum is arithmetically forced. Under `-Z` the per-track figure is the *last pass* and the disc total is *every* pass, so the real ratio is the re-read count, and any consumer rendering the disc-level tally as a count of distinct events over-reports by that factor. Name the condition that would break the claim, then check *there*.
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Did I verify this where it could have failed?** An invariant confirmed under conditions that guarantee it has not been tested. Name the condition that would break the claim, then check *there*. (`docs/testing.md` §5.bw.)
+
 #### If the contract has two halves, did I check both?
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **If the contract has two halves, did I check both?** A dependency seam has an *input* half (the arguments we send) and an *output* half (the text we parse). Round 4 of the cyanrip handshake was verified by diffing their published log lines against our parser — and their published **flag table** against our argv was never done. That table already said `-v`/`--version` with no `-V` row, so the evidence that every version probe we shipped was about to report the ripper *missing* sat in a committed file in this repo for a full round. Checking one half of a two-half contract is not checking the contract. `tests/test_argv_surface_agreement.py` now does the input half mechanically, and it fails against round 4's own table if the old flag set is restored.
+
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **If the contract has two halves, did I check both?** A dependency seam has an *input* half (the arguments we send) and an *output* half (the text we parse); checking one half of a two-half contract is not checking the contract. `tests/test_argv_surface_agreement.py` does the input half mechanically. (`docs/testing.md` §5.bw.)
 
 #### A NUMBER THAT DOES NOT REPRODUCE IS A STATEMENT ABOUT MY METHOD BEFORE IT IS A STATEMENT ABOUT THEIR FILE
 
@@ -3778,13 +3854,23 @@ Two things to carry:
 
 **A NUMBER THAT DOES NOT REPRODUCE IS A STATEMENT ABOUT MY METHOD BEFORE IT IS A STATEMENT ABOUT THEIR FILE.** Verifying the cyanrip fork's round-19 provider contract, its declared source anchor `2a3d4f2934b39d6a` failed to reproduce **twice**: concatenating `src/*.c` + `src/*.h` bytes gave `8ce6741473a79714`, and prefixing each file with its full path gave `30e9d859310e1e79`. Both constructions are reasonable; **either one reported as a mismatch is a confident false finding sent to a peer**, and it would have arrived wearing the authority of an independent check. Reading their generator settled it in one minute — `tools/gen-provider-contract.py:1432-1445` hashes **basename** + content over `sorted(os.listdir(SRC))`, so the name bytes are `cache_probe.c` and not `src/cache_probe.c`; replicating that reproduces their figure exactly. So the order is: **reproduce by THEIR published method, and only report a mismatch once the method is the one they used.** This is *derive from their source where it is reachable* applied to the verification step rather than to the claim — and the failure it prevents is the expensive direction, since a peer asked to re-examine a correct artifact spends a lap on it. The general form: *when a derived value disagrees, the two candidate causes are their artifact and my derivation, and mine is the one I can check first.*
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **A NUMBER THAT DOES NOT REPRODUCE IS A STATEMENT ABOUT MY METHOD BEFORE IT IS A STATEMENT ABOUT THEIR FILE.** **Reproduce by THEIR published method, and only report a mismatch once the method is the one they used** — when a derived value disagrees, the two candidate causes are their artifact and my derivation, and mine is the one I can check first. (`docs/testing.md` §5.bw.)
+
 #### A DEAD FIELD IS WORTH CHECKING FOR WHAT IT GATES BEFORE PROPOSING TO STRIKE IT
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
 **A DEAD FIELD IS WORTH CHECKING FOR WHAT IT GATES BEFORE PROPOSING TO STRIKE IT.** We found `HANDSHAKE-CLOSE-BY` emitted by neither side for five rounds and referenced by neither gate, reported it, and offered *enforce it or strike it in a v5 bump* as equally acceptable. The fork confirmed the measurement in their own tree and then found what we had not looked for: it is the **sole trigger** for `EXPIRED`, a terminal verdict state, and `OPEN → EXPIRED` is a legal transition (`docs/handshake-protocol.md` lines 281 and 292 — verified against our own copy, which is byte-identical by construction). **The field was not unused, it was load-bearing for a state that had silently become unreachable** — and that state exists because of round 7's 37 laps, i.e. it is the spec's own answer to the failure mode this seam has actually suffered. Striking the field would have removed the mechanism along with the plumbing, and nothing in our finding would have said so. Two things to carry: **(1)** *unused* and *unreachable* are different findings and only the second is urgent; **(2)** offering two options as equally acceptable is a judgement, not neutrality — it asserts that nothing downstream distinguishes them, which is a claim that needs the same check as any other. Ask of any dead thing: *what reads this, and what stops working if it is gone?*
 
-#### The list as it stood in `CLAUDE.md` before the R32 trim (2026-11-16)
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **A DEAD FIELD IS WORTH CHECKING FOR WHAT IT GATES BEFORE PROPOSING TO STRIKE IT.** *Unused* and *unreachable* are different findings and only the second is urgent; offering two options as equally acceptable is a judgement, not neutrality. Ask of any dead thing: *what reads this, and what stops working if it is gone?* (`docs/testing.md` §5.bw.)
+
+#### The questions whose long form is only this list (the 2026-11-16 list, after R236)
+
+**One home (R236, 2026-11-25, on the owner's word).** This list used to hold all 34 questions as `CLAUDE.md` stated them on 2026-11-16. The 23 that have a full statement elsewhere now close that statement, verbatim and labelled, so each question is read in one place; the 11 below have no other long form, so they stay here. The whole list is in git at `3e2f194a:CLAUDE.md`.
 
 `CLAUDE.md` now keeps each question and the section it points at; the longer form of each, as that file stated it, is here.
 
@@ -3794,37 +3880,14 @@ Three consecutive releases each fixed a real bug and introduced the next. These 
 
 - **Did I reproduce the symptom, or only explain it?** A mechanism that plausibly accounts for a report is not the mechanism. v0.5.14 shipped a confident diagnosis of the wrong axis and cost a release. Ten minutes with a probe beats an hour of reasoning.
 - **What new state does this fix create, and what tests *that*?** A scroll area creates nesting, a guard a precondition, an `os._exit` a skipped-teardown path — the fix's own failure modes need their own tests. **And ask it about state the fix *unblocks*, not only state it adds:** of any fix that makes a function answer where it used to decline, *what does the code downstream do with answers it never used to receive?* (`docs/testing.md` §5.s, §5.ak.)
-- **Did I check the preconditions where the thing HAPPENS, or where it was scheduled?** Count the deferrals — a timer is the obvious one, and a worker's own completion is a second, longer one. Make the conditions a named function that returns *which one refused*, and call it at every point that can interrupt; a comment where a check belongs is not a fix. (`docs/architecture.md` §3.12a.)
-- **Would this test fail if I reverted the fix?** Check by actually reverting it. **And prove the revert landed before believing the run**: assert the file changed (hash or re-read), assert the build/collection succeeded, and assert the reverted thing actually behaves differently. **The RESTORE step is the dangerous half:** `git checkout -- <file>` restores to **HEAD**, so on uncommitted work it deletes the feature — copy the file aside, restore from the copy, verify the restore by hash. Use `scripts/revert_probe.py` rather than hand-rolling it. (`docs/testing.md` §5.t.)
 - **Am I asserting that a thing HAPPENED, or that it was REQUESTED?** Across a thread hop those are different claims, and the second is the one a step can outrun. Ask of any step that drives an async subsystem: *what would still be false one millisecond after I return True?* When a method takes a principled stance in one branch, read the other; and a fixture that starts in the end state cannot see the transition. (`docs/testing.md` §5.ap.)
-- **What pins my input?** Different question from "is my logic right": a correct detector fed an input that is frozen *by design* reports the design. **A monotonic display value is not a measurement**, and **the fix for a signal going quiet is a second signal, not an exemption.** (`docs/testing.md` §5.ah.)
 - **What else WRITES to the field I'm reading — and does it write for a reason I would not want to override?** The tell is a **lifetime mismatch stated in the field's own docstring**; two facts sharing one slot need two slots. And check the fixture: a test that sets the field directly bypasses whatever is meant to populate it. (`docs/testing.md` §5.aq.)
-- **"Fail-safe" is defined against the thing being protected, not against the user's convenience — say WHICH failure the safe direction avoids.** Ask of any guard *what does a false negative cost, what does a false positive cost* — and, when they are that asymmetric, *why am I predicting this at all when I could read it?* A default is not a contract. (`docs/testing.md` §5.bw.)
-- **"Idempotent", "free", "harmless to repeat" — properties of the CALLEE, and I cannot establish them by reading my own call site.** The question is never *"is calling this twice harmless?"* but *"harmless **to whom** — me, or the thing on the other end?"* — so read the callee. **A loosened assertion with a confident comment is worse than no assertion**; when a flag needs a reset, ask whether it wanted to be an identity comparison; and a refactor that trips a correctness sweep is a prompt to teach the sweep, not to exempt the subject. (`docs/testing.md` §5.ay.)
-- **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** Before inferring anything from a line that is not there, establish that the capture *would have kept it*. **The worst artifact is not a missing diagnostic; it is one that looks complete** — so any deliberate drop is counted and marked. (`docs/testing.md` §5.az.)
-- **Can this check be satisfied by finding nothing?** Then give it a floor: "examined ≥ N", "found ≥ 2 to compare". A detector that cannot fail is decoration. **And ask it of the check you are writing to fix a check** — that is where it hides; a *move* is a claim about two places, so check both. (`docs/testing.md` §5.t.)
-- **A GREEN RUN IS EVIDENCE ONLY ABOUT THE THINGS ITS CHECKS COULD HAVE FAILED OVER — so before believing one, name the artifact whose absence would turn its most important step red.** If the answer is *"nothing"*, that step is a decoration with a severity grade on it. A severity grade is a claim about consequence, never evidence that the check exists; ask it of a section's *witness*, not its title; and two green runs from one script are not two witnesses. (`docs/testing.md` §5.bi.)
-- **A COMPLETENESS FIELD DERIVED FROM CONFIG DESCRIBES WHAT WAS REQUESTED, AND WILL BE READ AS WHAT HAPPENED.** Of any field asserting that something was verified, ask *is this computed from the request or from the result?* and *what does this say when the work was started and then dropped?* — the third state is the one nobody enumerates. (`docs/testing.md` §5.bi.)
-- **A GUARD THAT DROPS A RESULT MUST NOT ALSO DROP THE WORK, AND THE TWO LOOK IDENTICAL AT THE CALL SITE.** Ask of any staleness guard: **is the thing being discarded a CLAIM or a DELIVERABLE?** Discarding a stale claim is the point; discarding a deliverable is a silent data loss wearing a correctness guard's clothes. (`docs/testing.md` §5.bi.)
 - **A SECTION'S DISTINGUISHING PROPERTY IS ASSERTED AT THE SECTION, NEVER INHERITED.** A run cannot tell you two tests differ if nothing asserted the difference, and the sweep that fixes it needs its own non-triviality clause. (`docs/testing.md` §5.bj.)
-- **OF ANY EARLY RETURN, ASK WHICH CASE IT SKIPS AND WHETHER THAT CASE IS THE EXPENSIVE ONE.** And write the backstop that needs no cooperation from whatever dropped the work — the check that cannot be talked out of firing. (`docs/testing.md` §5.bj.)
-- **Can it be satisfied by the *wrong* thing?** **A check that passes for the wrong reason is worse than one that fails**, because a failure gets investigated and a pass gets cited. Where a check matches on a *label*, make it also require the *subject* — only the pair is a check. (`docs/testing.md` §5.ad.)
-- **Read a step by what DEPENDS on it, not only by what it asserts — and a grade is a claim about what a check can CATCH, never about what the row is named.** Of any step ask *what rests on this having run* as well as *what does this catch*; **a prose claim that a protection exists is where to look hardest**; and when a table checks N properties of a thing and one row is missing, the missing row is not random. (`docs/testing.md` → *Acceptance tiers*.)
-- **When a change moves who plays which ROLE, every validator built around the old roles is wrong — in BOTH directions — and fixing the half you noticed leaves the other half wrong and harder to see.** Grep for every checker that encodes the old arrangement *before* the next artifact arrives, run the fixed tool on your OWN output, and write a narrowing down rather than quietly scoping it. (`docs/testing.md` §5.bw.)
 - **Do two surfaces answer this question, and do they use the same key?** One predicate, N callers — the caller *delegates* rather than restating — then **test the relation**, a property no test of either side alone can express. Ask *if they relabelled this without changing the artifact, would my answer change?* (`docs/testing.md` §5.al.)
-- **Two implementations agreeing is not either one being correct** — if they share an ancestor, they share its bugs. **Assert against the source artifact, not against another run**, and add a *non-triviality* assertion, because silence compares equal to silence. (`docs/testing.md` §5.ac.)
-- **Is the population I measured closed?** A number read from a run still in flight is its **fast tail**, not its range. Close the population before quoting it, or put the qualifier *in* the number and record the count beside it. **It applies to DELEGATION too:** *what is this surface's population, and is the answer I need inside it?* (`docs/testing.md` §5.ao.)
-- **Did I verify this where it could have failed?** An invariant confirmed under conditions that guarantee it has not been tested. Name the condition that would break the claim, then check *there*. (`docs/testing.md` §5.bw.)
 - **What does my stand-in do that the real thing does not?** For every fixture, fake, stub and helper. Either delete the difference or pin it — a harness that is safer than the product makes the product's gap invisible.
 - **Is the user's symptom gone, or just the mechanism I named?** Those are different claims. Where only hardware can settle it, say so plainly instead of implying the suite proved it.
-- **If the contract has two halves, did I check both?** A dependency seam has an *input* half (the arguments we send) and an *output* half (the text we parse); checking one half of a two-half contract is not checking the contract. `tests/test_argv_surface_agreement.py` does the input half mechanically. (`docs/testing.md` §5.bw.)
-- **Am I verifying the behaviour, or the other side's *description* of the behaviour?** A list checked against itself is consistent, not verified. **Where the underlying source is reachable, derive from it** — and prefer a mechanism derived from the dependency's own emitted text over any list of shapes either side maintains by hand. (`docs/testing.md` §5.ab.)
-- **A NUMBER THAT DOES NOT REPRODUCE IS A STATEMENT ABOUT MY METHOD BEFORE IT IS A STATEMENT ABOUT THEIR FILE.** **Reproduce by THEIR published method, and only report a mismatch once the method is the one they used** — when a derived value disagrees, the two candidate causes are their artifact and my derivation, and mine is the one I can check first. (`docs/testing.md` §5.bw.)
-- **A DEAD FIELD IS WORTH CHECKING FOR WHAT IT GATES BEFORE PROPOSING TO STRIKE IT.** *Unused* and *unreachable* are different findings and only the second is urgent; offering two options as equally acceptable is a judgement, not neutrality. Ask of any dead thing: *what reads this, and what stops working if it is gone?* (`docs/testing.md` §5.bw.)
 - **Am I answering from the artifact, or from my memory of the artifact?** If a committed file can settle the question, *open it* — and name **which** file in the claim. A remembered measurement has no provenance you can re-check and it silently drops its qualifier. **When a committed artifact can settle a question, the test should read the artifact** — anything else pins your belief about it (`docs/testing.md` §5.u).
-- **Does this document promise completeness? Then it needs a sweep, not a comment.** A map is only ever wrong by omission, so it decays invisibly. Derive the expected set from the filesystem, require the unit the promise makes (an *annotated row*, not a mention), and scope the converse narrowly so it does not fire on correct prose. **A comment where a check belongs is not a fix.** (`docs/testing.md` §5.af.)
 - **Did a *correction* get less scrutiny than a claim?** A finding that arrives as "you got this wrong" is not pre-verified. §H2 of a cross-project handshake was well-argued, wrong, and applied faster than any finding made in-house, precisely because it was a correction.
-- **Never state a mechanism in the other side's code without citing where you read it.** A claim about a peer's implementation carries a file and a line, or it is not made. (Adopted verbatim from the cyanrip fork, round 12 lap 3; `docs/testing.md` §5.ax, and row 8 of the challenge ledger in `docs/cyanrip-handshake.md` §9.)
 - **And an APOLOGY can get less scrutiny than a claim, for the same reason nobody argues with it.** The mirror of the rule above: a misattributed cause produces the wrong fix. Ask of any concession: *if this were a claim instead of an apology, would I have verified it?* (`docs/testing.md` §5.ax.)
 
 ## 5B. What a version number is allowed to claim (the road to 1.0)
@@ -4544,6 +4607,10 @@ suite green throughout.
 
 **Read a step by what DEPENDS on it, not only by what it asserts — and a grade is a claim about what a check can CATCH, never about what the row is named.** Two failures of the same reading, found in one pass and in opposite directions (2026-09-14). Acceptance section K4 was titled *"back to FLAC, the archival master"* and graded `ARCHIVAL` — the grade that can block a version — while containing a settings round-trip that section B does verbatim at the top of the file and section Q does verbatim at the bottom; it was graded on its **subject** rather than on what it can detect. That much was findable by reading the section. **The finding as first written was still wrong**, because it judged K4 by what it asserts and never asked what rested on it — the mirror of section G, which has no disc verb of its own and is tier 3 because `rig-check` grades **F's** log. Asking properly found the real hole: **section N — the whole-disc secure re-read, the accuracy claim itself — never asserted the format it rips in.** It inherits it from `rip_goal archival`; section L, whose entire job is proving a preset applies all of itself, checked that preset's effect on two other settings and **skipped `output_format`** while checking exactly that for the other two presets; and section M's comment asserted the protection in prose — *"the rip in section N runs on the restored default"*. K4 looked like the guard and was inert, because L reassigns the format twice within twenty lines of it. Nothing was broken (`GOAL_ARCHIVAL` carries `output_format="flac"`), and one preset-field change would have ripped the archival accuracy test to another format with every section green. Three things to carry: **(1)** of any step, ask *what rests on this having run* as well as *what does this catch* — a step can be load-bearing with no assertion and inert with a confident one; **(2)** **a prose claim that a protection exists is where to look hardest**, because it is exactly what stops anyone checking — this is *a comment where a check belongs* arriving as reassurance rather than as a `TODO`; and **(3)** when a table checks N properties of a thing and one row is missing, the missing row is not random — L covered the two presets nothing depended on and skipped the one that mattered.
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (How to stop shipping the next one), moved here from §5.bw's former list so the question has one home (R236, 2026-11-25):*
+
+- **Read a step by what DEPENDS on it, not only by what it asserts — and a grade is a claim about what a check can CATCH, never about what the row is named.** Of any step ask *what rests on this having run* as well as *what does this catch*; **a prose claim that a protection exists is where to look hardest**; and when a table checks N properties of a thing and one row is missing, the missing row is not random. (`docs/testing.md` → *Acceptance tiers*.)
+
 ## 5C. The lesson→gate audit — how much of this file is actually enforced
 
 **Run 2026-08-28, after the maintainer asked how to "gate or test for these
@@ -4727,6 +4794,56 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
   **`--check`** reads every lap's declared `HANDSHAKE-ROUND-DIGEST` in a round, head-first (the value is the leading token sequence and prose after it is ignored, the fork's rule from their round 22 lap 5 §H2), recomputes it over the laps that lap's writer held, and exits 1 on a mismatch or on a declaration that names `sha256/16`, shows a digest, and cannot be read. It exits 0 only when at least one declaration was compared and every one reproduced: 2 when the round has no laps, and 3 when no lap declares a digest (the summary says "NOTHING CHECKED"), because a gate that finding nothing satisfies is decoration (2026-09-28). Before it existed, every digest agreement we reported was compared by eye. **Announcing a lap changes its bytes** (the `READY-TO-READ` line), so a lap whose digest covers an earlier lap of ours must be computed after that lap is announced: round 28 lap 7's was first computed over lap 6 held, and `--check` caught it before either was committed (2026-09-28). `tests/test_round_digest.py` reads the whole record since round 15 and lists the two declarations that do not reproduce, each with its verified reason.
 - Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` — non-blocking, never gates a merge) with **`scripts/mutation_sweep.py`, ours**, one matrix leg per trust-bearing module, each with its own measured `--min-checked` floor. The workflow's matrix is the authority for the list and the floors; `tests/test_mutation_audit_can_report_its_own_absence.py` holds the required modules as a ratchet (fifteen on 2026-09-25: the verdict, the CTDB CRC/decode/TOC/diagnosis, the three log parsers, the EAC log export, the cyanrip argv chokepoint, the handshake approval, the ripper identity, naming, the rig check and settings validation) and pins the command below to a real leg. Run one leg locally the way CI does, e.g. `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`. *(This bullet named `mutmut` and a three-path scope until the 2026-09-22 document audit — seventeen days after `mutmut` was retired, and contradicting the CI/release bullet above it in the same file.)*
 
+*The 2026-11-16 wording, verbatim from `CLAUDE.md` at `3e2f194a` (Project operations → Test commands), moved here from `docs/architecture.md` §6.5 so the subject has one home (R236, 2026-11-25):*
+
+- **`python3 scripts/check.py` — run this, not an ad-hoc pipeline.** One command for every gate CI
+  runs (`lint`, `format`, `types`, `tests` + the coverage floor), reporting each one's **real** exit
+  code in a final table, with complete output in `.check-logs/`. `--only lint types` for a subset,
+  `--no-coverage` for a faster suite run. A `pytest … | tail` reports *tail's* status, so never read
+  a verdict through a pipe; if you do pipe something, read the status with `${PIPESTATUS[0]}` or
+  `set -o pipefail`. (What it refuses, and why it exists: `docs/testing.md` §7.)
+- `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
+- **What CI enforces:** every test on a **Python 3.12–3.14 matrix**, each leg in parallel
+  (`pytest -n auto`, pytest-xdist), and branch coverage with a hard floor —
+  `--cov=platterpus --cov-report=term-missing --cov-fail-under=93` — **on the 3.14 leg**
+  (maintainer, 2026-09-26: 3.14's `sys.monitoring` tracer is the fast one, and 3.11–3.13 paid most
+  of their time for coverage; 3.11 left the matrix on 2026-11-02, KDD-46). The gate **ratchets up, never down** (91 until 2026-10-27, raised to
+  the measured 93.28%). Each leg also fails if it collected fewer tests than
+  `tests/collected-tests-baseline.txt`, which is raised in the change that adds tests. A bare local
+  `pytest` stays serial; `scripts/check.py` passes `-n auto` like CI.
+- Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py`
+  (needs `hypothesis`, in the `dev` extra).
+- **Prove a test isn't vacuous:** `python3 scripts/revert_probe.py <spec.json>` — applies a revert,
+  runs the named tests, restores, and reports `detected` / `VACUOUS` / `REFUSED` / `NO EVIDENCE`.
+  Use it instead of hand-reverting: it proves the edit *landed* (anchor unique + file hash changed)
+  and distinguishes a collection error from a real failure, which hand-checks have got wrong four
+  recorded times. `expect: "unaffected"` asserts the opposite — that a test does *not* depend on the
+  reverted line. Spec format is in the script's docstring; exits non-zero unless every revert
+  behaved as expected.
+- **Judge a commit's checks (the `steward` skill, DRAFT, `.claude/skills/steward/SKILL.md`):**
+  `python3 scripts/pr_steward.py --pr <N>` or `--sha <merge sha> [--logs]` — `GREEN` / `FAILED` /
+  `PENDING` / `BLOCKED` / `CANCELLED` (exit 0 / 1 / 2 / 3 / 4; 5 when the API cannot be read),
+  from the ruleset's required checks and the commit's runs, never a count copied into a loop.
+  After every merge, judge `main`'s merge commit, `appimage.yml` included.
+- **Compute a handshake round digest:**
+  `python3 scripts/round_digest.py <round> [--exclude <lap.md>] [--show-rows]` — the
+  `HANDSHAKE-ROUND-DIGEST` field, by **the cyanrip fork's method** (adopted round 15 lap 4), over
+  **both directions**; `tests/test_round_digest.py` pins their published values. It refuses an
+  `--exclude` that matches **nothing** *or* **more than one** file. (`docs/testing.md` §7.)
+- Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` —
+  non-blocking, never gates a merge) with **`scripts/mutation_sweep.py`, ours**, one matrix leg per
+  trust-bearing module, each with its own measured `--min-checked` floor. The workflow's matrix is
+  the authority for the list and the floors;
+  `tests/test_mutation_audit_can_report_its_own_absence.py` holds the required modules as a ratchet
+  and pins the command below to a real leg. Run one leg locally the way CI does, e.g.
+  `python3 scripts/mutation_sweep.py --target src/platterpus/verdict.py --tests tests/test_verdict.py --limit 40 --min-checked 30`.
+  (`docs/testing.md` §7.)
+- **Testing strategy + the rules every change is held to live in
+  [`docs/testing.md`](testing.md)** (the trophy + hardware gate, the five-tier case taxonomy,
+  and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the
+  same PR as the fix; every new parser of external output gets a property-based "never raises"
+  test.**
+
 ## 8. Sources
 
 - [Testing Trophy & integration-first strategy](https://dev.to/craftedwithintent/understanding-the-testing-pyramid-and-testing-trophy-tools-strategies-and-challenges-k1j)
@@ -4737,4 +4854,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.7.128.*
+*Last updated for Platterpus v0.7.130.*
