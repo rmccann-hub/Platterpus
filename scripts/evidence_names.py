@@ -191,7 +191,10 @@ def staged_name(rel: str) -> str | None:
 
 def album_key(folder: str) -> str | None:
     if folder.startswith("full acceptance"):
-        return "overwrite" if folder.endswith("_2_") else "wholedisc"
+        # The overwrite step's second folder: `_2_` as an older bundle wrote
+        # it, ` (2)` as the rips folder itself names it (filed 2026-11-25).
+        second = folder.endswith("_2_") or folder.endswith(" (2)")
+        return "overwrite" if second else "wholedisc"
     # Round 39's five-rip run (section R): five default whole-disc rips, each its
     # own album folder, `round 39 repeat rip 1` to `5` from 0.7.123. 0.7.122 named
     # them with a word the owner retired on 2026-11-11 (it means writing a disc,
