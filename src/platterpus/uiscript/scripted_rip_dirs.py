@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Final
 
@@ -90,3 +91,57 @@ def bundle_extra_dirs(
         extra[key] = folder
         carried += 1
     return extra, left_out
+
+
+def run_album_roots(*folders: object) -> list[Path]:
+    """Where a script run's app rips land: the configured output and library
+    folders, each once, in order (TASKS R197). Pure; never raises.
+
+    The acceptance session searches the same folders
+    (`main_window_provision._acceptance_album_roots`), so both bundles find the
+    rips the same way; anything that is not a non-empty path is left out.
+    """
+    roots: list[Path] = []
+    for folder in folders:
+        if isinstance(folder, (str, Path)) and str(folder):
+            path = Path(folder)
+            if path not in roots:
+                roots.append(path)
+    return roots
+
+
+def started_posix(stamp: str) -> float | None:
+    """The run's start (``RunReport.started_at``, ISO 8601) as a POSIX time.
+
+    ``None`` when it cannot be read, and the caller then finds no albums rather
+    than every album the folder ever held. Pure; never raises.
+    """
+    try:
+        moment = datetime.fromisoformat(stamp)
+    except (TypeError, ValueError):
+        return None
+    return moment.timestamp() if moment.tzinfo is not None else None
+
+
+def run_albums_and_records(
+    roots: Sequence[Path], since: float | None, scripted: set[Path]
+) -> tuple[list[Path], list[Path]]:
+    """The album folders and ``-j`` records a script run's app rips wrote.
+
+    Found on disk the way the acceptance session finds them
+    (`test_session.session_album_dirs`, `session_diagnostics_records`), from
+    ``since`` on (TASKS R197: the `--run-script` bundle carried neither, so the
+    owner collected the rip folders by hand). A folder a scripted ``cyanrip``
+    step wrote is left out here, since it is carried whole under ``scriptrips/``.
+    ``since`` of ``None`` finds nothing. Reads folders only; never raises.
+    """
+    if since is None:
+        return [], []
+    from platterpus.test_session import (
+        session_album_dirs,
+        session_diagnostics_records,
+    )
+
+    albums = [a for a in session_album_dirs(roots, since=since) if a not in scripted]
+    records = list(session_diagnostics_records(roots, since=since)[0])
+    return albums, records

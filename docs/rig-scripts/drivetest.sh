@@ -727,6 +727,12 @@ probe() {
   wait_disc
   local c="$DM/probe" t0 rc secs
   mkdir -p "$c"
+  # The kernel's own tray lock, read-only (the fork's round 43 lap 1 S23): Linux's
+  # CD driver can lock the door itself while a program holds the device, and
+  # `lock` says whether it does. Read, never written.
+  for f in lock autoclose autoeject; do
+    printf 'cdrom %s: %s\n' "$f" "$(cat "/proc/sys/dev/cdrom/$f" 2>/dev/null || echo 'not readable')"
+  done > "$c/cdromsettings.txt"
   say "Probe 1 of 3: one disc read alone"
   t0=$(date +%s); rc=0
   timeout -k 5 "$PROBE_SECS" "$HOME/.local/bin/cyanrip" -I -N -d "$DEVICE" > "$c/solo.txt" 2>&1 || rc=$?

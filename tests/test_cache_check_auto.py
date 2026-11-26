@@ -21,6 +21,7 @@ on the rig; here the child is a stand-in Python process run through the same
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import time
@@ -895,3 +896,23 @@ def test_the_window_says_offset_saved_from_the_profile_and_the_drive_list(
     monkeypatch.setattr(window._offset_db, "lookup", lambda *_a: 667)
     window._on_drive_setup()
     assert made[-1].kwargs["offset_saved"] is True
+
+
+def test_the_start_of_every_run_is_logged(
+    dialogs: Callable[..., DriveSetupDialog],
+    process_until: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The fork's round 43 lap 1 S39: the owner's log showed the probe's end and
+    not its start. Each run now says when it starts, and what it measures."""
+    backend = _FinderBackend()
+    dialog = dialogs(backend, cache_verdict=MEASURED, audio_disc_present=True)
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.drive_setup_dialog"):
+        dialog.show()
+        assert dialog._offset_button is not None
+        dialog._offset_button.click()
+        assert process_until(lambda: dialog._thread is None, timeout=5.0)
+    started = [r.getMessage() for r in caplog.records if "starting" in r.getMessage()]
+    assert started == [
+        "drive setup on /dev/sr0: starting (cache check no, offset search yes, pressed)"
+    ]
