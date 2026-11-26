@@ -3322,11 +3322,14 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule(
         "speed_capability", _SPEED_CAP, _take_speed_cap, echo_latch=_BEFORE_CDTEXT
     ),
-    # No echo latch yet: the forgery guard's tests read each guarded row in a
-    # committed log, and no committed log prints this row before `.36`. The value
-    # is declared, never measured, and nothing decides on it. Add the latch when a
-    # `.36` log is committed (TASKS R193).
-    _LineRule("drive_speed", _DRIVE_SPEED, _take_drive_speed),
+    # Latched like `Speed:` above it, which it follows (the fork's round 43 lap 1
+    # S12): a copy after the CD-TEXT echo can only be an echoed value. No
+    # committed log prints it before `.36`, so the forgery guard's corpus test
+    # names it in `_NOT_YET_IN_THE_CORPUS` (their S4 asked for the latch in
+    # 0.7.131, before any `.36` log exists).
+    _LineRule(
+        "drive_speed", _DRIVE_SPEED, _take_drive_speed, echo_latch=_BEFORE_CDTEXT
+    ),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
 )
 

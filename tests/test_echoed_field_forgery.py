@@ -332,6 +332,11 @@ _HEADER_ROWS: Final[dict[str, tuple[str, object, object]]] = {
     "disc_id": ("DiscID:         FORGEDforgedFORGEDforged0-", "disc_id", ""),
     "cddb_id": ("CDDB ID:        deadbeef", "cddb_id", ""),
     "disc_mcn": ("Disc MCN:       0123456789012", "disc_mcn", DiscMcn()),
+    "drive_speed": (
+        "Drive speed:    99.0x declared by drive (GET PERFORMANCE), not measured",
+        "ri.drive_speed_declared",
+        None,
+    ),
 }
 
 #: Guarded rows the base log does not print, with the line cyanrip prints in their
@@ -342,6 +347,13 @@ _HEADER_ROWS: Final[dict[str, tuple[str, object, object]]] = {
 #: (`cyanrip@13bec0a:src/cyanrip_log.c:1366-1368`).
 _INSERTED_INTO_THE_BASE: Final[dict[str, tuple[str, str]]] = {
     "disc_mcn": ("CDDB ID:", "Disc MCN:       none (libcdio returned none)"),
+    # `.36`'s row, after `Speed:` (the fork's round 43 lap 1 S12), in its form
+    # for a drive that declares a range.
+    "drive_speed": (
+        "Speed:",
+        "Drive speed:    5.7x to 14.0x declared by drive (GET PERFORMANCE), not "
+        "measured",
+    ),
 }
 
 
@@ -531,6 +543,12 @@ _NOT_YET_IN_THE_CORPUS: Final[dict[str, str]] = {
         "source at `cyanrip@13bec0a:src/cyanrip_log.c:1366-1368`. The fork prints "
         "it always from the build after our release that reads it (their round "
         "41 lap 1 S18), so the first committed rip of that build retires this"
+    ),
+    "drive_speed": (
+        "`.36`'s declared-speed row, printed by no build yet; its place, in the "
+        "header after `Speed:` at column 0, read from the fork's round 43 lap 1 "
+        "S12, which also asks for this latch in our release before `.36` (S4). "
+        "The first committed `.36` rip retires this"
     ),
 }
 
