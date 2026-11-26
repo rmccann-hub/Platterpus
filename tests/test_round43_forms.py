@@ -84,14 +84,26 @@ def _with_appended(row: str) -> str:
 @pytest.mark.parametrize(
     ("row", "frames", "samples", "shown"),
     [
-        ("    Appended:    2 frames of silence", 2, 1176, "(2 frame(s))"),
-        ("    Appended:    1 frame of silence", 1, 588, "(1 frame(s))"),
-        ("    Appended:    6 samples of silence", None, 6, "(6 sample(s))"),
-        ("    Appended:    1 sample of silence", None, 1, "(1 sample(s))"),
+        # Today's form: frames the offset REACHED; the silence is not stated.
+        (
+            "    Appended:    2 frames of silence",
+            2,
+            None,
+            "(the offset reached 2 frame(s) past the disc's last audio sector)",
+        ),
+        # `.36`'s form, word for word from the fork's round 43 lap 1 S60.
+        (
+            "    Appended:    667 samples of silence (2 frames past the last audio "
+            "sector, not read)",
+            2,
+            667,
+            "(667 sample(s) of silence; the offset reached 2 frame(s)",
+        ),
+        ("    Appended:    1 sample of silence", None, 1, "(1 sample(s) of silence)"),
     ],
 )
 def test_appended_silence_reads_in_frames_and_in_samples(
-    row: str, frames: int | None, samples: int, shown: str
+    row: str, frames: int | None, samples: int | None, shown: str
 ) -> None:
     from platterpus.eac_log_export import _appended_silence_line
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
@@ -103,11 +115,42 @@ def test_appended_silence_reads_in_frames_and_in_samples(
         frames,
         samples,
     )
-    assert all(t.appended_silence_samples is None for t in log.tracks[:-1])
+    assert all(t.appended_silence_frames is None for t in log.tracks[:-1])
     report = build_report(log)
     assert report["tracks"][-1]["appended_silence_samples"] == samples
     assert report["tracks"][-1]["appended_silence_frames"] == frames
-    assert any(shown in line for line in _appended_silence_line(log))
+    text = "\n".join(_appended_silence_line(log))
+    assert shown in text, text
+    assert "only the silent samples are not disc audio" in text
+
+
+def test_prepended_silence_is_read_today_and_in_36_s_form() -> None:
+    """`.35` already prints `Prepended:` for a negative offset
+    (`cyanrip@52bde2d:src/cyanrip_log.c:586`); it was not read until
+    2026-11-26. `.36` gives samples with the frames before LSN 0."""
+    from platterpus.eac_log_export import _appended_silence_line
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    lines = _FIXTURE.read_text(encoding="utf-8").splitlines()
+    first = lines.index("  Preemphasis:   none detected")
+    for row, frames, samples in (
+        ("    Prepended:   2 frames of silence", 2, None),
+        (
+            "    Prepended:   667 samples of silence (2 frames before LSN 0, not read)",
+            2,
+            667,
+        ),
+    ):
+        text = "\n".join([*lines[: first + 1], row, *lines[first + 1 :]]) + "\n"
+        log = parse_cyanrip_log(text)
+        one = log.tracks[0]
+        assert (one.prepended_silence_frames, one.prepended_silence_samples) == (
+            frames,
+            samples,
+        )
+        assert any(
+            line.startswith("Prepended silence") for line in _appended_silence_line(log)
+        )
 
 
 def test_app_log_times_carry_their_utc_offset() -> None:
