@@ -766,6 +766,7 @@ def finish_session(
         text.pop(SOURCES_RECORD_NAME, None)
         result = build_bundle(
             dest_dir=layout.bundle.parent,
+            run_bundle=True,
             stamp=layout.stamp,
             app_version=app_version,
             outcome=outcome,

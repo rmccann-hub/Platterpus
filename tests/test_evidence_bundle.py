@@ -1373,3 +1373,44 @@ def test_a_named_file_is_held_to_the_STRICT_allowlist(tmp_path: Path) -> None:
     assert "ripperdiagnostics/notes.json" not in names, names
     skipped = {e.name for e in result.skipped}
     assert {"ripperdiagnostics/cover.png", "ripperdiagnostics/notes.json"} <= skipped
+
+
+# --- TASKS R200: the bundle a run names is kept until the next run's ------------
+
+
+def test_a_run_bundle_outlives_25_rip_bundles_and_goes_with_the_next_run(
+    tmp_path: Path,
+) -> None:
+    """REGRESSION (round 42, 2026-11-24): every rip writes a bundle, and the 20
+    kept by count outlived the first Full run's own bundle before it was sent."""
+    import os
+
+    from platterpus import evidence_bundle as eb
+
+    def bundle(i: int) -> Path:
+        path = tmp_path / f"platterpusbundle20261125t{i:06d}z.tar.gz"
+        path.write_bytes(b"x")
+        os.utime(path, (1_000_000 + i, 1_000_000 + i))
+        return path
+
+    run = bundle(0)
+    eb.mark_run_bundle(tmp_path, run)
+    for i in range(1, 26):
+        eb.prune_bundles(tmp_path, keep=20, protect=bundle(i))
+    assert run.exists(), "the run's bundle was pruned by count"
+    assert len(list(tmp_path.glob("platterpusbundle*.tar.gz"))) == 21
+
+    # The next run's bundle replaces it, and the old one prunes as any other.
+    nxt = bundle(26)
+    eb.mark_run_bundle(tmp_path, nxt)
+    eb.prune_bundles(tmp_path, keep=20, protect=nxt)
+    assert not run.exists() and nxt.exists()
+    assert eb.run_bundle_named(tmp_path) == nxt
+
+
+def test_a_marker_naming_anything_else_protects_nothing(tmp_path: Path) -> None:
+    from platterpus import evidence_bundle as eb
+
+    (tmp_path / eb.RUN_BUNDLE_MARKER).write_text("../notes.txt\n", encoding="utf-8")
+    assert eb.run_bundle_named(tmp_path) is None
+    assert eb.run_bundle_named(tmp_path / "missing") is None

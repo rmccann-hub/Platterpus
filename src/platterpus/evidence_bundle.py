@@ -852,6 +852,7 @@ def build_bundle(
     hosts: Sequence[str] | None = None,
     names_list: Path | None = None,
     late_text: Callable[[Sequence[BundleEntry]], Mapping[str, str]] | None = None,
+    run_bundle: bool = False,
 ) -> BundleResult:
     """Write one `.tar.gz` of every text artifact worth sending. Never raises.
 
@@ -1115,6 +1116,10 @@ def build_bundle(
             len(result.skipped),
             archive_path.stat().st_size,
         )
+        if run_bundle:
+            # The bundle a run names in SEND THIS ONE FILE: kept past the count
+            # until the next run's replaces it (TASKS R200).
+            mark_run_bundle(dest_dir, archive_path)
         prune_bundles(dest_dir, keep=MAX_BUNDLES_KEPT, protect=archive_path)
     except Exception as exc:  # noqa: BLE001 — a convenience must never crash a rip
         log.exception("could not write the evidence bundle")
@@ -1130,6 +1135,30 @@ def build_bundle(
 _BUNDLE_NAME_RE: Final[re.Pattern[str]] = re.compile(
     r"^platterpusbundle[a-z0-9]+\.tar\.gz$"
 )
+
+
+#: Beside the bundles, the name of the newest run's bundle (TASKS R200, the fork's
+#: round 42 lap 5 S6): every rip writes a bundle, so the 20 kept by count once
+#: outlived a Full run's own bundle, and the first round 42 run's was gone before
+#: the second ended. A hidden file, so the bundle folder still reads as bundles.
+RUN_BUNDLE_MARKER: Final[str] = ".platterpus-run-bundle"
+
+
+def mark_run_bundle(dest_dir: Path, bundle: Path) -> None:
+    """Record ``bundle`` as the run's bundle, replacing the last run's. Never raises."""
+    try:
+        (dest_dir / RUN_BUNDLE_MARKER).write_text(bundle.name + "\n", encoding="utf-8")
+    except OSError as exc:
+        log.warning("could not record the run's bundle %s: %s", bundle, exc)
+
+
+def run_bundle_named(dest_dir: Path) -> Path | None:
+    """The bundle the newest run named, when the marker names one. Never raises."""
+    try:
+        name = (dest_dir / RUN_BUNDLE_MARKER).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return dest_dir / name if _BUNDLE_NAME_RE.match(name) else None
 
 
 def prune_bundles(
@@ -1149,6 +1178,8 @@ def prune_bundles(
     * **``protect`` is never removed**, whatever the sort says. The bundle just
       written is the one the user is about to be told to send; a clock skew or an
       equal mtime must not be able to delete it.
+    * **The newest run's bundle is never removed** (TASKS R200): the one
+      :data:`RUN_BUNDLE_MARKER` names, until the next run's replaces it.
     * **Newest by mtime, ties broken by name.** The names are timestamped and sort
       chronologically, so the tiebreak agrees with the mtime order rather than
       being arbitrary — two bundles written inside one filesystem timestamp tick
@@ -1157,7 +1188,7 @@ def prune_bundles(
     try:
         if keep < 1 or not dest_dir.is_dir():
             return []
-        resolved_protect = protect.resolve() if protect is not None else None
+        kept = {p.resolve() for p in (protect, run_bundle_named(dest_dir)) if p}
         candidates = [
             p
             for p in dest_dir.iterdir()
@@ -1166,7 +1197,7 @@ def prune_bundles(
         candidates.sort(key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
         removed: list[Path] = []
         for stale in candidates[keep:]:
-            if resolved_protect is not None and stale.resolve() == resolved_protect:
+            if stale.resolve() in kept:
                 continue
             try:
                 stale.unlink()

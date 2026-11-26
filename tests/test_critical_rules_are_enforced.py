@@ -1895,7 +1895,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1078 -> 1161** (2026-10-14, the fork's round 32 lap 9 S10): home-folder paths replaced at export. The replacement and its manifest block live in `export_redaction.py` and `bundle_integrity.py`; what stays here is what must sit where a member is written: the five `BundleEntry` fields that record what changed, the one constructor both routes share, the replacement placed before the budget, the write and the hash, and the manifest rendered twice so it can count its own paths.
     # **1161 -> 1189** (2026-10-16, TASKS R16): the bundle passes this machine's hostname and the owner's names (from the list outside the repository) to the export's redaction, records the hostname and name counts per member, and redacts its own manifest for all three. Finding and replacing them is `export_identity.py`; this is where the bundle's members are written.
     # **1189 -> 1194** (2026-11-03, review B8): `late_text`, text rendered from the entries after every file is judged, so the session's SOURCES.txt and MANIFEST.txt are one account.
-    "evidence_bundle.py": 1194,
+    # **1194 -> 1225** (2026-11-26, TASKS R200, the fork's round 42 lap 5 S6: the bundle a run names is kept until the next run's): `RUN_BUNDLE_MARKER`, `mark_run_bundle`, `run_bundle_named` and `build_bundle`'s `run_bundle`.
+    "evidence_bundle.py": 1225,
     # **334 lines on 2026-11-05**, crossing the ~300 heuristic with
     # `free_drive_after_cancel` (the rig's in-container cyanrip left reading after
     # a cancel). Kept as one module: it is one job, the work and the check the
@@ -2352,7 +2353,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1667 -> 1684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the completion grade reads the report's per-track contradiction, recognises the `health_status` sentence `rip_health.contradicted_health` writes, and keeps the clean word out of its OK.
     # **1684 -> 1702** (2026-11-04, TASKS R122): `cue_integrity` hands `cue_emphasis.check_flags_pre` every pass's argv and each track's `pre_emphasis`, so a pre-emphasised track kept with `-W` whose cue lacks FLAGS PRE warns. The rule is `cue_emphasis.py`.
     # **1702 -> 1710** (2026-11-16, TASKS R59 (a), the owner's word "4. a"): `RIPPING_ERRORS_WARNING` and `ripping_errors_warning`, the completion check's tally warning named once, so the acceptance grader that may expect it compares the whole sentence the audit wrote. The rule for when it is expected is `uiscript/expected_warnings.py`.
-    "rip_audit.py": 1710,
+    # **1710 -> 1713** (2026-11-26, the fork's round 43 lap 1 S52: the audit says the build was not declared released, not that it came from an open round): the reason, cited, beside the sentence.
+    "rip_audit.py": 1713,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,
@@ -2567,7 +2569,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1076 -> 1088** (2026-10-26, run B of the 0.7.112 Full runs): `post_rip_wait_s`, the bound on how long a finished session waits for the last rip's post-rip checks, beside `rip_wait_s` which bounds the wait for the rip.
     # **1088 -> 1116** (2026-11-03, review B8): `_stage` names a rotation older than the session and records each staged member's line, so `SOURCES.txt` is rendered from the bundle's verdicts through `late_text`; the record itself moved to `session_sources_record.py`.
     # **1116 -> 1123** (2026-11-11, round 39 lap 1 S10): the record scan's cap 80 -> 400, with why: every chase read now keeps a record, and section R's five rips each chase.
-    "test_session.py": 1123,
+    # **1123 -> 1124** (2026-11-26, TASKS R200, the fork's round 42 lap 5 S6: the bundle a run names is kept until the next run's): the session's bundle is a run's.
+    "test_session.py": 1124,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -3294,7 +3297,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5083 -> 5092** (2026-11-23, TASKS R189): `keep` records the value it kept in `_kept`, declared and reset with the run's other per-run state, and the import and base class of `BlockVerbsMixin`; `expect-kept`, which reads it, lives in `block_verbs.py`, not here.
     # **5092 -> 5102** (2026-11-23, TASKS R188): `start` expands `run-block` lines first (the expansion is `run_block.py`, its call `block_verbs._expand_blocks`), and the report carries the test's name and blocks; the four per-run fields are declared here with the rest of the run's state.
     # **5045 -> 5047** (2026-11-25): the runner mixes in `HealthVerbsMixin` (`expect-installed`, the owner's word of 2026-11-25).
-    "uiscript/runner.py": 5047,
+    # **5047 -> 5048** (2026-11-26, TASKS R200, the fork's round 42 lap 5 S6: the bundle a run names is kept until the next run's): the script run's bundle is a run's.
+    "uiscript/runner.py": 5048,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
