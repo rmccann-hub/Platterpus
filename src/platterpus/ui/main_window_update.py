@@ -29,7 +29,16 @@ import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread
-from PySide6.QtWidgets import QAbstractButton, QMessageBox
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QStatusBar,
+    QWidget,
+)
 
 from platterpus import hard_exit
 from platterpus.ui import message_boxes
@@ -129,6 +138,43 @@ class UpdateMixin(MainWindowShared):
     #: a newer answer superseded is dropped rather than shown. A class default,
     #: so `MainWindow.__init__` (at its size cap) needs no line.
     _held_ripper_offer: object | None = None
+    #: The status-bar note offering to rebuild cyanrip (TASKS R249), once a
+    #: launch at most; ``None`` until a rip shows the build needs it.
+    _ripper_rebuild_note: QWidget | None = None
+    _ripper_rebuild_offered: bool = False
+
+    def _offer_ripper_rebuild(self, rip_log: object) -> None:
+        """After a rip: offer to rebuild an approved cyanrip built without the
+        release option (`handshake_approval.rebuild_offer`). Once per launch, a
+        status-bar note with a button, never a box over the results."""
+        from platterpus import handshake_approval
+
+        text = handshake_approval.rebuild_offer(rip_log)
+        if not text or self._ripper_rebuild_offered:
+            return
+        self._ripper_rebuild_offered = True
+        log.info("offering to rebuild cyanrip: %s", text)
+        if not isinstance(self, QMainWindow):
+            return  # a test double; the log line is the record
+        self._ripper_rebuild_note = _new_rebuild_note(
+            self.statusBar(), text, self._on_rebuild_ripper_clicked
+        )
+
+    def _on_rebuild_ripper_clicked(self) -> None:
+        """Rebuild the approved pin through the wizard's own engine, which now
+        passes the manifest's options (PLANNING KDD-49). Never during a rip."""
+        from platterpus.deps.fork_source import FORK_PIN
+
+        if getattr(self, "_rip_thread", None) is not None:
+            if isinstance(self, QMainWindow):
+                self.statusBar().showMessage(
+                    "ⓘ A rip is running. Rebuild cyanrip when it has finished."
+                )
+            return
+        if self._ripper_rebuild_note is not None:
+            self._ripper_rebuild_note.setVisible(False)
+        log.info("rebuilding cyanrip %s with the manifest's options", FORK_PIN)
+        self._begin_ripper_install(None, FORK_PIN)
 
     def _on_check_updates(self) -> None:
         """Tools → Setup & Updates… → Check for updates: ask GitHub for the newest release.
@@ -1110,3 +1156,30 @@ class UpdateMixin(MainWindowShared):
             # not *shutdown*.
             self.close()
             hard_exit.exit_without_teardown(0, "relaunching into the updated version")
+
+
+def _new_rebuild_note(bar: QStatusBar, text: str, rebuild: object) -> QWidget:
+    """The status-bar note: the sentence, *Rebuild cyanrip*, and *Dismiss*.
+
+    A widget rather than ``showMessage``, which any menu's status tip wipes
+    (`main_window_cache_check._new_cache_check_note`). PlainText; the ``ⓘ``
+    carries its meaning without colour.
+    """
+    note = QWidget(bar)
+    row = QHBoxLayout(note)
+    row.setContentsMargins(0, 0, 0, 0)
+    label = QLabel(text, note)
+    label.setTextFormat(Qt.TextFormat.PlainText)
+    label.setWordWrap(True)
+    label.setAccessibleName("Rebuild cyanrip note")
+    row.addWidget(label, 1)
+    button = QPushButton("Rebuild c&yanrip", note)
+    if callable(rebuild):
+        button.clicked.connect(rebuild)
+    row.addWidget(button)
+    dismiss = QPushButton("Dismiss", note)
+    dismiss.setAccessibleName("Dismiss the rebuild cyanrip note")
+    dismiss.clicked.connect(lambda: note.setVisible(False))
+    row.addWidget(dismiss)
+    bar.addWidget(note, 1)
+    return note

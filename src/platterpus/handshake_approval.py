@@ -881,3 +881,32 @@ __all__ = [
     "observed_version_pair_line",
     "version_pair_line",
 ]
+
+
+def rebuild_offer(rip_log: object) -> str:
+    """The sentence offering to rebuild cyanrip, or ``""`` when none is due.
+
+    **Why (the owner's Full runs of 2026-11-25 and 26, TASKS R249).** A cyanrip
+    built by 0.7.130's setup wizard is the approved commit compiled without
+    ``-Ddeclare_released=true``, so every log it writes says ``NOT a released
+    build`` while we score it approved, and every rip's audit reports the
+    disagreement. Updating Platterpus does not fix it: setup sees the approved
+    commit installed and builds nothing. So when a rip shows exactly that pair,
+    approved by its build tag and not declared released by its own note, the
+    window offers the rebuild (`ui/main_window_update._offer_ripper_rebuild`).
+    Any other pair offers nothing: an unapproved build is the update offer's
+    business, and a note we cannot read is not evidence. Pure; never raises.
+    """
+    if approve_rip_log(rip_log).verdict != APPROVED:
+        return ""
+    note = getattr(rip_log, "handshake_note", "")
+    if handshake_note.release_state(note if isinstance(note, str) else "") != (
+        "unreleased"
+    ):
+        return ""
+    return (
+        "ⓘ This rip's cyanrip is the approved build, but it was compiled without "
+        'the release option, so its logs say "NOT a released build" and each '
+        "rip's check reports it. The audio is unaffected. Rebuild cyanrip to fix "
+        "the logs; it takes a few minutes and needs no disc."
+    )

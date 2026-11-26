@@ -2326,6 +2326,8 @@ class RipMixin(MainWindowShared):
                     self._start_rip_comparison(log_file)
                 # EAC-layout companion log beside the JSON report (on by default).
                 self._write_eac_log(rip_log, log_file)
+                # An approved build compiled without the release option (R249).
+                self._offer_ripper_rebuild(rip_log)
                 # Surface the adaptive read-speed ladder's outcome in the results
                 # pane when it actually did something — so a user who wasn't
                 # watching the live log still sees that a disc needed a slow
