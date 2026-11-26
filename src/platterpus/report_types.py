@@ -825,6 +825,8 @@ class TrackBlock(TypedDict):
     #: TASKS R227), on track 1; `state` is `not_present` on every build so far.
     pregap_peak: PregapPeakBlock
     appended_silence_frames: int | None
+    #: v48: the same span in samples, from either unit the ripper used.
+    appended_silence_samples: int | None
     #: v34: a data track's CRC32 and `Sector EDC:` verdict, verbatim (`.23`+).
     #: Kept apart from `copy_crc`, which is an audio track's EAC CRC.
     data_crc32: str | None

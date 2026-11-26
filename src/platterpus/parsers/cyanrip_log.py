@@ -1740,8 +1740,15 @@ _TRACK_ECHO_HEADER = re.compile(r"^\s{1,8}(?:Metadata|CD-TEXT):\s*$")
 # It names the track whose FINAL FRAMES ARE FABRICATED SILENCE rather than disc
 # audio — a direct archival-fidelity statement, and the per-track consequence of
 # overread being off (the disc's outermost samples were padded, not read).
+#
+# **In samples too (round 43, ahead of `.36`).** The fork plans to count an
+# appended span in samples where it is not a whole number of frames (an Enhanced
+# CD ripped with a positive offset appends 6 samples, their round 37 lap 7 S12);
+# the owner relayed on 2026-11-26 that 0.7.131 must read it. Both units are read:
+# `frames` keeps the frame count when the line gives frames, and every form gives
+# `samples` (a frame is 588 samples).
 _APPENDED_SILENCE = re.compile(
-    r"^\s+Appended:\s+(?P<frames>\d{1,9})\s+frames? of silence"
+    r"^\s+Appended:\s+(?P<count>\d{1,9})\s+(?P<unit>frames?|samples?) of silence"
 )
 
 # --- 5. "Beyond disc: N of M frames refused (written as silence)" — `.24`+ ----
@@ -2271,6 +2278,7 @@ class _TrackAcc:
     # `.30`'s `Other read:` lines (`other_reads`): each `-Z` value not kept, with its count.
     other_reads: _other.OtherReadsAcc = field(default_factory=_other.OtherReadsAcc)
     appended_silence_frames: int | None = None
+    appended_silence_samples: int | None = None
     # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`
     # only for `Track N is data:`, whose meaning depends on what follows (see
     # `DATA_TRACK_STATUSES`), and it is cleared by the track's outcome line.
@@ -4086,6 +4094,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 other_reads=other_reads,
                 other_reads_not_kept=other_reads_not_kept,
                 appended_silence_frames=current.appended_silence_frames,
+                appended_silence_samples=current.appended_silence_samples,
                 data_crc32=current.data_crc32,
                 data_sector_edc=current.data_sector_edc,
                 disc_isrc=current.disc_isrc,
@@ -4513,9 +4522,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
             # about the archived audio's fidelity, not a rip *setting*.
             match = _APPENDED_SILENCE.match(line)
             if match:
-                current.appended_silence_frames = int_or_none(
-                    match.group("frames"), field="cyanrip appended silence frames"
+                count = int_or_none(
+                    match.group("count"), field="cyanrip appended silence"
                 )
+                if match.group("unit").startswith("frame"):
+                    current.appended_silence_frames = count
+                    current.appended_silence_samples = (
+                        count * 588 if count is not None else None
+                    )
+                else:
+                    current.appended_silence_samples = count
                 continue
 
             # `.35`: "Session gap: not determined (...)" under `End LSN:`, the

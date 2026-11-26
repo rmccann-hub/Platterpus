@@ -814,6 +814,8 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      `note` such as `not ripped`; `unknown`, the ripper's `reason`;
 #      `unrecognised`, the kept `value`; `not_present`, no row, every build so
 #      far), nulls where empty. Present on every track; only track 1 can carry it.
+#      Also `tracks[].appended_silence_samples`: the `Appended:` span in samples,
+#      from frames (x 588) or from the samples `.36` can print; null when absent.
 REPORT_SCHEMA_VERSION: int = 48
 
 
@@ -2585,6 +2587,8 @@ def _track(
         # disc audio, which is the most archival-relevant per-track fact we hold,
         # and it reached the EAC-layout log but never the JSON.
         "appended_silence_frames": getattr(track, "appended_silence_frames", None),
+        # v48: in samples, from either unit (`.36` counts a part-frame in samples).
+        "appended_silence_samples": getattr(track, "appended_silence_samples", None),
         # v34: a DATA track's own CRC32 and sector-EDC verdict (`.23`+, which
         # copies a data track to a `.bin`). Never in `copy_crc`, which is audio's
         # EAC CRC and what the AccurateRip tally counts. None on audio tracks.

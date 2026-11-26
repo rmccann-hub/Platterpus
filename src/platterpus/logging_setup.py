@@ -25,6 +25,7 @@ Debug-logging setting is on.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from typing import Final
 
@@ -85,7 +86,24 @@ def console_summary(text: str) -> dict[str, str]:
     return {CONSOLE_SUMMARY_ATTR: text}
 
 
-class _ConsoleFormatter(logging.Formatter):
+class _OffsetFormatter(logging.Formatter):
+    """Local time with its UTC offset: ``2026-11-25 14:20:09,585-0500`` (TASKS R168).
+
+    **Why.** The log's clock was local time with nothing saying which: the
+    cyanrip fork, reading the owner's log of 2026-11-25, had to work out that it
+    was UTC−5 before it could line our lines up with its own UTC records (its
+    round 43 lap 1 S37). The offset follows the milliseconds with no space, so a
+    reader splitting a line on spaces finds the same fields as before.
+    """
+
+    def formatTime(  # noqa: N802 — logging's own method name
+        self, record: logging.LogRecord, datefmt: str | None = None
+    ) -> str:
+        local = datetime.fromtimestamp(record.created).astimezone()
+        return f"{local:%Y-%m-%d %H:%M:%S},{int(record.msecs):03d}{local:%z}"
+
+
+class _ConsoleFormatter(_OffsetFormatter):
     """The console's formatter: a record's :func:`console_summary` if it has one.
 
     Formats a COPY of the record rather than editing it. Handlers share one record
@@ -166,7 +184,7 @@ def configure_logging(console_level: int = logging.INFO, debug: bool = False) ->
     # Root captures everything; per-handler levels do the filtering.
     root.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter(_LOG_FORMAT)
+    formatter = _OffsetFormatter(_LOG_FORMAT)
 
     # The banner every log file is stamped with (session start + each rollover),
     # so any excerpt — even a rotated backup — says which build wrote it. Built

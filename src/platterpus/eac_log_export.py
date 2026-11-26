@@ -1546,12 +1546,15 @@ def _appended_silence_line(rip_log: RipLog) -> list[str]:
     padded: list[str] = []
     for track in rip_log.tracks:
         frames = track.appended_silence_frames
+        samples = getattr(track, "appended_silence_samples", None)
         # `isinstance` before comparing: this can arrive from a hand-edited log or
         # a worker's state, and a `str > 0` comparison would raise TypeError and
         # cost the whole log (the same defensiveness `_read_stability_line` needed).
-        if not isinstance(frames, int) or isinstance(frames, bool) or frames <= 0:
-            continue
-        padded.append(f"{track.number} ({frames} frame(s))")
+        if isinstance(frames, int) and not isinstance(frames, bool) and frames > 0:
+            padded.append(f"{track.number} ({frames} frame(s))")
+        elif isinstance(samples, int) and not isinstance(samples, bool) and samples > 0:
+            # A part-frame span, which `.36` counts in samples.
+            padded.append(f"{track.number} ({samples} sample(s))")
     if not padded:
         return []
     # STATE THE FACT, NOT A CAUSE WE WERE NEVER TOLD. This used to end "…because
