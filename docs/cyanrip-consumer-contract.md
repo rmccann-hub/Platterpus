@@ -132,7 +132,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_data_sector_edc` | indented | `^\\s+Sector EDC:\\s+(?P<value>\\S(?:.{0,198}\\S)?)\\s*$` |
 | `track_accurip` | indented | `^\\s+Accurip v(?P<version>[12]):\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_accurip_offset` | indented | `^\\s+Accurip 450:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
-| `track_appended_silence` | indented | `^\\s+Appended:\\s+(?P<frames>\\d{1,9})\\s+frames? of silence` |
+| `track_appended_silence` | indented | `^\\s+Appended:\\s+(?P<count>\\d{1,9})\\s+(?P<unit>frames?\|samples?) of silence` |
 | `track_beyond_disc` | indented | `^\\s+Beyond disc:\\s+(?P<refused>\\d{1,9})\\s+of\\s+(?P<frames>\\d{1,9})\\s+frames?\\s+refused\\b` |
 | `track_session_gap` | indented | `^\\s{1,8}Session gap:[ \\t]*(?P<value>[^\\n]*)$` |
 | `track_peak_kind_header` **(fork-only)** | indented | `^\\s+(?P<kind>True\|Sample) peak:\\s*$` |

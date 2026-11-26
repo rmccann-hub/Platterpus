@@ -1856,7 +1856,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2283 -> 2295** (2026-11-04, the fork's round 38 lap 1, `.29` proposed): the undecided pre-gap's range in the not-determined row (S8) and the `Filtered:` note beside a track's proof (S7); the wording is `ripper_track_notes.py`.
     # **2295 -> 2300** (2026-11-04): the same row decides the Gap handling row as unknown does, so the log never claims appending for a pregap cyanrip did not decide.
     # **2300 -> 2245** (2026-11-11, round 39's G3): down: the per-track verdict and its constants moved to `eac_track_verdict.py`, while the `Record:` row and the record's plumbing came in.
-    "eac_log_export.py": 2245,
+    # **2245 -> 2248** (2026-11-26, the owner's relay: 0.7.131 must read `.36`'s `Appended:` in samples): the padded-track line names a part-frame span in samples.
+    "eac_log_export.py": 2248,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -2159,7 +2160,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4889 -> 4911** (2026-11-23, the fork's round 42 lap 1 S7): `.35`'s `Session gap:` track line, read by its own module (`session_gap.py`) and kept on the track with a warning for an unread wording; the rule, the builder field, the flush and the contract row stay here, beside `Appended:` and `Beyond disc:`, the block's other rows.
     # **4911 -> 4975** (2026-11-25): TASKS R193, `.36`'s readers ahead of the build: the four album rows' `unknown (…)` form, the `Drive speed:` row and its range, each a rule in this file's own tables; the split of this file is R232.
     # **4975 -> 4987** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): the track field, its hand-over, its rule in the track loop and its place in the enumerated track patterns.
-    "parsers/cyanrip_log.py": 4987,
+    # **4987 -> 5003** (2026-11-26, the owner's relay: 0.7.131 must read `.36`'s `Appended:` in samples): the reason, the unit group, the samples field and its hand-over.
+    "parsers/cyanrip_log.py": 5003,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2202,7 +2204,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1281 -> 1288 (2026-11-23): `TrackResult.session_gap`, `.35`'s CD-Extra cut made by assumption, with its comment; the dataclass lives in `session_gap.py`.
     # **1288 -> 1322** (2026-11-25): R193: `RipLog.album_loudness_unknown` and the three `drive_speed_*` fields, documented; and `drive_read_errors` takes `.36`'s named parts that no drive read caused out of the count the read-speed ladder steps on.
     # **1322 -> 1327** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): `TrackResult.pregap_peak` and its comment.
-    "parsers/rip_log.py": 1327,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **1327 -> 1329** (2026-11-26, the owner's relay: 0.7.131 must read `.36`'s `Appended:` in samples): `TrackResult.appended_silence_samples`.
+    "parsers/rip_log.py": 1329,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2297,7 +2300,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1351 -> 1355** (2026-11-12, the fork's round 39 lap 3 S14): `RipBlock.c2_declared` and `c2_declared_reason` (schema 46), beside `c2_pointers`.
     # **1355 -> 1359** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): `RipBlock.disc_mcn` (schema 47), beside the disc IDs; its block type lives in `disc_mcn.py`.
     # **1359 -> 1363** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): the track block's `pregap_peak` key, typed.
-    "report_types.py": 1363,
+    # **1363 -> 1365** (2026-11-26, the owner's relay: 0.7.131 must read `.36`'s `Appended:` in samples): the report's `appended_silence_samples`, typed.
+    "report_types.py": 1365,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -2463,7 +2467,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4026 -> 4027** (2026-11-16, TASKS R88): the name of a file we write beside one cyanrip named is now built through `sibling_names`, the one place the before-Start name-length check reads its margin from: one import.
     # **4027 -> 4040** (2026-11-16, TASKS R176, the fork's round 38 lap 3 S17): the schema-47 history note beside `REPORT_SCHEMA_VERSION`, the file's own rule, its import, and `rip.disc_mcn` beside the disc IDs; the block is built in `disc_mcn.py`.
     # **4040 -> 4052** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): schema 48's history entry and the track key.
-    "rip_report.py": 4052,
+    # **4052 -> 4056** (2026-11-26, the owner's relay: 0.7.131 must read `.36`'s `Appended:` in samples): the key and its line in v48's history.
+    "rip_report.py": 4056,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two

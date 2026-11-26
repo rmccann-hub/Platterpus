@@ -548,6 +548,8 @@ class TrackResult:
     # are different answers ("measured: none" vs "not reported"), as everywhere
     # else in this dataclass.
     appended_silence_frames: int | None = None
+    # The same span in samples, from either unit (`.36` can count in samples).
+    appended_silence_samples: int | None = None
     # --- a DATA track's own facts (cyanrip 0.9.4-rc3 / fork `+platterpus.23`
     # onward, which copy a data track to a `.bin` instead of skipping it).
     #
