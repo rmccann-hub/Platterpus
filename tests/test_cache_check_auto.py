@@ -787,3 +787,111 @@ def test_the_dialog_holds_the_drive_while_its_check_runs_and_says_when_it_lets_g
 
     assert process_until(lambda: released == ["/dev/sr0"], timeout=10.0)
     assert dialog.check_holds_drive() == ""
+
+
+# --- TASKS R150, PLANNING KDD-50: cyanrip's -f in Set up drive -------------------
+
+
+class _FinderBackend(_CacheBackend):
+    """Measures the cache and, like cyanrip from 2026-11-25, the offset too."""
+
+    def __init__(self) -> None:
+        super().__init__(verdict=True)
+        self.searched: list[str] = []
+
+    def supports_offset_detection(self) -> bool:
+        return True
+
+    def find_offset(self, device: str) -> int:
+        self.searched.append(device)
+        return 667
+
+    def offset_search_detail(self) -> str:
+        return "14 of this disc's tracks agreed"
+
+
+def test_a_drive_with_no_offset_from_anywhere_is_searched_by_itself(
+    dialogs: Callable[..., DriveSetupDialog], process_until: Any
+) -> None:
+    """The owner's rule (KDD-50): the search runs by itself only for a drive
+    with no offset saved and none in AccurateRip's list, with the cache check."""
+    backend = _FinderBackend()
+    dialog = dialogs(
+        backend,
+        cache_verdict=NOT_MEASURED,
+        audio_disc_present=True,
+        offset_saved=False,
+    )
+    recorded: list[DriveSetupResult] = []
+    dialog.detection_recorded.connect(recorded.append)
+    assert "no read offset saved" in dialog._auto_check_decision().message
+    dialog.show()
+
+    assert process_until(lambda: bool(recorded), timeout=5.0)
+    assert backend.devices == ["/dev/sr0"] and backend.searched == ["/dev/sr0"]
+    assert recorded[0].offset == 667 and recorded[0].can_defeat_cache is True
+    assert process_until(lambda: dialog._thread is None, timeout=5.0)
+    assert "14 of this disc's tracks agreed" in dialog._results_label.toPlainText()
+    assert dialog._offset_button is not None
+    assert dialog._offset_button.text() == "Check the &offset with this disc"
+
+
+def test_a_drive_with_an_offset_is_searched_only_when_asked_and_alone(
+    dialogs: Callable[..., DriveSetupDialog], process_until: Any
+) -> None:
+    backend = _FinderBackend()
+    dialog = dialogs(
+        backend,
+        cache_verdict=MEASURED,
+        audio_disc_present=True,
+        offset_saved=True,
+    )
+    recorded: list[DriveSetupResult] = []
+    dialog.detection_recorded.connect(recorded.append)
+    dialog.show()
+    process_until(lambda: False, timeout=0.3)
+    assert backend.searched == [] and backend.devices == [], "nothing was due"
+
+    assert dialog._offset_button is not None
+    assert dialog._offset_button.text() == "Check the &offset with this disc"
+    dialog._offset_button.click()
+
+    assert process_until(lambda: bool(recorded), timeout=5.0)
+    assert backend.searched == ["/dev/sr0"]
+    assert backend.devices == [], "the offset button must not run the cache check"
+    assert recorded[0].cache_attempted is False
+    assert "Audio cache" not in dialog._results_label.toPlainText()
+
+
+def test_a_caller_that_does_not_say_starts_no_search(
+    dialogs: Callable[..., DriveSetupDialog], process_until: Any
+) -> None:
+    backend = _FinderBackend()
+    dialog = dialogs(backend, cache_verdict=MEASURED, audio_disc_present=True)
+    dialog.show()
+    process_until(lambda: False, timeout=0.3)
+    assert backend.searched == []
+    assert dialog._offset_button is not None
+    assert dialog._offset_button.text() == "Find &offset from this disc"
+
+
+def test_the_window_says_offset_saved_from_the_profile_and_the_drive_list(
+    window: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made: list[_RecordingDialog] = []
+
+    def build(*args: Any, **kwargs: Any) -> _RecordingDialog:
+        dialog = _RecordingDialog(*args, **kwargs)
+        dialog.window = window  # type: ignore[attr-defined]
+        made.append(dialog)
+        return dialog
+
+    monkeypatch.setattr("platterpus.ui.main_window_drive.DriveSetupDialog", build)
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
+    monkeypatch.setattr(window._offset_db, "lookup", lambda *_a: None)
+    window._on_drive_setup()
+    assert made[-1].kwargs["offset_saved"] is False
+
+    monkeypatch.setattr(window._offset_db, "lookup", lambda *_a: 667)
+    window._on_drive_setup()
+    assert made[-1].kwargs["offset_saved"] is True

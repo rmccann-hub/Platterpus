@@ -7,14 +7,16 @@ drive is recognised — or is entered by hand. The main window persists it as
 Platterpus's `--offset` override (the backend writes no config file of its own).
 
 Backends that can genuinely MEASURE an offset from a disc
-(``RipBackend.supports_offset_detection()``) additionally get a "Detect" button
-that runs off the GUI thread via ``DriveSetupWorker``. **cyanrip's finder is
-deliberately not used** — its ``-f`` IS a "find drive offset" mode (verified
-against 0.9.3.1 + master, 2026-07-21), but the earlier integration mis-scraped
-its output (read a default 0 and silently overrode the correct list value) and
-was removed — so the button is hidden for it rather than offering a probe we
-don't trust. The ``DriveSetupWorker``/detection seam remains for a future
-measuring backend (or a re-vetted ``-f`` integration).
+(``RipBackend.supports_offset_detection()``) can also find it from a CD in
+AccurateRip, off the GUI thread via ``DriveSetupWorker``. **cyanrip's ``-f`` is
+used from 2026-11-25** (TASKS R150, PLANNING KDD-50): an earlier integration
+mis-scraped its output (read a default 0 and overrode the correct list value)
+and was removed; the reader now takes cyanrip's own summary line only
+(`parsers/cyanrip_offset_search.py`), saves a value only when two or more of
+the disc's tracks agreed, and the drive ledger never lets it replace an offset
+the user typed or one already confirmed. The search runs by itself, with the
+cache check, only for a drive with no offset from anywhere; otherwise it is the
+*Check the offset with this disc* button.
 
 **This is the read offset's ONE home** (2026-09-24). Settings used to carry a
 second copy — a spin box and the "Apply" tick-box — and two editors of one
@@ -130,6 +132,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         audio_disc_present: bool = False,
         drive_busy: bool = False,
         drive_busy_now: Callable[[], bool] | None = None,
+        offset_saved: bool | None = None,
     ) -> None:
         """`known_offset`, when provided, is the AccurateRip read offset
         looked up by drive model (the primary, disc-free path). We prefill
@@ -144,6 +147,11 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         ``audio_disc_present`` is whether an audio CD has been read in the drive;
         ``drive_busy`` is whether something else is reading it right now, and
         ``drive_busy_now`` asks that again when *Analyze cache* is pressed.
+
+        ``offset_saved`` is whether this drive has a read offset saved (TASKS
+        R150, PLANNING KDD-50). ``False`` lets the automatic check search for
+        one from the CD; ``None``, the default, means the caller did not say,
+        and no search starts by itself.
         """
         super().__init__(parent)
         self._backend: RipBackend = backend
@@ -159,6 +167,11 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         self._can_analyze: bool = backend.supports_cache_analysis()
         self._device: str = device
         self._known_offset: int | None = known_offset
+        self._offset_saved: bool | None = offset_saved
+        # What the next run measures (`_start_calibration`): set by the button
+        # pressed, or by the automatic check from `cache_check_plan.auto_parts`.
+        self._run_cache: bool = True
+        self._run_offset: bool | None = None
         self._thread: QThread | None = None
         self._worker: DriveSetupWorker | None = None
         # Set true once the dialog is closing, so a late worker result
@@ -183,7 +196,22 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
 
         root = QVBoxLayout(self)
 
-        if self._can_detect:
+        if self._can_detect and self._can_analyze:
+            # cyanrip from 2026-11-25 (TASKS R150): `-f` measures the offset from
+            # a CD AccurateRip knows, and `cd-paranoia -A` measures the cache.
+            intro_text = (
+                "The read offset is what makes a rip bit-perfect. Platterpus "
+                "applies it to cyanrip on every rip; it comes from the AccurateRip "
+                "drive list (pre-filled below when your drive is recognised), from "
+                "a CD that is in AccurateRip's database, or you can enter it by "
+                "hand.\n\n"
+                "This window also measures the drive's audio-cache behaviour, which "
+                "confirms re-reads reach the disc. Both run by themselves once per "
+                "drive when an audio CD is in the drive: the cache check always, "
+                "and the offset search when no offset is saved yet. The buttons "
+                "run either again."
+            )
+        elif self._can_detect:
             intro_text = (
                 "This calibrates your drive for bit-perfect rips. It detects the "
                 "drive's read offset and audio-cache behaviour and saves the "
@@ -250,7 +278,9 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
             # drive reports and we only pass on. It goes into markup below.
             name = html.escape(drive_label or "this drive")
             verify_clause = (
-                " Auto-detect (Detect) is optional verification."
+                " Check the offset with this disc, below, is optional verification."
+                if self._can_detect and self._can_analyze
+                else " Auto-detect (Detect) is optional verification."
                 if self._can_detect
                 else ""
             )
@@ -273,6 +303,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         # a button that would only ever report "can't do it" — honest UI (the
         # offset comes from the AccurateRip list / manual entry below instead).
         self._detect_button: QPushButton | None = None
+        self._offset_button: QPushButton | None = None
         self._skip_button: QPushButton | None = None
         self._progress: QProgressBar | None = None
         if self._can_detect or self._can_analyze:
@@ -280,7 +311,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
             # "Analyze cache" when only the cache probe runs (cyanrip), and
             # "Re-analyze" once this drive already has a saved verdict, so the
             # button says that pressing it measures again.
-            if self._can_detect:
+            if not self._can_analyze:
                 label = "&Detect"
             elif cache_verdict == cache_check_plan.MEASURED:
                 label = "Re-analy&ze cache"
@@ -290,6 +321,15 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
             self._detect_button = QPushButton(label, self)
             self._detect_button.clicked.connect(self._on_detect_clicked)
             action_row.addWidget(self._detect_button, 1)
+            if self._can_detect and self._can_analyze:
+                # The offset search on its own button (TASKS R150): it reads a
+                # different thing from the cache check, and a drive that already
+                # has an offset is checked against it only when asked.
+                self._offset_button = QPushButton(
+                    _offset_button_label(offset_saved is True), self
+                )
+                self._offset_button.clicked.connect(self._on_offset_clicked)
+                action_row.addWidget(self._offset_button, 1)
             self._skip_button = self._build_skip_button(action_row)
             root.addLayout(action_row)
 
@@ -324,7 +364,7 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         # 0.7.127, F5). A cache check's result still lands in it and shows it
         # (`_show_results`). With an offset finder the box stays, because Detect
         # is the main action there and its output is what the user waits for.
-        if not self._can_detect:
+        if not self._can_detect or self._can_analyze:
             self._results_label.setVisible(False)
 
         # --- Manual fallback ---------------------------------------------------
@@ -523,7 +563,20 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
     # --- Detection flow -----------------------------------------------------
 
     def _on_detect_clicked(self) -> None:
-        """The button's slot: start now, or once the drive is free."""
+        """The button's slot: start now, or once the drive is free.
+
+        With a separate offset button (cyanrip), this one measures the cache
+        alone; a backend with only an offset finder runs everything it has.
+        """
+        if self._can_analyze:
+            self._run_cache, self._run_offset = True, False
+        else:
+            self._run_cache, self._run_offset = True, None
+        self._request_calibration()
+
+    def _on_offset_clicked(self) -> None:
+        """*Find offset* / *Check the offset*: the offset search alone (R150)."""
+        self._run_cache, self._run_offset = False, True
         self._request_calibration()
 
     def _start_calibration(self) -> None:
@@ -533,6 +586,8 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         if self._detect_button is None or self._thread is not None:
             return
         self._detect_button.setEnabled(False)
+        if self._offset_button is not None:
+            self._offset_button.setEnabled(False)
         self._skip_requested = False
         if self._skip_button is not None:
             self._skip_button.setEnabled(True)
@@ -543,14 +598,19 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         # alone: the automatic check can take minutes, and the user who opened
         # this window to save an offset must still be able to. They're
         # re-enabled in `_on_finished`.
-        if self._can_detect:
+        if self._run_offset is not False and self._can_detect:
             self._set_manual_controls_enabled(False)
         self._results_label.clear()
         if self._progress is not None:
             self._progress.setVisible(True)
         self._status_label.setText("Starting…")
 
-        self._worker = DriveSetupWorker(self._backend, self._device)
+        self._worker = DriveSetupWorker(
+            self._backend,
+            self._device,
+            cache=self._run_cache,
+            offset=self._run_offset,
+        )
         self._thread = QThread(self)
         self._worker.status.connect(self._status_label.setText)
         self._worker.finished.connect(self._on_finished)
@@ -592,6 +652,14 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
         if result.can_defeat_cache is not None:
             # A verdict now exists for this drive; nothing more is due.
             self._cache_verdict = cache_check_plan.MEASURED
+        if result.offset is not None:
+            # An offset is now saved, or a saved one checked (R150).
+            self._offset_saved = True
+        if self._offset_button is not None:
+            self._offset_button.setEnabled(True)
+            self._offset_button.setText(
+                _offset_button_label(self._offset_saved is True)
+            )
         if self._detect_button is not None:
             self._detect_button.setEnabled(True)
             self._detect_button.setText(
@@ -703,8 +771,13 @@ def _format_result(result: DriveSetupResult) -> str:
     lines: list[str] = []
 
     if result.offset is not None:
+        agreed = f" ({result.offset_detail})" if result.offset_detail else ""
         lines.append(
-            f"✓ Read offset: {result.offset:+d} samples — saved to Platterpus settings."
+            f"✓ Read offset measured from this disc: {result.offset:+d} "
+            f"samples{agreed}. Saved for this drive, unless an offset already "
+            "saved for it disagrees: that one is then kept, and the log says so. "
+            "Measured from one disc; AccurateRip's drive list or an offset you "
+            "enter that agrees with it confirms it."
         )
     elif result.offset_error is not None:
         # An offset finder ran and failed. (A cache-only run leaves offset_error
@@ -718,6 +791,8 @@ def _format_result(result: DriveSetupResult) -> str:
     # greeted False ("the cache can't be defeated") with the reassuring "doesn't
     # need to read around a cache", presenting the one genuinely worrying result
     # as fine. Keep each branch saying what was actually measured.
+    if not result.cache_attempted:
+        return "\n".join(lines)
     if result.can_defeat_cache is True:
         lines.append(
             "✓ Audio cache: re-reads reach the disc, not a stale cache — so a "
@@ -737,3 +812,10 @@ def _format_result(result: DriveSetupResult) -> str:
         )
 
     return "\n".join(lines)
+
+
+def _offset_button_label(saved: bool) -> str:
+    """The offset button's words: find one, or check the one saved (R150)."""
+    return (
+        "Check the &offset with this disc" if saved else "Find &offset from this disc"
+    )

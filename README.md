@@ -1154,7 +1154,7 @@ Platterpus installs one pinned build of its own fork of cyanrip, and a new build
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-49)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-50)
 - [`TASKS.md`](TASKS.md) — active task checklist, live work only: the ranked open rows and the R-table first, then every section that still holds an open row, P2 and Out of scope. Closed sections (the original P0, T01-T32, the closed rounds and dated runs) are in [`docs/archive/tasks-closed-to-2026-11-16.md`](docs/archive/tasks-closed-to-2026-11-16.md).
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 

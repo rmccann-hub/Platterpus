@@ -21,12 +21,22 @@ the reads returned. Nothing here raises.
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
 from typing import Final
 
 from platterpus.deps.fork_source import same_commit
 from platterpus.deps.ripper_manifest import RipperManifest, RipperRelease
+
+# Re-exported by name (`X as X`): section O's verb and its tests read the reader
+# from here, where it lived until 2026-11-25.
+from platterpus.parsers.cyanrip_offset_search import (
+    STOPPED,
+)
+from platterpus.parsers.cyanrip_offset_search import (
+    FoundOffset as FoundOffset,
+)
+from platterpus.parsers.cyanrip_offset_search import (
+    parse_found_offset as parse_found_offset,
+)
 from platterpus.uiscript.artifact_grading import Grade
 from platterpus.update_check import ReleaseInfo, is_newer
 
@@ -99,73 +109,10 @@ def grade_newest_pair(
 
 # --- cyanrip -f ----------------------------------------------------------------
 
-#: cyanrip's offset finder's own lines, read in its source
-#: (`cyanrip@174a134:src/cyanrip_main.c:594-692`, ``search_for_drive_offset``).
-#: Named groups, never columns, so a reworded tail does not move the number read.
-#:
-#: **The summary is the answer.** The per-track lines (found, confirmed, a new
-#: candidate replacing the old) are its working; the search ends by printing
-#: ``Drive offset of ±N found (confidence: C)!`` once it has one (line 689), and
-#: ``C`` is its own count of the tracks that agreed, so 1 means found once and
-#: never confirmed. A run with working and no summary did not finish.
-_SUMMARY: Final[re.Pattern[str]] = re.compile(
-    r"^Drive offset of (?P<offset>[+-]\d{1,6}) found \(confidence: "
-    r"(?P<confidence>\d{1,4})\)!",
-    re.M,
-)
-_CANDIDATE: Final[re.Pattern[str]] = re.compile(
-    r"^(?:New offset|Offset) of (?P<offset>[+-]\d{1,6}) (?:found|confirmed)", re.M
-)
-#: The three ways it ends without an answer (lines 634, 679, 681). NOT
-#: ``Was not able to find drive offset with a radius of N frames``: that one is
-#: followed by a retry at twice the radius (line 685), so it is working too.
-#: ``Stopping, offset finding incomplete!`` is a stop signal cutting the search
-#: short, and cyanrip still prints a summary after it if it had a candidate, so
-#: a summary beside it is an incomplete search, never a finished one.
-_GAVE_UP: Final[re.Pattern[str]] = re.compile(
-    r"^(?P<why>No track had AccuRip entry, cannot find offset!"
-    r"|No track was long enough, unable to find drive offset!"
-    r"|Stopping, offset finding incomplete!)",
-    re.M,
-)
-_STOPPED: Final[str] = "Stopping, offset finding incomplete!"
-
-
-@dataclass(frozen=True)
-class FoundOffset:
-    """What ``cyanrip -f`` printed about the drive's offset.
-
-    ``offset`` and ``confidence`` are the summary line's when there is one
-    (``summarised``); otherwise ``offset`` is the last candidate the working
-    named, or ``None``, and ``confidence`` is 0. ``gave_up`` is cyanrip's own
-    sentence when it printed one of the three ending lines.
-    """
-
-    offset: int | None
-    confidence: int
-    summarised: bool
-    gave_up: str
-
-
-def parse_found_offset(output: str) -> FoundOffset:
-    """Read ``cyanrip -f``'s output. **Never raises**: any input gives an answer."""
-    try:
-        # A carriage return starts a line as far as a terminal is concerned, and
-        # a progress line ending in one must not hide the line written after it.
-        text = output.replace("\r", "\n") if isinstance(output, str) else ""
-        endings = [m.group("why") for m in _GAVE_UP.finditer(text)]
-        why = endings[-1] if endings else ""
-        summaries = list(_SUMMARY.finditer(text))
-        if summaries:
-            last = summaries[-1]
-            return FoundOffset(
-                int(last.group("offset")), int(last.group("confidence")), True, why
-            )
-        candidates = list(_CANDIDATE.finditer(text))
-        offset = int(candidates[-1].group("offset")) if candidates else None
-        return FoundOffset(offset, 0, False, why)
-    except (ValueError, TypeError, AttributeError):
-        return FoundOffset(None, 0, False, "")
+# The reader moved to `parsers/cyanrip_offset_search.py` (2026-11-25, TASKS R150),
+# where Set up drive's offset search reads the same output through the same
+# function; this module grades a script step with it.
+_STOPPED: Final[str] = STOPPED
 
 
 def grade_found_offset(found: FoundOffset, expected: int | None) -> Grade:

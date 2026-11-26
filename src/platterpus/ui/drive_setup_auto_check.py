@@ -53,6 +53,10 @@ class AutoCacheCheckMixin(_DialogBase):
     # Set by `DriveSetupDialog.__init__`; declared here so this file type-checks
     # on its own.
     _can_analyze: bool
+    _can_detect: bool
+    _offset_saved: bool | None
+    _run_cache: bool
+    _run_offset: bool | None
     _cache_verdict: str | None
     _audio_disc_present: bool
     _drive_busy: bool
@@ -143,7 +147,13 @@ class AutoCacheCheckMixin(_DialogBase):
             audio_disc_present=self._audio_disc_present,
             drive_busy=self._drive_busy,
             already_attempted=self._auto_check_attempted,
+            offset_due=self._offset_due(),
         )
+
+    def _offset_due(self) -> bool:
+        """The automatic check searches for an offset: the drive has none saved
+        and the backend can measure one (TASKS R150, PLANNING KDD-50)."""
+        return self._can_detect and self._offset_saved is False
 
     def _set_auto_note(self, message: str, *, refit: bool = True) -> None:
         """Show ``message`` in the automatic-check line, or hide the line."""
@@ -188,6 +198,12 @@ class AutoCacheCheckMixin(_DialogBase):
         )
         if decision.action == cache_check_plan.START:
             self._auto_check_attempted = True
+            # Exactly what the note just promised: the cache, the offset, or both.
+            self._run_cache, self._run_offset = cache_check_plan.auto_parts(
+                can_analyze=self._can_analyze,
+                verdict=self._cache_verdict,
+                offset_due=self._offset_due(),
+            )
             self._start_calibration()
             announce(self._auto_note_label, decision.message)
         return decision.action
