@@ -2652,7 +2652,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # lives in `drive_setup_auto_check.py`.
     # **725 -> 739** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): `drive_released` and `check_holds_drive`, which the window asks before it reads a disc.
     # **739 -> 821** (2026-11-25, TASKS R150, PLANNING KDD-50: Set up drive measures the offset with cyanrip's `-f`): the intro for a backend that measures both, the offset button and its label, what each button runs, and the result text for a found offset and an offset-only run.
-    "ui/drive_setup_dialog.py": 821,
+    # **821 -> 832** (2026-11-26, the fork's round 43 lap 1 S39: the owner's log showed the probe's end and not its start): each run logs its start and what it measures.
+    "ui/drive_setup_dialog.py": 832,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
     # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.

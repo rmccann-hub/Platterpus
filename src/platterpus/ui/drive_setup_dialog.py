@@ -605,6 +605,17 @@ class DriveSetupDialog(AutoCacheCheckMixin, CenteredDialog):
             self._progress.setVisible(True)
         self._status_label.setText("Starting…")
 
+        # Logged at INFO: the owner's log of 2026-11-25 showed the probe's end
+        # and not its start, so when it began could only be inferred (the
+        # fork's round 43 lap 1 S39). An absence in a log is a fact about the
+        # logger first.
+        log.info(
+            "drive setup on %s: starting (cache check %s, offset search %s, %s)",
+            self._device or "(auto-detected drive)",
+            "yes" if self._run_cache else "no",
+            "no" if self._run_offset is False else "yes",
+            "automatic" if self._auto_check_attempted else "pressed",
+        )
         self._worker = DriveSetupWorker(
             self._backend,
             self._device,
