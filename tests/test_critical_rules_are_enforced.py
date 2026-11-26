@@ -1284,7 +1284,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1998 -> 1999** (2026-10-27, external review item 3.3): `encoding="utf-8"` on each text-mode subprocess pipe, so the child's bytes are decoded as UTF-8 under any locale; one keyword per call, swept by `tests/test_inbound_text.py`.
     # **1999 -> 2026** (2026-11-05, the rig's overlapping `cyanrip -I`): `version()` runs in the version probe's own killable slot (`slot="version"` through `_run`), and stops on `ProbeCancelled` rather than trying the next flag in a child the cancel did not cover.
     # **2026 -> 2037** (2026-11-11, round 39, `.31`): `reread_until_accuraterip` threaded through `rip` and `_build_rip_argv` to its own module's range, `-Z` rule and gate, as `reread_time_limit_s` is; the words live in `reread_until_accuraterip_args.py`.
-    "adapters/cyanrip_backend.py": 2037,
+    # **2037 -> 2087** (2026-11-25, TASKS R150, PLANNING KDD-50: Set up drive measures the offset with cyanrip's `-f`): `find_offset` and `offset_search_detail`, which run the search in its own slot and say how many tracks agreed, and the cancel that stops it; the old "deliberately not implemented" note is gone.
+    "adapters/cyanrip_backend.py": 2087,
     # **524 -> 534** (2026-10-19, TASKS D2, `disallow_any_generics` retired): the module's two raw-JSON aliases, `_MbObject` / `_MbArray`, and the comment saying why their values are `Any`; naming them took the module off the opt-out list.
     # **534 -> 618** (2026-10-26, peer review 2.8): `_text`/`_as_dict`/`_as_list` coerce every value taken from the answer and bound it at `MAX_TEXT_CHARS`, and `_MALFORMED`/`_parsed`/`_release_detail` turn a payload of the wrong shape into the documented `MusicBrainzQueryError`; the adapter is the one place that reads the answer.
     # **618 -> 624** (2026-11-03, TASKS R89): `MB_HOST` and the constructor's `set_hostname(MB_HOST, use_https=True)`, the premise of accepting musicbrainzngs' uncapped read; it must sit where the library is configured, and the reasoning lives in `docs/dependency-contracts.md`.
@@ -1312,7 +1313,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **731 -> 777** (2026-11-05, the rig's overlapping `cyanrip -I`): one killable slot per logical operation — `RIPPER_VERSION_PROBE` beside `INFO_PROBE`, `cancel_ripper_version_probe`, and `run_capture`'s `slot` selector read at call time — with why the shared slot was a defect; it sits beside `run_capture`, the one site that runs the probes.
     # **777 -> 782** (2026-11-11, round 39): the ABC's `reread_time_limit_s`, documented where every backend reads its contract.
     # **782 -> 786** (2026-11-11, round 39, `.31`): the ABC's `rip` takes `reread_until_accuraterip`, with one sentence of its contract.
-    "adapters/rip_backend.py": 786,
+    # **786 -> 798** (2026-11-25, TASKS R150, PLANNING KDD-50: Set up drive measures the offset with cyanrip's `-f`): the offset search's killable slot and the base `offset_search_detail`.
+    "adapters/rip_backend.py": 798,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -2646,7 +2648,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Analyze cache asks whether the drive is busy when pressed; the waiting itself
     # lives in `drive_setup_auto_check.py`.
     # **725 -> 739** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): `drive_released` and `check_holds_drive`, which the window asks before it reads a disc.
-    "ui/drive_setup_dialog.py": 739,
+    # **739 -> 821** (2026-11-25, TASKS R150, PLANNING KDD-50: Set up drive measures the offset with cyanrip's `-f`): the intro for a backend that measures both, the offset button and its label, what each button runs, and the result text for a found offset and an offset-only run.
+    "ui/drive_setup_dialog.py": 821,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
     # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
@@ -2774,7 +2777,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1013 -> 1033** (2026-11-17, UX review of 0.7.127, TASKS R182), E3: the empty-state line is built where an empty drive listing first lands (`_on_drives_unavailable`), and `_sync_no_drive_notice`; the line itself is `ui/no_drive_notice.py`.
     # **1034 -> 1050** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): `_selected_drive_setup_facts`, the one reader Setup & Updates' drive line and `expect-installed drive` both ask.
     # **1050 -> 1053** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): the dialog's release is wired, and a close reads a held-back disc.
-    "ui/main_window_drive.py": 1053,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
+    # **1053 -> 1059** (2026-11-25, TASKS R150, PLANNING KDD-50: Set up drive measures the offset with cyanrip's `-f`): the dialog is told whether the drive has an offset from anywhere.
+    "ui/main_window_drive.py": 1059,  # +4 2026-11-13: the first-run offer says what setup does (R150); +1 2026-11-25: hands the dialog `drive_busy_now`
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.

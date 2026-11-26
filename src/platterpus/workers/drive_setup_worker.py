@@ -42,6 +42,11 @@ class DriveSetupResult:
     can_defeat_cache: bool | None = None
     offset_error: str | None = None
     analyze_error: str | None = None
+    #: False when this run did not measure the cache (an offset-only run, TASKS
+    #: R150), so the window says nothing about it rather than "not determined".
+    cache_attempted: bool = True
+    #: How the found offset was agreed, e.g. "14 of this disc's tracks agreed".
+    offset_detail: str = ""
 
     @property
     def ok(self) -> bool:
@@ -57,7 +62,11 @@ class DriveSetupResult:
         dialog (and the screen-reader announcement) called a success a failure.
         """
         offset_failed = self.offset is None and self.offset_error is not None
-        cache_failed = self.can_defeat_cache is None and self.analyze_error is not None
+        cache_failed = (
+            self.cache_attempted
+            and self.can_defeat_cache is None
+            and self.analyze_error is not None
+        )
         got_something = self.offset is not None or self.can_defeat_cache is not None
         return got_something and not offset_failed and not cache_failed
 
@@ -73,10 +82,19 @@ class DriveSetupWorker(QObject):
         backend: RipBackend,
         device: str,
         parent: QObject | None = None,
+        *,
+        cache: bool = True,
+        offset: bool | None = None,
     ) -> None:
+        """``cache`` and ``offset`` say which measurements this run makes (TASKS
+        R150): the window asks for the cache check, the offset search, or both.
+        ``offset=None`` keeps the old rule, the search whenever the backend has
+        one."""
         super().__init__(parent)
         self._backend: RipBackend = backend
         self._device: str = device
+        self._want_cache: bool = cache
+        self._want_offset: bool | None = offset
         # Set from the GUI thread when the user closes the dialog. Plain
         # bool assignment is atomic under the GIL.
         self._cancelled: bool = False
@@ -111,36 +129,26 @@ class DriveSetupWorker(QObject):
             self.finished.emit(DriveSetupResult())
             return
 
-        # Cache analysis first — it's the quicker of the two and confirms a
-        # disc is actually present before the longer offset search.
-        self.status.emit("Analyzing drive cache…")
+        # Cache analysis first — it confirms a disc is actually present before
+        # the offset search. Skipped when the window asked for the search alone.
         can_defeat: bool | None = None
         analyze_error: str | None = None
-        try:
-            can_defeat = self._backend.analyze_drive(self._device)
-            if can_defeat is None:
-                # It ran but couldn't decide. Ask the backend WHY, so the dialog
-                # can name the actual problem (tool missing / timed out /
-                # unrecognised report) rather than one blank "could not be
-                # determined" the user can't act on.
-                analyze_error = self._backend.cache_analysis_detail() or None
-                if analyze_error:
-                    log.info("cache analysis inconclusive: %s", analyze_error)
-        except RipError as exc:
-            log.warning("drive analyze failed: %s", exc)
-            analyze_error = str(exc)
-        except NotImplementedError:
-            analyze_error = "This backend can't analyze the drive cache."
+        if self._want_cache:
+            can_defeat, analyze_error = self._analyze_cache()
 
         offset: int | None = None
         offset_error: str | None = None
-        # Only run the offset finder when the backend actually has one. cyanrip
-        # can measure the cache (above) but has no trusted offset detector
-        # (find_offset stays unimplemented) — attempting it would just report a
-        # spurious "can't auto-detect" line on what the user asked to be a cache
-        # analysis. When there's no finder we leave offset/offset_error both None
+        # Only run the offset finder when the window asked for it and the backend
+        # has one (cyanrip's `-f` from 2026-11-25, TASKS R150). When it does not
+        # run we leave offset/offset_error both None
         # ("not attempted"), and the dialog omits the offset line entirely.
-        if self._backend.supports_offset_detection():
+        want_offset = (
+            self._backend.supports_offset_detection()
+            if self._want_offset is None
+            else self._want_offset and self._backend.supports_offset_detection()
+        )
+        offset_detail = ""
+        if want_offset:
             self.status.emit(
                 "Detecting read offset… this can take a minute (needs a CD "
                 "that's in the AccurateRip database)."
@@ -151,11 +159,13 @@ class DriveSetupWorker(QObject):
                     DriveSetupResult(
                         can_defeat_cache=can_defeat,
                         analyze_error=analyze_error,
+                        cache_attempted=self._want_cache,
                     )
                 )
                 return
             try:
                 offset = self._backend.find_offset(self._device)
+                offset_detail = self._backend.offset_search_detail()
             except RipError as exc:
                 log.warning("offset find failed: %s", exc)
                 offset_error = str(exc)
@@ -168,5 +178,27 @@ class DriveSetupWorker(QObject):
                 can_defeat_cache=can_defeat,
                 offset_error=offset_error,
                 analyze_error=analyze_error,
+                cache_attempted=self._want_cache,
+                offset_detail=offset_detail,
             )
         )
+
+    def _analyze_cache(self) -> tuple[bool | None, str | None]:
+        """The cache check: its verdict, and why there is none when there is not."""
+        self.status.emit("Analyzing drive cache…")
+        try:
+            can_defeat = self._backend.analyze_drive(self._device)
+        except RipError as exc:
+            log.warning("drive analyze failed: %s", exc)
+            return None, str(exc)
+        except NotImplementedError:
+            return None, "This backend can't analyze the drive cache."
+        if can_defeat is not None:
+            return can_defeat, None
+        # It ran but couldn't decide. Ask the backend WHY, so the dialog can name
+        # the actual problem (tool missing / timed out / unrecognised report)
+        # rather than one blank "could not be determined" the user can't act on.
+        why = self._backend.cache_analysis_detail() or None
+        if why:
+            log.info("cache analysis inconclusive: %s", why)
+        return None, why

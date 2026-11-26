@@ -75,6 +75,10 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _INFO_TIMEOUT_S: float = 300.0  # was 120 s (2026-11-06; see CHANGELOG)
+#: `cyanrip -f`'s ceiling (TASKS R150). The owner's Full run of 2026-11-25 measured
+#: 32 s on the reference drive, 14 of 14 tracks agreeing; a slow drive, or the
+#: search retrying at a wider radius, reads longer, and Skip check stops it sooner.
+_OFFSET_SEARCH_TIMEOUT_S: float = 600.0
 
 #: The filename-sanitation mode we pin with `-T` on every rip. cyanrip offers
 #: `simple`, `os_simple`, `unicode` and `os_unicode`. Public so the naming preview
@@ -664,9 +668,70 @@ class CyanripImpl(RipBackend):
     def supports_cache_analysis(self) -> bool:
         # cyanrip prints no cache line, but its read engine IS libcdio-paranoia —
         # the same code the standalone `cd-paranoia -A` self-test exercises. So we
-        # CAN measure this drive's cache behaviour honestly (KDD-29), even though
-        # we can't auto-detect the offset (find_offset stays unimplemented below).
+        # CAN measure this drive's cache behaviour honestly (KDD-29).
         return True
+
+    def supports_offset_detection(self) -> bool:
+        # cyanrip's `-f` finds the drive's offset against AccurateRip (TASKS
+        # R150, PLANNING KDD-50); `find_offset` below runs it.
+        return True
+
+    def find_offset(self, device: str) -> int:
+        """Measure ``device``'s read offset with ``cyanrip -N -d <device> -f``.
+
+        Needs an audio CD that is in AccurateRip. Returns the offset only when the
+        search FINISHED and at least two of the disc's tracks agreed
+        (`parsers.cyanrip_offset_search.accept`, PLANNING KDD-50); raises
+        :class:`RipError` with a sentence for the user otherwise. Blocks for as
+        long as the search reads (minutes), so it runs on the setup worker's
+        thread, in its own killable slot, which :meth:`cancel_setup` stops.
+
+        **Why it was not implemented until 2026-11-25.** An earlier version
+        scraped ``offset…N`` from the output, latched onto the wrong line and
+        returned 0, which overrode the drive list's correct +667. The reader now
+        takes cyanrip's own summary line only, the one section O of the
+        acceptance run has graded against +667 since 2026-10-07, and the ledger
+        (`drive_profiles.reconcile_offset`) never lets a found value replace one
+        the user typed or one already confirmed.
+        """
+        from platterpus.parsers import cyanrip_offset_search
+
+        args = ["-N", "-f"]
+        if device:
+            args = ["-N", "-d", device, "-f"]
+        # The rip chokepoint's metadata rule holds for this route too (Critical
+        # rule #12): `-N` is in the argv, checked rather than assumed.
+        assert_metadata_lookup_disabled(["cyanrip", *args])
+        rc, combined = run_capture(
+            "cyanrip",
+            self._binary,
+            args,
+            timeout=_OFFSET_SEARCH_TIMEOUT_S,
+            stdin_devnull=True,
+            slot="offset",
+        )
+        found = cyanrip_offset_search.parse_found_offset(combined)
+        decision = cyanrip_offset_search.accept(found)
+        log.info(
+            "cyanrip -f on %s: exit %d, offset %s, %d track(s) agreed, saved: %s",
+            device or "(default drive)",
+            rc,
+            found.offset,
+            found.confidence,
+            decision.offset is not None,
+        )
+        self._offset_detail: str = (
+            f"{decision.agreeing_tracks} of this disc's tracks agreed"
+            if decision.offset is not None
+            else ""
+        )
+        if decision.offset is None:
+            raise RipError(decision.reason)
+        return decision.offset
+
+    def offset_search_detail(self) -> str:
+        """How many tracks agreed in the last :meth:`find_offset` that succeeded."""
+        return getattr(self, "_offset_detail", "")
 
     def analyze_drive(self, device: str) -> bool | None:
         """Measure whether ``device`` defeats its audio cache, via cd-paranoia.
@@ -707,29 +772,14 @@ class CyanripImpl(RipBackend):
         running — up to its 600 s ceiling — with the disc spinning and the drive's
         physical eject button ignored, because a read holds the device.
 
-        There is nothing to cancel for :meth:`find_offset` (deliberately
-        unimplemented on this backend), so the cache probe is the whole surface.
+        It stops :meth:`find_offset` too (2026-11-25): ``cyanrip -f`` runs in its
+        own slot, and its child is killed with its process group.
         """
         from platterpus.adapters import cache_probe
+        from platterpus.adapters.rip_backend import OFFSET_SEARCH_PROBE
 
         cache_probe.cancel_active_probe()
-
-    # NOTE: `find_offset` is deliberately NOT implemented. cyanrip DOES have an
-    # AccurateRip offset finder, ``-f`` (``search_for_drive_offset``,
-    # `cyanrip@174a134:src/cyanrip_main.c:594-692`); this comment said until
-    # 2026-09-30 that ``-f`` was force-overread, which was wrong. What it has
-    # never had is a measurement against a known offset: an earlier version of
-    # this method ran ``cyanrip -f`` and regex-scraped "offset…N" from the
-    # output, which latched onto the wrong line and returned a meaningless 0
-    # that then overrode the correct AccurateRip-list value (a silent
-    # wrong-offset bug on real hardware — the drive's true offset was +667).
-    # Section O of the acceptance run now grades ``-f``'s own summary line
-    # against that +667 (`uiscript/probe_grading.py`), and has passed on the rig in
-    # every full-green run since 2026-10-07 (`docs/testing.md` §5B); that is one
-    # drive, and the evidence to implement this against, if it earns it. Until then we inherit the base
-    # class's ``NotImplementedError``, which the drive-setup wizard already
-    # handles as "this backend can't auto-detect the read offset"; the offset
-    # comes from the bundled AccurateRip drive-model list + manual entry instead.
+        OFFSET_SEARCH_PROBE.cancel()
 
     def _run(
         self,

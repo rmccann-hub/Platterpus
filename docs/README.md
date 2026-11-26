@@ -94,7 +94,7 @@ Outside this directory:
 | File | What it covers |
 |---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
-| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-49) |
+| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-50) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist, live work only — opens with the 2026-11-16 ranking of every open row and the R-table, then every dated section that still holds an open row, the open part of P1, P2 (future), Out of scope. Every closed section and row up to 2026-11-16 (the closed rounds, dated runs, superseded rankings, P0 T01-T32) is in [`archive/tasks-closed-to-2026-11-16.md`](archive/tasks-closed-to-2026-11-16.md) |
 | [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log, and *The full map*: the generated human-readable copy of [`../bom.cdx.json`](../bom.cdx.json), the CycloneDX bill of materials of everything the project has or relies on (`python3 scripts/emit_bom.py`) |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |

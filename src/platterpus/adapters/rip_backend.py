@@ -113,17 +113,22 @@ class ProbeCancelled(RipError):
 # child, and the two operations no longer share one.
 INFO_PROBE: KillableCommand = KillableCommand("ripper info probe")
 RIPPER_VERSION_PROBE: KillableCommand = KillableCommand("ripper version probe")
+#: Set up drive's offset search (``cyanrip -f``, TASKS R150): its own slot, so
+#: *Skip check* stops it without touching a disc read or a version probe.
+OFFSET_SEARCH_PROBE: KillableCommand = KillableCommand("ripper offset search")
 
 #: Which slot a :func:`run_capture` call runs in. A name rather than the slot
 #: object so the slot is looked up when the call is made: a test that swaps a
 #: module-level slot for its own (``monkeypatch.setattr(rip_backend,
 #: "INFO_PROBE", ...)``) is then honoured, where a default argument would have
 #: bound the original at import.
-ProbeSlot = Literal["info", "version"]
+ProbeSlot = Literal["info", "version", "offset"]
 
 
 def _slot(which: ProbeSlot) -> KillableCommand:
     """The module-level slot named ``which``, read at call time (see :data:`ProbeSlot`)."""
+    if which == "offset":
+        return OFFSET_SEARCH_PROBE
     return RIPPER_VERSION_PROBE if which == "version" else INFO_PROBE
 
 
@@ -709,6 +714,14 @@ class RipBackend(ABC):
         """
         raise NotImplementedError
 
+    def offset_search_detail(self) -> str:
+        """How the last :meth:`find_offset` that succeeded was agreed, for the user.
+
+        ``""`` when there is nothing to add. A companion, like
+        :meth:`cache_analysis_detail`, so ``find_offset``'s ``int`` contract stays.
+        """
+        return ""
+
     def cache_analysis_detail(self) -> str:
         """Why the last :meth:`analyze_drive` returned ``None``, for the user.
 
@@ -739,11 +752,10 @@ class RipBackend(ABC):
         action entirely — rather than offer a button that can only fail — and
         relies on the bundled AccurateRip drive-model list + manual entry.
         Default **False**: a backend must actively prove it has a real,
-        AccurateRip-based offset finder. cyanrip has one (``-f``), and section O of
-        the acceptance run has graded it against the reference drive's known +667
-        in every full-green run since 2026-10-07; that is one drive, so until the
-        wizard's own use of it is built and proved (see its ``find_offset`` note)
-        it inherits False.
+        AccurateRip-based offset finder. cyanrip has one (``-f``) and overrides
+        this to True from 2026-11-25 (TASKS R150, PLANNING KDD-50), after section
+        O of the acceptance run graded it against the reference drive's known +667
+        in every full-green run since 2026-10-07.
         """
         return False
 

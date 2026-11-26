@@ -105,8 +105,14 @@ def decide_auto_check(
     audio_disc_present: bool,
     drive_busy: bool,
     already_attempted: bool,
+    offset_due: bool = False,
 ) -> AutoCheckDecision:
-    """Decide whether the setup dialog starts the cache check by itself.
+    """Decide whether the setup dialog starts the drive check by itself.
+
+    ``offset_due`` (TASKS R150, PLANNING KDD-50): the drive has no read offset
+    saved and the backend can measure one, so the check also searches for it,
+    from the same CD. The default, False, keeps a caller that does not say to
+    the cache check alone.
 
     ``verdict`` is a :func:`verdict_state` value, or ``None`` when the caller did
     not say — the dialog's default, so a caller that does not opt in (a test, a
@@ -117,16 +123,25 @@ def decide_auto_check(
     cannot measure, or a verdict already saved, means nothing to do whatever the
     disc; only then does the disc, and then the drive, matter.
     """
-    if not can_analyze or verdict is None or verdict == MEASURED:
-        return AutoCheckDecision(NOTHING, "")
-    if already_attempted:
-        return AutoCheckDecision(NOTHING, "")
-    why = (
-        "This drive's firmware changed since its audio-cache check, so the check "
-        "needs to run again."
-        if verdict == FIRMWARE_CHANGED
-        else "This drive's audio-cache check has not run yet."
+    cache_due, offset_due = auto_parts(
+        can_analyze=can_analyze, verdict=verdict, offset_due=offset_due
     )
+    if not (cache_due or offset_due) or already_attempted:
+        return AutoCheckDecision(NOTHING, "")
+    reasons: list[str] = []
+    if cache_due:
+        reasons.append(
+            "This drive's firmware changed since its audio-cache check, so the "
+            "check needs to run again."
+            if verdict == FIRMWARE_CHANGED
+            else "This drive's audio-cache check has not run yet."
+        )
+    if offset_due:
+        reasons.append(
+            "This drive has no read offset saved, so the check also measures it "
+            "from the CD, which works when the CD is in AccurateRip."
+        )
+    why = " ".join(reasons)
     if not audio_disc_present:
         return AutoCheckDecision(
             WAIT_FOR_DISC,
@@ -144,6 +159,19 @@ def decide_auto_check(
         f"ⓘ {why} It is running now: it reads the CD for a few minutes, and the "
         "result is saved for this drive. Press Skip check to stop it.",
     )
+
+
+def auto_parts(
+    *, can_analyze: bool, verdict: str | None, offset_due: bool
+) -> tuple[bool, bool]:
+    """Which measurements the automatic check makes: ``(cache, offset)``.
+
+    The cache when the backend can measure it and the caller said it is due
+    (``verdict`` given and not MEASURED); the offset when ``offset_due``. The
+    dialog asks this so the worker runs exactly what the note promised.
+    """
+    cache_due = can_analyze and verdict is not None and verdict != MEASURED
+    return cache_due, offset_due
 
 
 # --- The note at rip start --------------------------------------------------

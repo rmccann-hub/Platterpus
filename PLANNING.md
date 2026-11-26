@@ -491,6 +491,7 @@ Platterpus/
         │   ├── cyanrip_disc_blocks.py   # read `.28`'s `Pregap searches:` and `Names shortened:` blocks
         │   ├── cyanrip_echo_guard.py    # set aside disc-header rows forged by an echoed value (R86)
         │   ├── cyanrip_preemphasis.py   # read the per-track `Preemphasis:` row with string operations
+        │   ├── cyanrip_offset_search.py # `cyanrip -f`'s summary read, and what Set up drive saves of it (R150, KDD-50)
         │   ├── pregap_peak.py           # the proposed `Pregap sample peak:` row: how loud the span before track 1 is, never ripped (R227)
         │   ├── accuraterip_dbar.py      # read an AccurateRip dBAR file: responses of per-track (confidence, CRC) (never raises)
         │   └── eac_log.py               # parse EAC rip logs (per-track Copy CRCs; the parity baseline)
@@ -739,6 +740,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`record_reads.py`** — the `-j` record's `/13` per-track `reads`: every distinct `-Z` read, the kept one too, with its own `block_crcs` (via `record_block_crcs`), and, for a read not kept, the seconds it differs from the kept read in, derived from the two lists. States as `record_block_crcs`'s. Opens nothing: `isrc_provenance.parse_isrcs` hands it each row; the report carries it per `disc.error_positions` row (schema 44). Pure, never raises.
 - **`record_drive_declared.py`** — the `-j` record's `/13` top-level `drive_declared` (the fork's round 38 lap 8 S17): each SCSI reply whole in hex, its `truncated` checked against its length and bytes, and the CD Read feature's bits checked against its own bytes. Declarations, not measurements. Read by `isrc_provenance.parse_isrcs`; the report's `disc.drive_declared` (schema 44). `--doctor` reading it is TASKS R137. Pure, never raises.
 - **`record_vendor_settings.py`** — `drive_declared.vendor_settings` from the fork's `5cc1c6b3` (TASKS R137, the owner's word of 2026-11-05): the reply to the vendor's read-only settings query `--read-vendor-settings` sends, only to a drive whose INQUIRY a row of their table names. Checks the row against the INQUIRY's own vendor bytes (`query_agrees_with_inquiry`) and PureRead against the 256-byte block, by ports of `crip_vendor_query_for` and `crip_pioneer_f4_decode`; tri-state. Called by `record_drive_declared.parse_drive_declared`; the report's `disc.drive_declared.vendor_settings` (schema 44). Pure, never raises.
+- **`parsers/cyanrip_offset_search.py`** — reads `cyanrip -f`, cyanrip's own offset finder: its summary line (`Drive offset of N found (confidence: C)!`), its working, and the three ways it ends without an answer; moved from `uiscript/probe_grading.py` so section O and Set up drive read one output one way. `accept` decides what Set up drive saves (KDD-50): a finished search with two or more tracks agreeing, inside Settings' range. Never raises.
 - **`parsers/pregap_peak.py`** — the fork's proposed `Pregap sample peak:` row in track 1's block (its round 36 lap 1 S17, offered again in round 43 lap 1 S43): how loud the span before track 1 is, so silence can be told from a hidden track nobody ripped (TASKS R227). States `read` (percent, dBFS, the clause such as `not ripped`), `unknown` (the ripper's reason), `unrecognised` (kept, bounded, screened) and `not_present`, every build so far. The rip report carries it per track from schema 48. In `parsers/`, not beside `pregap_search.py`, per the audit's R232. Never raises.
 - **`pregap_search.py`** — what the fork's sub-channel pre-gap search saw, from `.27`'s track-block line `Pregap search: N sectors asked; N reads failed the CRC; N sectors gave no frame passing it; N frames were another sector's; N had no address; frames answer ±N sectors off[; 200-retry pass ran][; LSN A to B undecided]` (`cyanrip@b2ffd42:src/cyanrip_log.c:476-489`; their round 36 lap 8 S21). Exists because `unknown (sub-channel CRC mismatches)` was printed whatever stopped the search, misplaced frames included (their S5). One reader (`read_search`, a bounded named-group pattern into a frozen `PregapSearch`; a variant wording kept, bounded and screened, as `unrecognised`, never a count), one sentence (`describe`, which the rip audit and the `expect-pregaps-agree` grader print beside an `unknown`), and the report's per-track block (schema 40). Pure, Qt-free, never raises; imports nothing from the parser.
 - **`reread_ar_overrule.py`** — `.31`'s `--reread-until-accuraterip` lines (the fork's round 39 lap 1 S4, `cyanrip@e531a33`): the early end `Done; (read N matches AccurateRip at confidence C; agreement on X overruled by AccurateRip; kept Y, read K time(s))`, the same clause inside the eight limit lines, and the track block's `Secure re-read:  matched AccurateRip after N reads (agreement on X overruled)`. The parser files such a track as NOT converged (the fork's own statement, S6) and this module carries the other half, that AccurateRip ended or overruled the reads, for the per-track record (`track_record_sources.ar_guided_convergence`) and the footer check (`secure_rereads_footer`), which must not count an AccurateRip-ended track among the ones its `did not converge` list names. Pure, Qt-free, never raises; imports nothing from the parser. TASKS R145.
@@ -2651,6 +2653,54 @@ in our round 43 lap 2.
 reinstalled. In 0.7.130 only `--install-ripper latest` reads the manifest's options; the
 release after 0.7.130 fixes the wizard and the picker (through `target_for_commit`). The
 audio is unaffected: the line is the build's statement about itself. TASKS R249.
+
+
+### KDD-50 — Set up drive measures the offset with cyanrip's `-f`: by itself only for a drive with no offset, saved only when two tracks agree (decided 2026-11-25)
+
+**Context.** TASKS R150 (EAC parity: key-disc offset calibration). cyanrip's `-f` finds a
+drive's offset against AccurateRip, and an earlier integration was removed in 2026-07 for
+scraping the wrong line (it returned 0 and overrode the drive list's +667). Section O of
+the acceptance run has graded `-f`'s own summary line against +667 since 2026-10-07, and
+the fork fixed `-f`'s offset-0 and track-numbering defects in `.34` and `.35` (its round 43
+lap 1). The drive-setup dialog saves a found offset by itself (`_on_detection_recorded`),
+so turning the finder on changes first-run setup; the owner was asked two questions.
+
+**Decision (the owner, 2026-11-25: *"yes do what you think, make sure to record so if we
+need to do different later we know how and why"*, on these recommendations).**
+1. **When it runs.** By itself, inside the automatic drive check and after the cache check,
+   only for a drive with no offset from anywhere: none saved and none in AccurateRip's
+   drive list (`offset_saved=False`, computed in `main_window_drive._on_drive_setup`).
+   Otherwise on its own button, *Find offset from this disc* or *Check the offset with
+   this disc*, which runs the search alone. A disc not in AccurateRip says so in plain
+   words.
+2. **What is saved.** Only a finished search (cyanrip's `Drive offset of N found
+   (confidence: C)!`), not one cut short by a stop, with C ≥ 2, inside Settings' range
+   (`parsers/cyanrip_offset_search.accept`, `MIN_AGREEING_TRACKS`). C is the count of the
+   disc's tracks that agreed (`cyanrip@52bde2d:src/cyanrip_main.c:1169-1186`). A value
+   found on one track is shown and not saved. The drive ledger's rule is unchanged: a found
+   offset never replaces one the user typed or one already confirmed
+   (`drive_profiles.reconcile_offset`); it is saved as one measurement (MEDIUM) and is
+   CONFIRMED when the drive list or a typed value agrees.
+
+**Why.** Zero-terminal for a drive the list does not know, and the owner's rule *test the
+drive once, up front*, without minutes of extra reading on drives that already have an
+answer. Two tracks agreeing on an exact sample offset by chance is very unlikely; the risk
+more tracks would not remove is a disc whose AccurateRip entries come from a different
+pressing, which only a second disc addresses.
+
+**How to change it later.** Run the search on every automatic check: make
+`DriveSetupDialog._offset_due` ignore `_offset_saved` (and the window's `offset_saved`
+becomes informational). Never run it by itself: pass `offset_saved=None`. Ask more of the
+disc: raise `MIN_AGREEING_TRACKS` and the sentence in `accept`. Turn it off: make
+`CyanripImpl.supports_offset_detection` return False, which hides the button and the
+automatic search. Each change has a test that names it (`tests/test_cache_check_auto.py`,
+`tests/test_cyanrip_backend.py`).
+
+**Not done (TASKS R250).** A second disc that agrees does not yet confirm the offset: the
+ledger records the source, not the disc, so two searches of one disc would look like two
+discs. And a found offset that loses to a saved one is said in the log, not on screen.
+Hardware: `-f` has been graded on one drive (the reference BDR-209D, +667, 14 of 14 tracks
+agreeing in 32 s on 2026-11-25).
 
 
 ## 9. Working with the maintainer, and the deviation policy — moved from `CLAUDE.md` (2026-11-16)

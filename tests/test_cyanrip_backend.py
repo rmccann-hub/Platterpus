@@ -100,12 +100,12 @@ def _impl() -> CyanripImpl:
 # --- cache analysis (KDD-29) ----------------------------------------------
 
 
-def test_supports_cache_analysis_but_not_offset_detection() -> None:
+def test_supports_cache_analysis_and_offset_detection() -> None:
     impl = _impl()
-    # cyanrip CAN measure the cache (cd-paranoia -A) but has no trusted offset
-    # finder — the two capabilities are independent.
+    # The cache through cd-paranoia -A (KDD-29), the offset through cyanrip's own
+    # -f from 2026-11-25 (TASKS R150, PLANNING KDD-50).
     assert impl.supports_cache_analysis() is True
-    assert impl.supports_offset_detection() is False
+    assert impl.supports_offset_detection() is True
 
 
 def test_analyze_drive_delegates_to_cache_probe(
@@ -896,16 +896,78 @@ def test_native_output_formats_includes_wav_and_mp3() -> None:
     assert {"flac", "wav", "mp3", "wavpack"} <= fmts
 
 
-def test_find_offset_is_not_implemented() -> None:
-    """Regression: cyanrip has NO AccurateRip offset finder (its ``-f`` is
-    force-overread, not a detector). The old override ran ``cyanrip -f`` and
-    scraped "offset…N" from the help/default echo, returning a meaningless 0
-    that overrode the correct AccurateRip-list value on real hardware. cyanrip
-    must inherit the base ``NotImplementedError`` so the wizard falls back to the
-    drive-model list + manual entry, never a fabricated number.
-    """
-    with pytest.raises(NotImplementedError):
+# --- cyanrip -f in Set up drive (TASKS R150, PLANNING KDD-50) --------------------
+
+#: cyanrip's own lines, as `cyanrip@52bde2d:src/cyanrip_main.c` prints them.
+_FOUND_14 = (
+    "Searching for drive offset, enabling AccuRip and disabling MusicBrainz\n"
+    "Offset of +667 found in track 1, trying to confirm with another track\n"
+    "Offset of +667 confirmed (confidence: 2) in track 2, trying to confirm with "
+    "another track\n"
+    "Drive offset of +667 found (confidence: 14)!\n"
+)
+
+
+def _patch_offset_run(monkeypatch: pytest.MonkeyPatch, stdout: str) -> list[list[str]]:
+    """Stub the offset search's own slot; return the argv each run was given."""
+    import platterpus.adapters.rip_backend as mod
+
+    seen: list[list[str]] = []
+
+    def fake_run(argv, **kwargs):  # type: ignore[no-untyped-def]
+        seen.append(list(argv))
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(mod.OFFSET_SEARCH_PROBE, "run", fake_run)
+    return seen
+
+
+def test_find_offset_returns_a_finished_search_two_tracks_agreed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _patch_offset_run(monkeypatch, _FOUND_14)
+    impl = _impl()
+    assert impl.find_offset("/dev/sr0") == 667
+    assert impl.offset_search_detail() == "14 of this disc's tracks agreed"
+    # In its own killable slot, with -N (Critical rule #5) and the device.
+    assert seen and seen[0][-4:] == ["-N", "-d", "/dev/sr0", "-f"]
+
+
+@pytest.mark.parametrize(
+    ("stdout", "said"),
+    [
+        # Found once, never confirmed: not saved (KDD-50).
+        ("Drive offset of +667 found (confidence: 1)!\n", "only one track"),
+        ("No track had AccuRip entry, cannot find offset!\n", "not in AccurateRip"),
+        (
+            "Offset of +667 found in track 1\nStopping, offset finding incomplete!\n"
+            "Drive offset of +667 found (confidence: 1)!\n",
+            "stopped",
+        ),
+        # REGRESSION for the bug that removed -f in 2026-07: working text with no
+        # summary, or help text, must never come back as a number (it read 0).
+        ("Offset of +0 found in track 1\n", "did not finish"),
+        ("usage: cyanrip [options] -f  find drive offset\n", "did not finish"),
+        ("Drive offset of +9999 found (confidence: 5)!\n", "outside the range"),
+    ],
+)
+def test_find_offset_refuses_what_it_should_not_save(
+    monkeypatch: pytest.MonkeyPatch, stdout: str, said: str
+) -> None:
+    _patch_offset_run(monkeypatch, stdout)
+    with pytest.raises(RipError, match=said):
         _impl().find_offset("/dev/sr0")
+
+
+def test_cancel_setup_stops_the_offset_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    import platterpus.adapters.rip_backend as mod
+    from platterpus.adapters import cache_probe
+
+    stopped: list[str] = []
+    monkeypatch.setattr(mod.OFFSET_SEARCH_PROBE, "cancel", lambda: stopped.append("f"))
+    monkeypatch.setattr(cache_probe, "cancel_active_probe", lambda: stopped.append("A"))
+    _impl().cancel_setup()
+    assert sorted(stopped) == ["A", "f"]
 
 
 def test_run_raises_when_binary_missing(monkeypatch: pytest.MonkeyPatch) -> None:

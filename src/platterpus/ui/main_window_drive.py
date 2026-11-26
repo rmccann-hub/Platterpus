@@ -146,6 +146,12 @@ class DriveMixin(MainWindowShared):
             audio_disc_present=self._current_num_tracks > 0,
             drive_busy=self._drive_is_busy_for_setup(),
             drive_busy_now=self._drive_is_busy_for_setup,
+            # The offset search runs by itself only for a drive with no offset
+            # from anywhere: none saved, none in AccurateRip's drive list (TASKS
+            # R150, PLANNING KDD-50). None with no drive: nothing starts.
+            offset_saved=(
+                None if drive is None else saved is not None or known_offset is not None
+            ),
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
         # The Apply tick-box moved here from Settings (2026-09-24): the offset
