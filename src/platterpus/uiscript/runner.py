@@ -4472,6 +4472,7 @@ class ScriptRunner(
                 stamp=stamp,
                 app_version=__version__,
                 outcome="test script run",
+                run_bundle=True,
                 facts={
                     "steps": steps,
                     "results": results,
