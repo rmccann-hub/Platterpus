@@ -346,6 +346,23 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: names a defect of `.35` that makes the pin unsafe.
 FORK_PIN: Final[str] = "1280aa4"
 
+#: The ``meson setup`` options the fork's release manifest names for
+#: :data:`FORK_PIN`, so the setup wizard builds the approved pin the way the fork
+#: publishes it. Read off the manifest's ``build`` line for `1280aa4`, ``meson setup
+#: build -Ddeclare_released=true && ninja -C build``
+#: (`tests/fixtures/fork_release_manifest_d7dfec93.json`), and held to it by
+#: `tests/test_fork_source.py`.
+#:
+#: **Why it exists (the owner's Full run of 2026-11-25, on 0.7.130).** The wizard
+#: built the pin from :data:`PRODUCTION_TARGET`, which never carried options, so
+#: a fresh install compiled `.35` without ``-Ddeclare_released=true``. That build
+#: writes ``Handshake: ... -- NOT a released build`` into every log
+#: (`cyanrip@52bde2d:src/cyanrip_log.c:1224-1226`), and once round 42 made it the
+#: approved pin, every rip's audit reported the disagreement: eight failures in
+#: that run. The same commit installed through the update offer on 2026-11-24 said
+#: ``released build``, because that path reads the options off the manifest.
+FORK_PIN_MESON_OPTIONS: Final[tuple[str, ...]] = ("-Ddeclare_released=true",)
+
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
 #:
@@ -1225,6 +1242,12 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: default, their lap 1 S4), so every gated option sits at the same line.
 #: **`FORK_PIN` stays `fb28088` until round 42 closes.**
 PIN_UNDER_REVIEW: Final[str] = "1280aa4"
+
+#: The ``meson setup`` options the fork's manifest names for
+#: :data:`PIN_UNDER_REVIEW` (the manifest's ``build`` line for its channel row),
+#: for the reason :data:`FORK_PIN_MESON_OPTIONS` gives. Held to the manifest by
+#: `tests/test_fork_source.py`; moves with the pin.
+PIN_UNDER_REVIEW_MESON_OPTIONS: Final[tuple[str, ...]] = ("-Ddeclare_released=true",)
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -2903,6 +2926,8 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
         "own reads with no repair, and a C2 probe at the disc's hard seconds. "
         "See docs/handshake/inbound/round-42-lap-05.md"
     ),
+    # Built the way the fork publishes it, so its log says `released build`.
+    meson_options=FORK_PIN_MESON_OPTIONS,
 )
 
 
@@ -3077,6 +3102,7 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # so both surfaces now call `pin_under_review_role()` rather than each
     # carrying their own sentence about the same fact.
     why=under_review_target_why(),
+    meson_options=PIN_UNDER_REVIEW_MESON_OPTIONS,
 )
 
 #: **What the setup wizard and ``--install-ripper`` build by default.**
@@ -3202,7 +3228,10 @@ def target_for_commit(
                 "approved. Rips with this installed report "
                 "ripper_handshake_approval: approved"
             ),
-            meson_options=meson_options,
+            # The approved pin is built as the fork publishes it unless the
+            # caller read other options off the manifest (2026-11-25: built
+            # without them, the log says `NOT a released build`).
+            meson_options=meson_options or PRODUCTION_TARGET.meson_options,
         )
     known = _known_pairing_for(pin)
     return ForkTarget(
@@ -3221,7 +3250,14 @@ def target_for_commit(
             + ". Every rip with this installed reports "
             "ripper_handshake_approval: unapproved, which is the correct answer"
         ),
-        meson_options=meson_options,
+        meson_options=(
+            meson_options
+            or (
+                UNDER_REVIEW_TARGET.meson_options
+                if same_commit(pin, UNDER_REVIEW_TARGET.pin)
+                else ()
+            )
+        ),
     )
 
 

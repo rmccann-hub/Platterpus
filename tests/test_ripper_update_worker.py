@@ -1068,7 +1068,9 @@ def test_the_install_never_borrows_a_manifest_row_for_a_DIFFERENT_commit() -> No
     target = target_for_commit(
         rollback.install_commit, version=hint_version, meson_options=hint_options
     )
-    assert target.meson_options == ()
+    # Not the row's options: the pin's OWN, recorded for it (PLANNING KDD-49,
+    # 2026-11-25), which is what any install of the approved pin builds with.
+    assert target.meson_options == fork_source.PRODUCTION_TARGET.meson_options
     assert "platterpus.6" not in target.expectation, (
         "the expectation names a version the installed commit cannot print"
     )
