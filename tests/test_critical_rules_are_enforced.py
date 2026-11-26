@@ -2163,7 +2163,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4975 -> 4987** (2026-11-25, TASKS R227: the fork's proposed `Pregap sample peak:` row, read before any build prints it; the reader is `parsers/pregap_peak.py`): the track field, its hand-over, its rule in the track loop and its place in the enumerated track patterns.
     # **4987 -> 5003** (2026-11-26, the owner's relay: 0.7.131 must read `.36`'s `Appended:` in samples): the reason, the unit group, the samples field and its hand-over.
     # **5003 -> 5034** (2026-11-26, the fork's round 43 lap 1 S60: today's `Appended:` counts frames reached, not silence; `Prepended:` was never read): the reason, `_PREPENDED_SILENCE`, `_edge_silence` and the two prepended fields.
-    "parsers/cyanrip_log.py": 5034,
+    # **5034 -> 5037** (2026-11-26, the fork's round 43 lap 1 S4: the `Drive speed:` row's echo latch in the release before `.36`): the latch and its reason.
+    "parsers/cyanrip_log.py": 5037,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
