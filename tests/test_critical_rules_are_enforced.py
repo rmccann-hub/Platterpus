@@ -1680,7 +1680,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3763 -> 3778** (2026-11-18): round 41 closes; FORK_PIN rolls to fb28088 with its record.
     # **3778 -> 3861** (2026-11-23, round 42 names `.35`, the fork's lap 1): `PIN_UNDER_REVIEW` `1280aa4` and its round, its release sequence 47 (and its second number, 49, after `.34` went to stable), its full commit and version, its consumer-flag, `--prefer-disc-isrc` (now a no-op in `.35`), `--prefer-accuraterip-match`, `--reread-time-limit`, `--reread-until-accuraterip`, bounded-overread, AccurateRip-guided and complete-other-reads rows, and `.34` named in the `--verify-log` set, each with the source it was read from.
     # **3861 -> 3872** (2026-11-25): round 42 closes; FORK_PIN rolls to 1280aa4 with its record.
-    "deps/fork_source.py": 3872,
+    # **3872 -> 3908** (2026-11-25, TASKS R249, PLANNING KDD-49: the owner's Full run showed one commit built two ways): `FORK_PIN_MESON_OPTIONS` and `PIN_UNDER_REVIEW_MESON_OPTIONS` with their reasons, passed by both targets and by `target_for_commit` on either pin.
+    "deps/fork_source.py": 3908,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

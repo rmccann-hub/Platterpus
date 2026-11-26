@@ -2610,6 +2610,49 @@ drives at once (fre:ac, dBpoweramp), and AccurateRip submission (EAC, dBpoweramp
 and 28 record the decisions.
 
 
+### KDD-49 — The setup wizard builds the approved pin as the fork's manifest says, `-Ddeclare_released=true` included (decided 2026-11-25)
+
+**Context.** The owner's Full run of 2026-11-25 on 0.7.130 (`.35` approved) failed eight
+`expect-album-audit` steps with one finding: the binary's own note said `round 41 lap 5
+OPEN, verdict GO -- NOT a released build` while we scored it approved. The same commit
+had said `-- released build` the day before (the owner's log of 2026-11-24). The note's
+arm is decided at build time by `-Ddeclare_released=true`
+(`cyanrip@52bde2d:src/cyanrip_log.c:1224-1228`). The in-app update offer and
+`--install-ripper latest` pass the manifest's options (`deps/ripper_offer.py`,
+`deps/ripper_latest.py`); the setup wizard built `PRODUCTION_TARGET`, which carried none,
+by a decision recorded since round 11 and re-affirmed at every pin roll in
+`tests/test_fork_source.py`: that a binary we compile is not the fork's published artifact,
+so declaring it released is a claim we are not entitled to make. The owner reinstalled
+through the wizard, so the second path built the commit the second way.
+
+**Decision.** One commit is built one way, and the way is the manifest's.
+`fork_source.FORK_PIN_MESON_OPTIONS` and `PIN_UNDER_REVIEW_MESON_OPTIONS` carry the options
+the manifest's `build` line names for each pin, `PRODUCTION_TARGET` and
+`UNDER_REVIEW_TARGET` pass them, and `target_for_commit` gives them to `--install-ripper`
+on either pin. `tests/test_fork_source.py` holds each target to the filed manifest.
+
+**Why this direction.** The fork's CI calls the option "the build our release manifest
+tells the consumer to make" (`cyanrip@52bde2d:.github/workflows/ci.yml:68-69`), and the
+binary prints "(declared at build time, not verified by cyanrip)" under the line, so the
+claim is labelled as declared. We build exactly the commit the manifest names, refuse a
+build whose tag or full commit differ, and the update path already did this. The other
+direction (no option on any path) would print `NOT a released build` into every rip of an
+approved pin and make the audit's cross-check fire on every rip.
+
+**How to undo it, if the fork or the owner decides the round-11 reading was right.** Empty
+the two `*_MESON_OPTIONS` constants AND drop the manifest's options from
+`ripper_offer.py` and `ripper_latest.py` in the same change, so the paths still agree;
+then `rip_audit._audit_handshake_note` must stop treating `approved` with `NOT a released
+build` as a disagreement for a build we compiled, or every rip fails it. Asked of the fork
+in our round 43 lap 2.
+
+**Consequence.** A ripper installed by 0.7.130's setup wizard, or by *Choose a build…*
+(which passed no options either), keeps saying `NOT a released build` until it is
+reinstalled. In 0.7.130 only `--install-ripper latest` reads the manifest's options; the
+release after 0.7.130 fixes the wizard and the picker (through `target_for_commit`). The
+audio is unaffected: the line is the build's statement about itself. TASKS R249.
+
+
 ## 9. Working with the maintainer, and the deviation policy — moved from `CLAUDE.md` (2026-11-16)
 
 `CLAUDE.md` keeps one line per item of both lists (`TASKS.md` R32); their full text, with the owner's words each one quotes, is kept here.

@@ -1393,7 +1393,7 @@ class TestTheRipperBuildMenu:
 # --- Round 11 §0: the build flag is per-pin, and the default under-claims ---
 
 
-def test_our_production_pin_gets_no_meson_options() -> None:
+def test_the_approved_pin_is_built_as_the_fork_publishes_it() -> None:
     """The measured trap, pinned as a test.
 
     Round 11 §0: `meson_options.txt` is **absent** at `ddf7ac3`, and meson fails the
@@ -1566,22 +1566,83 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # meson_options.txt` in the fork's tree is empty: sha256 `f93d5dfb5a761a2f…`,
     # 1,318 bytes, so the reasons above carry over.
     #
+    # **REVERSED ON 2026-11-25 (PLANNING KDD-49), AND THE REASON IS THAT ONE
+    # COMMIT HAD TWO ANSWERS.** The decision above held for the setup wizard, but
+    # the in-app update offer and `--install-ripper latest` always passed the
+    # manifest's options (`ripper_offer.py`, `ripper_latest.py`). So `.35` at
+    # `1280aa4` said `-- released build` when the owner installed it through the
+    # offer (his log of 2026-11-24) and `-- NOT a released build` after a
+    # reinstall through the wizard (his Full run of 2026-11-25), and once round 42
+    # approved it, every rip's audit reported the DISAGREEMENT: eight failures.
+    # Two install paths built one commit two ways, and no test compared them.
+    #
+    # The direction chosen is the manifest's. The fork's CI calls
+    # `-Ddeclare_released=true` "the build our release manifest tells the
+    # consumer to make" (`cyanrip@52bde2d:.github/workflows/ci.yml:68-69`), and
+    # the binary prints "(declared at build time, not verified by cyanrip)" under
+    # the line (`cyanrip@52bde2d:src/cyanrip_log.c:1227-1228`), so the claim is
+    # labelled as declared, not proved. We build the commit the manifest names,
+    # with the build line it names, and refuse a build whose tag or full commit
+    # differ. The other direction (no option on either path) would print `NOT a
+    # released build` into every rip of an approved pin and turn the audit's
+    # cross-check into noise. If the fork says otherwise, KDD-49 says how to undo
+    # it: empty the two `*_MESON_OPTIONS` constants and drop the options from the
+    # offer path in the same change, so the paths still agree.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
     assert fork_source.PRODUCTION_TARGET.pin == "1280aa4", (
-        "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
-        "whether we are entitled to any option it declares. Presence is not "
-        "permission: `declare_released` is a claim about provenance, and a build "
-        "we compiled is not the fork's published artifact."
+        "the pin moved — re-check meson_options.txt and the manifest's build line "
+        "at the new pin, and move FORK_PIN_MESON_OPTIONS with it"
     )
-    assert fork_source.PRODUCTION_TARGET.meson_options == ()
+    assert fork_source.PRODUCTION_TARGET.meson_options == ("-Ddeclare_released=true",)
+
+
+def _manifest_rows_for(pin: str) -> list[object]:
+    """Every channel row of every filed fork manifest that names ``pin``."""
+    from platterpus.deps import ripper_manifest
+
+    rows: list[object] = []
+    for path in sorted(
+        (Path(__file__).parent / "fixtures").glob("fork_release_manifest_*.json")
+    ):
+        manifest = ripper_manifest.parse_manifest(path.read_text(encoding="utf-8"))
+        if manifest is None:
+            continue
+        for row in manifest.channels.values():
+            if fork_source.same_commit(row.commit, pin):
+                rows.append(row)
+    return rows
+
+
+def test_the_wizard_builds_each_pin_with_the_options_the_manifest_names() -> None:
+    """REGRESSION (the owner's Full run of 2026-11-25): the wizard and the update
+    offer must build one commit one way. The offer takes the manifest's options;
+    the wizard's targets carry the same, read off the filed manifest."""
+    for target in (fork_source.PRODUCTION_TARGET, fork_source.UNDER_REVIEW_TARGET):
+        rows = _manifest_rows_for(target.pin)
+        assert rows, f"no filed manifest names {target.pin}: file the one that does"
+        for row in rows:
+            assert tuple(row.meson_options) == target.meson_options, (
+                f"{target.pin}: the manifest says {row.meson_options}, the wizard "
+                f"would pass {target.meson_options}"
+            )
+
+
+def test_install_ripper_on_a_known_pin_gets_its_options_and_any_other_none() -> None:
+    approved = fork_source.target_for_commit(fork_source.FORK_PIN)
+    assert approved.meson_options == fork_source.PRODUCTION_TARGET.meson_options
+    told = fork_source.target_for_commit(fork_source.FORK_PIN, meson_options=("-Dx=y",))
+    assert told.meson_options == ("-Dx=y",)
+    assert fork_source.target_for_commit("abc1234").meson_options == ()
 
 
 def test_the_build_argv_carries_the_pins_options_and_nothing_else() -> None:
     """The options reach the container as one positional argument, or as empty."""
     argv = fork_source.build_command("ripping")
-    # [-2]: $7, the full commit, is last since 2026-10-26.
-    assert argv[-2] == "", "our current pin must configure with no -D options"
+    # [-2]: $7, the full commit, is last since 2026-10-26. Our pin is built as the
+    # manifest says (KDD-49).
+    assert argv[-2] == "-Ddeclare_released=true"
 
     with_option = fork_source.ForkTarget(
         pin="c4d1a00",
