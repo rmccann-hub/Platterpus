@@ -59,7 +59,7 @@ def expected_open_round_warning(report: Mapping[str, Any] | None) -> str:
     """Why the handshake check's open-round warning is expected here, or ``""``.
 
     **The one warning the acceptance run expects, and only on one binary.** The
-    product's audit warns whenever cyanrip says it was built from an open round,
+    product's audit warns whenever cyanrip says it was not declared released,
     and it should: a user ripping with an unreleased build must be told. But a
     closing run tests exactly such a build, because a fork build goes to beta
     inside the open round first (round 30's O3), and the fork's release plan

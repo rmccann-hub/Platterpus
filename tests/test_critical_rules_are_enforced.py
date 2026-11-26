@@ -2352,7 +2352,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1667 -> 1684** (2026-11-03, TASKS R112, review A1/A2/B1 of that day's Full run: one verdict for a track AccurateRip contradicts, on every surface): the completion grade reads the report's per-track contradiction, recognises the `health_status` sentence `rip_health.contradicted_health` writes, and keeps the clean word out of its OK.
     # **1684 -> 1702** (2026-11-04, TASKS R122): `cue_integrity` hands `cue_emphasis.check_flags_pre` every pass's argv and each track's `pre_emphasis`, so a pre-emphasised track kept with `-W` whose cue lacks FLAGS PRE warns. The rule is `cue_emphasis.py`.
     # **1702 -> 1710** (2026-11-16, TASKS R59 (a), the owner's word "4. a"): `RIPPING_ERRORS_WARNING` and `ripping_errors_warning`, the completion check's tally warning named once, so the acceptance grader that may expect it compares the whole sentence the audit wrote. The rule for when it is expected is `uiscript/expected_warnings.py`.
-    "rip_audit.py": 1710,
+    # **1710 -> 1713** (2026-11-26, the fork's round 43 lap 1 S52: the audit says the build was not declared released, not that it came from an open round): the reason, cited, beside the sentence.
+    "rip_audit.py": 1713,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     # **1405 -> 1412** (2026-10-19, TASKS D2, `disallow_any_generics` retired): both track readers accept a list or nothing, so `"tracks": 5` no longer makes `best_of_plan` raise; found by typing the report `dict[str, object]`.
     "rip_compare.py": 1412,

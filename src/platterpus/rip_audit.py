@@ -260,9 +260,12 @@ def _audit_handshake_note(report: dict[str, Any], album: AlbumAudit) -> None:
     if verdict == "approved" and release == "unreleased":
         album.add(
             LEVEL_WARN,
+            # The arm after `--` is the build's declaration alone, set by
+            # `-Ddeclare_released` when it was compiled; the round in the line is
+            # information (the fork's round 43 lap 1 S52, `PROTOCOL.md` §7).
             "DISAGREEMENT: we score this ripper 'approved' while the binary itself "
-            "says it was built from an open round. Our pin and their compiled-in "
-            "note describe the same build and cannot both be right",
+            "says it was not declared released when it was built. Our pin and its "
+            "compiled-in note describe the same build and cannot both be right",
         )
     elif verdict == "unapproved" and release == "released":
         album.add(
