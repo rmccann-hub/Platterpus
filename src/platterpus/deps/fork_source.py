@@ -1306,7 +1306,10 @@ PIN_UNDER_REVIEW_MESON_OPTIONS: Final[tuple[str, ...]] = ("-Ddeclare_released=tr
 #: **42 from 2026-11-23**: their lap 1 opens round 42 on `.35`, published on beta
 #: during round 41 (`release_seq` 47, `handshake_round` 41, `round_closed: false`)
 #: and not its subject, so round 42 is the round that reviews it.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 42
+#: **43 from 2026-11-26**: their lap 1 opens round 43 on `.35` again, the pin round 42
+#: approved (`FORK_PIN` is the same commit), so round 43 reviews the build users have;
+#: `.36` is built inside it and published after our 0.7.131 (their S4).
+PIN_UNDER_REVIEW_ROUND: Final[int] = 43
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
