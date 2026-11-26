@@ -1992,7 +1992,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 34 for `.23` with 0.7.106, recorded beside both constants.
     # **804 -> 813** (2026-10-20): round 35's approval record (0.7.110, round 35), recorded beside its constants, as each round's is.
     # **822 -> 830** (2026-10-28): round 36's approval record (0.7.114, round 36), recorded beside its constants, as each round's is.
-    "handshake_approval.py": 883,  # +9 2026-11-25: the approval record moves to round 42, 0.7.129, with its record  # +9 2026-11-18: the approval record moves to round 41, 0.7.127, with its record  # +8 2026-11-16: the approval record moves to round 40, 0.7.125, with its record  # +9 2026-11-13: the approval record moves to round 39, 0.7.123, with its record  # 838 -> 848 (2026-11-11): round 38's approval, recorded beside the two constants it moves, as every round's was; 830 -> 838 (2026-11-03): round 37's approval, recorded beside the two constants it moves, as every round's was; 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **883 -> 912** (2026-11-26, TASKS R249 follow-up, the owner's word: offer to rebuild an approved cyanrip compiled without the release option): `rebuild_offer`, the pure decision.
+    "handshake_approval.py": 912,  # +9 2026-11-25: the approval record moves to round 42, 0.7.129, with its record  # +9 2026-11-18: the approval record moves to round 41, 0.7.127, with its record  # +8 2026-11-16: the approval record moves to round 40, 0.7.125, with its record  # +9 2026-11-13: the approval record moves to round 39, 0.7.123, with its record  # 838 -> 848 (2026-11-11): round 38's approval, recorded beside the two constants it moves, as every round's was; 830 -> 838 (2026-11-03): round 37's approval, recorded beside the two constants it moves, as every round's was; 813 -> 822 (2026-10-26, the claude-code-skills review of 2026-10-26, item 2.2): a `-dirty` tag gets its own reason in the unapproved verdict instead of being described as the clean build it names; 783 -> 795 (2026-10-15): round 33's approval, recorded beside the two constants it moves, as every round's was; 770 -> 783 (2026-10-14): round 32's approval, recorded beside the two constants it moves, as every round's was; was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
@@ -2979,7 +2980,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5454 -> 5464** (2026-11-17, the fork's round 41 lap 5 S18): `_merge_shipped_track` carries the shipped read's `Other read:` lines with its read count, so a record that counts agreeing reads from them counts the reads the file came from; the merge rule lives here.
     # **5464 -> 5474** (2026-11-23, UX review of 0.7.127 M2, TASKS R179): the rip's track numbers go to `begin_rip` and the worker's `current_track` to `set_current_track`, for the one bar's "Track 5 of 14".
     # **5474 -> 5486** (2026-11-23, R181 follow-up): the finish handler keeps the status line's inputs (`FinishedLine`).
-    "ui/main_window_rip.py": 5486,
+    # **5486 -> 5488** (2026-11-26, TASKS R249 follow-up, the owner's word: offer to rebuild an approved cyanrip compiled without the release option): the rip-finish path asks for the offer.
+    "ui/main_window_rip.py": 5488,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -3022,7 +3024,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **581 -> 583** (2026-11-25, the owner's reinstall log): the seam declares `_disc_waits_for_ripper` and `_on_drive_changed`.
     # **583 -> 585** (2026-11-25, TASKS R248, the owner after reinstalling: say when there is nothing to redo): the seam declares `_selected_drive_setup_facts`.
     # **585 -> 587** (2026-11-25, TASKS R245, the owner's log: a disc read must not start beside Set up drive's check): the seam declares the two cache-check methods.
-    "ui/main_window_shared.py": 587,
+    # **587 -> 588** (2026-11-26, TASKS R249 follow-up, the owner's word: offer to rebuild an approved cyanrip compiled without the release option): the seam declares `_offer_ripper_rebuild`.
+    "ui/main_window_shared.py": 588,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -3044,7 +3047,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1006 -> 1087** (2026-11-03, TASKS R96): the automatic cyanrip offer waits for the main window instead of being dropped (`_hold_automatic_ripper_offer`), and `_interruption_blocker` is split into the reasons that drop a held offer (`_no_one_to_ask`) and those that delay it (`_rip_blocker`, `_modal_floor_blocker`), with the docstrings that say why the user-started check is not held. Beside the check whose answer it holds.
     # **1087 -> 1093** (2026-11-03, review of that day's Full run, B2): the cyanrip install offer is deleted when it closes, with why, beside the line that sets it; its sibling box already did.
     # **1093 -> 1112** (2026-11-17, UX review of 0.7.127 F1/F2/F4: answering No to the first-run setup question means no): the automatic cyanrip offer is not shown while no ripper is installed, and the install offer asks a plain question with the record under Show Details.
-    "ui/main_window_update.py": 1112,
+    # **1112 -> 1185** (2026-11-26, TASKS R249 follow-up, the owner's word: offer to rebuild an approved cyanrip compiled without the release option): `_offer_ripper_rebuild`, `_on_rebuild_ripper_clicked` and the status-bar note, beside the ripper installs they start.
+    "ui/main_window_update.py": 1185,
     # One record type and the per-album store it lives in, cohesive. **-> 304** (2026-11-03, TASKS R51 and R62 meeting): `EacLogRender` keeps what the EAC-layout log was rendered from, who cancelled included, so CTDB's later answer renders it the same way.
     # **304 -> 307** (2026-11-05, TASKS R133, the automatic CTDB repair): the repair's step label.
     # **307 -> 315** (2026-11-11, round 39's G3, the record): `EacLogRender.retried_tracks`, so a render after CTDB or the repair numbers the chase attempt as the first did.
