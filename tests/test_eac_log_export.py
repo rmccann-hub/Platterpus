@@ -1104,7 +1104,11 @@ def test_an_unusable_elapsed_renders_no_row_rather_than_nonsense() -> None:
 
 
 def test_appended_silence_is_declared_in_the_status_report() -> None:
-    """The archival point: those final frames are FABRICATED, not disc audio.
+    """The archival point: the track ends in silence the ripper wrote.
+
+    Since 2026-11-26 (the fork's round 43 lap 1 S60) the line states the ripper's
+    own unit: today's count is the frames the offset REACHED, the earlier of which
+    can still hold disc audio, so a frame count is never called "not disc audio".
 
     cyanrip 0.9.3 has printed this all along (track 14 of both committed reference
     rips) and we discarded it. It belongs in the status area rather than the
@@ -1120,7 +1124,10 @@ def test_appended_silence_is_declared_in_the_status_report() -> None:
     )
     text = render_eac_style_log(log)
     line = next(ln for ln in text.splitlines() if ln.startswith("Appended silence"))
-    assert "track(s) 14 (2 frame(s))" in line
+    assert (
+        "track(s) 14 (the offset reached 2 frame(s) past the disc's last audio sector)"
+        in line
+    )
     assert "not disc audio" in line
     # Aligned with its sibling caveat rows, so the status block reads as a block.
     assert line.startswith("Appended silence    : ")
@@ -1184,7 +1191,10 @@ def test_the_real_reference_rip_declares_its_appended_silence() -> None:
         if ln.startswith("Appended silence")
     ]
     assert len(lines) == 1, lines
-    assert "track(s) 14 (2 frame(s))" in lines[0]
+    assert (
+        "track(s) 14 (the offset reached 2 frame(s) past the disc's last audio sector)"
+        in lines[0]
+    )
 
 
 # --- The -Z verdict from the log file, end to end ----------------------------
@@ -2144,9 +2154,10 @@ def test_a_SINGLE_fabricated_frame_is_still_reported() -> None:
         tracks=(replace(base.tracks[0], appended_silence_frames=1),),
     )
     line = "\n".join(_appended_silence_line(one))
-    assert "track(s) 1 (1 frame(s))" in line, (
-        "one fabricated frame is still fabricated; the notice omitted it"
-    )
+    assert (
+        "track(s) 1 (the offset reached 1 frame(s) past the disc's last audio sector)"
+        in line
+    ), "one fabricated frame is still fabricated; the notice omitted it"
 
     # A measured zero says nothing was appended, so there is no caveat to make.
     zero = replace(base, tracks=(replace(base.tracks[0], appended_silence_frames=0),))
