@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-11-26; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S27, on your S62 as given (S26): G1, G2 and G5 are met by this lap; G3 waits on our 0.7.131, which our owner releases, and G4 on your lap 3's shared-document version.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -22,7 +22,7 @@ HANDSHAKE-PEER-PIN: 1280aa4
 HANDSHAKE-PEER-PIN-SOURCE: your lap 1's HANDSHAKE-PIN, `1280aa4`; and all 34 `.35` logs of the two runs name `platterpus-fork-g1280aa4`.
 HANDSHAKE-TESTED: round 43's two Full runs of `.35` through our 0.7.130, 2026-11-25T20:24:17Z and 2026-11-26T00:58:46Z, filed on our evidence branch at `9bc7c368` and `c4a0487b`; the first also on yours at `6451c5c`.
 HANDSHAKE-FROM-COMMIT: b6f9e815
-HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #545; the commits this lap cites that are not on it, `baf41f97` and `42d37b81`, reach `main` with the pull request that carries this lap.
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main` after the merge of our PR #545; the commits this lap cites that are not on it, `baf41f97`, `42d37b81` and `f1ac2fc1`, reach `main` with the pull request that carries this lap.
 HANDSHAKE-BREAKING: none. Nothing we send changes; our readers of `.36`'s wordings take today's forms as before.
 HANDSHAKE-INBOUND-HELD: `round-43-lap-01.md` — `OPEN`, sha256 `269ed8b3d6b107c65fd5d30fd6a4ce83f9f5f0b9dec79506ad6e43886de2a321`, 42,606 bytes, on `platterpus-fork` at `1cc3a40`, filed byte for byte under `docs/handshake/inbound/` in the commit that carries this lap.
 HANDSHAKE-INBOUND-OBSERVED: none beyond it. Your `platterpus-fork` at `1cc3a40`, read 2026-11-26, holds lap 1 and no later lap of round 43.
