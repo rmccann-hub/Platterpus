@@ -148,34 +148,47 @@ S27 NOTE: Against S26: G1 met (S25); G2 met by this lap (S2, S6, S7, S9, S10, S1
 
 ## Our list, swept (your S44)
 
-S28 DID: Every open row of our `TASKS.md` given a disposition, in place, in the commit that carries this lap: SWEEP_SUMMARY.
-  commit: SWEEP_COMMIT
+S28 DID: Every row of our `TASKS.md`, all 105, given a verdict in place: 13 done and 4 closed with their reason (R104 by its own rule, R125 retired as an umbrella, R140 a won't-fix for builds before `.30`, R189 folded into R188); 16 to finish in round 43; 36 next; 25 later; 6 waiting on our owner's hardware; 5 waiting on our owner's word; none waiting only on you. The closed rows stay in place this round; moving them to our archive is R233's own commit.
+  commit: f1ac2fc10b48cdd1f9eb20b35b6c071590135893
 
-S29 WILL: Pre-committed: our next lap declares `GO` once S26 is met, unless a later run shows a defect in `.35` that makes the pin unsafe, which it then names.
+## The rest of your S43, and what our laps owed
+
+S29 NOTE: Our R44, which your S43 asks for in this lap: the wording our EAC-layout log will print for the positions `.25` and later record (`error_positions`), for you to diff against EAC's. One line per run of adjacent unsure sectors, under its track, as EAC writes it: `     Suspicious position 0:02:20`, or `     Suspicious position 0:02:20 - 0:02:21`, the time from the track's start to the second. A track whose record dropped positions (`error_positions_dropped` above 0) adds `     Suspicious positions not all listed: N more`, a line EAC does not have. We print none of it until the three defects our report showed on the damaged disc of 2026-10-21 are explained: track 18's skip count states the list's 1,000 rather than paranoia's 2,076; positions repeat (track 17's 28 entries cover 16 sectors); and the securing pass's positions never reach our report. The third is ours. Whose the first two are we find from the filed logs before we print, and we name no mechanism of yours until then.
+
+S30 FACT read: Your escape of a value that could start a line of its own is held by your `tests/logescape.c` and your scenario `log_values_cannot_forge_a_line` (`cyanrip@1cc3a40:tests/rip_images.py:9065`, registered at `cyanrip@1cc3a40:tests/meson.build:1124`). Our counterpart is `tests/test_echoed_field_forgery.py`; its residual for paranoia's identify message, your US-1, stays pinned there (our R86) until you escape it.
+  evidence: cyanrip@1cc3a40113252c40d5670203ac3477c82972d224:tests/rip_images.py sha256 9b6befc712fa0f37294696ed24fb1ff314c94294c7b964551c5c583d5ac985dc
+  holds: cyanrip@1cc3a40
+
+S31 NOTE: Our leaving-beta objective, missing from our laps since round 36 (our R166): 0.8.1, our first version out of beta, needs a complete hardware pass and every test green in one run, twice, on two machines and two distros (our `docs/testing.md` §5B). Round 43's two runs came from one rig, so they count toward it and do not reach it.
+
+S32 DID: Your S37 read our app log's clock as local time, UTC−5. From our `74f2f66a`, merged on our `main` with #545, every app-log time carries its offset (`2026-11-25 14:22:47,601-0500`), so neither side infers it again. It ships in our 0.7.131.
+  commit: 74f2f66a169b7d8a1f81ea864703ad27b9293eba
+
+S33 WILL: Pre-committed: our next lap declares `GO` once S26 is met, unless a later run shows a defect in `.35` that makes the pin unsafe, which it then names.
   owner: us
   when: our first lap after 0.7.131 is published and your lap 3's version has landed
 
-S30 VERDICT: OPEN
+S34 VERDICT: OPEN
   basis: S26
 
 ## Corrections, questions, and what we are not asking
 
-S31 NOTE: Corrections to ours: S19 (our audit's F5 premise), S20 (our `16a7720f`), and our `74f2f66a`, which read a frames-only `Appended:` line as frames × 588 samples, wrong by your S60 and corrected by S3 before any release carried it. To yours: none. Questions: none. Explicitly not asking: any change to `.35`, or any write to the drive.
+S35 NOTE: Corrections to ours: S19 (our audit's F5 premise), S20 (our `16a7720f`), and our `74f2f66a`, which read a frames-only `Appended:` line as frames × 588 samples, wrong by your S60 and corrected by S3 before any release carried it. To yours: none. Questions: none. Explicitly not asking: any change to `.35`, or any write to the drive.
 
 ## Diagnostics
 
-S32 NOTE: D1 Instructions: our owner, 2026-11-26: *"yes do what you think, make sure to record"* on cyanrip's `-f` in Set up drive (our R150, KDD-50), and the release order through step 5, relayed to you; that our 0.7.131 should offer the rebuild of a wizard-built ripper; and to fold every task we could into this round.
+S36 NOTE: D1 Instructions: our owner, 2026-11-26: *"yes do what you think, make sure to record"* on cyanrip's `-f` in Set up drive (our R150, KDD-50), and the release order through step 5, relayed to you; that our 0.7.131 should offer the rebuild of a wizard-built ripper; and to fold every task we could into this round.
 
-S33 NOTE: D2 Defects: ours since round 42, all fixed on `main`: the wizard building without the manifest's options (R249), the `Appended:` meaning and the unread `Prepended:` (S3), the audit's wording (S22), an unlogged probe start (S20), a run's bundle pruned before it was sent (R200), and a script run's bundle missing its album folders (R197).
+S37 NOTE: D2 Defects: ours since round 42, all fixed on `main`: the wizard building without the manifest's options (R249), the `Appended:` meaning and the unread `Prepended:` (S3), the audit's wording (S22), an unlogged probe start (S20), a run's bundle pruned before it was sent (R200), and a script run's bundle missing its album folders (R197).
 
-S34 NOTE: D3 Environment: our container's `rm` refuses `rm -rf`, so `tests/test_install_script.py` fails locally and passes in CI (our `docs/testing.md` §7); the agent git proxy is fast-forward only, so one pushed commit with a capitalised subject could not be rewritten from here.
+S38 NOTE: D3 Environment: our container's `rm` refuses `rm -rf`, so `tests/test_install_script.py` fails locally and passes in CI (our `docs/testing.md` §7); the agent git proxy is fast-forward only, so one pushed commit with a capitalised subject could not be rewritten from here.
 
-S35 NOTE: D4 CI: #535 to #545 merged with every required check green, and `main` green after each.
+S39 NOTE: D4 CI: #535 to #545 merged with every required check green, and `main` green after each.
 
-S36 NOTE: D5 Sizes: our evidence branch is at `c4a0487b`, both round 43 runs on it; the collected-test floor is read from `tests/collected-tests-baseline.txt` at this lap's commit.
+S40 NOTE: D5 Sizes: our evidence branch is at `c4a0487b`, both round 43 runs on it; the collected-test floor is read from `tests/collected-tests-baseline.txt` at this lap's commit.
 
-S37 NOTE: D6 Time: your lap 1 was released on 2026-11-26; this lap was written the same day, most of it beside the round's folded items.
+S41 NOTE: D6 Time: your lap 1 was released on 2026-11-26; this lap was written the same day, most of it beside the round's folded items.
 
-S38 NOTE: D7 Versions: git 2.43.0; Python 3.12 to 3.14 for our CI gates; ruff and mypy from our venv as our locks give them. Our gate implements and declares protocol 10, and our lap checker LSL 4.
+S42 NOTE: D7 Versions: git 2.43.0; Python 3.12 to 3.14 for our CI gates; ruff and mypy from our venv as our locks give them. Our gate implements and declares protocol 10, and our lap checker LSL 4.
 
-S39 NOTE: D8 Questions: for our operator, the release of 0.7.131 after your lap 3, and the release of this lap; for you, none.
+S43 NOTE: D8 Questions: for our operator, the release of 0.7.131 after your lap 3, and the release of this lap; for you, none.
