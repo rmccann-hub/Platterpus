@@ -1,0 +1,3088 @@
+=== Platterpus verified-read chase: track 3, attempt 1 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T222543Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T222543Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 12 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.28 s
+    Kept read began:    2026-11-25T22:25:54Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     2AC1F945
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  DC23DDD2 (not found, either a new pressing, or bad rip)
+    Accurip v2:  36776BF1 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:25:54-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        136
+    FIXUP_ATOM:    32
+    OVERLAP:       32
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        136
+  FIXUP_ATOM:    32
+  OVERLAP:       32
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:26:36-05:00
+Log FUN512: uNgB4WM.eq57Y5qeNY_7AFmelPay_e85a.sB2ZSNOJfg_Am0WdKSVUV0I5no84ryJGvOjoike_WBuMPQAz4EKw
+
+=== Platterpus verified-read chase: track 3, attempt 2 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T222636Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T222636Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 6 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 86 sectors asked; 120 reads failed the CRC; 0 sectors gave no frame passing it; 28 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            42.60 s
+    Kept read began:    2026-11-25T22:26:48Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     418F6CF8
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5D9C0DEF (not found, either a new pressing, or bad rip)
+    Accurip v2:  B7EFCED4 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:26:48-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        133
+    FIXUP_ATOM:    18
+    OVERLAP:       31
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        133
+  FIXUP_ATOM:    18
+  OVERLAP:       31
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:27:31-05:00
+Log FUN512: rSU1qWbSSzqeETcvbyaPuEcnauPpkZfBV.fNoFxG4dPVLI47njH5KzHI6IQWlRA1pn5KcoaNB1GrNTIjay4g2w
+
+=== Platterpus verified-read chase: track 3, attempt 3 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T222731Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T222731Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 58 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.35 s
+    Kept read began:    2026-11-25T22:27:41Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     DBCEAA77
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  193DDDD2 (not found, either a new pressing, or bad rip)
+    Accurip v2:  72EA7BCC (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:27:41-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        132
+    FIXUP_ATOM:    16
+    OVERLAP:       31
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        132
+  FIXUP_ATOM:    16
+  OVERLAP:       31
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:28:23-05:00
+Log FUN512: Cbg8c4tVxaNraSk6b21aYQoDr.nttkxNo4f7e5N5kQY_xr1K1FD6u6ieaobTgq65gTHqO_FQtHDcmQBnIWBNwA
+
+=== Platterpus verified-read chase: track 3, attempt 4 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T222823Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T222823Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 12 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            42.57 s
+    Kept read began:    2026-11-25T22:28:33Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     329DC760
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  FD340DEF (not found, either a new pressing, or bad rip)
+    Accurip v2:  5787AEA3 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:28:33-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        134
+    FIXUP_ATOM:    24
+    OVERLAP:       34
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        134
+  FIXUP_ATOM:    24
+  OVERLAP:       34
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:29:15-05:00
+Log FUN512: sdJs74kKoFfmW8fNJoo5sSrMRx5hko0aZSkse6b5yuC0wm6QKL39MtniJ03.Yjm55URden.E44vM9nzENUP.Qg
+
+=== Platterpus verified-read chase: track 3, attempt 5 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T222916Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T222916Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 18 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 58 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            42.56 s
+    Kept read began:    2026-11-25T22:29:26Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     2AC1F945
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  DC23DDD2 (not found, either a new pressing, or bad rip)
+    Accurip v2:  36776BF1 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:29:26-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        137
+    FIXUP_ATOM:    12
+    OVERLAP:       29
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        137
+  FIXUP_ATOM:    12
+  OVERLAP:       29
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:30:08-05:00
+Log FUN512: UMPQBuKCXi7wpxdP0_SVPiSQKzDrr9W9hnVE_aRpGdm_yGicg203Hkspxg5qLmL5vEtXnExmRvKHzjmJPNFCuA
+
+=== Platterpus verified-read chase: track 3, attempt 6 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223009Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223009Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 64 sectors asked; 81 reads failed the CRC; 1 sectors gave no frame passing it; 5 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            42.61 s
+    Kept read began:    2026-11-25T22:30:20Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     4E56AC1E
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  EE0B603D (not found, either a new pressing, or bad rip)
+    Accurip v2:  485CA6BF (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:30:20-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        142
+    FIXUP_ATOM:    36
+    OVERLAP:       33
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        142
+  FIXUP_ATOM:    36
+  OVERLAP:       33
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:31:02-05:00
+Log FUN512: FopljvbykqDSoW6YBtGRsM6OXILZQGT96GcoCAFi8PoNFuZiMM5ktS6B_R7pAdOcB6oNEv0YlBMX5Ovq1rCXYA
+
+=== Platterpus verified-read chase: track 3, attempt 7 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223103Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223103Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 64 sectors asked; 119 reads failed the CRC; 1 sectors gave no frame passing it; 5 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.30 s
+    Kept read began:    2026-11-25T22:31:14Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     7E50D2FA
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  3B9936B3 (not found, either a new pressing, or bad rip)
+    Accurip v2:  95EAFE4A (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:31:14-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        138
+    FIXUP_ATOM:    26
+    OVERLAP:       33
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        138
+  FIXUP_ATOM:    26
+  OVERLAP:       33
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:31:56-05:00
+Log FUN512: haW92rzdCG0Rx9OmK.bf4LjR8qdzk9GAp1_MkJwlI3hGx1U6s8taekLqluaNy4Z6bt367pj_foFCK4S640COyQ
+
+=== Platterpus verified-read chase: track 3, attempt 8 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223156Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223156Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 67 sectors asked; 153 reads failed the CRC; 1 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.7x
+    Elapsed:            43.29 s
+    Kept read began:    2026-11-25T22:32:07Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     46E48F63
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  E364E375 (not found, either a new pressing, or bad rip)
+    Accurip v2:  3DBA1EDC (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:32:07-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1874
+    VERIFY:        153
+    FIXUP_ATOM:    76
+    OVERLAP:       37
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1874
+  VERIFY:        153
+  FIXUP_ATOM:    76
+  OVERLAP:       37
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:32:50-05:00
+Log FUN512: R4zmKZdH_xIbOqaDDendExPmRCSAOksElp5S9u9ek20432YBG3wuH1ln.LIMEfDQvf_SiP5yNZWjZHrBqRrC5w
+
+=== Platterpus verified-read chase: track 3, attempt 9 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223250Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223250Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 67 sectors asked; 21 reads failed the CRC; 1 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.29 s
+    Kept read began:    2026-11-25T22:33:00Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     5C35F3A2
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  45AEE842 (not found, either a new pressing, or bad rip)
+    Accurip v2:  A006D965 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:33:00-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        133
+    FIXUP_ATOM:    20
+    OVERLAP:       32
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        133
+  FIXUP_ATOM:    20
+  OVERLAP:       32
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:33:42-05:00
+Log FUN512: g3gPUejRAo598AJFPWpn98jUegFfHecUhCeqtExDXs.Bwciu29HHQ.S5oqeuZDiDRMj0T8gbRiBbjfPtrIfaDQ
+
+=== Platterpus verified-read chase: track 3, attempt 10 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223343Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223343Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 67 sectors asked; 42 reads failed the CRC; 1 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.51 s
+    Kept read began:    2026-11-25T22:33:53Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     329DC760
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  FD340DEF (not found, either a new pressing, or bad rip)
+    Accurip v2:  5787AEA3 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:33:53-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        132
+    FIXUP_ATOM:    16
+    OVERLAP:       29
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        132
+  FIXUP_ATOM:    16
+  OVERLAP:       29
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:34:35-05:00
+Log FUN512: YT4KpT.VVZ4vP_v1Br2y4lu2pwEe72vv9lnbkrbp48YPEB1Y6CDCwIsN7nmA6s3_8D3s1sP.JGL6yRWumbKrbw
+
+=== Platterpus verified-read chase: track 3, attempt 11 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223436Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223436Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 67 sectors asked; 19 reads failed the CRC; 1 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            42.59 s
+    Kept read began:    2026-11-25T22:34:46Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     052FF952
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  8DE645BA (not found, either a new pressing, or bad rip)
+    Accurip v2:  E83C1F6C (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:34:46-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        143
+    FIXUP_ATOM:    8
+    OVERLAP:       33
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        143
+  FIXUP_ATOM:    8
+  OVERLAP:       33
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:35:28-05:00
+Log FUN512: LIZvqXeQX43mKGBePcVrG4qDZrWlQqICldtg7HmhrpIQs9l1OLxg.mh73NZMwjnPJ5wj0ajmH07hVsHgO67rsw
+
+=== Platterpus verified-read chase: track 3, attempt 12 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223529Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223529Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 66 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            43.10 s
+    Kept read began:    2026-11-25T22:35:38Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     7E50D2FA
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  3B9936B3 (not found, either a new pressing, or bad rip)
+    Accurip v2:  95EAFE4A (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:35:38-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1874
+    VERIFY:        144
+    FIXUP_ATOM:    48
+    OVERLAP:       36
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1874
+  VERIFY:        144
+  FIXUP_ATOM:    48
+  OVERLAP:       36
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:36:21-05:00
+Log FUN512: G33g8FD4xr9ZFbcAym5cq6mYwubh79b0bkY_EJZsclsgBANydz7f2Z4NZrulVb7kq0H1N_jxdVspl9pbfwTQ9Q
+
+=== Platterpus verified-read chase: track 3, attempt 13 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223622Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223622Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 166 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 108 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.7x
+    Elapsed:            43.35 s
+    Kept read began:    2026-11-25T22:36:33Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     2AC1F945
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  DC23DDD2 (not found, either a new pressing, or bad rip)
+    Accurip v2:  36776BF1 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:36:33-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1874
+    VERIFY:        139
+    FIXUP_ATOM:    32
+    OVERLAP:       34
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1874
+  VERIFY:        139
+  FIXUP_ATOM:    32
+  OVERLAP:       34
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:37:16-05:00
+Log FUN512: zxfo1A6xbfN8NavE5P34OLa0DeKtLBvh_ASk1RCPgfvSopxOrwvzy_1GH8IN6P.QT.mdXTdWIgM95XC6dhh04Q
+
+=== Platterpus verified-read chase: track 3, attempt 14 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223716Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223716Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 67 sectors asked; 104 reads failed the CRC; 1 sectors gave no frame passing it; 8 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.8x
+    Elapsed:            42.90 s
+    Kept read began:    2026-11-25T22:37:27Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     8A062962
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  4C2A56BE (not found, either a new pressing, or bad rip)
+    Accurip v2:  A67E5D3A (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:37:27-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        137
+    FIXUP_ATOM:    18
+    OVERLAP:       29
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        137
+  FIXUP_ATOM:    18
+  OVERLAP:       29
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:38:10-05:00
+Log FUN512: qLf4bLrk1mjcapQytFsUd515_U45UFj4LyDWRXdPyW8jiVp75MVQREm4qBO9bmtK4.r7qDpT8ovh7F657yONmg
+
+=== Platterpus verified-read chase: track 3, attempt 15 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223810Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223810Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 14 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 6 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 58 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.54 s
+    Kept read began:    2026-11-25T22:38:21Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     3898BD85
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  9A40A417 (not found, either a new pressing, or bad rip)
+    Accurip v2:  F493B122 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:38:21-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        139
+    FIXUP_ATOM:    26
+    OVERLAP:       30
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        139
+  FIXUP_ATOM:    26
+  OVERLAP:       30
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:39:03-05:00
+Log FUN512: MOgxVQ7hk_vXaKvqub4aKV8eh3eMAvjeaMZd.dbkVcxMAuEoZFDNUkKgETJaC1TAbmFBazbeMOu6K8orAGdXiA
+
+=== Platterpus verified-read chase: track 3, attempt 16 ===
+argv: ~/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261125T223904Z.json
+exit status: 0
+cyanrip 0.9.4-rc3+platterpus.35 (platterpus-fork-g1280aa4)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 3 -N --consumer platterpus/0.7.130 --prefer-disc-isrc --prefer-accuraterip-match -c 1/1 -a "album=repeat rip 1 20261125t202417 platterpus-fork-g1280aa4:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261125T223904Z.json
+Handshake:      round 41 lap 5 OPEN, verdict GO -- NOT a released build
+Consumer:       platterpus/0.7.130
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (drive not asked whether it can change speed)
+C2 errors:      not declared by drive (capabilities page, not measured)
+Accurate stream: declared supported by drive (capabilities page, not measured)
+Recordable:     no, CD-ROM (drive's current profile)
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 63.1.102, libavcodec 63.1.102 (9.0.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Disc MCN:       none (libcdio returned none)
+Album:          repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+Album artist:   The Police
+AccurateRip ID: 001d420f-013bb370-e20dfe0e
+AccurateRip:    found
+AcoustID:       unsupported (built without libchromaprint)
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    95 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Pregap searches:
+    track 2: 144 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 12 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 3: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 4: 151 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 10 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 5: 38 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 6: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 7: 48 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 8: 70 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 4 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 9: 64 sectors asked; 59 reads failed the CRC; 1 sectors gave no frame passing it; 5 frames were another sector's; 0 had no address; frames answer +0 sectors off; 200-retry pass ran
+    track 10: 6 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 11: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 12: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 13: 63 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    track 14: 36 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+
+Tracks:
+Track 3 read with no error reported.
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+  Disc ISRC:     GBAAM7900002
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  6.9x
+    Elapsed:            42.34 s
+    Kept read began:    2026-11-25T22:39:14Z
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Pregap search: 1 sectors asked; 0 reads failed the CRC; 0 sectors gave no frame passing it; 0 frames were another sector's; 0 had no address; frames answer +0 sectors off
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     DDF6A52B
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  0A8C0DEF (not found, either a new pressing, or bad rip)
+    Accurip v2:  64DD9658 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    14
+    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    CDDB:                          E20DFE0E
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc3+platterpus.35
+    TOTALDISCS:                    1
+    TITLE:                         Message in a Bottle
+    DISC:                          1
+    ALBUM:                         repeat rip 1 20261125t202417 platterpus-fork-g1280aa4
+    ALBUM_ARTIST:                  The Police
+    DATE:                          2003
+    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+    ARTIST:                        The Police
+    ISRC:                          GBAAM7900002
+    CREATION_TIME:                 2026-11-25T17:39:14-05:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     1
+
+  Paranoia status counts:
+    READ:          1826
+    VERIFY:        144
+    FIXUP_ATOM:    48
+    OVERLAP:       34
+
+  File(s):
+    The Police/repeat rip 1 20261125t202417 platterpus-fork-g1280aa4/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -12.4 LUFS
+Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 0/1
+Tracks matched on one frame only: 1/1
+
+Paranoia status counts:
+  READ:          1826
+  VERIFY:        144
+  FIXUP_ATOM:    48
+  OVERLAP:       34
+
+Ripping errors: 0
+Encoder errors: none; 1 track encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (1 of 14 tracks)
+Ripping finished at 2026-11-25T17:39:56-05:00
+Log FUN512: kewGxmzxglNsWLaWq.g2mHKFX_wUYyJN9CIiFMplhyN37mEWHhMBQxO9ILrO0yiD.hZQ64mK8yS4tdzCaQSpyQ
+

@@ -1,0 +1,601 @@
+/usr/bin/cd-paranoia -A -d /dev/sr0 
+cdparanoia III release 10.2 libcdio 2.3.0
+(C) 2001 Monty <monty@xiph.org> and Xiphophorus
+(C) 2004, 2005, 2008 Rocky Bernstein <rocky@gnu.org>
+(C) 2014 Robert Kausch <robert.kausch@freac.org>
+
+Report bugs to bug-libcdio@gnu.org
+
+Using cdda library version: 10.2+2.0.2 x86_64-redhat-linux-gnu
+Using paranoia library version: 10.2+2.0.2 x86_64-redhat-linux-gnu
+
+Attempting to set cdrom to full speed... 
+	drive returned OK.
+
+=================== Checking drive cache/timing behavior ===================
+
+Seek/read timing:
+
+	[59:29.30]: 
+267705:1:50 267706:25:9 267731:25:9 267756:25:9 267781:25:9 267806:25:9 267831:25:2 267856:25:11 267881:25:8 267906:25:8 267931:25:8 267956:25:9 267981:25:8 268006:25:9 268031:25:8 268056:25:8 268081:25:8 268106:25:8 268131:25:8 268156:25:9 268181:25:9 268206:25:8 268231:25:8 268256:25:8 268281:25:8 268306:25:8 268331:25:8 268356:25:9 268381:25:8 268406:25:8 268431:25:8 268456:25:8 268481:25:9 268506:25:9 268531:25:8 268556:25:8 268581:25:8 268606:25:8 268631:25:9 268656:25:9 268681:24:8 
+	Initial seek latency (1000 sectors): 50ms
+	Average read latency: 0.33ms/sector (raw speed: 40.2x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.29]: 
+267704:1:41 267705:25:10 267730:25:9 267755:25:9 267780:25:9 267805:25:9 267830:25:9 267855:25:8 267880:25:9 267905:25:9 267930:25:8 267955:25:2 267980:25:11 268005:25:8 268030:25:8 268055:25:8 268080:25:8 268105:25:9 268130:25:8 268155:25:9 268180:25:8 268205:25:8 268230:25:9 268255:25:9 268280:25:9 268305:25:9 268330:25:8 268355:25:9 268380:25:7 268405:25:9 268430:25:8 268455:25:8 268480:25:9 268505:25:8 268530:25:9 268555:25:8 268580:25:8 268605:25:8 268630:25:9 268655:25:8 268680:24:9 
+	Initial seek latency (1000 sectors): 41ms
+	Average read latency: 0.34ms/sector (raw speed: 39.5x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.28]: 
+267703:1:39 267704:25:10 267729:25:9 267754:25:10 267779:25:9 267804:25:9 267829:25:2 267854:25:10 267879:25:8 267904:25:8 267929:25:9 267954:25:8 267979:25:8 268004:25:9 268029:25:8 268054:25:8 268079:25:8 268104:25:8 268129:25:9 268154:25:9 268179:25:8 268204:25:8 268229:25:8 268254:25:8 268279:25:9 268304:25:8 268329:25:9 268354:25:8 268379:25:8 268404:25:9 268429:25:8 268454:25:8 268479:25:8 268504:25:9 268529:25:9 268554:25:9 268579:25:8 268604:25:8 268629:25:8 268654:25:8 268679:24:8 
+	Initial seek latency (1000 sectors): 39ms
+	Average read latency: 0.33ms/sector (raw speed: 40.0x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.27]: 
+267702:1:42 267703:25:9 267728:25:10 267753:25:8 267778:25:8 267803:25:8 267828:25:8 267853:25:8 267878:25:8 267903:25:8 267928:25:9 267953:25:8 267978:25:8 268003:25:8 268028:25:8 268053:25:8 268078:25:8 268103:25:9 268128:25:8 268153:25:8 268178:25:8 268203:25:8 268228:25:8 268253:25:8 268278:25:8 268303:25:9 268328:25:8 268353:25:8 268378:25:8 268403:25:8 268428:25:8 268453:25:8 268478:25:8 268503:25:8 268528:25:8 268553:25:9 268578:25:9 268603:25:8 268628:25:9 268653:25:9 268678:24:8 
+	Initial seek latency (1000 sectors): 42ms
+	Average read latency: 0.33ms/sector (raw speed: 40.4x)
+	Read latency standard deviation: 0.02ms/sector
+	[59:29.26]: 
+267701:1:39 267702:25:10 267727:25:11 267752:25:10 267777:25:3 267802:25:10 267827:25:9 267852:25:9 267877:25:8 267902:25:8 267927:25:9 267952:25:9 267977:25:9 268002:25:9 268027:25:8 268052:25:8 268077:25:8 268102:25:8 268127:25:8 268152:25:8 268177:25:8 268202:25:8 268227:25:8 268252:25:8 268277:25:8 268302:25:8 268327:25:8 268352:25:9 268377:25:8 268402:25:8 268427:25:9 268452:25:9 268477:25:8 268502:25:8 268527:25:8 268552:25:8 268577:25:8 268602:25:8 268627:25:8 268652:25:8 268677:24:8 
+	Initial seek latency (1000 sectors): 39ms
+	Average read latency: 0.33ms/sector (raw speed: 40.0x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.25]: 
+267700:1:48 267701:25:9 267726:25:9 267751:25:8 267776:25:9 267801:25:8 267826:25:9 267851:25:2 267876:25:11 267901:25:9 267926:25:8 267951:25:9 267976:25:8 268001:25:9 268026:25:9 268051:25:8 268076:25:8 268101:25:8 268126:25:8 268151:25:8 268176:25:8 268201:25:8 268226:25:8 268251:25:8 268276:25:8 268301:25:9 268326:25:9 268351:25:8 268376:25:8 268401:25:8 268426:25:8 268451:25:8 268476:25:9 268501:25:8 268526:25:9 268551:25:8 268576:25:8 268601:25:9 268626:25:8 268651:25:8 268676:24:8 
+	Initial seek latency (1000 sectors): 48ms
+	Average read latency: 0.33ms/sector (raw speed: 40.4x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.24]: 
+267699:1:42 267700:25:10 267725:25:10 267750:25:2 267775:25:11 267800:25:9 267825:25:8 267850:25:9 267875:25:8 267900:25:9 267925:25:9 267950:25:9 267975:25:9 268000:25:8 268025:25:8 268050:25:8 268075:25:8 268100:25:8 268125:25:8 268150:25:8 268175:25:8 268200:25:8 268225:25:9 268250:25:8 268275:25:9 268300:25:9 268325:25:9 268350:25:8 268375:25:8 268400:25:8 268425:25:8 268450:25:8 268475:25:8 268500:25:9 268525:25:8 268550:25:8 268575:25:9 268600:25:9 268625:25:8 268650:25:8 268675:24:8 
+	Initial seek latency (1000 sectors): 42ms
+	Average read latency: 0.33ms/sector (raw speed: 39.9x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.23]: 
+267698:1:47 267699:25:9 267724:25:10 267749:25:9 267774:25:9 267799:25:9 267824:25:8 267849:25:9 267874:25:2 267899:25:11 267924:25:8 267949:25:8 267974:25:8 267999:25:9 268024:25:8 268049:25:8 268074:25:8 268099:25:9 268124:25:8 268149:25:8 268174:25:8 268199:25:8 268224:25:9 268249:25:8 268274:25:8 268299:25:9 268324:25:8 268349:25:8 268374:25:8 268399:25:8 268424:25:9 268449:25:8 268474:25:9 268499:25:8 268524:25:9 268549:25:9 268574:25:9 268599:25:9 268624:25:8 268649:25:9 268674:24:9 
+	Initial seek latency (1000 sectors): 47ms
+	Average read latency: 0.34ms/sector (raw speed: 39.6x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.22]: 
+267697:1:45 267698:25:10 267723:25:9 267748:25:8 267773:25:9 267798:25:8 267823:25:7 267848:25:8 267873:25:8 267898:25:8 267923:25:8 267948:25:8 267973:25:9 267998:25:8 268023:25:8 268048:25:8 268073:25:8 268098:25:8 268123:25:9 268148:25:8 268173:25:9 268198:25:8 268223:25:8 268248:25:8 268273:25:8 268298:25:8 268323:25:9 268348:25:8 268373:25:8 268398:25:8 268423:25:8 268448:25:8 268473:25:8 268498:25:9 268523:25:9 268548:25:8 268573:25:8 268598:25:8 268623:25:9 268648:25:8 268673:24:8 
+	Initial seek latency (1000 sectors): 45ms
+	Average read latency: 0.33ms/sector (raw speed: 40.4x)
+	Read latency standard deviation: 0.02ms/sector
+	[59:29.21]: 
+267696:1:49 267697:25:9 267722:25:10 267747:25:9 267772:25:9 267797:25:8 267822:25:9 267847:25:2 267872:25:10 267897:25:8 267922:25:8 267947:25:9 267972:25:9 267997:25:9 268022:25:8 268047:25:8 268072:25:8 268097:25:8 268122:25:8 268147:25:8 268172:25:8 268197:25:9 268222:25:8 268247:25:8 268272:25:8 268297:25:8 268322:25:8 268347:25:8 268372:25:8 268397:25:8 268422:25:10 268447:25:8 268472:25:8 268497:25:8 268522:25:8 268547:25:8 268572:25:8 268597:25:8 268622:25:8 268647:25:8 268672:24:8 
+	Initial seek latency (1000 sectors): 49ms
+	Average read latency: 0.33ms/sector (raw speed: 40.6x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.20]: 
+267695:1:41 267696:25:10 267721:25:9 267746:25:9 267771:25:10 267796:25:9 267821:25:9 267846:25:2 267871:25:10 267896:25:9 267921:25:8 267946:25:9 267971:25:9 267996:25:8 268021:25:8 268046:25:8 268071:25:8 268096:25:8 268121:25:9 268146:25:9 268171:25:8 268196:25:9 268221:25:8 268246:25:8 268271:25:8 268296:25:8 268321:25:8 268346:25:8 268371:25:8 268396:25:8 268421:25:8 268446:25:8 268471:25:9 268496:25:8 268521:25:9 268546:25:8 268571:25:9 268596:25:8 268621:25:8 268646:25:8 268671:24:9 
+	Initial seek latency (1000 sectors): 41ms
+	Average read latency: 0.33ms/sector (raw speed: 39.9x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.19]: 
+267694:1:40 267695:25:10 267720:25:9 267745:25:9 267770:25:8 267795:25:9 267820:25:8 267845:25:9 267870:25:8 267895:25:8 267920:25:8 267945:25:8 267970:25:8 267995:25:8 268020:25:8 268045:25:9 268070:25:8 268095:25:8 268120:25:8 268145:25:8 268170:25:8 268195:25:8 268220:25:8 268245:25:8 268270:25:8 268295:25:8 268320:25:8 268345:25:9 268370:25:8 268395:25:8 268420:25:8 268445:25:8 268470:25:9 268495:25:8 268520:25:8 268545:25:8 268570:25:8 268595:25:8 268620:25:9 268645:25:8 268670:24:8 
+	Initial seek latency (1000 sectors): 40ms
+	Average read latency: 0.33ms/sector (raw speed: 40.4x)
+	Read latency standard deviation: 0.02ms/sector
+	[59:29.18]: 
+267693:1:41 267694:25:9 267719:25:10 267744:25:9 267769:25:8 267794:25:9 267819:25:8 267844:25:9 267869:25:8 267894:25:8 267919:25:9 267944:25:9 267969:25:8 267994:25:9 268019:25:8 268044:25:9 268069:25:2 268094:25:10 268119:25:8 268144:25:9 268169:25:9 268194:25:8 268219:25:8 268244:25:8 268269:25:8 268294:25:9 268319:25:8 268344:25:8 268369:25:9 268394:25:8 268419:25:8 268444:25:8 268469:25:9 268494:25:8 268519:25:9 268544:25:8 268569:25:9 268594:25:9 268619:25:9 268644:25:8 268669:24:8 
+	Initial seek latency (1000 sectors): 41ms
+	Average read latency: 0.34ms/sector (raw speed: 39.8x)
+	Read latency standard deviation: 0.05ms/sector
+	[59:29.17]: 
+267692:1:41 267693:25:10 267718:25:10 267743:25:3 267768:25:11 267793:25:8 267818:25:8 267843:25:9 267868:25:8 267893:25:8 267918:25:9 267943:25:8 267968:25:8 267993:25:8 268018:25:9 268043:25:8 268068:25:9 268093:25:9 268118:25:9 268143:25:8 268168:25:8 268193:25:8 268218:25:8 268243:25:8 268268:25:8 268293:25:8 268318:25:9 268343:25:8 268368:25:9 268393:25:8 268418:25:9 268443:25:8 268468:25:8 268493:25:8 268518:25:9 268543:25:8 268568:25:8 268593:25:8 268618:25:8 268643:25:8 268668:24:9 
+	Initial seek latency (1000 sectors): 41ms
+	Average read latency: 0.33ms/sector (raw speed: 40.0x)
+	Read latency standard deviation: 0.04ms/sector
+	[50:00.00]: 
+225000:1:45 225001:25:9 225026:25:9 225051:25:9 225076:25:9 225101:25:10 225126:25:9 225151:25:8 225176:25:8 225201:25:10 225226:25:8 225251:25:9 225276:25:9 225301:25:8 225326:25:9 225351:25:9 225376:25:8 225401:25:9 225426:25:9 225451:25:9 225476:25:9 225501:25:9 225526:25:10 225551:25:8 225576:25:9 225601:25:9 225626:25:9 225651:25:9 225676:25:9 225701:25:9 225726:25:8 225751:25:9 225776:25:9 225801:25:9 225826:25:8 225851:25:9 225876:25:8 225901:25:9 225926:25:9 225951:25:9 225976:24:9 
+	Initial seek latency (1000 sectors): 45ms
+	Average read latency: 0.35ms/sector (raw speed: 37.6x)
+	Read latency standard deviation: 0.02ms/sector
+	[40:00.00]: 
+180000:1:42 180001:25:10 180026:25:9 180051:25:10 180076:25:11 180101:25:9 180126:25:10 180151:25:9 180176:25:10 180201:25:9 180226:25:11 180251:25:9 180276:25:10 180301:25:10 180326:25:9 180351:25:10 180376:25:10 180401:25:10 180426:25:10 180451:25:9 180476:25:10 180501:25:10 180526:25:9 180551:25:10 180576:25:10 180601:25:10 180626:25:9 180651:25:10 180676:25:10 180701:25:10 180726:25:9 180751:25:9 180776:25:10 180801:25:9 180826:25:10 180851:25:10 180876:25:10 180901:25:10 180926:25:10 180951:25:9 180976:24:10 
+	Initial seek latency (1000 sectors): 42ms
+	Average read latency: 0.39ms/sector (raw speed: 34.2x)
+	Read latency standard deviation: 0.02ms/sector
+	[30:00.00]: 
+135000:1:55 135001:25:12 135026:25:10 135051:25:12 135076:25:10 135101:25:10 135126:25:12 135151:25:10 135176:25:11 135201:25:11 135226:25:10 135251:25:11 135276:25:11 135301:25:11 135326:25:10 135351:25:11 135376:25:11 135401:25:11 135426:25:11 135451:25:11 135476:25:10 135501:25:11 135526:25:11 135551:25:10 135576:25:11 135601:25:11 135626:25:10 135651:25:11 135676:25:11 135701:25:11 135726:25:11 135751:25:11 135776:25:10 135801:25:12 135826:25:11 135851:25:11 135876:25:11 135901:25:10 135926:25:11 135951:25:11 135976:24:10 
+	Initial seek latency (1000 sectors): 55ms
+	Average read latency: 0.43ms/sector (raw speed: 30.8x)
+	Read latency standard deviation: 0.02ms/sector
+	[20:00.00]: 
+90000:1:44 90001:25:12 90026:25:13 90051:25:12 90076:25:12 90101:25:13 90126:25:11 90151:25:13 90176:25:12 90201:25:13 90226:25:12 90251:25:12 90276:25:12 90301:25:12 90326:25:12 90351:25:12 90376:25:12 90401:25:12 90426:25:12 90451:25:12 90476:25:12 90501:25:12 90526:25:12 90551:25:13 90576:25:12 90601:25:12 90626:25:11 90651:25:13 90676:25:12 90701:25:13 90726:25:12 90751:25:13 90776:25:12 90801:25:12 90826:25:12 90851:25:13 90876:25:13 90901:25:12 90926:25:13 90951:25:12 90976:24:12 
+	Initial seek latency (1000 sectors): 44ms
+	Average read latency: 0.49ms/sector (raw speed: 27.2x)
+	Read latency standard deviation: 0.02ms/sector
+	[10:00.00]: 
+45000:1:44 45001:25:14 45026:25:15 45051:25:14 45076:25:15 45101:25:15 45126:25:14 45151:25:14 45176:25:15 45201:25:15 45226:25:15 45251:25:14 45276:25:15 45301:25:15 45326:25:14 45351:25:14 45376:25:15 45401:25:14 45426:25:15 45451:25:15 45476:25:15 45501:25:14 45526:25:15 45551:25:15 45576:25:15 45601:25:15 45626:25:15 45651:25:14 45676:25:15 45701:25:14 45726:25:15 45751:25:15 45776:25:14 45801:25:15 45826:25:14 45851:25:15 45876:25:15 45901:25:15 45926:25:15 45951:25:14 45976:24:14 
+	Initial seek latency (1000 sectors): 44ms
+	Average read latency: 0.59ms/sector (raw speed: 22.8x)
+	Read latency standard deviation: 0.02ms/sector
+	[00:00.00]: 
+0:1:37 1:25:19 26:25:19 51:25:19 76:25:19 101:25:19 126:25:19 151:25:19 176:25:19 201:25:18 226:25:18 251:25:20 276:25:18 301:25:19 326:25:19 351:25:19 376:25:19 401:25:19 426:25:19 451:25:19 476:25:19 501:25:19 526:25:19 551:25:18 576:25:18 601:25:19 626:25:19 651:25:18 676:25:19 701:25:18 726:25:19 751:25:19 776:25:19 801:25:18 826:25:19 851:25:18 876:25:19 901:25:19 926:25:19 951:25:19 976:24:17 
+	Initial seek latency (1000 sectors): 37ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.02ms/sector
+
+Analyzing cache behavior...
+	Fast search for approximate cache size... 0 sectors            
+		>>> fast_read=10:1:40 seek_read=10:1:1
+	Fast search for approximate cache size... 1 sectors            
+		>>> fast_read=11:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 2 sectors            
+		>>> fast_read=12:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 3 sectors            
+		>>> fast_read=13:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 4 sectors            
+		>>> fast_read=14:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 5 sectors            
+		>>> fast_read=15:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 6 sectors            
+		>>> fast_read=16:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 7 sectors            
+		>>> fast_read=17:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 8 sectors            
+		>>> fast_read=18:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 9 sectors            
+		>>> fast_read=19:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 10 sectors            
+		>>> fast_read=20:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 11 sectors            
+		>>> fast_read=21:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 12 sectors            
+		>>> fast_read=22:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 13 sectors            
+		>>> fast_read=23:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 14 sectors            
+		>>> fast_read=24:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 15 sectors            
+		>>> fast_read=25:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 16 sectors            
+		>>> fast_read=26:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 17 sectors            
+		>>> fast_read=27:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 18 sectors            
+		>>> fast_read=28:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 19 sectors            
+		>>> fast_read=29:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 20 sectors            
+		>>> fast_read=30:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 21 sectors            
+		>>> fast_read=31:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 22 sectors            
+		>>> fast_read=32:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 23 sectors            
+		>>> fast_read=33:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 24 sectors            
+		>>> fast_read=34:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 25 sectors            
+		>>> fast_read=35:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 26 sectors            
+		>>> fast_read=36:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 27 sectors            
+		>>> fast_read=37:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 28 sectors            
+		>>> fast_read=38:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 29 sectors            
+		>>> fast_read=39:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 30 sectors            
+		>>> fast_read=40:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 31 sectors            
+		>>> fast_read=41:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 32 sectors            
+		>>> fast_read=42:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 33 sectors            
+		>>> fast_read=43:1:1 seek_read=10:1:1
+	Fast search for approximate cache size... 34 sectors            
+		>>> fast_read=44:1:1 seek_read=10:1:26
+		>>> fast_read=44:1:33 seek_read=10:1:36
+		>>> fast_read=44:1:33 seek_read=10:1:36
+		>>> fast_read=44:1:33 seek_read=10:1:36
+		>>> fast_read=44:1:32 seek_read=10:1:37
+		>>> fast_read=44:1:32 seek_read=10:1:36
+		>>> fast_read=44:1:32 seek_read=10:1:36
+		>>> fast_read=44:1:26 seek_read=10:1:36
+		>>> fast_read=44:1:25 seek_read=10:1:36
+		>>> fast_read=44:1:33 seek_read=10:1:36
+		>>> fast_read=44:1:32 seek_read=10:1:36
+  … [6427 line(s) omitted] …
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:46 
+	Average read latency: 2.88ms/sector (raw speed: 4.6x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:2 
+	Average read latency: 0.12ms/sector (raw speed: 106.7x)
+	Read latency standard deviation: -nanms/sector
+10:17:1 
+	Average read latency: 0.06ms/sector (raw speed: 213.3x)
+	Read latency standard deviation: -nanms/sector
+10:17:46 
+	Average read latency: 2.88ms/sector (raw speed: 4.6x)
+	Read latency standard deviation: -nanms/sector
+	        Cache read speed: 0.15ms/sector [88x]
+	Testing that backseek flushes cache...
+11:1:134 12:16:12 
+	Initial seek latency (17 sectors): 134ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:135 12:16:11 
+	Initial seek latency (17 sectors): 135ms
+	Average read latency: 0.69ms/sector (raw speed: 19.4x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:147 12:16:12 
+	Initial seek latency (17 sectors): 147ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:11 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.69ms/sector (raw speed: 19.4x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:134 12:16:12 
+	Initial seek latency (17 sectors): 134ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:134 12:16:12 
+	Initial seek latency (17 sectors): 134ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:134 12:16:12 
+	Initial seek latency (17 sectors): 134ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:148 12:16:12 
+	Initial seek latency (17 sectors): 148ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:11 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.69ms/sector (raw speed: 19.4x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:43 11:16:12 
+	Initial seek latency (17 sectors): 43ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:134 12:16:12 
+	Initial seek latency (17 sectors): 134ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:148 12:16:12 
+	Initial seek latency (17 sectors): 148ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:133 12:16:12 
+	Initial seek latency (17 sectors): 133ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:148 12:16:13 
+	Initial seek latency (17 sectors): 148ms
+	Average read latency: 0.81ms/sector (raw speed: 16.4x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:147 12:16:12 
+	Initial seek latency (17 sectors): 147ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:141 12:16:12 
+	Initial seek latency (17 sectors): 141ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:41 11:16:13 
+	Initial seek latency (17 sectors): 41ms
+	Average read latency: 0.81ms/sector (raw speed: 16.4x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:127 12:16:12 
+	Initial seek latency (17 sectors): 127ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:140 12:16:12 
+	Initial seek latency (17 sectors): 140ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:13 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.81ms/sector (raw speed: 16.4x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:148 12:16:12 
+	Initial seek latency (17 sectors): 148ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:42 11:16:12 
+	Initial seek latency (17 sectors): 42ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:127 12:16:12 
+	Initial seek latency (17 sectors): 127ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:41 11:16:12 
+	Initial seek latency (17 sectors): 41ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+11:1:147 12:16:12 
+	Initial seek latency (17 sectors): 147ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+10:1:35 11:16:12 
+	Initial seek latency (17 sectors): 35ms
+	Average read latency: 0.75ms/sector (raw speed: 17.8x)
+	Read latency standard deviation: 0.00ms/sector
+	        Access speed after backseek: 0.75ms/sector [17x]
+	Backseek flushes the cache as expected
+
+Drive tests OK with Paranoia.
