@@ -1290,10 +1290,8 @@ PIN_UNDER_REVIEW_MESON_OPTIONS: Final[tuple[str, ...]] = ("-Ddeclare_released=tr
 #: is open (`release_seq` 39, `handshake_round` 37, `round_closed: false`).
 #: **38 from 2026-11-04**: their lap 1 opens round 38 on `.28`, the newest released
 #: pair, reviewing `.29`; the pin moves to `.29` when it is released, on the owner's word.
-#: **Still 38 for `.29` from 2026-11-04**: published on beta inside round 38 while it
-#: is open (`release_seq` 40, `handshake_round` 38, `round_closed: false`).
-#: **Still 38 for `.30` from 2026-11-05**: the same, one build along (`release_seq`
-#: 41, `handshake_round` 38, `round_closed: false`).
+#: **Still 38 for `.29` (2026-11-04) and `.30` (2026-11-05)**: each published on beta
+#: inside round 38 while it is open (`release_seq` 40 and 41, `round_closed: false`).
 #: **39 from 2026-11-11**: their lap 1 opens round 39 on `.31` (`release_seq` 42,
 #: `handshake_round` 39, `round_closed: false`).
 #: **40 from 2026-11-13**: their lap 1 opens round 40 on `.32` (`release_seq` 43,
@@ -1306,7 +1304,9 @@ PIN_UNDER_REVIEW_MESON_OPTIONS: Final[tuple[str, ...]] = ("-Ddeclare_released=tr
 #: **42 from 2026-11-23**: their lap 1 opens round 42 on `.35`, published on beta
 #: during round 41 (`release_seq` 47, `handshake_round` 41, `round_closed: false`)
 #: and not its subject, so round 42 is the round that reviews it.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 42
+#: **43 from 2026-11-26**: their lap 1 opens round 43 on `.35` again, `FORK_PIN` since
+#: round 42 closed; `.36` is built inside it, published after our 0.7.131 (their S4).
+PIN_UNDER_REVIEW_ROUND: Final[int] = 43
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:

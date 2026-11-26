@@ -1741,15 +1741,39 @@ _TRACK_ECHO_HEADER = re.compile(r"^\s{1,8}(?:Metadata|CD-TEXT):\s*$")
 # audio — a direct archival-fidelity statement, and the per-track consequence of
 # overread being off (the disc's outermost samples were padded, not read).
 #
-# **In samples too (round 43, ahead of `.36`).** The fork plans to count an
-# appended span in samples where it is not a whole number of frames (an Enhanced
-# CD ripped with a positive offset appends 6 samples, their round 37 lap 7 S12);
-# the owner relayed on 2026-11-26 that 0.7.131 must read it. Both units are read:
-# `frames` keeps the frame count when the line gives frames, and every form gives
-# `samples` (a frame is 588 samples).
+# **What the count means (the fork's round 43 lap 1 S60).** Today's number is
+# the FRAMES THE READ OFFSET REACHED past the last audio sector, not the silence
+# written: at +667 the silence is 667 samples and the line says `2 frames`, the
+# earlier of which still holds 509 samples of disc audio
+# (`cyanrip@1280aa4:src/cyanrip_main.c:2744-2765`). So a frames-only line gives
+# frames reached and leaves the samples undetermined. `.36` prints the silence
+# in samples with the frames in a parenthetical:
+# `    Appended:    667 samples of silence (2 frames past the last audio sector, not read)`.
+# `Prepended:` is the same before LSN 0, for a negative offset; `.35` already
+# prints it (`cyanrip@52bde2d:src/cyanrip_log.c:586`), and it was not read until
+# 2026-11-26 (indented, so the completeness sweep never flagged it).
 _APPENDED_SILENCE = re.compile(
     r"^\s+Appended:\s+(?P<count>\d{1,9})\s+(?P<unit>frames?|samples?) of silence"
+    r"(?:\s+\((?P<reached>\d{1,9}) frames? past[^()\n]{0,120}\))?"
 )
+_PREPENDED_SILENCE = re.compile(
+    r"^\s+Prepended:\s+(?P<count>\d{1,9})\s+(?P<unit>frames?|samples?) of silence"
+    r"(?:\s+\((?P<reached>\d{1,9}) frames? before[^()\n]{0,120}\))?"
+)
+
+
+def _edge_silence(match: re.Match[str]) -> tuple[int | None, int | None]:
+    """``(frames reached, samples of silence)`` from an `Appended:`/`Prepended:`
+    match, each None when the line does not say it. Never raises."""
+    count = int_or_none(match.group("count"), field="cyanrip edge silence")
+    if match.group("unit").startswith("frame"):
+        return count, None
+    reached = match.group("reached")
+    return (
+        int_or_none(reached, field="cyanrip edge frames") if reached else None,
+        count,
+    )
+
 
 # --- 5. "Beyond disc: N of M frames refused (written as silence)" — `.24`+ ----
 #
@@ -2279,6 +2303,8 @@ class _TrackAcc:
     other_reads: _other.OtherReadsAcc = field(default_factory=_other.OtherReadsAcc)
     appended_silence_frames: int | None = None
     appended_silence_samples: int | None = None
+    prepended_silence_frames: int | None = None
+    prepended_silence_samples: int | None = None
     # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`
     # only for `Track N is data:`, whose meaning depends on what follows (see
     # `DATA_TRACK_STATUSES`), and it is cleared by the track's outcome line.
@@ -3296,11 +3322,14 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule(
         "speed_capability", _SPEED_CAP, _take_speed_cap, echo_latch=_BEFORE_CDTEXT
     ),
-    # No echo latch yet: the forgery guard's tests read each guarded row in a
-    # committed log, and no committed log prints this row before `.36`. The value
-    # is declared, never measured, and nothing decides on it. Add the latch when a
-    # `.36` log is committed (TASKS R193).
-    _LineRule("drive_speed", _DRIVE_SPEED, _take_drive_speed),
+    # Latched like `Speed:` above it, which it follows (the fork's round 43 lap 1
+    # S12): a copy after the CD-TEXT echo can only be an echoed value. No
+    # committed log prints it before `.36`, so the forgery guard's corpus test
+    # names it in `_NOT_YET_IN_THE_CORPUS` (their S4 asked for the latch in
+    # 0.7.131, before any `.36` log exists).
+    _LineRule(
+        "drive_speed", _DRIVE_SPEED, _take_drive_speed, echo_latch=_BEFORE_CDTEXT
+    ),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
 )
 
@@ -3489,6 +3518,7 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # of the "skimmed" residue this listing exists to expose, so the test that
     # walks the real logs now requires it to be recognised.
     ("track_appended_silence", _APPENDED_SILENCE),
+    ("track_prepended_silence", _PREPENDED_SILENCE),
     # `.24`, under `-O` only (TASKS R26): frames outside the disc the drive
     # refused, written as silence.
     ("track_beyond_disc", _BEYOND_DISC),
@@ -4095,6 +4125,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 other_reads_not_kept=other_reads_not_kept,
                 appended_silence_frames=current.appended_silence_frames,
                 appended_silence_samples=current.appended_silence_samples,
+                prepended_silence_frames=current.prepended_silence_frames,
+                prepended_silence_samples=current.prepended_silence_samples,
                 data_crc32=current.data_crc32,
                 data_sector_edc=current.data_sector_edc,
                 disc_isrc=current.disc_isrc,
@@ -4522,16 +4554,18 @@ def parse_cyanrip_log(text: str) -> RipLog:
             # about the archived audio's fidelity, not a rip *setting*.
             match = _APPENDED_SILENCE.match(line)
             if match:
-                count = int_or_none(
-                    match.group("count"), field="cyanrip appended silence"
-                )
-                if match.group("unit").startswith("frame"):
-                    current.appended_silence_frames = count
-                    current.appended_silence_samples = (
-                        count * 588 if count is not None else None
-                    )
-                else:
-                    current.appended_silence_samples = count
+                (
+                    current.appended_silence_frames,
+                    current.appended_silence_samples,
+                ) = _edge_silence(match)
+                continue
+
+            match = _PREPENDED_SILENCE.match(line)
+            if match:
+                (
+                    current.prepended_silence_frames,
+                    current.prepended_silence_samples,
+                ) = _edge_silence(match)
                 continue
 
             # `.35`: "Session gap: not determined (...)" under `End LSN:`, the

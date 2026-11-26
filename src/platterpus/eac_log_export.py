@@ -1543,33 +1543,48 @@ def _appended_silence_line(rip_log: RipLog) -> list[str]:
     ``None`` means the ripper never reported it — neither is a caveat, so a clean
     rip's conclusive report is unchanged.
     """
-    padded: list[str] = []
-    for track in rip_log.tracks:
-        frames = track.appended_silence_frames
-        samples = getattr(track, "appended_silence_samples", None)
-        # `isinstance` before comparing: this can arrive from a hand-edited log or
-        # a worker's state, and a `str > 0` comparison would raise TypeError and
-        # cost the whole log (the same defensiveness `_read_stability_line` needed).
-        if isinstance(frames, int) and not isinstance(frames, bool) and frames > 0:
-            padded.append(f"{track.number} ({frames} frame(s))")
-        elif isinstance(samples, int) and not isinstance(samples, bool) and samples > 0:
-            # A part-frame span, which `.36` counts in samples.
-            padded.append(f"{track.number} ({samples} sample(s))")
-    if not padded:
-        return []
-    # STATE THE FACT, NOT A CAUSE WE WERE NEVER TOLD. This used to end "…because
-    # the drive could not read that far", which is our inference: cyanrip reports
-    # `Appended:  N frames of silence` and says nothing about why (cyanrip fork,
-    # seam packet 2026-08-10 §2.4 — "the fact is ours and supported; the cause is
-    # your inference"). The plausible reason is not the reported one, and an
-    # archival log is the wrong place to promote a guess to a finding — the same
-    # discipline as `Cache defeat:` → `Cache model:` and `none` versus
-    # `unknown (reason)`.
-    return [
-        "Appended silence    : track(s) " + ", ".join(padded) + " end in silence the "
-        "ripper appended to fill the offset-shifted edge — those final frames are "
-        "not disc audio (the ripper reports the append; it does not report a cause)"
-    ]
+    lines: list[str] = []
+    for label, verb, where, prepended in (
+        ("Appended silence    ", "end", "past the disc's last audio sector", False),
+        ("Prepended silence   ", "begin", "before the disc's first sector", True),
+    ):
+        parts: list[str] = []
+        for track in rip_log.tracks:
+            if prepended:
+                frames = getattr(track, "prepended_silence_frames", None)
+                samples = getattr(track, "prepended_silence_samples", None)
+            else:
+                frames = getattr(track, "appended_silence_frames", None)
+                samples = getattr(track, "appended_silence_samples", None)
+            # `isinstance` before comparing: this can arrive from a hand-edited
+            # log or a worker's state, and a `str > 0` comparison would raise
+            # TypeError and cost the whole log.
+            said: list[str] = []
+            if _positive(samples):
+                said.append(f"{samples} sample(s) of silence")
+            if _positive(frames):
+                said.append(f"the offset reached {frames} frame(s) {where}")
+            if said:
+                parts.append(f"{track.number} ({'; '.join(said)})")
+        if parts:
+            # THE COUNT IS WHAT THE RIPPER SAYS, IN ITS UNITS (the fork's round
+            # 43 lap 1 S60). Today's line counts the FRAMES the read offset
+            # reached, not the silence written: at +667 that is 2 frames and 667
+            # samples, and the earlier frame still holds disc audio. So a frame
+            # count is never called "frames that are not disc audio"; the samples
+            # are, when the ripper states them (`.36`). And still no cause: the
+            # ripper reports the fill, not why (seam packet 2026-08-10 §2.4).
+            lines.append(
+                f"{label}: track(s) " + ", ".join(parts) + f" {verb} with silence "
+                "the ripper wrote where the read offset reached beyond the disc; "
+                "only the silent samples are not disc audio"
+            )
+    return lines
+
+
+def _positive(value: object) -> bool:
+    """A real count above zero: not None, not a bool, not text."""
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
 def _interrupted_securing_line(
