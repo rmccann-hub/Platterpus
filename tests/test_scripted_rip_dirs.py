@@ -132,3 +132,62 @@ def test_the_runner_hands_the_bundle_the_scripted_rip_folders() -> None:
 @given(st.lists(st.text(max_size=40), max_size=12))
 def test_rip_output_dir_never_raises(args: list[str]) -> None:
     rip_output_dir(args, Path("/tmp/rips"))
+
+
+# --- TASKS R197: a script run's bundle carries its app rips' album folders -----
+
+
+def test_a_script_run_finds_the_album_folders_its_rips_wrote(tmp_path: Path) -> None:
+    """REGRESSION (round 42's second Full run, filed 2026-11-25): the
+    `--run-script` bundle carried 2 of its 28 rips' logs, the rest only in the
+    app log at DEBUG. The album folders written since the run began are found;
+    an older one, and a scripted `cyanrip` step's folder, are not."""
+    import os
+    import time
+
+    from platterpus.uiscript.scripted_rip_dirs import (
+        run_album_roots,
+        run_albums_and_records,
+        started_posix,
+    )
+
+    rips = tmp_path / "rips"
+    old = rips / "Older Album"
+    new = rips / "Album From This Run"
+    scripted = rips / "dmfiveearly1"
+    for folder in (old, new, scripted):
+        folder.mkdir(parents=True)
+    (old / "Older Album.platterpus.json").write_text("{}", encoding="utf-8")
+    long_ago = time.time() - 86_400
+    os.utime(old / "Older Album.platterpus.json", (long_ago, long_ago))
+    since = time.time() - 60
+    (new / "Album From This Run.platterpus.json").write_text("{}", encoding="utf-8")
+    (new / "Album From This Run.log").write_text("cyanrip log\n", encoding="utf-8")
+    (scripted / "dmfiveearly1.log").write_text("cyanrip log\n", encoding="utf-8")
+
+    roots = run_album_roots(str(rips), "", None, rips)
+    assert roots == [rips]
+    albums, _records = run_albums_and_records(roots, since, {scripted})
+    assert albums == [new]
+    assert run_albums_and_records(roots, None, set()) == ([], [])
+    assert started_posix("2026-11-25T20:24:17+00:00") == 1795638257.0
+    assert started_posix("not a time") is None
+    assert started_posix("2026-11-25T20:24:17") is None, "a naive time is not UTC"
+
+
+def test_the_runner_hands_the_bundle_the_run_s_album_folders() -> None:
+    """The wiring, at the call site: `album_dirs=` and the records reach
+    `build_bundle` from the scan, not a literal empty list."""
+    tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "attr", getattr(node.func, "id", "")) == "build_bundle"
+    ]
+    assert calls
+    for call in calls:
+        kwargs = {kw.arg: kw.value for kw in call.keywords}
+        assert isinstance(kwargs.get("album_dirs"), ast.Name), ast.unparse(call)
+        assert "files" in kwargs, ast.unparse(call)
+    assert "run_albums_and_records(" in RUNNER.read_text(encoding="utf-8")

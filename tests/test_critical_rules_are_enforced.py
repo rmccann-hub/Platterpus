@@ -3299,7 +3299,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5092 -> 5102** (2026-11-23, TASKS R188): `start` expands `run-block` lines first (the expansion is `run_block.py`, its call `block_verbs._expand_blocks`), and the report carries the test's name and blocks; the four per-run fields are declared here with the rest of the run's state.
     # **5045 -> 5047** (2026-11-25): the runner mixes in `HealthVerbsMixin` (`expect-installed`, the owner's word of 2026-11-25).
     # **5047 -> 5048** (2026-11-26, TASKS R200, the fork's round 42 lap 5 S6: the bundle a run names is kept until the next run's): the script run's bundle is a run's.
-    "uiscript/runner.py": 5048,
+    # **5048 -> 5065** (2026-11-26, TASKS R197: a `--run-script` bundle carries its app rips' album folders): the roots and start read off the window, the scan handed to `scripted_rip_dirs.run_albums_and_records` on the bundle thread, and the two new keywords.
+    "uiscript/runner.py": 5065,
     # One job, the acceptance run's estimate, and cohesive. **299 -> 307** (2026-11-03, TASKS R109): it leaves out a section `skip-if-same-build` will mark N/A, asking the verb's own predicate (`timing_verbs.section_will_skip`).
     "uiscript/run_estimate.py": 307,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).

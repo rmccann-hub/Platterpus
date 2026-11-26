@@ -37,6 +37,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A script run's bundle carries its rips' album folders** (owner-facing; TASKS R197). A run started with `--run-script` packed the run folder and its own `cyanrip` steps' folders, but not the album folders its app rips wrote, so round 42's second Full run reached us with 2 of its 28 rips' logs and you collected the rest by hand. It now finds them on disk as the acceptance session does, logs, cues and `-j` records, never audio.
 - **Set up drive logs when each check starts** (contributor-facing; the fork's round 43 lap 1 S39). Your log of 2026-11-25 recorded the cache probe's end but not its start, so when it began could only be inferred; every run now logs its start, what it measures, and whether it started by itself or on a press.
 - **The bundle a run tells you to send is kept until the next run's** (user-facing; TASKS R200, the fork's round 42 lap 5 S6). Every rip writes a bundle and only the newest 20 were kept, so a Full run's own bundle could be deleted before you sent it, as round 42's first run's was. An acceptance session's or script run's bundle is now named beside the bundles and never pruned until the next run's replaces it.
 - **The audit's build-note disagreement says what the note means** (the fork's round 43 lap 1 S52): the binary says it was not declared released when it was built, not that it was built from an open round; the round in the line is information.

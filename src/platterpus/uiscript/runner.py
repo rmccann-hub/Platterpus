@@ -104,6 +104,9 @@ from platterpus.uiscript.scripted_rip_dirs import (
     MAX_RIP_DIRS,
     bundle_extra_dirs,
     rip_output_dir,
+    run_album_roots,
+    run_albums_and_records,
+    started_posix,
 )
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.timing_verbs import TimingVerbsMixin
@@ -4465,8 +4468,20 @@ class ScriptRunner(
         results = (
             ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "(not counted)"
         )
+        # The album folders of the app rips this run made, found on disk as the
+        # acceptance session finds them (TASKS R197); read off the window here,
+        # the scan itself runs on the bundle thread.
+        config = getattr(self._window, "_config", None)
+        roots = run_album_roots(
+            getattr(config, "output_dir", None), getattr(config, "library_dir", None)
+        )
+        since = started_posix(stamp)
+        scripted = set(self._scripted_rip_dirs)
 
         def work() -> None:
+            from platterpus import diagnostics_record
+
+            albums, records = run_albums_and_records(roots, since, scripted)
             result = evidence_bundle.build_bundle(
                 dest_dir=log_dir / "bundles",
                 stamp=stamp,
@@ -4480,6 +4495,8 @@ class ScriptRunner(
                 },
                 log_dir=log_dir,
                 extra_dirs=extra_dirs,
+                album_dirs=albums,
+                files=diagnostics_record.bundle_members(records),
             )
             if result.ok and result.path is not None:
                 log.info(
