@@ -2756,4 +2756,4 @@ This project is as much about building durable standards as shipping the app —
 - *(The release-hold bullet moved to `docs/architecture.md` §6.3 → *The release hold, and each word that released through it*.)*
 ---
 
-*Last updated for Platterpus v0.7.130.*
+*Last updated for Platterpus v0.7.131.*

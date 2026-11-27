@@ -8,7 +8,7 @@ Platterpus rips audio CDs on Linux to verified FLAC, the way Exact Audio Copy (E
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.7.130, pre-1.0.** An early release for wider testing, checked on real hardware on Bazzite KDE; what changed in each release is in [`CHANGELOG.md`](CHANGELOG.md), and the longer story is under [Testing status and release history](#testing-status-and-release-history).
+> **Status: v0.7.131, pre-1.0.** An early release for wider testing, checked on real hardware on Bazzite KDE; what changed in each release is in [`CHANGELOG.md`](CHANGELOG.md), and the longer story is under [Testing status and release history](#testing-status-and-release-history).
 
 ## Installation
 
@@ -1201,4 +1201,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.7.130.*
+*Last updated for Platterpus v0.7.131.*

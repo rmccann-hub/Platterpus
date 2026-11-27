@@ -1578,4 +1578,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.7.130.*
+*Last updated for Platterpus v0.7.131.*

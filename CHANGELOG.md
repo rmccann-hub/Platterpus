@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.131] — 2026-11-27
+
 ### Added
 
 - **Round 43 is on record as the round reviewing `.35`** (contributor-facing; the fork's round 43 lap 1, filed byte for byte, and our lap 2, released 2026-11-26). The gate's current round and the round the app names when it says which round is testing its ripper are both 43; the handshake map has round 43's row.
@@ -20142,7 +20144,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.130...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.131...HEAD
+[0.7.131]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.130...v0.7.131
 [0.7.130]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.129...v0.7.130
 [0.7.129]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.128...v0.7.129
 [0.7.128]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.127...v0.7.128
@@ -20243,4 +20246,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.130.*
+*Last updated for Platterpus v0.7.131.*
