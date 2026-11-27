@@ -185,4 +185,4 @@ fix is now a new, signed version (§6.4 step 5).
 
 ---
 
-*Last updated for Platterpus v0.7.130.*
+*Last updated for Platterpus v0.7.131.*

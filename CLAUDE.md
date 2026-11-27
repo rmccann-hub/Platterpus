@@ -307,4 +307,4 @@ The full text of every *Project operations* subsection trimmed here: `docs/archi
 
 ---
 
-*Last updated for Platterpus v0.7.130.*
+*Last updated for Platterpus v0.7.131.*
